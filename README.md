@@ -4,7 +4,7 @@ Initialize effective CLAUDE.md files using research-backed practices that help C
 
 ## Quick Start
 
-**Install:**
+**Install:** Clone to your Claude Code skills directory:
 
 ```bash
 # macOS/Linux
@@ -14,11 +14,13 @@ git clone https://github.com/oprogramadorreal/claude-code-bootstrap ~/.claude/sk
 git clone https://github.com/oprogramadorreal/claude-code-bootstrap %USERPROFILE%\.claude\skills\claude-code-bootstrap
 ```
 
-**Run:** Type `/bootstrap` in any project directory.
+**Run:** Start a new Claude Code session and type `/bootstrap` in any project directory. This slash command becomes available after installation, alongside built-in commands like `/init`.
+
+> **What are skills?** Skills are reusable prompts that extend Claude Code with new slash commands. See [Claude Code documentation](https://docs.anthropic.com/en/docs/claude-code) for more.
 
 ## Why This Skill?
 
-Claude Code's `/init` creates basic documentation. This skill creates **effective** documentation using research-backed practices:
+Claude Code's built-in `/init` command creates basic documentation. This skill creates **effective** documentation using research-backed practices:
 
 - **WHAT/WHY/HOW structure** - Organizes information for optimal LLM comprehension
 - **60-line CLAUDE.md** - Keeps the main file within LLM's peak attention window
@@ -42,12 +44,19 @@ The generated `settings.json` allows development commands (build, test, lint) wh
 
 See `templates/settings.json` to customize defaults.
 
+## Skill Structure
+
+| File | Purpose |
+|------|---------|
+| `SKILL.md` | Skill definition with step-by-step generation instructions |
+| `templates/` | Base templates copied/customized for each project |
+| `references/` | Best practices guide (based on HumanLayer research) |
+
+To understand or modify how the skill works, start with `SKILL.md`.
+
 ## Customization
 
-Edit files in `templates/` to change generated content:
-
-- `templates/settings.json` - Permission defaults
-- `templates/docs/coding-guidelines.md` - Code guidelines template
+Edit files in `templates/` to change generated content. For deeper changes to the generation logic, edit `SKILL.md`.
 
 ## Credits
 
