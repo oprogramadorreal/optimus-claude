@@ -112,6 +112,36 @@ Instructions at the **beginning** (system message/CLAUDE.md) and **end** (recent
 ### Ignoring Mechanism
 Claude Code injects a system reminder stating context "may or may not be relevant" and should only be used if "highly relevant to your task." Including too much non-universal content triggers this filtering.
 
+## Monorepo Pattern
+
+For monorepos with multiple subprojects, use a hierarchical CLAUDE.md approach:
+
+### Root CLAUDE.md as Orchestrator
+- Maps the overall repo architecture (subproject table with paths, purposes, tech stacks)
+- Contains only root-level / workspace-wide commands
+- References each subproject's CLAUDE.md
+- Links to shared docs (coding guidelines apply to all subprojects)
+- Still under 60 lines
+
+### Subproject CLAUDE.md for Scoped Guidance
+- Placed directly in the subproject directory (e.g., `packages/frontend/CLAUDE.md`)
+- Claude Code auto-discovers these when working with files in that directory
+- Same WHAT/WHY/HOW structure, scoped to one subproject
+- References local `docs/` folder for subproject-specific testing, styling, architecture
+- Mentions parent monorepo name for context
+- Under 60 lines each
+
+### Documentation Placement
+- **Shared docs** (coding guidelines): Root `.claude/docs/` only — not duplicated per subproject
+- **Subproject-specific docs** (testing, styling, architecture): In each subproject's `docs/` folder
+- Each subproject's docs are scoped to its tech stack (e.g., frontend gets styling.md, backend does not)
+
+### Why This Works
+- Root CLAUDE.md stays lean by delegating subproject details to subproject files
+- Claude only loads subproject context when working in that directory (on-demand)
+- All levels are additive — root provides shared context, subproject provides specifics
+- More specific instructions naturally take precedence on conflict
+
 ## Quality Checklist
 
 When writing or reviewing your CLAUDE.md:
@@ -124,6 +154,8 @@ When writing or reviewing your CLAUDE.md:
 - [ ] No code style rules (use linters instead)
 - [ ] No task-specific or rarely-needed information
 - [ ] Every line earns its place
+- [ ] Monorepo: root CLAUDE.md is an orchestrator, not a dump of all subproject details
+- [ ] Monorepo: each subproject has its own scoped CLAUDE.md under 60 lines
 
 ## Summary
 

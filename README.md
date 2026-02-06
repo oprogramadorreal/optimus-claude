@@ -26,6 +26,7 @@ Claude Code's built-in `/init` command creates basic documentation. This skill c
 - **60-line CLAUDE.md** - Keeps the main file within LLM's peak attention window
 - **Progressive disclosure** - Details in separate docs, not one massive file
 - **Pre-configured permissions** - Safe defaults for build/test/lint commands
+- **Monorepo support** - Auto-detects monorepos via workspace tools and manifest scanning, with supporting signals from README and Docker Compose — generates scoped docs per subproject
 
 ## What Gets Generated
 
@@ -40,6 +41,19 @@ Claude Code's built-in `/init` command creates basic documentation. This skill c
 
 *Template* = copied from `templates/` and customized. *Generated* = created by Claude following `SKILL.md` instructions.
 
+### Monorepo Projects
+
+For monorepos (auto-detected via workspace tools, independent manifests in subdirectories, README analysis, and Docker Compose services), the same root files above are generated with monorepo-aware content (orchestrator CLAUDE.md, aggregated permissions). In addition, each subproject gets scoped documentation:
+
+| File | Purpose | Source |
+|------|---------|--------|
+| `<subproject>/CLAUDE.md` | Package-scoped overview, commands, local doc references | Generated |
+| `<subproject>/docs/testing.md` | Package-specific testing conventions (if applicable) | Generated |
+| `<subproject>/docs/styling.md` | Package-specific UI/CSS guidelines (if frontend) | Generated |
+| `<subproject>/docs/architecture.md` | Package-specific structure documentation | Generated |
+
+Claude Code automatically discovers subproject CLAUDE.md files when working with files in those directories, so each package gets focused, relevant context.
+
 ## Permission Philosophy
 
 The generated `settings.json` allows development commands (build, test, lint) while requiring explicit approval for git operations (commit, push, rebase). This ensures Claude helps with coding while leaving version control decisions to you.
@@ -53,6 +67,8 @@ See `templates/settings.json` to customize defaults.
 | `SKILL.md` | Skill definition with step-by-step generation instructions |
 | `templates/settings.json` | Base permission settings (customize allowed/denied commands) |
 | `templates/docs/coding-guidelines.md` | Coding guidelines template (customize style rules) |
+| `templates/monorepo-claude.md` | Root CLAUDE.md template for monorepo projects |
+| `templates/subproject-claude.md` | Per-subproject CLAUDE.md template |
 | `references/` | Best practices guide (based on HumanLayer research) |
 
 To understand or modify how the skill works, start with `SKILL.md`.
@@ -62,6 +78,7 @@ To understand or modify how the skill works, start with `SKILL.md`.
 - **Permission rules**: Edit `templates/settings.json` to change allowed/denied commands
 - **Coding guidelines**: Edit `templates/docs/coding-guidelines.md` to customize style rules
 - **Generation logic**: Edit `SKILL.md` to change how Claude generates the other documentation files
+- **Monorepo templates**: Edit `templates/monorepo-claude.md` or `templates/subproject-claude.md` to customize monorepo documentation structure
 
 ## Credits
 
