@@ -80,10 +80,15 @@ To understand or modify how the skill works, start with `SKILL.md`.
 - **Generation logic**: Edit `SKILL.md` to change how Claude generates the other documentation files
 - **Monorepo templates**: Edit `templates/monorepo-claude.md` or `templates/subproject-claude.md` to customize monorepo documentation structure
 
+## Requirements
+
+- [Claude Code](https://docs.anthropic.com/en/docs/claude-code)
+- Git
+
 ## Credits
 
 Best practices based on [Writing a Good CLAUDE.md](https://www.humanlayer.dev/blog/writing-a-good-claude-md) by HumanLayer.
 
 ## License
 
-MIT
+[MIT](LICENSE)
