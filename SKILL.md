@@ -10,10 +10,10 @@ Create optimized CLAUDE.md and supporting docs using research-backed practices. 
 
 ## Before You Start
 
-Read `.claude/skills/claude-code-bootstrap/references/claude-md-best-practices.md` and apply throughout:
-- Keep every CLAUDE.md under 60 lines
+Read `.claude/skills/claude-code-bootstrap/references/claude-md-best-practices.md`. Key constraints:
+- Every CLAUDE.md <= 60 lines
 - Use file:line references, not code snippets
-- Only include universally-applicable instructions
+- Only universally-applicable instructions
 
 ## Step 1: Detect Project Context
 
@@ -79,21 +79,43 @@ Scan top-level directories for manifest files (from the manifest table above). S
 **If monorepo detected:** Inform user of detection signals and identified subprojects with tech stacks. Confirm before proceeding.
 
 **Enumerate subprojects:**
-- From workspace config (Step A): use its member list, plus any additional top-level dirs with manifests not covered by the config (mixed-tech monorepos).
-- From manifest scan only (Step B): use all qualifying top-level dirs.
-- If the root is listed as a workspace member (e.g., `"."` in workspaces, or root `[package]` in Cargo workspace), include it in the subproject table but do not create a separate CLAUDE.md for it — the root CLAUDE.md serves both roles. Otherwise, root manifest provides project-level context only.
-- For each subproject, detect its individual tech stack using the manifest table above.
+- Step A detected: use workspace member list + any additional top-level dirs with manifests not in the config.
+- Step B only: use all qualifying top-level dirs.
+- Root-as-workspace-member (e.g., `"."` in workspaces): include in subproject table but do NOT create a separate CLAUDE.md — root CLAUDE.md covers it.
+- For each subproject, detect its tech stack using the manifest table.
 
-**Record** the workspace tool (if any) and the list of subproject paths for use in subsequent steps.
+### Step 1 Checkpoint
 
-## Step 2: Create Directory Structure
+Before proceeding, confirm you have all of the following. If any are missing, re-examine the project:
+
+- **Project name** (from manifest or README)
+- **Tech stack(s)** (languages, frameworks, from manifest dependencies)
+- **Build/test/lint commands** (from manifest scripts or standard tooling)
+- **Monorepo status**: single project, confirmed monorepo, or ambiguous (awaiting user input)
+- If monorepo: **subproject list** with each subproject's path, purpose, and tech stack
+- If monorepo: **workspace tool** (if any)
+- **Existing files inventory** (requires separate filesystem checks): which of `.claude/CLAUDE.md`, `.claude/settings.json`, `.claude/docs/*`, root `CLAUDE.md`, subproject `CLAUDE.md` files already exist
+
+Print this as a **Detection Summary** to the user before proceeding. This gives the user a chance to correct any misdetection before files are generated. If the user provides corrections, update the detection results accordingly before proceeding.
+
+## Step 2: Handle Existing Files
+
+**Before creating any file**, check if it (or a related version) already exists. Use the existing files inventory from the Step 1 Checkpoint.
+
+**Rule 1 — Read before overwriting:** If a file you are about to create already exists (including root `CLAUDE.md` which maps to `.claude/CLAUDE.md`), read it first. Preserve all project-specific content (custom commands, architectural notes, team conventions) unless it conflicts with the new structure. Inform the user what was preserved and what changed.
+
+**Rule 2 — Relocate when scope changes:** If existing docs need to move (e.g., root `.claude/docs/testing.md` should become subproject-scoped in a monorepo), move the relevant content to the new location and remove the old file. Keep only `coding-guidelines.md` at root level.
+
+If root `CLAUDE.md` exists (not in `.claude/`), suggest removing it after `.claude/CLAUDE.md` is created.
+
+## Step 3: Create Directory Structure
 
 ```bash
 mkdir -p .claude/docs
-# If monorepo: also mkdir -p <subproject>/docs for each subproject that will receive docs (determined in Step 5)
+# Monorepo: also mkdir -p <subproject>/docs for each subproject from Step 1
 ```
 
-## Step 3: Create CLAUDE.md
+## Step 4: Create CLAUDE.md
 
 ### Single project
 
@@ -125,6 +147,10 @@ Read the relevant doc before making changes:
 
 Only list docs that were actually created. Keep total file under 60 lines.
 
+### No manifest detected
+
+Create generic docs with placeholders and inform user that manual customization is recommended.
+
 ### Monorepo
 
 Use template from `.claude/skills/claude-code-bootstrap/templates/monorepo-claude.md` instead. Fill in:
@@ -136,7 +162,7 @@ Use template from `.claude/skills/claude-code-bootstrap/templates/monorepo-claud
 
 If more than 6 subprojects, group by category (apps, libs, services) in the root CLAUDE.md and move the full subproject table to `.claude/docs/architecture.md`. Keep descriptions concise (abbreviate stacks, e.g., "TS/React" not "TypeScript, React, Vite, Tailwind") to stay under 60 lines.
 
-## Step 3b: Create Subproject CLAUDE.md Files (monorepo only)
+## Step 4b: Create Subproject CLAUDE.md Files (monorepo only)
 
 For each detected subproject (except root-as-member — the root CLAUDE.md already covers it), create `<subproject>/CLAUDE.md` using template from `.claude/skills/claude-code-bootstrap/templates/subproject-claude.md`:
 - Scope WHAT/WHY/HOW to that subproject's tech stack and purpose
@@ -145,7 +171,7 @@ For each detected subproject (except root-as-member — the root CLAUDE.md alrea
 - Mention parent monorepo name in the opening line
 - Keep under 60 lines
 
-## Step 4: Create settings.json
+## Step 5: Create settings.json
 
 Use template from `.claude/skills/claude-code-bootstrap/templates/settings.json`. Customize allow list based on detected project type:
 
@@ -163,44 +189,42 @@ Use template from `.claude/skills/claude-code-bootstrap/templates/settings.json`
 
 **If monorepo:** Union the permission sets for all tech stacks detected across subprojects into a single root `.claude/settings.json`.
 
-## Step 5: Create Documentation Files
+## Step 6: Create Documentation Files
 
 **Always create in `.claude/docs/`:**
-- `coding-guidelines.md` - Use template from `.claude/skills/claude-code-bootstrap/templates/docs/coding-guidelines.md` (replace [PROJECT NAME]). This is shared across the entire repo.
+- `coding-guidelines.md` - Use template from `.claude/skills/claude-code-bootstrap/templates/docs/coding-guidelines.md` (replace [PROJECT NAME]). Shared across the entire repo.
 
-**Create if applicable:**
+**Create based on these detection rules:**
 
-| File | Create When |
-|------|-------------|
-| `testing.md` | Test framework detected (Jest, Karma, pytest, cargo test, go test, etc.) |
-| `styling.md` | Frontend project (Angular, React, Vue, or has CSS/SCSS files) |
-| `architecture.md` | Project has meaningful structure worth documenting |
+| File | Create when ANY of these are true |
+|------|-----------------------------------|
+| `testing.md` | Manifest lists a test dependency (jest, vitest, mocha, karma, pytest, unittest, rspec, etc.) OR a `test`/`test:*` script exists in manifest OR a `tests/`, `test/`, `spec/`, `__tests__/` directory exists |
+| `styling.md` | Manifest lists a UI framework (react, vue, angular, svelte, solid) OR lists CSS tooling (tailwindcss, styled-components, sass, less, postcss) OR `.css`/`.scss`/`.less` files exist in `src/` |
+| `architecture.md` | Project has 3+ top-level source directories (excluding config, tests, docs, build output) OR uses recognized pattern directories (controllers/, services/, repositories/, handlers/, models/) |
 
-**Single project:** Place these files in `.claude/docs/`.
+**Placement rules:**
+- **Single project:** All files go in `.claude/docs/`.
+- **Monorepo:** `testing.md`, `styling.md`, and `architecture.md` go in each subproject's `docs/` folder, scoped to that subproject's stack. Apply the detection rules above **per subproject** (e.g., skip `styling.md` for a subproject with no UI deps). Each subproject can also get its own `coding-guidelines.md` only if its conventions differ significantly from root.
 
-**Monorepo:** Place `testing.md`, `styling.md`, and `architecture.md` in each **subproject's** `docs/` folder, scoped to that subproject's tech stack. Each subproject can also have its own `coding-guidelines.md` if its conventions differ significantly from the shared root guidelines. Only create files applicable to each subproject (e.g., skip `styling.md` for backend-only subprojects).
+## Step 7: Verify and Report
 
-## Step 6: Handle Existing Files
+Run through this checklist. **Fix any failures before reporting to the user.**
 
-| Scenario | Action |
-|----------|--------|
-| Root `CLAUDE.md` exists | Read for context, create improved `.claude/CLAUDE.md`, suggest removing root file |
-| `.claude/CLAUDE.md` exists (single project) | Read for context, update/improve as needed |
-| `.claude/CLAUDE.md` exists (single-project style) in a monorepo | Read existing content for context and useful details to preserve. Replace with monorepo orchestrator version. Inform user the file was refactored for monorepo structure |
-| `.claude/CLAUDE.md` exists (already monorepo style) | Read for context, update/improve as needed |
-| `.claude/docs/` files exist (testing.md, styling.md, etc.) in a monorepo | Read for context. Move relevant content to each subproject's `docs/` folder, scoped appropriately. Remove the root copies that are now subproject-specific. Keep only `coding-guidelines.md` at root |
-| No manifest detected | Create generic docs with placeholders, inform user manual customization is recommended |
-| Subproject `CLAUDE.md` exists | Read for context, create improved version, inform user |
+**File existence** — verify every expected file was created. List all files in `.claude/` matching `*.md` or `*.json`, and for monorepos also check each subproject path from Step 1 for `CLAUDE.md` and `docs/*.md`.
 
-## Step 7: Verify
+**Content checks** — for each file, verify it has real content (not just placeholders):
+- `.claude/CLAUDE.md`: Contains actual project name, at least one real command, and a Documentation section. Line count <= 60.
+- `.claude/settings.json`: `allow` list includes commands matching the detected tech stack from Step 1.
+- `.claude/docs/coding-guidelines.md`: `[PROJECT NAME]` placeholder replaced with actual project name.
+- Each `testing.md`: References the project's actual test framework and commands.
+- Each `styling.md`: References the project's actual CSS/UI tooling.
+- Each `architecture.md`: References actual directory names from the project.
+- Monorepo: each subproject's `CLAUDE.md` exists, mentions the subproject name, and is <= 60 lines.
 
-List all created files. If monorepo, include subproject files:
-```bash
-find .claude -type f \( -name "*.md" -o -name "*.json" \)
-```
+**Cross-reference checks:**
+- Every doc listed in a CLAUDE.md Documentation section actually exists as a file.
+- Monorepo: every subproject in root CLAUDE.md's Architecture table has a corresponding `CLAUDE.md` file.
 
-If monorepo, also list subproject documentation using the actual detected subproject paths from Step 1 (not hardcoded directory names):
-```bash
-# Replace with actual detected subproject paths, e.g.:
-find api/ web/ shared/ -name "CLAUDE.md" -o -path "*/docs/*.md" 2>/dev/null
-```
+**If any check fails:** Fix the issue, then re-verify. Do not proceed to the summary until all checks pass.
+
+**Summary:** Report to the user: files created, detected tech stack, and decisions made (monorepo detection rationale, which optional docs were created and why, which were skipped and why).
