@@ -20,6 +20,8 @@ git clone https://github.com/oprogramadorreal/claude-code-bootstrap %USERPROFILE
 
 ## Why This Skill?
 
+AI-assisted coding amplifies output — but also amplifies inconsistency. When sloppy patterns accumulate in a codebase, the AI reads them as context and reproduces them, creating a feedback loop where quality degrades faster than any team can review. A well-structured CLAUDE.md acts as an architectural anchor: a stable reference point that resists this drift.
+
 Claude Code's built-in `/init` command creates basic documentation. This skill creates **effective** documentation using research-backed practices:
 
 - **WHAT/WHY/HOW structure** - Organizes information for optimal LLM comprehension
