@@ -69,6 +69,7 @@ See `templates/settings.json` to customize defaults.
 | `SKILL.md` | Skill definition with step-by-step generation instructions |
 | `templates/settings.json` | Base permission settings (customize allowed/denied commands) |
 | `templates/docs/coding-guidelines.md` | Coding guidelines template (customize style rules) |
+| `templates/single-project-claude.md` | CLAUDE.md template for single projects |
 | `templates/monorepo-claude.md` | Root CLAUDE.md template for monorepo projects |
 | `templates/subproject-claude.md` | Per-subproject CLAUDE.md template |
 | `references/` | Best practices guide (based on HumanLayer research) |
@@ -80,6 +81,7 @@ To understand or modify how the skill works, start with `SKILL.md`.
 - **Permission rules**: Edit `templates/settings.json` to change allowed/denied commands
 - **Coding guidelines**: Edit `templates/docs/coding-guidelines.md` to customize style rules
 - **Generation logic**: Edit `SKILL.md` to change how Claude generates the other documentation files
+- **Single-project template**: Edit `templates/single-project-claude.md` to customize the CLAUDE.md structure for single projects
 - **Monorepo templates**: Edit `templates/monorepo-claude.md` or `templates/subproject-claude.md` to customize monorepo documentation structure
 
 ## Requirements

@@ -31,6 +31,8 @@ Read `.claude/skills/claude-code-bootstrap/references/claude-md-best-practices.m
 | CMakeLists.txt, Makefile | C/C++ | cmake, make |
 | Gemfile | Ruby | bundler |
 
+Note: `.sln` files reference `.csproj` projects — they confirm .NET presence but aren't independent project manifests. Don't count a root `.sln` for root-as-project detection.
+
 **Extract**: Project name, tech stack, build system, available scripts.
 
 **Detect active package manager** (this determines command prefixes for CLAUDE.md and settings.json):
@@ -55,19 +57,11 @@ Use the detected package manager for all commands in CLAUDE.md and settings.json
 **Check for monorepo indicators:**
 
 **Step A — Check for workspace config files** (confirms monorepo alone):
-
-| Tool | Detection |
-|------|-----------|
-| npm/yarn/pnpm workspaces | `workspaces` field in root `package.json`, or `pnpm-workspace.yaml` |
-| Lerna | `lerna.json` |
-| Nx | `nx.json` |
-| Turborepo | `turbo.json` |
-| Rush | `rush.json` |
-| Cargo workspace | `[workspace]` section in root `Cargo.toml` |
-| Go workspace | `go.work` file |
-| Gradle multi-project | `settings.gradle(.kts)` with `include` statements |
-| Maven multi-module | `pom.xml` with `<modules>` section |
-| Bazel | `WORKSPACE` or `WORKSPACE.bazel` file |
+- npm/yarn/pnpm workspaces: `workspaces` in root `package.json`, or `pnpm-workspace.yaml`
+- Lerna (`lerna.json`), Nx (`nx.json`), Turborepo (`turbo.json`), Rush (`rush.json`)
+- Cargo workspace: `[workspace]` in root `Cargo.toml`; Go workspace: `go.work`
+- Gradle: `settings.gradle(.kts)` with `include`; Maven: `pom.xml` with `<modules>`
+- Bazel: `WORKSPACE` or `WORKSPACE.bazel`
 
 **Step B — Scan for independent manifests** (confirms monorepo if 2+ projects found):
 
@@ -76,7 +70,7 @@ Scan top-level directories for manifest files (from the manifest table above). S
 - **Dependencies**: `node_modules`, `vendor`, `.venv`, `venv`, `env`
 - **Build output**: `dist`, `build`, `out`, `target`, `bin`, `obj`
 - **Framework/cache**: `.next`, `.nuxt`, `__pycache__`, `.cache`, `.tox`
-- **Non-project**: `examples`, `demos`, `test-fixtures`, `e2e`, `__tests__`, `.storybook`, `samples`
+- **Non-project**: `examples`, `demos`, `test-fixtures`, `e2e`, `__tests__`, `.storybook`, `samples`, `experiments`, `scripts`, `tools`, `docs`
 
 **Depth-2 check for container directories:** For any scanned top-level directory that has no manifest and is not in the skip list, check its immediate subdirectories for manifest files (applying the same skip rules). This catches nested subprojects inside container directories (e.g., `app/API/` and `app/client/` inside `app/`). Count each qualifying subdirectory as a separate project using its full relative path (e.g., `app/API`, `app/client`).
 
@@ -155,11 +149,11 @@ Remember the user's choice and approved findings. Steps 2–6 will reference the
 
 ## Step 2: Handle Existing Files
 
-**Before creating any file**, check if it (or a related version) already exists. Use the existing files inventory from the Step 1 Checkpoint.
+**Audit-aware rule (applies to Steps 2–6):** If user chose "Fresh start", treat all files as Missing. Otherwise: if Step 1b marked a file as Accurate, skip it. If Outdated, apply only user-approved changes — preserve everything else. If Missing or no audit was run, create normally. For "Selective" updates, only act on approved findings.
 
-**Rule 1 — Read before overwriting:** If a file you are about to create already exists (including root `CLAUDE.md` which maps to `.claude/CLAUDE.md`), read it first. If Step 1b produced audit findings, apply only the targeted updates the user approved — preserve everything else. If no audit was run (fresh project) or user chose "Fresh start," follow the creation steps normally. Inform the user what was preserved and what changed.
+**Before creating any file**, check if it already exists. If so, read it first. Inform the user what was preserved vs changed.
 
-**Rule 2 — Relocate when scope changes:** If existing docs need to move (e.g., root `.claude/docs/testing.md` should become subproject-scoped in a monorepo), move the relevant content to the new location and remove the old file. Keep only `coding-guidelines.md` at root level.
+**Relocate when scope changes:** If docs need to move (e.g., root `.claude/docs/testing.md` → subproject-scoped in a monorepo), move content to the new location and remove the old file. Keep only `coding-guidelines.md` at root.
 
 If root `CLAUDE.md` exists (not in `.claude/`), suggest removing it after `.claude/CLAUDE.md` is created.
 
@@ -172,8 +166,6 @@ mkdir -p .claude/docs
 
 ## Step 4: Create CLAUDE.md
 
-**Audit-aware:** If Step 1b marked a CLAUDE.md as Accurate, skip recreation. If Outdated, apply only the approved changes. If the file is Missing or no audit was run, create normally.
-
 ### Single project
 
 Use template from `.claude/skills/claude-code-bootstrap/templates/single-project-claude.md`. Fill in all placeholders:
@@ -184,19 +176,7 @@ Use template from `.claude/skills/claude-code-bootstrap/templates/single-project
 - Replace directory placeholders with actual project directories
 - In the Documentation section, list only docs that were actually created using `.claude/docs/` prefix
 
-**The template follows WHAT/WHY/HOW structure:**
-
-| Section | Content |
-|---------|---------|
-| **WHAT** | Project name, purpose (1 line), tech stack summary |
-| **WHY** | Essential commands: build, test, lint (from project manifest, using detected package manager) |
-| **HOW** | Documentation references with task-oriented descriptions |
-
-Keep total file under 60 lines.
-
-### No manifest detected
-
-Create generic docs with placeholders and inform user that manual customization is recommended.
+The template follows WHAT/WHY/HOW structure. Keep total file under 60 lines. If no manifest was detected, use generic placeholders and inform user that manual customization is recommended.
 
 ### Monorepo
 
@@ -222,8 +202,6 @@ For each detected subproject (except root-as-project/root-as-member — the root
 
 ## Step 5: Create settings.json
 
-**Audit-aware:** If Step 1b marked settings.json as Accurate, skip recreation. If Outdated (e.g., stale allow list), apply only the approved changes. If Missing or no audit was run, create normally.
-
 Use template from `.claude/skills/claude-code-bootstrap/templates/settings.json` (which provides the deny list). **Replace the empty allow list entirely** with commands appropriate for the detected project type — only include commands for the tech stacks actually present in this project:
 
 | Type | Commands to Allow |
@@ -245,9 +223,9 @@ Use template from `.claude/skills/claude-code-bootstrap/templates/settings.json`
 
 **If monorepo:** Union the permission sets for all tech stacks detected across subprojects into a single root `.claude/settings.json`.
 
-## Step 6: Create Documentation Files
+**Preserve custom sections:** If an existing settings.json contains a `hooks` section or other custom configuration beyond `permissions`, preserve those sections when updating. Merge permission changes into the existing file structure rather than overwriting from the template.
 
-**Audit-aware:** If Step 1b marked a doc file as Accurate, skip recreation. If Outdated, apply only the approved changes. If Missing or no audit was run, create normally. For the "Selective" path, only act on findings the user approved — leave all other files unchanged.
+## Step 6: Create Documentation Files
 
 **Always create in `.claude/docs/`:**
 - `coding-guidelines.md` - Use template from `.claude/skills/claude-code-bootstrap/templates/docs/coding-guidelines.md` (replace [PROJECT NAME]). Shared across the entire repo.
@@ -270,14 +248,12 @@ Run through this checklist. **Fix any failures before reporting to the user.**
 
 **File existence** — verify every expected file was created. List all files in `.claude/` matching `*.md` or `*.json`, and for monorepos also check each subproject path from Step 1 for `CLAUDE.md` and `docs/*.md`.
 
-**Content checks** — for each file, verify it has real content (not just placeholders):
-- `.claude/CLAUDE.md`: Contains actual project name, at least one real command, and a Documentation section. Line count <= 60.
-- `.claude/settings.json`: `allow` list includes commands matching the detected tech stack from Step 1. The `allow` list must NOT contain commands for unrelated tech stacks (e.g., no `npm` commands in a Python project, no `npx ng` commands in a non-Angular project).
-- `.claude/docs/coding-guidelines.md`: `[PROJECT NAME]` placeholder replaced with actual project name.
-- Each `testing.md`: References the project's actual test framework and commands.
-- Each `styling.md`: References the project's actual CSS/UI tooling.
-- Each `architecture.md`: References actual directory names from the project.
-- Monorepo: each subproject's `CLAUDE.md` exists, mentions the subproject name, and is <= 60 lines.
+**Content checks** — verify each file has real content, not placeholders:
+- `.claude/CLAUDE.md`: Actual project name, real commands, Documentation section. Line count <= 60.
+- `.claude/settings.json`: `allow` list matches detected tech stacks only (no unrelated commands). If file had custom sections (hooks, etc.), verify they're preserved.
+- `.claude/docs/coding-guidelines.md`: `[PROJECT NAME]` replaced with actual name.
+- Each `testing.md`, `styling.md`, `architecture.md`: References the project's actual frameworks, tooling, and directory names.
+- Monorepo: each subproject's `CLAUDE.md` exists, mentions subproject name, and is <= 60 lines.
 
 **Cross-reference checks:**
 - Every doc listed in a CLAUDE.md Documentation section actually exists as a file.
