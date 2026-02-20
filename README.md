@@ -28,6 +28,7 @@ Claude Code's built-in `/init` command creates basic documentation. This skill c
 - **60-line CLAUDE.md** - Keeps the main file within LLM's peak attention window
 - **Progressive disclosure** - Details in separate docs, not one massive file
 - **Pre-configured permissions** - Safe defaults for build/test/lint commands
+- **Auto-format hooks** - Installs PostToolUse hooks for black, prettier, rustfmt, gofmt, csharpier (per detected stack)
 - **Monorepo support** - Auto-detects monorepos via workspace tools and manifest scanning, with supporting signals from README and Docker Compose — generates scoped docs per subproject
 
 ## What Gets Generated
@@ -35,13 +36,26 @@ Claude Code's built-in `/init` command creates basic documentation. This skill c
 | File                                | Purpose                                                          | Source       |
 | ----------------------------------- | ---------------------------------------------------------------- | ------------ |
 | `.claude/CLAUDE.md`                 | Project overview, commands, doc references                       | Generated    |
-| `.claude/settings.json`             | Command permissions (allow build/test, require approval for git) | Template     |
+| `.claude/settings.json`             | Command permissions and formatter hook configuration             | Template     |
 | `.claude/docs/coding-guidelines.md` | Code style and architecture guidelines                           | Template     |
 | `.claude/docs/testing.md`           | Testing conventions (if test framework detected)                 | Generated    |
 | `.claude/docs/styling.md`           | UI/CSS guidelines (if frontend project)                          | Generated    |
 | `.claude/docs/architecture.md`      | Project structure documentation                                  | Generated    |
+| `.claude/hooks/format-*.{py,js,sh}` | Auto-format hooks for detected stacks (see below)                | Template     |
 
 *Template* = copied from `templates/` and customized. *Generated* = created by Claude following `SKILL.md` instructions.
+
+### Formatter Hooks
+
+PostToolUse hooks that auto-format files after every Edit/Write, installed per detected stack:
+
+| Hook | Formatter | Installed when |
+|------|-----------|----------------|
+| `format-python.py` | black + isort | Python project (in deps, or user approves) |
+| `format-node.js` | prettier | Node.js project (in devDependencies, or user approves) |
+| `format-rust.sh` | rustfmt | Rust project (built-in) |
+| `format-go.sh` | gofmt | Go project (built-in) |
+| `format-csharp.sh` | csharpier | C#/.NET project (in dotnet-tools.json, or user approves) |
 
 ### Monorepo Projects
 
@@ -72,6 +86,7 @@ See `templates/settings.json` to customize defaults.
 | `templates/single-project-claude.md` | CLAUDE.md template for single projects |
 | `templates/monorepo-claude.md` | Root CLAUDE.md template for monorepo projects |
 | `templates/subproject-claude.md` | Per-subproject CLAUDE.md template |
+| `templates/hooks/` | Formatter hook templates (Python, Node.js, Rust, Go, C#) |
 | `references/` | Best practices guide (based on HumanLayer research) |
 
 To understand or modify how the skill works, start with `SKILL.md`.
@@ -83,6 +98,7 @@ To understand or modify how the skill works, start with `SKILL.md`.
 - **Generation logic**: Edit `SKILL.md` to change how Claude generates the other documentation files
 - **Single-project template**: Edit `templates/single-project-claude.md` to customize the CLAUDE.md structure for single projects
 - **Monorepo templates**: Edit `templates/monorepo-claude.md` or `templates/subproject-claude.md` to customize monorepo documentation structure
+- **Formatter hooks**: Edit files in `templates/hooks/` to customize auto-formatting behavior or add new formatters
 
 ## Requirements
 

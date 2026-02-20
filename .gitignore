@@ -1,2 +1,3 @@
 benchmark-workspace/
 evals/
+__pycache__/

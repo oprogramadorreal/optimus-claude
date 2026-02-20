@@ -160,7 +160,7 @@ If root `CLAUDE.md` exists (not in `.claude/`), suggest removing it after `.clau
 ## Step 3: Create Directory Structure
 
 ```bash
-mkdir -p .claude/docs
+mkdir -p .claude/docs .claude/hooks
 # Monorepo: also mkdir -p <subproject>/docs for each subproject from Step 1
 ```
 
@@ -214,7 +214,7 @@ Use template from `.claude/skills/claude-code-bootstrap/templates/settings.json`
 | Python (uv) | `uv run`, `uv sync`, `uv pip`, `ruff`, `mypy` |
 | Python (poetry) | `poetry run`, `poetry install`, `ruff`, `mypy` |
 | Python (pip) | `pytest`, `pip install`, `pip list`, `ruff`, `mypy`, `python -m pytest`, `python -m mypy` |
-| C#/.NET | `dotnet build`, `dotnet test`, `dotnet run`, `dotnet restore` |
+| C#/.NET | `dotnet build`, `dotnet test`, `dotnet run`, `dotnet restore`, `dotnet tool restore` |
 | Java/Maven | `mvn compile`, `mvn test`, `mvn package` |
 | Java/Gradle | `gradle build`, `gradle test`, `gradlew` |
 | Go | `go build`, `go test`, `go run`, `go vet`, `golangci-lint` |
@@ -224,6 +224,43 @@ Use template from `.claude/skills/claude-code-bootstrap/templates/settings.json`
 **If monorepo:** Union the permission sets for all tech stacks detected across subprojects into a single root `.claude/settings.json`.
 
 **Preserve custom sections:** If an existing settings.json contains a `hooks` section or other custom configuration beyond `permissions`, preserve those sections when updating. Merge permission changes into the existing file structure rather than overwriting from the template.
+
+## Step 5b: Install Formatter Hooks
+
+Add auto-format hooks so files stay consistently formatted after every Edit/Write. Use templates from `.claude/skills/claude-code-bootstrap/templates/hooks/`.
+
+**Audit-aware rule applies** (see Step 2). Additionally, skip a hook if `.claude/hooks/` already contains a file named `format-<stack>.*` (e.g., `format-python.py`, `format-python.sh`).
+
+| Stack | Template | Formatter | Requires | Install when |
+|-------|----------|-----------|----------|--------------|
+| Python | `format-python.py` | black + isort | Python 3 | In project deps (requirements*.txt, pyproject.toml, Pipfile), or user approves |
+| Node.js | `format-node.js` | prettier | Node.js | In package.json devDependencies, or user approves |
+| Rust | `format-rust.sh` | rustfmt | Bash | Always (rustfmt is built-in) |
+| Go | `format-go.sh` | gofmt | Bash | Always (gofmt is built-in) |
+| C#/.NET | `format-csharp.sh` | csharpier | Bash | In `.config/dotnet-tools.json`, or user approves (suggest `dotnet tool install csharpier`) |
+
+**Detect Python command** (only when the Python formatter hook will be installed): Run `python3 --version`. If it fails, run `python --version` and verify the output shows Python 3.x. Use whichever succeeds as `<python-cmd>` in hook commands below. If neither works, skip the Python hook and inform the user.
+
+1. Copy applicable template(s) from `.claude/skills/claude-code-bootstrap/templates/hooks/` to `.claude/hooks/`.
+2. External formatters not in deps → ask user "Add [formatter] as dev dependency and install format hook?" If declined, skip.
+3. Add a `hooks.PostToolUse` entry to `.claude/settings.json` (merge with existing). All hooks share one matcher entry — add each hook command to the `hooks` array:
+
+```json
+"hooks": {
+  "PostToolUse": [
+    {
+      "matcher": "Edit|Write",
+      "hooks": [
+        { "type": "command", "command": "<python-cmd> \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/format-python.py", "timeout": 30 },
+        { "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/format-node.js", "timeout": 30 },
+        { "type": "command", "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/format-csharp.sh", "timeout": 30 }
+      ]
+    }
+  ]
+}
+```
+
+Include only the hooks that were actually installed. For Python use `<python-cmd> "..."` (the detected command — `python3` or `python`), for Node.js use `node "..."`, for Bash-based hooks (Rust, Go, C#) use `bash "..."`. Monorepos: install all applicable hooks (each filters by file extension internally).
 
 ## Step 6: Create Documentation Files
 
@@ -246,7 +283,7 @@ Use template from `.claude/skills/claude-code-bootstrap/templates/settings.json`
 
 Run through this checklist. **Fix any failures before reporting to the user.**
 
-**File existence** — verify every expected file was created. List all files in `.claude/` matching `*.md` or `*.json`, and for monorepos also check each subproject path from Step 1 for `CLAUDE.md` and `docs/*.md`.
+**File existence** — verify every expected file was created. List all files in `.claude/` matching `*.md`, `*.json`, or `hooks/*`, and for monorepos also check each subproject path from Step 1 for `CLAUDE.md` and `docs/*.md`.
 
 **Content checks** — verify each file has real content, not placeholders:
 - `.claude/CLAUDE.md`: Actual project name, real commands, Documentation section. Line count <= 60.
@@ -254,6 +291,7 @@ Run through this checklist. **Fix any failures before reporting to the user.**
 - `.claude/docs/coding-guidelines.md`: `[PROJECT NAME]` replaced with actual name.
 - Each `testing.md`, `styling.md`, `architecture.md`: References the project's actual frameworks, tooling, and directory names.
 - Monorepo: each subproject's `CLAUDE.md` exists, mentions subproject name, and is <= 60 lines.
+- `.claude/hooks/*`: Each hook matches its template; settings.json `hooks.PostToolUse` references every installed hook file and vice versa.
 
 **Cross-reference checks:**
 - Every doc listed in a CLAUDE.md Documentation section actually exists as a file.
