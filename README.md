@@ -29,6 +29,7 @@ Claude Code's built-in `/init` command creates basic documentation. This skill c
 - **Progressive disclosure** - Details in separate docs, not one massive file
 - **Pre-configured permissions** - Safe defaults for build/test/lint commands
 - **Auto-format hooks** - Installs PostToolUse hooks for black, prettier, rustfmt, gofmt, csharpier (per detected stack)
+- **Documentation sync** - Reads existing docs for non-code insights (architecture rationale, workflow conventions), cross-checks against source code, and fixes contradictions post-generation
 - **Monorepo support** - Auto-detects monorepos via workspace tools and manifest scanning, with supporting signals from README and Docker Compose — generates scoped docs per subproject
 
 ## What Gets Generated

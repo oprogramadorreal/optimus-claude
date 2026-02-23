@@ -49,10 +49,22 @@ Note: `.sln` files reference `.csproj` projects — they confirm .NET presence b
 
 Use the detected package manager for all commands in CLAUDE.md and settings.json. For example, if the Node.js project uses pnpm, write `pnpm run build` not `npm run build`. If the Python project uses uv, write `uv run pytest` not just `pytest`.
 
-**Analyze structure** (stay shallow — existing docs are audited separately in Step 1b):
-- README.md for project purpose and features
+**Analyze structure and extract doc insights:**
 - Top-level directories for architecture pattern
 - Entry points (main.ts, index.ts, app.module.ts, etc.)
+- README.md, CONTRIBUTING.md, ARCHITECTURE.md, docs/ directory files
+- Monorepo: also each subproject's README.md
+
+**Source code is the source of truth.** Manifests and actual project files always override what documentation claims. When reading existing docs:
+1. **Extract non-code insights** — information not derivable from source code alone:
+   - Architecture rationale and design decisions ("why" content for CLAUDE.md)
+   - Contributor workflow conventions (branching strategy, PR process, commit format)
+   - Coding conventions not enforced by linters (naming schemes, architectural boundaries)
+2. **Discard** any insight that directly contradicts source code (e.g., doc says "we use Redux" but only Zustand is in dependencies). Keep insights that are neither confirmed nor contradicted — non-code conventions and rationale are inherently unverifiable from source alone.
+
+Factual contradictions in existing docs (wrong commands, outdated tech references, etc.) are detected and addressed in Step 6b.
+
+These insights flow into generated files in Steps 4–6b. The Detection Summary confirms doc reading occurred, but do not narrate insights during analysis.
 
 **Check for monorepo indicators:**
 
@@ -114,6 +126,7 @@ Before proceeding, confirm you have all of the following. If any are missing, re
 - If monorepo: **subproject list** with each subproject's path, purpose, and tech stack
 - If monorepo: **workspace tool** (if any)
 - **Existing files inventory** (existence check only — content is read in Step 1b): which of `.claude/CLAUDE.md`, `.claude/settings.json`, `.claude/docs/*`, root `CLAUDE.md`, subproject `CLAUDE.md` files already exist
+- **Doc-sourced insights** (if any documentation found): verified conventions, architecture rationale, workflow rules — all cross-checked against source code
 
 Print this as a **Detection Summary** to the user before proceeding. This gives the user a chance to correct any misdetection before files are generated. If the user provides corrections, update the detection results accordingly before proceeding.
 
@@ -145,11 +158,11 @@ If existing docs were found, analyze them to identify what needs updating:
    - **Selective** — present findings as a numbered list; user picks which numbers to apply. Unapproved findings are left as-is (existing content preserved).
    - **Fresh start** — ignore existing docs and regenerate from scratch (proceeds to Step 2 as if no docs existed)
 
-Remember the user's choice and approved findings. Steps 2–6 will reference them to make targeted updates rather than full overwrites.
+Remember the user's choice and approved findings. Steps 2–6 will reference them to make targeted updates rather than full overwrites. (Step 6b runs independently — see Step 6b.)
 
 ## Step 2: Handle Existing Files
 
-**Audit-aware rule (applies to Steps 2–6):** If user chose "Fresh start", treat all files as Missing. Otherwise: if Step 1b marked a file as Accurate, skip it. If Outdated, apply only user-approved changes — preserve everything else. If Missing or no audit was run, create normally. For "Selective" updates, only act on approved findings.
+**Audit-aware rule (applies to Steps 2–6, not Step 6b):** If user chose "Fresh start", treat all files as Missing. Otherwise: if Step 1b marked a file as Accurate, skip it. If Outdated, apply only user-approved changes — preserve everything else. If Missing or no audit was run, create normally. For "Selective" updates, only act on approved findings.
 
 **Before creating any file**, check if it already exists. If so, read it first. Inform the user what was preserved vs changed.
 
@@ -279,6 +292,35 @@ Include only the hooks that were actually installed. For Python use `<python-cmd
 - **Single project:** All files go in `.claude/docs/`.
 - **Monorepo:** `testing.md`, `styling.md`, and `architecture.md` go in each subproject's `docs/` folder, scoped to that subproject's stack. Apply the detection rules above **per subproject** (e.g., skip `styling.md` for a subproject with no UI deps). For root-as-project, its scoped docs go in `.claude/docs/` alongside the shared `coding-guidelines.md`. Each subproject can also get its own `coding-guidelines.md` only if its conventions differ significantly from root.
 
+## Step 6b: Sync Existing Documentation
+
+**Skip this step** if no project documentation exists (no README.md, CONTRIBUTING.md, ARCHITECTURE.md, or docs/ files). Proceed to Step 7.
+
+This step runs independently of the Step 1b audit choice (including "Fresh start," which only governs `.claude/` files). It operates on project-owned files, not Claude-generated files.
+
+Cross-check existing project documentation against the source code (manifests, lock files, directory structure). Fix **genuinely contradictory or outdated content** only — do not rewrite documents.
+
+**Scope — only if they already exist:**
+- README.md (root, and each subproject's for monorepos)
+- CONTRIBUTING.md, ARCHITECTURE.md
+- Files in docs/ that overlap with generated `.claude/docs/` topics
+
+**Check for contradictions against source code (manifests, lock files, directory structure):**
+
+| Type | Example |
+|------|---------|
+| Wrong command | README says `npm test`, but lock file and manifest show pnpm |
+| Outdated tech ref | CONTRIBUTING references Webpack, but `vite.config.ts` exists and no Webpack in deps |
+| Incorrect structure | README describes `src/controllers/`, but actual dir is `src/handlers/` |
+| Stale subproject list | README lists 3 services, but workspace config has 4 |
+| Removed dependency | Docs reference a library no longer in manifest dependencies |
+
+The goal is surgical correction of factual errors, not editorial improvement. Only change content where source code directly contradicts a specific claim. Leave prose, tone, structure, and imprecise-but-not-wrong descriptions (e.g., "JavaScript" when project uses TypeScript with JS interop) untouched. Do not add sections, create files, or touch files outside the project root.
+
+**If contradictions found:** Present a Sync Report (file, current content, proposed fix, source code evidence). Ask user: **Apply all**, **Selective** (numbered), or **Skip sync**. Apply only approved changes.
+
+**If no contradictions found:** report this and proceed to Step 7.
+
 ## Step 7: Verify and Report
 
 Run through this checklist. **Fix any failures before reporting to the user.**
@@ -292,6 +334,7 @@ Run through this checklist. **Fix any failures before reporting to the user.**
 - Each `testing.md`, `styling.md`, `architecture.md`: References the project's actual frameworks, tooling, and directory names.
 - Monorepo: each subproject's `CLAUDE.md` exists, mentions subproject name, and is <= 60 lines.
 - `.claude/hooks/*`: Each hook matches its template; settings.json `hooks.PostToolUse` references every installed hook file and vice versa.
+- **Sync changes (Step 6b)**: If sync changes were applied, verify each modified file still has valid markdown and no truncated content.
 
 **Cross-reference checks:**
 - Every doc listed in a CLAUDE.md Documentation section actually exists as a file.
