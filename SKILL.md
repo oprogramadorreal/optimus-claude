@@ -125,7 +125,7 @@ Before proceeding, confirm you have all of the following. If any are missing, re
 - **Monorepo status**: single project, confirmed monorepo, or ambiguous (awaiting user input)
 - If monorepo: **subproject list** with each subproject's path, purpose, and tech stack
 - If monorepo: **workspace tool** (if any)
-- **Existing files inventory** (existence check only — content is read in Step 1b): which of `.claude/CLAUDE.md`, `.claude/settings.json`, `.claude/docs/*`, root `CLAUDE.md`, subproject `CLAUDE.md` files already exist
+- **Existing files inventory** (existence check only — content is read in Step 1b): which of `.claude/CLAUDE.md`, `.claude/settings.json`, `.claude/docs/*`, `.claude/agents/code-simplifier.md`, root `CLAUDE.md`, subproject `CLAUDE.md` files already exist
 - **Doc-sourced insights** (if any documentation found): verified conventions, architecture rationale, workflow rules — all cross-checked against source code
 
 Print this as a **Detection Summary** to the user before proceeding. This gives the user a chance to correct any misdetection before files are generated. If the user provides corrections, update the detection results accordingly before proceeding.
@@ -136,7 +136,7 @@ Print this as a **Detection Summary** to the user before proceeding. This gives 
 
 If existing docs were found, analyze them to identify what needs updating:
 
-1. **Read all existing doc files** from the inventory (CLAUDE.md, settings.json, all `.claude/docs/*.md`, and for monorepos each subproject's CLAUDE.md and `docs/*.md`).
+1. **Read all existing doc files** from the inventory (CLAUDE.md, settings.json, all `.claude/docs/*.md`, `.claude/agents/code-simplifier.md`, and for monorepos each subproject's CLAUDE.md and `docs/*.md`).
 
 2. **Compare documented state vs detected state:**
 
@@ -173,7 +173,7 @@ If root `CLAUDE.md` exists (not in `.claude/`), suggest removing it after `.clau
 ## Step 3: Create Directory Structure
 
 ```bash
-mkdir -p .claude/docs .claude/hooks
+mkdir -p .claude/docs .claude/hooks .claude/agents
 # Monorepo: also mkdir -p <subproject>/docs for each subproject from Step 1
 ```
 
@@ -237,6 +237,12 @@ Add auto-format hooks so files stay consistently formatted after every Edit/Writ
 
 **Preserve existing content:** If an existing settings.json contains a `permissions` section or other custom configuration beyond `hooks`, preserve those sections. Merge hook changes into the existing file structure rather than overwriting.
 
+## Step 5b: Install Code Simplifier Agent
+
+Copy `.claude/skills/claude-code-bootstrap/templates/agents/code-simplifier.md` to `.claude/agents/code-simplifier.md`.
+
+**Skip** if `.claude/agents/code-simplifier.md` already exists and Step 1b marked it as Accurate.
+
 ## Step 6: Create Documentation Files
 
 **Always create in `.claude/docs/`:**
@@ -296,6 +302,7 @@ Run through this checklist. **Fix any failures before reporting to the user.**
 - Each `testing.md`, `styling.md`, `architecture.md`: References the project's actual frameworks, tooling, and directory names.
 - Monorepo: each subproject's `CLAUDE.md` exists, mentions subproject name, and is <= 60 lines.
 - `.claude/hooks/*`: Each hook file matches its template.
+- `.claude/agents/code-simplifier.md`: File exists and matches template.
 - **Sync changes (Step 6b)**: If sync changes were applied, verify each modified file still has valid markdown and no truncated content.
 
 **Cross-reference checks:**

@@ -27,6 +27,7 @@ AI-assisted coding amplifies output — but also amplifies drift from intended a
 - **Progressive disclosure** — Details in separate docs, not one massive file
 - **Audit on re-run** — Compares docs against current project state, classifies sections as Outdated / Missing / Accurate, and lets you choose what to update
 - **Auto-format hooks** — Installs PostToolUse hooks for black, prettier, rustfmt, gofmt, csharpier per detected stack
+- **Code simplifier agent** — Proactively enforces your coding guidelines on every change, keeping code clean for better LLM comprehension
 - **Monorepo support** — Auto-detects monorepos via workspace tools and manifest scanning, generates scoped docs per subproject
 - **Documentation sync** — Cross-checks existing docs (README, CONTRIBUTING, etc.) against source code and fixes contradictions
 
@@ -36,6 +37,7 @@ AI-assisted coding amplifies output — but also amplifies drift from intended a
 - `.claude/settings.json` — Formatter hook configuration
 - `.claude/docs/` — Coding guidelines, testing, styling, architecture (per detected stack)
 - `.claude/hooks/` — Auto-format hooks for detected stacks (see below)
+- `.claude/agents/` — Code simplifier agent aligned with your coding standards
 - Monorepo: each subproject gets its own `CLAUDE.md` and `docs/` with scoped documentation
 
 ## Formatter Hooks
@@ -51,6 +53,14 @@ PostToolUse hooks that auto-format files after every Edit/Write, installed per d
 | `format-csharp.sh` | csharpier | C#/.NET project detected |
 
 For stacks requiring external formatters (Python, Node.js, C#), `/bootstrap` checks your dependencies and asks before installing anything.
+
+## Code Quality Agent
+
+LLM performance depends on what it reads: both documentation and source code. `/bootstrap` installs a [code-simplifier](templates/agents/code-simplifier.md) agent that proactively enforces your coding guidelines on every change — simplifying code for clarity, consistency, and maintainability while preserving functionality.
+
+The agent reads your project's `.claude/docs/coding-guidelines.md` at runtime, so it always follows your established conventions rather than imposing external style rules. It activates automatically on recently modified code; for a broader review:
+
+> Use the code-simplifier agent to analyze this project against the standards in .claude/docs/coding-guidelines.md and suggest simplifications
 
 ## Keeping Docs Current
 
@@ -76,6 +86,7 @@ To understand or modify how the skill works, start with `SKILL.md`. Key files:
 - **Coding guidelines**: `templates/docs/coding-guidelines.md` — Shared style rules template
 - **Hook configuration**: `templates/settings.json` — PostToolUse hook structure
 - **Formatter hooks**: `templates/hooks/` — Hook templates (Python, Node.js, Rust, Go, C#)
+- **Code simplifier agent**: `templates/agents/code-simplifier.md` — Agent template
 - **Best practices reference**: `references/claude-md-best-practices.md` — Research-backed guidance
 
 ## Requirements
