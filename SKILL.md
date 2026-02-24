@@ -222,9 +222,9 @@ Add auto-format hooks so files stay consistently formatted after every Edit/Writ
 | Stack | Template | Formatter | Requires | Install when |
 |-------|----------|-----------|----------|--------------|
 | Python | `format-python.py` | black + isort | Python 3 | In project deps (requirements*.txt, pyproject.toml, Pipfile), or user approves |
-| Node.js | `format-node.js` | prettier | Node.js | In package.json devDependencies, or user approves |
+| Node.js | `format-node.js` | prettier + organize-imports plugin | Node.js | In package.json devDependencies, or user approves |
 | Rust | `format-rust.sh` | rustfmt | Bash | Always (rustfmt is built-in) |
-| Go | `format-go.sh` | gofmt | Bash | Always (gofmt is built-in) |
+| Go | `format-go.sh` | goimports → gofmt fallback | Bash | Always (hook detects goimports at runtime; offer `go install golang.org/x/tools/cmd/goimports@latest` if absent) |
 | C#/.NET | `format-csharp.sh` | csharpier | Bash | In `.config/dotnet-tools.json`, or user approves (suggest `dotnet tool install csharpier`) |
 
 **Detect Python command** (only when the Python formatter hook will be installed): Run `python3 --version`. If it fails, run `python --version` and verify the output shows Python 3.x. Use whichever succeeds as `<python-cmd>` in hook commands below. If neither works, skip the Python hook and inform the user.
@@ -236,6 +236,8 @@ Add auto-format hooks so files stay consistently formatted after every Edit/Writ
 **If no hooks were installed**, do not create settings.json (unless it already exists with other content).
 
 **Preserve existing content:** If an existing settings.json contains a `permissions` section or other custom configuration beyond `hooks`, preserve those sections. Merge hook changes into the existing file structure rather than overwriting.
+
+**Node.js plugin setup** (when the Node.js hook is installed): Ensure `prettier-plugin-organize-imports` is a devDependency (install with detected package manager if missing; skip config below if user declines). Then add it to the Prettier config's `plugins` array (`.prettierrc`, `.prettierrc.json`, `prettier.config.*`, or `"prettier"` in `package.json`). If `prettier-plugin-tailwindcss` is present, insert organize-imports **before** it. If no config exists, create `.prettierrc` with `{ "plugins": ["prettier-plugin-organize-imports"] }`.
 
 ## Step 5b: Install Code Simplifier Agent
 
