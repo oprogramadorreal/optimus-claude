@@ -1,6 +1,6 @@
 ---
 name: code-simplifier
-description: Simplifies and refines code for clarity, consistency, and maintainability while preserving all functionality. Use proactively on recently modified code.
+description: Simplifies and refines code for clarity, consistency, and maintainability while preserving all functionality. Use proactively after writing or modifying code.
 model: opus
 ---
 
