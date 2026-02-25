@@ -1,12 +1,12 @@
 ---
 name: bootstrap
-description: Bootstrap effective documentation following LLM-optimized practices
+description: Set up CLAUDE.md, docs, formatter hooks, and quality agents for any project
 disable-model-invocation: true
 ---
 
-# Bootstrap Project Documentation
+# Bootstrap Project for Claude Code
 
-Create optimized CLAUDE.md and supporting docs using research-backed practices. Unlike `/init`, this generates structured documentation following the WHAT/WHY/HOW framework with progressive disclosure. Supports both single projects and monorepos.
+Analyze the project and set up Claude Code for optimal performance: generate CLAUDE.md with supporting docs (WHAT/WHY/HOW, progressive disclosure), install auto-format hooks per detected stack, deploy code-simplifier and test-guardian agents, and sync existing documentation against source code. Supports single projects and monorepos.
 
 ## Before You Start
 
