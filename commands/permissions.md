@@ -1,5 +1,4 @@
 ---
-name: permissions
 description: Configure Claude Code permissions for safe agent autonomy. Creates settings.json with allow/deny rules and a path-restriction hook.
 disable-model-invocation: true
 ---
@@ -35,14 +34,14 @@ mkdir -p .claude/hooks
 **Skip** if `.claude/hooks/restrict-paths.*` already exists.
 
 Copy the hook template to the project:
-- Source: `$CLAUDE_PLUGIN_ROOT/skills/permissions/templates/hooks/restrict-paths.sh`
+- Source: `$CLAUDE_PLUGIN_ROOT/resources/permissions/templates/hooks/restrict-paths.sh`
 - Destination: `.claude/hooks/restrict-paths.sh`
 
 Copy the file contents exactly — do not modify the template.
 
 ## Step 4: Create or Update settings.json
 
-Use the template from `$CLAUDE_PLUGIN_ROOT/skills/permissions/templates/settings.json` as the base configuration.
+Use the template from `$CLAUDE_PLUGIN_ROOT/resources/permissions/templates/settings.json` as the base configuration.
 
 ### If `.claude/settings.json` does NOT exist
 

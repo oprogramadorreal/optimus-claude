@@ -60,11 +60,11 @@ Installs PostToolUse hooks that auto-format code every time Claude modifies a fi
 
 ### 3. Code Quality
 
-Deploys a [code-simplifier](skills/init/templates/agents/code-simplifier.md) agent that enforces your project's [coding guidelines](skills/init/templates/docs/coding-guidelines.md) — clean code, small functions, clear naming, proper abstractions. This isn't about aesthetics: well-maintained code has [30%+ fewer AI-introduced defects](https://arxiv.org/abs/2601.02200).
+Deploys a [code-simplifier](resources/init/templates/agents/code-simplifier.md) agent that enforces your project's [coding guidelines](resources/init/templates/docs/coding-guidelines.md) — clean code, small functions, clear naming, proper abstractions. This isn't about aesthetics: well-maintained code has [30%+ fewer AI-introduced defects](https://arxiv.org/abs/2601.02200).
 
 ### 4. Test Coverage
 
-Tests are the feedback loop that makes AI agents self-correcting: make change → run tests → see failure → fix. Without tests, Claude Code is flying blind. When test infrastructure is detected, `/bootstrap:init` installs a [test-guardian](skills/init/templates/agents/test-guardian.md) agent that monitors coverage gaps — flagging untested code, verifying that existing tests still pass, and checking that test commands are runnable. It doesn't write tests or install frameworks; it ensures the project maintains its testing standards as it evolves. This directly enables Anthropic's [#1 best practice](https://code.claude.com/docs/en/best-practices): giving Claude a way to verify its work.
+Tests are the feedback loop that makes AI agents self-correcting: make change → run tests → see failure → fix. Without tests, Claude Code is flying blind. When test infrastructure is detected, `/bootstrap:init` installs a [test-guardian](resources/init/templates/agents/test-guardian.md) agent that monitors coverage gaps — flagging untested code, verifying that existing tests still pass, and checking that test commands are runnable. It doesn't write tests or install frameworks; it ensures the project maintains its testing standards as it evolves. This directly enables Anthropic's [#1 best practice](https://code.claude.com/docs/en/best-practices): giving Claude a way to verify its work.
 
 ### 5. Documentation Freshness
 
@@ -94,8 +94,8 @@ For stacks requiring external formatters (Python, Node.js, C#, Java, C/C++), `/b
 
 | Agent | Purpose | Installed when |
 |-------|---------|----------------|
-| [code-simplifier](skills/init/templates/agents/code-simplifier.md) | Enforces coding guidelines on every change | Always |
-| [test-guardian](skills/init/templates/agents/test-guardian.md) | Flags untested code, verifies test suite passes | Test infrastructure detected |
+| [code-simplifier](resources/init/templates/agents/code-simplifier.md) | Enforces coding guidelines on every change | Always |
+| [test-guardian](resources/init/templates/agents/test-guardian.md) | Flags untested code, verifies test suite passes | Test infrastructure detected |
 
 Both agents read your project's `.claude/CLAUDE.md` and `.claude/docs/` at runtime, so they follow your established conventions rather than imposing external rules. The code-simplifier activates proactively after code changes; the test-guardian operates at the end of logical tasks to verify test coverage. For a project-wide code review:
 
@@ -140,27 +140,27 @@ Especially useful on **native Windows** where OS-level sandboxing is not yet ava
 
 Merges safely with `/bootstrap:init` — both share `.claude/settings.json` without conflicts.
 
-See [skills/permissions/README.md](skills/permissions/README.md) for full documentation, security model, enforcement reliability, and known limitations.
+See [resources/permissions/README.md](resources/permissions/README.md) for full documentation, security model, enforcement reliability, and known limitations.
 
 ## /bootstrap:commit-message
 
 Analyzes local git changes (staged, unstaged, and untracked) and suggests [conventional commit](https://www.conventionalcommits.org/) messages — without committing anything. Suggests splitting into multiple commits when changes span different concerns.
 
-See [skills/commit-message/README.md](skills/commit-message/README.md) for full documentation.
+See [resources/commit-message/README.md](resources/commit-message/README.md) for full documentation.
 
 ## Customization
 
-To understand or modify how the plugin works, start with the skill's `SKILL.md`. Key files:
+To understand or modify how the plugin works, start with the skill's command file. Key files:
 
-- **Init skill logic**: `skills/init/SKILL.md` — Step-by-step instructions Claude follows
-- **CLAUDE.md templates**: `skills/init/templates/single-project-claude.md`, `skills/init/templates/monorepo-claude.md`, `skills/init/templates/subproject-claude.md`
-- **Coding guidelines**: `skills/init/templates/docs/coding-guidelines.md` — Shared style rules template
-- **Hook configuration**: `skills/init/templates/settings.json` — PostToolUse hook structure
-- **Formatter hooks**: `skills/init/templates/hooks/` — Hook templates (Python, Node.js, Rust, Go, C#, Java, C/C++)
-- **Agents**: `skills/init/templates/agents/` — code-simplifier and test-guardian templates
-- **Best practices reference**: `skills/init/references/claude-md-best-practices.md` — Research-backed guidance
-- **Permissions skill**: `skills/permissions/SKILL.md` — Permission rules and hook installation
-- **Commit message skill**: `skills/commit-message/SKILL.md` — Git change analysis
+- **Init skill logic**: `commands/init.md` — Step-by-step instructions Claude follows
+- **CLAUDE.md templates**: `resources/init/templates/single-project-claude.md`, `resources/init/templates/monorepo-claude.md`, `resources/init/templates/subproject-claude.md`
+- **Coding guidelines**: `resources/init/templates/docs/coding-guidelines.md` — Shared style rules template
+- **Hook configuration**: `resources/init/templates/settings.json` — PostToolUse hook structure
+- **Formatter hooks**: `resources/init/templates/hooks/` — Hook templates (Python, Node.js, Rust, Go, C#, Java, C/C++)
+- **Agents**: `resources/init/templates/agents/` — code-simplifier and test-guardian templates
+- **Best practices reference**: `resources/init/references/claude-md-best-practices.md` — Research-backed guidance
+- **Permissions skill**: `commands/permissions.md` — Permission rules and hook installation
+- **Commit message skill**: `commands/commit-message.md` — Git change analysis
 
 ## Research & References
 

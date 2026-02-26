@@ -105,13 +105,13 @@ Run either skill first — both merge safely into the same file.
 
 | File | Purpose |
 |---|---|
-| `SKILL.md` | Skill definition with step-by-step instructions |
+| [`commands/permissions.md`](../../commands/permissions.md) | Skill definition with step-by-step instructions |
 | `templates/settings.json` | Base permission settings (allow/deny lists + PreToolUse hook) |
 | `templates/hooks/restrict-paths.sh` | Path-restriction hook template |
 
 ## Customization
 
-To understand or modify how the skill works, start with `SKILL.md`. Key customization points:
+To understand or modify how the skill works, start with [`commands/permissions.md`](../../commands/permissions.md). Key customization points:
 
 - **Allow list**: Edit `templates/settings.json` → `permissions.allow` to add or remove auto-approved tools
 - **Deny list**: Edit `templates/settings.json` → `permissions.deny` to add more blocked patterns (e.g., `"Bash(docker *)"`) or remove overly-strict ones
