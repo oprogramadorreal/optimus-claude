@@ -5,7 +5,7 @@
     "url": "https://github.com/oprogramadorreal"
   },
   "metadata": {
-    "description": "Bootstrap plugin for Claude Code — project setup, permissions, and commit messages"
+    "description": "Research-backed project setup — CLAUDE.md, auto-format hooks, quality agents, code refinement, permissions, and commit messages"
   },
   "plugins": [
     {
@@ -14,7 +14,7 @@
         "source": "github",
         "repo": "oprogramadorreal/claude-code-bootstrap"
       },
-      "description": "Research-backed project setup — CLAUDE.md, auto-format hooks, quality agents, permissions, and commit messages"
+      "description": "Research-backed project setup — CLAUDE.md, auto-format hooks, quality agents, code refinement, permissions, and commit messages"
     }
   ]
 }

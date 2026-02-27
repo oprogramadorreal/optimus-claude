@@ -4,7 +4,7 @@ What makes a good developer productive in a codebase also makes Claude Code prod
 
 Research backs this up: AI tools introduce [30%+ more defects](https://arxiv.org/abs/2601.02200) on poorly maintained code, LLM performance [degrades up to 85%](https://arxiv.org/abs/2510.05381) as context length grows, and Anthropic's [#1 best practice](https://code.claude.com/docs/en/best-practices) for Claude Code is giving it a way to verify its own work.
 
-`/bootstrap:init` builds on Claude Code's `/init` with a research-backed setup that keeps your project in the LLM's peak performance zone.
+`/bootstrap:init` sets up your project for LLM peak performance; `/bootstrap:refine` reviews existing code against the guidelines it establishes.
 
 ## Why This Plugin?
 
@@ -33,6 +33,7 @@ The LLM already knows best practices from training — but the trigger to apply 
 | Skill | Invocation | Purpose |
 |-------|-----------|---------|
 | [Init](#bootstrapinit) | `/bootstrap:init` | CLAUDE.md, docs, formatter hooks, quality agents |
+| [Refine](#bootstraprefine) | `/bootstrap:refine` | Project-wide code refinement against coding guidelines |
 | [Permissions](#bootstrappermissions) | `/bootstrap:permissions` | Allow/deny rules, path-restriction hook |
 | [Commit Message](#bootstrapcommit-message) | `/bootstrap:commit-message` | Conventional commit message suggester |
 
@@ -60,7 +61,7 @@ Installs PostToolUse hooks that auto-format code every time Claude modifies a fi
 
 ### 3. Code Quality
 
-Deploys a [code-simplifier](skills/init/templates/agents/code-simplifier.md) agent that enforces your project's [coding guidelines](skills/init/templates/docs/coding-guidelines.md) — clean code, small functions, clear naming, proper abstractions. This isn't about aesthetics: well-maintained code has [30%+ fewer AI-introduced defects](https://arxiv.org/abs/2601.02200).
+Deploys a [code-simplifier](skills/init/templates/agents/code-simplifier.md) agent that enforces your project's [coding guidelines](skills/init/templates/docs/coding-guidelines.md) — clean code, small functions, clear naming, proper abstractions. This isn't about aesthetics: well-maintained code has [30%+ fewer AI-introduced defects](https://arxiv.org/abs/2601.02200). The agent guards new code proactively; for a full project review, see [`/bootstrap:refine`](#bootstraprefine).
 
 ### 4. Test Coverage
 
@@ -97,9 +98,7 @@ For stacks requiring external formatters (Python, Node.js, C#, Java, C/C++), `/b
 | [code-simplifier](skills/init/templates/agents/code-simplifier.md) | Enforces coding guidelines on every change | Always |
 | [test-guardian](skills/init/templates/agents/test-guardian.md) | Flags untested code, verifies test suite passes | Test infrastructure detected |
 
-Both agents read your project's `.claude/CLAUDE.md` and `.claude/docs/` at runtime, so they follow your established conventions rather than imposing external rules. The code-simplifier activates proactively after code changes; the test-guardian operates at the end of logical tasks to verify test coverage. For a project-wide code review:
-
-> Use the code-simplifier agent to analyze this project against the standards in .claude/docs/coding-guidelines.md and suggest simplifications
+Both agents read your project's `.claude/CLAUDE.md` and `.claude/docs/` at runtime, so they follow your established conventions rather than imposing external rules. The code-simplifier activates proactively after code changes; the test-guardian operates at the end of logical tasks to verify test coverage. For a project-wide code review, run `/bootstrap:refine`.
 
 ### Keeping Docs Current
 
@@ -111,8 +110,9 @@ For ongoing quality between audits, the official [claude-md-management](https://
 
 1. **Initial setup** — Run `/bootstrap:init` to generate documentation from scratch
 2. **After major changes** — Re-run `/bootstrap:init` to audit and refresh docs
-3. **Periodic quality checks** — Use `claude-md-improver` for scoring and targeted improvements
-4. **After work sessions** — Use `/revise-claude-md` to capture discoveries from real usage
+3. **Code quality review** — Run `/bootstrap:refine` for a full codebase analysis against your coding guidelines
+4. **Periodic quality checks** — Use `claude-md-improver` for scoring and targeted improvements
+5. **After work sessions** — Use `/revise-claude-md` to capture discoveries from real usage
 
 Install the plugin: `claude plugin add claude-md-management`
 
@@ -141,6 +141,16 @@ Especially useful on **native Windows** where OS-level sandboxing is not yet ava
 Merges safely with `/bootstrap:init` — both share `.claude/settings.json` without conflicts.
 
 See [skills/permissions/README.md](skills/permissions/README.md) for full documentation, security model, enforcement reliability, and known limitations.
+
+## /bootstrap:refine
+
+Well-maintained code has [30%+ fewer AI-introduced defects](https://arxiv.org/abs/2601.02200). `/bootstrap:init` sets up quality infrastructure with agents that guard new code automatically — but existing code can still accumulate technical debt. `/bootstrap:refine` is the on-demand complement: a deliberate review you run when you want to actively improve existing code.
+
+Analyzes source code against your project's coding guidelines with emphasis on **issues that span multiple files** — duplication across modules, inconsistent patterns between areas, architectural drift. Presents a prioritized refinement plan (capped at 12 findings per run), then applies only what you approve. The test suite runs automatically to verify nothing broke.
+
+**Flexible scope** — review the full project, a specific directory, or only files changed since a commit/date. **Conservative by design** — only suggests changes justified by the project's own guidelines. Works without `/bootstrap:init` by falling back to generic coding guidelines.
+
+See [skills/refine/README.md](skills/refine/README.md) for full documentation.
 
 ## /bootstrap:commit-message
 

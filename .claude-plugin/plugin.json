@@ -1,7 +1,7 @@
 {
   "name": "bootstrap",
-  "version": "1.1.0",
-  "description": "Research-backed project setup — CLAUDE.md, auto-format hooks, quality agents, permissions, and commit messages",
+  "version": "1.2.0",
+  "description": "Research-backed project setup — CLAUDE.md, auto-format hooks, quality agents, code refinement, permissions, and commit messages",
   "author": {
     "name": "oprogramadorreal",
     "url": "https://github.com/oprogramadorreal"
@@ -9,5 +9,5 @@
   "homepage": "https://github.com/oprogramadorreal/claude-code-bootstrap",
   "repository": "https://github.com/oprogramadorreal/claude-code-bootstrap",
   "license": "MIT",
-  "keywords": ["bootstrap", "setup", "claude-md", "permissions", "commit-message", "formatter", "agents"]
+  "keywords": ["bootstrap", "setup", "claude-md", "refine", "permissions", "commit-message", "formatter", "agents"]
 }
