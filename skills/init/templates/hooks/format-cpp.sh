@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# PostToolUse hook: run clang-format on C/C++ files after Edit/Write.
+# PostToolUse hook: run clang-format on C/C++ files after Edit/MultiEdit/Write.
 
 input=$(cat)
 [[ "$input" =~ \"file_path\"[[:space:]]*:[[:space:]]*\"([^\"]+)\" ]] || exit 0

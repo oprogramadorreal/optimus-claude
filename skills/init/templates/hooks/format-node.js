@@ -1,5 +1,5 @@
 /**
- * PostToolUse hook: run prettier on web files after Edit/Write.
+ * PostToolUse hook: run prettier on web files after Edit/MultiEdit/Write.
  * Walks up from the file to find the nearest node_modules with prettier,
  * so it works in both single projects and monorepos without workspaces.
  */

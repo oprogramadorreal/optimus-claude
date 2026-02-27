@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# PostToolUse hook: run google-java-format on .java files after Edit/Write.
+# PostToolUse hook: run google-java-format on .java files after Edit/MultiEdit/Write.
 
 input=$(cat)
 [[ "$input" =~ \"file_path\"[[:space:]]*:[[:space:]]*\"([^\"]+)\" ]] || exit 0

@@ -1,4 +1,4 @@
-"""PostToolUse hook: run black + isort on .py files after Edit/Write."""
+"""PostToolUse hook: run black + isort on .py files after Edit/MultiEdit/Write."""
 
 import json
 import subprocess

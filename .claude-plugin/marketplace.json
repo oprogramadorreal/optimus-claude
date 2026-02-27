@@ -1,0 +1,20 @@
+{
+  "name": "claude-code-bootstrap",
+  "owner": {
+    "name": "oprogramadorreal",
+    "url": "https://github.com/oprogramadorreal"
+  },
+  "metadata": {
+    "description": "Bootstrap plugin for Claude Code — project setup, permissions, and commit messages"
+  },
+  "plugins": [
+    {
+      "name": "bootstrap",
+      "source": {
+        "source": "github",
+        "repo": "oprogramadorreal/claude-code-bootstrap"
+      },
+      "description": "Research-backed project setup — CLAUDE.md, auto-format hooks, quality agents, permissions, and commit messages"
+    }
+  ]
+}

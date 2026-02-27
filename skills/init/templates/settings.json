@@ -2,7 +2,7 @@
   "hooks": {
     "PostToolUse": [
       {
-        "matcher": "Edit|Write",
+        "matcher": "Edit|MultiEdit|Write",
         "hooks": [
           { "type": "command", "command": "<python-cmd> \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/format-python.py", "timeout": 30 },
           { "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/format-node.js", "timeout": 30 },

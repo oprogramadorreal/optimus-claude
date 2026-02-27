@@ -1,6 +1,5 @@
 ---
-name: bootstrap
-description: Set up CLAUDE.md, docs, formatter hooks, and quality agents for any project
+description: Bootstrap project setup for Claude Code — generates CLAUDE.md with progressive disclosure docs, auto-format hooks, and code-quality agents. Replaces /init. Supports monorepos.
 disable-model-invocation: true
 ---
 
@@ -10,7 +9,7 @@ Analyze the project and set up Claude Code for optimal performance: generate CLA
 
 ## Before You Start
 
-Read `.claude/skills/claude-code-bootstrap/references/claude-md-best-practices.md`. Key constraints:
+Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/claude-md-best-practices.md`. Key constraints:
 - Every CLAUDE.md <= 60 lines
 - Use file:line references, not code snippets
 - Only universally-applicable instructions
@@ -125,7 +124,7 @@ Before proceeding, confirm you have all of the following. If any are missing, re
 - **Monorepo status**: single project, confirmed monorepo, or ambiguous (awaiting user input)
 - If monorepo: **subproject list** with each subproject's path, purpose, and tech stack
 - If monorepo: **workspace tool** (if any)
-- **Existing files inventory** (existence check only — content is read in Step 1b): which of `.claude/CLAUDE.md`, `.claude/settings.json`, `.claude/docs/*`, `.claude/agents/code-simplifier.md`, `.claude/agents/test-guardian.md`, root `CLAUDE.md`, subproject `CLAUDE.md` files already exist
+- **Existing files inventory** (existence check only — content of docs is read in Step 1b; agents are never audited, always overwritten): which of `.claude/CLAUDE.md`, `.claude/settings.json`, `.claude/docs/*`, `.claude/agents/code-simplifier.md`, `.claude/agents/test-guardian.md`, root `CLAUDE.md`, subproject `CLAUDE.md` files already exist
 - **Test infrastructure detected** (yes/no): test framework in dependencies, test command in scripts, or test directory present
 - **Doc-sourced insights** (if any documentation found): verified conventions, architecture rationale, workflow rules — all cross-checked against source code
 
@@ -182,7 +181,7 @@ mkdir -p .claude/docs .claude/hooks .claude/agents
 
 ### Single project
 
-Use template from `.claude/skills/claude-code-bootstrap/templates/single-project-claude.md`. Fill in all placeholders:
+Use template from `$CLAUDE_PLUGIN_ROOT/skills/init/templates/single-project-claude.md`. Fill in all placeholders:
 - Replace `[PROJECT NAME]` with the actual project name
 - Replace `[One-line description]` with purpose from README or manifest
 - Replace `[TECH STACK]` with detected languages and frameworks
@@ -195,7 +194,7 @@ The template follows WHAT/WHY/HOW structure. Keep total file under 60 lines. If 
 
 ### Monorepo
 
-Use template from `.claude/skills/claude-code-bootstrap/templates/monorepo-claude.md` instead. Fill in:
+Use template from `$CLAUDE_PLUGIN_ROOT/skills/init/templates/monorepo-claude.md` instead. Fill in:
 - Subproject table with all detected subprojects (path, purpose, tech stack)
 - Root-level / workspace-wide commands only (not subproject-specific commands)
 - References to each subproject's CLAUDE.md
@@ -208,7 +207,7 @@ If more than 6 subprojects, group by category (apps, libs, services) in the root
 
 ## Step 4b: Create Subproject CLAUDE.md Files (monorepo only)
 
-For each detected subproject (except root-as-project/root-as-member — the root CLAUDE.md already covers it), create `<subproject>/CLAUDE.md` using template from `.claude/skills/claude-code-bootstrap/templates/subproject-claude.md`:
+For each detected subproject (except root-as-project/root-as-member — the root CLAUDE.md already covers it), create `<subproject>/CLAUDE.md` using template from `$CLAUDE_PLUGIN_ROOT/skills/init/templates/subproject-claude.md`:
 - Scope WHAT/WHY/HOW to that subproject's tech stack and purpose
 - Include only commands specific to this subproject (run from its directory)
 - Reference its local `docs/` folder for detailed documentation
@@ -217,7 +216,7 @@ For each detected subproject (except root-as-project/root-as-member — the root
 
 ## Step 5: Install Formatter Hooks
 
-Add auto-format hooks so files stay consistently formatted after every Edit/Write. Use templates from `.claude/skills/claude-code-bootstrap/templates/hooks/`.
+Add auto-format hooks so files stay consistently formatted after every Edit/MultiEdit/Write. Use templates from `$CLAUDE_PLUGIN_ROOT/skills/init/templates/hooks/`.
 
 **Audit-aware rule applies** (see Step 2). Additionally, skip a hook if `.claude/hooks/` already contains a file named `format-<stack>.*` (e.g., `format-python.py`, `format-python.sh`).
 
@@ -233,9 +232,9 @@ Add auto-format hooks so files stay consistently formatted after every Edit/Writ
 
 **Detect Python command** (only when the Python formatter hook will be installed): Run `python3 --version`. If it fails, run `python --version` and verify the output shows Python 3.x. Use whichever succeeds as `<python-cmd>` in hook commands below. If neither works, skip the Python hook and inform the user.
 
-1. Copy applicable template(s) from `.claude/skills/claude-code-bootstrap/templates/hooks/` to `.claude/hooks/`.
+1. Copy applicable template(s) from `$CLAUDE_PLUGIN_ROOT/skills/init/templates/hooks/` to `.claude/hooks/`.
 2. External formatters not in deps → ask user "Add [formatter] as dev dependency and install format hook?" If declined, skip.
-3. If any hooks were installed, create `.claude/settings.json` using the template from `.claude/skills/claude-code-bootstrap/templates/settings.json` as reference. Keep only entries for hooks actually installed. For Python, replace `<python-cmd>` with the detected command (`python3` or `python`). For Node.js use `node "..."`, for Bash-based hooks (Rust, Go, C#, Java, C/C++) use `bash "..."`. Monorepos: install all applicable hooks (each filters by file extension internally).
+3. If any hooks were installed, create `.claude/settings.json` using the template from `$CLAUDE_PLUGIN_ROOT/skills/init/templates/settings.json` as reference. Keep only entries for hooks actually installed. For Python, replace `<python-cmd>` with the detected command (`python3` or `python`). For Node.js use `node "..."`, for Bash-based hooks (Rust, Go, C#, Java, C/C++) use `bash "..."`. Monorepos: install all applicable hooks (each filters by file extension internally).
 
 **If no hooks were installed**, do not create settings.json (unless it already exists with other content).
 
@@ -245,7 +244,7 @@ Add auto-format hooks so files stay consistently formatted after every Edit/Writ
 
 ## Step 5b: Install Code Simplifier Agent
 
-Copy `.claude/skills/claude-code-bootstrap/templates/agents/code-simplifier.md` to `.claude/agents/code-simplifier.md`.
+Copy `$CLAUDE_PLUGIN_ROOT/skills/init/templates/agents/code-simplifier.md` to `.claude/agents/code-simplifier.md`.
 
 Always overwrite — this is a verbatim template, not project-customized content.
 
@@ -253,22 +252,22 @@ Always overwrite — this is a verbatim template, not project-customized content
 
 **Only install when test infrastructure was detected in Step 1** — same condition as `testing.md` creation in Step 6: test framework in dependencies, `test`/`test:*` script in manifest, or `tests/`/`test/`/`spec/`/`__tests__/` directory exists.
 
-If detected: Copy `.claude/skills/claude-code-bootstrap/templates/agents/test-guardian.md` to `.claude/agents/test-guardian.md`. Always overwrite — this is a verbatim template, not project-customized content.
+If detected: Copy `$CLAUDE_PLUGIN_ROOT/skills/init/templates/agents/test-guardian.md` to `.claude/agents/test-guardian.md`. Always overwrite — this is a verbatim template, not project-customized content.
 
 If not detected: Skip installation. In Step 7 summary, include a recommendation: "No test infrastructure detected. Consider adding tests — Anthropic's #1 best practice for Claude Code is giving Claude a way to verify its work."
 
 ## Step 6: Create Documentation Files
 
 **Always create in `.claude/docs/`:**
-- `coding-guidelines.md` - Use template from `.claude/skills/claude-code-bootstrap/templates/docs/coding-guidelines.md` (replace [PROJECT NAME]). Shared across the entire repo.
+- `coding-guidelines.md` - Use template from `$CLAUDE_PLUGIN_ROOT/skills/init/templates/docs/coding-guidelines.md` (replace [PROJECT NAME]). Shared across the entire repo.
 
 **Create based on these detection rules:**
 
 | File | Template | Create when ANY of these are true |
 |------|----------|-----------------------------------|
-| `testing.md` | `.claude/skills/claude-code-bootstrap/templates/docs/testing.md` | Manifest lists a test dependency (jest, vitest, mocha, karma, pytest, unittest, rspec, gtest, catch2, doctest, ctest, etc.) OR a `test`/`test:*` script exists in manifest OR a `tests/`, `test/`, `spec/`, `__tests__/` directory exists |
-| `styling.md` | `.claude/skills/claude-code-bootstrap/templates/docs/styling.md` | Manifest lists a UI framework (react, vue, angular, svelte, solid) OR lists CSS tooling (tailwindcss, styled-components, sass, less, postcss) OR `.css`/`.scss`/`.less` files exist in `src/` |
-| `architecture.md` | `.claude/skills/claude-code-bootstrap/templates/docs/architecture.md` | Project has 3+ top-level source directories (excluding config, tests, docs, build output) OR uses recognized pattern directories (controllers/, services/, repositories/, handlers/, models/) |
+| `testing.md` | `$CLAUDE_PLUGIN_ROOT/skills/init/templates/docs/testing.md` | Manifest lists a test dependency (jest, vitest, mocha, karma, pytest, unittest, rspec, gtest, catch2, doctest, ctest, etc.) OR a `test`/`test:*` script exists in manifest OR a `tests/`, `test/`, `spec/`, `__tests__/` directory exists |
+| `styling.md` | `$CLAUDE_PLUGIN_ROOT/skills/init/templates/docs/styling.md` | Manifest lists a UI framework (react, vue, angular, svelte, solid) OR lists CSS tooling (tailwindcss, styled-components, sass, less, postcss) OR `.css`/`.scss`/`.less` files exist in `src/` |
+| `architecture.md` | `$CLAUDE_PLUGIN_ROOT/skills/init/templates/docs/architecture.md` | Project has 3+ top-level source directories (excluding config, tests, docs, build output) OR uses recognized pattern directories (controllers/, services/, repositories/, handlers/, models/) |
 
 Use each template as a skeleton — fill in all placeholders with actual project details (framework names, commands, directory paths, conventions). Don't leave any `[placeholder]` text in the final output.
 
