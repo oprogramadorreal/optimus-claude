@@ -4,7 +4,7 @@ What makes a good developer productive in a codebase also makes Claude Code prod
 
 Research backs this up: AI tools introduce [30%+ more defects](https://arxiv.org/abs/2601.02200) on poorly maintained code, LLM performance [degrades up to 85%](https://arxiv.org/abs/2510.05381) as context length grows, and Anthropic's [#1 best practice](https://code.claude.com/docs/en/best-practices) for Claude Code is giving it a way to verify its own work.
 
-`/bootstrap:init` sets up your project for LLM peak performance; `/bootstrap:simplify` reviews existing code against the guidelines it establishes.
+`/bootstrap:init` sets up your project for LLM peak performance, `/bootstrap:unit-test` builds the feedback loop that makes AI self-correcting, and `/bootstrap:simplify` reviews existing code against the guidelines they establish.
 
 ## Why This Plugin?
 
@@ -67,74 +67,15 @@ Install: `claude plugin add claude-md-management`
 
 The main skill. Analyzes your project and sets up five pillars designed to maximize Claude Code's performance:
 
-### 1. Context Architecture
+1. **Context Architecture** — CLAUDE.md with progressive disclosure docs (~60-line root file, details loaded on demand)
+2. **Code Consistency** — PostToolUse hooks that auto-format code after every edit
+3. **Code Quality** — code-simplifier agent enforcing project coding guidelines
+4. **Test Coverage** — test-guardian agent monitoring coverage gaps (when test infrastructure detected)
+5. **Documentation Freshness** — audits existing docs against source code for contradictions
 
-Creates CLAUDE.md files following [research-backed practices](https://www.humanlayer.dev/blog/writing-a-good-claude-md): a compact ~60-line root file within the LLM's peak attention window, with details in separate docs loaded only when needed. Just like you don't keep all backend details in your head while fixing a frontend bug, Claude shouldn't load everything into context at once.
+Additional capabilities: intelligent audit on re-run (classifies docs as Outdated / Missing / Accurate), monorepo auto-detection with scoped docs, and formatter hooks for Python, Node.js, Rust, Go, C#, Java, and C/C++.
 
-### 2. Code Consistency
-
-Installs PostToolUse hooks that auto-format code every time Claude modifies a file. This prevents formatting drift — different styles introduce unnecessary token variation that adds no information.
-
-### 3. Code Quality
-
-Deploys a [code-simplifier](skills/init/templates/agents/code-simplifier.md) agent that enforces your project's [coding guidelines](skills/init/templates/docs/coding-guidelines.md) — clean code, small functions, clear naming, proper abstractions. This isn't about aesthetics: well-maintained code has [30%+ fewer AI-introduced defects](https://arxiv.org/abs/2601.02200). The agent guards new code proactively; for a full project review, see [`/bootstrap:simplify`](#bootstrapsimplify).
-
-### 4. Test Coverage
-
-Tests are the feedback loop that makes AI agents self-correcting: make change → run tests → see failure → fix. Without tests, Claude Code is flying blind. When test infrastructure is detected, `/bootstrap:init` installs a [test-guardian](skills/init/templates/agents/test-guardian.md) agent that monitors coverage gaps — flagging untested code, verifying that existing tests still pass, and checking that test commands are runnable. It doesn't write tests or install frameworks; it ensures the project maintains its testing standards as it evolves. This directly enables Anthropic's [#1 best practice](https://code.claude.com/docs/en/best-practices): giving Claude a way to verify its work.
-
-### 5. Documentation Freshness
-
-Reviews existing documentation (README, CONTRIBUTING, etc.) for contradictions against the actual source code. Stale docs in context degrade LLM performance — if documentation says one thing and the code says another, you're actively harming output quality.
-
-**Additional features:**
-- **Audit on re-run** — Compares docs against current project state, classifies sections as Outdated / Missing / Accurate, and lets you choose what to update
-- **Monorepo support** — Auto-detects monorepos via workspace tools and manifest scanning, generates scoped docs per subproject
-
-### Formatter Hooks
-
-PostToolUse hooks that auto-format files after every Edit/MultiEdit/Write, installed per detected stack:
-
-| Hook | Formatter | Installed when |
-|------|-----------|----------------|
-| `format-python.py` | black + isort | Python project detected |
-| `format-node.js` | prettier | Node.js project detected |
-| `format-rust.sh` | rustfmt | Rust project detected (built-in) |
-| `format-go.sh` | goimports / gofmt | Go project detected (built-in) |
-| `format-csharp.sh` | csharpier | C#/.NET project detected |
-| `format-java.sh` | google-java-format | Java project detected |
-| `format-cpp.sh` | clang-format | C/C++ project detected |
-
-For stacks requiring external formatters (Python, Node.js, C#, Java, C/C++), `/bootstrap:init` checks your dependencies and asks before installing anything.
-
-### Agents
-
-| Agent | Purpose | Installed when |
-|-------|---------|----------------|
-| [code-simplifier](skills/init/templates/agents/code-simplifier.md) | Enforces coding guidelines on every change | Always |
-| [test-guardian](skills/init/templates/agents/test-guardian.md) | Flags untested code, verifies test suite passes | Test infrastructure detected |
-
-Both agents read your project's `.claude/CLAUDE.md` and `.claude/docs/` at runtime, so they follow your established conventions rather than imposing external rules. The code-simplifier activates proactively after code changes; the test-guardian operates at the end of logical tasks to verify test coverage. For a project-wide code review, run `/bootstrap:simplify`.
-
-### Keeping Docs Current
-
-`/bootstrap:init` is not just for initial setup. Re-running it on an existing project triggers an intelligent audit that compares your docs against the current project state, classifies them as Outdated / Missing / Accurate, and lets you choose what to update.
-
-### Generated Files
-
-| File | Purpose |
-|------|---------|
-| `.claude/CLAUDE.md` | Project overview, commands, doc references |
-| `.claude/settings.json` | Formatter hook configuration |
-| `.claude/docs/coding-guidelines.md` | Coding standards and quality guidelines |
-| `.claude/docs/testing.md` | Testing conventions (when test framework detected) |
-| `.claude/docs/styling.md` | UI/CSS guidelines (when frontend detected) |
-| `.claude/docs/architecture.md` | Project structure (when complex structure detected) |
-| `.claude/hooks/` | Auto-format hooks per detected stack |
-| `.claude/agents/code-simplifier.md` | Code quality agent |
-| `.claude/agents/test-guardian.md` | Test coverage agent (when test infrastructure detected) |
-
-**Monorepo:** each subproject also gets its own `CLAUDE.md` and scoped `docs/`.
+See [skills/init/README.md](skills/init/README.md) for full documentation including formatter hooks, agents, generated files, and customization.
 
 ## /bootstrap:unit-test
 
