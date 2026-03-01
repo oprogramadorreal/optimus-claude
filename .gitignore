@@ -3,3 +3,4 @@ benchmark-workspace/
 workspace/
 evals/
 __pycache__/
+.claude
