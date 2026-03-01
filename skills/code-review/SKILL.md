@@ -78,10 +78,10 @@ Check that these files exist:
 - `.claude/CLAUDE.md`
 - `.claude/docs/coding-guidelines.md`
 
-**If either is missing**, warn the user and recommend running `/bootstrap:init` first. Use these fallbacks so the skill can still run:
+**If either is missing**, warn the user and recommend running `/prime:init` first. Use these fallbacks so the skill can still run:
 - `CLAUDE.md` missing → detect tech stack from manifest files (`package.json`, `Cargo.toml`, `pyproject.toml`, etc.) for basic context
 - `coding-guidelines.md` missing → read `$CLAUDE_PLUGIN_ROOT/skills/init/templates/docs/coding-guidelines.md` as a generic baseline; inform the user that findings are based on generic guidelines, not project-specific ones
-- Both missing → apply both fallbacks, strongly recommend `/bootstrap:init`
+- Both missing → apply both fallbacks, strongly recommend `/prime:init`
 
 ### Agent prerequisites
 
@@ -89,10 +89,10 @@ Check that these files exist:
 - `.claude/agents/code-simplifier.md`
 - `.claude/agents/test-guardian.md`
 
-**If either is missing**, warn the user and recommend running `/bootstrap:init` to install them. Use these fallbacks so the skill can still run:
+**If either is missing**, warn the user and recommend running `/prime:init` to install them. Use these fallbacks so the skill can still run:
 - `code-simplifier.md` missing → Agent 5 (Code Simplifier) will be skipped in Step 3; the review still covers bugs, security, and guidelines via Agents 1–4
 - `test-guardian.md` missing → Agent 6 (Test Guardian) will be skipped in Step 3; test coverage gaps will not be analyzed
-- Both missing → both agents skipped; only Agents 1–4 run (still provides bug, security, and guideline coverage); strongly recommend `/bootstrap:init` for full 6-agent review
+- Both missing → both agents skipped; only Agents 1–4 run (still provides bug, security, and guideline coverage); strongly recommend `/prime:init` for full 6-agent review
 
 ### Load constraint docs
 
@@ -106,7 +106,7 @@ Check that these files exist:
 
 #### Monorepo
 
-`/bootstrap:init` places docs differently in monorepos — `coding-guidelines.md` is shared at root, but `testing.md`, `styling.md`, and `architecture.md` are scoped per subproject:
+`/prime:init` places docs differently in monorepos — `coding-guidelines.md` is shared at root, but `testing.md`, `styling.md`, and `architecture.md` are scoped per subproject:
 
 1. `.claude/CLAUDE.md` — root overview, subproject table, workspace-level commands
 2. `.claude/docs/coding-guidelines.md` — shared coding standards (applies to ALL subprojects)
@@ -285,7 +285,7 @@ Maximum 5 findings. Report as a structured list.
 
 Launch all available agents simultaneously (parallel, not sequential). Wait for all launched agents to complete before proceeding to Step 4.
 
-**Agent availability summary**: Agents 1–4 always run (no project dependencies). Agents 5–6 depend on installed project agents. If neither project agent exists, note in the summary and recommend `/bootstrap:init` for full 6-agent review.
+**Agent availability summary**: Agents 1–4 always run (no project dependencies). Agents 5–6 depend on installed project agents. If neither project agent exists, note in the summary and recommend `/prime:init` for full 6-agent review.
 
 ## Step 4: Validate Findings
 
@@ -316,7 +316,7 @@ Merge validated findings from Steps 3–4. Deduplicate: if two agents flagged th
 
 ### Finding cap
 
-Maximum **10 findings** across all sources, prioritized by severity then confidence. If more issues exist, note the count (e.g., "10 of ~18 findings shown") and suggest re-running with a narrower scope — e.g., `/bootstrap:code-review` "focus on src/auth".
+Maximum **10 findings** across all sources, prioritized by severity then confidence. If more issues exist, note the count (e.g., "10 of ~18 findings shown") and suggest re-running with a narrower scope — e.g., `/prime:code-review` "focus on src/auth".
 
 ### Output format
 

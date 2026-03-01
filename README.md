@@ -1,13 +1,13 @@
-# claude-code-bootstrap
+# claude-code-prime
 
 What makes a good developer productive in a codebase also makes Claude Code productive: **clean code, good test coverage, and clear documentation.**
 
 Research backs this up: AI tools introduce [30%+ more defects](https://arxiv.org/abs/2601.02200) on poorly maintained code, LLM performance [degrades up to 85%](https://arxiv.org/abs/2510.05381) as context length grows, and Anthropic's [#1 best practice](https://code.claude.com/docs/en/best-practices) for Claude Code is giving it a way to verify its own work.
 
-- `/bootstrap:init` sets up your project for LLM peak performance
-- `/bootstrap:unit-test` builds the feedback loop that makes AI self-correcting
-- `/bootstrap:simplify` reviews existing code against the guidelines they establish
-- `/bootstrap:code-review` catches issues in your changes before they enter the repo
+- `/prime:init` sets up your project for LLM peak performance
+- `/prime:unit-test` builds the feedback loop that makes AI self-correcting
+- `/prime:simplify` reviews existing code against the guidelines they establish
+- `/prime:code-review` catches issues in your changes before they enter the repo
 
 ## Why This Plugin?
 
@@ -18,33 +18,33 @@ When you join a new project, you need good test coverage (to change code safely)
 - **Unit tests** enable self-correction: make change → run tests → see failure → fix
 - **Focused documentation** keeps the context window efficient and contradiction-free
 
-The LLM already knows best practices from training — but the trigger to apply them comes from the project context. `/bootstrap:init` provides that trigger.
+The LLM already knows best practices from training — but the trigger to apply them comes from the project context. `/prime:init` provides that trigger.
 
 ## Quick Start
 
 **Install:**
 
 ```shell
-/plugin marketplace add https://github.com/oprogramadorreal/claude-code-bootstrap.git
-/plugin install bootstrap@claude-code-bootstrap
+/plugin marketplace add https://github.com/oprogramadorreal/claude-code-prime.git
+/plugin install prime@claude-code-prime
 ```
 
-**Run:** Start a new Claude Code session and type `/bootstrap:init` in any project directory.
+**Run:** Start a new Claude Code session and type `/prime:init` in any project directory.
 
 ## Skills
 
 | Skill | Invocation | Purpose |
 |-------|-----------|---------|
-| [Init](#bootstrapinit) | `/bootstrap:init` | CLAUDE.md, docs, formatter hooks, quality agents |
-| [Unit Test](#bootstrapunit-test) | `/bootstrap:unit-test` | On-demand unit test coverage improvement |
-| [Simplify](#bootstrapsimplify) | `/bootstrap:simplify` | Project-wide code simplification against coding guidelines |
-| [Code Review](#bootstrapcode-review) | `/bootstrap:code-review` | Local-first code review with parallel agent-assisted analysis |
-| [Permissions](#bootstrappermissions) | `/bootstrap:permissions` | Allow/deny rules, path-restriction hook |
-| [Commit Message](#bootstrapcommit-message) | `/bootstrap:commit-message` | Conventional commit message suggester |
+| [Init](#primeinit) | `/prime:init` | CLAUDE.md, docs, formatter hooks, quality agents |
+| [Unit Test](#primeunit-test) | `/prime:unit-test` | On-demand unit test coverage improvement |
+| [Simplify](#primesimplify) | `/prime:simplify` | Project-wide code simplification against coding guidelines |
+| [Code Review](#primecode-review) | `/prime:code-review` | Local-first code review with parallel agent-assisted analysis |
+| [Permissions](#primepermissions) | `/prime:permissions` | Allow/deny rules, path-restriction hook |
+| [Commit Message](#primecommit-message) | `/prime:commit-message` | Conventional commit message suggester |
 
 ## Architecture: Project-Scoped by Design
 
-Unlike most plugins that bundle hooks and agents at the plugin level, **bootstrap writes everything into the project's `.claude/` directory**. This is an intentional design choice:
+Unlike most plugins that bundle hooks and agents at the plugin level, **prime writes everything into the project's `.claude/` directory**. This is an intentional design choice:
 
 - **Hooks, agents, docs, and settings travel with the repo via git** — any teammate who opens the project in Claude Code gets identical behavior, even without this plugin installed
 - **The plugin is needed only for setup and maintenance**, not for day-to-day development
@@ -54,19 +54,19 @@ The plugin is a **distribution wrapper** around project-setup skills. It makes i
 
 ## Recommended Workflow
 
-1. **Initial setup** — Run `/bootstrap:init` to set up project context (audits and updates existing docs if already present)
-2. **Test coverage** — Run `/bootstrap:unit-test` to establish or improve unit test coverage
-3. **After major changes** — Re-run `/bootstrap:init` to audit and refresh docs
-4. **Code quality review** — Run `/bootstrap:simplify` for a full codebase analysis against your coding guidelines
+1. **Initial setup** — Run `/prime:init` to set up project context (audits and updates existing docs if already present)
+2. **Test coverage** — Run `/prime:unit-test` to establish or improve unit test coverage
+3. **After major changes** — Re-run `/prime:init` to audit and refresh docs
+4. **Code quality review** — Run `/prime:simplify` for a full codebase analysis against your coding guidelines
 
-**During development** — use `/bootstrap:code-review` before committing to catch bugs and guideline violations, and `/bootstrap:commit-message` for conventional commit messages.
+**During development** — use `/prime:code-review` before committing to catch bugs and guideline violations, and `/prime:commit-message` for conventional commit messages.
 
 **Complementary tools** (optional):
-- **Inner-loop cleanup** — The builtin `/simplify` cleans up recent changes after each feature or bug fix. `/bootstrap:simplify` (step 4) covers the full project periodically; the builtin handles the per-change inner loop.
-- **PR code review** — Anthropic's official [code-review](https://github.com/anthropics/claude-code/tree/main/plugins/code-review) plugin reviews PRs against CLAUDE.md. Use it alongside `/bootstrap:code-review` for full coverage: bootstrap for pre-commit, official for post-push. Install: `claude plugin add code-review`
+- **Inner-loop cleanup** — The builtin `/simplify` cleans up recent changes after each feature or bug fix. `/prime:simplify` (step 4) covers the full project periodically; the builtin handles the per-change inner loop.
+- **PR code review** — Anthropic's official [code-review](https://github.com/anthropics/claude-code/tree/main/plugins/code-review) plugin reviews PRs against CLAUDE.md. Use it alongside `/prime:code-review` for full coverage: prime for pre-commit, official for post-push. Install: `claude plugin add code-review`
 - **Doc quality** — Anthropic's [claude-md-management](https://claude.com/plugins/claude-md-management) plugin provides `claude-md-improver` for scoring and targeted improvements, and `/revise-claude-md` to capture discoveries from real usage. Install: `claude plugin add claude-md-management`
 
-## /bootstrap:init
+## /prime:init
 
 The main skill. Analyzes your project and sets up five pillars designed to maximize Claude Code's performance:
 
@@ -80,11 +80,11 @@ Additional capabilities: intelligent audit on re-run (classifies docs as Outdate
 
 See [skills/init/README.md](skills/init/README.md) for full documentation including formatter hooks, agents, generated files, and customization.
 
-## /bootstrap:unit-test
+## /prime:unit-test
 
-Tests are the feedback loop that makes AI agents self-correcting — but many codebases start with gaps. `/bootstrap:unit-test` fills them deliberately: it discovers what's missing, provisions test infrastructure if needed, estimates an achievable coverage target, and generates tests that follow your project's conventions.
+Tests are the feedback loop that makes AI agents self-correcting — but many codebases start with gaps. `/prime:unit-test` fills them deliberately: it discovers what's missing, provisions test infrastructure if needed, estimates an achievable coverage target, and generates tests that follow your project's conventions.
 
-**Conservative by design** — only adds new test files, never refactors or restructures existing source code. If code is untestable as-is, it flags it rather than changing it. Discovers and reports bugs in existing code without fixing them. Refactoring is the domain of `/bootstrap:simplify`.
+**Conservative by design** — only adds new test files, never refactors or restructures existing source code. If code is untestable as-is, it flags it rather than changing it. Discovers and reports bugs in existing code without fixing them. Refactoring is the domain of `/prime:simplify`.
 
 Key capabilities:
 - **Infrastructure provisioning** — installs test-guardian agent, creates testing.md, updates CLAUDE.md if init skipped them
@@ -94,19 +94,19 @@ Key capabilities:
 
 See [skills/unit-test/README.md](skills/unit-test/README.md) for full documentation.
 
-## /bootstrap:simplify
+## /prime:simplify
 
-Well-maintained code has [30%+ fewer AI-introduced defects](https://arxiv.org/abs/2601.02200). `/bootstrap:init` sets up quality infrastructure with agents that guard new code automatically — but existing code can still accumulate technical debt. `/bootstrap:simplify` is the on-demand complement: a deliberate review you run when you want to actively improve existing code.
+Well-maintained code has [30%+ fewer AI-introduced defects](https://arxiv.org/abs/2601.02200). `/prime:init` sets up quality infrastructure with agents that guard new code automatically — but existing code can still accumulate technical debt. `/prime:simplify` is the on-demand complement: a deliberate review you run when you want to actively improve existing code.
 
 Analyzes source code against your project's coding guidelines with emphasis on **issues that span multiple files** — duplication across modules, inconsistent patterns between areas, architectural drift. Presents a prioritized simplification plan (capped at 12 findings per run), then applies only what you approve. The test suite runs automatically to verify nothing broke.
 
-**Flexible scope** — review the full project, a specific directory, or only files changed since a commit/date. **Conservative by design** — only suggests changes justified by the project's own guidelines. Works without `/bootstrap:init` by falling back to generic coding guidelines.
+**Flexible scope** — review the full project, a specific directory, or only files changed since a commit/date. **Conservative by design** — only suggests changes justified by the project's own guidelines. Works without `/prime:init` by falling back to generic coding guidelines.
 
-Claude Code includes a builtin `/simplify` command. `/bootstrap:simplify` is the enhanced, project-aware complement — just as `/bootstrap:init` extends the builtin `/init`. Key differences: full project scope vs per-session, project-specific guidelines vs general best practices, plan-then-apply workflow, and cross-file pattern detection.
+Claude Code includes a builtin `/simplify` command. `/prime:simplify` is the enhanced, project-aware complement — just as `/prime:init` extends the builtin `/init`. Key differences: full project scope vs per-session, project-specific guidelines vs general best practices, plan-then-apply workflow, and cross-file pattern detection.
 
 See [skills/simplify/README.md](skills/simplify/README.md) for full documentation.
 
-## /bootstrap:code-review
+## /prime:code-review
 
 Local-first code review using up to 6 parallel review agents. Reviews uncommitted changes by default — or PR/branch changes on request — against your project's coding guidelines. High-signal findings only: bugs, logic errors, security issues, explicit guideline violations.
 
@@ -116,21 +116,21 @@ Key capabilities:
 - **Project-aware** — evaluates against coding-guidelines.md, testing.md, styling.md, and architecture.md
 - **Actionable** — findings include file:line, before/after sketches, and guideline citations; optional fix-in-place
 
-Anthropic's official [code-review](https://github.com/anthropics/claude-code/tree/main/plugins/code-review) plugin reviews PRs against CLAUDE.md. `/bootstrap:code-review` is the enhanced, local-first complement — just as `/bootstrap:simplify` extends the builtin `/simplify`. Key differences: local changes by default, project-specific guidelines (not just CLAUDE.md), and 6 parallel agents including code-simplifier and test-guardian. Use both: bootstrap for inner-loop review (before commit), official for PR review (after push).
+Anthropic's official [code-review](https://github.com/anthropics/claude-code/tree/main/plugins/code-review) plugin reviews PRs against CLAUDE.md. `/prime:code-review` is the enhanced, local-first complement — just as `/prime:simplify` extends the builtin `/simplify`. Key differences: local changes by default, project-specific guidelines (not just CLAUDE.md), and 6 parallel agents including code-simplifier and test-guardian. Use both: prime for inner-loop review (before commit), official for PR review (after push).
 
 See [skills/code-review/README.md](skills/code-review/README.md) for full documentation.
 
-## /bootstrap:permissions
+## /prime:permissions
 
 Configures Claude Code permissions for safe agent autonomy — allow/deny rules that eliminate routine prompts, plus a PreToolUse hook that enforces tiered path-based security. Writes outside the project require approval; deletes outside the project are blocked.
 
 Especially useful on **native Windows** where OS-level sandboxing is not yet available, or as a **complementary layer** alongside sandboxing to reduce noise.
 
-Merges safely with `/bootstrap:init` — both share `.claude/settings.json` without conflicts.
+Merges safely with `/prime:init` — both share `.claude/settings.json` without conflicts.
 
 See [skills/permissions/README.md](skills/permissions/README.md) for full documentation, security model, enforcement reliability, and known limitations.
 
-## /bootstrap:commit-message
+## /prime:commit-message
 
 Analyzes local git changes (staged, unstaged, and untracked) and suggests [conventional commit](https://www.conventionalcommits.org/) messages — without committing anything. Suggests splitting into multiple commits when changes span different concerns.
 

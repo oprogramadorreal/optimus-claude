@@ -1,8 +1,8 @@
-# bootstrap:simplify
+# prime:simplify
 
 A [Claude Code](https://docs.anthropic.com/en/docs/claude-code) skill that analyzes your codebase against the project's coding guidelines — with emphasis on issues that span multiple files — and presents a prioritized simplification plan. You choose what to apply; the test suite verifies nothing broke.
 
-Well-maintained code has [30%+ fewer AI-introduced defects](https://arxiv.org/abs/2601.02200). `/bootstrap:init` sets up quality infrastructure with agents that guard new code automatically, but existing code can still accumulate technical debt. `/bootstrap:simplify` is the on-demand complement: a deliberate, project-wide review you run when you want to actively improve existing code.
+Well-maintained code has [30%+ fewer AI-introduced defects](https://arxiv.org/abs/2601.02200). `/prime:init` sets up quality infrastructure with agents that guard new code automatically, but existing code can still accumulate technical debt. `/prime:simplify` is the on-demand complement: a deliberate, project-wide review you run when you want to actively improve existing code.
 
 ## Features
 
@@ -12,26 +12,26 @@ Well-maintained code has [30%+ fewer AI-introduced defects](https://arxiv.org/ab
 - **Test verification** — runs the test suite after applying changes; reverts any change that causes failures
 - **Conservative by default** — only suggests changes justified by the project's own guidelines
 - **Prioritized findings** — High/Medium/Low impact with concrete before/after sketches, capped at 12 per run for actionable output
-- **Works without `/bootstrap:init`** — falls back to generic coding guidelines when project-specific docs aren't available
+- **Works without `/prime:init`** — falls back to generic coding guidelines when project-specific docs aren't available
 
 ## Quick Start
 
-This skill is part of the [bootstrap](https://github.com/oprogramadorreal/claude-code-bootstrap) plugin. See the [main README](../../README.md) for installation instructions.
+This skill is part of the [prime](https://github.com/oprogramadorreal/claude-code-prime) plugin. See the [main README](../../README.md) for installation instructions.
 
 ## Usage
 
 In Claude Code, use any of these:
 
-- `/bootstrap:simplify` — full project review
-- `/bootstrap:simplify` "focus on the auth module"
-- `/bootstrap:simplify` "review changes since last week"
+- `/prime:simplify` — full project review
+- `/prime:simplify` "focus on the auth module"
+- `/prime:simplify` "review changes since last week"
 - "simplify existing code against guidelines"
 - "find code quality issues across the project"
 - "review code quality across the project"
 
 ## When to Run
 
-- **After `/bootstrap:init`** — review existing code against the newly established guidelines
+- **After `/prime:init`** — review existing code against the newly established guidelines
 - **After major features** — check that new code follows established patterns
 - **Before releases** — catch quality issues before they ship
 - **Periodic cleanup** — schedule regular reviews to prevent tech debt accumulation
@@ -85,7 +85,7 @@ You then choose: **Apply all**, **Selective** (pick by number), or **Skip**.
 
 The code-simplifier agent and this skill are complementary — both use `coding-guidelines.md` as their source of truth but operate independently:
 
-| | Code-simplifier agent | `/bootstrap:simplify` |
+| | Code-simplifier agent | `/prime:simplify` |
 |---|---|---|
 | Trigger | Automatic, after every edit | On-demand, user-invoked |
 | Scope | Recently modified code | Full project, directory, or changed files |
@@ -97,7 +97,7 @@ The code-simplifier agent and this skill are complementary — both use `coding-
 
 Claude Code includes a builtin `/simplify` command. This follows the same pattern as `/init`:
 
-| | Builtin `/simplify` | `/bootstrap:simplify` |
+| | Builtin `/simplify` | `/prime:simplify` |
 |---|---|---|
 | Scope | Recently modified code within a session | Full project, directory, or changed files |
 | Guidelines | General best practices | Project-specific `coding-guidelines.md` |
@@ -106,7 +106,7 @@ Claude Code includes a builtin `/simplify` command. This follows the same patter
 | Verification | — | Runs test suite, reverts failures |
 | Finding cap | — | 12 per run, prioritized by impact |
 
-`/bootstrap:simplify` is the enhanced, project-aware complement — just as `/bootstrap:init` extends the builtin `/init` with progressive disclosure docs, formatter hooks, and quality agents.
+`/prime:simplify` is the enhanced, project-aware complement — just as `/prime:init` extends the builtin `/init` with progressive disclosure docs, formatter hooks, and quality agents.
 
 ## Skill Structure
 
@@ -118,7 +118,7 @@ Claude Code includes a builtin `/simplify` command. This follows the same patter
 
 - [Claude Code](https://docs.anthropic.com/en/docs/claude-code)
 - Git
-- Project bootstrapped with `/bootstrap:init` (recommended, not required)
+- Project primed with `/prime:init` (recommended, not required)
 
 ## License
 

@@ -1,5 +1,5 @@
 {
-  "name": "claude-code-bootstrap",
+  "name": "claude-code-prime",
   "owner": {
     "name": "oprogramadorreal",
     "url": "https://github.com/oprogramadorreal"
@@ -9,10 +9,10 @@
   },
   "plugins": [
     {
-      "name": "bootstrap",
+      "name": "prime",
       "source": {
         "source": "github",
-        "repo": "oprogramadorreal/claude-code-bootstrap"
+        "repo": "oprogramadorreal/claude-code-prime"
       },
       "description": "Research-backed project setup — CLAUDE.md, auto-format hooks, quality agents, code simplification, code review, unit testing, permissions, and commit messages"
     }

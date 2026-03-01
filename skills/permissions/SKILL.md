@@ -3,7 +3,7 @@ description: Configure Claude Code permissions for safe agent autonomy. Creates 
 disable-model-invocation: true
 ---
 
-# Bootstrap Permissions
+# Prime Permissions
 
 Configure safe permission rules and a path-restriction hook so Claude Code agents can work autonomously inside the project without constant permission prompts, while blocking destructive operations outside the project.
 

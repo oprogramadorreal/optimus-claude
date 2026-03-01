@@ -1,8 +1,8 @@
-# bootstrap:code-review
+# prime:code-review
 
 A [Claude Code](https://docs.anthropic.com/en/docs/claude-code) skill that reviews local changes (or PRs) against your project's coding guidelines — using up to 6 parallel review agents for comprehensive coverage. High-signal findings only: bugs, logic errors, security issues, guideline violations.
 
-Well-maintained code has [30%+ fewer AI-introduced defects](https://arxiv.org/abs/2601.02200). `/bootstrap:init` sets up quality infrastructure with agents that guard new code automatically, and `/bootstrap:simplify` reviews existing code across the project. `/bootstrap:code-review` is the inner-loop complement: a focused review of your changes before they enter the repo.
+Well-maintained code has [30%+ fewer AI-introduced defects](https://arxiv.org/abs/2601.02200). `/prime:init` sets up quality infrastructure with agents that guard new code automatically, and `/prime:simplify` reviews existing code across the project. `/prime:code-review` is the inner-loop complement: a focused review of your changes before they enter the repo.
 
 ## Features
 
@@ -12,20 +12,20 @@ Well-maintained code has [30%+ fewer AI-introduced defects](https://arxiv.org/ab
 - **High signal only** — bugs, security issues, logic errors, explicit guideline violations; excludes style concerns and subjective suggestions
 - **Validation step** — each finding is independently verified (context check, intent check, pre-existing check, cross-agent consensus) before reporting
 - **Actionable output** — findings include file:line references, before/after code sketches, guideline citations, and severity levels
-- **Works without `/bootstrap:init`** — falls back to generic coding guidelines when project-specific docs are not available
+- **Works without `/prime:init`** — falls back to generic coding guidelines when project-specific docs are not available
 
 ## Quick Start
 
-This skill is part of the [bootstrap](https://github.com/oprogramadorreal/claude-code-bootstrap) plugin. See the [main README](../../README.md) for installation instructions.
+This skill is part of the [prime](https://github.com/oprogramadorreal/claude-code-prime) plugin. See the [main README](../../README.md) for installation instructions.
 
 ## Usage
 
 In Claude Code, use any of these:
 
-- `/bootstrap:code-review` — review local uncommitted changes
-- `/bootstrap:code-review` "review PR #42"
-- `/bootstrap:code-review` "review changes since main"
-- `/bootstrap:code-review` "focus on src/auth"
+- `/prime:code-review` — review local uncommitted changes
+- `/prime:code-review` "review PR #42"
+- `/prime:code-review` "review changes since main"
+- `/prime:code-review` "focus on src/auth"
 - "review my changes"
 - "code review before I commit"
 
@@ -103,7 +103,7 @@ You then choose: **Fix issues**, **Post comment** (PR mode), or **Skip**.
 
 Anthropic's official [code-review](https://github.com/anthropics/claude-code/tree/main/plugins/code-review) plugin and this skill are complementary — both review code with parallel agents but serve different workflows:
 
-| | Official `/code-review:code-review` | `/bootstrap:code-review` |
+| | Official `/code-review:code-review` | `/prime:code-review` |
 |---|---|---|
 | Default target | Pull requests | Local uncommitted changes |
 | Guidelines | CLAUDE.md only | coding-guidelines.md, testing.md, styling.md, architecture.md |
@@ -111,13 +111,13 @@ Anthropic's official [code-review](https://github.com/anthropics/claude-code/tre
 | Agent types | 2 CLAUDE.md compliance + 1 bug + 1 security | 2 guideline compliance + 1 bug + 1 security + code-simplifier + test-guardian |
 | Validation | Sub-agent validation + confidence scoring | Inline validation (context, intent, pre-existing, consensus) |
 | Output | Terminal + inline PR comments | Terminal + optional PR comment or fix-in-place |
-| Install | `claude plugin add code-review` | Part of bootstrap plugin |
+| Install | `claude plugin add code-review` | Part of prime plugin |
 
-**How to use both**: `/bootstrap:code-review` for the inner development loop (before committing), official `/code-review:code-review` for PR review (after pushing). Bootstrap catches issues against your full project guidelines; the official plugin catches CLAUDE.md violations on the PR diff.
+**How to use both**: `/prime:code-review` for the inner development loop (before committing), official `/code-review:code-review` for PR review (after pushing). Prime catches issues against your full project guidelines; the official plugin catches CLAUDE.md violations on the PR diff.
 
 ## Relationship to Other Skills
 
-| | `/bootstrap:code-review` | `/bootstrap:simplify` |
+| | `/prime:code-review` | `/prime:simplify` |
 |---|---|---|
 | Scope | Changed files only | Full project or directory |
 | Focus | Bugs, security, guideline compliance | Cross-file patterns, duplication, drift |
@@ -125,7 +125,7 @@ Anthropic's official [code-review](https://github.com/anthropics/claude-code/tre
 | Action | Report + optional fix | Plan + apply on approval |
 | Agents | 6 parallel (bug, security, guidelines ×2, simplifier, test-guardian) | None (direct analysis) |
 
-| | `/bootstrap:code-review` | `/bootstrap:commit-message` |
+| | `/prime:code-review` | `/prime:commit-message` |
 |---|---|---|
 | Analyzes | Changed code quality | Changed code intent |
 | Output | Findings with fixes | Commit message suggestion |
@@ -141,7 +141,7 @@ Anthropic's official [code-review](https://github.com/anthropics/claude-code/tre
 
 - [Claude Code](https://docs.anthropic.com/en/docs/claude-code)
 - Git
-- Project bootstrapped with `/bootstrap:init` (recommended, not required — enables all 6 agents and project-specific guidelines)
+- Project primed with `/prime:init` (recommended, not required — enables all 6 agents and project-specific guidelines)
 - GitHub CLI (`gh`) for PR review mode (optional)
 
 ## License

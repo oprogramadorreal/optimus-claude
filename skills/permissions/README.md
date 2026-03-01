@@ -1,14 +1,14 @@
-# bootstrap:permissions
+# prime:permissions
 
 Claude Code's [built-in sandboxing](https://code.claude.com/docs/en/sandboxing) provides OS-level isolation on macOS (Seatbelt) and Linux/WSL2 (bubblewrap) — but on native Windows, sandboxing is [not yet available](https://code.claude.com/docs/en/sandboxing#limitations). That leaves two options: constant permission prompts (safe but slow), or `--dangerously-skip-permissions` (fast but unsafe).
 
-`/bootstrap:permissions` provides a third path: **allow/deny rules** that eliminate routine prompts, plus a **PreToolUse hook** that enforces a tiered security model — writes outside the project require approval, deletes outside the project are blocked. Not OS-level isolation, but significantly safer than no guardrails at all.
+`/prime:permissions` provides a third path: **allow/deny rules** that eliminate routine prompts, plus a **PreToolUse hook** that enforces a tiered security model — writes outside the project require approval, deletes outside the project are blocked. Not OS-level isolation, but significantly safer than no guardrails at all.
 
 ## Quick Start
 
-This skill is part of the [bootstrap](https://github.com/oprogramadorreal/claude-code-bootstrap) plugin. See the [main README](../../README.md) for installation instructions.
+This skill is part of the [prime](https://github.com/oprogramadorreal/claude-code-prime) plugin. See the [main README](../../README.md) for installation instructions.
 
-**Run:** Type `/bootstrap:permissions` in any project directory.
+**Run:** Type `/prime:permissions` in any project directory.
 
 ## Where This Fits
 
@@ -36,7 +36,7 @@ Claude Code has multiple layers for managing agent autonomy. The right choice de
 
 ## What It Does
 
-`/bootstrap:permissions` generates two files that work together to provide three layers of protection:
+`/prime:permissions` generates two files that work together to provide three layers of protection:
 
 ### 1. Allow List — Eliminate Routine Prompts
 
@@ -88,16 +88,16 @@ This is **defense-in-depth**: multiple independent layers that each catch differ
 | `.claude/settings.json` | Permission allow/deny rules + PreToolUse hook configuration |
 | `.claude/hooks/restrict-paths.sh` | Path-restriction hook (tiered security logic) |
 
-If `.claude/settings.json` already exists (e.g., from [`/bootstrap:init`](https://github.com/oprogramadorreal/claude-code-bootstrap)), the skill **merges** permissions into it — existing hooks, custom rules, and other configuration are preserved. Run either skill first; both share the same file safely.
+If `.claude/settings.json` already exists (e.g., from [`/prime:init`](https://github.com/oprogramadorreal/claude-code-prime)), the skill **merges** permissions into it — existing hooks, custom rules, and other configuration are preserved. Run either skill first; both share the same file safely.
 
-## Complements /bootstrap:init
+## Complements /prime:init
 
-This skill is designed as a companion to [`/bootstrap:init`](https://github.com/oprogramadorreal/claude-code-bootstrap), which handles documentation, formatter hooks, and code quality agents. The two skills share `.claude/settings.json`:
+This skill is designed as a companion to [`/prime:init`](https://github.com/oprogramadorreal/claude-code-prime), which handles documentation, formatter hooks, and code quality agents. The two skills share `.claude/settings.json`:
 
 | Skill | Creates | Hook Type |
 |---|---|---|
-| `/bootstrap:init` | PostToolUse hooks (auto-formatting after Edit/MultiEdit/Write) | PostToolUse |
-| `/bootstrap:permissions` | Permission rules + PreToolUse hook (path restriction) | PreToolUse |
+| `/prime:init` | PostToolUse hooks (auto-formatting after Edit/MultiEdit/Write) | PostToolUse |
+| `/prime:permissions` | Permission rules + PreToolUse hook (path restriction) | PreToolUse |
 
 Run either skill first — both merge safely into the same file.
 
@@ -153,7 +153,7 @@ Official documentation and resources that informed this skill's design:
 
 ## Requirements
 
-- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) — `/bootstrap:permissions` is a [skill](https://docs.anthropic.com/en/docs/claude-code/skills) (reusable prompt that adds a slash command)
+- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) — `/prime:permissions` is a [skill](https://docs.anthropic.com/en/docs/claude-code/skills) (reusable prompt that adds a slash command)
 - Git
 - Bash (available by default on macOS/Linux; on Windows via Git Bash or WSL)
 

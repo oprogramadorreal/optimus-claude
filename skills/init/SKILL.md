@@ -1,9 +1,9 @@
 ---
-description: Bootstrap project setup for Claude Code — generates CLAUDE.md with progressive disclosure docs, auto-format hooks, and code-quality agents. Replaces /init. Supports monorepos.
+description: Prime project setup for Claude Code — generates CLAUDE.md with progressive disclosure docs, auto-format hooks, and code-quality agents. Replaces /init. Supports monorepos.
 disable-model-invocation: true
 ---
 
-# Bootstrap Project for Claude Code
+# Prime Project for Claude Code
 
 Analyze the project and set up Claude Code for optimal performance: generate CLAUDE.md with supporting docs (WHAT/WHY/HOW, progressive disclosure), install auto-format hooks per detected stack, deploy code-simplifier and test-guardian agents, and sync existing documentation against source code. Supports single projects and monorepos.
 
@@ -254,7 +254,7 @@ Always overwrite — this is a verbatim template, not project-customized content
 
 If detected: Copy `$CLAUDE_PLUGIN_ROOT/skills/init/templates/agents/test-guardian.md` to `.claude/agents/test-guardian.md`. Always overwrite — this is a verbatim template, not project-customized content.
 
-If not detected: Skip installation. In Step 7 summary, include: "⚠ No test infrastructure detected. Skipping test-guardian agent and testing docs. To set up a test framework and improve test coverage, run `/bootstrap:unit-test`."
+If not detected: Skip installation. In Step 7 summary, include: "⚠ No test infrastructure detected. Skipping test-guardian agent and testing docs. To set up a test framework and improve test coverage, run `/prime:unit-test`."
 
 ## Step 6: Create Documentation Files
 

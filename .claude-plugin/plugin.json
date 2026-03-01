@@ -1,13 +1,13 @@
 {
-  "name": "bootstrap",
-  "version": "1.4.0",
+  "name": "prime",
+  "version": "1.0.0",
   "description": "Research-backed project setup — CLAUDE.md, auto-format hooks, quality agents, code simplification, code review, unit testing, permissions, and commit messages",
   "author": {
     "name": "oprogramadorreal",
     "url": "https://github.com/oprogramadorreal"
   },
-  "homepage": "https://github.com/oprogramadorreal/claude-code-bootstrap",
-  "repository": "https://github.com/oprogramadorreal/claude-code-bootstrap",
+  "homepage": "https://github.com/oprogramadorreal/claude-code-prime",
+  "repository": "https://github.com/oprogramadorreal/claude-code-prime",
   "license": "MIT",
-  "keywords": ["bootstrap", "setup", "claude-md", "simplify", "code-review", "unit-test", "permissions", "commit-message", "formatter", "agents"]
+  "keywords": ["prime", "setup", "claude-md", "simplify", "code-review", "unit-test", "permissions", "commit-message", "formatter", "agents"]
 }

@@ -5,11 +5,11 @@ disable-model-invocation: true
 
 # Unit Test Coverage Improvement
 
-Improve unit test coverage for existing code. Conservative by design — only adds new test files, never refactors or restructures existing source code. If code is untestable as-is, it flags it rather than changing it. Refactoring is the domain of `/bootstrap:simplify`.
+Improve unit test coverage for existing code. Conservative by design — only adds new test files, never refactors or restructures existing source code. If code is untestable as-is, it flags it rather than changing it. Refactoring is the domain of `/prime:simplify`.
 
 ## Step 1: Pre-flight
 
-Check that `.claude/CLAUDE.md` exists. If it doesn't, stop and recommend running `/bootstrap:init` first — the project needs baseline context before test generation can be effective.
+Check that `.claude/CLAUDE.md` exists. If it doesn't, stop and recommend running `/prime:init` first — the project needs baseline context before test generation can be effective.
 
 Beyond the init check, identify which guideline documents are available — they directly affect the quality of everything this skill does:
 
@@ -26,9 +26,9 @@ The skill operates differently depending on what exists:
 
 ### Scope
 
-Parse optional path argument (e.g., `/bootstrap:unit-test src/api`) to limit scope. If no path is specified, default to the full project.
+Parse optional path argument (e.g., `/prime:unit-test src/api`) to limit scope. If no path is specified, default to the full project.
 
-For monorepos, detect subprojects using the same approach as `/bootstrap:init` — reference `$CLAUDE_PLUGIN_ROOT/skills/init/SKILL.md` Step 1 for detection logic (workspace configs, manifest scanning, supporting signals). Process each subproject independently.
+For monorepos, detect subprojects using the same approach as `/prime:init` — reference `$CLAUDE_PLUGIN_ROOT/skills/init/SKILL.md` Step 1 for detection logic (workspace configs, manifest scanning, supporting signals). Process each subproject independently.
 
 ## Step 2: Discovery
 
@@ -38,7 +38,7 @@ For each subproject (or the single project), scan for:
 - **Test framework** — configuration files and manifest dependencies (jest, vitest, mocha, pytest, junit, xunit, rspec, gtest, etc.)
 - **Test runner commands** — from `testing.md`, `CLAUDE.md`, `package.json` scripts, `Makefile`, `Cargo.toml`, etc.
 - **Coverage tooling** — whether coverage measurement is already configured and available
-- **Bootstrap infrastructure status** — does `.claude/agents/test-guardian.md` exist? does `.claude/docs/testing.md` exist? does `.claude/CLAUDE.md` reference testing?
+- **Prime infrastructure status** — does `.claude/agents/test-guardian.md` exist? does `.claude/docs/testing.md` exist? does `.claude/CLAUDE.md` reference testing?
 
 Present a summary table to the user:
 
@@ -68,9 +68,9 @@ If installation fails (network issues, version conflicts, incompatible environme
 
 Detect this gap separately and recommend installing coverage tooling. Coverage measurement is essential for the skill to report meaningful results and set achievable targets. Ask for explicit user approval.
 
-## Step 4: Bootstrap Infrastructure Provisioning
+## Step 4: Prime Infrastructure Provisioning
 
-This phase runs **regardless** of whether Step 3 installed anything — test infrastructure may have been added manually after `/bootstrap:init` ran. When init ran on a project without test infrastructure, it correctly skipped test-guardian, testing.md, and CLAUDE.md testing references. Now that test infrastructure exists (pre-existing or just installed), this skill provisions what init would have created.
+This phase runs **regardless** of whether Step 3 installed anything — test infrastructure may have been added manually after `/prime:init` ran. When init ran on a project without test infrastructure, it correctly skipped test-guardian, testing.md, and CLAUDE.md testing references. Now that test infrastructure exists (pre-existing or just installed), this skill provisions what init would have created.
 
 ### 4a: Test-guardian agent
 
@@ -114,7 +114,7 @@ Before writing any tests:
 - Gap requiring structural changes: ~[Z]%
 
 The remaining ~[Z]% would require structural changes (dependency injection,
-repository pattern extraction, etc.) — that's the domain of /bootstrap:simplify.
+repository pattern extraction, etc.) — that's the domain of /prime:simplify.
 ```
 
 This sets clear expectations and reinforces the conservative constraint.
@@ -149,7 +149,7 @@ Tests must follow:
 
 ### Conservative constraint
 
-**Only add new test files.** Never refactor or modify existing source code — refactoring is the domain of `/bootstrap:simplify`. If a function can't be tested without changing its signature or extracting dependencies, flag it in the summary instead of changing it.
+**Only add new test files.** Never refactor or modify existing source code — refactoring is the domain of `/prime:simplify`. If a function can't be tested without changing its signature or extracting dependencies, flag it in the summary instead of changing it.
 
 ### Per-test workflow
 
@@ -193,5 +193,5 @@ Report to the user:
 
 ### Not Testable Without Refactoring
 - [List of code flagged as untestable — with brief explanation of what structural change would be needed]
-- To address these, run `/bootstrap:simplify` to review and restructure the code first.
+- To address these, run `/prime:simplify` to review and restructure the code first.
 ```

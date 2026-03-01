@@ -1,5 +1,5 @@
 ---
-description: On-demand code review — run after /bootstrap:init, when code quality drifts, or for periodic cleanup. Analyzes the codebase against project coding guidelines, surfaces issues that span multiple files (duplication across modules, pattern inconsistency, architectural drift), and presents a simplification plan for approval before changes are applied.
+description: On-demand code review — run after /prime:init, when code quality drifts, or for periodic cleanup. Analyzes the codebase against project coding guidelines, surfaces issues that span multiple files (duplication across modules, pattern inconsistency, architectural drift), and presents a simplification plan for approval before changes are applied.
 disable-model-invocation: true
 ---
 
@@ -15,10 +15,10 @@ Check that these files exist:
 - `.claude/CLAUDE.md`
 - `.claude/docs/coding-guidelines.md`
 
-**If either is missing**, warn the user and recommend running `/bootstrap:init` first. Use these fallbacks so the skill can still run:
+**If either is missing**, warn the user and recommend running `/prime:init` first. Use these fallbacks so the skill can still run:
 - `CLAUDE.md` missing → detect tech stack from manifest files (`package.json`, `Cargo.toml`, `pyproject.toml`, etc.) for basic context
 - `coding-guidelines.md` missing → read `$CLAUDE_PLUGIN_ROOT/skills/init/templates/docs/coding-guidelines.md` as a generic baseline; inform the user that findings are based on generic guidelines, not project-specific ones
-- Both missing → apply both fallbacks, strongly recommend `/bootstrap:init`
+- Both missing → apply both fallbacks, strongly recommend `/prime:init`
 
 **Ask the user to choose a scope:**
 
@@ -48,7 +48,7 @@ For monorepos with **full project** scope: ask which subprojects to include (def
 
 #### Monorepo
 
-`/bootstrap:init` places docs differently in monorepos — `coding-guidelines.md` is shared at root, but `testing.md`, `styling.md`, and `architecture.md` are scoped per subproject:
+`/prime:init` places docs differently in monorepos — `coding-guidelines.md` is shared at root, but `testing.md`, `styling.md`, and `architecture.md` are scoped per subproject:
 
 1. `.claude/CLAUDE.md` — root overview, subproject table, workspace-level commands
 2. `.claude/docs/coding-guidelines.md` — shared coding standards (applies to all subprojects)
@@ -127,7 +127,7 @@ When in doubt, don't flag it. Prefer small, safe changes over ambitious restruct
 
 ### Finding caps
 
-Surface at most **12 findings per run** and **5 per area**, prioritized by impact. If more issues exist, note the count (e.g., "12 of ~25 findings shown") and suggest re-running with a narrower scope — e.g., `/bootstrap:simplify` "focus on src/auth" or "review only the api module".
+Surface at most **12 findings per run** and **5 per area**, prioritized by impact. If more issues exist, note the count (e.g., "12 of ~25 findings shown") and suggest re-running with a narrower scope — e.g., `/prime:simplify` "focus on src/auth" or "review only the api module".
 
 ## Step 4: Present Simplification Plan
 

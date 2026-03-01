@@ -1,6 +1,6 @@
-# bootstrap:init
+# prime:init
 
-The main skill of the [bootstrap](https://github.com/oprogramadorreal/claude-code-bootstrap) plugin. Analyzes your project and sets up Claude Code for optimal performance by generating documentation, installing formatter hooks, and deploying quality agents — all scoped to the project directory so they travel with the repo via git.
+The main skill of the [prime](https://github.com/oprogramadorreal/claude-code-prime) plugin. Analyzes your project and sets up Claude Code for optimal performance by generating documentation, installing formatter hooks, and deploying quality agents — all scoped to the project directory so they travel with the repo via git.
 
 What makes a good developer productive in a codebase also makes Claude Code productive: clean code, good test coverage, and clear documentation. Research backs this up: AI tools introduce [30%+ more defects](https://arxiv.org/abs/2601.02200) on poorly maintained code, LLM performance [degrades up to 85%](https://arxiv.org/abs/2510.05381) as context length grows, and Anthropic's [#1 best practice](https://code.claude.com/docs/en/best-practices) for Claude Code is giving it a way to verify its own work.
 
@@ -8,7 +8,7 @@ What makes a good developer productive in a codebase also makes Claude Code prod
 
 - **Context Architecture** — creates CLAUDE.md files following [research-backed practices](https://www.humanlayer.dev/blog/writing-a-good-claude-md): a compact ~60-line root file within the LLM's peak attention window, with details in separate docs loaded only when needed. Just like you don't keep all backend details in your head while fixing a frontend bug, Claude shouldn't load everything into context at once.
 - **Code Consistency** — installs PostToolUse hooks that auto-format code every time Claude modifies a file. This prevents formatting drift — different styles introduce unnecessary token variation that adds no information.
-- **Code Quality** — deploys a [code-simplifier](templates/agents/code-simplifier.md) agent that enforces your project's [coding guidelines](templates/docs/coding-guidelines.md) — clean code, small functions, clear naming, proper abstractions. This isn't about aesthetics: well-maintained code has [30%+ fewer AI-introduced defects](https://arxiv.org/abs/2601.02200). The agent guards new code proactively; for a full project review, see `/bootstrap:simplify`.
+- **Code Quality** — deploys a [code-simplifier](templates/agents/code-simplifier.md) agent that enforces your project's [coding guidelines](templates/docs/coding-guidelines.md) — clean code, small functions, clear naming, proper abstractions. This isn't about aesthetics: well-maintained code has [30%+ fewer AI-introduced defects](https://arxiv.org/abs/2601.02200). The agent guards new code proactively; for a full project review, see `/prime:simplify`.
 - **Test Coverage** — installs a [test-guardian](templates/agents/test-guardian.md) agent that monitors coverage gaps when test infrastructure is detected — flagging untested code, verifying that existing tests still pass, and checking that test commands are runnable. It doesn't write tests or install frameworks; it ensures the project maintains its testing standards as it evolves. This directly enables Anthropic's [#1 best practice](https://code.claude.com/docs/en/best-practices): giving Claude a way to verify its work.
 - **Documentation Freshness** — reviews existing documentation (README, CONTRIBUTING, etc.) for contradictions against the actual source code. Stale docs in context degrade LLM performance — if documentation says one thing and the code says another, you're actively harming output quality.
 - **Audit on re-run** — compares docs against current project state, classifies sections as Outdated / Missing / Accurate, and lets you choose what to update
@@ -16,17 +16,17 @@ What makes a good developer productive in a codebase also makes Claude Code prod
 
 ## Quick Start
 
-This skill is part of the [bootstrap](https://github.com/oprogramadorreal/claude-code-bootstrap) plugin. See the [main README](../../README.md) for installation instructions.
+This skill is part of the [prime](https://github.com/oprogramadorreal/claude-code-prime) plugin. See the [main README](../../README.md) for installation instructions.
 
-**Run:** Start a new Claude Code session and type `/bootstrap:init` in any project directory.
+**Run:** Start a new Claude Code session and type `/prime:init` in any project directory.
 
 ## Usage
 
 In Claude Code, use any of these:
 
-- `/bootstrap:init` — full project setup
-- `/bootstrap:init` "focus on the backend services"
-- "bootstrap this project"
+- `/prime:init` — full project setup
+- `/prime:init` "focus on the backend services"
+- "prime this project"
 - "set up Claude Code for this project"
 - "initialize project documentation and hooks"
 
@@ -62,7 +62,7 @@ PostToolUse hooks that auto-format files after every Edit/MultiEdit/Write, insta
 | `format-java.sh` | google-java-format | Java project detected |
 | `format-cpp.sh` | clang-format | C/C++ project detected |
 
-For stacks requiring external formatters (Python, Node.js, C#, Java, C/C++), `/bootstrap:init` checks your dependencies and asks before installing anything.
+For stacks requiring external formatters (Python, Node.js, C#, Java, C/C++), `/prime:init` checks your dependencies and asks before installing anything.
 
 ## Agents
 

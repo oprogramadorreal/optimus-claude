@@ -1,4 +1,4 @@
-# bootstrap:commit-message
+# prime:commit-message
 
 A [Claude Code](https://docs.anthropic.com/en/docs/claude-code) skill that analyzes your local git changes and suggests [conventional commit](https://www.conventionalcommits.org/) messages — without committing anything.
 
@@ -11,13 +11,13 @@ A [Claude Code](https://docs.anthropic.com/en/docs/claude-code) skill that analy
 
 ## Quick Start
 
-This skill is part of the [bootstrap](https://github.com/oprogramadorreal/claude-code-bootstrap) plugin. See the [main README](../../README.md) for installation instructions.
+This skill is part of the [prime](https://github.com/oprogramadorreal/claude-code-prime) plugin. See the [main README](../../README.md) for installation instructions.
 
 ## Usage
 
 In Claude Code, use any of these:
 
-- `/bootstrap:commit-message`
+- `/prime:commit-message`
 - "suggest a commit message"
 - "generate commit message"
 - "summarize my changes"

@@ -1,15 +1,15 @@
-# bootstrap:unit-test
+# prime:unit-test
 
 A [Claude Code](https://docs.anthropic.com/en/docs/claude-code) skill that improves unit test coverage for existing code — discovering gaps, provisioning test infrastructure, and generating tests that follow your project's conventions.
 
-Well-maintained code has [30%+ fewer AI-introduced defects](https://arxiv.org/abs/2601.02200), and tests are what make AI agents self-correcting: make change → run tests → see failure → fix. `/bootstrap:init` installs a test-guardian agent that monitors coverage gaps, but it doesn't write tests. `/bootstrap:unit-test` is the active complement: it fills gaps deliberately.
+Well-maintained code has [30%+ fewer AI-introduced defects](https://arxiv.org/abs/2601.02200), and tests are what make AI agents self-correcting: make change → run tests → see failure → fix. `/prime:init` installs a test-guardian agent that monitors coverage gaps, but it doesn't write tests. `/prime:unit-test` is the active complement: it fills gaps deliberately.
 
-**Conservative by design** — only adds new test files, never refactors or restructures existing source code. If code is untestable as-is, it flags it rather than changing it. Refactoring is the domain of `/bootstrap:simplify`.
+**Conservative by design** — only adds new test files, never refactors or restructures existing source code. If code is untestable as-is, it flags it rather than changing it. Refactoring is the domain of `/prime:simplify`.
 
 ## Features
 
-- **Pre-flight check** — verifies `/bootstrap:init` has been run and identifies available guideline documents
-- **Project-wide discovery** — scans for test files, frameworks, coverage tooling, and bootstrap infrastructure status
+- **Pre-flight check** — verifies `/prime:init` has been run and identifies available guideline documents
+- **Project-wide discovery** — scans for test files, frameworks, coverage tooling, and prime infrastructure status
 - **Framework recommendation** — analyzes tech stack and recommends the most popular test framework with coverage tooling
 - **Coverage tooling setup** — detects when a framework exists but coverage measurement is missing
 - **Infrastructure provisioning** — installs test-guardian agent, creates testing.md, updates CLAUDE.md if init skipped them
@@ -21,22 +21,22 @@ Well-maintained code has [30%+ fewer AI-introduced defects](https://arxiv.org/ab
 
 ## Quick Start
 
-This skill is part of the [bootstrap](https://github.com/oprogramadorreal/claude-code-bootstrap) plugin. See the [main README](../../README.md) for installation instructions.
+This skill is part of the [prime](https://github.com/oprogramadorreal/claude-code-prime) plugin. See the [main README](../../README.md) for installation instructions.
 
 ## Usage
 
 In Claude Code, use any of these:
 
-- `/bootstrap:unit-test` — full project test coverage improvement
-- `/bootstrap:unit-test src/api` — scope to a specific directory
-- `/bootstrap:unit-test packages/auth` — scope to a monorepo subproject
+- `/prime:unit-test` — full project test coverage improvement
+- `/prime:unit-test src/api` — scope to a specific directory
+- `/prime:unit-test packages/auth` — scope to a monorepo subproject
 - "improve test coverage"
 - "add unit tests for this project"
 - "set up testing and write tests"
 
 ## When to Run
 
-- **After `/bootstrap:init`** — establish test coverage for a newly bootstrapped project
+- **After `/prime:init`** — establish test coverage for a newly primed project
 - **On established projects** — fill coverage gaps in codebases that grew without systematic testing
 - **Before releases** — strengthen test coverage before shipping
 - **After major refactors** — verify refactored code with new tests
@@ -74,7 +74,7 @@ The skill produces a structured summary after completing:
 ### Not Testable Without Refactoring
 - src/services/payment.ts — inline Stripe API calls without injection
 - src/db/migrate.ts — direct database connection, no repository pattern
-- To address these, run /bootstrap:simplify to review and restructure the code first.
+- To address these, run /prime:simplify to review and restructure the code first.
 ```
 
 ## How It Works
@@ -82,7 +82,7 @@ The skill produces a structured summary after completing:
 1. Verifies project context exists and identifies available guideline documents
 2. Discovers existing test infrastructure, framework, coverage tooling, and gaps
 3. Recommends and installs test framework + coverage tooling if missing (with approval)
-4. Provisions bootstrap infrastructure (test-guardian, testing.md, CLAUDE.md updates)
+4. Provisions prime infrastructure (test-guardian, testing.md, CLAUDE.md updates)
 5. Measures baseline coverage and estimates achievable target without refactoring
 6. Presents prioritized test generation plan (capped at 10 items)
 7. Writes tests following project conventions; runs each immediately
@@ -92,7 +92,7 @@ The skill produces a structured summary after completing:
 
 The test-guardian agent and this skill are complementary — both use `testing.md` as their source of truth but serve different roles:
 
-| | Test-guardian agent | `/bootstrap:unit-test` |
+| | Test-guardian agent | `/prime:unit-test` |
 |---|---|---|
 | Trigger | Automatic, after code changes | On-demand, user-invoked |
 | Scope | Current task changes | Full project or scoped directory |
@@ -112,7 +112,7 @@ The test-guardian agent and this skill are complementary — both use `testing.m
 
 - [Claude Code](https://docs.anthropic.com/en/docs/claude-code)
 - Git
-- Project bootstrapped with `/bootstrap:init` (recommended, not required)
+- Project primed with `/prime:init` (recommended, not required)
 
 ## License
 
