@@ -39,10 +39,10 @@ git status --short
 ### PR mode (explicit request)
 
 When the user says "review PR #42", passes `--pr`, `#123`, or a PR URL:
+- Verify `gh` is available by running `gh --version`. If not available, inform the user that PR review requires the GitHub CLI and offer to review the branch diff instead
 - Use `gh pr view <N> --json state,isDraft,title,body,baseRefName,headRefName` to get PR metadata
 - Use `gh pr diff <N>` to get the actual diff
 - If the PR is closed or merged → warn and stop
-- Before using PR mode, verify `gh` is available by running `gh --version`. If not available, inform the user that PR review requires the GitHub CLI and offer to review the branch diff instead
 
 ### Branch/ref mode
 

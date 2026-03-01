@@ -5,7 +5,7 @@
     "url": "https://github.com/oprogramadorreal"
   },
   "metadata": {
-    "description": "Research-backed project setup — CLAUDE.md, auto-format hooks, quality agents, code simplification, unit testing, permissions, and commit messages"
+    "description": "Research-backed project setup — CLAUDE.md, auto-format hooks, quality agents, code simplification, code review, unit testing, permissions, and commit messages"
   },
   "plugins": [
     {
@@ -14,7 +14,7 @@
         "source": "github",
         "repo": "oprogramadorreal/claude-code-bootstrap"
       },
-      "description": "Research-backed project setup — CLAUDE.md, auto-format hooks, quality agents, code simplification, unit testing, permissions, and commit messages"
+      "description": "Research-backed project setup — CLAUDE.md, auto-format hooks, quality agents, code simplification, code review, unit testing, permissions, and commit messages"
     }
   ]
 }
