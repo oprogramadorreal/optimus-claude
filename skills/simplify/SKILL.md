@@ -1,5 +1,5 @@
 ---
-description: On-demand code review — run after /bootstrap:init, when code quality drifts, or for periodic cleanup. Analyzes the codebase against project coding guidelines, surfaces issues that span multiple files (duplication across modules, pattern inconsistency, architectural drift), and presents a simplification plan you approve before changes are applied.
+description: On-demand code review — run after /bootstrap:init, when code quality drifts, or for periodic cleanup. Analyzes the codebase against project coding guidelines, surfaces issues that span multiple files (duplication across modules, pattern inconsistency, architectural drift), and presents a simplification plan for approval before changes are applied.
 disable-model-invocation: true
 ---
 
