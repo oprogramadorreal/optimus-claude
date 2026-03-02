@@ -103,6 +103,34 @@ Analyzes local git changes and suggests [conventional commit](https://www.conven
 
 See [skills/commit-message/README.md](skills/commit-message/README.md) for full documentation.
 
+## Development
+
+### Testing a feature branch
+
+Claude Code supports installing plugins from a specific Git branch using `#branch-name` syntax. This lets you test changes before merging to master.
+
+**1. On the feature branch**, add a `ref` to `.claude-plugin/marketplace.json` pointing to your branch:
+
+```json
+"source": {
+  "source": "github",
+  "repo": "oprogramadorreal/optimus-claude",
+  "ref": "your-branch-name"
+}
+```
+
+The `ref` tells Claude Code to fetch the plugin code from that branch during `/plugin install`. Without it, the plugin would still be fetched from the default branch even though the marketplace was added from a feature branch.
+
+**2. Install from the branch** (remove the existing marketplace first if already added):
+
+```shell
+/plugin marketplace remove optimus-claude
+/plugin marketplace add https://github.com/oprogramadorreal/optimus-claude.git#your-branch-name
+/plugin install optimus@optimus-claude
+```
+
+**3. Before merging to master**, remove the `ref` field from `marketplace.json` so production installs use the default branch.
+
 ## Research & References
 
 The principles behind this plugin are supported by research and industry practice:
