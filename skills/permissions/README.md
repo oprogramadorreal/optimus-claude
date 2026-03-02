@@ -153,7 +153,7 @@ Official documentation and resources that informed this skill's design:
 
 ## Requirements
 
-- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) — `/prime:permissions` is a [skill](https://docs.anthropic.com/en/docs/claude-code/skills) (reusable prompt that adds a slash command)
+- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) 1.0.33+ (plugin support)
 - Git
 - Bash (available by default on macOS/Linux; on Windows via Git Bash or WSL)
 

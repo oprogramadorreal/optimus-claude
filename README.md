@@ -33,14 +33,14 @@ The LLM already knows best practices from training — but the trigger to apply 
 
 ## Skills
 
-| Skill | Invocation | Purpose |
-|-------|-----------|---------|
-| [Init](#primeinit) | `/prime:init` | CLAUDE.md, docs, formatter hooks, quality agents |
-| [Unit Test](#primeunit-test) | `/prime:unit-test` | On-demand unit test coverage improvement |
-| [Simplify](#primesimplify) | `/prime:simplify` | Project-wide code simplification against coding guidelines |
-| [Code Review](#primecode-review) | `/prime:code-review` | Local-first code review with parallel agent-assisted analysis |
-| [Permissions](#primepermissions) | `/prime:permissions` | Allow/deny rules, path-restriction hook |
-| [Commit Message](#primecommit-message) | `/prime:commit-message` | Conventional commit message suggester |
+| Skill | Invocation | Purpose | Needs init? |
+|-------|-----------|---------|-------------|
+| [Init](#primeinit) | `/prime:init` | CLAUDE.md, docs, formatter hooks, quality agents | — |
+| [Unit Test](#primeunit-test) | `/prime:unit-test` | On-demand unit test coverage improvement | Recommended |
+| [Simplify](#primesimplify) | `/prime:simplify` | Project-wide code simplification against coding guidelines | Recommended |
+| [Code Review](#primecode-review) | `/prime:code-review` | Local-first code review with parallel agent-assisted analysis | Recommended |
+| [Permissions](#primepermissions) | `/prime:permissions` | Allow/deny rules, path-restriction hook | No |
+| [Commit Message](#primecommit-message) | `/prime:commit-message` | Conventional commit message suggester | No |
 
 ## Architecture: Project-Scoped by Design
 
@@ -68,71 +68,37 @@ The plugin is a **distribution wrapper** around project-setup skills. It makes i
 
 ## /prime:init
 
-The main skill. Analyzes your project and sets up five pillars designed to maximize Claude Code's performance:
+Analyzes your project and sets up five pillars: context architecture (CLAUDE.md + progressive disclosure docs), code consistency (auto-format hooks), code quality (code-simplifier agent), test coverage (test-guardian agent), and documentation freshness (audit against source code). Supports monorepos, 7 formatter stacks, and intelligent audit on re-run.
 
-1. **Context Architecture** — CLAUDE.md with progressive disclosure docs (~60-line root file, details loaded on demand)
-2. **Code Consistency** — PostToolUse hooks that auto-format code after every edit
-3. **Code Quality** — code-simplifier agent enforcing project coding guidelines
-4. **Test Coverage** — test-guardian agent monitoring coverage gaps (when test infrastructure detected)
-5. **Documentation Freshness** — audits existing docs against source code for contradictions
-
-Additional capabilities: intelligent audit on re-run (classifies docs as Outdated / Missing / Accurate), monorepo auto-detection with scoped docs, and formatter hooks for Python, Node.js, Rust, Go, C#, Java, and C/C++.
-
-See [skills/init/README.md](skills/init/README.md) for full documentation including formatter hooks, agents, generated files, and customization.
+See [skills/init/README.md](skills/init/README.md) for full documentation.
 
 ## /prime:unit-test
 
-Tests are the feedback loop that makes AI agents self-correcting — but many codebases start with gaps. `/prime:unit-test` fills them deliberately: it discovers what's missing, provisions test infrastructure if needed, estimates an achievable coverage target, and generates tests that follow your project's conventions.
-
-**Conservative by design** — only adds new test files, never refactors or restructures existing source code. If code is untestable as-is, it flags it rather than changing it. Discovers and reports bugs in existing code without fixing them. Refactoring is the domain of `/prime:simplify`.
-
-Key capabilities:
-- **Infrastructure provisioning** — installs test-guardian agent, creates testing.md, updates CLAUDE.md if init skipped them
-- **Framework and coverage tooling** — recommends and installs the right tools for your stack (with explicit approval)
-- **Achievable threshold estimation** — analyzes testable vs untestable code to set realistic coverage targets
-- **Prioritized test plan** — up to 10 items per run, highest-value targets first, user-approved before execution
+Discovers test coverage gaps, provisions test infrastructure if needed, estimates achievable coverage targets, and generates tests that follow your project's conventions. Conservative by design — only adds new test files, never refactors source code. Flags untestable code and reports bugs found during test writing.
 
 See [skills/unit-test/README.md](skills/unit-test/README.md) for full documentation.
 
 ## /prime:simplify
 
-Well-maintained code has [30%+ fewer AI-introduced defects](https://arxiv.org/abs/2601.02200). `/prime:init` sets up quality infrastructure with agents that guard new code automatically — but existing code can still accumulate technical debt. `/prime:simplify` is the on-demand complement: a deliberate review you run when you want to actively improve existing code.
-
-Analyzes source code against your project's coding guidelines with emphasis on **issues that span multiple files** — duplication across modules, inconsistent patterns between areas, architectural drift. Presents a prioritized simplification plan (capped at 12 findings per run), then applies only what you approve. The test suite runs automatically to verify nothing broke.
-
-**Flexible scope** — review the full project, a specific directory, or only files changed since a commit/date. **Conservative by design** — only suggests changes justified by the project's own guidelines. Works without `/prime:init` by falling back to generic coding guidelines.
-
-Claude Code includes a builtin `/simplify` command. `/prime:simplify` is the enhanced, project-aware complement — just as `/prime:init` extends the builtin `/init`. Key differences: full project scope vs per-session, project-specific guidelines vs general best practices, plan-then-apply workflow, and cross-file pattern detection.
+Analyzes existing code against your project's coding guidelines with emphasis on cross-file issues — duplication across modules, pattern inconsistency, architectural drift. Presents a prioritized plan (capped at 12 findings), applies only what you approve, and runs the test suite to verify nothing broke. Flexible scope: full project, directory, or changed files.
 
 See [skills/simplify/README.md](skills/simplify/README.md) for full documentation.
 
 ## /prime:code-review
 
-Local-first code review using up to 6 parallel review agents. Reviews uncommitted changes by default — or PR/branch changes on request — against your project's coding guidelines. High-signal findings only: bugs, logic errors, security issues, explicit guideline violations.
-
-Key capabilities:
-- **Local-first** — reviews git diff by default; PR mode with `gh` CLI when requested
-- **6 parallel agents** — bug detection, security/logic, guideline compliance (×2 for cross-validation), code-simplifier, and test-guardian run simultaneously
-- **Project-aware** — evaluates against coding-guidelines.md, testing.md, styling.md, and architecture.md
-- **Actionable** — findings include file:line, before/after sketches, and guideline citations; optional fix-in-place
-
-Anthropic's official [code-review](https://github.com/anthropics/claude-code/tree/main/plugins/code-review) plugin reviews PRs against CLAUDE.md. `/prime:code-review` is the enhanced, local-first complement — just as `/prime:simplify` extends the builtin `/simplify`. Key differences: local changes by default, project-specific guidelines (not just CLAUDE.md), and 6 parallel agents including code-simplifier and test-guardian. Use both: prime for inner-loop review (before commit), official for PR review (after push).
+Reviews uncommitted changes (or PRs) against your project's coding guidelines using up to 6 parallel agents — bug detection, security/logic, guideline compliance (×2), code-simplifier, and test-guardian. High-signal findings only: bugs, security issues, logic errors, guideline violations. Use alongside Anthropic's official [code-review](https://github.com/anthropics/claude-code/tree/main/plugins/code-review) plugin: prime for pre-commit, official for post-push.
 
 See [skills/code-review/README.md](skills/code-review/README.md) for full documentation.
 
 ## /prime:permissions
 
-Configures Claude Code permissions for safe agent autonomy — allow/deny rules that eliminate routine prompts, plus a PreToolUse hook that enforces tiered path-based security. Writes outside the project require approval; deletes outside the project are blocked.
+Configures allow/deny rules that eliminate routine prompts, plus a PreToolUse hook that enforces tiered path-based security — writes outside the project require approval, deletes are blocked. Especially useful on native Windows where OS-level sandboxing is not yet available. Merges safely with `/prime:init`.
 
-Especially useful on **native Windows** where OS-level sandboxing is not yet available, or as a **complementary layer** alongside sandboxing to reduce noise.
-
-Merges safely with `/prime:init` — both share `.claude/settings.json` without conflicts.
-
-See [skills/permissions/README.md](skills/permissions/README.md) for full documentation, security model, enforcement reliability, and known limitations.
+See [skills/permissions/README.md](skills/permissions/README.md) for full documentation.
 
 ## /prime:commit-message
 
-Analyzes local git changes (staged, unstaged, and untracked) and suggests [conventional commit](https://www.conventionalcommits.org/) messages — without committing anything. Suggests splitting into multiple commits when changes span different concerns.
+Analyzes local git changes and suggests [conventional commit](https://www.conventionalcommits.org/) messages — without committing anything. Suggests splitting into multiple commits when changes span different concerns.
 
 See [skills/commit-message/README.md](skills/commit-message/README.md) for full documentation.
 

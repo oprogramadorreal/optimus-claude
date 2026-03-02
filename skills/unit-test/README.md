@@ -101,6 +101,22 @@ The test-guardian agent and this skill are complementary — both use `testing.m
 | Coverage | Reports delta | Analyzes achievable threshold, moves toward it |
 | Role | Passive monitoring | Active test generation |
 
+## Relationship to Other Skills
+
+| | `/prime:unit-test` | `/prime:simplify` |
+|---|---|---|
+| Scope | Test files only | Source code |
+| When code is untestable | Flags it, suggests `/prime:simplify` | Restructures code to make it testable |
+| Modifies source? | Never | Yes, with approval |
+
+| | `/prime:unit-test` | `/prime:init` |
+|---|---|---|
+| Test infrastructure | Provisions if missing | Installs test-guardian agent |
+| Test files | Writes new tests | Does not write tests |
+| Coverage tooling | Recommends and installs | Does not handle |
+
+**Workflow**: `/prime:init` (set up infrastructure) → `/prime:unit-test` (write tests) → `/prime:simplify` (restructure untestable code) → `/prime:unit-test` again (test the restructured code).
+
 ## Skill Structure
 
 | File | Purpose |
@@ -110,7 +126,7 @@ The test-guardian agent and this skill are complementary — both use `testing.m
 
 ## Requirements
 
-- [Claude Code](https://docs.anthropic.com/en/docs/claude-code)
+- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) 1.0.33+ (plugin support)
 - Git
 - Project primed with `/prime:init` (recommended, not required)
 

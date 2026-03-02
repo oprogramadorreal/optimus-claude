@@ -2,6 +2,8 @@
 
 A [Claude Code](https://docs.anthropic.com/en/docs/claude-code) skill that analyzes your local git changes and suggests [conventional commit](https://www.conventionalcommits.org/) messages — without committing anything.
 
+Consistent commit messages improve repository navigability for both humans and LLMs. Conventional Commits provide a structured format that tools can parse programmatically — changelogs, release notes, and semantic versioning all benefit from uniform commit types and scopes.
+
 ## Features
 
 - Analyzes staged, unstaged, and untracked changes
@@ -24,7 +26,14 @@ In Claude Code, use any of these:
 
 The skill will analyze your local changes and output a suggested commit message in a copyable code block.
 
-## Example
+## When to Run
+
+- **Before committing** — get a well-structured message instead of writing one manually
+- **After `/prime:code-review`** — once your changes pass review, generate the commit message
+- **When changes span multiple concerns** — the skill suggests how to split into separate commits
+- **Quick message for small changes** — faster than crafting a conventional commit message by hand
+
+## Example Output
 
 Given staged changes that add email validation and update related tests:
 
@@ -50,6 +59,17 @@ refactor(signup): extract form field components
 
 The skill runs `git diff` (staged and unstaged) and `git status` to collect all local changes, then analyzes the diff to infer intent, scope, and type. It follows the [Conventional Commits](https://www.conventionalcommits.org/) specification for the output format. No files are read beyond what git provides — it operates entirely on diff output.
 
+## Relationship to Other Skills
+
+| | `/prime:commit-message` | `/prime:code-review` |
+|---|---|---|
+| Analyzes | Changed code intent | Changed code quality |
+| Output | Commit message suggestion | Findings with fixes |
+| Workflow | Run after review passes | Run before committing |
+| Scope | All local changes | All local changes (or PR) |
+
+**Recommended sequence**: `/prime:code-review` first (catch issues), then `/prime:commit-message` (describe what you did).
+
 ## Skill Structure
 
 | File | Purpose |
@@ -58,7 +78,7 @@ The skill runs `git diff` (staged and unstaged) and `git status` to collect all 
 
 ## Requirements
 
-- [Claude Code](https://docs.anthropic.com/en/docs/claude-code)
+- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) 1.0.33+ (plugin support)
 - Git
 
 ## License

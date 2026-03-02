@@ -71,7 +71,7 @@ For stacks requiring external formatters (Python, Node.js, C#, Java, C/C++), `/p
 | [code-simplifier](templates/agents/code-simplifier.md) | Enforces coding guidelines on every change | Always |
 | [test-guardian](templates/agents/test-guardian.md) | Flags untested code, verifies test suite passes | Test infrastructure detected |
 
-Both agents read your project's `.claude/CLAUDE.md` and `.claude/docs/` at runtime, so they follow your established conventions rather than imposing external rules. The code-simplifier activates proactively after code changes; the test-guardian operates at the end of logical tasks to verify test coverage.
+Both agents reference your project's `.claude/CLAUDE.md` and `.claude/docs/` files, so they follow your established conventions rather than imposing external rules. The code-simplifier activates proactively after code changes; the test-guardian operates at the end of logical tasks to verify test coverage.
 
 ## Generated Files
 
@@ -105,6 +105,20 @@ To understand or modify how the skill works, start with `SKILL.md`. Key customiz
 - **Coding guidelines**: `templates/docs/coding-guidelines.md`
 - **Formatter hooks**: `templates/hooks/` (Python, Node.js, Rust, Go, C#, Java, C/C++)
 - **Agents**: `templates/agents/` (code-simplifier, test-guardian)
+
+## Relationship to Other Skills
+
+`/prime:init` is the foundation that other skills build on:
+
+| Skill | Uses from init | What it adds |
+|---|---|---|
+| `/prime:unit-test` | test-guardian agent, testing.md, CLAUDE.md | Writes test files, provisions coverage tooling |
+| `/prime:simplify` | coding-guidelines.md, code-simplifier agent | Full-project code review against guidelines |
+| `/prime:code-review` | All docs + both agents | Pre-commit review with up to 6 parallel agents |
+| `/prime:permissions` | Shares `.claude/settings.json` | Permission rules + path-restriction hook |
+| `/prime:commit-message` | Independent | Conventional commit message suggestion |
+
+All skills work without init (commit-message and permissions are fully independent; the others produce better results with project-specific docs and agents in place).
 
 ## Requirements
 

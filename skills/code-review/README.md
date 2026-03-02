@@ -7,7 +7,7 @@ Well-maintained code has [30%+ fewer AI-introduced defects](https://arxiv.org/ab
 ## Features
 
 - **Local-first** — reviews uncommitted changes by default (staged + unstaged + untracked); PR and branch-diff modes available on request
-- **6 parallel agents** — bug detection, security/logic, guideline compliance (×2 for cross-validation), code-simplifier, and test-guardian run simultaneously
+- **Up to 6 parallel agents** — bug detection, security/logic, guideline compliance (×2 for cross-validation), plus code-simplifier and test-guardian when project agents are available
 - **Project-aware** — evaluates against your coding-guidelines.md, testing.md, architecture.md, and styling.md
 - **High signal only** — bugs, security issues, logic errors, explicit guideline violations; excludes style concerns and subjective suggestions
 - **Validation step** — each finding is independently verified (context check, intent check, pre-existing check, cross-agent consensus) before reporting
@@ -107,7 +107,7 @@ Anthropic's official [code-review](https://github.com/anthropics/claude-code/tre
 |---|---|---|
 | Default target | Pull requests | Local uncommitted changes |
 | Guidelines | CLAUDE.md only | coding-guidelines.md, testing.md, styling.md, architecture.md |
-| Agents | 4 (haiku/sonnet/opus mix) | Up to 6 (all opus) |
+| Agents | 4 (parallel review agents) | Up to 6 (parallel review agents) |
 | Agent types | 2 CLAUDE.md compliance + 1 bug + 1 security | 2 guideline compliance + 1 bug + 1 security + code-simplifier + test-guardian |
 | Validation | Sub-agent validation + confidence scoring | Inline validation (context, intent, pre-existing, consensus) |
 | Output | Terminal + inline PR comments | Terminal + optional PR comment or fix-in-place |
@@ -123,7 +123,7 @@ Anthropic's official [code-review](https://github.com/anthropics/claude-code/tre
 | Focus | Bugs, security, guideline compliance | Cross-file patterns, duplication, drift |
 | Trigger | Before commit/PR | Periodic or after major milestones |
 | Action | Report + optional fix | Plan + apply on approval |
-| Agents | 6 parallel (bug, security, guidelines ×2, simplifier, test-guardian) | None (direct analysis) |
+| Agents | Up to 6 parallel (bug, security, guidelines ×2, simplifier, test-guardian) | None (direct analysis) |
 
 | | `/prime:code-review` | `/prime:commit-message` |
 |---|---|---|
@@ -139,7 +139,7 @@ Anthropic's official [code-review](https://github.com/anthropics/claude-code/tre
 
 ## Requirements
 
-- [Claude Code](https://docs.anthropic.com/en/docs/claude-code)
+- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) 1.0.33+ (plugin support)
 - Git
 - Project primed with `/prime:init` (recommended, not required — enables all 6 agents and project-specific guidelines)
 - GitHub CLI (`gh`) for PR review mode (optional)

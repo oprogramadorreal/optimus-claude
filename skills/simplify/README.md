@@ -116,7 +116,7 @@ Claude Code includes a builtin `/simplify` command. This follows the same patter
 
 ## Requirements
 
-- [Claude Code](https://docs.anthropic.com/en/docs/claude-code)
+- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) 1.0.33+ (plugin support)
 - Git
 - Project primed with `/prime:init` (recommended, not required)
 
