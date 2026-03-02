@@ -65,53 +65,15 @@ Factual contradictions in existing docs (wrong commands, outdated tech reference
 
 These insights flow into generated files in Steps 4–6b. The Detection Summary confirms doc reading occurred, but do not narrate insights during analysis.
 
-**Check for monorepo indicators:**
+**Check for monorepo indicators:** Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/monorepo-detection.md` for the full 3-step detection algorithm (workspace configs, manifest scanning with depth-2 checks, supporting signals) and subproject enumeration rules.
 
-**Step A — Check for workspace config files** (confirms monorepo alone):
-- npm/yarn/pnpm workspaces: `workspaces` in root `package.json`, or `pnpm-workspace.yaml`
-- Lerna (`lerna.json`), Nx (`nx.json`), Turborepo (`turbo.json`), Rush (`rush.json`)
-- Cargo workspace: `[workspace]` in root `Cargo.toml`; Go workspace: `go.work`
-- Gradle: `settings.gradle(.kts)` with `include`; Maven: `pom.xml` with `<modules>`
-- Bazel: `WORKSPACE` or `WORKSPACE.bazel`
-
-**Step B — Scan for independent manifests** (confirms monorepo if 2+ projects found):
-
-Scan top-level directories for manifest files (from the manifest table above). Skip:
-- **Dot-directories**: `.git`, `.github`, `.vscode`, etc.
-- **Dependencies**: `node_modules`, `vendor`, `.venv`, `venv`, `env`
-- **Build output**: `dist`, `build`, `out`, `target`, `bin`, `obj`
-- **Framework/cache**: `.next`, `.nuxt`, `__pycache__`, `.cache`, `.tox`
-- **Non-project**: `examples`, `demos`, `test-fixtures`, `e2e`, `__tests__`, `.storybook`, `samples`, `experiments`, `scripts`, `tools`, `docs`
-
-**Depth-2 check for container directories:** For any scanned top-level directory that has no manifest and is not in the skip list, check its immediate subdirectories for manifest files (applying the same skip rules). This catches nested subprojects inside container directories (e.g., `app/API/` and `app/client/` inside `app/`). Count each qualifying subdirectory as a separate project using its full relative path (e.g., `app/API`, `app/client`).
-
-**Root-as-project check** (only when the total number of qualifying projects found in Step B — including depth-2 results — equals exactly 1):
-The root itself may be an independent project. Count it as an additional project if the root has a manifest file AND at least one of:
-- A **framework-specific config** at root (`angular.json`, `next.config.*`, `nuxt.config.*`, `vue.config.*`, `svelte.config.*`, `astro.config.*`, `webpack.config.*`, `vite.config.*`, `tsconfig.app.json`)
-- A **root source directory** (`src/`, `app/`, or `lib/`) containing source files, where the subdirectory project also has its own source files — indicating two separate codebases
-- A **different test framework** at root vs the subdirectory (e.g., root has `karma.conf.js` while subdirectory has `jest.config.js`)
-
-**Step C — Check supporting signals** (cannot confirm alone):
-
-- `README.md` describes multi-component architecture (mentions separate apps, services, or components: "frontend and backend", "client and server", "API server", "microservices", etc.)
-- `docker-compose.yml` / `compose.yml` defines multiple services with `build:` contexts pointing to different subdirectories
-- Root manifest scripts use `concurrently`, `npm-run-all`, or `run-p`/`run-s` to launch multiple processes
-- Proxy configuration exists (`proxy.conf.json`, `proxy.conf.js`, `setupProxy.js`) indicating a frontend proxying to a local backend
-
-**Decision:**
-- Workspace config found (Step A) → confirmed monorepo, enumerate from config
-- 2+ projects with manifests (Step B) → confirmed monorepo, enumerate from projects
-- Supporting signals (Step C) + 1 dir with manifest → likely monorepo, ask user to confirm
-- Supporting signals only → insufficient evidence, ask user to identify subproject dirs
+**Decision summary:**
+- Workspace config found → confirmed monorepo
+- 2+ projects with manifests → confirmed monorepo
+- Supporting signals + 1 manifest dir → likely monorepo, ask user to confirm
 - No signals → single project
 
 **If monorepo detected:** Inform user of detection signals and identified subprojects with tech stacks. Confirm before proceeding.
-
-**Enumerate subprojects:**
-- Step A detected: use workspace member list + any additional top-level dirs with manifests not in the config.
-- Step B only: use all qualifying directories (including nested ones found via depth-2 check). If the root-as-project check qualified the root, include it too.
-- Root-as-project or root-as-workspace-member (e.g., `"."` in workspaces): include in subproject table but do NOT create a separate CLAUDE.md — root CLAUDE.md covers it. Its docs go in `.claude/docs/`.
-- For each subproject, detect its tech stack using the manifest table.
 
 ### Step 1 Checkpoint
 
@@ -219,31 +181,16 @@ For each detected subproject (except root-as-project/root-as-member — the root
 
 ## Step 5: Install Formatter Hooks
 
-Add auto-format hooks so files stay consistently formatted after every Edit/MultiEdit/Write. Use templates from `$CLAUDE_PLUGIN_ROOT/skills/init/templates/hooks/`.
+Add auto-format hooks so files stay consistently formatted after every Edit/MultiEdit/Write. Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/formatter-setup.md` for the full hook template table, Python command detection, installation steps, settings.json creation rules, and Node.js plugin setup (Prettier + organize-imports).
 
 **Audit-aware rule applies** (see Step 2). Additionally, skip a hook if `.claude/hooks/` already contains a file named `format-<stack>.*` (e.g., `format-python.py`, `format-python.sh`).
 
-| Stack | Template | Formatter | Requires | Install when |
-|-------|----------|-----------|----------|--------------|
-| Python | `format-python.py` | black + isort | Python 3 | In project deps (requirements*.txt, pyproject.toml, Pipfile), or user approves |
-| Node.js | `format-node.js` | prettier + organize-imports plugin | Node.js | In package.json devDependencies, or user approves |
-| Rust | `format-rust.sh` | rustfmt | Bash | Always (rustfmt is built-in) |
-| Go | `format-go.sh` | goimports → gofmt fallback | Bash | Always (hook detects goimports at runtime; offer `go install golang.org/x/tools/cmd/goimports@latest` if absent) |
-| C#/.NET | `format-csharp.sh` | csharpier | Bash | In `.config/dotnet-tools.json`, or user approves (suggest `dotnet tool install csharpier`) |
-| Java | `format-java.sh` | google-java-format | Bash | `google-java-format` is on PATH, or user approves (suggest installing from github.com/google/google-java-format) |
-| C/C++ | `format-cpp.sh` | clang-format | Bash | `clang-format` is on PATH, or user approves (bundled with LLVM/Clang; available via system package manager) |
+Supported stacks: Python (black + isort), Node.js (prettier), Rust (rustfmt), Go (goimports/gofmt), C#/.NET (csharpier), Java (google-java-format), C/C++ (clang-format). Templates are in `$CLAUDE_PLUGIN_ROOT/skills/init/templates/hooks/`.
 
-**Detect Python command** (only when the Python formatter hook will be installed): Run `python3 --version`. If it fails, run `python --version` and verify the output shows Python 3.x. Use whichever succeeds as `<python-cmd>` in hook commands below. If neither works, skip the Python hook and inform the user.
-
-1. Copy applicable template(s) from `$CLAUDE_PLUGIN_ROOT/skills/init/templates/hooks/` to `.claude/hooks/`.
-2. External formatters not in deps → ask user "Add [formatter] as dev dependency and install format hook?" If declined, skip.
-3. If any hooks were installed, create `.claude/settings.json` using the template from `$CLAUDE_PLUGIN_ROOT/skills/init/templates/settings.json` as reference. Keep only entries for hooks actually installed. For Python, replace `<python-cmd>` with the detected command (`python3` or `python`). For Node.js use `node "..."`, for Bash-based hooks (Rust, Go, C#, Java, C/C++) use `bash "..."`. Monorepos: install all applicable hooks (each filters by file extension internally).
-
-**If no hooks were installed**, do not create settings.json (unless it already exists with other content).
-
-**Preserve existing content:** If an existing settings.json contains a `permissions` section or other custom configuration beyond `hooks`, preserve those sections. Merge hook changes into the existing file structure rather than overwriting.
-
-**Node.js plugin setup** (when the Node.js hook is installed): Ensure `prettier-plugin-organize-imports` is a devDependency (install with detected package manager if missing; skip config below if user declines). Then add it to the Prettier config's `plugins` array. Check for config in this order: `.prettierrc`, `.prettierrc.json`, `.prettierrc.yaml`, `.prettierrc.yml`, `.prettierrc.toml`, `.prettierrc.mjs`, `.prettierrc.cjs`, `prettier.config.js`, `prettier.config.mjs`, `prettier.config.cjs`, `prettier.config.ts`, or `"prettier"` key in `package.json`. If `prettier-plugin-tailwindcss` is present, insert organize-imports **before** it. If no config exists, create `.prettierrc` with `{ "plugins": ["prettier-plugin-organize-imports"] }`.
+Key rules:
+- External formatters not in deps → ask user before installing
+- If no hooks installed → do not create settings.json (unless it already exists with other content)
+- Preserve existing settings.json sections (permissions, custom config) — merge, never overwrite
 
 ## Step 5b: Install Code Simplifier Agent
 
