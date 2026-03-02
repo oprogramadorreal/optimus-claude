@@ -1,6 +1,6 @@
 ---
 name: test-guardian
-description: Monitors test coverage gaps when testable code is added or modified. Does not write tests — only flags what needs testing.
+description: Monitors test coverage gaps when testable code is added or modified. Does not write tests — only flags what needs testing. Use proactively at the end of feature implementation or bug fixes to flag untested code.
 model: opus
 ---
 

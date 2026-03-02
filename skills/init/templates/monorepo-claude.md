@@ -25,3 +25,11 @@ Read the relevant doc before making changes:
 - `.claude/docs/coding-guidelines.md` - For new features, refactoring, code structure
 <!-- Only list docs that were actually created -->
 <!-- If >6 subprojects: - `.claude/docs/architecture.md` - Full architecture map -->
+
+## Agents
+
+After implementing features or fixing bugs:
+- `.claude/agents/code-simplifier.md` — simplifies recently changed code
+<!-- Only list if test-guardian was installed:
+- `.claude/agents/test-guardian.md` — flags missing test coverage
+-->

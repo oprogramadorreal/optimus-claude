@@ -189,6 +189,7 @@ Use template from `$CLAUDE_PLUGIN_ROOT/skills/init/templates/single-project-clau
 - Replace command placeholders with real commands using the detected package manager
 - Replace directory placeholders with actual project directories
 - In the Documentation section, list only docs that were actually created using `.claude/docs/` prefix
+- In the Agents section, list only agents that were actually installed: code-simplifier is always listed; test-guardian only if test infrastructure was detected (Step 1)
 
 The template follows WHAT/WHY/HOW structure. Keep total file under 60 lines. If no manifest was detected, use generic placeholders and inform user that manual customization is recommended.
 
@@ -202,6 +203,8 @@ Use template from `$CLAUDE_PLUGIN_ROOT/skills/init/templates/monorepo-claude.md`
 - If no workspace tool was detected (Step B only), use "Monorepo with [N] packages" or "Multi-project repository with [N] components" without referencing a workspace tool
 
 If root-as-project: also list root-scoped docs from `.claude/docs/` (testing.md, styling.md, architecture.md as applicable) in the Documentation section, alongside the shared `coding-guidelines.md`.
+
+In the Agents section, list only agents that were actually installed: code-simplifier is always listed; test-guardian only if test infrastructure was detected (Step 1).
 
 If more than 6 subprojects, group by category (apps, libs, services) in the root CLAUDE.md and move the full subproject table to `.claude/docs/architecture.md`. Keep descriptions concise (abbreviate stacks, e.g., "TS/React" not "TypeScript, React, Vite, Tailwind") to stay under 60 lines.
 
@@ -323,6 +326,7 @@ Run through this checklist. **Fix any failures before reporting to the user.**
 
 **Cross-reference checks:**
 - Every doc listed in a CLAUDE.md Documentation section actually exists as a file.
+- Every agent listed in a CLAUDE.md Agents section actually exists as a file in `.claude/agents/`.
 - Monorepo: every subproject in root CLAUDE.md's Architecture table has a corresponding `CLAUDE.md` file.
 
 **If any check fails:** Fix the issue, then re-verify. Do not proceed to the summary until all checks pass.
