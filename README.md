@@ -47,6 +47,7 @@ The LLM already knows best practices from training — but the trigger to apply 
 Unlike most plugins that bundle hooks and agents at the plugin level, **prime writes everything into the project's `.claude/` directory**. This is an intentional design choice:
 
 - **Hooks, agents, docs, and settings travel with the repo via git** — any teammate who opens the project in Claude Code gets identical behavior, even without this plugin installed
+- **Enforces standards linters can't check** — naming conventions, architectural patterns, DRY principles, and design decisions are guided by project-specific docs and agents, not just syntax rules
 - **The plugin is needed only for setup and maintenance**, not for day-to-day development
 - **No hidden dependencies** — the automation is visible, auditable, and version-controlled alongside your code
 
