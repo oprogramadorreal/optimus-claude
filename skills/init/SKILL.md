@@ -1,5 +1,5 @@
 ---
-description: This skill prepares a project for Claude Code — generates CLAUDE.md with progressive disclosure docs, auto-format hooks, and code-quality agents. Replaces /init. Supports monorepos and multi-repo workspaces.
+description: This skill prepares a project for Claude Code — generates CLAUDE.md with progressive disclosure docs, auto-format hooks, and code-quality agents (code-simplifier, test-guardian). Also audits and syncs existing documentation against source code. Replaces /init. Supports single projects, monorepos, and multi-repo workspaces (separate git repos under a shared parent directory).
 disable-model-invocation: true
 ---
 

@@ -9,6 +9,8 @@ Improve unit test coverage for existing code. Conservative by design — only ad
 
 ## Step 1: Pre-flight
 
+If the current directory is a multi-repo workspace (no `.git/` here, 2+ child directories with `.git/` — same multi-repo workspace detection as `/optimus:init`), process each repo independently: run Steps 1–8 inside each repo that has `.claude/CLAUDE.md`. Report results per repo. If no repos have been initialized, suggest running `/optimus:init` first from the workspace root.
+
 Check that `.claude/CLAUDE.md` exists. If it doesn't, stop and recommend running `/optimus:init` first — the project needs baseline context before test generation can be effective.
 
 Beyond the init check, identify which guideline documents are available — they directly affect the quality of everything this skill does:
@@ -28,7 +30,7 @@ The skill operates differently depending on what exists:
 
 Parse optional path argument (e.g., `/optimus:unit-test src/api`) to limit scope. If no path is specified, default to the full project.
 
-For monorepos, detect subprojects using the same approach as `/optimus:init` — reference `$CLAUDE_PLUGIN_ROOT/skills/init/SKILL.md` Step 1 for detection logic (workspace configs, manifest scanning, supporting signals). Process each subproject independently.
+For monorepos and multi-repo workspaces, detect project structure using the same approach as `/optimus:init` — reference `$CLAUDE_PLUGIN_ROOT/skills/init/SKILL.md` Step 1 for detection logic (multi-repo workspace detection, workspace configs, manifest scanning, supporting signals). Process each project/repo independently.
 
 ## Step 2: Discovery
 
@@ -200,3 +202,5 @@ Report to the user:
 - [List of code flagged as untestable — with brief explanation of what structural change would be needed]
 - To address these, run `/optimus:simplify` to review and restructure the code first.
 ```
+
+For multi-repo workspaces, present results per repo (one summary block per repo) and include the repo name/path in each section header.

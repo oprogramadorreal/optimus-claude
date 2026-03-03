@@ -17,7 +17,7 @@ Well-maintained code has [30%+ fewer AI-introduced defects](https://arxiv.org/ab
 - **Prioritized test plan** — up to 10 items per run, highest-value targets first, user-approved before execution
 - **Conservative test writing** — adds new test files only; fixes failing tests, not source code
 - **Bug discovery** — reports bugs found in existing code during test writing without fixing them
-- **Monorepo support** — detects subprojects and processes each independently
+- **Monorepo & multi-repo workspace support** — detects subprojects and processes each independently
 
 ## Quick Start
 
