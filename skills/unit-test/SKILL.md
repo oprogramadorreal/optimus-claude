@@ -70,6 +70,10 @@ If installation fails (network issues, version conflicts, incompatible environme
 
 Detect this gap separately and recommend installing coverage tooling. Coverage measurement is essential for the skill to report meaningful results and set achievable targets. Ask for explicit user approval.
 
+### Coverage report tooling
+
+If the installed coverage tool only generates machine-readable output (XML, JSON) without a built-in human-readable report, install a report generator alongside it. Consult the "Report Tool" column in `$CLAUDE_PLUGIN_ROOT/skills/unit-test/references/framework-recommendations.md`. Ask for explicit user approval. Include the report command in `testing.md` and `CLAUDE.md` coverage sections.
+
 ## Step 4: Optimus Infrastructure Provisioning
 
 This phase runs **regardless** of whether Step 3 installed anything — test infrastructure may have been added manually after `/optimus:init` ran. When init ran on a project without test infrastructure, it correctly skipped test-guardian, testing.md, and CLAUDE.md testing references. Now that test infrastructure exists (pre-existing or just installed), this skill provisions what init would have created.
@@ -97,6 +101,10 @@ For monorepos, update subproject-level `CLAUDE.md` files too. Each subproject sh
 If `README.md` exists at the project root and doesn't already have a testing section (scan for headings containing "test", case-insensitive), append a concise section with: test command, coverage command (if configured), and test project/directory location. Match the README's existing heading level, language, and formatting style. Use `.claude/docs/testing.md` as the source of truth for commands and paths — do not duplicate its full content. Keep the section to 5-10 lines.
 
 For monorepos, update each subproject's `README.md` too if it exists and lacks a testing section.
+
+### 4f: Gitignore test artifacts
+
+If `.gitignore` exists and doesn't already ignore the test output directory (e.g., `TestResults/` for .NET, `htmlcov/` for Python, `coverage/` for Node.js), append the appropriate entry. One line, matching the file's existing style.
 
 ## Step 5: Coverage Analysis and Achievable Threshold Estimation
 

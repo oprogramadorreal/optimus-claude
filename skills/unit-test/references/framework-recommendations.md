@@ -2,19 +2,19 @@
 
 Recommend the most popular test framework and coverage tooling for each tech stack. These are starting points — analyze the actual project to decide.
 
-| Stack | Recommended Framework | Coverage Tooling |
-|-------|----------------------|-----------------|
-| Node.js/TypeScript + Vite | Vitest | Built-in (c8/v8) |
-| Node.js/TypeScript (other) | Jest | jest --coverage (istanbul) |
-| Python | pytest | pytest-cov |
-| Java (Maven/Gradle) | JUnit 5 | JaCoCo |
-| C#/.NET | xUnit | coverlet |
-| Go | built-in `testing` | built-in `go test -cover` |
-| Rust | built-in `#[test]` | cargo-tarpaulin or cargo-llvm-cov |
-| PHP | PHPUnit | built-in coverage (requires Xdebug or PCOV) |
-| Ruby | RSpec | SimpleCov |
-| C/C++ | Google Test (gtest) or Catch2 | gcov/lcov |
-| Angular | Vitest | built-in `--coverage` (v8 provider) |
+| Stack | Recommended Framework | Coverage Tooling | Report Tool |
+|-------|----------------------|-----------------|-------------|
+| Node.js/TypeScript + Vite | Vitest | Built-in (c8/v8) | Built-in |
+| Node.js/TypeScript (other) | Jest | jest --coverage (istanbul) | Built-in |
+| Python | pytest | pytest-cov | Built-in (`--cov-report=html`) |
+| Java (Maven/Gradle) | JUnit 5 | JaCoCo | Built-in (Maven/Gradle plugin) |
+| C#/.NET | xUnit | coverlet | dotnet-reportgenerator-globaltool |
+| Go | built-in `testing` | built-in `go test -cover` | Built-in (`go tool cover -html`) |
+| Rust | built-in `#[test]` | cargo-tarpaulin or cargo-llvm-cov | Built-in (tarpaulin: `--out Html`, llvm-cov: `--html`) |
+| PHP | PHPUnit | built-in coverage (requires Xdebug or PCOV) | Built-in |
+| Ruby | RSpec | SimpleCov | Built-in |
+| C/C++ | Google Test (gtest) or Catch2 | gcov/lcov | genhtml (from lcov) |
+| Angular | Vitest | built-in `--coverage` (v8 provider) | Built-in |
 
 ## Selection Guidelines
 
