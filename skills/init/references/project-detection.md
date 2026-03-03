@@ -43,6 +43,9 @@ The root itself may be an independent project. Count it as an additional project
 - A **root source directory** (`src/`, `app/`, or `lib/`) containing source files, where the subdirectory project also has its own source files — indicating two separate codebases
 - A **different test framework** at root vs the subdirectory (e.g., root has `karma.conf.js` while subdirectory has `jest.config.js`)
 
+**.NET solution consolidation** (post-scan refinement — runs before decision matrix):
+If a single `.sln` file exists at the root, parse its `Project(...)` entries to get referenced `.csproj` paths. If every `.csproj` found by Step B is referenced by that `.sln`, collapse all those directories into one project for the decision matrix count. Non-`.csproj` manifests (e.g., `package.json` in a frontend directory) still count separately — so a repo with one `.sln` plus a `frontend/package.json` yields 2 projects and still qualifies as a monorepo. Skip consolidation when: no `.sln` exists, multiple `.sln` files exist at root, or any `.csproj` is not referenced by the `.sln`.
+
 ## Step C — Check Supporting Signals (cannot confirm alone)
 
 - `README.md` describes multi-component architecture (mentions separate apps, services, or components: "frontend and backend", "client and server", "API server", "microservices", etc.)

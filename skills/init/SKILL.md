@@ -30,7 +30,7 @@ Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/claude-md-best-practices.md`. K
 | CMakeLists.txt, Makefile | C/C++ | cmake, make |
 | Gemfile | Ruby | bundler |
 
-Note: `.sln` files reference `.csproj` projects — they confirm .NET presence but aren't independent project manifests. Don't count a root `.sln` for root-as-project detection.
+Note: `.sln` files reference `.csproj` projects — they confirm .NET presence but aren't independent project manifests. Don't count a root `.sln` for root-as-project detection. When a single root `.sln` references all `.csproj` files found during detection, treat the entire solution as one project (see .NET solution consolidation in `project-detection.md`). List all solution projects and their roles in the CLAUDE.md Project Structure section.
 
 **Extract**: Project name, tech stack, build system, available scripts.
 
@@ -70,10 +70,12 @@ These insights flow into generated files in Steps 4–6b. The Detection Summary 
 **Decision summary:**
 - No `.git/` in current dir + 2+ child dirs with `.git/` → confirmed multi-repo workspace
 - Workspace config found → confirmed monorepo
-- 2+ projects with manifests → confirmed monorepo
+- 2+ projects with manifests → confirmed monorepo (but see .NET consolidation below)
 - Supporting signals + 1 manifest dir → likely monorepo, ask user to confirm
 - Supporting signals only → insufficient evidence, ask user to identify subproject dirs
 - No signals → single project
+
+**.NET solution consolidation:** When a single root `.sln` references all discovered `.csproj` files, collapse them into 1 project before applying the matrix above. Non-`.csproj` manifests still count separately.
 
 **If monorepo detected:** Inform user of detection signals and identified subprojects with tech stacks. Confirm before proceeding.
 
