@@ -181,6 +181,10 @@ Only findings with High or Medium confidence proceed to Step 5.
 
 Merge validated findings from Steps 3–4. Deduplicate: if two agents flagged the same file and line range for the same category, keep the more detailed version. For guideline findings flagged by both Agents 3 and 4, merge into one finding and note "confirmed by independent review".
 
+### Change Summary
+
+Before presenting findings, write a concise summary (2–4 sentences) of what the reviewed changes accomplish. Describe the intent and effect of the changes — what was added, modified, or removed and why. Base this on the diff and the agents' analysis. This lets the user verify the review understood their changes correctly.
+
 ### Severity
 
 - **Critical** — Bugs, security vulnerabilities, runtime failures
@@ -204,6 +208,9 @@ Maximum **10 findings** across all sources, prioritized by severity then confide
 - Docs used: [list of docs loaded]
 - Agents: bug-detector, security-reviewer, guideline-A, guideline-B[, code-simplifier][, test-guardian]
 - Verdict: CHANGES LOOK GOOD / ISSUES FOUND
+
+### Change Summary
+[2–4 sentences describing what the changes do — their intent, what was added/modified/removed, and the overall effect. Keep it factual and concise.]
 
 ### Findings
 
