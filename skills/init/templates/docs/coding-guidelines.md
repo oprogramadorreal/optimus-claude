@@ -5,10 +5,10 @@ These guidelines inform architectural and design decisions when working on [PROJ
 ## Core Principles
 
 ### Follow Existing Patterns
-Match the codebase's architecture, naming, and style. Don't introduce new patterns unless necessary.
+Match the codebase's architecture, naming, and style. When introducing a different approach, ensure it's a clear improvement and apply it consistently.
 
 ### Keep It Simple (KISS)
-Default to the simplest change that works. Avoid speculative abstractions and keep diffs minimal.
+Default to the simplest design that meets current requirements. Introduce abstractions when they serve a concrete, immediate need — not a hypothetical future one.
 
 ### Prefer Clarity Over Cleverness
 Choose clear, concise solutions with explicit control flow and simple data flow. Don't sacrifice readability for fewer lines or clever tricks.
