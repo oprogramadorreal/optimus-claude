@@ -52,7 +52,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/restrict-paths.sh",
+            "command": "OPTIMUS_PRECIOUS_PATTERNS=\"appsettings.*.json,.env,.env.*,*.mdf,*.ldf,*.sqlite,*.db,*.pfx,*.key,*.pem,credentials.*,secrets.*\" bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/restrict-paths.sh",
             "timeout": 5
           }
         ]

@@ -29,12 +29,21 @@
 #   is missing), it allows the operation rather than blocking it. This avoids
 #   breaking legitimate tool use when input formats change.
 #
-# UNVERSIONED FILE PROTECTION (opt-in):
+# PRECIOUS FILE PROTECTION (recommended):
+#   Set OPTIMUS_PRECIOUS_PATTERNS to a comma-separated list of glob patterns
+#   for files that are gitignored but non-regenerable (e.g., local config,
+#   secrets, database files). The hook prompts before modifying or deleting
+#   any matching unversioned file. Example:
+#     OPTIMUS_PRECIOUS_PATTERNS="appsettings.*.json,.env,.env.*,*.mdf,*.ldf"
+#   Works correctly in multi-repo workspaces — detects the git root for each
+#   file individually rather than assuming a single git repo at project root.
+#
+# UNVERSIONED FILE PROTECTION (opt-in, legacy):
 #   Set OPTIMUS_PROTECT_UNVERSIONED=1 to prompt before modifying or deleting
-#   files inside the project that are NOT tracked by git. Unversioned files
-#   cannot be recovered after changes. Disabled by default because it also
-#   prompts for regenerable files (node_modules, dist, build output).
-#   See the skill's README for details and known limitations.
+#   ANY file inside the project that is NOT tracked by git. This is broader
+#   than precious patterns — it also prompts for regenerable files
+#   (node_modules, dist, build output). Precious patterns is recommended
+#   instead. Both can be used together.
 #
 # TO DISABLE OR REMOVE:
 #   1. Delete this file: rm .claude/hooks/restrict-paths.sh
@@ -48,19 +57,81 @@ root="${CLAUDE_PROJECT_DIR}"
 # Fail-open: if project root is unknown, allow rather than block all tool use
 [[ -z "$root" ]] && exit 0
 
-# --- Opt-in unversioned file protection ---
+# --- Configuration ---
 protect_unversioned="${OPTIMUS_PROTECT_UNVERSIONED:-0}"
-is_git_repo=false
-if [[ "$protect_unversioned" != "0" ]]; then
-  git -C "$root" rev-parse --is-inside-work-tree &>/dev/null && is_git_repo=true
-fi
+precious_patterns="${OPTIMUS_PRECIOUS_PATTERNS:-}"
+
+# --- Per-file git root detection (multi-repo workspace support) ---
+# Walks up from the file's directory to find the nearest .git/ directory.
+# In multi-repo workspaces, each sub-repo has its own .git/ — this ensures
+# git operations target the correct repo instead of failing at the workspace root.
+find_git_root() {
+  local dir="$1"
+  [[ ! -d "$dir" ]] && dir="$(dirname "$dir")"
+  local prev=""
+  while [[ "$dir" != "$prev" && -n "$dir" ]]; do
+    [[ -d "$dir/.git" ]] && { echo "$dir"; return 0; }
+    prev="$dir"
+    dir="$(dirname "$dir")"
+  done
+  return 1
+}
 
 is_git_tracked() {
-  # Fail-open: if not a git repo or git unavailable, assume tracked (allow)
-  # Note: is_git_repo is only populated when protect_unversioned is enabled.
-  # Only call this function inside protect_unversioned guards.
-  [[ "$is_git_repo" == "true" ]] || return 0
-  git -C "$root" ls-files --error-unmatch "$1" &>/dev/null
+  # Fail-open: if no git root found (file outside any repo), assume tracked (allow)
+  local filepath="$1"
+  local git_root
+  git_root="$(find_git_root "$filepath")" || return 0
+  git -C "$git_root" ls-files --error-unmatch "$filepath" &>/dev/null
+}
+
+# --- Precious file pattern matching ---
+# Matches the file's basename against comma-separated glob patterns from
+# OPTIMUS_PRECIOUS_PATTERNS. Only triggers for existing, unversioned files.
+is_precious() {
+  [[ -z "$precious_patterns" ]] && return 1
+  local filepath="$1"
+  local file_basename
+  file_basename="$(basename "$filepath")"
+  local IFS=','
+  for pattern in $precious_patterns; do
+    # Trim leading/trailing whitespace
+    pattern="${pattern#"${pattern%%[![:space:]]*}"}"
+    pattern="${pattern%"${pattern##*[![:space:]]}"}"
+    [[ -z "$pattern" ]] && continue
+    # shellcheck disable=SC2254
+    if [[ "$file_basename" == $pattern ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+# Checks if a file is precious or (with legacy flag) any unversioned file.
+# Calls ask_permission (which exits the script) if protection triggers.
+check_file_protection() {
+  local filepath="$1"
+  local action="$2"  # "write" or "delete"
+  # Only check existing files — new files are always allowed
+  [[ -e "$filepath" ]] || return 0
+
+  # Precious patterns: targeted protection for non-regenerable gitignored files
+  if is_precious "$filepath" && ! is_git_tracked "$filepath"; then
+    if [[ "$action" == "delete" ]]; then
+      ask_permission "Precious file '$(basename "$filepath")' is not tracked by git. Deletion is permanent. Allow?"
+    else
+      ask_permission "Precious file '$(basename "$filepath")' is not tracked by git. Changes cannot be recovered. Allow this $action?"
+    fi
+  fi
+
+  # Legacy: blanket unversioned file protection (opt-in via OPTIMUS_PROTECT_UNVERSIONED=1)
+  if [[ "$protect_unversioned" != "0" ]] && ! is_git_tracked "$filepath"; then
+    if [[ "$action" == "delete" ]]; then
+      ask_permission "File '$filepath' is not tracked by git. Deletion is permanent. Allow?"
+    else
+      ask_permission "File '$filepath' is not tracked by git. Changes cannot be recovered. Allow this $action?"
+    fi
+  fi
 }
 
 # --- Path normalization (cross-platform) ---
@@ -117,10 +188,7 @@ case "$tool_name" in
     if ! is_inside_project "$filepath"; then
       ask_permission "File '$filepath' is outside project root. Allow this write?"
     fi
-    # Opt-in: prompt before modifying existing unversioned files
-    if [[ "$protect_unversioned" != "0" && -e "$filepath" ]] && ! is_git_tracked "$filepath"; then
-      ask_permission "File '$filepath' is not tracked by git. Changes cannot be recovered. Allow this write?"
-    fi
+    check_file_protection "$filepath" "write"
     exit 0
     ;;
   NotebookEdit)
@@ -130,10 +198,7 @@ case "$tool_name" in
     if ! is_inside_project "$filepath"; then
       ask_permission "Notebook '$filepath' is outside project root. Allow this edit?"
     fi
-    # Opt-in: prompt before modifying existing unversioned notebooks
-    if [[ "$protect_unversioned" != "0" && -e "$filepath" ]] && ! is_git_tracked "$filepath"; then
-      ask_permission "Notebook '$filepath' is not tracked by git. Changes cannot be recovered. Allow this edit?"
-    fi
+    check_file_protection "$filepath" "write"
     exit 0
     ;;
   Bash)
@@ -146,12 +211,10 @@ case "$tool_name" in
     read -ra words <<< "$cmd"
     for word in "${words[@]}"; do
       [[ "$word" == rm || "$word" == rmdir || "$word" == -* ]] && continue
-      if ! is_inside_project "$word"; then
+      if is_inside_project "$word"; then
+        check_file_protection "$word" "delete"
+      else
         deny_operation "BLOCKED: Cannot delete '$word' — outside project root."
-      fi
-      # Opt-in: prompt before deleting unversioned files inside the project
-      if [[ "$protect_unversioned" != "0" && -e "$word" ]] && is_inside_project "$word" && ! is_git_tracked "$word"; then
-        ask_permission "File '$word' is not tracked by git. Deletion is permanent. Allow?"
       fi
     done
     exit 0

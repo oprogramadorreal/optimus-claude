@@ -83,6 +83,11 @@ These insights flow into generated files in Steps 4–6b. The Detection Summary 
 
 **Nested project handling:** When a repo has no manifest at its git root, but exactly 1 qualifying project in a subdirectory (via depth-2 check), and the root-as-project check fails for that repo — treat it as a **single project with a nested app root**. This applies both when running init directly in a repo and when processing repos within a multi-repo workspace. Note the subdirectory path; all commands in the generated CLAUDE.md must reference it (e.g., `cd ngapp && npm run build`).
 
+**Git submodule detection:** For each repo, check if `.gitmodules` exists. If found, parse submodule paths (the `path = ...` entries). These directories contain code from external repositories and must be:
+- **Excluded from manifest scanning** — submodule directories should not be counted as project manifests (they belong to a different repo)
+- **Excluded from formatter hooks** — formatting submodule files would create uncommittable changes in the parent repo
+- **Noted in `architecture.md`** — document the submodule purpose and upstream source if detectable from `.gitmodules`
+
 ### Step 1 Checkpoint
 
 Before proceeding, confirm you have all of the following. If any are missing, re-examine the project:
@@ -96,6 +101,7 @@ Before proceeding, confirm you have all of the following. If any are missing, re
 - If monorepo: **workspace tool** (if any)
 - If multi-repo workspace: **repo list** with each repo's path, tech stack, and internal structure (single project or monorepo)
 - If nested app root detected: **app root path** (e.g., `ngapp/`)
+- **Git submodules** (if any): submodule paths and their upstream URLs from `.gitmodules`
 - **Existing files inventory** (existence check only — content of docs is read in Step 1b; agents are never audited, always overwritten): which of `.claude/CLAUDE.md`, `.claude/settings.json`, `.claude/docs/*`, `.claude/agents/code-simplifier.md`, `.claude/agents/test-guardian.md`, root `CLAUDE.md`, subproject `CLAUDE.md` files already exist
 - **Test infrastructure detected** (yes/no): test framework in dependencies, test command in scripts, or test directory present. If **no**: do not use `AskUserQuestion` about setting up tests or offer to skip — init never provisions test infrastructure. Note the absence in the summary and continue.
 - **Doc-sourced insights** (if any documentation found): verified conventions, architecture rationale, workflow rules — all cross-checked against source code

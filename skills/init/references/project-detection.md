@@ -34,6 +34,7 @@ Scan top-level directories for manifest files (from the manifest table in SKILL.
 - **Build output**: `dist`, `build`, `out`, `target`, `bin`, `obj`
 - **Framework/cache**: `.next`, `.nuxt`, `__pycache__`, `.cache`, `.tox`
 - **Non-project**: `examples`, `demos`, `test-fixtures`, `e2e`, `__tests__`, `.storybook`, `samples`, `experiments`, `scripts`, `tools`, `docs`
+- **Git submodules**: any directory listed as a `path` in `.gitmodules` (these contain code from external repos and should not be counted as project manifests)
 
 **Depth-2 check for container directories:** For any scanned top-level directory that has no manifest and is not in the skip list, check its immediate subdirectories for manifest files (applying the same skip rules). This catches nested subprojects inside container directories (e.g., `app/API/` and `app/client/` inside `app/`). Count each qualifying subdirectory as a separate project using its full relative path (e.g., `app/API`, `app/client`).
 

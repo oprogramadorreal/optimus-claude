@@ -93,7 +93,7 @@ See [skills/code-review/README.md](skills/code-review/README.md) for full docume
 
 ## /optimus:permissions
 
-Configures allow/deny rules that eliminate routine prompts, plus a PreToolUse hook that enforces tiered path-based security — writes outside the project require approval, deletes outside the project are blocked. The security model assumes operations inside the project are trusted; see the [skill's README](skills/permissions/README.md) for the full trust model and what this means in practice. Especially useful on native Windows where OS-level sandboxing is not yet available. Merges safely with `/optimus:init`.
+Configures allow/deny rules that eliminate routine prompts, plus a PreToolUse hook that enforces tiered path-based security — writes outside the project require approval, deletes outside the project are blocked. Includes **precious file protection** that detects non-regenerable gitignored files (local config, secrets, database files) and prompts before modifying them. Works correctly in multi-repo workspaces with per-file git root detection. The security model assumes operations inside the project are trusted; see the [skill's README](skills/permissions/README.md) for the full trust model. Especially useful on native Windows where OS-level sandboxing is not yet available. Merges safely with `/optimus:init`.
 
 See [skills/permissions/README.md](skills/permissions/README.md) for full documentation.
 

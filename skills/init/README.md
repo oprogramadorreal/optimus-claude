@@ -40,7 +40,7 @@ In Claude Code, use any of these:
 
 ## How It Works
 
-1. **Detects project context** — tech stack, package manager, project structure (single / monorepo / multi-repo workspace), existing docs, test infrastructure
+1. **Detects project context** — tech stack, package manager, project structure (single / monorepo / multi-repo workspace), git submodules, existing docs, test infrastructure
 2. **Audits existing documentation** (if present) — classifies as Outdated / Missing / Accurate; you choose what to update
 3. **Creates directory structure** — `.claude/docs/`, `.claude/hooks/`, `.claude/agents/`
 4. **Generates CLAUDE.md** — WHAT/WHY/HOW structure, progressive disclosure, <=60 lines
