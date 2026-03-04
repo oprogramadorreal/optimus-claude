@@ -8,7 +8,7 @@ These guidelines inform architectural and design decisions when working on [PROJ
 Match the codebase's architecture, naming, and style. When introducing a different approach, ensure it's a clear improvement and document the rationale. Apply new patterns consistently — don't leave the codebase in a mixed state.
 
 ### Keep It Simple (KISS)
-Default to the simplest design that meets current requirements. Avoid speculative abstractions — extract helpers and layers only when they improve clarity or reduce duplication.
+Default to the simplest design that meets current requirements. Avoid speculative abstractions — extract helpers and layers only when they improve clarity or reduce duplication. Remove dead code — unused functions, unreachable branches, and commented-out blocks add noise without value.
 
 ### Prefer Clarity Over Cleverness
 Choose clear, concise solutions with explicit control flow and simple data flow. Don't sacrifice readability for fewer lines or clever tricks.

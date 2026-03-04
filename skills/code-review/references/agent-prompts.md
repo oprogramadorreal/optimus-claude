@@ -121,7 +121,7 @@ Read `.claude/docs/coding-guidelines.md` and `.claude/CLAUDE.md` for project sta
 Review ONLY the following changed files for code simplification opportunities:
 [list of changed file paths from Step 1]
 
-Focus on: unnecessary complexity, naming clarity, violations of codebase patterns, dead code, misleading comments.
+Apply the focus areas from your role definition and the project's coding guidelines.
 
 For each finding: file:line, guideline violated, brief description, suggested improvement.
 Do NOT suggest changes outside the changed files. Do NOT flag style/formatting, bugs, security, or guidelines.
@@ -137,7 +137,7 @@ Read `.claude/CLAUDE.md` for project structure, then read the relevant testing.m
 Analyze ONLY the following changed files for test coverage gaps:
 [list of changed file paths from Step 1]
 
-Focus on: new public functions/methods/classes without tests, modified logic paths existing tests may not cover, test files that should have been updated alongside changes, code with testable logic that cannot be unit-tested as written (hardcoded dependencies, tightly coupled modules, inline DB/HTTP calls without dependency injection, deeply nested side effects, global state mutations).
+Apply the focus areas from your role definition and the project's testing conventions.
 
 For each finding: source file and function name, finding type (Test Gap | Structural Barrier), what should be tested or what barrier prevents testing, recommended test file path (if applicable).
 Do NOT write test code. Only identify gaps.

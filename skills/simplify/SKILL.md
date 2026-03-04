@@ -103,13 +103,7 @@ These findings span multiple files — the unique value of project-wide review t
 
 ### Per-file analysis
 
-These supplement cross-cutting findings with localized improvements:
-
-- **Complexity** — Functions too long, deeply nested, or violating SRP
-- **Naming** — Variables, functions, or types with unclear or misleading names
-- **Dead code** — Unused functions, unreachable branches, commented-out blocks
-- **Unnecessary abstraction** — Over-engineered patterns, premature generalizations
-- **Comment quality** — Comments narrating what code expresses; missing comments on non-obvious intent
+These supplement cross-cutting findings with localized improvements. Apply each principle from the project's coding guidelines (loaded in Step 2) as an analysis lens — for each principle the guidelines establish, check whether the code follows it.
 
 ### Finding quality bar
 

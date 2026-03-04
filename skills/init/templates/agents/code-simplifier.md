@@ -21,12 +21,7 @@ If the guidelines file is unavailable, apply these defaults:
 
 1. **Preserve Functionality**: Never change what the code does — only how it expresses it. All features, outputs, and behaviors must remain intact.
 
-2. **Enhance Clarity**: Look for simplification opportunities in these areas:
-   - Unnecessary complexity and nesting depth
-   - Redundant code and dead abstractions
-   - Variable, function, and parameter naming
-   - Scattered related logic that could be consolidated
-   - Comments that add no value beyond what the code expresses
+2. **Enhance Clarity**: Apply each principle from the project's coding guidelines as a simplification lens — for each standard the guidelines establish, check whether the code meets it.
 
 3. **Maintain Balance**: Default to the simplest change that works. Avoid over-simplification that could:
    - Sacrifice readability for fewer lines

@@ -110,9 +110,9 @@ To understand or modify how the skill works, start with `SKILL.md`. Key customiz
 
 ### Tuning coding guidelines
 
-The coding guidelines file (`.claude/docs/coding-guidelines.md` in your project) is the primary control surface for how the code-simplifier agent and `/optimus:simplify` evaluate your code. After `/optimus:init` generates it, you own it — edit, relax, or extend any rule to match your project's conventions. If the agent flags something that's fine for your codebase, or feels too aggressive on a particular principle, tuning this file is the fix.
+The coding guidelines file (`.claude/docs/coding-guidelines.md` in your project) is the single source of truth for how the code-simplifier agent, `/optimus:simplify`, and `/optimus:code-review` evaluate your code. Every principle you add, remove, or edit directly changes what these tools flag. After `/optimus:init` generates it, you own it — tune any rule to match your project's conventions.
 
-The template (`templates/docs/coding-guidelines.md`) controls what new projects get; your project's copy at `.claude/docs/coding-guidelines.md` is what actually drives behavior at runtime.
+The template (`templates/docs/coding-guidelines.md`) controls what new projects get; your project's copy at `.claude/docs/coding-guidelines.md` is what drives behavior at runtime.
 
 ## Relationship to Other Skills
 
