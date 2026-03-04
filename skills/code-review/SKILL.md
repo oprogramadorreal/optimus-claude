@@ -1,15 +1,23 @@
 ---
-description: This skill performs local-first code review — analyzes uncommitted changes (or PRs) against project coding guidelines using up to 6 parallel review agents (bug detection, security/logic, guideline compliance ×2, code simplification, test coverage). HIGH SIGNAL only: real bugs, logic errors, security concerns, and guideline violations.
+description: This skill performs local-first code review — analyzes uncommitted changes (or PRs/MRs) against project coding guidelines using up to 6 parallel review agents (bug detection, security/logic, guideline compliance ×2, code simplification, test coverage). HIGH SIGNAL only: real bugs, logic errors, security concerns, and guideline violations.
 disable-model-invocation: true
 ---
 
 # Code Review
 
-Analyze local git changes (or a PR) against the project's coding guidelines, using up to 6 parallel review agents for comprehensive coverage. High-signal findings only: bugs, logic errors, security issues, guideline violations. Excludes style concerns, subjective suggestions, and linter-catchable issues.
+Analyze local git changes (or a PR/MR) against the project's coding guidelines, using up to 6 parallel review agents for comprehensive coverage. High-signal findings only: bugs, logic errors, security issues, guideline violations. Excludes style concerns, subjective suggestions, and linter-catchable issues.
 
 ## Step 1: Determine Review Scope
 
 Parse arguments and detect what to review.
+
+### Multi-repo workspace detection
+
+If the current directory is a multi-repo workspace (no `.git/` at root, 2+ child directories containing a `.git` *directory* — not `.git` files, which indicate submodules):
+- Run the git commands below inside each child repo (the workspace root has no `.git/`, so git commands must target individual repos)
+- For PR/MR mode, the user must specify which repo — PRs/MRs belong to individual repos
+- If changed files cannot be mapped to any child repo (e.g., files at the workspace root), ask the user which repo's context to apply
+- Prerequisite loading in Step 2 will resolve per-repo docs independently
 
 ### Local changes (default — no arguments)
 
@@ -32,17 +40,34 @@ git status --short
 - **If no local changes** → check for commits ahead of the default branch:
   - Run `git log --oneline origin/main..HEAD` (try `main`, then `master` if no remote)
   - If commits found → offer to review the branch diff
-  - Also check for a PR: `gh pr view --json number,state,title` (ignore errors if `gh` is not installed)
-  - If PR found → offer to review it
+  - Also check for a PR/MR (use the same platform detection as PR mode below):
+    - If GitLab: `glab mr view --output json` (ignore errors if `glab` is not installed) — if it fails, check stderr: "no open merge request" or "404" means no MR; auth or network errors → inform the user
+    - If GitHub: `gh pr view --json number,state,title` (ignore errors if `gh` is not installed)
+    - If platform unknown: try both, ignore all errors
+  - If PR/MR found → offer to review it
 - **If nothing at all** → inform the user there are no changes to review and suggest staging changes or specifying a PR
 
 ### PR mode (explicit request)
 
 When the user says "review PR #42", passes `--pr`, `#123`, or a PR URL:
-- Verify `gh` is available by running `gh --version`. If not available, inform the user that PR review requires the GitHub CLI and offer to review the branch diff instead
+
+**Platform detection** — determine the hosting platform before proceeding:
+1. Check the `origin` remote URL first: contains `gitlab` → **GitLab**, use `glab`; contains `github` → **GitHub**, use `gh`
+2. If `origin` matches neither, check other remotes. If multiple remotes point to different platforms, ask the user which platform to use for PR/MR operations
+3. If no remote matches → fall back to CI file detection: `.gitlab-ci.yml` at repo root → GitLab; `.github/` directory → GitHub; otherwise → inform the user that the hosting platform could not be determined and ask them to specify
+4. If signals conflict (e.g., GitHub remote but `.gitlab-ci.yml` exists), use the remote URL as authoritative and note the discrepancy to the user
+
+**GitHub projects:**
+- Verify `gh` is available by running `gh --version`. If not available, inform the user that PR review requires the GitHub CLI (`gh`) and offer to review the branch diff instead
 - Use `gh pr view <N> --json state,isDraft,title,body,baseRefName,headRefName` to get PR metadata
 - Use `gh pr diff <N>` to get the actual diff
 - If the PR is closed or merged → warn and stop
+
+**GitLab projects:**
+- Verify `glab` is available by running `glab --version`. If not available, inform the user: "This project uses GitLab. PR/MR review requires the GitLab CLI (`glab`). You can use branch diff mode instead: `/optimus:code-review changes since origin/main`." Offer to review the branch diff as a fallback.
+- Use `glab mr view <N> --output json` to get MR metadata
+- Use `glab mr diff <N>` to get the actual diff
+- If the MR is closed or merged → warn and stop
 
 ### Branch/ref mode
 
@@ -72,11 +97,18 @@ If more than 50 files or 3000 lines are changed, warn the user and suggest narro
 
 ## Step 2: Verify Prerequisites and Load Project Context
 
+### Multi-repo workspace prerequisite loading
+
+If a multi-repo workspace was detected in Step 1, resolve prerequisites per-repo:
+- Determine which repo(s) the changed files belong to (from the diff file paths gathered in Step 1)
+- Load each repo's `.claude/CLAUDE.md` and `.claude/docs/` independently (not the workspace root)
+- If changes span multiple repos, apply per-repo context when reviewing that repo's files
+
 ### Documentation prerequisites
 
 Check that these files exist:
-- `.claude/CLAUDE.md`
-- `.claude/docs/coding-guidelines.md`
+- `.claude/CLAUDE.md` (or the target repo's `.claude/CLAUDE.md` in a multi-repo workspace)
+- `.claude/docs/coding-guidelines.md` (or the target repo's)
 
 **If either is missing**, warn the user and recommend running `/optimus:init` first. Use these fallbacks so the skill can still run:
 - `CLAUDE.md` missing → detect tech stack from manifest files (`package.json`, `Cargo.toml`, `pyproject.toml`, etc.) for basic context
@@ -121,13 +153,17 @@ When reviewing a subproject's code, apply its own constraint docs — not anothe
 
 These files define the review criteria. Every guideline-related finding must be justified by what these docs establish — never impose external preferences.
 
+### Exclude git submodules
+
+If any changed files reside inside a git submodule directory (a directory containing a `.git` *file*, not directory), exclude them from the review. These files belong to an external repository and should be reviewed in that repository's context, not the parent project's.
+
 ### Context summary
 
 Before proceeding to the review, present a brief summary:
 - Docs loaded (with paths)
 - Docs missing (with fallback status)
 - Agents available (with skip status for missing ones)
-- Project type (single project / monorepo)
+- Project type (single project / monorepo / multi-repo workspace)
 
 Let the user confirm before launching agents.
 
@@ -234,7 +270,9 @@ Maximum **10 findings** across all sources, prioritized by severity then confide
 [If applicable: "The changes follow project guidelines. No bugs, security issues, or guideline violations detected."]
 ```
 
-For PR mode, include full-SHA code links: `https://github.com/owner/repo/blob/[full-sha]/path#L[start]-L[end]`
+For PR mode, include full-SHA code links:
+- **GitHub:** `https://github.com/owner/repo/blob/[full-sha]/path#L[start]-L[end]`
+- **GitLab:** Extract the instance URL from `git remote get-url origin` (e.g., `https://gitlab.company.com`), then use: `https://[gitlab-host]/owner/repo/-/blob/[full-sha]/path#L[start]-L[end]`
 
 ## Step 6: Offer Actions
 
@@ -244,9 +282,14 @@ Use `AskUserQuestion` to present options based on review mode:
 - **Fix issues** — "Apply suggested fixes directly, then run tests to verify"
 - **Skip** — "Keep the report as reference only"
 
-**PR review** — header "Action", question "How would you like to proceed with the review findings?":
-- **Post comment** — "Post the review summary as a PR comment"
+**PR/MR review** — header "Action", question "How would you like to proceed with the review findings?":
+- **Post comment** — "Post the review summary as a PR/MR comment"
 - **Skip** — "Keep the report as reference only"
+
+Write the review summary to a secure temp file: `TMPFILE=$(mktemp /tmp/review-summary-XXXXXX.md)`. Always clean up after the posting attempt (whether it succeeds or fails): `rm -f "$TMPFILE"`.
+
+For GitHub PRs: `gh pr comment <N> --body-file "$TMPFILE"`
+For GitLab MRs: `glab api -X POST "projects/:id/merge_requests/<N>/notes" -F body=@"$TMPFILE"` — this avoids shell metacharacter issues that `glab mr note --message "$(cat ...)"` would have with code snippets in the summary
 
 ## Important
 

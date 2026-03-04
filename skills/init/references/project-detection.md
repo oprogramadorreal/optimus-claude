@@ -34,6 +34,7 @@ Scan top-level directories for manifest files (from the manifest table in SKILL.
 - **Build output**: `dist`, `build`, `out`, `target`, `bin`, `obj`
 - **Framework/cache**: `.next`, `.nuxt`, `__pycache__`, `.cache`, `.tox`
 - **Non-project**: `examples`, `demos`, `test-fixtures`, `e2e`, `__tests__`, `.storybook`, `samples`, `experiments`, `scripts`, `tools`, `docs`
+- **Git submodules**: Any directory containing a `.git` *file* (not directory) is a submodule pointing to an external repository — skip it
 
 **Depth-2 check for container directories:** For any scanned top-level directory that has no manifest and is not in the skip list, check its immediate subdirectories for manifest files (applying the same skip rules). This catches nested subprojects inside container directories (e.g., `app/API/` and `app/client/` inside `app/`). Count each qualifying subdirectory as a separate project using its full relative path (e.g., `app/API`, `app/client`).
 
@@ -60,7 +61,7 @@ If a single `.sln` file exists at the root, parse its `Project(...)` entries to 
 - 2+ projects with manifests (Step B) → confirmed monorepo, enumerate from projects
 - Supporting signals (Step C) + 1 dir with manifest → likely monorepo, ask user to confirm
 - Supporting signals only → insufficient evidence, ask user to identify subproject dirs
-- No signals → single project
+- No signals → single project (one repo, one codebase — not a monorepo)
 
 ## Subproject Enumeration
 

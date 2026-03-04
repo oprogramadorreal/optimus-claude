@@ -33,4 +33,5 @@ Feature branch testing uses a two-level fetch — see CONTRIBUTING.md for the fu
 - All skills must use `disable-model-invocation: true`
 - Bump the version in `.claude-plugin/plugin.json` for meaningful changes
 - Do not add a `name` field to SKILL.md frontmatter — it strips the plugin namespace prefix ([anthropics/claude-code#22063](https://github.com/anthropics/claude-code/issues/22063))
+- `coding-guidelines.md` is the single source of truth for code quality rules — skills and agents must reference it, never duplicate its principles inline
 - After any skill change, verify that the root README.md and the skill's README.md still reflect current behavior

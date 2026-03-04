@@ -14,7 +14,8 @@ Recommend the most popular test framework and coverage tooling for each tech sta
 | PHP | PHPUnit | built-in coverage (requires Xdebug or PCOV) | Built-in |
 | Ruby | RSpec | SimpleCov | Built-in |
 | C/C++ | Google Test (gtest) or Catch2 | gcov/lcov | genhtml (from lcov) |
-| Angular | Vitest | built-in `--coverage` (v8 provider) | Built-in |
+| Angular (new project) | Vitest | built-in `--coverage` (v8 provider) | Built-in |
+| Angular (existing tests) | Detect and keep existing | Detect existing coverage tooling | Detect existing |
 
 ## Selection Guidelines
 

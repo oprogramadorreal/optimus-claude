@@ -9,7 +9,7 @@ Improve unit test coverage for existing code. Conservative by design — only ad
 
 ## Step 1: Pre-flight
 
-If the current directory is a multi-repo workspace (no `.git/` here, 2+ child directories with `.git/` — same multi-repo workspace detection as `/optimus:init`), process each repo independently: run Steps 1–8 inside each repo that has `.claude/CLAUDE.md`. Report results per repo. If no repos have been initialized, suggest running `/optimus:init` first from the workspace root.
+If the current directory is a multi-repo workspace (no `.git/` at root, 2+ child directories containing a `.git` *directory* — not `.git` files, which indicate submodules), process each repo independently: run Steps 1–8 inside each repo that has `.claude/CLAUDE.md`. Report results per repo. If no repos have been initialized, suggest running `/optimus:init` first from the workspace root.
 
 Check that `.claude/CLAUDE.md` exists. If it doesn't, stop and recommend running `/optimus:init` first — the project needs baseline context before test generation can be effective.
 
@@ -41,6 +41,8 @@ For each subproject (or the single project), scan for:
 - **Test runner commands** — from `testing.md`, `CLAUDE.md`, `package.json` scripts, `Makefile`, `Cargo.toml`, etc.
 - **Coverage tooling** — whether coverage measurement is already configured and available
 - **Optimus infrastructure status** — does `.claude/agents/test-guardian.md` exist? does `.claude/docs/testing.md` exist? does `.claude/CLAUDE.md` reference testing?
+
+**Exclude git submodules:** Skip directories containing a `.git` *file* (not directory) — these are submodules pointing to external repositories and should not be scanned for test targets or test files.
 
 Present a summary table to the user:
 

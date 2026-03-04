@@ -11,9 +11,19 @@ The code-simplifier agent guards new code after every edit — this skill is the
 
 ## Step 1: Verify Prerequisites and Determine Scope
 
+### Multi-repo workspace detection
+
+If the current directory is a multi-repo workspace (no `.git/` at root, 2+ child directories containing a `.git` *directory* — not `.git` files, which indicate submodules), resolve prerequisites per-repo:
+- Determine which repo(s) the scope targets (from file paths, user selection, or changed files)
+- Load that repo's `.claude/CLAUDE.md` and `.claude/docs/` as prerequisites (not the workspace root)
+- If scope spans multiple repos, load each repo's docs independently and apply per-repo context when analyzing that repo's files
+- If no repo can be determined, ask the user which repo to analyze
+
+### Prerequisite check
+
 Check that these files exist:
-- `.claude/CLAUDE.md`
-- `.claude/docs/coding-guidelines.md`
+- `.claude/CLAUDE.md` (or the target repo's `.claude/CLAUDE.md` in a multi-repo workspace)
+- `.claude/docs/coding-guidelines.md` (or the target repo's)
 
 **If either is missing**, warn the user and recommend running `/optimus:init` first. Use these fallbacks so the skill can still run:
 - `CLAUDE.md` missing → detect tech stack from manifest files (`package.json`, `Cargo.toml`, `pyproject.toml`, etc.) for basic context
@@ -67,6 +77,7 @@ Within the chosen scope (Step 1), identify source directories. Skip non-source:
 - **Dependencies**: `node_modules`, `vendor`, `.venv`, `venv`, `env`
 - **Build output**: `dist`, `build`, `out`, `target`, `bin`, `obj`, `coverage`
 - **Framework/cache**: `.next`, `.nuxt`, `__pycache__`, `.cache`, `.tox`, `.turbo`
+- **Git submodules**: Any directory containing a `.git` *file* (not directory) — these belong to external repositories
 
 Also skip non-source **file types**: `*.min.js`, `*.min.css`, lock files (`package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`, etc.), `*.d.ts` (unless hand-written), binary and data files.
 
@@ -85,7 +96,7 @@ Analyze highest-churn directories first. For full-project scope on large codebas
 
 ### Context Summary
 
-Before proceeding to analysis, present a brief summary: docs loaded (with paths), docs missing (with fallback status), project type (single/monorepo), and analysis areas identified with their git activity rank. Let the user confirm before heavy analysis begins.
+Before proceeding to analysis, present a brief summary: docs loaded (with paths), docs missing (with fallback status), project type (single/monorepo/multi-repo workspace), and analysis areas identified with their git activity rank. Let the user confirm before heavy analysis begins.
 
 ## Step 3: Analyze Source Code
 

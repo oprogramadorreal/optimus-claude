@@ -73,7 +73,7 @@ These insights flow into generated files in Steps 4–6b. The Detection Summary 
 - 2+ projects with manifests → confirmed monorepo (but see .NET consolidation below)
 - Supporting signals + 1 manifest dir → likely monorepo, ask user to confirm
 - Supporting signals only → insufficient evidence, ask user to identify subproject dirs
-- No signals → single project
+- No signals → single project (one repo, one codebase — not a monorepo)
 
 **.NET solution consolidation:** When a single root `.sln` references all discovered `.csproj` files, collapse them into 1 project before applying the matrix above. Non-`.csproj` manifests still count separately.
 
