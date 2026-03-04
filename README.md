@@ -1,8 +1,6 @@
 # 🤖 optimus-claude
 
-What makes a good developer productive in a codebase also makes Claude Code productive: **clean code, good test coverage, and clear documentation.**
-
-Research backs this up: AI tools introduce [30%+ more defects](https://arxiv.org/abs/2601.02200) on poorly maintained code, LLM performance [degrades up to 85%](https://arxiv.org/abs/2510.05381) as context length grows, and Anthropic's [#1 best practice](https://code.claude.com/docs/en/best-practices) for Claude Code is giving it a way to verify its own work (e.g., with unit tests).
+**A Claude Code plugin that sets up your project for effective AI-assisted development** — CLAUDE.md, coding guidelines, formatter hooks, quality agents, and test coverage, generated from your actual codebase.
 
 - `/optimus:init` generates CLAUDE.md, coding guidelines, formatter hooks, and quality agents
 - `/optimus:unit-test` fills test coverage gaps with generated tests that enable AI self-correction
@@ -11,12 +9,14 @@ Research backs this up: AI tools introduce [30%+ more defects](https://arxiv.org
 
 ## Why This Plugin?
 
-When you join a new project, you need good test coverage (to change code safely), clean code (to understand what's going on), and documentation (for non-obvious decisions). Claude Code needs the same things — for similar reasons:
+What makes a good developer productive in a codebase also makes Claude Code productive: **clean code, good test coverage, and clear documentation.**
 
 - **DRY code** avoids wasting context tokens with duplicate information
 - **Meaningful names** give the LLM better semantic signals
 - **Unit tests** enable self-correction: make change → run tests → see failure → fix
 - **Focused documentation** keeps the context window efficient and contradiction-free
+
+Research backs this up: AI tools introduce [30%+ more defects](https://arxiv.org/abs/2601.02200) on poorly maintained code, LLM performance [degrades up to 85%](https://arxiv.org/abs/2510.05381) as context length grows, and Anthropic's [#1 best practice](https://code.claude.com/docs/en/best-practices) for Claude Code is giving it a way to verify its own work (e.g., with unit tests).
 
 The LLM already knows best practices from training — but the trigger to apply them comes from the project context. `/optimus:init` provides that trigger.
 
