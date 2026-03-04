@@ -68,10 +68,10 @@ For stacks requiring external formatters (Python, Node.js, C#, Java, C/C++), `/o
 
 | Agent | Purpose | Installed when |
 |-------|---------|----------------|
-| [code-simplifier](templates/agents/code-simplifier.md) | Enforces coding guidelines on every change | Always |
+| [code-simplifier](templates/agents/code-simplifier.md) | Enforces coding guidelines on every change — direct simplifications automatic, structural changes as suggestions | Always |
 | [test-guardian](templates/agents/test-guardian.md) | Flags untested code, verifies test suite passes | Test infrastructure detected |
 
-Both agents reference your project's `.claude/CLAUDE.md` and `.claude/docs/` files, so they follow your established conventions rather than imposing external rules. The code-simplifier activates proactively after code changes; the test-guardian operates at the end of logical tasks to verify test coverage.
+Both agents reference your project's `.claude/CLAUDE.md` and `.claude/docs/` files, so they follow your established conventions rather than imposing external rules. The code-simplifier activates proactively after code changes — applying direct simplifications (renaming, dead code removal, flattening) automatically and presenting structural changes (extracting functions, changing abstractions) as suggestions for approval. The test-guardian operates at the end of logical tasks to verify test coverage.
 
 ## Generated Files
 
@@ -107,6 +107,12 @@ To understand or modify how the skill works, start with `SKILL.md`. Key customiz
 - **Coding guidelines**: `templates/docs/coding-guidelines.md`
 - **Formatter hooks**: `templates/hooks/` (Python, Node.js, Rust, Go, C#, Java, C/C++)
 - **Agents**: `templates/agents/` (code-simplifier, test-guardian)
+
+### Tuning coding guidelines
+
+The coding guidelines file (`.claude/docs/coding-guidelines.md` in your project) is the primary control surface for how the code-simplifier agent and `/optimus:simplify` evaluate your code. After `/optimus:init` generates it, you own it — edit, relax, or extend any rule to match your project's conventions. If the agent flags something that's fine for your codebase, or feels too aggressive on a particular principle, tuning this file is the fix.
+
+The template (`templates/docs/coding-guidelines.md`) controls what new projects get; your project's copy at `.claude/docs/coding-guidelines.md` is what actually drives behavior at runtime.
 
 ## Relationship to Other Skills
 
