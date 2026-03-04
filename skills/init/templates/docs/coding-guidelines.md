@@ -1,35 +1,16 @@
-# Coding Guidelines
+# Coding principles for [PROJECT NAME]
 
-These guidelines inform architectural and design decisions when working on [PROJECT NAME].
+## Follow Existing Patterns
+Match the codebase's architecture, naming, and style. Prefer framework and standard-library solutions over custom code or new dependencies. When introducing a different approach, ensure it's a clear improvement and document the rationale. Apply new patterns consistently — don't leave the codebase in a mixed state.
 
-## Core Principles
+## Keep It Simple (KISS)
+Default to the simplest design that meets current requirements. Prefer clear, explicit solutions over compact or clever tricks. Avoid speculative abstractions — extract helpers and layers only when they improve clarity or reduce duplication. Remove dead code — unused functions, unreachable branches, and commented-out blocks add noise without value.
 
-### Follow Existing Patterns
-Match the codebase's architecture, naming, and style. When introducing a different approach, ensure it's a clear improvement and document the rationale. Apply new patterns consistently — don't leave the codebase in a mixed state.
+## Single Responsibility (SRP) / Manage Complexity
+Keep functions, classes, and modules focused on a single responsibility. When a unit handles multiple concerns, mixes abstraction levels, or has deeply nested control flow — decompose it. Deep nesting and long methods signal missing abstractions, not a need for more simplicity. Group related parameters into objects when it improves readability.
 
-### Keep It Simple (KISS)
-Default to the simplest design that meets current requirements. Avoid speculative abstractions — extract helpers and layers only when they improve clarity or reduce duplication. Remove dead code — unused functions, unreachable branches, and commented-out blocks add noise without value.
+## Domain-Accurate Naming
+Use names that reflect the domain. Prefer typed interfaces over primitives when it clarifies meaning. Comment only non-obvious intent and tradeoffs — don't narrate what the code already expresses.
 
-### Prefer Clarity Over Cleverness
-Choose clear, concise solutions with explicit control flow and simple data flow. Don't sacrifice readability for fewer lines or clever tricks.
-
-## Naming and Structure
-
-### Domain-Accurate Naming
-Use names that reflect the domain. Prefer typed interfaces over primitives when it clarifies meaning.
-
-### Small, Focused Functions (SRP)
-Keep functions small with a single responsibility. Minimize parameters. Group related inputs into objects when it improves readability. When nested control structures hurt readability, extract the nested blocks into focused sub-functions.
-
-## Dependencies and Architecture
-
-### Use Built-In Features First
-Prefer framework and standard-library solutions over custom code or new dependencies.
-
-### Pragmatic Abstractions
+## Pragmatic Abstractions
 Apply SOLID principles and extract abstractions when they improve clarity, reduce duplication, or enable testing. Don't add indirection for its own sake. Ensure high cohesion, low coupling, and minimal side effects. Evolve patterns when the codebase outgrows them — but migrate deliberately, not speculatively.
-
-## Documentation
-
-### Comment Intent, Not Code
-Comment only non-obvious intent and tradeoffs. Don't narrate what the code already expresses.

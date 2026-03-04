@@ -65,7 +65,7 @@ The skill presents a structured plan before making any changes:
 
 **2. Duplicated validation logic** (High)
 - File: src/auth/login.ts:42
-- Guideline: DRY / Small, Focused Functions (SRP)
+- Guideline: DRY / SRP
 - Current: Email validation repeated in login.ts, register.ts, reset.ts
 - Suggested: Extract to shared validateEmail() in src/auth/validate.ts
 ```
