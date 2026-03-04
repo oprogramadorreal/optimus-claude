@@ -1,18 +1,21 @@
 # optimus:code-review
 
-A [Claude Code](https://docs.anthropic.com/en/docs/claude-code) skill that reviews local changes (or PRs) against your project's coding guidelines — using up to 6 parallel review agents for comprehensive coverage. High-signal findings only: bugs, logic errors, security issues, guideline violations.
+A [Claude Code](https://docs.anthropic.com/en/docs/claude-code) skill that reviews local changes (or PRs/MRs) against your project's coding guidelines — using up to 6 parallel review agents for comprehensive coverage. High-signal findings only: bugs, logic errors, security issues, guideline violations.
 
 Well-maintained code has [30%+ fewer AI-introduced defects](https://arxiv.org/abs/2601.02200). `/optimus:init` sets up quality infrastructure with agents that guard new code automatically, and `/optimus:simplify` reviews existing code across the project. `/optimus:code-review` is the inner-loop complement: a focused review of your changes before they enter the repo.
 
 ## Features
 
-- **Local-first** — reviews uncommitted changes by default (staged + unstaged + untracked); PR and branch-diff modes available on request
+- **Local-first** — reviews uncommitted changes by default (staged + unstaged + untracked); PR/MR and branch-diff modes available on request
 - **Up to 6 parallel agents** — bug detection, security/logic, guideline compliance (×2 for cross-validation), plus code-simplifier and test-guardian when project agents are available
 - **Project-aware** — evaluates against your coding-guidelines.md, testing.md, architecture.md, and styling.md
 - **High signal only** — bugs, security issues, logic errors, explicit guideline violations; excludes style concerns and subjective suggestions
 - **Validation step** — each finding is independently verified (context check, intent check, pre-existing check, cross-agent consensus) before reporting
 - **Actionable output** — findings include file:line references, before/after code sketches, guideline citations, and severity levels
 - **Works without `/optimus:init`** — falls back to generic coding guidelines when project-specific docs are not available
+- **Multi-repo workspace support** — resolves per-repo documentation when opened from a workspace root containing multiple git repos
+- **GitLab support** — PR/MR review via `glab` CLI alongside GitHub `gh` CLI
+- **Submodule exclusion** — automatically skips files inside git submodules
 
 ## Quick Start
 
@@ -142,7 +145,7 @@ Anthropic's official [code-review](https://github.com/anthropics/claude-code/tre
 - [Claude Code](https://docs.anthropic.com/en/docs/claude-code) 1.0.33+ (plugin support)
 - Git
 - Project initialized with `/optimus:init` (recommended, not required — enables all 6 agents and project-specific guidelines)
-- GitHub CLI (`gh`) for PR review mode (optional)
+- GitHub CLI (`gh`) or GitLab CLI (`glab`) for PR/MR review mode (optional)
 
 ## License
 

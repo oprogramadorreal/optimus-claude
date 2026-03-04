@@ -75,19 +75,19 @@ See [skills/init/README.md](skills/init/README.md) for full documentation.
 
 ## /optimus:unit-test
 
-Discovers test coverage gaps, provisions test infrastructure if needed, estimates achievable coverage targets, and generates tests that follow your project's conventions. Conservative by design — only adds new test files, never refactors source code. Flags untestable code and reports bugs found during test writing.
+Discovers test coverage gaps, provisions test infrastructure if needed, estimates achievable coverage targets, and generates tests that follow your project's conventions. Conservative by design — only adds new test files, never refactors source code. Flags untestable code and reports bugs found during test writing. Excludes git submodules during discovery.
 
 See [skills/unit-test/README.md](skills/unit-test/README.md) for full documentation.
 
 ## /optimus:simplify
 
-Analyzes existing code against your project's coding guidelines with emphasis on cross-file issues — duplication across modules, pattern inconsistency, architectural drift. Presents a prioritized plan (capped at 12 findings), applies only what you approve, and runs the test suite to verify nothing broke. Flexible scope: full project, directory, or changed files.
+Analyzes existing code against your project's coding guidelines with emphasis on cross-file issues — duplication across modules, pattern inconsistency, architectural drift. Presents a prioritized plan (capped at 12 findings), applies only what you approve, and runs the test suite to verify nothing broke. Flexible scope: full project, directory, or changed files. Supports multi-repo workspaces and excludes git submodules.
 
 See [skills/simplify/README.md](skills/simplify/README.md) for full documentation.
 
 ## /optimus:code-review
 
-Reviews uncommitted changes (or PRs) against your project's coding guidelines using up to 6 parallel agents — bug detection, security/logic, guideline compliance (×2), code-simplifier, and test-guardian. High-signal findings only: bugs, security issues, logic errors, guideline violations. Use alongside Anthropic's official [code-review](https://github.com/anthropics/claude-code/tree/main/plugins/code-review) plugin: optimus for pre-commit, official for post-push.
+Reviews uncommitted changes (or PRs/MRs) against your project's coding guidelines using up to 6 parallel agents — bug detection, security/logic, guideline compliance (×2), code-simplifier, and test-guardian. High-signal findings only: bugs, security issues, logic errors, guideline violations. Supports both GitHub (`gh`) and GitLab (`glab`) for PR/MR review mode, multi-repo workspaces, and excludes git submodules. Use alongside Anthropic's official [code-review](https://github.com/anthropics/claude-code/tree/main/plugins/code-review) plugin: optimus for pre-commit, official for post-push.
 
 See [skills/code-review/README.md](skills/code-review/README.md) for full documentation.
 

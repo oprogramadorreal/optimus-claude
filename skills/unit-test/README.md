@@ -18,6 +18,7 @@ Well-maintained code has [30%+ fewer AI-introduced defects](https://arxiv.org/ab
 - **Conservative test writing** — adds new test files only; fixes failing tests, not source code
 - **Bug discovery** — reports bugs found in existing code during test writing without fixing them
 - **Monorepo & multi-repo workspace support** — detects subprojects and processes each independently
+- **Submodule exclusion** — automatically skips git submodules during discovery
 
 ## Quick Start
 
