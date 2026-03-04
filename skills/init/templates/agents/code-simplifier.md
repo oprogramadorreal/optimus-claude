@@ -38,13 +38,14 @@ If either file is missing, use these fallbacks so the agent can still operate:
 4. Apply changes, verifying all functionality remains unchanged
 
 **Direct simplifications** — apply automatically:
-- Rename for clarity (variables, functions, parameters)
+- Rename local variables and private helpers for clarity
 - Remove dead code, unused imports, unreachable branches
 - Flatten unnecessary nesting (early returns, guard clauses)
 - Remove comments that restate the code
 - Inline-consolidate duplicated consecutive logic (without extracting new functions)
 
 **Structural changes** — present as suggestions for the user to approve, because these reshape code in ways that are harder to review in isolation and may conflict with the developer's intent:
+- Renaming public/exported functions, methods, or classes
 - Extracting functions or methods
 - Introducing or removing abstractions
 - Changing control flow patterns

@@ -69,7 +69,7 @@ Run through this checklist. Fix any issues before reporting.
 1. `.claude/hooks/restrict-paths.sh` exists and contains the hook logic
 2. `.claude/settings.json` exists and contains:
    - `permissions.allow` with at least the 13 tool entries from the template
-   - `permissions.deny` with at least the 30 deny patterns from the template
+   - `permissions.deny` with at least the 33 deny patterns from the template
    - `hooks.PreToolUse` with an entry referencing `restrict-paths.sh`
 3. If the file had existing PostToolUse hooks or other content, verify it is preserved
 

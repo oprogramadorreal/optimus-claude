@@ -48,7 +48,7 @@ If your project uses [MCP servers](https://docs.anthropic.com/en/docs/claude-cod
 
 ### 2. Deny List — Block Dangerous Patterns
 
-Blocks 30 dangerous Bash patterns using Claude Code's [permission pattern matching](https://code.claude.com/docs/en/permissions), which operates on the tool invocation before execution:
+Blocks 33 dangerous Bash patterns using Claude Code's [permission pattern matching](https://code.claude.com/docs/en/permissions), which operates on the tool invocation before execution:
 
 | Category | Blocked Patterns |
 |---|---|
@@ -56,7 +56,7 @@ Blocks 30 dangerous Bash patterns using Claude Code's [permission pattern matchi
 | **System destructive** | `rm -rf /`, `rm -rf ~`, `sudo` |
 | **Remote code execution** | `curl \| bash`, `curl \| sh`, `wget \| bash`, `wget \| sh` |
 | **Infrastructure destructive** | `docker system prune`, `docker compose down -v`, `kubectl delete` |
-| **Package publishing** | `npm publish`, `cargo publish`, `twine upload`, `gem push`, `dotnet nuget push`, `mvn deploy`, `./gradlew publish`, `npx npm-cli-login` |
+| **Package publishing** | `npm publish`, `cargo publish`, `twine upload`, `gem push`, `dotnet nuget push`, `mvn deploy`, `mvnw deploy`, `./mvnw deploy`, `gradle publish`, `./gradlew publish`, `npx npm-cli-login` |
 | **Data exfiltration (limited)** | `curl -d @file` (best-effort; trivially bypassable via alternative syntax) |
 
 ### 3. PreToolUse Hook — Tiered Path Enforcement
@@ -81,7 +81,7 @@ This skill operates on the principle that **operations inside the project direct
 
 ### What runs WITHOUT prompts inside the project
 
-Any Bash command that does not match the 30 deny patterns executes without asking, including:
+Any Bash command that does not match the 33 deny patterns executes without asking, including:
 
 - **Database operations** — `psql -c "DROP TABLE users"`, `redis-cli FLUSHALL`, `sqlite3 db.sqlite "DELETE FROM orders"`
 - **File deletion** — `rm data.csv`, `rm -rf uploads/`, `rm database.sqlite` (only `rm -rf /` and `rm -rf ~` are in the deny list)
@@ -97,7 +97,7 @@ Other unversioned files (build output, `node_modules/`, data exports) are **not*
 
 ### The deny list is a blocklist, not an allowlist
 
-The 30 blocked patterns catch common destructive operations, but **anything not on the list passes through**. The deny list is a safety net for known-dangerous commands, not a comprehensive policy. You can add project-specific patterns (e.g., `"Bash(docker *)"`) — see [Customization](#customization).
+The 33 blocked patterns catch common destructive operations, but **anything not on the list passes through**. The deny list is a safety net for known-dangerous commands, not a comprehensive policy. You can add project-specific patterns (e.g., `"Bash(docker *)"`) — see [Customization](#customization).
 
 > **Critical limitation — build command escalation:** Allowing both file edits and Bash execution means any build system can be used for arbitrary code execution. Example: Claude edits `package.json` to add a `"preinstall"` script, then runs `npm install` — the script executes with full user permissions. This is inherent to any permission model that allows both edits and shell access, and cannot be mitigated by deny patterns alone.
 
@@ -106,7 +106,7 @@ The 30 blocked patterns catch common destructive operations, but **anything not 
 | Layer | Mechanism | Reliability | Why |
 |---|---|---|---|
 | **Allow list** | 13 tools auto-approved | High | Built-in [Claude Code feature](https://code.claude.com/docs/en/permissions) |
-| **Deny list** | 30 Bash patterns blocked | Medium | Pattern matching can be bypassed via chaining ([#13371](https://github.com/anthropics/claude-code/issues/13371)) |
+| **Deny list** | 33 Bash patterns blocked | Medium | Pattern matching can be bypassed via chaining ([#13371](https://github.com/anthropics/claude-code/issues/13371)) |
 | **PreToolUse hook (Edit/Write)** | Writes outside project prompt user | **High** | Validates structured `file_path` — cannot be obfuscated |
 | **PreToolUse hook (Bash rm/rmdir)** | Deletes outside project blocked | Medium | Best-effort command parsing |
 
@@ -221,7 +221,7 @@ This skill provides **defense-in-depth**, not bulletproof isolation. Be aware of
 | **Bash writes not caught** | Only `rm`/`rmdir` is intercepted by the hook. Other Bash writes (`echo >`, `cp`, `mv`) outside the project are not blocked |
 | **Build command escalation** | File edits + build commands = arbitrary code execution. See the [critical limitation callout](#trust-model-and-assumptions) above |
 | **Data exfiltration** | Network commands like `curl -X POST` can upload data to external servers. The deny list blocks `curl -d @file` but this is trivially bypassable |
-| **Deny list is a blocklist** | Only 30 specific patterns are blocked. Database commands, service management, and many other destructive operations are not covered |
+| **Deny list is a blocklist** | Only 33 specific patterns are blocked. Database commands, service management, and many other destructive operations are not covered |
 | **Not OS-level sandboxing** | For full isolation, use [sandboxing](https://code.claude.com/docs/en/sandboxing) or [devcontainers](https://code.claude.com/docs/en/devcontainer) |
 
 Despite these limitations, this approach is **significantly safer** than `--dangerously-skip-permissions`:

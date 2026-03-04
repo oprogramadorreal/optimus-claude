@@ -43,6 +43,9 @@
       "Bash(gem push*)",
       "Bash(dotnet nuget push*)",
       "Bash(mvn deploy*)",
+      "Bash(mvnw deploy*)",
+      "Bash(./mvnw deploy*)",
+      "Bash(gradle publish*)",
       "Bash(./gradlew publish*)",
       "Bash(npx npm-cli-login*)",
       "Bash(curl * -d @*)"
