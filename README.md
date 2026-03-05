@@ -4,7 +4,7 @@
 
 - `/optimus:init` generates CLAUDE.md, coding guidelines, formatter hooks, and quality agents
 - `/optimus:unit-test` fills test coverage gaps with generated tests that enable AI self-correction
-- `/optimus:tdd` guides test-driven development — Red-Green-Refactor cycles for new features and bug fixes
+- `/optimus:tdd` guides test-driven development — Red-Green-Refactor cycles that give the AI agent a binary pass/fail feedback loop, the [most effective discipline](https://code.claude.com/docs/en/best-practices) for reliable AI-assisted code
 - `/optimus:simplify` finds and applies code simplifications across your project
 - `/optimus:code-review` catches bugs and violations in your changes before they enter the repo
 
@@ -14,7 +14,7 @@ What makes a good developer productive in a codebase also makes Claude Code prod
 
 - **DRY code** avoids wasting context tokens with duplicate information
 - **Meaningful names** give the LLM better semantic signals
-- **Unit tests** enable self-correction: make change → run tests → see failure → fix
+- **Unit tests** enable self-correction: make change → run tests → see failure → fix. TDD takes this further — writing tests *before* code prevents the AI from writing tests that merely confirm its own bugs
 - **Focused documentation** keeps the context window efficient and contradiction-free
 
 Research backs this up: AI tools introduce [30%+ more defects](https://arxiv.org/abs/2601.02200) on poorly maintained code, LLM performance [degrades up to 85%](https://arxiv.org/abs/2510.05381) as context length grows, and Anthropic's [#1 best practice](https://code.claude.com/docs/en/best-practices) for Claude Code is giving it a way to verify its own work (e.g., with unit tests).
@@ -120,6 +120,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for project structure, skill anatomy, fea
 The principles behind this plugin are supported by research and industry practice:
 
 - **Anthropic** — [Claude Code Best Practices](https://code.claude.com/docs/en/best-practices): testing as #1 practice, compact CLAUDE.md, deterministic hooks, custom subagents
+- **DORA Report (2025)** — [How Test-Driven Development Amplifies AI Success](https://cloud.google.com/discover/how-test-driven-development-amplifies-ai-success) (Google Cloud): AI adoption increases delivery instability; TDD provides the control system that makes AI-assisted development reliable
 - **Borg et al. (2026)** — [Code for Machines, Not Just Humans](https://arxiv.org/abs/2601.02200) (3rd ACM FORGE): LLM-based refactoring on 5,000 Python files; AI defect risk increases 30%+ on unhealthy code (CodeHealth < 7.0)
 - **Thoughtworks Technology Radar Vol. 32 (2025)** — [AI-friendly code design](https://www.thoughtworks.com/radar/techniques/ai-friendly-code-design) (Assess ring): "good software design for humans also benefits AI"
 - **Du et al. (2025)** — [Context Length Alone Hurts LLM Performance](https://arxiv.org/abs/2510.05381) (Findings of EMNLP): even with perfect retrieval, 13.9%–85% performance degradation as input length increases
