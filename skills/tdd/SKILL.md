@@ -11,7 +11,7 @@ This skill is for **new features** and **bug fixes** — not refactoring. For re
 
 ## Step 1: Pre-flight
 
-If the current directory is a multi-repo workspace (no `.git/` at root, 2+ child directories containing a `.git` *directory* — not `.git` files, which indicate submodules), process each repo independently: run Steps 1–7 inside the repo the user is targeting. If ambiguous, ask which repo.
+If the current directory is a multi-repo workspace (no `.git/` at root, 2+ child directories containing a `.git` *directory* — not `.git` files, which indicate submodules), process each repo independently: run Steps 1–8 inside the repo the user is targeting. If ambiguous, ask which repo.
 
 ### Verify prerequisites
 
@@ -29,15 +29,58 @@ Load these documents (they affect quality at every step):
 
 Locate the test runner command from `testing.md`, `CLAUDE.md`, or project manifests (`package.json` scripts, `Makefile`, `Cargo.toml`, etc.). Run it once to confirm it works.
 
-- **Tests pass** — proceed to Step 2
+- **Tests pass** — proceed to Step 2 (Suitability Analysis)
 - **Tests fail** — stop and report. Existing failures must be resolved before TDD can begin (a failing suite makes Red/Green indistinguishable)
 - **No test runner found** — stop and recommend running `/optimus:unit-test` first to provision test infrastructure (framework, runner, coverage tooling, `testing.md`)
 
-## Step 2: Scope and Decompose
+## Step 2: Suitability Analysis
 
-Ask the user to describe the feature or bug in plain language. Use `AskUserQuestion` — header "TDD scope", question "What feature or bug fix do you want to implement with TDD?":
+Before starting TDD cycles, analyze whether the user's task is a good fit for test-driven development.
+
+### Gather the task
+
+If the user provided a task description inline (e.g., `/optimus:tdd "Add auth endpoint"`), use it. Otherwise, use `AskUserQuestion` — header "TDD scope", question "What feature or bug fix do you want to implement with TDD?":
 - **New feature** — "Implement a new capability (e.g., 'Add user authentication endpoint')"
 - **Bug fix** — "Fix a bug by reproducing it with a test first (e.g., 'Login fails when email has uppercase')"
+
+### Analyze suitability
+
+Examine the task description against the codebase and classify it:
+
+**Suitable for TDD** — proceed silently to Step 3:
+- New features with testable behavior (API endpoints, business logic, data transformations, utilities)
+- Bug fixes where the bug can be reproduced with a test
+- Adding capabilities to existing modules
+- Large features (frontend + backend, multi-component) — these are suitable but need careful decomposition in Step 3
+
+**Not suitable for TDD** — stop and redirect:
+- **Refactoring** (restructuring code without changing behavior) → recommend `/optimus:simplify`
+- **Documentation-only changes** (README, comments, CLAUDE.md) → no testable code
+- **Pure styling/cosmetic changes** (CSS colors, spacing, fonts with no logic) → no testable logic
+- **Configuration changes** (environment variables, CI/CD, linter config) → no testable behavior
+- **Deleting code/features** without replacement → tests should be removed, not added
+- **Generated code** (protobuf, OpenAPI, ORM migrations) → generated output, not hand-written behavior
+
+If **not suitable**, report to the user:
+
+```
+## Task Analysis
+
+**Task:** [user's description]
+**Suitability for TDD:** Not recommended
+
+**Reason:** [specific explanation — e.g., "This is a refactoring task — it changes code structure
+without adding new behavior. TDD is for building new behavior test-first."]
+
+**Recommended approach:** [specific skill or approach — e.g., "/optimus:simplify restructures code
+while using existing tests as a safety net."]
+```
+
+If **ambiguous** (the task has both testable and non-testable aspects, or it's unclear whether behavior changes), use `AskUserQuestion` — header "TDD fit", question "[specific concern about the task]. Proceed with TDD or use a different approach?":
+- **Proceed with TDD** — "Focus on the testable parts and continue"
+- **Use [recommended alternative]** — "[brief explanation of why the alternative fits better]"
+
+## Step 3: Scope and Decompose
 
 ### Decompose into behaviors
 
@@ -63,7 +106,7 @@ Use `AskUserQuestion` — header "Behaviors", question "Does this decomposition 
 
 For **bug fixes**: the first behavior is always "reproduce the bug" — a test that demonstrates the current broken behavior.
 
-## Step 3: Red — Write a Failing Test
+## Step 4: Red — Write a Failing Test
 
 For the current behavior, write a minimal test that:
 - Follows the project's testing conventions from `testing.md` (framework, file location, naming, mocking patterns)
@@ -97,7 +140,7 @@ Reason: [why it fails — e.g., "function returns undefined, expected 'authentic
 Other tests: all passing ✓
 ```
 
-## Step 4: Green — Minimal Implementation
+## Step 5: Green — Minimal Implementation
 
 Write the **minimum code** to make the failing test pass. Resist the urge to implement more than what the test demands:
 - No handling of edge cases that aren't tested yet (those are future behaviors)
@@ -108,7 +151,7 @@ Write the **minimum code** to make the failing test pass. Resist the urge to imp
 
 Run the project's test command. **All tests must pass** — including the new one.
 
-- **All pass** — proceed to Step 5
+- **All pass** — proceed to Step 6
 - **New test still fails** — fix the implementation (not the test). The test defines the expected behavior; the code must meet it
 - **Other tests broke** — the implementation introduced a regression. Fix it before proceeding — all tests must stay green
 
@@ -123,7 +166,7 @@ Implementation: [file path]:[function/method]
 All tests: passing ✓
 ```
 
-## Step 5: Refactor — Clean Up While Green
+## Step 6: Refactor — Clean Up While Green
 
 With all tests passing, review the code just written (both test and implementation) against `.claude/docs/coding-guidelines.md`. Apply each principle as a lens:
 
@@ -153,7 +196,7 @@ Changes: [brief description of what was cleaned up, or "No changes needed — co
 All tests: passing ✓
 ```
 
-## Step 6: Loop
+## Step 7: Loop
 
 After completing one Red-Green-Refactor cycle, use `AskUserQuestion` — header "Next step", question "Cycle complete for behavior #[N]. What next?":
 - **Next behavior** — "Continue to behavior #[N+1]: [description]"
@@ -162,9 +205,9 @@ After completing one Red-Green-Refactor cycle, use `AskUserQuestion` — header 
 
 If the user chooses **Commit progress**: suggest a conventional commit message following the format from `/optimus:commit-message` (type(scope): description). Present it in a copyable code block. Do NOT run `git commit` — let the user decide when to commit. Then continue to the next behavior.
 
-If behaviors remain, return to Step 3 (Red) for the next one.
+If behaviors remain, return to Step 4 (Red) for the next one.
 
-## Step 7: Summary
+## Step 8: Summary
 
 After all behaviors are implemented (or the user stops early), present:
 

@@ -6,6 +6,7 @@ TDD is [more important with AI, not less](https://code.claude.com/docs/en/best-p
 
 ## Features
 
+- **Suitability analysis** — analyzes the task against the codebase before starting; redirects unsuitable tasks (refactoring, docs, styling) to the right skill
 - **Behavior decomposition** — breaks features or bug fixes into small, independently testable behaviors before writing any code
 - **Red-Green-Refactor cycles** — enforces the classic TDD discipline: failing test → minimal pass → clean up
 - **Guideline-aware refactoring** — applies your project's `coding-guidelines.md` during the Refactor step
@@ -105,6 +106,25 @@ The first behavior writes a test that **reproduces the bug** — proving it exis
 - **Adding tests to existing code** — use `/optimus:unit-test` instead (retroactive test generation)
 - **Exploratory prototyping** — TDD works best when you can describe expected behavior upfront
 
+## Task Suitability Examples
+
+The skill analyzes your task before starting and redirects unsuitable work to the right tool. Here's what fits and what doesn't:
+
+| Task | Suitable? | Why / Alternative |
+|---|---|---|
+| "Add user authentication endpoint" | Yes | New testable behavior — API input/output |
+| "Fix: login fails with uppercase email" | Yes | Bug → write reproducing test first |
+| "Add pagination to product list API" | Yes | New testable behavior — query params, response shape |
+| "Implement shopping cart (frontend + backend)" | Yes (decomposed) | Large feature — skill breaks it into small cycles per behavior |
+| "Add rate limiting to all API endpoints" | Yes | New testable behavior per endpoint |
+| "Refactor auth module into smaller files" | No → `/optimus:simplify` | No new behavior — restructuring only |
+| "Update README documentation" | No | No testable code |
+| "Change button color to blue" | No | Pure styling — no logic to test |
+| "Update .env configuration" | No | Configuration — no testable behavior |
+| "Delete the legacy billing module" | No | Removing code — tests should be removed, not added |
+
+**Large features are welcome** — the skill decomposes them into small, independently testable behaviors. A full-stack feature like "build checkout flow" becomes 10-15 individual Red-Green-Refactor cycles (e.g., "POST /cart/items returns 201", "cart total includes tax", "checkout validates payment method"). Each cycle is tiny; the overall feature is built incrementally.
+
 ## Example Output
 
 The skill produces a structured summary after completing:
@@ -143,8 +163,8 @@ pending (1 behavior remaining).
 ## How It Works
 
 1. Verifies project context (`CLAUDE.md`, `coding-guidelines.md`) and test infrastructure exist
-2. Asks user to describe the feature or bug fix
-3. Decomposes into small, testable behaviors for user approval
+2. Analyzes task suitability — redirects unsuitable tasks (refactoring, docs, styling) to the right skill
+3. Decomposes the feature or bug fix into small, testable behaviors for user approval
 4. For each behavior: Red (write failing test) → Green (minimal implementation) → Refactor (clean up against coding guidelines)
 5. Runs the full test suite at every transition (Red, Green, Refactor)
 6. Suggests commit points after each cycle for small, focused commits
@@ -178,7 +198,7 @@ pending (1 behavior remaining).
 
 | File | Purpose |
 |---|---|
-| `SKILL.md` | Skill definition with 7-step TDD workflow |
+| `SKILL.md` | Skill definition with 8-step TDD workflow |
 
 ## Requirements
 
