@@ -2,26 +2,6 @@
 
 **A Claude Code plugin that sets up your project for effective AI-assisted development** — CLAUDE.md, coding guidelines, formatter hooks, quality agents, TDD, and test coverage, all tailored to your actual codebase.
 
-## Skills
-
-### Core
-
-**[`/optimus:init`](skills/init/README.md)** — Generates CLAUDE.md, coding guidelines, formatter hooks, and quality agents — all tailored to your codebase. Supports monorepos, 7 formatter stacks, and intelligent audit on re-run.
-
-**[`/optimus:unit-test`](skills/unit-test/README.md)** — Fills test coverage gaps with generated tests that enable AI self-correction. Discovers gaps, provisions infrastructure, and writes convention-following tests. Never refactors source code. *Recommended: run init first.*
-
-**[`/optimus:tdd`](skills/tdd/README.md)** — Test-driven development — Red-Green-Refactor cycles that give the AI a binary pass/fail feedback loop, the [most effective discipline](https://code.claude.com/docs/en/best-practices) for reliable AI-assisted code. Creates a feature branch, decomposes into behaviors, commits per cycle, pushes and opens a PR/MR. *Requires init.*
-
-**[`/optimus:simplify`](skills/simplify/README.md)** — Finds and applies code simplifications with emphasis on cross-file issues: duplication, pattern inconsistency, architectural drift. Prioritized plan (capped at 12 findings), apply what you approve, test suite verifies nothing broke. *Recommended: run init first.*
-
-**[`/optimus:code-review`](skills/code-review/README.md)** — Catches bugs and violations before they enter the repo using up to 6 parallel agents — bug detection, security/logic, guideline compliance, code-simplifier, test-guardian. High-signal only. Supports GitHub and GitLab. *Recommended: run init first.*
-
-### Utility
-
-**[`/optimus:permissions`](skills/permissions/README.md)** — Allow/deny rules that eliminate routine prompts, plus a PreToolUse hook enforcing tiered path security and branch-aware git protection. Feature branches work freely; protected branches require pull requests. Especially useful on native Windows.
-
-**[`/optimus:commit-message`](skills/commit-message/README.md)** — Analyzes local git changes and suggests [conventional commit](https://www.conventionalcommits.org/) messages — without committing anything. Suggests splitting when changes span multiple concerns. Supports multi-repo workspaces.
-
 ## Quick Start
 
 **Install:**
@@ -49,6 +29,25 @@ Unlike most plugins that bundle hooks and agents at the plugin level, **optimus 
 - **Hooks, agents, docs, and settings travel with the repo via git** — any teammate gets identical behavior, even without this plugin installed
 - **Enforces standards linters can't check** — naming conventions, architectural patterns, DRY principles, guided by project-specific docs and agents
 - **No hidden dependencies** — the plugin is needed only for setup; the generated output is self-contained, visible, auditable, and version-controlled
+
+## Skills
+
+### Core
+
+| Skill | Description |
+|-------|-------------|
+| [`/optimus:init`](skills/init/README.md) | Project setup — CLAUDE.md, coding guidelines, formatter hooks, code-simplifier & test-guardian agents. Monorepos, multi-repo workspaces, intelligent audit on re-run. |
+| [`/optimus:unit-test`](skills/unit-test/README.md) | Fills test coverage gaps — discovers gaps, provisions infrastructure, writes convention-following tests. Never refactors source. *Run init first.* |
+| [`/optimus:tdd`](skills/tdd/README.md) | Test-driven Red-Green-Refactor — feature branch, per-behavior commits, PR/MR. The [most effective discipline](https://code.claude.com/docs/en/best-practices) for reliable AI-assisted code. *Requires init.* |
+| [`/optimus:simplify`](skills/simplify/README.md) | Cross-file code simplification — duplication, pattern inconsistency, architectural drift. Prioritized plan (capped at 12), test-verified. *Run init first.* |
+| [`/optimus:code-review`](skills/code-review/README.md) | Pre-merge review with up to 6 parallel agents — bugs, security, guideline compliance, code-simplifier, test-guardian. GitHub & GitLab. *Run init first.* |
+
+### Utility
+
+| Skill | Description |
+|-------|-------------|
+| [`/optimus:permissions`](skills/permissions/README.md) | Allow/deny rules + PreToolUse hook for tiered path security and branch-aware git protection. Feature branches work freely; protected branches require PRs. Useful on native Windows. |
+| [`/optimus:commit-message`](skills/commit-message/README.md) | [Conventional commit](https://www.conventionalcommits.org/) suggestions from local git changes. Splits multi-concern diffs. Multi-repo aware. |
 
 ## Recommended Workflow
 
