@@ -37,6 +37,7 @@ The LLM already knows best practices from training — but the trigger to apply 
 |-------|-----------|---------|-------------|
 | [Init](#optimusinit) | `/optimus:init` | CLAUDE.md, docs, formatter hooks, quality agents | — |
 | [Unit Test](#optimusunit-test) | `/optimus:unit-test` | On-demand unit test coverage improvement | Recommended |
+| [TDD](#optimustdd) | `/optimus:tdd` | Test-driven development — Red-Green-Refactor cycles | Yes |
 | [Simplify](#optimussimplify) | `/optimus:simplify` | Project-wide code simplification against coding guidelines | Recommended |
 | [Code Review](#optimuscode-review) | `/optimus:code-review` | Local-first code review with parallel agent-assisted analysis | Recommended |
 | [Permissions](#optimuspermissions) | `/optimus:permissions` | Allow/deny rules, path-restriction hook | No |
@@ -60,7 +61,7 @@ The plugin is a **distribution wrapper** around project-setup skills. It makes i
 3. **After major changes** — Re-run `/optimus:init` to audit and refresh docs
 4. **Code quality review** — Run `/optimus:simplify` for a full codebase analysis against your coding guidelines
 
-**During development** — use `/optimus:code-review` before committing to catch bugs and guideline violations, and `/optimus:commit-message` for conventional commit messages.
+**During development** — use `/optimus:tdd` to build new features and fix bugs test-first, `/optimus:code-review` before committing to catch bugs and guideline violations, and `/optimus:commit-message` for conventional commit messages.
 
 **Complementary tools** (optional):
 - **Inner-loop cleanup** — The builtin `/simplify` cleans up recent changes after each feature or bug fix. `/optimus:simplify` (step 4) covers the full project periodically; the builtin handles the per-change inner loop.
@@ -78,6 +79,12 @@ See [skills/init/README.md](skills/init/README.md) for full documentation.
 Discovers test coverage gaps, provisions test infrastructure if needed, estimates achievable coverage targets, and generates tests that follow your project's conventions. Conservative by design — adds new test files and repairs broken test infrastructure (with approval), never refactors source code. Flags untestable code and reports bugs found during test writing. Excludes git submodules during discovery.
 
 See [skills/unit-test/README.md](skills/unit-test/README.md) for full documentation.
+
+## /optimus:tdd
+
+Guides test-driven development for new features and bug fixes — decompose into small behaviors, then cycle through Red (failing test) → Green (minimal implementation) → Refactor for each one. Runs the full test suite at every step, applies your coding guidelines during Refactor, and suggests commit points after each cycle. Requires `/optimus:init` and working test infrastructure (run `/optimus:unit-test` first if missing).
+
+See [skills/tdd/README.md](skills/tdd/README.md) for full documentation.
 
 ## /optimus:simplify
 
