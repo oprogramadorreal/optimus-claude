@@ -9,6 +9,7 @@ Consistent commit messages improve repository navigability for both humans and L
 - Analyzes staged, unstaged, and untracked changes
 - Generates messages following the Conventional Commits spec
 - Suggests splitting into multiple commits when changes span different concerns
+- Supports multi-repo workspaces — detects repos with changes and suggests a commit message for each
 - Read-only — never stages, commits, or modifies files
 
 ## Quick Start
@@ -24,7 +25,7 @@ In Claude Code, use any of these:
 - "generate commit message"
 - "summarize my changes"
 
-The skill will analyze your local changes and output a suggested commit message in a copyable code block.
+The skill will analyze your local changes and output a suggested commit message in a copyable code block. In a multi-repo workspace (multiple repos under one directory), it detects which repos have changes and suggests a separate commit message for each.
 
 ## When to Run
 

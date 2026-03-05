@@ -11,7 +11,17 @@ Generate a conventional commit message by analyzing all local git changes (stage
 
 ### 1. Gather Change Context
 
-Run the following git commands to understand all local changes:
+#### Multi-repo workspace detection
+
+If the current directory is a multi-repo workspace (no `.git/` at root, 2+ child directories containing a `.git` *directory* — not `.git` files, which indicate submodules):
+- Run the git commands below inside each child repo (the workspace root has no `.git/`, so git commands must target individual repos)
+- Track which repos have changes and which are clean
+- Skip repos with no local changes (no staged, unstaged, or untracked files)
+- If no repos have changes at all, inform the user and stop
+
+#### Gather changes
+
+Run the following git commands to understand all local changes (in a multi-repo workspace, run these inside each child repo that was detected above):
 
 ```bash
 # Staged changes
@@ -27,6 +37,8 @@ git status --short
 ```
 
 ### 2. Analyze Changes
+
+In a multi-repo workspace, analyze each repo's changes independently — each repo may have different types, scopes, and purposes.
 
 Review the gathered information to understand:
 
@@ -64,6 +76,8 @@ Always produce a message following the Conventional Commits specification, regar
 ### 4. Present the Message
 
 Output the suggested commit message in a copyable code block. Do NOT run `git commit`. If the changes naturally split into multiple commits, present each message separately with instructions on which files to stage for each.
+
+In a multi-repo workspace, present each repo's commit message under a heading with the repo directory name (e.g., `## isa-server`). If a repo's changes span multiple concerns, suggest separate commits within that repo's section. If only one repo has changes, still label it with the repo name for clarity.
 
 ## Important
 

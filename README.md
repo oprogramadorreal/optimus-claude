@@ -99,7 +99,7 @@ See [skills/permissions/README.md](skills/permissions/README.md) for full docume
 
 ## /optimus:commit-message
 
-Analyzes local git changes and suggests [conventional commit](https://www.conventionalcommits.org/) messages — without committing anything. Suggests splitting into multiple commits when changes span different concerns.
+Analyzes local git changes and suggests [conventional commit](https://www.conventionalcommits.org/) messages — without committing anything. Suggests splitting into multiple commits when changes span different concerns. Supports multi-repo workspaces — detects repos with changes and suggests a commit message for each.
 
 See [skills/commit-message/README.md](skills/commit-message/README.md) for full documentation.
 
