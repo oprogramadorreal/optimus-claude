@@ -1,10 +1,10 @@
 # 🤖 optimus-claude
 
-**A Claude Code plugin that sets up your project for effective AI-assisted development** — CLAUDE.md, coding guidelines, formatter hooks, quality agents, and test coverage, generated from your actual codebase.
+**A Claude Code plugin that sets up your project for effective AI-assisted development** — CLAUDE.md, coding guidelines, formatter hooks, quality agents, TDD, and test coverage, all tailored to your actual codebase.
 
 - `/optimus:init` generates CLAUDE.md, coding guidelines, formatter hooks, and quality agents
 - `/optimus:unit-test` fills test coverage gaps with generated tests that enable AI self-correction
-- `/optimus:tdd` guides test-driven development — Red-Green-Refactor cycles that give the AI agent a binary pass/fail feedback loop, the [most effective discipline](https://code.claude.com/docs/en/best-practices) for reliable AI-assisted code
+- `/optimus:tdd` guides test-driven development — Red-Green-Refactor cycles that give the AI a binary pass/fail feedback loop, the [most effective discipline](https://code.claude.com/docs/en/best-practices) for reliable AI-assisted code
 - `/optimus:simplify` finds and applies code simplifications across your project
 - `/optimus:code-review` catches bugs and violations in your changes before they enter the repo
 
@@ -41,7 +41,7 @@ The LLM already knows best practices from training — but the trigger to apply 
 | [TDD](#optimustdd) | `/optimus:tdd` | Test-driven development — Red-Green-Refactor cycles | Yes |
 | [Simplify](#optimussimplify) | `/optimus:simplify` | Project-wide code simplification against coding guidelines | Recommended |
 | [Code Review](#optimuscode-review) | `/optimus:code-review` | Local-first code review with parallel agent-assisted analysis | Recommended |
-| [Permissions](#optimuspermissions) | `/optimus:permissions` | Allow/deny rules, path-restriction hook | No |
+| [Permissions](#optimuspermissions) | `/optimus:permissions` | Allow/deny rules, path-restriction hook, branch-aware git protection | No |
 | [Commit Message](#optimuscommit-message) | `/optimus:commit-message` | Conventional commit message suggester | No |
 
 ## Architecture: Project-Scoped by Design
@@ -62,7 +62,7 @@ The plugin is a **distribution wrapper** around project-setup skills. It makes i
 3. **After major changes** — Re-run `/optimus:init` to audit and refresh docs
 4. **Code quality review** — Run `/optimus:simplify` for a full codebase analysis against your coding guidelines
 
-**During development** — use `/optimus:tdd` to build new features and fix bugs test-first, `/optimus:code-review` before committing to catch bugs and guideline violations, and `/optimus:commit-message` for conventional commit messages.
+**During development** — use `/optimus:tdd` to build new features and fix bugs test-first (creates a feature branch, commits, pushes, and opens a PR/MR automatically), `/optimus:code-review` to review changes before merging, and `/optimus:commit-message` for conventional commit messages on manual commits.
 
 **Complementary tools** (optional):
 - **Inner-loop cleanup** — The builtin `/simplify` cleans up recent changes after each feature or bug fix. `/optimus:simplify` (step 4) covers the full project periodically; the builtin handles the per-change inner loop.
@@ -83,7 +83,7 @@ See [skills/unit-test/README.md](skills/unit-test/README.md) for full documentat
 
 ## /optimus:tdd
 
-Guides test-driven development for new features and bug fixes — analyzes task suitability first (redirects refactoring, docs, and styling tasks to the right skill), then decomposes into small behaviors and cycles through Red (failing test) → Green (minimal implementation) → Refactor for each one. Handles large features through decomposition into individually testable behaviors. Runs the full test suite at every step, applies your coding guidelines during Refactor, and suggests commit points after each cycle. Requires `/optimus:init` and working test infrastructure (run `/optimus:unit-test` first if missing).
+Guides test-driven development for new features and bug fixes — analyzes task suitability first (redirects refactoring, docs, and styling tasks to the right skill), then creates a feature branch, decomposes into small behaviors, and cycles through Red (failing test) → Green (minimal implementation) → Refactor for each one. Commits progress on the feature branch after each cycle, runs the full test suite at every step, applies your coding guidelines during Refactor, and pushes the branch with a PR/MR at the end. Handles large features through decomposition into individually testable behaviors. Requires `/optimus:init` and working test infrastructure (run `/optimus:unit-test` first if missing). Recommended: `/optimus:permissions` for branch-aware git protection.
 
 See [skills/tdd/README.md](skills/tdd/README.md) for full documentation.
 
@@ -101,7 +101,7 @@ See [skills/code-review/README.md](skills/code-review/README.md) for full docume
 
 ## /optimus:permissions
 
-Configures allow/deny rules that eliminate routine prompts, plus a PreToolUse hook that enforces tiered path-based security — writes outside the project require approval, deletes outside the project are blocked. Well-known precious files (`.env`, `*.key`, `*.sqlite`, etc.) are automatically protected when not tracked by git: edits prompt for approval, deletions are blocked. The security model assumes operations inside the project are trusted; see the [skill's README](skills/permissions/README.md) for the full trust model and what this means in practice. Especially useful on native Windows where OS-level sandboxing is not yet available. Merges safely with `/optimus:init`.
+Configures allow/deny rules that eliminate routine prompts, plus a PreToolUse hook that enforces tiered path-based security and branch-aware git protection. Writes outside the project require approval, deletes outside the project are blocked, and git operations on protected branches (master, main, develop, dev, development, staging, stage, prod, production, release) are blocked while feature branches are fully allowed. Well-known precious files (`.env`, `*.key`, `*.sqlite`, etc.) are automatically protected when not tracked by git. This enables a feature-branch workflow where Claude Code creates branches, commits, and pushes freely — but modifications to protected branches require pull requests. Especially useful on native Windows where OS-level sandboxing is not yet available. Merges safely with `/optimus:init`.
 
 See [skills/permissions/README.md](skills/permissions/README.md) for full documentation.
 

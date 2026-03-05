@@ -23,7 +23,8 @@ The [2025 DORA report](https://cloud.google.com/discover/how-test-driven-develop
 - **Convention-aware tests** — follows your `testing.md` for framework, file location, naming, and mocking patterns
 - **Test verification at every step** — runs the full test suite after Red, Green, and Refactor to catch regressions instantly
 - **Lint/type-check verification** — runs lint or type-check commands (if configured) during the Green step to catch type errors that passing tests might miss
-- **Commit points** — suggests conventional commit messages after each cycle for small, focused commits
+- **Feature branch workflow** — creates a dedicated branch, commits after each cycle, pushes and creates a PR/MR at the end
+- **Automatic PR/MR creation** — detects GitHub/GitLab and creates a pull/merge request with task summary, behaviors list, and coverage delta
 - **Coverage tracking** — detects coverage commands from testing.md, test runner flags, or package scripts; reports delta
 - **Multi-repo workspace support** — targets specific repos in multi-repo setups
 - **Submodule exclusion** — skips git submodule directories
@@ -36,8 +37,10 @@ This skill is part of the [optimus](https://github.com/oprogramadorreal/optimus-
 
 1. **`/optimus:init`** — required. Installs `CLAUDE.md` and `coding-guidelines.md` used during Refactor
 2. **`/optimus:unit-test`** — recommended. Provisions test framework, coverage tooling, and `testing.md` if missing
+3. **`/optimus:permissions`** — recommended. Enables branch-aware git protection so TDD can commit and push to feature branches while protecting main/master
+4. **`gh` or `glab` CLI** — optional. Needed for automatic PR/MR creation (GitHub CLI or GitLab CLI)
 
-**Workflow**: `/optimus:init` → `/optimus:unit-test` → `/optimus:tdd`
+**Workflow**: `/optimus:init` → `/optimus:unit-test` → `/optimus:permissions` → `/optimus:tdd`
 
 ## Usage
 
@@ -85,7 +88,9 @@ All tests: passing ✓
 Changes: Renamed handler to handlePasswordReset (matches existing naming pattern)
 All tests: passing ✓
 
-Next step? [Next behavior / Commit progress / Stop here]
+Committed: a1b2c3d feat(auth): add password reset with 404 for unknown emails
+
+Next step? [Next behavior / Stop here]
 ```
 
 ### Bug Fix Example
@@ -186,23 +191,39 @@ The skill produces a structured summary after completing:
 - After: 47%
 - Delta: +6%
 
-### Suggested Commit
-feat(auth): add password reset endpoint with email validation
-
-Implements POST /auth/reset-password with 404 for unknown emails,
-reset token generation, and email format validation. Rate limiting
-pending (1 behavior remaining).
+### Git Activity
+- Branch: `tdd/add-password-reset-endpoint` (from `main`)
+- Commits: 3
+- Pushed: ✓
+- PR: https://github.com/owner/repo/pull/42
 ```
 
 ## How It Works
 
 1. Verifies project context (`CLAUDE.md`, `coding-guidelines.md`) and test infrastructure exist
 2. Analyzes task suitability — redirects unsuitable tasks (refactoring, docs, styling) to the right skill
-3. Decomposes the feature or bug fix into small, testable behaviors for user approval
-4. For each behavior: Red (write failing test) → Green (minimal implementation) → Refactor (clean up against coding guidelines)
-5. Runs the full test suite at every transition (Red, Green, Refactor) and lint/type-check during Green
-6. Suggests commit points after each cycle for small, focused commits
-7. Reports summary with behaviors completed, tests written, and coverage delta
+3. Creates a feature branch from the current branch (e.g., `tdd/add-password-reset`)
+4. Decomposes the feature or bug fix into small, testable behaviors for user approval
+5. For each behavior: Red (write failing test) → Green (minimal implementation) → Refactor (clean up against coding guidelines)
+6. Runs the full test suite at every transition (Red, Green, Refactor) and lint/type-check during Green
+7. Automatically commits on the feature branch after each cycle
+8. Reports summary, pushes the branch, and creates a PR/MR with task description and coverage delta
+
+## Git Workflow
+
+TDD automatically manages a feature branch for all work:
+
+1. **Branch creation** — Creates `tdd/<slug>` (or `tdd/fix-<slug>`) from the current branch before any code changes
+2. **Auto-commits** — After each completed Red-Green-Refactor cycle, TDD automatically stages and commits with a conventional message
+3. **Final commit** — Any uncommitted work (e.g., stopped mid-cycle) is committed at the end of the session
+4. **Push** — The feature branch is pushed to origin automatically
+5. **PR/MR** — A pull request (GitHub) or merge request (GitLab) is created targeting the original branch
+
+The user's original branch is never modified. All code review happens through the PR/MR.
+
+**Platform detection:** TDD checks the `origin` remote URL for `github` or `gitlab`, falling back to CI file detection (`.github/` or `.gitlab-ci.yml`). Requires `gh` (GitHub CLI) or `glab` (GitLab CLI) for PR/MR creation — if unavailable, TDD pushes the branch and provides manual instructions.
+
+**Works with `/optimus:permissions`:** The permissions skill's branch protection hook ensures git operations on protected branches (master, main, develop, dev, development, staging, stage, prod, production, release) are blocked. TDD always creates a feature branch, so it works seamlessly with branch protection enabled.
 
 ## Relationship to Other Skills
 
@@ -222,11 +243,11 @@ pending (1 behavior remaining).
 
 | | `/optimus:tdd` | `/optimus:code-review` |
 |---|---|---|
-| Timing | During implementation | After implementation, before commit |
+| Timing | During implementation | After implementation (PR/MR review) |
 | Focus | Build correct code from the start | Catch issues in finished changes |
-| Workflow | Use TDD to build, then code-review before committing |
+| Workflow | Use TDD to build, then code-review the PR/MR |
 
-**Full workflow**: `/optimus:init` → `/optimus:unit-test` (provision infrastructure + retroactive tests) → `/optimus:tdd` (build new features test-first) → `/optimus:code-review` (pre-commit review) → `/optimus:commit-message` (conventional commit).
+**Full workflow**: `/optimus:init` → `/optimus:unit-test` (provision infrastructure + retroactive tests) → `/optimus:permissions` (branch-aware git protection) → `/optimus:tdd` (build new features test-first — creates branch, commits, pushes, creates PR/MR) → `/optimus:code-review` (review the PR/MR).
 
 ## Skill Structure
 

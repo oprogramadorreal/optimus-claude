@@ -17,6 +17,8 @@
 #   - rm/rmdir commands outside the project     → hard blocked
 #   - Edit/Write of precious unversioned files  → prompts you for approval
 #   - rm/rmdir of precious unversioned files    → hard blocked
+#   - Git operations on feature branches        → silently allowed
+#   - Git operations on protected branches       → hard blocked
 #   - Everything else (reads, searches, etc.)   → passes through unchanged
 #
 # WHAT THIS SCRIPT DOES NOT DO:
@@ -112,17 +114,104 @@ is_inside_project() {
 
 # --- JSON response helpers ---
 ask_permission() {
+  local reason="${1//\\/\\\\}"
+  reason="${reason//\"/\\\"}"
   cat <<JSONEOF
-{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":"$1"}}
+{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":"$reason"}}
 JSONEOF
   exit 0
 }
 
 deny_operation() {
+  local reason="${1//\\/\\\\}"
+  reason="${reason//\"/\\\"}"
   cat <<JSONEOF
-{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"$1"}}
+{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"$reason"}}
 JSONEOF
   exit 0
+}
+
+# --- Git branch protection ---
+# Customize this list to match your project's protected branches.
+# These branches are shielded from commits, pushes, rebases, resets,
+# and deletions. All other branches are treated as feature branches
+# where git operations are allowed without prompts.
+PROTECTED_BRANCHES=("master" "main" "develop" "dev" "development" "staging" "stage" "prod" "production" "release")
+
+is_protected_branch() {
+  local branch="$1"
+  for pb in "${PROTECTED_BRANCHES[@]}"; do
+    [[ "$branch" == "$pb" ]] && return 0
+  done
+  return 1
+}
+
+get_current_branch() {
+  git -C "$root" rev-parse --abbrev-ref HEAD 2>/dev/null
+}
+
+# Parse git push arguments and deny if targeting a protected branch.
+# Called with all tokens after "git push" as arguments.
+# Calls deny_operation (which exits) if blocked; returns silently if allowed.
+check_git_push() {
+  local t
+  for t in "$@"; do
+    case "$t" in
+      --all|--mirror) deny_operation "BLOCKED: 'git push $t' can affect protected branches." ;;
+    esac
+  done
+
+  # Separate flags from positional args
+  local -a positional=()
+  local has_delete=false
+  local i=1
+  while (( i <= $# )); do
+    local arg="${!i}"
+    case "$arg" in
+      --delete) has_delete=true ;;
+      -f|--force|--force-with-lease*|--force-if-includes) ;;
+      -u|--set-upstream|--no-verify|--dry-run|-n|--verbose|-v|--quiet|-q) ;;
+      --atomic|--signed*|--no-signed|--thin|--no-thin|--tags|--prune) ;;
+      --progress|--no-progress|--porcelain|--no-recurse-submodules) ;;
+      --push-option|-o|--repo|--receive-pack|--exec) ((i++)) ;;
+      --push-option=*|-o*|--repo=*) ;;
+      -*) ;; # unknown flag, skip (fail-open)
+      *) positional+=("$arg") ;;
+    esac
+    ((i++))
+  done
+
+  # Determine target branch(es)
+  local -a targets=()
+  if (( ${#positional[@]} <= 1 )); then
+    # git push [remote] — pushes current branch
+    local current
+    current="$(get_current_branch)" || return 0
+    [[ "$current" == "HEAD" ]] && return 0
+    targets=("$current")
+  else
+    # git push <remote> <refspec>...
+    local refspec target
+    for refspec in "${positional[@]:1}"; do
+      if [[ "$has_delete" == true ]]; then
+        target="$refspec"
+      elif [[ "$refspec" == *:* ]]; then
+        target="${refspec#*:}"
+      else
+        target="${refspec#+}" # strip + force prefix
+      fi
+      target="${target#refs/heads/}" # strip refs/heads/ prefix
+      [[ -n "$target" ]] && targets+=("$target")
+    done
+  fi
+
+  # Check targets against protected branches
+  local tgt
+  for tgt in "${targets[@]}"; do
+    if is_protected_branch "$tgt"; then
+      deny_operation "BLOCKED: Cannot push to protected branch '$tgt'. Push to a feature branch instead."
+    fi
+  done
 }
 
 # --- Extract tool_name ---
@@ -161,7 +250,111 @@ case "$tool_name" in
     # Fail-open: if command cannot be extracted, allow rather than block
     [[ "$input" =~ \"command\"[[:space:]]*:[[:space:]]*\"([^\"]+)\" ]] || exit 0
     cmd="${BASH_REMATCH[1]}"
-    # Only intercept rm/rmdir commands (best-effort delete protection)
+
+    # --- Git branch protection (feature branches allowed, protected branches blocked) ---
+    if [[ "$cmd" == git\ * ]]; then
+      # Fail-open: if not a git repo, allow (no branches to protect)
+      [[ "$is_git_repo" == "true" ]] || exit 0
+
+      read -ra tokens <<< "$cmd"
+      # Find git subcommand (skip global flags between 'git' and subcommand)
+      git_subcmd=""
+      git_subcmd_idx=0
+      for ((i=1; i<${#tokens[@]}; i++)); do
+        case "${tokens[i]}" in
+          -C|-c|--git-dir|--work-tree|--namespace) ((i++)) ;;  # skip flag + its argument
+          --git-dir=*|--work-tree=*|--namespace=*|-C=*) ;;      # skip =form (no extra arg)
+          -*) ;;                                                 # skip other flags
+          *) git_subcmd="${tokens[i]}"; git_subcmd_idx=$i; break ;;
+        esac
+      done
+
+      case "$git_subcmd" in
+        push)
+          # Delegate to check_git_push with tokens after "git push"
+          check_git_push "${tokens[@]:$((git_subcmd_idx+1))}"
+          ;;
+        commit|merge)
+          current_branch="$(get_current_branch)" || exit 0
+          [[ "$current_branch" == "HEAD" ]] && exit 0
+          if is_protected_branch "$current_branch"; then
+            deny_operation "BLOCKED: Cannot '$git_subcmd' on protected branch '$current_branch'. Switch to a feature branch first."
+          fi
+          ;;
+        reset)
+          # Only block 'reset --hard' on protected branches
+          [[ "$cmd" == *--hard* ]] || exit 0
+          current_branch="$(get_current_branch)" || exit 0
+          [[ "$current_branch" == "HEAD" ]] && exit 0
+          if is_protected_branch "$current_branch"; then
+            deny_operation "BLOCKED: 'git reset --hard' on protected branch '$current_branch' is not allowed."
+          fi
+          ;;
+        rebase)
+          current_branch="$(get_current_branch)" || exit 0
+          [[ "$current_branch" == "HEAD" ]] && exit 0
+          if is_protected_branch "$current_branch"; then
+            deny_operation "BLOCKED: 'git rebase' on protected branch '$current_branch' is not allowed."
+          fi
+          ;;
+        checkout)
+          # Check only tokens after the subcommand (avoids matching git global flags)
+          sub_args="${tokens[*]:$((git_subcmd_idx+1))}"
+          # Allow 'git checkout -b' (create new branch, fails if exists — always safe)
+          [[ " $sub_args " == *" -b "* ]] && exit 0
+          # 'git checkout -B <name>' force-resets a branch — block if target is protected
+          if [[ " $sub_args " == *" -B "* ]]; then
+            checkout_target="$(echo "$cmd" | sed -n 's/.* -B \+\([^ ]*\).*/\1/p')"
+            if [[ -n "$checkout_target" ]] && is_protected_branch "$checkout_target"; then
+              deny_operation "BLOCKED: 'git checkout -B $checkout_target' would reset protected branch '$checkout_target'."
+            fi
+            exit 0
+          fi
+          # Block 'git checkout -- <paths>' and 'git checkout .' on protected branches
+          [[ "$cmd" == *" -- "* || "$cmd" == *" ." ]] || exit 0
+          current_branch="$(get_current_branch)" || exit 0
+          [[ "$current_branch" == "HEAD" ]] && exit 0
+          if is_protected_branch "$current_branch"; then
+            deny_operation "BLOCKED: Discarding changes on protected branch '$current_branch' is not allowed."
+          fi
+          ;;
+        restore)
+          current_branch="$(get_current_branch)" || exit 0
+          [[ "$current_branch" == "HEAD" ]] && exit 0
+          if is_protected_branch "$current_branch"; then
+            deny_operation "BLOCKED: 'git restore' on protected branch '$current_branch' is not allowed."
+          fi
+          ;;
+        switch)
+          # Check only tokens after the subcommand (avoids matching git global -c flag)
+          sub_args="${tokens[*]:$((git_subcmd_idx+1))}"
+          # Allow 'git switch -c' (create new branch, fails if exists — always safe)
+          [[ " $sub_args " == *" -c "* ]] && exit 0
+          # 'git switch -C <name>' force-resets a branch — block if target is protected
+          if [[ " $sub_args " == *" -C "* ]]; then
+            switch_target="$(echo "$cmd" | sed -n 's/.* -C \+\([^ ]*\).*/\1/p')"
+            if [[ -n "$switch_target" ]] && is_protected_branch "$switch_target"; then
+              deny_operation "BLOCKED: 'git switch -C $switch_target' would reset protected branch '$switch_target'."
+            fi
+          fi
+          exit 0
+          ;;
+        branch)
+          # Block deletion of protected branches: -d, -D, --delete, or --force-delete flag
+          [[ "$cmd" =~ \ -[dD]\ |\ -[dD]$|\ --delete\ |\ --delete$|\ --force-delete\ |\ --force-delete$ ]] || exit 0
+          # Check ALL non-flag arguments (git branch -d accepts multiple branch names)
+          for ((bi=git_subcmd_idx+1; bi<${#tokens[@]}; bi++)); do
+            [[ "${tokens[bi]}" == -* ]] && continue
+            if is_protected_branch "${tokens[bi]}"; then
+              deny_operation "BLOCKED: Cannot delete protected branch '${tokens[bi]}'."
+            fi
+          done
+          ;;
+      esac
+      exit 0
+    fi
+
+    # --- Delete protection (rm/rmdir outside project or precious unversioned) ---
     [[ "$cmd" =~ ^(rm|rmdir)[[:space:]] ]] || exit 0
     # Use read -ra to properly split into an array (handles the command as shell words)
     read -ra words <<< "$cmd"
