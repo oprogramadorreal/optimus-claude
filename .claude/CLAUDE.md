@@ -20,7 +20,7 @@ Read the root README.md to understand the plugin's full capabilities — skills,
 - Skills are imperative step-by-step instructions, not conversational prose
 - Study `skills/commit-message/` for a minimal example; `skills/init/` for a full one
 - Templates go in `templates/`, reference docs in `references/`
-- Add new skills to the table in `README.md`
+- Add new skills to the Skills section in `README.md`
 
 ## Testing changes
 

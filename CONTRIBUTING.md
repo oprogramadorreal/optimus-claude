@@ -62,7 +62,7 @@ All current skills use `disable-model-invocation: true` — they operate through
 1. Create `skills/<skill-name>/SKILL.md` with YAML frontmatter and step-by-step instructions
 2. Create `skills/<skill-name>/README.md` with user-facing documentation
 3. Add templates and references as needed in subdirectories
-4. Add the skill to the table in the root `README.md`
+4. Add the skill to the Skills section in the root `README.md`
 
 Follow the conventions visible in existing skills — study `skills/commit-message/` for a minimal example or `skills/init/` for a full-featured one.
 
