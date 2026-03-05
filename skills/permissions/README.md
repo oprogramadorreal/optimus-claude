@@ -83,8 +83,8 @@ The hook enforces branch-aware git protection: operations that modify branch his
 |---|---|---|
 | `git commit` | Allow | **BLOCKED** |
 | `git push` | Allow | **BLOCKED** |
-| `git push --force` | Allow | **BLOCKED** |
-| `git reset --hard` | Allow | **BLOCKED** |
+| `git push --force` | **BLOCKED** (deny list) | **BLOCKED** (deny list + hook) |
+| `git reset --hard` | **BLOCKED** (deny list) | **BLOCKED** (deny list + hook) |
 | `git rebase` | Allow | **BLOCKED** |
 | `git merge` | Allow | **BLOCKED** |
 | `git checkout --` / `git checkout .` | Allow | **BLOCKED** |
