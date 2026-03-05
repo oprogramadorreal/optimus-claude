@@ -23,16 +23,44 @@ Only when the Python formatter hook will be installed: Run `python3 --version`. 
 ## Installation Steps
 
 1. Copy applicable template(s) from `$CLAUDE_PLUGIN_ROOT/skills/init/templates/hooks/` to `.claude/hooks/`.
-2. External formatters not in deps → ask user "Add [formatter] as dev dependency and install format hook?" If declined, skip.
+2. External formatters not in deps → ask user "Add [formatter] as dev dependency and install format hook?" If declined, skip that stack's hook entirely. If approved, install the formatter using the stack-specific commands in "Formatter Installation Commands" below, then proceed to copy the hook template.
 3. If any hooks were installed, create `.claude/settings.json` using the template from `$CLAUDE_PLUGIN_ROOT/skills/init/templates/settings.json` as reference. Keep only entries for hooks actually installed. For Python, replace `<python-cmd>` with the detected command (`python3` or `python`). For Node.js use `node "..."`, for Bash-based hooks (Rust, Go, C#, Java, C/C++) use `bash "..."`. Monorepos: install all applicable hooks (each filters by file extension internally).
 
 **If no hooks were installed**, do not create settings.json (unless it already exists with other content).
 
 **Preserve existing content:** If an existing settings.json contains a `permissions` section or other custom configuration beyond `hooks`, preserve those sections. Merge hook changes into the existing file structure rather than overwriting.
 
+## Formatter Installation Commands
+
+When the user approves a formatter that is not already in the project, install it before copying the hook template. Use the package manager detected during project analysis.
+
+**Python (black + isort):**
+- pip: `pip install black isort` (or add to the appropriate requirements file and install)
+- poetry: `poetry add --group dev black isort`
+- uv: `uv add --dev black isort`
+
+**Node.js (prettier):**
+- npm: `npm install --save-dev prettier`
+- yarn: `yarn add --dev prettier`
+- pnpm: `pnpm add --save-dev prettier`
+- bun: `bun add --dev prettier`
+
+**C#/.NET (csharpier):**
+- If `.config/dotnet-tools.json` does not exist: `dotnet new tool-manifest`
+- Then: `dotnet tool install csharpier`
+- Then: `dotnet tool restore`
+
+**Java (google-java-format):**
+- Download the latest JAR from github.com/google/google-java-format releases and place it on PATH
+
+**C/C++ (clang-format):**
+- Linux: install via system package manager (e.g., `apt install clang-format`)
+- macOS: `brew install clang-format`
+- Windows: install via LLVM installer or `choco install llvm`
+
 ## Node.js Plugin Setup
 
-When the Node.js hook is installed: Ensure `prettier-plugin-organize-imports` is a devDependency (install with detected package manager if missing; skip config below if user declines). Then add it to the Prettier config's `plugins` array.
+When the Node.js hook is installed: Ensure both `prettier` and `prettier-plugin-organize-imports` are devDependencies (install with detected package manager if missing; skip config below if user declines). Then add it to the Prettier config's `plugins` array.
 
 Check for config in this order: `.prettierrc`, `.prettierrc.json`, `.prettierrc.yaml`, `.prettierrc.yml`, `.prettierrc.toml`, `.prettierrc.mjs`, `.prettierrc.cjs`, `prettier.config.js`, `prettier.config.mjs`, `prettier.config.cjs`, `prettier.config.ts`, or `"prettier"` key in `package.json`.
 
