@@ -83,7 +83,7 @@ See [skills/unit-test/README.md](skills/unit-test/README.md) for full documentat
 
 ## /optimus:tdd
 
-Guides test-driven development for new features and bug fixes — decompose into small behaviors, then cycle through Red (failing test) → Green (minimal implementation) → Refactor for each one. Runs the full test suite at every step, applies your coding guidelines during Refactor, and suggests commit points after each cycle. Requires `/optimus:init` and working test infrastructure (run `/optimus:unit-test` first if missing).
+Guides test-driven development for new features and bug fixes — analyzes task suitability first (redirects refactoring, docs, and styling tasks to the right skill), then decomposes into small behaviors and cycles through Red (failing test) → Green (minimal implementation) → Refactor for each one. Handles large features through decomposition into individually testable behaviors. Runs the full test suite at every step, applies your coding guidelines during Refactor, and suggests commit points after each cycle. Requires `/optimus:init` and working test infrastructure (run `/optimus:unit-test` first if missing).
 
 See [skills/tdd/README.md](skills/tdd/README.md) for full documentation.
 
