@@ -168,7 +168,7 @@ check_git_push() {
   while (( i <= $# )); do
     local arg="${!i}"
     case "$arg" in
-      --delete) has_delete=true ;;
+      -d|--delete) has_delete=true ;;
       -f|--force|--force-with-lease*|--force-if-includes) ;;
       -u|--set-upstream|--no-verify|--dry-run|-n|--verbose|-v|--quiet|-q) ;;
       --atomic|--signed*|--no-signed|--thin|--no-thin|--tags|--prune) ;;
@@ -298,15 +298,22 @@ case "$tool_name" in
           fi
           ;;
         checkout)
-          # Check only tokens after the subcommand (avoids matching git global flags)
-          sub_args="${tokens[*]:$((git_subcmd_idx+1))}"
+          # Scan tokens after the subcommand for -b/-B flags (handles both "-b name" and "-bname")
+          local co_flag="" co_target=""
+          for ((ci=git_subcmd_idx+1; ci<${#tokens[@]}; ci++)); do
+            case "${tokens[ci]}" in
+              -b) co_flag="-b"; co_target="${tokens[ci+1]:-}"; break ;;
+              -b*) co_flag="-b"; co_target="${tokens[ci]#-b}"; break ;;
+              -B) co_flag="-B"; co_target="${tokens[ci+1]:-}"; break ;;
+              -B*) co_flag="-B"; co_target="${tokens[ci]#-B}"; break ;;
+            esac
+          done
           # Allow 'git checkout -b' (create new branch, fails if exists — always safe)
-          [[ " $sub_args " == *" -b "* ]] && exit 0
+          [[ "$co_flag" == "-b" ]] && exit 0
           # 'git checkout -B <name>' force-resets a branch — block if target is protected
-          if [[ " $sub_args " == *" -B "* ]]; then
-            checkout_target="$(echo "$cmd" | sed -n 's/.* -B \+\([^ ]*\).*/\1/p')"
-            if [[ -n "$checkout_target" ]] && is_protected_branch "$checkout_target"; then
-              deny_operation "BLOCKED: 'git checkout -B $checkout_target' would reset protected branch '$checkout_target'."
+          if [[ "$co_flag" == "-B" ]]; then
+            if [[ -n "$co_target" ]] && is_protected_branch "$co_target"; then
+              deny_operation "BLOCKED: 'git checkout -B $co_target' would reset protected branch '$co_target'."
             fi
             exit 0
           fi
@@ -326,15 +333,22 @@ case "$tool_name" in
           fi
           ;;
         switch)
-          # Check only tokens after the subcommand (avoids matching git global -c flag)
-          sub_args="${tokens[*]:$((git_subcmd_idx+1))}"
+          # Scan tokens after the subcommand for -c/-C flags (handles both "-c name" and "-cname")
+          local sw_flag="" sw_target=""
+          for ((si=git_subcmd_idx+1; si<${#tokens[@]}; si++)); do
+            case "${tokens[si]}" in
+              -c) sw_flag="-c"; sw_target="${tokens[si+1]:-}"; break ;;
+              -c*) sw_flag="-c"; sw_target="${tokens[si]#-c}"; break ;;
+              -C) sw_flag="-C"; sw_target="${tokens[si+1]:-}"; break ;;
+              -C*) sw_flag="-C"; sw_target="${tokens[si]#-C}"; break ;;
+            esac
+          done
           # Allow 'git switch -c' (create new branch, fails if exists — always safe)
-          [[ " $sub_args " == *" -c "* ]] && exit 0
+          [[ "$sw_flag" == "-c" ]] && exit 0
           # 'git switch -C <name>' force-resets a branch — block if target is protected
-          if [[ " $sub_args " == *" -C "* ]]; then
-            switch_target="$(echo "$cmd" | sed -n 's/.* -C \+\([^ ]*\).*/\1/p')"
-            if [[ -n "$switch_target" ]] && is_protected_branch "$switch_target"; then
-              deny_operation "BLOCKED: 'git switch -C $switch_target' would reset protected branch '$switch_target'."
+          if [[ "$sw_flag" == "-C" ]]; then
+            if [[ -n "$sw_target" ]] && is_protected_branch "$sw_target"; then
+              deny_operation "BLOCKED: 'git switch -C $sw_target' would reset protected branch '$sw_target'."
             fi
           fi
           exit 0
