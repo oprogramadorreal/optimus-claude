@@ -82,6 +82,25 @@ If **ambiguous** (the task has both testable and non-testable aspects, or it's u
 
 ## Step 3: Scope and Decompose
 
+### Create feature branch
+
+Always create a new branch from the current branch for TDD work. This keeps the user's original branch clean — all changes happen on the new branch.
+
+1. Record the current branch name (this becomes the PR/MR target later): `git rev-parse --abbrev-ref HEAD`
+2. Derive a branch name from the task description:
+   - For features: `tdd/<feature-slug>` (e.g., `tdd/add-password-reset-endpoint`)
+   - For bug fixes: `tdd/fix-<bug-slug>` (e.g., `tdd/fix-login-uppercase-email`)
+   - Slug rules: lowercase, hyphens for spaces, strip special characters, max 50 chars
+3. Create and switch to the branch: `git checkout -b <branch-name>`
+4. Report the branch name to the user:
+
+```
+## Branch
+
+Created branch `<branch-name>` from `<original-branch>`.
+All TDD work will be committed to this branch.
+```
+
 ### Decompose into behaviors
 
 Break the user's description into small, individually testable behaviors. Each behavior should be:
@@ -179,13 +198,7 @@ Type-check: passing ✓ [or omit this line if no type-check command is available
 
 ## Step 6: Refactor — Clean Up While Green
 
-With all tests passing, review the code just written (both test and implementation) against `.claude/docs/coding-guidelines.md`. Apply each principle as a lens:
-
-- **Follow Existing Patterns** — does the new code match the codebase's style?
-- **KISS** — is there anything simpler that still passes the test?
-- **SRP** — is the function doing one thing?
-- **Domain-Accurate Naming** — do names reflect the domain?
-- **Pragmatic Abstractions** — is there duplication worth extracting? (Only if code written during this TDD session is already duplicated — don't search the entire codebase for extraction opportunities and don't extract speculatively)
+With all tests passing, review the code just written (both test and implementation) against `.claude/docs/coding-guidelines.md`. Apply each principle as a lens — does the new code satisfy the guidelines? If not, refactor. Only extract abstractions if code written during this TDD session is already duplicated — don't search the entire codebase for extraction opportunities and don't extract speculatively.
 
 Also review the test:
 - Is the test name a clear behavior specification?
@@ -207,20 +220,35 @@ Changes: [brief description of what was cleaned up, or "No changes needed — co
 All tests: passing ✓
 ```
 
-## Step 7: Loop
+## Step 7: Commit and Loop
 
-After completing one Red-Green-Refactor cycle, use `AskUserQuestion` — header "Next step", question "Cycle complete for behavior #[N]. What next?":
+After completing one Red-Green-Refactor cycle, automatically commit the work on the feature branch:
+
+1. Stage changes: prefer `git add <specific files>` for the test and implementation files touched in this cycle. Use `git add -A` only if many files were changed (e.g., renames, moves). Never stage files that look like secrets (`.env`, credentials, keys) — warn the user if any appear in `git status`
+2. Generate a conventional commit message following the format from `/optimus:commit-message` (type(scope): description) covering the behavior just completed
+3. Commit: `git commit -m "<message>"`
+4. Report the commit:
+
+```
+Committed: <short-hash> <commit message>
+```
+
+Then, if behaviors remain, use `AskUserQuestion` — header "Next step", question "Cycle complete for behavior #[N]. What next?":
 - **Next behavior** — "Continue to behavior #[N+1]: [description]"
-- **Commit progress** — "Commit the current work, then continue"
 - **Stop here** — "Done for now — show summary"
 
-If the user chooses **Commit progress**: suggest a conventional commit message following the format from `/optimus:commit-message` (type(scope): description). Present it in a copyable code block. Do NOT run `git commit` — let the user decide when to commit. Then continue to the next behavior.
+If behaviors remain and the user chooses to continue, return to Step 4 (Red) for the next one.
 
-If behaviors remain, return to Step 4 (Red) for the next one.
+## Step 8: Summary, Push, and PR/MR
 
-## Step 8: Summary
+After all behaviors are implemented (or the user stops early):
 
-After all behaviors are implemented (or the user stops early), present:
+### Commit remaining work
+
+If there are uncommitted changes (e.g., the user stopped mid-cycle before the auto-commit):
+1. Stage the remaining files (prefer `git add <specific files>`; use `git add -A` only if many files changed) and commit: `git commit -m "<conventional message covering remaining work>"`
+
+### Present summary
 
 ```
 ## TDD Summary
@@ -247,9 +275,44 @@ If no coverage command is found, omit this section entirely.]
 - Before: [X]%
 - After: [Y]%
 - Delta: +[Z]%
+```
 
-### Suggested Commit
-[If the user hasn't committed yet, suggest a conventional commit message covering all completed behaviors]
+### Push and create PR/MR
+
+If there are commits on the branch:
+
+1. **Push** the feature branch: `git push -u origin <branch-name>`
+
+2. **Detect the hosting platform** (reuse the pattern from `/optimus:code-review`):
+   - Check the `origin` remote URL: contains `gitlab` → **GitLab**; contains `github` → **GitHub**
+   - If neither matches, check for CI files: `.gitlab-ci.yml` → GitLab; `.github/` directory → GitHub
+   - If platform is still unknown → skip PR/MR creation, report the push and suggest creating one manually
+
+3. **Create a PR/MR** with a title and description:
+
+   **GitHub** (requires `gh` CLI):
+   - Verify `gh` is available: `gh --version`. If not, skip and tell the user to create the PR manually
+   - `gh pr create --title "<conventional title>" --body "<description>" --base <original-branch>`
+
+   **GitLab** (requires `glab` CLI):
+   - Verify `glab` is available: `glab --version`. If not, skip and tell the user to create the MR manually
+   - `glab mr create --fill --title "<conventional title>" --description "<description>" --target-branch <original-branch>`
+
+   **PR/MR description** should include:
+   - Task description (from Step 2)
+   - List of behaviors implemented (from the summary table)
+   - Test count and coverage delta (if available)
+
+4. **Report** to the user:
+
+```
+### Git Activity
+- Branch: `<branch-name>` (from `<original-branch>`)
+- Commits: [N]
+- Pushed: ✓
+- PR/MR: [URL] (or "Create manually — `gh`/`glab` not available")
 ```
 
 If behaviors remain unfinished, note them and suggest re-running `/optimus:tdd` to continue.
+
+Remind the user that the PR/MR should be reviewed before merging, and suggest using `/optimus:code-review` to review it.
