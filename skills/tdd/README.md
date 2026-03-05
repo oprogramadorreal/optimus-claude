@@ -4,6 +4,16 @@ A [Claude Code](https://docs.anthropic.com/en/docs/claude-code) skill that guide
 
 TDD is [more important with AI, not less](https://code.claude.com/docs/en/best-practices). Tests give the AI agent a feedback loop to self-correct: write test → see failure → implement → verify. Without tests, every change is a gamble. `/optimus:unit-test` adds tests to existing code retroactively. `/optimus:tdd` is the complement: build new code test-first.
 
+## Why TDD Matters More with AI
+
+Anthropic's [#1 best practice](https://code.claude.com/docs/en/best-practices) for Claude Code is giving it a way to verify its own work. TDD is the purest form of this — every behavior starts with a test that the agent must make pass. Three properties make TDD uniquely effective with AI:
+
+- **Binary feedback loop** — A test either passes or fails. This is the clearest possible signal for an LLM. "This test fails — make it pass" is precise and verifiable, unlike open-ended instructions. The agent cannot hallucinate its way past a failing test.
+- **Scope constraint** — TDD forces one behavior per cycle. Without it, AI agents tend to implement entire features in one shot, producing plausible-looking code with subtle bugs. One-behavior-at-a-time prevents errors from compounding.
+- **Independent specification** — When tests are written *after* implementation, the AI tends to write tests that confirm whatever it just wrote — including bugs. Test-first means the expected behavior is defined before the code exists, so the test is an independent specification, not a rubber stamp.
+
+The [2025 DORA report](https://cloud.google.com/discover/how-test-driven-development-amplifies-ai-success) confirms this pattern: AI adoption increases perceived code quality but also increases delivery instability. TDD is the control system that makes AI-assisted development reliable rather than risky.
+
 ## Features
 
 - **Suitability analysis** — analyzes the task against the codebase before starting; redirects unsuitable tasks (refactoring, docs, styling) to the right skill
