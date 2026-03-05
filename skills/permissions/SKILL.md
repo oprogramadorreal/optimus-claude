@@ -16,6 +16,8 @@ Configure safe permission rules and a path-restriction hook so Claude Code agent
 | Write/Edit precious unversioned file | **Ask user** | Ask user |
 | Delete (rm/rmdir) | Allow | **BLOCKED** |
 | Delete precious unversioned file | **BLOCKED** | **BLOCKED** |
+| Git on feature branch | Allow | — |
+| Git on protected branch | **BLOCKED** | — |
 
 ## Step 1: Detect Existing Configuration
 
@@ -69,7 +71,7 @@ Run through this checklist. Fix any issues before reporting.
 1. `.claude/hooks/restrict-paths.sh` exists and contains the hook logic
 2. `.claude/settings.json` exists and contains:
    - `permissions.allow` with at least the 13 tool entries from the template
-   - `permissions.deny` with at least the 33 deny patterns from the template
+   - `permissions.deny` with at least the 30 deny patterns from the template
    - `hooks.PreToolUse` with an entry referencing `restrict-paths.sh`
 3. If the file had existing PostToolUse hooks or other content, verify it is preserved
 
@@ -79,6 +81,7 @@ Run through this checklist. Fix any issues before reporting.
 - If MCP servers were detected, list them
 - Brief security model reminder: writes outside project will prompt, deletes outside project are blocked, reads are unrestricted
 - Trust model reminder: commands not on the deny list will execute without prompts inside the project (database operations, file deletions, network requests, etc.). See the skill's README for the full trust model
+- Git branch protection is active — git operations (commit, push, rebase, reset, merge) are allowed on feature branches but blocked on protected branches (master, main, develop, dev, development, staging, stage, prod, production, release). Customize the `PROTECTED_BRANCHES` array in `.claude/hooks/restrict-paths.sh`
 - Precious file protection is always active — the hook automatically protects well-known sensitive files (`.env`, `*.key`, `*.pem`, `*.sqlite`, etc.) that are not tracked by git
 
 4. Scan for precious unversioned files in the project:

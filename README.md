@@ -1,9 +1,10 @@
 # 🤖 optimus-claude
 
-**A Claude Code plugin that sets up your project for effective AI-assisted development** — CLAUDE.md, coding guidelines, formatter hooks, quality agents, and test coverage, generated from your actual codebase.
+**A Claude Code plugin that sets up your project for effective AI-assisted development** — CLAUDE.md, coding guidelines, formatter hooks, quality agents, TDD, and test coverage, all tailored to your actual codebase.
 
 - `/optimus:init` generates CLAUDE.md, coding guidelines, formatter hooks, and quality agents
 - `/optimus:unit-test` fills test coverage gaps with generated tests that enable AI self-correction
+- `/optimus:tdd` guides test-driven development — Red-Green-Refactor cycles that give the AI a binary pass/fail feedback loop, the [most effective discipline](https://code.claude.com/docs/en/best-practices) for reliable AI-assisted code
 - `/optimus:simplify` finds and applies code simplifications across your project
 - `/optimus:code-review` catches bugs and violations in your changes before they enter the repo
 
@@ -13,7 +14,7 @@ What makes a good developer productive in a codebase also makes Claude Code prod
 
 - **DRY code** avoids wasting context tokens with duplicate information
 - **Meaningful names** give the LLM better semantic signals
-- **Unit tests** enable self-correction: make change → run tests → see failure → fix
+- **Unit tests** enable self-correction: make change → run tests → see failure → fix. TDD takes this further — writing tests *before* code prevents the AI from writing tests that merely confirm its own bugs
 - **Focused documentation** keeps the context window efficient and contradiction-free
 
 Research backs this up: AI tools introduce [30%+ more defects](https://arxiv.org/abs/2601.02200) on poorly maintained code, LLM performance [degrades up to 85%](https://arxiv.org/abs/2510.05381) as context length grows, and Anthropic's [#1 best practice](https://code.claude.com/docs/en/best-practices) for Claude Code is giving it a way to verify its own work (e.g., with unit tests).
@@ -37,9 +38,10 @@ The LLM already knows best practices from training — but the trigger to apply 
 |-------|-----------|---------|-------------|
 | [Init](#optimusinit) | `/optimus:init` | CLAUDE.md, docs, formatter hooks, quality agents | — |
 | [Unit Test](#optimusunit-test) | `/optimus:unit-test` | On-demand unit test coverage improvement | Recommended |
+| [TDD](#optimustdd) | `/optimus:tdd` | Test-driven development — Red-Green-Refactor cycles | Yes |
 | [Simplify](#optimussimplify) | `/optimus:simplify` | Project-wide code simplification against coding guidelines | Recommended |
 | [Code Review](#optimuscode-review) | `/optimus:code-review` | Local-first code review with parallel agent-assisted analysis | Recommended |
-| [Permissions](#optimuspermissions) | `/optimus:permissions` | Allow/deny rules, path-restriction hook | No |
+| [Permissions](#optimuspermissions) | `/optimus:permissions` | Allow/deny rules, path-restriction hook, branch-aware git protection | No |
 | [Commit Message](#optimuscommit-message) | `/optimus:commit-message` | Conventional commit message suggester | No |
 
 ## Architecture: Project-Scoped by Design
@@ -60,7 +62,7 @@ The plugin is a **distribution wrapper** around project-setup skills. It makes i
 3. **After major changes** — Re-run `/optimus:init` to audit and refresh docs
 4. **Code quality review** — Run `/optimus:simplify` for a full codebase analysis against your coding guidelines
 
-**During development** — use `/optimus:code-review` before committing to catch bugs and guideline violations, and `/optimus:commit-message` for conventional commit messages.
+**During development** — use `/optimus:tdd` to build new features and fix bugs test-first (creates a feature branch, commits, pushes, and opens a PR/MR automatically), `/optimus:code-review` to review changes before merging, and `/optimus:commit-message` for conventional commit messages on manual commits.
 
 **Complementary tools** (optional):
 - **Inner-loop cleanup** — The builtin `/simplify` cleans up recent changes after each feature or bug fix. `/optimus:simplify` (step 4) covers the full project periodically; the builtin handles the per-change inner loop.
@@ -79,6 +81,12 @@ Discovers test coverage gaps, provisions test infrastructure if needed, estimate
 
 See [skills/unit-test/README.md](skills/unit-test/README.md) for full documentation.
 
+## /optimus:tdd
+
+Guides test-driven development for new features and bug fixes — analyzes task suitability first (redirects refactoring, docs, and styling tasks to the right skill), then creates a feature branch, decomposes into small behaviors, and cycles through Red (failing test) → Green (minimal implementation) → Refactor for each one. Commits progress on the feature branch after each cycle, runs the full test suite at every step, applies your coding guidelines during Refactor, and pushes the branch with a PR/MR at the end. Handles large features through decomposition into individually testable behaviors, splitting into milestones for decompositions exceeding 10 behaviors. Requires `/optimus:init` and working test infrastructure (run `/optimus:unit-test` first if missing). Recommended: `/optimus:permissions` for branch-aware git protection.
+
+See [skills/tdd/README.md](skills/tdd/README.md) for full documentation.
+
 ## /optimus:simplify
 
 Analyzes existing code against your project's coding guidelines with emphasis on cross-file issues — duplication across modules, pattern inconsistency, architectural drift. Presents a prioritized plan (capped at 12 findings), applies only what you approve, and runs the test suite to verify nothing broke. Flexible scope: full project, directory, or changed files. Supports multi-repo workspaces and excludes git submodules.
@@ -93,7 +101,7 @@ See [skills/code-review/README.md](skills/code-review/README.md) for full docume
 
 ## /optimus:permissions
 
-Configures allow/deny rules that eliminate routine prompts, plus a PreToolUse hook that enforces tiered path-based security — writes outside the project require approval, deletes outside the project are blocked. Well-known precious files (`.env`, `*.key`, `*.sqlite`, etc.) are automatically protected when not tracked by git: edits prompt for approval, deletions are blocked. The security model assumes operations inside the project are trusted; see the [skill's README](skills/permissions/README.md) for the full trust model and what this means in practice. Especially useful on native Windows where OS-level sandboxing is not yet available. Merges safely with `/optimus:init`.
+Configures allow/deny rules that eliminate routine prompts, plus a PreToolUse hook that enforces tiered path-based security and branch-aware git protection. Writes outside the project require approval, deletes outside the project are blocked, and git operations on protected branches (master, main, develop, dev, development, staging, stage, prod, production, release) are blocked while feature branches are fully allowed. Well-known precious files (`.env`, `*.key`, `*.sqlite`, etc.) are automatically protected when not tracked by git. This enables a feature-branch workflow where Claude Code creates branches, commits, and pushes freely — but modifications to protected branches require pull requests. Especially useful on native Windows where OS-level sandboxing is not yet available. Merges safely with `/optimus:init`.
 
 See [skills/permissions/README.md](skills/permissions/README.md) for full documentation.
 
@@ -112,6 +120,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for project structure, skill anatomy, fea
 The principles behind this plugin are supported by research and industry practice:
 
 - **Anthropic** — [Claude Code Best Practices](https://code.claude.com/docs/en/best-practices): testing as #1 practice, compact CLAUDE.md, deterministic hooks, custom subagents
+- **DORA Report (2025)** — [How Test-Driven Development Amplifies AI Success](https://cloud.google.com/discover/how-test-driven-development-amplifies-ai-success) (Google Cloud): AI adoption increases delivery instability; TDD provides the control system that makes AI-assisted development reliable
 - **Borg et al. (2026)** — [Code for Machines, Not Just Humans](https://arxiv.org/abs/2601.02200) (3rd ACM FORGE): LLM-based refactoring on 5,000 Python files; AI defect risk increases 30%+ on unhealthy code (CodeHealth < 7.0)
 - **Thoughtworks Technology Radar Vol. 32 (2025)** — [AI-friendly code design](https://www.thoughtworks.com/radar/techniques/ai-friendly-code-design) (Assess ring): "good software design for humans also benefits AI"
 - **Du et al. (2025)** — [Context Length Alone Hurts LLM Performance](https://arxiv.org/abs/2510.05381) (Findings of EMNLP): even with perfect retrieval, 13.9%–85% performance degradation as input length increases

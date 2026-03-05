@@ -16,27 +16,29 @@
       "Skill"
     ],
     "deny": [
-      "Bash(git commit*)",
-      "Bash(git push*)",
-      "Bash(git push --force*)",
-      "Bash(git reset --hard*)",
-      "Bash(git rebase*)",
+      "Bash(git push --all*)",
+      "Bash(git push --mirror*)",
+      "Bash(*git push --force*)",
+      "Bash(*git push -f *)",
+      "Bash(*git push -f)",
+      "Bash(*git reset --hard*)",
+      "Bash(git clean *)",
+      "Bash(git stash drop*)",
+
       "Bash(rm -rf /*)",
       "Bash(rm -rf ~*)",
+
       "Bash(sudo *)",
+
       "Bash(curl * | bash*)",
       "Bash(curl * | sh*)",
       "Bash(wget * | bash*)",
       "Bash(wget * | sh*)",
-      "Bash(git branch -D *)",
-      "Bash(git clean *)",
-      "Bash(git checkout -- *)",
-      "Bash(git checkout .)",
-      "Bash(git restore *)",
-      "Bash(git stash drop*)",
+
       "Bash(docker system prune*)",
       "Bash(docker compose down -v*)",
       "Bash(kubectl delete *)",
+
       "Bash(npm publish*)",
       "Bash(cargo publish*)",
       "Bash(twine upload*)",
@@ -47,6 +49,7 @@
       "Bash(./mvnw deploy*)",
       "Bash(gradle publish*)",
       "Bash(./gradlew publish*)",
+
       "Bash(npx npm-cli-login*)",
       "Bash(curl * -d @*)"
     ]

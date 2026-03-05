@@ -17,6 +17,7 @@ optimus-claude/
 │   ├── unit-test/            # /optimus:unit-test
 │   ├── simplify/             # /optimus:simplify
 │   ├── code-review/          # /optimus:code-review
+│   ├── tdd/                  # /optimus:tdd
 │   ├── permissions/          # /optimus:permissions
 │   └── commit-message/       # /optimus:commit-message
 ├── README.md

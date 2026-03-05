@@ -36,7 +36,7 @@ Claude Code has multiple layers for managing agent autonomy. The right choice de
 
 ## What It Does
 
-`/optimus:permissions` generates two files that work together to provide three layers of protection:
+`/optimus:permissions` generates two files that work together to provide four layers of protection:
 
 ### 1. Allow List — Eliminate Routine Prompts
 
@@ -48,11 +48,11 @@ If your project uses [MCP servers](https://docs.anthropic.com/en/docs/claude-cod
 
 ### 2. Deny List — Block Dangerous Patterns
 
-Blocks 33 dangerous Bash patterns using Claude Code's [permission pattern matching](https://code.claude.com/docs/en/permissions), which operates on the tool invocation before execution:
+Blocks 30 dangerous Bash patterns using Claude Code's [permission pattern matching](https://code.claude.com/docs/en/permissions), which operates on the tool invocation before execution:
 
 | Category | Blocked Patterns |
 |---|---|
-| **Git destructive** | `git commit`, `git push`, `git push --force`, `git reset --hard`, `git rebase`, `git branch -D`, `git clean`, `git checkout --`, `git checkout .`, `git restore`, `git stash drop` |
+| **Git (always blocked)** | `git push --all`, `git push --mirror`, `git clean`, `git stash drop`, `*git push --force*`, `*git push -f *`, `*git push -f`, `*git reset --hard*` |
 | **System destructive** | `rm -rf /`, `rm -rf ~`, `sudo` |
 | **Remote code execution** | `curl \| bash`, `curl \| sh`, `wget \| bash`, `wget \| sh` |
 | **Infrastructure destructive** | `docker system prune`, `docker compose down -v`, `kubectl delete` |
@@ -75,13 +75,36 @@ For structured tools (Edit/Write/NotebookEdit), the hook validates the `file_pat
 
 For Bash `rm`/`rmdir`, the hook does best-effort command parsing. Other Bash write commands (`cp`, `mv`, `echo >`) are not intercepted.
 
+### 4. Branch Protection — Git Operations on Protected Branches
+
+The hook enforces branch-aware git protection: operations that modify branch history are **allowed on feature branches** but **blocked on protected branches** (master, main, develop, dev, development, staging, stage, prod, production, release).
+
+| Git Operation | Feature Branch | Protected Branch |
+|---|---|---|
+| `git commit` | Allow | **BLOCKED** |
+| `git push` | Allow | **BLOCKED** |
+| `git push --force` | **BLOCKED** (deny list) | **BLOCKED** (deny list + hook) |
+| `git reset --hard` | **BLOCKED** (deny list) | **BLOCKED** (deny list + hook) |
+| `git rebase` | Allow | **BLOCKED** |
+| `git merge` | Allow | **BLOCKED** |
+| `git checkout --` / `git checkout .` | Allow | **BLOCKED** |
+| `git restore` | Allow | **BLOCKED** |
+| `git branch -D <branch>` | Allow (non-protected) | **BLOCKED** (protected name) |
+| `git checkout -b` / `git switch -c` | Allow | Allow (creates new branch) |
+| `git checkout -B` / `git switch -C` | Allow (non-protected) | **BLOCKED** (protected name) |
+| `git push --all` / `git push --mirror` | **BLOCKED** | **BLOCKED** |
+
+This enables a feature-branch workflow: Claude Code creates branches, commits, and pushes freely — but cannot modify protected branches directly. Use pull requests for code review before merging.
+
+**Customization:** Edit the `PROTECTED_BRANCHES` array in `.claude/hooks/restrict-paths.sh` to add or remove protected branch names.
+
 ## Trust Model and Assumptions
 
 This skill operates on the principle that **operations inside the project directory are trusted**. Before using it, understand what this means in practice.
 
 ### What runs WITHOUT prompts inside the project
 
-Any Bash command that does not match the 33 deny patterns executes without asking, including:
+Any Bash command that does not match the 30 deny patterns executes without asking, including:
 
 - **Database operations** — `psql -c "DROP TABLE users"`, `redis-cli FLUSHALL`, `sqlite3 db.sqlite "DELETE FROM orders"`
 - **File deletion** — `rm data.csv`, `rm -rf uploads/`, `rm database.sqlite` (only `rm -rf /` and `rm -rf ~` are in the deny list)
@@ -97,7 +120,7 @@ Other unversioned files (build output, `node_modules/`, data exports) are **not*
 
 ### The deny list is a blocklist, not an allowlist
 
-The 33 blocked patterns catch common destructive operations, but **anything not on the list passes through**. The deny list is a safety net for known-dangerous commands, not a comprehensive policy. You can add project-specific patterns (e.g., `"Bash(docker *)"`) — see [Customization](#customization).
+The 30 blocked patterns catch common destructive operations, but **anything not on the list passes through**. The deny list is a safety net for known-dangerous commands, not a comprehensive policy. Branch-specific git commands (commit, push, rebase, etc.) are enforced by the hook's branch protection layer instead — see [Branch Protection](#4-branch-protection--git-operations-on-protected-branches). You can add project-specific patterns (e.g., `"Bash(docker *)"`) — see [Customization](#customization).
 
 > **Critical limitation — build command escalation:** Allowing both file edits and Bash execution means any build system can be used for arbitrary code execution. Example: Claude edits `package.json` to add a `"preinstall"` script, then runs `npm install` — the script executes with full user permissions. This is inherent to any permission model that allows both edits and shell access, and cannot be mitigated by deny patterns alone.
 
@@ -106,11 +129,12 @@ The 33 blocked patterns catch common destructive operations, but **anything not 
 | Layer | Mechanism | Reliability | Why |
 |---|---|---|---|
 | **Allow list** | 13 tools auto-approved | High | Built-in [Claude Code feature](https://code.claude.com/docs/en/permissions) |
-| **Deny list** | 33 Bash patterns blocked | Medium | Pattern matching can be bypassed via chaining ([#13371](https://github.com/anthropics/claude-code/issues/13371)) |
+| **Deny list** | 30 Bash patterns blocked | Medium | Pattern matching can be bypassed via chaining ([#13371](https://github.com/anthropics/claude-code/issues/13371)) |
+| **Branch protection (hook)** | Git ops blocked on protected branches | Medium | Best-effort command parsing; `git checkout -b` always allowed |
 | **PreToolUse hook (Edit/Write)** | Writes outside project prompt user | **High** | Validates structured `file_path` — cannot be obfuscated |
 | **PreToolUse hook (Bash rm/rmdir)** | Deletes outside project blocked | Medium | Best-effort command parsing |
 
-This is **defense-in-depth**: multiple independent layers that each catch different classes of risk. No single layer is perfect, but together they cover the most common destructive operations.
+This is **defense-in-depth**: multiple independent layers that each catch different classes of risk. No single layer is perfect, but together they cover the most common destructive operations. The branch protection layer enables a feature-branch workflow — Claude Code can commit, push, and work freely on feature branches while protected branches require pull requests.
 
 ### Hook Fail-Open Behavior
 
@@ -207,6 +231,7 @@ To understand or modify how the skill works, start with `SKILL.md`. Key customiz
 
 - **Allow list**: Edit `templates/settings.json` → `permissions.allow` to add or remove auto-approved tools
 - **Deny list**: Edit `templates/settings.json` → `permissions.deny` to add more blocked patterns (e.g., `"Bash(docker *)"`) or remove overly-strict ones
+- **Protected branches**: Edit the `PROTECTED_BRANCHES` array in `templates/hooks/restrict-paths.sh` to add or remove protected branch names (default: master, main, develop, dev, development, staging, stage, prod, production, release)
 - **Hook behavior**: Edit `templates/hooks/restrict-paths.sh` to change what operations are blocked, asked, or allowed
 - **MCP servers**: If your project uses MCP servers (`.mcp.json`), the skill auto-detects them and adds `mcp__<server>` entries to the allow list
 - **Precious patterns**: Edit `is_precious()` in `templates/hooks/restrict-paths.sh` to add or remove protected file patterns, or re-run `/optimus:permissions` to scan for project-specific files
@@ -222,13 +247,13 @@ This skill provides **defense-in-depth**, not bulletproof isolation. Be aware of
 | **Bash writes not caught** | Only `rm`/`rmdir` is intercepted by the hook. Other Bash writes (`echo >`, `cp`, `mv`) outside the project are not blocked |
 | **Build command escalation** | File edits + build commands = arbitrary code execution. See the [critical limitation callout](#trust-model-and-assumptions) above |
 | **Data exfiltration** | Network commands like `curl -X POST` can upload data to external servers. The deny list blocks `curl -d @file` but this is trivially bypassable |
-| **Deny list is a blocklist** | Only 33 specific patterns are blocked. Database commands, service management, and many other destructive operations are not covered |
+| **Deny list is a blocklist** | Only 30 specific patterns are blocked. Database commands, service management, and many other destructive operations are not covered |
 | **Not OS-level sandboxing** | For full isolation, use [sandboxing](https://code.claude.com/docs/en/sandboxing) or [devcontainers](https://code.claude.com/docs/en/devcontainer) |
 
 Despite these limitations, this approach is **significantly safer** than `--dangerously-skip-permissions`:
 
 1. **Structured tool validation is reliable** — Edit/Write `file_path` inputs cannot be obfuscated
-2. **The deny list blocks the most common destructive patterns** — git push, rm -rf /, sudo, npm publish, etc.
+2. **The deny list and branch protection block the most common destructive patterns** — rm -rf /, sudo, npm publish, plus git operations on protected branches
 3. **Any write outside the project requires explicit user approval** — unknown operations default to asking, not allowing
 4. **Precious files are always protected** — well-known sensitive files (.env, *.key, *.sqlite, etc.) are automatically guarded when not tracked by git
 
