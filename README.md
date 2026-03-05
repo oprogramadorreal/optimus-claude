@@ -1,4 +1,4 @@
-# optimus-claude
+# 🤖 optimus-claude
 
 **A Claude Code plugin that sets up your project for effective AI-assisted development** — CLAUDE.md, coding guidelines, formatter hooks, quality agents, TDD, and test coverage, all tailored to your actual codebase.
 
