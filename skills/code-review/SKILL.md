@@ -165,7 +165,7 @@ Before proceeding to the review, present a brief summary:
 - Agents available (with skip status for missing ones)
 - Project type (single project / monorepo / multi-repo workspace)
 
-Let the user confirm before launching agents.
+Proceed immediately to Step 3 — do not wait for user confirmation.
 
 ## Step 3: Parallel Multi-Agent Review (up to 6 agents)
 
