@@ -147,7 +147,7 @@ is_protected_branch() {
 }
 
 get_current_branch() {
-  git -C "$root" rev-parse --abbrev-ref HEAD 2>/dev/null
+  git -C "${1:-$root}" rev-parse --abbrev-ref HEAD 2>/dev/null
 }
 
 # Parse git push arguments and deny if targeting a protected branch.
@@ -186,7 +186,7 @@ check_git_push() {
   if (( ${#positional[@]} <= 1 )); then
     # git push [remote] — pushes current branch
     local current
-    current="$(get_current_branch)" || return 0
+    current="$(get_current_branch "${git_dir:-}")" || return 0
     [[ "$current" == "HEAD" ]] && return 0
     targets=("$current")
   else
@@ -252,19 +252,24 @@ case "$tool_name" in
     cmd="${BASH_REMATCH[1]}"
 
     # --- Git branch protection (feature branches allowed, protected branches blocked) ---
-    if [[ "$cmd" == git\ * ]]; then
+    # Detect git commands, including common wrappers (env VAR=val git ..., command git ...)
+    if [[ "$cmd" == git\ * || "$cmd" == env\ *git\ * || "$cmd" == command\ *git\ * ]]; then
+      # Normalize: extract the "git ..." portion for consistent token parsing
+      git_portion="git ${cmd#*git }"
       # Fail-open: if not a git repo, allow (no branches to protect)
       [[ "$is_git_repo" == "true" ]] || exit 0
 
-      read -ra tokens <<< "$cmd"
+      read -ra tokens <<< "$git_portion"
       # Find git subcommand (skip global flags between 'git' and subcommand)
       git_subcmd=""
       git_subcmd_idx=0
+      git_dir=""
       for ((i=1; i<${#tokens[@]}; i++)); do
         case "${tokens[i]}" in
-          -C|-c|--git-dir|--work-tree|--namespace) ((i++)) ;;  # skip flag + its argument
-          --git-dir=*|--work-tree=*|--namespace=*|-C=*) ;;      # skip =form (no extra arg)
-          -*) ;;                                                 # skip other flags
+          -C) git_dir="${tokens[i+1]:-}"; ((i++)) ;;            # capture -C target dir
+          -c|--git-dir|--work-tree|--namespace) ((i++)) ;;      # skip flag + its argument
+          --git-dir=*|--work-tree=*|--namespace=*) ;;            # skip =form (no extra arg)
+          -*) ;;                                                  # skip other flags
           *) git_subcmd="${tokens[i]}"; git_subcmd_idx=$i; break ;;
         esac
       done
@@ -275,7 +280,7 @@ case "$tool_name" in
           check_git_push "${tokens[@]:$((git_subcmd_idx+1))}"
           ;;
         commit|merge)
-          current_branch="$(get_current_branch)" || exit 0
+          current_branch="$(get_current_branch "${git_dir:-}")" || exit 0
           [[ "$current_branch" == "HEAD" ]] && exit 0
           if is_protected_branch "$current_branch"; then
             deny_operation "BLOCKED: Cannot '$git_subcmd' on protected branch '$current_branch'. Switch to a feature branch first."
@@ -283,15 +288,15 @@ case "$tool_name" in
           ;;
         reset)
           # Only block 'reset --hard' on protected branches
-          [[ "$cmd" == *--hard* ]] || exit 0
-          current_branch="$(get_current_branch)" || exit 0
+          [[ "$git_portion" == *--hard* ]] || exit 0
+          current_branch="$(get_current_branch "${git_dir:-}")" || exit 0
           [[ "$current_branch" == "HEAD" ]] && exit 0
           if is_protected_branch "$current_branch"; then
             deny_operation "BLOCKED: 'git reset --hard' on protected branch '$current_branch' is not allowed."
           fi
           ;;
         rebase)
-          current_branch="$(get_current_branch)" || exit 0
+          current_branch="$(get_current_branch "${git_dir:-}")" || exit 0
           [[ "$current_branch" == "HEAD" ]] && exit 0
           if is_protected_branch "$current_branch"; then
             deny_operation "BLOCKED: 'git rebase' on protected branch '$current_branch' is not allowed."
@@ -299,7 +304,7 @@ case "$tool_name" in
           ;;
         checkout)
           # Scan tokens after the subcommand for -b/-B flags (handles both "-b name" and "-bname")
-          local co_flag="" co_target=""
+          co_flag="" co_target=""
           for ((ci=git_subcmd_idx+1; ci<${#tokens[@]}; ci++)); do
             case "${tokens[ci]}" in
               -b) co_flag="-b"; co_target="${tokens[ci+1]:-}"; break ;;
@@ -318,15 +323,21 @@ case "$tool_name" in
             exit 0
           fi
           # Block 'git checkout -- <paths>' and 'git checkout .' on protected branches
-          [[ "$cmd" == *" -- "* || "$cmd" == *" ." ]] || exit 0
-          current_branch="$(get_current_branch)" || exit 0
+          has_discard=false
+          for ((ci=git_subcmd_idx+1; ci<${#tokens[@]}; ci++)); do
+            case "${tokens[ci]}" in
+              --|.) has_discard=true; break ;;
+            esac
+          done
+          [[ "$has_discard" == true ]] || exit 0
+          current_branch="$(get_current_branch "${git_dir:-}")" || exit 0
           [[ "$current_branch" == "HEAD" ]] && exit 0
           if is_protected_branch "$current_branch"; then
             deny_operation "BLOCKED: Discarding changes on protected branch '$current_branch' is not allowed."
           fi
           ;;
         restore)
-          current_branch="$(get_current_branch)" || exit 0
+          current_branch="$(get_current_branch "${git_dir:-}")" || exit 0
           [[ "$current_branch" == "HEAD" ]] && exit 0
           if is_protected_branch "$current_branch"; then
             deny_operation "BLOCKED: 'git restore' on protected branch '$current_branch' is not allowed."
@@ -334,7 +345,7 @@ case "$tool_name" in
           ;;
         switch)
           # Scan tokens after the subcommand for -c/-C flags (handles both "-c name" and "-cname")
-          local sw_flag="" sw_target=""
+          sw_flag="" sw_target=""
           for ((si=git_subcmd_idx+1; si<${#tokens[@]}; si++)); do
             case "${tokens[si]}" in
               -c) sw_flag="-c"; sw_target="${tokens[si+1]:-}"; break ;;
@@ -369,19 +380,23 @@ case "$tool_name" in
     fi
 
     # --- Delete protection (rm/rmdir outside project or precious unversioned) ---
-    [[ "$cmd" =~ ^(rm|rmdir)[[:space:]] ]] || exit 0
-    # Use read -ra to properly split into an array (handles the command as shell words)
-    read -ra words <<< "$cmd"
-    for word in "${words[@]}"; do
-      [[ "$word" == rm || "$word" == rmdir || "$word" == -* ]] && continue
-      if ! is_inside_project "$word"; then
-        deny_operation "BLOCKED: Cannot delete '$word' — outside project root."
-      fi
-      # Precious file protection: block deletion of sensitive unversioned files
-      if [[ -e "$word" ]] && is_inside_project "$word" && is_precious "$word" && ! is_git_tracked "$word"; then
-        deny_operation "BLOCKED: '$(basename "$word")' is a precious file not tracked by git. Deletion denied."
-      fi
-    done
+    # Split command on shell operators (&&, ||, ;) and check each sub-command.
+    # This handles chained commands like "cd /tmp && rm file".
+    while IFS= read -r _subcmd; do
+      _subcmd="${_subcmd#"${_subcmd%%[![:space:]]*}"}"  # trim leading whitespace
+      [[ "$_subcmd" =~ ^(rm|rmdir)[[:space:]] ]] || continue
+      read -ra words <<< "$_subcmd"
+      for word in "${words[@]}"; do
+        [[ "$word" == rm || "$word" == rmdir || "$word" == -* ]] && continue
+        if ! is_inside_project "$word"; then
+          deny_operation "BLOCKED: Cannot delete '$word' — outside project root."
+        fi
+        # Precious file protection: block deletion of sensitive unversioned files
+        if [[ -e "$word" ]] && is_inside_project "$word" && is_precious "$word" && ! is_git_tracked "$word"; then
+          deny_operation "BLOCKED: '$(basename "$word")' is a precious file not tracked by git. Deletion denied."
+        fi
+      done
+    done <<< "$(printf '%s' "$cmd" | sed 's/&&/\n/g; s/||/\n/g; s/;/\n/g')"
     exit 0
     ;;
   *)
