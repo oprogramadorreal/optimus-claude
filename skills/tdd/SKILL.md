@@ -293,11 +293,10 @@ If no agents produced findings, report "Quality gate passed — no issues found"
 
 ### Act on findings
 
-If either agent produced findings, use `AskUserQuestion` — header "Quality gate", question "Agents found [N] items. How to proceed?":
-- **Address findings** — "Fix the issues before pushing"
-- **Push as-is** — "Acknowledged — proceed to summary and PR/MR"
+If either agent produced findings, apply fixes for each one. After all fixes are applied, run the test suite:
 
-If the user chooses to address findings: apply fixes, run the test suite to verify all tests still pass, then stage and commit with a conventional message (e.g., `refactor(scope): address quality gate findings`). Proceed to Step 9.
+- **All tests pass** — stage and commit with a conventional message (e.g., `refactor(scope): address quality gate findings`). Proceed to Step 9.
+- **Tests fail** — revert all fixes, then re-apply one at a time with a test run after each. Keep fixes that pass, revert those that fail. Present a fix summary listing which fixes were applied and which were reverted (with reason "fix broke tests"). Stage and commit kept fixes with a conventional message (e.g., `refactor(scope): address quality gate findings`). Proceed to Step 9.
 
 ## Step 9: Summary, Push, and PR/MR
 
