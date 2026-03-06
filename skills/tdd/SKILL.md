@@ -26,8 +26,10 @@ Load these documents (they affect quality at every step):
 | Document | Role | Effect on skill |
 |----------|------|-----------------|
 | `.claude/CLAUDE.md` | Project overview | Tech stack, test runner command |
-| `.claude/docs/coding-guidelines.md` | Code quality reference | Applied during Refactor step |
-| `.claude/docs/testing.md` | Testing conventions | Test file location, naming, framework, mocking patterns |
+| `coding-guidelines.md` | Code quality reference | Applied during Refactor step |
+| `testing.md` | Testing conventions | Test file location, naming, framework, mocking patterns |
+
+**Monorepo path note:** `coding-guidelines.md` is shared at root (`.claude/docs/coding-guidelines.md`). `testing.md` is scoped per subproject (`<subproject>/docs/testing.md`). For root-as-project, scoped docs are in `.claude/docs/` alongside the shared guidelines. When running TDD inside a subproject, load that subproject's `testing.md`, not another subproject's.
 
 ### Verify test infrastructure
 
