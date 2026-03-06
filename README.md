@@ -11,6 +11,10 @@
 /plugin install optimus@optimus-claude
 ```
 
+**Stay up to date (optional):** Enable auto-update so new versions are installed automatically at startup:
+
+`/plugin` → Marketplaces → `optimus-claude` → Enable auto-update
+
 **Run:** Start a new Claude Code session and type `/optimus:init` in any project directory.
 
 ## Why This Plugin?
