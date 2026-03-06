@@ -25,7 +25,7 @@ What makes a good developer productive also makes Claude Code productive: **clea
 - **Unit tests** enable self-correction — the AI makes a change, runs tests, sees the failure, and fixes it
 - **Test-driven development** takes this further: tests written *before* code are an independent specification, not a rubber stamp of whatever the AI just generated — and [providing LLMs with tests alongside tasks consistently improves code generation](https://arxiv.org/abs/2402.13521)
 
-Research backs this up: AI tools introduce [30%+ more defects](https://arxiv.org/abs/2601.02200) on poorly maintained code, LLM performance [degrades up to 85%](https://arxiv.org/abs/2510.05381) as context length grows, and the [2025 DORA report](https://cloud.google.com/discover/how-test-driven-development-amplifies-ai-success) confirms that AI amplifies existing practices — TDD provides the control system. That's why Anthropic's [#1 best practice](https://code.claude.com/docs/en/best-practices) for Claude Code is giving it a way to verify its own work — and TDD is the purest form of that.
+Research backs this up: AI tools introduce [30%+ more defects](https://arxiv.org/abs/2601.02200) on poorly maintained code, and LLM performance [degrades up to 85%](https://arxiv.org/abs/2510.05381) as context length grows. The [2025 DORA report](https://cloud.google.com/discover/how-test-driven-development-amplifies-ai-success) puts it simply: AI amplifies existing practices, good or bad. Anthropic's [#1 best practice](https://code.claude.com/docs/en/best-practices) for Claude Code reflects this — give the AI a way to verify its own work, and TDD is the purest form of that verification.
 
 ## Architecture: Project-Scoped by Design
 
