@@ -23,6 +23,7 @@ The [2025 DORA report](https://cloud.google.com/discover/how-test-driven-develop
 - **Convention-aware tests** — follows your `testing.md` for framework, file location, naming, and mocking patterns
 - **Test verification at every step** — runs the full test suite after Red, Green, and Refactor to catch regressions instantly
 - **Lint/type-check verification** — runs lint or type-check commands (if configured) during the Green step to catch type errors that passing tests might miss
+- **Quality gate** — after cycling completes, launches code-simplifier and test-guardian agents in parallel to catch cross-cycle issues (duplication between behaviors, naming drift, edge-case coverage gaps) before pushing
 - **Feature branch workflow** — creates a dedicated branch, commits after each cycle, pushes and creates a PR/MR at the end
 - **Automatic PR/MR creation** — detects GitHub/GitLab and creates a pull/merge request with task summary, behaviors list, and coverage delta
 - **Coverage tracking** — detects coverage commands from testing.md, test runner flags, or package scripts; reports delta
@@ -200,6 +201,7 @@ The skill produces a structured summary after completing:
 - Tests passing: all ✓
 - Files created: src/__tests__/auth/reset-password.test.ts
 - Files modified: src/routes/auth.ts
+- Quality gate: code-simplifier (1 finding), test-guardian (0 findings)
 
 ### Coverage
 - Before: 41%
@@ -222,7 +224,8 @@ The skill produces a structured summary after completing:
 5. For each behavior: Red (write failing test) → Green (minimal implementation) → Refactor (clean up against coding guidelines)
 6. Runs the full test suite at every transition (Red, Green, Refactor) and lint/type-check during Green
 7. Automatically commits on the feature branch after each cycle
-8. Reports summary, pushes the branch, and creates a PR/MR with task description and coverage delta
+8. Runs code-simplifier and test-guardian agents in parallel as a quality gate (if installed)
+9. Reports summary, pushes the branch, and creates a PR/MR with task description and coverage delta
 
 ## Git Workflow
 
@@ -268,7 +271,8 @@ The user's original branch is never modified. All code review happens through th
 
 | File | Purpose |
 |---|---|
-| `SKILL.md` | Skill definition with 8-step TDD workflow |
+| `SKILL.md` | Skill definition with 9-step TDD workflow (includes quality gate) |
+| `references/agent-prompts.md` | Prompt templates for quality gate agents (code-simplifier, test-guardian) |
 
 ## Requirements
 

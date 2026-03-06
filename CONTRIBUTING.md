@@ -38,6 +38,7 @@ skills/<skill-name>/
 │   ├── agents/               # Agent definition files
 │   └── docs/                 # Documentation templates
 └── references/               # Technical reference docs consumed by the skill (optional)
+                              #   e.g., agent prompt templates — externalize here instead of inlining in SKILL.md
 ```
 
 **`SKILL.md`** is the key file. It starts with YAML frontmatter and contains the instructions Claude Code follows when the skill is invoked:
