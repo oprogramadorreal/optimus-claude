@@ -272,6 +272,7 @@ The user's original branch is never modified. All code review happens through th
 | File | Purpose |
 |---|---|
 | `SKILL.md` | Skill definition with 9-step TDD workflow (includes quality gate) |
+| `references/agent-prompts.md` | Prompt templates for quality gate agents (code-simplifier, test-guardian) |
 
 ## Requirements
 
