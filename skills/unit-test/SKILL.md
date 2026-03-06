@@ -17,9 +17,11 @@ Beyond the init check, identify which guideline documents are available — they
 
 | Document | Role | Effect on skill |
 |----------|------|-----------------|
-| `.claude/docs/coding-guidelines.md` | Primary quality reference | Tests follow naming conventions, code structure, quality standards |
-| `.claude/docs/testing.md` | Testing conventions | Framework, runner commands, mocking patterns, file organization |
+| `coding-guidelines.md` | Primary quality reference | Tests follow naming conventions, code structure, quality standards |
+| `testing.md` | Testing conventions | Framework, runner commands, mocking patterns, file organization |
 | `.claude/CLAUDE.md` | Project overview | Tech stack signals, test runner commands |
+
+**Monorepo path note:** `coding-guidelines.md` is shared at root (`.claude/docs/coding-guidelines.md`). `testing.md` is scoped per subproject (`<subproject>/docs/testing.md`). For root-as-project, scoped docs are in `.claude/docs/` alongside the shared guidelines. When generating tests for a subproject, load that subproject's `testing.md`, not another subproject's.
 
 The skill operates differently depending on what exists:
 - **All three docs** — matches existing conventions precisely
@@ -170,6 +172,7 @@ If the user selects **Selective**, ask which item numbers to proceed with (e.g.,
 Tests must follow:
 - `coding-guidelines.md` for quality standards (naming, structure, clarity)
 - `testing.md` for testing conventions (framework idioms, file naming, directory structure)
+- `$CLAUDE_PLUGIN_ROOT/skills/tdd/references/testing-anti-patterns.md` for mocking discipline — prefer real code over mocks, never assert on mock behavior, mock only external services or non-deterministic dependencies
 - Existing test files for patterns (imports, assertion style, describe/it structure, fixture handling)
 
 ### Conservative constraint

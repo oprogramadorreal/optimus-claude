@@ -89,7 +89,7 @@ The skill produces a structured summary after completing:
 4. Provisions optimus infrastructure (test-guardian, testing.md, CLAUDE.md updates, README testing section, .gitignore for test artifacts)
 5. Measures baseline coverage and estimates achievable target without refactoring
 6. Presents prioritized test generation plan (capped at 10 items)
-7. Writes tests following project conventions; runs each immediately
+7. Writes tests following project conventions and mocking anti-patterns; runs each immediately
 8. Reports coverage impact, bugs discovered, and code flagged as untestable
 
 ## Relationship to Test-Guardian Agent

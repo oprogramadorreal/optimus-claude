@@ -273,6 +273,7 @@ The user's original branch is never modified. All code review happens through th
 |---|---|
 | `SKILL.md` | Skill definition with 9-step TDD workflow (includes quality gate) |
 | `references/agent-prompts.md` | Prompt templates for quality gate agents (code-simplifier, test-guardian) |
+| `references/testing-anti-patterns.md` | Mocking anti-patterns and gate questions — loaded during Red step to prevent bad test patterns |
 
 ## Requirements
 

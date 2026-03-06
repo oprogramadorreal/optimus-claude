@@ -9,6 +9,10 @@ Guide the user through Red-Green-Refactor cycles to implement a feature or fix a
 
 This skill is for **new features** and **bug fixes** — not refactoring. For restructuring existing code without changing behavior, use `/optimus:simplify` instead (existing tests verify behavior is preserved).
 
+### The Iron Law
+
+**No production code without a failing test first.** If implementation code is written before its test, delete it entirely and begin the cycle fresh. Do not preserve it as reference, do not adapt it — write the implementation from scratch once the failing test exists. This is the non-negotiable foundation of every step that follows.
+
 ## Step 1: Pre-flight
 
 If the current directory is a multi-repo workspace (no `.git/` at root, 2+ child directories containing a `.git` *directory* — not `.git` files, which indicate submodules), process each repo independently: run Steps 1–9 inside the repo the user is targeting. If ambiguous, ask which repo.
@@ -22,8 +26,10 @@ Load these documents (they affect quality at every step):
 | Document | Role | Effect on skill |
 |----------|------|-----------------|
 | `.claude/CLAUDE.md` | Project overview | Tech stack, test runner command |
-| `.claude/docs/coding-guidelines.md` | Code quality reference | Applied during Refactor step |
-| `.claude/docs/testing.md` | Testing conventions | Test file location, naming, framework, mocking patterns |
+| `coding-guidelines.md` | Code quality reference | Applied during Refactor step |
+| `testing.md` | Testing conventions | Test file location, naming, framework, mocking patterns |
+
+**Monorepo path note:** `coding-guidelines.md` is shared at root (`.claude/docs/coding-guidelines.md`). `testing.md` is scoped per subproject (`<subproject>/docs/testing.md`). For root-as-project, scoped docs are in `.claude/docs/` alongside the shared guidelines. When running TDD inside a subproject, load that subproject's `testing.md`, not another subproject's.
 
 ### Verify test infrastructure
 
@@ -155,10 +161,13 @@ For the current behavior, write a minimal test that:
 - Follows the project's testing conventions from `testing.md` (framework, file location, naming, mocking patterns)
 - Tests exactly one behavior — clear expected input and output
 - Uses descriptive test names that read as behavior specifications (e.g., `"returns 401 when token is expired"`, not `"test auth"`)
+- Avoids common testing anti-patterns — read `$CLAUDE_PLUGIN_ROOT/skills/tdd/references/testing-anti-patterns.md` before writing mocks; prefer real code over mocks, never assert on mock behavior, mock only external services or non-deterministic dependencies
 
 Place the test file according to the project's convention (from `testing.md`). If adding to an existing test file, append; if the convention calls for a new file, create one.
 
 ### Run the test suite
+
+**Verification protocol** — every test run in this skill (Steps 4, 5, 6) must be verified the same way: read the complete test output, check the exit code, and count pass/fail totals. Never claim "should pass" or "probably works" — state the actual result with evidence (e.g., "14 passed, 1 failed"). This protocol applies to every "Run the test suite" instruction below.
 
 Run the project's test command. The new test **must fail**. Verify:
 
@@ -196,6 +205,11 @@ Run the project's test command. **All tests must pass** — including the new on
 
 - **All pass** — proceed to lint/type-check below
 - **New test still fails** — fix the implementation (not the test). The test defines the expected behavior; the code must meet it
+  - **Circuit breaker** — if the test still fails after 3 implementation attempts, stop. Use `AskUserQuestion` — header "Implementation stuck", question "The test has failed after 3 fix attempts. This usually signals a design problem, not a code problem. How to proceed?":
+    - **Rethink the approach** — "Step back and reconsider the behavior's design or decomposition"
+    - **Simplify the behavior** — "Break this behavior into smaller, simpler sub-behaviors"
+    - **Skip for now** — "Revert implementation changes from this cycle (`git checkout -- <implementation files>`), mark the test as skipped per the project's convention (e.g., `skip`/`xit`/`@pytest.mark.skip`), move to the next behavior"
+  - **Bug-fix regression check** — when the current behavior is a bug reproduction (the first behavior in a bug-fix decomposition), verify the red-green cycle is genuine after the test passes: commit the test file first (`git add <test-file> && git commit -m "test: <behavior>"`), then revert only implementation files (`git stash push <implementation-files>`), run the test (it **must fail**), restore the fix (`git stash pop`), run again (it **must pass**). This proves the test catches the bug and the fix resolves it. If the test passes with the fix reverted, first restore the fix (`git stash pop`), then rewrite the test
 - **Other tests broke** — the implementation introduced a regression. Fix it before proceeding — all tests must stay green
 
 ### Lint / type-check (if available)
@@ -216,7 +230,7 @@ Type-check: passing ✓ [or omit this line if no type-check command is available
 
 ## Step 6: Refactor — Clean Up While Green
 
-With all tests passing, review the code just written (both test and implementation) against `.claude/docs/coding-guidelines.md`. Apply each principle as a lens — does the new code satisfy the guidelines? If not, refactor. Only extract abstractions if code written during this TDD session is already duplicated — don't search the entire codebase for extraction opportunities and don't extract speculatively.
+With all tests passing, review the code just written (both test and implementation) against `coding-guidelines.md`. Apply each principle as a lens — does the new code satisfy the guidelines? If not, refactor. Only extract abstractions if code written during this TDD session is already duplicated — don't search the entire codebase for extraction opportunities and don't extract speculatively.
 
 Also review the test:
 - Is the test name a clear behavior specification?

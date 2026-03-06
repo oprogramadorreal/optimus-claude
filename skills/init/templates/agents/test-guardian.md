@@ -22,6 +22,8 @@ Before analyzing, read `.claude/CLAUDE.md` to understand the project structure. 
 
 6. **Flag Structurally Untestable Code**: Identify code that contains testable logic but cannot be unit-tested without refactoring (hardcoded dependencies, tightly coupled modules, inline DB/HTTP calls without dependency injection, deeply nested side effects, global state mutations). Report these as structural issues, noting which specific barrier prevents testing.
 
+7. **Flag Testing Anti-Patterns**: When reviewing existing tests, check for mocking anti-patterns: tests asserting on mock behavior instead of real code, test-only methods in production classes, over-mocking when real implementations would work. Key rules — never assert on mock existence (test real behavior), never add methods to production classes just for tests (use test utilities), only mock external services and non-deterministic dependencies (prefer real code when fast and deterministic). *(Canonical source: the optimus plugin's `skills/tdd/references/testing-anti-patterns.md` — update both locations when rules change.)*
+
 ## What You Do NOT Do
 
 - **Do not write test code.** Only describe what should be tested and where the test file should go.
