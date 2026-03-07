@@ -29,8 +29,6 @@ In Claude Code, use any of these:
 - `/optimus:code-review` "review PR #42"
 - `/optimus:code-review` "review changes since main"
 - `/optimus:code-review` "focus on src/auth"
-- "review my changes"
-- "code review before I commit"
 
 ## When to Run
 
@@ -139,6 +137,7 @@ Anthropic's official [code-review](https://github.com/anthropics/claude-code/tre
 | File | Purpose |
 |---|---|
 | `SKILL.md` | Skill definition with 6-step review workflow |
+| `references/agent-prompts.md` | Prompt templates for parallel review agents |
 
 ## Requirements
 

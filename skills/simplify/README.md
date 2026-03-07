@@ -27,9 +27,6 @@ In Claude Code, use any of these:
 - `/optimus:simplify` — full project review
 - `/optimus:simplify` "focus on the auth module"
 - `/optimus:simplify` "review changes since last week"
-- "simplify existing code against guidelines"
-- "find code quality issues across the project"
-- "review code quality across the project"
 
 ## When to Run
 

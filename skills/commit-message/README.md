@@ -21,9 +21,6 @@ This skill is part of the [optimus](https://github.com/oprogramadorreal/optimus-
 In Claude Code, use any of these:
 
 - `/optimus:commit-message`
-- "suggest a commit message"
-- "generate commit message"
-- "summarize my changes"
 
 The skill will analyze your local changes and output a suggested commit message in a copyable code block. In a multi-repo workspace (multiple repos under one directory), it detects which repos have changes and suggests a separate commit message for each.
 

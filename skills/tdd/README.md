@@ -50,8 +50,6 @@ In Claude Code, use any of these:
 - `/optimus:tdd` — start a TDD session (will ask what to implement)
 - `/optimus:tdd` "Add user authentication endpoint"
 - `/optimus:tdd` "Fix: login fails when email has uppercase letters"
-- "implement with TDD"
-- "let's do this test-first"
 
 Provide a **brief description** (1-2 sentences). The skill analyzes the codebase and decomposes the task into specific testable behaviors — you don't need to specify every detail upfront. For lengthy specs (e.g., a pasted Jira ticket or acceptance criteria), the skill will distill the core goal and confirm before proceeding.
 

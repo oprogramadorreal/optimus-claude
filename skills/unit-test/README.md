@@ -32,9 +32,6 @@ In Claude Code, use any of these:
 - `/optimus:unit-test` — full project test coverage improvement
 - `/optimus:unit-test src/api` — scope to a specific directory
 - `/optimus:unit-test packages/auth` — scope to a monorepo subproject
-- "improve test coverage"
-- "add unit tests for this project"
-- "set up testing and write tests"
 
 ## When to Run
 
@@ -132,7 +129,7 @@ The test-guardian agent and this skill are complementary — both use `testing.m
 
 - [Claude Code](https://docs.anthropic.com/en/docs/claude-code) 1.0.33+ (plugin support)
 - Git
-- Project initialized with `/optimus:init` (recommended, not required)
+- Project initialized with `/optimus:init` (required — skill stops if CLAUDE.md is not found)
 
 ## License
 
