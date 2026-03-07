@@ -25,7 +25,7 @@ The [2025 DORA report](https://cloud.google.com/discover/how-test-driven-develop
 - **Lint/type-check verification** — runs lint or type-check commands (if configured) during the Green step to catch type errors that passing tests might miss
 - **Quality gate** — after cycling completes, launches code-simplifier and test-guardian agents in parallel to catch cross-cycle issues (duplication between behaviors, naming drift, edge-case coverage gaps) before pushing
 - **Feature branch workflow** — creates a dedicated branch, commits after each cycle, pushes and creates a PR/MR at the end
-- **Automatic PR/MR creation** — detects GitHub/GitLab and creates a pull/merge request with task summary, behaviors list, and coverage delta
+- **Automatic PR/MR creation** — detects GitHub/GitLab and creates a pull/merge request using the [Conventional PR](../pr/README.md) format (structured summary, changes, rationale, test plan). Suggests `/optimus:pr` if the CLI is missing
 - **Coverage tracking** — detects coverage commands from testing.md, test runner flags, or package scripts; reports delta
 - **Multi-repo workspace support** — targets specific repos in multi-repo setups
 - **Submodule exclusion** — skips git submodule directories
@@ -212,7 +212,7 @@ The skill produces a structured summary after completing:
 - Branch: `tdd/add-password-reset-endpoint` (from `main`)
 - Commits: 3
 - Pushed: ✓
-- PR: https://github.com/owner/repo/pull/42
+- PR: https://github.com/owner/repo/pull/42 (Conventional PR format)
 ```
 
 ## How It Works
@@ -239,7 +239,7 @@ TDD automatically manages a feature branch for all work:
 
 The user's original branch is never modified. All code review happens through the PR/MR.
 
-**Platform detection:** TDD checks the `origin` remote URL for `github` or `gitlab`, falling back to CI file detection (`.github/` or `.gitlab-ci.yml`). Requires `gh` (GitHub CLI) or `glab` (GitLab CLI) for PR/MR creation — if unavailable, TDD pushes the branch and provides manual instructions.
+**Platform detection:** TDD checks the `origin` remote URL for `github` or `gitlab`, falling back to CI file detection (`.github/` or `.gitlab-ci.yml`). Requires `gh` (GitHub CLI) or `glab` (GitLab CLI) for PR/MR creation — if unavailable, TDD pushes the branch and suggests running `/optimus:pr` (which can install the CLI).
 
 **Works with `/optimus:permissions`:** The permissions skill's branch protection hook ensures git operations on protected branches (master, main, develop, dev, development, staging, stage, prod, production, release) are blocked. TDD always creates a feature branch, so it works seamlessly with branch protection enabled.
 
@@ -265,7 +265,14 @@ The user's original branch is never modified. All code review happens through th
 | Focus | Build correct code from the start | Catch issues in finished changes |
 | Workflow | Use TDD to build, then code-review the PR/MR |
 
-**Full workflow**: `/optimus:init` → `/optimus:unit-test` (provision infrastructure + retroactive tests) → `/optimus:permissions` (branch-aware git protection) → `/optimus:tdd` (build new features test-first — creates branch, commits, pushes, creates PR/MR) → `/optimus:code-review` (review the PR/MR).
+| | `/optimus:tdd` | `/optimus:pr` |
+|---|---|---|
+| PR creation | Automatic — side effect of TDD workflow | Dedicated — full Conventional PR flow |
+| CLI missing | Skips PR, suggests `/optimus:pr` | Offers to install CLI |
+| Update support | No | Yes — regenerate existing PR description |
+| Format | Both use the shared Conventional PR template |
+
+**Full workflow**: `/optimus:init` → `/optimus:unit-test` (provision infrastructure + retroactive tests) → `/optimus:permissions` (branch-aware git protection) → `/optimus:tdd` (build new features test-first — creates branch, commits, pushes, creates PR/MR) → `/optimus:code-review` (review the PR/MR). Use `/optimus:pr` to update the PR description later or to create PRs for non-TDD work.
 
 ## Skill Structure
 
