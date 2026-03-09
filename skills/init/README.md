@@ -54,7 +54,7 @@ PostToolUse hooks that auto-format files after every Edit/MultiEdit/Write, insta
 | `format-python.py` | black + isort | Python project detected |
 | `format-node.js` | prettier | Node.js project detected |
 | `format-rust.sh` | rustfmt | Rust project detected (built-in) |
-| `format-go.sh` | goimports / gofmt | Go project detected (built-in) |
+| `format-go.sh` | gofmt | Go project detected (built-in) |
 | `format-csharp.sh` | csharpier | C#/.NET project detected |
 | `format-java.sh` | google-java-format | Java project detected |
 | `format-cpp.sh` | clang-format | C/C++ project detected |

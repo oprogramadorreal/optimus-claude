@@ -9,12 +9,14 @@ All templates are in `$CLAUDE_PLUGIN_ROOT/skills/init/templates/hooks/`.
 | Stack | Template | Formatter | Requires | Install when |
 |-------|----------|-----------|----------|--------------|
 | Python | `format-python.py` | black + isort | Python 3 | In project deps (requirements*.txt, pyproject.toml, Pipfile), or user approves |
-| Node.js | `format-node.js` | prettier + organize-imports plugin | Node.js | In package.json devDependencies, or user approves |
+| Node.js | `format-node.js` | prettier | Node.js | In package.json devDependencies, or user approves |
 | Rust | `format-rust.sh` | rustfmt | Bash | Always (rustfmt is built-in) |
-| Go | `format-go.sh` | goimports → gofmt fallback | Bash | Always (hook detects goimports at runtime; offer `go install golang.org/x/tools/cmd/goimports@latest` if absent) |
+| Go | `format-go.sh` | gofmt | Bash | Always (gofmt is built-in) |
 | C#/.NET | `format-csharp.sh` | csharpier | Bash | In `.config/dotnet-tools.json`, or user approves (suggest `dotnet tool install csharpier`) |
 | Java | `format-java.sh` | google-java-format | Bash | `google-java-format` is on PATH, or user approves (suggest installing from github.com/google/google-java-format) |
 | C/C++ | `format-cpp.sh` | clang-format | Bash | `clang-format` is on PATH, or user approves (bundled with LLVM/Clang; available via system package manager) |
+
+> **No import organizers:** Tools that remove unused imports (e.g., `prettier-plugin-organize-imports`, `goimports`) are intentionally excluded from PostToolUse hooks. They remove imports that appear unused mid-edit, causing a destructive loop when Claude adds an import before writing the code that uses it.
 
 ## Python Command Detection
 
@@ -58,10 +60,3 @@ When the user approves a formatter that is not already in the project, install i
 - macOS: `brew install clang-format`
 - Windows: install via LLVM installer or `choco install llvm`
 
-## Node.js Plugin Setup
-
-When the Node.js hook is installed: Ensure both `prettier` and `prettier-plugin-organize-imports` are devDependencies (install with detected package manager if missing; skip config below if user declines). Then add it to the Prettier config's `plugins` array.
-
-Check for config in this order: `.prettierrc`, `.prettierrc.json`, `.prettierrc.yaml`, `.prettierrc.yml`, `.prettierrc.toml`, `.prettierrc.mjs`, `.prettierrc.cjs`, `prettier.config.js`, `prettier.config.mjs`, `prettier.config.cjs`, `prettier.config.ts`, or `"prettier"` key in `package.json`.
-
-If `prettier-plugin-tailwindcss` is present, insert organize-imports **before** it. If no config exists, create `.prettierrc` with `{ "plugins": ["prettier-plugin-organize-imports"] }`.

@@ -210,11 +210,11 @@ For each detected subproject (except root-as-project/root-as-member — the root
 
 ## Step 5: Install Formatter Hooks
 
-Add auto-format hooks so files stay consistently formatted after every Edit/MultiEdit/Write. Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/formatter-setup.md` for the full hook template table, Python command detection, installation steps, settings.json creation rules, and Node.js plugin setup (Prettier + organize-imports).
+Add auto-format hooks so files stay consistently formatted after every Edit/MultiEdit/Write. Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/formatter-setup.md` for the full hook template table, Python command detection, installation steps, and settings.json creation rules.
 
 Always overwrite existing hooks — these are verbatim templates, not project-customized content.
 
-Supported stacks: Python (black + isort), Node.js (prettier), Rust (rustfmt), Go (goimports/gofmt), C#/.NET (csharpier), Java (google-java-format), C/C++ (clang-format). Templates are in `$CLAUDE_PLUGIN_ROOT/skills/init/templates/hooks/`.
+Supported stacks: Python (black + isort), Node.js (prettier), Rust (rustfmt), Go (gofmt), C#/.NET (csharpier), Java (google-java-format), C/C++ (clang-format). Templates are in `$CLAUDE_PLUGIN_ROOT/skills/init/templates/hooks/`.
 
 Key rules:
 - External formatters not in deps → ask user before installing
