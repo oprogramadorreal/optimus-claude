@@ -87,7 +87,7 @@ Review the PR/MR title and description above. Proceed or adjust?
 - Target: main
 - Status: Ready to merge
 
-Recommend running `/optimus:code-review` before merging.
+Recommend running `/optimus:verify` to prove the feature works, then `/optimus:code-review` for static quality review before merging.
 ```
 
 ### Update Flow Example
@@ -140,7 +140,7 @@ A PR/MR already exists for this branch. What would you like to do?
 4. Checks if the current branch already has an open PR/MR
 5. **Create flow:** gathers branch changes (commits, diff), generates a Conventional PR (title + structured body), previews, and creates
 6. **Update flow:** shows the existing PR/MR, asks what to regenerate, previews, and updates
-7. Reports the PR/MR URL and recommends `/optimus:code-review`
+7. Reports the PR/MR URL and recommends `/optimus:verify` then `/optimus:code-review`
 
 ## Conventional PR Format
 

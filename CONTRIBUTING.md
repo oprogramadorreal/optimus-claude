@@ -21,6 +21,7 @@ optimus-claude/
 │   ├── simplify/             # /optimus:simplify
 │   ├── code-review/          # /optimus:code-review
 │   ├── tdd/                  # /optimus:tdd
+│   ├── verify/               # /optimus:verify
 │   ├── pr/                   # /optimus:pr
 │   ├── permissions/          # /optimus:permissions
 │   └── commit-message/       # /optimus:commit-message

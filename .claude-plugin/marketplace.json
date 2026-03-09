@@ -5,7 +5,7 @@
     "url": "https://github.com/oprogramadorreal"
   },
   "metadata": {
-    "description": "Research-backed project setup — CLAUDE.md, auto-format hooks, quality agents, TDD, code simplification, code review, unit testing, permissions, and commit messages"
+    "description": "Research-backed project setup — CLAUDE.md, auto-format hooks, quality agents, TDD, code simplification, code review, unit testing, pull requests, feature verification, permissions, and commit messages"
   },
   "plugins": [
     {
@@ -14,7 +14,7 @@
         "source": "url",
         "url": "https://github.com/oprogramadorreal/optimus-claude.git"
       },
-      "description": "Research-backed project setup — CLAUDE.md, auto-format hooks, quality agents, TDD, code simplification, code review, unit testing, permissions, and commit messages"
+      "description": "Research-backed project setup — CLAUDE.md, auto-format hooks, quality agents, TDD, code simplification, code review, unit testing, pull requests, feature verification, permissions, and commit messages"
     }
   ]
 }

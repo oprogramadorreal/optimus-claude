@@ -225,3 +225,5 @@ Report to the user:
 ```
 
 For multi-repo workspaces, present results per repo (one summary block per repo) and include the repo name/path in each section header.
+
+Recommend running `/optimus:simplify` to review code quality, or `/optimus:tdd` to continue development with test-driven workflow.

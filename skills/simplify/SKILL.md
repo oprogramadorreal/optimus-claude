@@ -212,3 +212,5 @@ If no test command is available, warn the user that changes were applied without
 - Test results (pass/fail/not available)
 - Any changes reverted due to test failures
 - Remaining findings not shown in this run (if cap was hit)
+
+Recommend running `/optimus:commit-message` to commit the changes.

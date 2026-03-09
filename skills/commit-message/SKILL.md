@@ -84,3 +84,5 @@ In a multi-repo workspace, present each repo's commit message under a heading wi
 - Never commit, stage, or modify any files
 - This skill is read-only — it only analyzes and suggests
 - When changes are too broad for a single commit, recommend splitting
+
+When the feature is ready, recommend running `/optimus:pr` to create a pull request, or `/optimus:verify` to validate the feature end-to-end.

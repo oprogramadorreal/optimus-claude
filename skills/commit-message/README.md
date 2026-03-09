@@ -66,7 +66,7 @@ The skill runs `git diff` (staged and unstaged) and `git status` to collect all 
 | Workflow | Run after review passes | Run before committing |
 | Scope | All local changes | All local changes (or PR) |
 
-**Recommended sequence**: `/optimus:code-review` first (catch issues), then `/optimus:commit-message` (describe what you did).
+**Recommended sequence**: `/optimus:code-review` first (catch issues), then `/optimus:commit-message` (describe what you did). When the feature is ready, `/optimus:pr` to create a pull request or `/optimus:verify` to validate end-to-end.
 
 ## Skill Structure
 
