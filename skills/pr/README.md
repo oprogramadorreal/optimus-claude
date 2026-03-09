@@ -73,8 +73,6 @@ The implementation follows the existing auth module patterns.
 - [ ] POST /auth/reset-password with unknown email — returns 404
 - [ ] POST /auth/reset-password 4 times — 4th request returns 429
 
-Generated with [Claude Code](https://claude.ai/code)
-
 ---
 
 Review the PR/MR title and description above. Proceed or adjust?
@@ -155,7 +153,6 @@ The skill uses a structured template inspired by Conventional Commits:
 | **Changes** | Yes | Bulleted file list with descriptions |
 | **Rationale** | No | Design decisions and trade-offs (omit for straightforward changes) |
 | **Test plan** | Yes | Verification checklist |
-| **Footer** | Yes | Attribution |
 
 The template is shared with `/optimus:tdd` via `references/pr-template.md`.
 

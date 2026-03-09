@@ -129,27 +129,10 @@ If there are no commits ahead of the default branch → inform the user: "This b
 
 Read the Conventional PR template: `$CLAUDE_PLUGIN_ROOT/skills/pr/references/pr-template.md`
 
-Analyze the commits and diff to generate:
-
-1. **Title** — Conventional Commit format: `type(scope): description`
-   - Determine the type from the nature of changes (feat, fix, refactor, etc.)
-   - Determine the scope from the primary area affected
-   - Write a concise description in imperative mood
-
-2. **Body** — following the template sections:
-
-   **## Summary** — 2–4 sentences describing what the PR does and why. Synthesize from commit messages, changed files, and the diff.
-
-   **## Changes** — bulleted list of changed files or logical groups with brief descriptions. Use the `git diff --stat` output as a starting point, then describe what each file change accomplishes.
-
-   **## Rationale** — include only if the changes involve non-obvious design decisions or trade-offs. Omit for straightforward changes.
-
-   **## Test plan** — verification steps. Look for:
-   - Test files in the diff → "Run `<test command>` to verify"
-   - CI configuration → "CI pipeline will run automatically"
-   - Manual verification → describe what to check
-
-   **Footer** — `Generated with [Claude Code](https://claude.ai/code)`
+Generate a title and body following the template. When filling in the sections:
+- Synthesize the **Summary** from commit messages, changed files, and the diff
+- Use `git diff --stat` output as a starting point for **Changes**, then describe what each file change accomplishes
+- For the **Test plan**, look for: test files in the diff → "Run `<test command>` to verify"; CI configuration → "CI pipeline will run automatically"; manual verification → describe what to check
 
 ### Preview and confirm
 

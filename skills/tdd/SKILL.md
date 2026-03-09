@@ -374,14 +374,7 @@ If there are commits on the branch:
    - Verify `glab` is available: `glab --version`. If not, skip and tell the user to run `/optimus:pr` to create the MR (it can install the CLI)
    - `glab mr create --title "<conventional title>" --description "<body>" --target-branch <original-branch>`
 
-   **PR/MR content** — follow the Conventional PR template sections, incorporating TDD-specific data:
-
-   - **Title:** Conventional Commit format — `type(scope): description` based on the task from Step 2
-   - **Summary:** Task description (from Step 2) + how many behaviors were implemented via TDD + brief outcome
-   - **Changes:** Files changed during the TDD session (from `git diff --stat <original-branch>..HEAD`), grouped by logical concern
-   - **Rationale:** Include only if the decomposition or TDD approach involved non-obvious design decisions. Omit for straightforward implementations.
-   - **Test plan:** "All [N] behaviors have passing tests. Run `[test command]` to verify." Include coverage delta if available (e.g., "Coverage: [X]% → [Y]% (+[Z]%)"). List each behavior as a verification item.
-   - **Footer:** `Generated with [Claude Code](https://claude.ai/code)`
+   Follow the Conventional PR template, incorporating TDD-specific data: include how many behaviors were implemented via TDD in the **Summary**, use `git diff --stat <original-branch>..HEAD` for **Changes**, and list each behavior as a verification item in the **Test plan** with coverage delta if available (e.g., "Coverage: [X]% → [Y]% (+[Z]%)").
 
 4. **Report** to the user:
 

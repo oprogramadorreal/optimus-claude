@@ -48,10 +48,3 @@ Bulleted checklist of verification steps:
 
 Include: manual verification steps, automated test commands, edge cases to check.
 
-### Footer
-
-End the body with:
-
-```
-Generated with [Claude Code](https://claude.ai/code)
-```
