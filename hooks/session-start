@@ -15,7 +15,7 @@ else
   # 2. Check test infrastructure (only relevant if init was done)
   if [ ! -f .claude/docs/testing.md ]; then
     # Check monorepo subprojects too
-    has_testing=$(find . -maxdepth 3 -path '*/docs/testing.md' -print -quit 2>/dev/null)
+    has_testing=$(find . -maxdepth 4 -path '*/docs/testing.md' -print -quit 2>/dev/null)
     if [ -z "$has_testing" ]; then
       output+="[optimus] Testing docs missing. Suggest \`/optimus:unit-test\` to provision test infrastructure."$'\n'
     fi
@@ -25,7 +25,7 @@ else
   missing_agents=""
   [ ! -f .claude/agents/code-simplifier.md ] && missing_agents+="code-simplifier "
   # test-guardian is only expected when test infrastructure exists (testing.md present)
-  has_any_testing=$( [ -f .claude/docs/testing.md ] && echo y || find . -maxdepth 3 -path '*/docs/testing.md' -print -quit 2>/dev/null)
+  has_any_testing=$( [ -f .claude/docs/testing.md ] && echo y || find . -maxdepth 4 -path '*/docs/testing.md' -print -quit 2>/dev/null)
   if [ -n "$has_any_testing" ] && [ ! -f .claude/agents/test-guardian.md ]; then
     missing_agents+="test-guardian "
   fi
