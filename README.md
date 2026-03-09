@@ -1,4 +1,6 @@
-# 🤖 optimus-claude
+<div align="center">
+  <img src="assets/banner.png" alt="optimus-claude" width="600">
+</div>
 
 **A Claude Code plugin that sets up your project for effective AI-assisted development** — CLAUDE.md, coding guidelines, formatter hooks, quality agents, TDD, and test coverage, all tailored to your actual codebase.
 
@@ -23,18 +25,17 @@ Research backs this up: AI tools introduce [30%+ more defects](https://arxiv.org
 
 Another key point: [providing LLMs with tests alongside tasks consistently improves code generation](https://arxiv.org/abs/2402.13521). Tests enable self-correction. Anthropic's [#1 best practice](https://code.claude.com/docs/en/best-practices) for Claude Code reflects this: "make the AI self-verifying". Unit tests and TDD are the purest way to achieve it.
 
-## Explicit Invocation Only
+## How It Works
 
-Skills never auto-trigger. Claude Code's default behavior is never altered unless you explicitly call a skill. This keeps the plugin predictable and ensures you stay in control.
+**Explicit invocation** — Skills never auto-trigger. Claude Code's default behavior is never altered unless you explicitly call a skill.
 
-## Architecture: Project-Scoped by Design
+**Project-scoped output** — Unlike most plugins that bundle hooks and agents at the plugin level, optimus writes everything into the project's `.claude/` directory:
 
-Unlike most plugins that bundle hooks and agents at the plugin level, **optimus writes everything into the project's `.claude/` directory**:
+- Hooks, agents, docs, and settings travel with the repo via git — any teammate gets identical behavior, even without the plugin installed
+- Enforces standards linters can't check — naming conventions, architectural patterns, DRY principles
+- No hidden dependencies — the generated output is self-contained, visible, auditable, and version-controlled. Keep the plugin installed for daily skills like TDD, commit-message, and code-review
 
-- **Hooks, agents, docs, and settings travel with the repo via git** — any teammate gets identical behavior, even without this plugin installed
-- **Enforces standards linters can't check** — naming conventions, architectural patterns, DRY principles, guided by project-specific docs and agents
-- **No hidden dependencies** — the generated output is self-contained, visible, auditable, and version-controlled. Keep the plugin installed for daily skills like TDD, commit-message, and code-review
-- **Session-start hook** — on every session start, resume, clear, and compact, a lightweight hook checks project state (init status, test infrastructure, quality agents, git state) and outputs only what needs attention — zero context waste when the project is fully configured
+**Session-start awareness** — A lightweight hook runs on every session start, resume, clear, and compact to check project state (init status, test infrastructure, quality agents, git state). Fully configured projects produce zero output — no context waste.
 
 ## Skills
 
