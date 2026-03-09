@@ -15,7 +15,7 @@ A **multi-repo workspace** is a directory that meets ALL of these conditions:
 
 1. Check whether `.git/` exists in the current directory
    - If it exists → **not a multi-repo workspace** — stop detection, proceed with normal single-repo flow
-2. Scan immediate subdirectories (skip dot-directories like `.git`, `.vscode`, etc.)
+2. Scan immediate subdirectories (skip dot-directories like `.git`, `.vscode`, and non-project directories like `node_modules`, `vendor`, `dist`, `build`, `target`, etc.)
    - For each subdirectory, check if it contains a `.git` **directory** (use `test -d "$child/.git"`)
    - Ignore `.git` **files** — those indicate git submodules, not independent repos
 3. Count qualifying subdirectories:
