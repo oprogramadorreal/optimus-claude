@@ -47,6 +47,7 @@ Unlike most plugins that bundle hooks and agents at the plugin level, **optimus 
 | [`/optimus:tdd`](skills/tdd/README.md) | Test-driven Red-Green-Refactor — feature branch, per-behavior commits, parallel agent quality gate, PR/MR. The [most effective discipline](https://code.claude.com/docs/en/best-practices) for reliable AI-assisted code. *Requires init.* |
 | [`/optimus:simplify`](skills/simplify/README.md) | Cross-file code simplification — duplication, pattern inconsistency, architectural drift. Prioritized plan (capped at 12), test-verified. *Run init first (recommended).* |
 | [`/optimus:code-review`](skills/code-review/README.md) | Pre-merge review with up to 6 parallel agents — bugs, security, guideline compliance, code-simplifier, test-guardian. GitHub & GitLab. *Run init first (recommended).* |
+| [`/optimus:verify`](skills/verify/README.md) | Feature branch verification in an isolated sandbox — extracts/generates a test plan from the PR and branch diff, runs automated checks, launches up to 4 parallel agents for functional verification (tests, integration, mock projects, code tracing). Never pushes to remote. *Run init first (recommended).* |
 
 ### Utility
 
@@ -63,7 +64,9 @@ Unlike most plugins that bundle hooks and agents at the plugin level, **optimus 
 3. **After major changes** — re-run `/optimus:init` to audit and refresh docs
 4. **Code quality** — `/optimus:simplify` for full codebase analysis against your coding guidelines
 
-**During development** — `/optimus:tdd` to build features test-first, `/optimus:pr` to create or update pull requests, `/optimus:code-review` before merging, `/optimus:commit-message` for conventional commits.
+**During development** — `/optimus:tdd` to build features test-first, `/optimus:commit-message` for conventional commits.
+
+**Before merging** — `/optimus:pr` to create or update pull requests, `/optimus:verify` to prove the feature branch works in an isolated sandbox, `/optimus:code-review` for pre-merge code quality review.
 
 **Complementary tools** — Anthropic's official [code-review](https://github.com/anthropics/claude-code/tree/main/plugins/code-review) plugin for post-push PR review, [claude-md-management](https://claude.com/plugins/claude-md-management) for CLAUDE.md scoring and revision, and the builtin `/simplify` for per-change cleanup.
 
