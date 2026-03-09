@@ -146,7 +146,7 @@ Create a git worktree for isolated verification. This keeps all verification wor
 
 1. Derive slug: replace `/` with `-` in the branch name, then strip any character not in `[a-zA-Z0-9._-]` (e.g., `feature/auth` → `feature-auth`). Always quote the resulting path in shell commands.
 2. Check if `.worktrees/` exists — if not, create it: `mkdir -p .worktrees`
-3. Ensure `.worktrees/` is gitignored: check if `.gitignore` contains `.worktrees/` or `.worktrees`. If not, append `.worktrees/` to `.gitignore`: `echo '.worktrees/' >> .gitignore`
+3. Ensure `.worktrees/` is gitignored: check if `.gitignore` contains `.worktrees/` or `.worktrees`. If not, append on a new line (ensuring a preceding newline so it doesn't merge with the last entry): `printf '\n.worktrees/\n' >> .gitignore`
 4. Check if `.worktrees/verify-<slug>` already exists (from a previous run):
    - If exists → use `AskUserQuestion` — header "Existing sandbox", question "A sandbox from a previous run exists at `.worktrees/verify-<slug>`. Reuse it or start fresh?":
      - **Reuse** — "Use the existing sandbox (faster — dependencies already installed)"
