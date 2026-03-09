@@ -225,5 +225,3 @@ Report to the user:
 ```
 
 For multi-repo workspaces, present results per repo (one summary block per repo) and include the repo name/path in each section header.
-
-**Write plugin version:** Write the current plugin version (from `$CLAUDE_PLUGIN_ROOT/.claude-plugin/plugin.json`) to `.claude/.optimus-version`. This file contains only the version string (e.g., `1.12.0`) with no other content. If the file already exists, overwrite it. For multi-repo workspaces, write inside each repo.

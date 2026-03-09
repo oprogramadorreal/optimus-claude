@@ -111,7 +111,7 @@ If no test infrastructure was detected, include this note in the Detection Summa
 **Skip this step entirely if no existing documentation files were found in the inventory.** Proceed directly to Step 2.
 
 **Plugin version check:** Read `$CLAUDE_PLUGIN_ROOT/.claude-plugin/plugin.json` to get the current plugin version. Then check if `.claude/.optimus-version` exists in the project. If it does, read its content (a semver string, e.g., `1.11.0`). Compare the two:
-- **Current plugin version > stored version** → the plugin has been updated since the last run. Include this in the Audit Report header: "Plugin updated from vX.Y.Z to vA.B.C — templates may have improved." During the audit below, do **not** shortcut any file as "Accurate" without also comparing it against the current template — plugin-side template improvements should surface as findings.
+- **Current plugin version is newer than stored version (compare major, minor, patch as integers)** → the plugin has been updated since the last run. Include this in the Audit Report header: "Plugin updated from vX.Y.Z to vA.B.C — templates may have improved." During the audit below, do **not** shortcut any file as "Accurate" without also comparing it against the current template — plugin-side template improvements should surface as findings.
 - **Same version or no `.optimus-version` file** → proceed with normal audit behavior.
 
 If existing docs were found, analyze them to identify what needs updating:
