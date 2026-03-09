@@ -174,5 +174,5 @@ Proceed to Step 7.
 - Target: [default-branch]
 - Status: Ready to merge
 
-Recommend running `/optimus:code-review` before merging.
+Recommend running `/optimus:verify` to prove the feature works, then `/optimus:code-review` for static quality review before merging.
 ```

@@ -316,3 +316,5 @@ Run through this checklist. **Fix any failures before reporting to the user.**
 **Write plugin version:** After all checks pass, write the current plugin version (from `$CLAUDE_PLUGIN_ROOT/.claude-plugin/plugin.json`) to `.claude/.optimus-version`. This file contains only the version string (e.g., `1.12.0`) with no other content. For multi-repo workspaces, write `.claude/.optimus-version` inside each repo.
 
 **Summary:** Report to the user: files created, detected tech stack, and decisions made (monorepo detection rationale, which optional docs were created and why, which were skipped and why). If test infrastructure was not detected, include the Step 5c fallback message as the final item in the summary. For multi-repo workspaces, report per-repo results and remind the user to commit each repo's `.claude/` directory separately.
+
+Recommend running `/optimus:unit-test` to establish test coverage for the project.
