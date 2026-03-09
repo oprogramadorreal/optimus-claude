@@ -73,6 +73,7 @@ The skill runs `git diff` (staged and unstaged) and `git status` to collect all 
 | File | Purpose |
 |---|---|
 | `SKILL.md` | Skill definition with step-by-step instructions |
+| *(shared)* `init/references/multi-repo-detection.md` | Multi-repo workspace detection algorithm |
 
 ## Requirements
 

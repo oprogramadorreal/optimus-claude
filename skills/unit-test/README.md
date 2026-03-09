@@ -125,6 +125,7 @@ The test-guardian agent and this skill are complementary — both use `testing.m
 |---|---|
 | `SKILL.md` | Skill definition with 8-step workflow |
 | `references/framework-recommendations.md` | Stack-specific test framework, coverage tooling, and report tool recommendations |
+| *(shared)* `init/references/multi-repo-detection.md` | Multi-repo workspace detection algorithm |
 
 ## Requirements
 

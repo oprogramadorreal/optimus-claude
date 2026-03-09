@@ -9,7 +9,7 @@ Create or update a PR (GitHub) or MR (GitLab) for the current branch using the C
 
 ## Step 1: Pre-flight
 
-If the current directory is a multi-repo workspace (no `.git/` at root, 2+ child directories containing a `.git` *directory* — not `.git` files, which indicate submodules), ask the user which repo to target using `AskUserQuestion` — header "Repository", question "This is a multi-repo workspace. Which repository should the PR/MR be created for?". List the child repos as options. Run all subsequent steps inside the selected repo.
+Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/multi-repo-detection.md` for workspace detection. If a multi-repo workspace is detected, ask the user which repo to target using `AskUserQuestion` — header "Repository", question "This is a multi-repo workspace. Which repository should the PR/MR be created for?". List the child repos as options. Run all subsequent steps inside the selected repo.
 
 ### Verify git state
 
@@ -23,59 +23,17 @@ If the current directory is a multi-repo workspace (no `.git/` at root, 2+ child
 
 ## Step 2: Platform Detection
 
-Determine the hosting platform:
-
-1. Check the `origin` remote URL: `git remote get-url origin`
-   - Contains `gitlab` → **GitLab**
-   - Contains `github` → **GitHub**
-2. If neither matches, check other remotes: `git remote -v`. If multiple remotes point to different platforms, use `AskUserQuestion` — header "Platform", question "Multiple platforms detected. Which one should be used for the PR/MR?" with the detected platforms as options.
-3. If no remote matches → fall back to CI file detection:
-   - `.gitlab-ci.yml` at repo root → **GitLab**
-   - `.github/` directory → **GitHub**
-4. If platform is still unknown → inform the user that the hosting platform could not be determined and stop.
+Read `$CLAUDE_PLUGIN_ROOT/skills/pr/references/platform-detection.md` and use the **Platform Detection Algorithm** section. If platform is unknown → inform the user that the hosting platform could not be determined and stop.
 
 ## Step 3: CLI Availability
 
-Check that the required CLI tool is installed:
-
-- **GitHub** → run `gh --version`
-- **GitLab** → run `glab --version`
-
-### If CLI is installed
-
-Verify authentication:
-- **GitHub:** `gh auth status`. If not authenticated → inform the user: "Run `gh auth login` to authenticate." Stop.
-- **GitLab:** `glab auth status`. If not authenticated → inform the user: "Run `glab auth login` to authenticate." Stop.
-
-Proceed to Step 4.
-
-### If CLI is not installed
-
-Use `AskUserQuestion` — header "Install CLI", question "The [GitHub CLI (`gh`) / GitLab CLI (`glab`)] is required but not installed. Install it now?":
+Read `$CLAUDE_PLUGIN_ROOT/skills/pr/references/platform-detection.md` and use the **CLI Verification** section to check availability and authentication. If the CLI is not installed, use the **CLI Installation** section — offer to install via `AskUserQuestion` (header "Install CLI", question "The [GitHub CLI (`gh`) / GitLab CLI (`glab`)] is required but not installed. Install it now?"):
 - **Install** — "Install automatically (requires [package manager])"
 - **Cancel** — "I'll install it manually"
 
 If the user chooses **Cancel** → provide manual installation instructions and stop.
-
-If the user chooses **Install**, detect the OS/package manager and install:
-
-**GitHub CLI (`gh`):**
-- macOS: `brew install gh`
-- Debian/Ubuntu: `sudo apt install gh` (if available) or install from GitHub releases
-- Fedora/RHEL: `sudo dnf install gh`
-- Arch: `sudo pacman -S github-cli`
-- Windows: `winget install GitHub.cli`
-
-**GitLab CLI (`glab`):**
-- macOS: `brew install glab`
-- Debian/Ubuntu: check if available via apt, otherwise `go install gitlab.com/gitlab-org/cli/cmd/glab@latest`
-- Fedora/RHEL: `sudo dnf install glab`
-- Arch: `sudo pacman -S glab`
-- Windows: `winget install GLab.GLab`
-
-After installation, verify:
-1. `gh --version` / `glab --version` — if the command still fails, inform the user the installation did not succeed and provide manual instructions. Stop.
-2. `gh auth status` / `glab auth status` — if not authenticated, inform the user: "CLI installed. Run `[gh/glab] auth login` to authenticate, then re-run `/optimus:pr`." Stop.
+If installation fails → provide manual installation instructions and stop.
+If installed but auth fails → inform the user: "CLI installed. Run `[gh/glab] auth login` to authenticate, then re-run `/optimus:pr`." Stop.
 
 ## Step 4: Branch and Existing PR/MR Check
 

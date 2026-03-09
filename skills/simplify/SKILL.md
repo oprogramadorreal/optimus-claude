@@ -13,7 +13,7 @@ The code-simplifier agent guards new code after every edit — this skill is the
 
 ### Multi-repo workspace detection
 
-If the current directory is a multi-repo workspace (no `.git/` at root, 2+ child directories containing a `.git` *directory* — not `.git` files, which indicate submodules), resolve prerequisites per-repo:
+Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/multi-repo-detection.md` for workspace detection. If a multi-repo workspace is detected, resolve prerequisites per-repo:
 - Determine which repo(s) the scope targets (from file paths, user selection, or changed files)
 - Load that repo's `.claude/CLAUDE.md` and `.claude/docs/` as prerequisites (not the workspace root)
 - If scope spans multiple repos, load each repo's docs independently and apply per-repo context when analyzing that repo's files

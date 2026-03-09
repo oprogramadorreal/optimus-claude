@@ -138,6 +138,8 @@ Anthropic's official [code-review](https://github.com/anthropics/claude-code/tre
 |---|---|
 | `SKILL.md` | Skill definition with 6-step review workflow |
 | `references/agent-prompts.md` | Prompt templates for parallel review agents |
+| *(shared)* `init/references/multi-repo-detection.md` | Multi-repo workspace detection algorithm |
+| *(shared)* `pr/references/platform-detection.md` | Platform detection and CLI management |
 
 ## Requirements
 
