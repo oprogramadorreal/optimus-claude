@@ -97,6 +97,7 @@ Both agents reference your project's `.claude/CLAUDE.md` and `.claude/docs/` fil
 | `references/claude-md-best-practices.md` | Research-backed guidance for CLAUDE.md authoring |
 | `references/project-detection.md` | Project structure detection algorithm |
 | `references/formatter-setup.md` | Formatter hook installation guidance |
+| `references/verification-protocol.md` | Cross-cutting verification discipline for completion claims |
 | `templates/` | CLAUDE.md templates, doc templates, hook scripts, agent definitions |
 
 ## Customization

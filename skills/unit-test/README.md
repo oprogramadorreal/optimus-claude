@@ -87,7 +87,8 @@ The skill produces a structured summary after completing:
 5. Measures baseline coverage and estimates achievable target without refactoring
 6. Presents prioritized test generation plan (capped at 10 items)
 7. Writes tests following project conventions and mocking anti-patterns; runs each immediately
-8. Reports coverage impact, bugs discovered, and code flagged as untestable
+8. Runs the full test suite with evidence-based verification to ensure no regressions
+9. Reports coverage impact, bugs discovered, and code flagged as untestable
 
 ## Relationship to Test-Guardian Agent
 

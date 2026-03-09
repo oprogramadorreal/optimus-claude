@@ -9,7 +9,7 @@ Well-maintained code has [30%+ fewer AI-introduced defects](https://arxiv.org/ab
 - **Cross-cutting focus** — prioritizes issues that span multiple files: duplication across modules, pattern inconsistency, architectural drift, missing shared abstractions
 - **Flexible scope** — full project, specific directory, or files changed since a commit/date
 - **Two-phase workflow** — presents a simplification plan first, then applies only what you approve
-- **Test verification** — runs the test suite after applying changes; reverts any change that causes failures
+- **Test verification** — runs the test suite after applying changes with evidence-based verification; reverts any change that causes failures
 - **Conservative by default** — only suggests changes justified by the project's own guidelines
 - **Prioritized findings** — High/Medium/Low impact with concrete before/after sketches, capped at 12 per run for actionable output
 - **Works without `/optimus:init`** — falls back to generic coding guidelines when project-specific docs aren't available
@@ -78,7 +78,7 @@ You then choose: **Apply all**, **Selective** (pick by number), or **Skip**.
 3. Loads all constraint docs and maps source directories, prioritized by git activity
 4. Analyzes code with emphasis on patterns that span multiple files
 5. Presents findings as a prioritized plan (capped at 12 per run)
-6. Applies only user-approved changes, runs tests, reverts any that cause failures
+6. Applies only user-approved changes, runs tests with evidence-based verification, reverts any that cause failures
 
 ## Relationship to Code-Simplifier Agent
 

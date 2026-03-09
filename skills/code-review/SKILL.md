@@ -198,7 +198,7 @@ Launch all available agents simultaneously (parallel, not sequential). Wait for 
 
 ## Step 4: Validate Findings
 
-Independently verify each finding to filter false positives.
+Independently verify each finding to filter false positives. Apply the verification protocol from `$CLAUDE_PLUGIN_ROOT/skills/init/references/verification-protocol.md` — treat agent-reported findings as claims that require independent evidence, not as ground truth.
 
 For each finding from Step 3:
 1. **Context check** — read ±30 lines around the flagged location to verify the issue exists in context

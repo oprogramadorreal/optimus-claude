@@ -10,8 +10,8 @@ Well-maintained code has [30%+ fewer AI-introduced defects](https://arxiv.org/ab
 - **Up to 6 parallel agents** — bug detection, security/logic, guideline compliance (×2 for cross-validation), plus code-simplifier and test-guardian when project agents are available
 - **Project-aware** — evaluates against your coding-guidelines.md, testing.md, architecture.md, and styling.md
 - **High signal only** — bugs, security issues, logic errors, explicit guideline violations; excludes style concerns and subjective suggestions
-- **Validation step** — each finding is independently verified (context check, intent check, pre-existing check, cross-agent consensus) before reporting
-- **Actionable output** — findings include file:line references, before/after code sketches, guideline citations, and severity levels
+- **Validation step** — each finding is independently verified (context check, intent check, pre-existing check, cross-agent consensus) using an evidence-based verification protocol before reporting
+- **Actionable output** — findings include file:line references, confidence level (High/Medium), before/after code sketches, guideline citations, and severity levels
 - **Works without `/optimus:init`** — falls back to generic coding guidelines when project-specific docs are not available
 - **Multi-repo workspace support** — resolves per-repo documentation when opened from a workspace root containing multiple git repos
 - **GitLab support** — PR/MR review via `glab` CLI alongside GitHub `gh` CLI
@@ -96,7 +96,7 @@ You then choose: **Fix issues**, **Post comment** (PR mode), or **Skip**.
 1. Gathers local changes (or PR diff) via git commands
 2. Loads project docs (CLAUDE.md, coding-guidelines.md, testing.md, etc.) with fallbacks for missing docs
 3. Launches up to 6 parallel review agents (bug detection, security/logic, guideline compliance ×2, code-simplifier, test-guardian)
-4. Validates each finding (context check, intent check, pre-existing check, cross-agent consensus)
+4. Validates each finding using the verification protocol (context check, intent check, pre-existing check, cross-agent consensus — agent findings are treated as claims requiring independent evidence)
 5. Consolidates, deduplicates, and presents structured report (capped at 10 findings)
 6. Offers actions: fix issues, post PR comment, or skip
 

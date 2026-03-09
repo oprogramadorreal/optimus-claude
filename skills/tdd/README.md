@@ -24,6 +24,8 @@ The [2025 DORA report](https://cloud.google.com/discover/how-test-driven-develop
 - **Test verification at every step** — runs the full test suite after Red, Green, and Refactor to catch regressions instantly
 - **Lint/type-check verification** — runs lint or type-check commands (if configured) during the Green step to catch type errors that passing tests might miss
 - **Quality gate** — after cycling completes, launches code-simplifier and test-guardian agents in parallel to catch cross-cycle issues (duplication between behaviors, naming drift, edge-case coverage gaps) before pushing
+- **Git worktree isolation** — optionally creates a git worktree for the feature branch, keeping the main workspace clean and enabling parallel work
+- **Bug-fix regression gate** — for bug fixes, verifies the red-green cycle is genuine: reverts the fix to confirm the test fails, then restores to confirm it passes
 - **Feature branch workflow** — creates a dedicated branch, commits after each cycle, pushes and creates a PR/MR at the end
 - **Automatic PR/MR creation** — detects GitHub/GitLab and creates a pull/merge request using the [Conventional PR](../pr/README.md) format (structured summary, changes, rationale, test plan). Suggests `/optimus:pr` if the CLI is missing
 - **Coverage tracking** — detects coverage commands from testing.md, test runner flags, or package scripts; reports delta
@@ -217,7 +219,7 @@ The skill produces a structured summary after completing:
 
 1. Verifies project context (`CLAUDE.md`, `coding-guidelines.md`) and test infrastructure exist
 2. Distills lengthy specs into a single-sentence goal for confirmation, then analyzes task suitability — redirects unsuitable tasks (refactoring, docs, styling) to the right skill
-3. Creates a feature branch from the current branch (e.g., `tdd/add-password-reset`)
+3. Creates a feature branch from the current branch (e.g., `tdd/add-password-reset`), with optional git worktree isolation
 4. Decomposes the feature or bug fix into small, testable behaviors for user approval
 5. For each behavior: Red (write failing test) → Green (minimal implementation) → Refactor (clean up against coding guidelines)
 6. Runs the full test suite at every transition (Red, Green, Refactor) and lint/type-check during Green
@@ -229,7 +231,7 @@ The skill produces a structured summary after completing:
 
 TDD automatically manages a feature branch for all work:
 
-1. **Branch creation** — Creates `tdd/<slug>` (or `tdd/fix-<slug>`) from the current branch before any code changes
+1. **Branch creation** — Creates `tdd/<slug>` (or `tdd/fix-<slug>`) from the current branch before any code changes. Optionally sets up a git worktree (`.worktrees/<worktree-dir>`, where `<worktree-dir>` is the branch name with `/` replaced by `-`) so the main workspace stays on the original branch
 2. **Auto-commits** — After each completed Red-Green-Refactor cycle, TDD automatically stages and commits with a conventional message
 3. **Final commit** — Any uncommitted work (e.g., stopped mid-cycle) is committed at the end of the session
 4. **Push** — The feature branch is pushed to origin automatically

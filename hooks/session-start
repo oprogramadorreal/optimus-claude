@@ -1,0 +1,51 @@
+#!/bin/bash
+set -euo pipefail
+
+# SessionStart hook — outputs dynamic project state so Claude knows what's
+# configured and what's missing. Only outputs items that need attention.
+# Fully configured projects produce no output (zero context waste).
+# Runs fast (~20-50ms — just test -f and git commands).
+
+output=""
+
+# 1. Check if optimus:init has been run
+if [ ! -f .claude/CLAUDE.md ] || [ ! -f .claude/docs/coding-guidelines.md ]; then
+  output+="[optimus] Project not initialized for Claude Code. Suggest \`/optimus:init\` to set up CLAUDE.md, coding guidelines, and quality agents."$'\n'
+else
+  # 2. Check test infrastructure (only relevant if init was done)
+  if [ ! -f .claude/docs/testing.md ]; then
+    # Check monorepo subprojects too
+    has_testing=$(find . -maxdepth 4 -path '*/docs/testing.md' -print -quit 2>/dev/null)
+    if [ -z "$has_testing" ]; then
+      output+="[optimus] Testing docs missing. Suggest \`/optimus:unit-test\` to provision test infrastructure."$'\n'
+    fi
+  fi
+
+  # 3. Check quality agents
+  missing_agents=""
+  [ ! -f .claude/agents/code-simplifier.md ] && missing_agents+="code-simplifier "
+  # test-guardian is only expected when test infrastructure exists (testing.md present)
+  has_any_testing=$( [ -f .claude/docs/testing.md ] && echo y || find . -maxdepth 4 -path '*/docs/testing.md' -print -quit 2>/dev/null)
+  if [ -n "$has_any_testing" ] && [ ! -f .claude/agents/test-guardian.md ]; then
+    missing_agents+="test-guardian "
+  fi
+  if [ -n "$missing_agents" ]; then
+    output+="[optimus] Missing agents: ${missing_agents% }. Run \`/optimus:init\` to install them."$'\n'
+  fi
+fi
+
+# 4. Git state (uncommitted changes or unpushed commits)
+if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  changed=$(git status --porcelain 2>/dev/null | wc -l | tr -d ' ')
+  unpushed=$(git log --oneline '@{u}..HEAD' 2>/dev/null | wc -l | tr -d ' ') || unpushed=0
+
+  state_parts=""
+  [ "$changed" -gt 0 ] 2>/dev/null && state_parts+="${changed} files changed"
+  [ "$unpushed" -gt 0 ] 2>/dev/null && { [ -n "$state_parts" ] && state_parts+=", "; state_parts+="${unpushed} commits unpushed"; }
+  [ -n "$state_parts" ] && output+="[optimus] ${state_parts}."$'\n'
+fi
+
+# Only output if there's something to report
+[ -n "$output" ] && printf '%s' "$output"
+
+exit 0

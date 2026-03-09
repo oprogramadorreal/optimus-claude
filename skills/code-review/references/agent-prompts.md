@@ -2,11 +2,16 @@
 
 Detailed prompt templates for each of the 6 review agents. These are used in Step 3 of the code review workflow.
 
+## Agent Constraints (All Agents)
+
+- **Read-only analysis.** Do NOT modify any files, create any files, or run any commands that change state. You are analyzing code, not fixing it.
+- **Your findings will be independently validated.** Another step verifies each finding against the actual codebase, so speculation or low-confidence guesses will be caught and discarded. Only report what you are confident about.
+
 ## Quality Bar (All Agents)
 
 - Every finding must have real impact, not be a nitpick
 - Be specific and actionable (not vague "consider refactoring")
-- Be high confidence
+- Be high confidence — assign a confidence level to each finding: **High** (clear evidence), **Medium** (plausible with some evidence), or **Low** (uncertain — prefer to omit)
 - Not be pre-existing (in unchanged code)
 
 ## All Agents Exclude
@@ -49,9 +54,16 @@ Focus exclusively on:
 - Type mismatches and incorrect API usage
 - Compilation/parse failures, syntax errors, missing imports
 
-For each finding report: file:line, category (Bug/Logic Error), description, code snippet, suggested fix.
-Do NOT flag style, guidelines, security, or test coverage — other agents handle those.
-Maximum 5 findings. Report as a structured list.
+For each finding report in this exact format:
+- **File:** file:line
+- **Category:** Bug | Logic Error
+- **Confidence:** High | Medium
+- **Issue:** [concrete description]
+- **Code:** [relevant snippet — max 5 lines]
+- **Fix:** [suggested fix — max 5 lines]
+
+Do NOT modify any files. Do NOT flag style, guidelines, security, or test coverage — other agents handle those.
+Maximum 5 findings.
 ```
 
 ## Agent 2 — Security & Logic Reviewer (always runs)
@@ -74,9 +86,17 @@ Focus exclusively on:
 - API contract violations
 - Error propagation that hides failures
 
-For each finding report: file:line, category (Security/Logic), severity, description, code snippet, suggested fix.
-Do NOT flag bugs (Agent 1 handles that), guidelines (Agents 3–4), or code quality/test gaps (Agents 5–6).
-Maximum 5 findings. Report as a structured list.
+For each finding report in this exact format:
+- **File:** file:line
+- **Category:** Security | Logic
+- **Confidence:** High | Medium
+- **Severity:** Critical | Warning
+- **Issue:** [concrete description]
+- **Code:** [relevant snippet — max 5 lines]
+- **Fix:** [suggested fix — max 5 lines]
+
+Do NOT modify any files. Do NOT flag bugs (Agent 1 handles that), guidelines (Agents 3–4), or code quality/test gaps (Agents 5–6).
+Maximum 5 findings.
 ```
 
 ## Agent 3 — Guideline Compliance Reviewer A (always runs)
@@ -108,8 +128,18 @@ Focus exclusively on:
 - Unambiguous guideline violations with EXACT rule citations
 
 Every finding MUST cite the specific rule from the project docs.
-Do NOT flag bugs/logic/security (Agents 1–2 handle those) or code quality/test gaps (Agents 5–6).
-Maximum 5 findings. Report as a structured list with exact rule citations.
+
+For each finding report in this exact format:
+- **File:** file:line
+- **Category:** Guideline Violation
+- **Confidence:** High | Medium
+- **Rule:** [exact quote or reference from project docs]
+- **Issue:** [how the code violates the rule]
+- **Code:** [relevant snippet — max 5 lines]
+- **Fix:** [suggested fix — max 5 lines]
+
+Do NOT modify any files. Do NOT flag bugs/logic/security (Agents 1–2 handle those) or code quality/test gaps (Agents 5–6).
+Maximum 5 findings.
 ```
 
 ## Agent 5 — Code Simplifier (only if `.claude/agents/code-simplifier.md` exists)
@@ -123,9 +153,16 @@ Review ONLY the following changed files for code simplification opportunities:
 
 Apply the focus areas from your role definition and the project's coding guidelines.
 
-For each finding: file:line, guideline violated, brief description, suggested improvement.
-Do NOT suggest changes outside the changed files. Do NOT flag style/formatting, bugs, security, or guidelines.
-Maximum 5 findings. Report as a structured list.
+For each finding report in this exact format:
+- **File:** file:line
+- **Category:** Code Quality
+- **Confidence:** High | Medium
+- **Guideline:** [which project guideline this addresses]
+- **Issue:** [brief description]
+- **Suggested:** [improvement — max 5 lines]
+
+Do NOT modify any files. Do NOT suggest changes outside the changed files. Do NOT flag style/formatting, bugs, security, or guidelines.
+Maximum 5 findings.
 ```
 
 ## Agent 6 — Test Guardian (only if `.claude/agents/test-guardian.md` exists)
@@ -139,7 +176,13 @@ Analyze ONLY the following changed files for test coverage gaps:
 
 Apply the focus areas from your role definition and the project's testing conventions.
 
-For each finding: source file and function name, finding type (Test Gap | Structural Barrier), what should be tested or what barrier prevents testing, recommended test file path (if applicable).
-Do NOT write test code. Only identify gaps.
-Maximum 5 findings. Report as a structured list.
+For each finding report in this exact format:
+- **File:** source file and function name
+- **Category:** Test Gap | Structural Barrier
+- **Confidence:** High | Medium
+- **Issue:** [what should be tested or what barrier prevents testing]
+- **Test file:** [recommended test file path, if applicable]
+
+Do NOT modify any files. Do NOT write test code. Only identify gaps.
+Maximum 5 findings.
 ```

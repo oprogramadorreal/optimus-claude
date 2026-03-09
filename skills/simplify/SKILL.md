@@ -198,7 +198,7 @@ For each approved finding:
 1. Apply the simplification using Edit or MultiEdit
 2. Verify the change matches the suggestion from Step 4
 
-After applying all approved changes, run the project's test command (from `.claude/CLAUDE.md`) if available:
+After applying all approved changes, run the project's test command (from `.claude/CLAUDE.md`) if available. Follow the verification protocol from `$CLAUDE_PLUGIN_ROOT/skills/init/references/verification-protocol.md` — run tests fresh, read complete output, report actual results with evidence:
 - If tests pass → report success
 - If tests fail → revert all changes, then re-apply one at a time with a test run after each. Keep changes that pass, skip those that fail, and record each failure as "reverted due to test failure"
 

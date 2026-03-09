@@ -30,6 +30,7 @@ Unlike most plugins that bundle hooks and agents at the plugin level, **optimus 
 - **Hooks, agents, docs, and settings travel with the repo via git** — any teammate gets identical behavior, even without this plugin installed
 - **Enforces standards linters can't check** — naming conventions, architectural patterns, DRY principles, guided by project-specific docs and agents
 - **No hidden dependencies** — the generated output is self-contained, visible, auditable, and version-controlled. Keep the plugin installed for daily skills like TDD, commit-message, and code-review
+- **Session-start hook** — on every session start, resume, clear, and compact, a lightweight hook checks project state (init status, test infrastructure, quality agents, git state) and outputs only what needs attention — zero context waste when the project is fully configured
 
 ## Skills
 

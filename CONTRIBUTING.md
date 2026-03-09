@@ -12,6 +12,9 @@ optimus-claude/
 ├── .claude-plugin/
 │   ├── plugin.json           # Plugin metadata (name, version, author)
 │   └── marketplace.json      # Marketplace catalog (how Claude Code discovers the plugin)
+├── hooks/
+│   ├── hooks.json            # Plugin-level hooks (SessionStart for skill awareness)
+│   └── session-start         # Outputs dynamic project state on session start/resume/clear/compact
 ├── skills/
 │   ├── init/                 # /optimus:init
 │   ├── unit-test/            # /optimus:unit-test

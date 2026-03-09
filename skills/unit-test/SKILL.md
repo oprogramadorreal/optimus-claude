@@ -192,7 +192,7 @@ For each approved item:
 
 ### Final verification
 
-After all tests are written, run the **full test suite** to ensure no regressions.
+After all tests are written, run the **full test suite** to ensure no regressions. Follow the verification protocol from `$CLAUDE_PLUGIN_ROOT/skills/init/references/verification-protocol.md` — run tests fresh, read complete output, and report actual results with evidence before claiming success.
 
 ## Step 8: Summary
 
