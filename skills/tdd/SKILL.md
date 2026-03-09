@@ -366,13 +366,15 @@ If there are commits on the branch:
 
    Read `$CLAUDE_PLUGIN_ROOT/skills/pr/references/pr-template.md` for the Conventional PR format. Generate the PR title and body following this template.
 
+   Write the body to a secure temp file: `TMPFILE=$(mktemp /tmp/pr-body-XXXXXX.md)`. Clean up after the creation attempt: `rm -f "$TMPFILE"`.
+
    **GitHub** (requires `gh` CLI):
    - Verify `gh` is available: `gh --version`. If not, skip and tell the user to run `/optimus:pr` to create the PR (it can install the CLI)
-   - `gh pr create --title "<conventional title>" --body "<body>" --base <original-branch>`
+   - `gh pr create --title "<conventional title>" --body-file "$TMPFILE" --base <original-branch>`
 
    **GitLab** (requires `glab` CLI):
    - Verify `glab` is available: `glab --version`. If not, skip and tell the user to run `/optimus:pr` to create the MR (it can install the CLI)
-   - `glab mr create --title "<conventional title>" --description "<body>" --target-branch <original-branch>`
+   - `glab mr create --title "<conventional title>" --description "$(cat "$TMPFILE")" --target-branch <original-branch>`
 
    Follow the Conventional PR template, incorporating TDD-specific data: include how many behaviors were implemented via TDD in the **Summary**, use `git diff --stat <original-branch>..HEAD` for **Changes**, and list each behavior as a verification item in the **Test plan** with coverage delta if available (e.g., "Coverage: [X]% → [Y]% (+[Z]%)").
 
