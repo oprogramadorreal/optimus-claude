@@ -23,6 +23,10 @@ Research backs this up: AI tools introduce [30%+ more defects](https://arxiv.org
 
 Another key point: [providing LLMs with tests alongside tasks consistently improves code generation](https://arxiv.org/abs/2402.13521). Tests enable self-correction. Anthropic's [#1 best practice](https://code.claude.com/docs/en/best-practices) for Claude Code reflects this: "make the AI self-verifying". Unit tests and TDD are the purest way to achieve it.
 
+## Explicit Invocation Only
+
+Skills never auto-trigger. Claude Code's default behavior is never altered unless you explicitly call a skill. This keeps the plugin predictable and ensures you stay in control.
+
 ## Architecture: Project-Scoped by Design
 
 Unlike most plugins that bundle hooks and agents at the plugin level, **optimus writes everything into the project's `.claude/` directory**:
