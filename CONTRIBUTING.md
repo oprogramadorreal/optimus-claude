@@ -60,6 +60,8 @@ Step-by-step instructions...
 
 All current skills use `disable-model-invocation: true` — they operate through structured, human-reviewed templates rather than dynamic LLM generation.
 
+**Shared references:** When a procedure is used by 3+ skills (e.g., multi-repo workspace detection, platform detection), extract it to a reference file owned by the canonical skill. Consuming skills read the reference and apply their own policy. This avoids logic duplication while keeping each skill self-contained. See `skills/init/references/multi-repo-detection.md` and `skills/pr/references/platform-detection.md` for examples.
+
 **Note:** The `name` field is intentionally omitted from frontmatter. When present, it strips the plugin namespace prefix — `/optimus:init` would appear as just `/init`, shadowing the builtin command. See [anthropics/claude-code#22063](https://github.com/anthropics/claude-code/issues/22063).
 
 ## Adding or modifying a skill

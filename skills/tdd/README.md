@@ -239,7 +239,7 @@ TDD automatically manages a feature branch for all work:
 
 The user's original branch is never modified. All code review happens through the PR/MR.
 
-**Platform detection:** TDD checks the `origin` remote URL for `github` or `gitlab`, falling back to CI file detection (`.github/` or `.gitlab-ci.yml`). Requires `gh` (GitHub CLI) or `glab` (GitLab CLI) for PR/MR creation — if unavailable, TDD pushes the branch and suggests running `/optimus:pr` (which can install the CLI).
+**Platform detection:** TDD uses the shared platform detection algorithm (origin URL then CI file fallback — see `skills/pr/references/platform-detection.md`). Multi-remote disambiguation is skipped to keep the PR creation step lightweight. Requires `gh` (GitHub CLI) or `glab` (GitLab CLI) for PR/MR creation — if unavailable, TDD pushes the branch and suggests running `/optimus:pr` (which can install the CLI).
 
 **Works with `/optimus:permissions`:** The permissions skill's branch protection hook ensures git operations on protected branches (master, main, develop, dev, development, staging, stage, prod, production, release) are blocked. TDD always creates a feature branch, so it works seamlessly with branch protection enabled.
 
@@ -281,6 +281,8 @@ The user's original branch is never modified. All code review happens through th
 | `SKILL.md` | Skill definition with 9-step TDD workflow (includes quality gate) |
 | `references/agent-prompts.md` | Prompt templates for quality gate agents (code-simplifier, test-guardian) |
 | `references/testing-anti-patterns.md` | Mocking anti-patterns and gate questions — loaded during Red step to prevent bad test patterns |
+| *(shared)* `init/references/multi-repo-detection.md` | Multi-repo workspace detection algorithm |
+| *(shared)* `pr/references/platform-detection.md` | Platform detection and CLI management |
 
 ## Requirements
 

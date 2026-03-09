@@ -13,7 +13,7 @@ Parse arguments and detect what to review.
 
 ### Multi-repo workspace detection
 
-If the current directory is a multi-repo workspace (no `.git/` at root, 2+ child directories containing a `.git` *directory* — not `.git` files, which indicate submodules):
+Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/multi-repo-detection.md` for workspace detection. If a multi-repo workspace is detected:
 - Run the git commands below inside each child repo (the workspace root has no `.git/`, so git commands must target individual repos)
 - For PR/MR mode, the user must specify which repo — PRs/MRs belong to individual repos
 - If changed files cannot be mapped to any child repo (e.g., files at the workspace root), ask the user which repo's context to apply
@@ -51,11 +51,7 @@ git status --short
 
 When the user says "review PR #42", passes `--pr`, `#123`, or a PR URL:
 
-**Platform detection** — determine the hosting platform before proceeding:
-1. Check the `origin` remote URL first: contains `gitlab` → **GitLab**, use `glab`; contains `github` → **GitHub**, use `gh`
-2. If `origin` matches neither, check other remotes. If multiple remotes point to different platforms, ask the user which platform to use for PR/MR operations
-3. If no remote matches → fall back to CI file detection: `.gitlab-ci.yml` at repo root → GitLab; `.github/` directory → GitHub; otherwise → inform the user that the hosting platform could not be determined and ask them to specify
-4. If signals conflict (e.g., GitHub remote but `.gitlab-ci.yml` exists), use the remote URL as authoritative and note the discrepancy to the user
+**Platform detection** — read `$CLAUDE_PLUGIN_ROOT/skills/pr/references/platform-detection.md` and use the **Platform Detection Algorithm** section (including the **Signal Conflict Resolution** rule). If platform is unknown → inform the user and ask them to specify.
 
 **GitHub projects:**
 - Verify `gh` is available by running `gh --version`. If not available, inform the user that PR review requires the GitHub CLI (`gh`) and offer to review the branch diff instead

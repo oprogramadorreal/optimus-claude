@@ -15,7 +15,7 @@ This skill is for **new features** and **bug fixes** — not refactoring. For re
 
 ## Step 1: Pre-flight
 
-If the current directory is a multi-repo workspace (no `.git/` at root, 2+ child directories containing a `.git` *directory* — not `.git` files, which indicate submodules), process each repo independently: run Steps 1–9 inside the repo the user is targeting. If ambiguous, ask which repo.
+Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/multi-repo-detection.md` for workspace detection. If a multi-repo workspace is detected, process each repo independently: run Steps 1–9 inside the repo the user is targeting. If ambiguous, ask which repo.
 
 ### Verify prerequisites
 
@@ -411,10 +411,7 @@ If there are commits on the branch:
 
 1. **Push** the feature branch: `git push -u origin <branch-name>`
 
-2. **Detect the hosting platform** (reuse the pattern from `/optimus:code-review`):
-   - Check the `origin` remote URL: contains `gitlab` → **GitLab**; contains `github` → **GitHub**
-   - If neither matches, check for CI files: `.gitlab-ci.yml` → GitLab; `.github/` directory → GitHub
-   - If platform is still unknown → skip PR/MR creation, report the push and suggest running `/optimus:pr` to create one
+2. **Detect the hosting platform** — read `$CLAUDE_PLUGIN_ROOT/skills/pr/references/platform-detection.md` and use steps 1 and 3 of the **Platform Detection Algorithm** (origin URL then CI file fallback). Skip multi-remote disambiguation — if ambiguous or unknown, skip PR/MR creation, report the push and suggest running `/optimus:pr` to create one
 
 3. **Create a PR/MR** using the Conventional PR format:
 

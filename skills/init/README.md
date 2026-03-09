@@ -96,6 +96,7 @@ Both agents reference your project's `.claude/CLAUDE.md` and `.claude/docs/` fil
 | `SKILL.md` | Skill definition with step-by-step instructions |
 | `references/claude-md-best-practices.md` | Research-backed guidance for CLAUDE.md authoring |
 | `references/project-detection.md` | Project structure detection algorithm |
+| `references/multi-repo-detection.md` | Shared multi-repo workspace detection (used by 6 skills) |
 | `references/formatter-setup.md` | Formatter hook installation guidance |
 | `references/verification-protocol.md` | Cross-cutting verification discipline for completion claims |
 | `templates/` | CLAUDE.md templates, doc templates, hook scripts, agent definitions |

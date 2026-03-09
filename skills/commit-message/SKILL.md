@@ -13,7 +13,7 @@ Generate a conventional commit message by analyzing all local git changes (stage
 
 #### Multi-repo workspace detection
 
-If the current directory is a multi-repo workspace (no `.git/` at root, 2+ child directories containing a `.git` *directory* — not `.git` files, which indicate submodules):
+Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/multi-repo-detection.md` for workspace detection. If a multi-repo workspace is detected:
 - Run the git commands below inside each child repo (the workspace root has no `.git/`, so git commands must target individual repos)
 - Track which repos have changes and which are clean
 - Skip repos with no local changes (no staged, unstaged, or untracked files)

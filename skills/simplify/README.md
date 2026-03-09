@@ -112,6 +112,7 @@ Claude Code includes a builtin `/simplify` command. This follows the same patter
 | File | Purpose |
 |---|---|
 | `SKILL.md` | Skill definition with two-phase workflow |
+| *(shared)* `init/references/multi-repo-detection.md` | Multi-repo workspace detection algorithm |
 
 ## Requirements
 

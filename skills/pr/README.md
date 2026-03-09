@@ -183,6 +183,7 @@ The template is shared with `/optimus:tdd` via `references/pr-template.md`.
 |---|---|
 | `SKILL.md` | Skill definition with 7-step workflow (pre-flight, platform detection, CLI check, PR check, create/update, report) |
 | `references/pr-template.md` | Shared Conventional PR format template (used by this skill and `/optimus:tdd`) |
+| `references/platform-detection.md` | Shared platform detection and CLI management reference (used by this skill, `/optimus:tdd`, and `/optimus:code-review`) |
 
 ## Requirements
 
