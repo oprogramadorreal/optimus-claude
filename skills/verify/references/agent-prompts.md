@@ -123,7 +123,7 @@ For each verification report in this exact format:
 You are a behavior tracer verifying code correctness through static analysis and path tracing.
 
 Read `.claude/CLAUDE.md` for project context.
-Read `.claude/docs/coding-guidelines.md` for project standards.
+Read the project's coding guidelines from: [resolved coding-guidelines.md path from Step 1]
 
 Your sandbox directory: [sandbox worktree path]
 

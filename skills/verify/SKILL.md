@@ -182,7 +182,7 @@ Run the test suite inside the worktree as a sanity check:
 ### Worktree fallback
 
 If `git worktree add` fails (git version < 2.15, filesystem issues, etc.):
-1. Warn the user: "Git worktree creation failed. Falling back to running verification directly on the current branch. Verification tests and mock projects will be created in the working tree."
+1. Warn the user: "Git worktree creation failed. Falling back to running verification directly on the current branch. Verification tests and mock projects will be created in the working tree. Note: push protection is not applied in fallback mode — agents are instruction-constrained only."
 2. Create a temporary directory for verification artifacts: `mkdir -p .verify-sandbox`
 3. Ensure `.verify-sandbox/` is gitignored
 4. Proceed with Steps 4–9 using the current working directory instead of the worktree
@@ -215,7 +215,7 @@ Run each available command inside the sandbox directory:
 
 If any tests fail, distinguish between pre-existing and branch-introduced failures by comparing against the target branch:
 
-1. In the sandbox, temporarily check out the target branch: `git -C <sandbox> checkout <target-branch> -- .` then clean files not on the target branch: `git -C <sandbox> clean -fd`
+1. In the sandbox, temporarily check out the target branch: `git -C <sandbox> checkout <target-branch> -- .` then remove files added on the feature branch (tracked, so `clean` won't catch them): `git -C <sandbox> diff --name-only --diff-filter=A <target-branch>..HEAD | xargs -r git -C <sandbox> rm -f --` then clean untracked files: `git -C <sandbox> clean -fd`
 2. Run only the failing tests against the target-branch code
 3. Compare results:
    - Test fails on **both** target and feature branch → mark as **pre-existing** (not a finding)
@@ -360,7 +360,7 @@ If the user chooses "Fix issues":
 3. Follow the verification protocol for every re-verification
 4. Present updated results showing which fixes succeeded
 5. Offer "Apply fixes to branch" — generate a patch from the sandbox, then apply it to the feature branch. Stage only the actual source fixes (exclude `_mock/`, verification test files, and other agent-generated artifacts):
-   - `cd <sandbox-path> && git add <fixed-source-files-only> && PATCHFILE=$(mktemp /tmp/verify-fixes-XXXXXX.patch) && git diff --cached > "$PATCHFILE"`
+   - `cd <sandbox-path> && git add <fixed-source-files-only> && PATCHFILE=$(mktemp /tmp/verify-fixes-XXXXXX) && git diff --cached > "$PATCHFILE"`
    - `cd <project-root> && git apply "$PATCHFILE"`
    - `rm -f "$PATCHFILE"`
 6. Never push to remote — the user decides when to push
@@ -368,7 +368,7 @@ If the user chooses "Fix issues":
 ### Update PR flow
 
 If the user chooses "Update PR":
-1. Write the Verification Report to a temp file: `TMPFILE=$(mktemp /tmp/verify-report-XXXXXX.md)`
+1. Write the Verification Report to a temp file: `TMPFILE=$(mktemp /tmp/verify-report-XXXXXX)`
 2. Post as a PR/MR comment:
    - **GitHub:** `gh pr comment <N> --body-file "$TMPFILE"`
    - **GitLab:** `glab api -X POST "projects/:id/merge_requests/<N>/notes" -F body=@"$TMPFILE"`
