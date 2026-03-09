@@ -372,7 +372,7 @@ If there are commits on the branch:
 
    **GitLab** (requires `glab` CLI):
    - Verify `glab` is available: `glab --version`. If not, skip and tell the user to run `/optimus:pr` to create the MR (it can install the CLI)
-   - `glab mr create --fill --title "<conventional title>" --description "<body>" --target-branch <original-branch>`
+   - `glab mr create --title "<conventional title>" --description "<body>" --target-branch <original-branch>`
 
    **PR/MR content** — follow the Conventional PR template sections, incorporating TDD-specific data:
 

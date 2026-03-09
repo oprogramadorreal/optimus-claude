@@ -18,6 +18,7 @@ If the current directory is a multi-repo workspace (no `.git/` at root, 2+ child
 3. Check that the current branch is not the default branch. Detect the default branch:
    - Try `git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@'`
    - If that fails, try common names: check if `origin/main` exists (`git rev-parse --verify origin/main 2>/dev/null`), then `origin/master`
+   - If no default branch can be determined (all methods fail) → inform the user: "Could not detect the default branch. Ensure `origin` is configured and has been fetched." Stop.
    - If on the default branch → inform the user: "You're on the default branch (`<branch>`). Switch to a feature branch first." Stop.
 
 ## Step 2: Platform Detection
@@ -67,7 +68,7 @@ If the user chooses **Install**, detect the OS/package manager and install:
 
 **GitLab CLI (`glab`):**
 - macOS: `brew install glab`
-- Debian/Ubuntu: check if available via apt, otherwise `go install gitlab.com/gitlab-org/cli/cmd/glab@main`
+- Debian/Ubuntu: check if available via apt, otherwise `go install gitlab.com/gitlab-org/cli/cmd/glab@latest`
 - Fedora/RHEL: `sudo dnf install glab`
 - Arch: `sudo pacman -S glab`
 - Windows: `winget install GLab.GLab`
@@ -172,8 +173,10 @@ If the user chooses **Adjust**, ask what to change, apply modifications, and pre
 
 ### Create PR/MR
 
-- **GitHub:** `gh pr create --title "<title>" --body "<body>" --base <default-branch>`
-- **GitLab:** `glab mr create --title "<title>" --description "<body>" --target-branch <default-branch>`
+Write the body to a secure temp file: `TMPFILE=$(mktemp /tmp/pr-body-XXXXXX.md)`. Clean up after the creation attempt: `rm -f "$TMPFILE"`.
+
+- **GitHub:** `gh pr create --title "<title>" --body-file "$TMPFILE" --base <default-branch>`
+- **GitLab:** `glab mr create --title "<title>" --description "$(cat "$TMPFILE")" --target-branch <default-branch>`
 
 Proceed to Step 7.
 
@@ -213,8 +216,10 @@ Present the updated content for preview. Use `AskUserQuestion` — header "Updat
 
 ### Apply update
 
-- **GitHub:** `gh pr edit <number> --title "<title>" --body "<body>"`  (or `--body` only if keeping the title)
-- **GitLab:** `glab mr update <number> --title "<title>" --description "<body>"`
+Write the body to a secure temp file (same pattern as Step 5). Clean up after the update attempt.
+
+- **GitHub:** `gh pr edit <number> --title "<title>" --body-file "$TMPFILE"`  (or `--body-file` only if keeping the title)
+- **GitLab:** `glab mr update <number> --title "<title>" --description "$(cat "$TMPFILE")"`
 
 Proceed to Step 7.
 
