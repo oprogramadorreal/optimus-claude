@@ -16,7 +16,7 @@ Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/multi-repo-detection.md` for wo
 ### Verify branch state
 
 1. Confirm the current directory is inside a git repository
-2. Detect the default branch: check `origin/main`, then `origin/master`, then `git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's|refs/remotes/origin/||'`
+2. Detect the default branch: try `git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's|refs/remotes/origin/||'` first. If that fails, check if `origin/main` exists, then `origin/master`. If no default branch can be determined (all methods fail) → inform the user: "Could not detect the default branch. Ensure `origin` is configured and has been fetched." Stop.
 3. Get the current branch: `git rev-parse --abbrev-ref HEAD`
 4. **If on the default branch** — stop and explain:
 
@@ -152,7 +152,7 @@ Create a git worktree for isolated verification. This keeps all verification wor
      - **Reuse** — "Use the existing sandbox (faster — dependencies already installed)"
      - **Fresh** — "Remove and recreate (clean start)"
    - If "Fresh" → remove: `git worktree remove --force .worktrees/verify-<slug>` then run `git worktree prune` to clear stale metadata
-5. Create worktree: `git worktree add .worktrees/verify-<slug> <current-branch>`
+5. Create worktree: `git worktree add --detach .worktrees/verify-<slug> <current-branch>` (the `--detach` flag is required because the current branch is already checked out in the main workspace — without it, git refuses to check out the same branch in two worktrees)
 6. Disable remote push in the sandbox: `git -C ".worktrees/verify-<slug>" remote set-url --push origin no-push-allowed`
 
 ### Install dependencies
@@ -172,9 +172,9 @@ Run project setup inside the worktree (detect from `CLAUDE.md` or manifests):
 
 ### Verify sandbox
 
-Run the test suite inside the worktree as a baseline:
-- **Tests pass** → sandbox is functional, record baseline results
-- **Tests fail** → record failures as **pre-existing** (these are not caused by the feature branch). Note them for comparison in Step 4
+Run the test suite inside the worktree as a sanity check:
+- **Tests pass** → sandbox is functional, record results as the **feature-branch baseline**
+- **Tests fail** → record failures as the **feature-branch baseline**. These failures may be pre-existing (already present on the target branch) or introduced by the feature branch — Step 4 will determine which
 - **Build fails** → this is a significant finding — record and continue with what is possible
 
 ### Worktree fallback
@@ -192,7 +192,7 @@ Report:
 
 - Path: `.worktrees/verify-<slug>` [or fallback path]
 - Dependencies: installed ✓/✗
-- Baseline tests: [N] passed, [N] failed (pre-existing), [N] total
+- Baseline tests: [N] passed, [N] failed, [N] total
 - Build: ✓/✗
 ```
 
@@ -211,11 +211,15 @@ Run each available command inside the sandbox directory:
 
 ### Pre-existing failure detection
 
-For test failures, distinguish between pre-existing and branch-introduced failures:
-- Compare the sandbox baseline (from Step 3) with the current results
-- If a test that failed in the baseline still fails → mark as **pre-existing** (not a finding)
-- If a test that passed in the baseline now fails → mark as **branch-introduced** (this is a finding)
-- If a new test (not in baseline) fails → mark as **branch-introduced**
+If any tests fail, distinguish between pre-existing and branch-introduced failures by comparing against the target branch:
+
+1. In the sandbox, temporarily check out the target branch: `git -C <sandbox> checkout <target-branch> -- .` then clean files not on the target branch: `git -C <sandbox> clean -fd`
+2. Run only the failing tests against the target-branch code
+3. Compare results:
+   - Test fails on **both** target and feature branch → mark as **pre-existing** (not a finding)
+   - Test fails **only** on the feature branch → mark as **branch-introduced** (this is a finding)
+   - New test (not present on target branch) fails → mark as **branch-introduced**
+4. Restore the feature-branch code: `git -C <sandbox> checkout HEAD -- .` then clean leftover files: `git -C <sandbox> clean -fd`
 
 ### Record results
 
