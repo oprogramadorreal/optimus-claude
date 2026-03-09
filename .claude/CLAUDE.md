@@ -36,3 +36,4 @@ Feature branch testing uses a two-level fetch — see CONTRIBUTING.md for the fu
 - `coding-guidelines.md` is the single source of truth for code quality rules — skills and agents must reference it, never duplicate its principles inline
 - When a skill launches agents with prompt templates, externalize prompts to `references/agent-prompts.md` — don't inline them in SKILL.md (see `skills/code-review/` for the pattern)
 - After any skill change, verify that the root README.md and the skill's README.md still reflect current behavior
+- Only `/optimus:init` writes `.claude/.optimus-version` in user projects — other skills that install template files must NOT update this file (it tracks init's full template audit, not individual file freshness)

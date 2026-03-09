@@ -110,6 +110,10 @@ If no test infrastructure was detected, include this note in the Detection Summa
 
 **Skip this step entirely if no existing documentation files were found in the inventory.** Proceed directly to Step 2.
 
+**Plugin version check:** Read `$CLAUDE_PLUGIN_ROOT/.claude-plugin/plugin.json` to get the current plugin version. Then check if `.claude/.optimus-version` exists in the project. If it does, read its content (a semver string, e.g., `1.11.0`). Compare the two:
+- **Current plugin version is newer than stored version (compare major, minor, patch as integers)** → the plugin has been updated since the last run. Include this in the Audit Report header: "Plugin updated from vX.Y.Z to vA.B.C — templates may have improved." During the audit below, do **not** shortcut any file as "Accurate" without also comparing it against the current template — plugin-side template improvements should surface as findings.
+- **Same version or no `.optimus-version` file** → proceed with normal audit behavior.
+
 If existing docs were found, analyze them to identify what needs updating:
 
 1. **Read all existing doc files** from the inventory (CLAUDE.md, settings.json, all `.claude/docs/*.md` except `coding-guidelines.md`, and for monorepos each subproject's CLAUDE.md and `docs/*.md`).
@@ -308,5 +312,7 @@ Run through this checklist. **Fix any failures before reporting to the user.**
 - Multi-repo workspace (if workspace root `CLAUDE.md` was created): every repo listed in it has its own `.claude/CLAUDE.md` file. Each repo's `.claude/` is self-contained (has its own coding-guidelines, hooks, agents).
 
 **If any check fails:** Fix the issue, then re-verify. Do not proceed to the summary until all checks pass.
+
+**Write plugin version:** After all checks pass, write the current plugin version (from `$CLAUDE_PLUGIN_ROOT/.claude-plugin/plugin.json`) to `.claude/.optimus-version`. This file contains only the version string (e.g., `1.12.0`) with no other content. For multi-repo workspaces, write `.claude/.optimus-version` inside each repo.
 
 **Summary:** Report to the user: files created, detected tech stack, and decisions made (monorepo detection rationale, which optional docs were created and why, which were skipped and why). If test infrastructure was not detected, include the Step 5c fallback message as the final item in the summary. For multi-repo workspaces, report per-repo results and remind the user to commit each repo's `.claude/` directory separately.
