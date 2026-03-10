@@ -29,7 +29,7 @@ Load these documents (they affect quality at every step):
 | `coding-guidelines.md` | Code quality reference | Applied during Refactor step |
 | `testing.md` | Testing conventions | Test file location, naming, framework, mocking patterns |
 
-**Monorepo path note:** `coding-guidelines.md` is shared at root (`.claude/docs/coding-guidelines.md`). `testing.md` is scoped per subproject (`<subproject>/docs/testing.md`). For root-as-project, scoped docs are in `.claude/docs/` alongside the shared guidelines. When running TDD inside a subproject, load that subproject's `testing.md`, not another subproject's.
+**Monorepo path note:** Read the "Monorepo Scoping Rule" section of `$CLAUDE_PLUGIN_ROOT/skills/init/references/constraint-doc-loading.md` for doc layout and scoping rules. When running TDD inside a subproject, load that subproject's `testing.md`, not another subproject's.
 
 ### Verify test infrastructure
 

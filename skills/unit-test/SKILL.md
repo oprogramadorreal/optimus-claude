@@ -21,7 +21,7 @@ Beyond the init check, identify which guideline documents are available — they
 | `testing.md` | Testing conventions | Framework, runner commands, mocking patterns, file organization |
 | `.claude/CLAUDE.md` | Project overview | Tech stack signals, test runner commands |
 
-**Monorepo path note:** `coding-guidelines.md` is shared at root (`.claude/docs/coding-guidelines.md`). `testing.md` is scoped per subproject (`<subproject>/docs/testing.md`). For root-as-project, scoped docs are in `.claude/docs/` alongside the shared guidelines. When generating tests for a subproject, load that subproject's `testing.md`, not another subproject's.
+**Monorepo path note:** Read the "Monorepo Scoping Rule" section of `$CLAUDE_PLUGIN_ROOT/skills/init/references/constraint-doc-loading.md` for doc layout and scoping rules. When generating tests for a subproject, load that subproject's `testing.md`, not another subproject's.
 
 The skill operates differently depending on what exists:
 - **All three docs** — matches existing conventions precisely

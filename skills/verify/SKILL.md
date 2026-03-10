@@ -16,7 +16,7 @@ Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/multi-repo-detection.md` for wo
 ### Verify branch state
 
 1. Confirm the current directory is inside a git repository
-2. Detect the default branch: try `git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's|refs/remotes/origin/||'` first. If that fails, check if `origin/main` exists, then `origin/master`. If no default branch can be determined (all methods fail) → inform the user: "Could not detect the default branch. Ensure `origin` is configured and has been fetched." Stop.
+2. Detect the default branch using the algorithm in `$CLAUDE_PLUGIN_ROOT/skills/pr/references/default-branch-detection.md`. If no default branch can be determined → inform the user: "Could not detect the default branch. Ensure `origin` is configured and has been fetched." Stop.
 3. Get the current branch: `git rev-parse --abbrev-ref HEAD`
 4. **If on the default branch** — stop and explain:
 
@@ -44,17 +44,9 @@ Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/multi-repo-detection.md` for wo
 
 ### Load project context
 
-Load these documents (same fallback pattern as `/optimus:code-review`):
+Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/prerequisite-check.md` and apply the prerequisite check (CLAUDE.md + coding-guidelines.md existence, fallback logic). Also load `testing.md` — testing conventions, framework, runner. If missing, detect test runner from manifests.
 
-| Document | Role | Fallback if missing |
-|----------|------|---------------------|
-| `.claude/CLAUDE.md` | Project overview, tech stack, commands | Detect tech stack from manifests |
-| `coding-guidelines.md` | Quality criteria for agents | Read `$CLAUDE_PLUGIN_ROOT/skills/init/templates/docs/coding-guidelines.md` as generic baseline |
-| `testing.md` | Testing conventions, framework, runner | Detect test runner from manifests |
-
-**Monorepo path note:** `coding-guidelines.md` is shared at root (`.claude/docs/coding-guidelines.md`). `testing.md` is scoped per subproject (`<subproject>/docs/testing.md`).
-
-If both `CLAUDE.md` and `coding-guidelines.md` are missing, warn and recommend `/optimus:init`.
+**Monorepo path note:** Read the "Monorepo Scoping Rule" section of `$CLAUDE_PLUGIN_ROOT/skills/init/references/constraint-doc-loading.md` for doc layout and scoping rules.
 
 ### Detect commands
 

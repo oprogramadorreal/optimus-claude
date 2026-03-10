@@ -21,14 +21,7 @@ Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/multi-repo-detection.md` for wo
 
 ### Prerequisite check
 
-Check that these files exist:
-- `.claude/CLAUDE.md` (or the target repo's `.claude/CLAUDE.md` in a multi-repo workspace)
-- `.claude/docs/coding-guidelines.md` (or the target repo's)
-
-**If either is missing**, warn the user and recommend running `/optimus:init` first. Use these fallbacks so the skill can still run:
-- `CLAUDE.md` missing → detect tech stack from manifest files (`package.json`, `Cargo.toml`, `pyproject.toml`, etc.) for basic context
-- `coding-guidelines.md` missing → read `$CLAUDE_PLUGIN_ROOT/skills/init/templates/docs/coding-guidelines.md` as a generic baseline; inform the user that findings are based on generic guidelines, not project-specific ones
-- Both missing → apply both fallbacks, strongly recommend `/optimus:init`
+Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/prerequisite-check.md` and apply the prerequisite check (CLAUDE.md + coding-guidelines.md existence, fallback logic).
 
 Use `AskUserQuestion` to let the user choose a scope — header "Scope", question "What scope would you like to analyze?":
 - **Full project** — "All source directories — best for first run or periodic review"
@@ -45,28 +38,7 @@ For monorepos with **full project** scope: ask which subprojects to include (def
 
 ### Load constraint docs
 
-#### Single project
-
-1. `.claude/CLAUDE.md` — project overview, conventions, tech stack, test commands
-2. `.claude/docs/coding-guidelines.md` — coding standards (primary evaluation criteria)
-3. `.claude/docs/testing.md` (if exists) — testing conventions, so simplifications don't break test patterns or established test helpers
-4. `.claude/docs/architecture.md` (if exists) — architectural boundaries, so refactoring respects module structure and intended separation of concerns
-5. `.claude/docs/styling.md` (if exists) — UI/CSS conventions, so frontend simplifications stay consistent
-
-#### Monorepo
-
-`/optimus:init` places docs differently in monorepos — `coding-guidelines.md` is shared at root, but `testing.md`, `styling.md`, and `architecture.md` are scoped per subproject:
-
-1. `.claude/CLAUDE.md` — root overview, subproject table, workspace-level commands
-2. `.claude/docs/coding-guidelines.md` — shared coding standards (applies to all subprojects)
-3. For each subproject in scope:
-   - `<subproject>/CLAUDE.md` — subproject-specific overview, commands, tech stack
-   - `<subproject>/docs/testing.md` (if exists) — subproject-specific testing conventions
-   - `<subproject>/docs/architecture.md` (if exists) — subproject-specific architecture
-   - `<subproject>/docs/styling.md` (if exists) — subproject-specific UI/CSS conventions
-4. For root-as-project: its scoped docs are in `.claude/docs/` alongside the shared `coding-guidelines.md`
-
-When analyzing a subproject's code, apply its own constraint docs — not another subproject's. The shared `coding-guidelines.md` applies everywhere.
+Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/constraint-doc-loading.md` for the full document loading procedure (single project and monorepo layouts, scoping rules).
 
 These files define the rules. Every suggestion must be justified by what these docs establish — never impose external preferences.
 

@@ -101,7 +101,10 @@ skills/verify/
 
 Shared references consumed from other skills:
 - `init/references/multi-repo-detection.md` — workspace detection
+- `init/references/prerequisite-check.md` — prerequisite check with fallbacks
+- `init/references/constraint-doc-loading.md` — constraint doc loading — Monorepo Scoping Rule
 - `init/references/verification-protocol.md` — evidence-based verification discipline
+- `pr/references/default-branch-detection.md` — default branch detection algorithm
 - `pr/references/platform-detection.md` — GitHub/GitLab detection and CLI verification
 - `pr/references/pr-template.md` — Conventional PR format (test plan section)
 - `tdd/references/testing-anti-patterns.md` — mocking discipline for verification tests

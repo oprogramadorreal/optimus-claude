@@ -102,14 +102,7 @@ If a multi-repo workspace was detected in Step 1, resolve prerequisites per-repo
 
 ### Documentation prerequisites
 
-Check that these files exist:
-- `.claude/CLAUDE.md` (or the target repo's `.claude/CLAUDE.md` in a multi-repo workspace)
-- `.claude/docs/coding-guidelines.md` (or the target repo's)
-
-**If either is missing**, warn the user and recommend running `/optimus:init` first. Use these fallbacks so the skill can still run:
-- `CLAUDE.md` missing → detect tech stack from manifest files (`package.json`, `Cargo.toml`, `pyproject.toml`, etc.) for basic context
-- `coding-guidelines.md` missing → read `$CLAUDE_PLUGIN_ROOT/skills/init/templates/docs/coding-guidelines.md` as a generic baseline; inform the user that findings are based on generic guidelines, not project-specific ones
-- Both missing → apply both fallbacks, strongly recommend `/optimus:init`
+Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/prerequisite-check.md` and apply the prerequisite check (CLAUDE.md + coding-guidelines.md existence, fallback logic).
 
 ### Agent prerequisites
 
@@ -124,34 +117,13 @@ Check that these files exist:
 
 ### Load constraint docs
 
-#### Single project
-
-1. `.claude/CLAUDE.md` — project overview, conventions, tech stack, test commands
-2. `.claude/docs/coding-guidelines.md` — coding standards (primary evaluation criteria)
-3. `.claude/docs/testing.md` (if exists) — testing conventions
-4. `.claude/docs/architecture.md` (if exists) — architectural boundaries
-5. `.claude/docs/styling.md` (if exists) — UI/CSS conventions
-
-#### Monorepo
-
-`/optimus:init` places docs differently in monorepos — `coding-guidelines.md` is shared at root, but `testing.md`, `styling.md`, and `architecture.md` are scoped per subproject:
-
-1. `.claude/CLAUDE.md` — root overview, subproject table, workspace-level commands
-2. `.claude/docs/coding-guidelines.md` — shared coding standards (applies to ALL subprojects)
-3. For each subproject with changed files:
-   - `<subproject>/CLAUDE.md` — subproject-specific overview, commands, tech stack
-   - `<subproject>/docs/testing.md` (if exists) — subproject-specific testing conventions
-   - `<subproject>/docs/architecture.md` (if exists) — subproject-specific architecture
-   - `<subproject>/docs/styling.md` (if exists) — subproject-specific UI/CSS conventions
-4. For root-as-project: its scoped docs are in `.claude/docs/` alongside the shared `coding-guidelines.md`
-
-When reviewing a subproject's code, apply its own constraint docs — not another subproject's. The shared `coding-guidelines.md` applies everywhere.
+Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/constraint-doc-loading.md` for the full document loading procedure (single project and monorepo layouts, scoping rules).
 
 These files define the review criteria. Every guideline-related finding must be justified by what these docs establish — never impose external preferences.
 
 ### Exclude git submodules
 
-If any changed files reside inside a git submodule directory (a directory containing a `.git` *file*, not directory), exclude them from the review. These files belong to an external repository and should be reviewed in that repository's context, not the parent project's.
+Apply the "Submodule Exclusion" rule from `$CLAUDE_PLUGIN_ROOT/skills/init/references/constraint-doc-loading.md` — exclude submodule directories from the review.
 
 ### Context summary
 

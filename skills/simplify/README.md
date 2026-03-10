@@ -113,6 +113,8 @@ Claude Code includes a builtin `/simplify` command. This follows the same patter
 |---|---|
 | `SKILL.md` | Skill definition with two-phase workflow |
 | *(shared)* `init/references/multi-repo-detection.md` | Multi-repo workspace detection algorithm |
+| *(shared)* `init/references/prerequisite-check.md` | Shared prerequisite check with fallbacks |
+| *(shared)* `init/references/constraint-doc-loading.md` | Constraint doc loading (single project, monorepo) |
 
 ## Requirements
 
