@@ -29,13 +29,19 @@ Another key point: [providing LLMs with tests alongside tasks consistently impro
 
 ## How It Works
 
+Every skill operates on the same shared foundation: **your project's coding guidelines**.
+
+`/optimus:init` analyzes your codebase and generates constraint docs — coding guidelines, CLAUDE.md, quality agents, and formatter hooks — into your `.claude/` directory. From that point on, every optimus skill loads and enforces those same guidelines.
+
+`/optimus:code-review` doesn't run a generic review — its agents check *your* naming conventions, *your* architectural patterns, and *your* DRY principles alongside bugs and security. `/optimus:tdd` applies them during the Refactor step. `/optimus:simplify` uses them as its quality lens. `/optimus:unit-test` follows them for test naming and structure.
+
+The result: consistent patterns, meaningful names, and lean context across every operation — exactly the signals that keep Claude Code accurate and productive.
+
+## Design Principles
+
 **Explicit invocation** — Skills never auto-trigger. Claude Code's default behavior is never altered unless you explicitly call a skill.
 
-**Project-scoped output** — Unlike most plugins that bundle hooks and agents at the plugin level, optimus writes everything into the project's `.claude/` directory:
-
-- Hooks, agents, docs, and settings travel with the repo via git — any teammate gets identical behavior, even without the plugin installed
-- Enforces standards linters can't check — naming conventions, architectural patterns, DRY principles
-- No hidden dependencies — the generated output is self-contained, visible, auditable, and version-controlled. Keep the plugin installed for daily skills like TDD, commit-message, and code-review
+**Project-scoped output** — Everything is written into the project's `.claude/` directory and travels with the repo via git — any teammate gets identical behavior, even without the plugin installed. Keep the plugin installed for daily skills like TDD, commit-message, and code-review.
 
 **Session-start awareness** — A lightweight hook runs on every session start, resume, clear, and compact to check project state (init status, test infrastructure, quality agents, git state). Fully configured projects produce zero output — no context waste.
 
