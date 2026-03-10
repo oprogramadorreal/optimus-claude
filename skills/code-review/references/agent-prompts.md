@@ -22,6 +22,7 @@ Detailed prompt templates for each of the 6 review agents. These are used in Ste
 - Input-dependent issues
 - Uncertain findings
 - Pre-existing issues in unchanged code (unless security/bug directly adjacent to changed lines)
+- **Generated source files** — skip `*.g.dart`, `*.freezed.dart`, `*.mocks.dart` (Dart/Flutter build_runner output), `*.Designer.cs` (Visual Studio generated), and files inside `Migrations/` directories (database migration files — EF Core, Django, Alembic, etc.). Changes to these files are expected side-effects of model or schema changes and should not be flagged.
 
 ## False Positives to Avoid
 

@@ -145,7 +145,7 @@ The path-restriction hook is designed to **fail open** (allow the operation) whe
 | `CLAUDE_PROJECT_DIR` not set | Allow | Cannot determine project root; blocking would break all operations |
 | JSON input parsing fails | Allow | Malformed input should not block legitimate tool use |
 | `file_path` extraction fails | Allow | Some tool invocations may have unexpected structure |
-| Not a git repo (precious file protection) | Allow | `git ls-files` unavailable; assumes tracked |
+| No git repo at file's location | Allow | `git ls-files` unavailable; assumes tracked |
 
 This is a deliberate design choice: a fail-closed hook would block legitimate operations whenever Claude Code changes its JSON format.
 
@@ -190,6 +190,8 @@ The hook automatically protects well-known sensitive and irreplaceable files tha
 | `local.settings.json` | Secrets |
 | `credentials.*`, `secrets.*` | Secrets |
 | `docker-compose.override.yml` | Local Docker config |
+| `*keyfile*.json`, `*-keyfile.json`, `*_keyfile.json` | Service account keys (GCP, etc.) |
+| `newrelic.config` | Monitoring agent config (may contain license keys) |
 | `*.key`, `*.pem`, `*.pfx`, `*.p12`, `*.cert`, `*.crt`, `*.jks` | Certificates / Keys |
 | `*.sqlite`, `*.sqlite3`, `*.db` | Database files |
 | `*.db-shm`, `*.db-wal`, `*.db-journal` | SQLite companion files (WAL/journal) |
@@ -223,7 +225,7 @@ Re-run `/optimus:permissions` to scan for project-specific precious files. The s
 - **Basename matching only** — the hook matches the file's name, not its path. A file named `secrets.txt` in any directory will be protected.
 - **Not exhaustive** — the list covers common patterns but cannot anticipate every project's sensitive files.
 - **Prompts on every edit** — Hooks fire on every tool call with no caching. Editing `.env` five times produces five prompts. Consider running `git add` on frequently-edited unversioned files to suppress prompts.
-- **Fails open** — If the project is not a git repository or `git` is unavailable, the check is skipped and all operations are allowed.
+- **Fails open** — If no git repository can be found for a given file (or `git` is unavailable), the precious file check is skipped and the operation is allowed. In multi-repo workspaces, the hook resolves git context per-file rather than relying on the project root.
 
 ## Customization
 

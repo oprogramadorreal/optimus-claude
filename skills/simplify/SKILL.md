@@ -71,6 +71,8 @@ Within the chosen scope (Step 1), identify source directories. Skip non-source:
 
 Also skip non-source **file types**: `*.min.js`, `*.min.css`, lock files (`package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`, etc.), `*.d.ts` (unless hand-written), binary and data files.
 
+Also skip **generated source files** that should never be manually edited: `*.g.dart`, `*.freezed.dart`, `*.mocks.dart` (Dart/Flutter build_runner output), `*.Designer.cs` (Visual Studio generated), and any file inside a directory named `Migrations/` (database migration files — EF Core, Django, Alembic, etc.).
+
 **Single project:** Group files by top-level source directory.
 **Monorepo:** Organize by subproject, then by source directory within each.
 

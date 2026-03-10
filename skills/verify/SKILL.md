@@ -11,7 +11,7 @@ This skill complements `/optimus:code-review` (static analysis) by adding dynami
 
 ## Step 1: Pre-flight
 
-Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/multi-repo-detection.md` for workspace detection. If a multi-repo workspace is detected, process each repo independently: run Steps 1–9 inside the repo the user is targeting. If ambiguous, ask which repo.
+Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/multi-repo-detection.md` for workspace detection. If a multi-repo workspace is detected, process each repo independently: run Steps 1–9 inside the repo the user is targeting. If ambiguous, ask which repo. All git commands in subsequent steps must run inside the selected repo directory (e.g., `git -C <repo-path> ...` or `cd <repo-path>`) — the workspace root has no `.git/` and git commands would fail there.
 
 ### Verify branch state
 
