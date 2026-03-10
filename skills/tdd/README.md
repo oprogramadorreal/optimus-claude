@@ -282,6 +282,7 @@ The user's original branch is never modified. All code review happens through th
 | `references/agent-prompts.md` | Prompt templates for quality gate agents (code-simplifier, test-guardian) |
 | `references/testing-anti-patterns.md` | Mocking anti-patterns and gate questions — loaded during Red step to prevent bad test patterns |
 | *(shared)* `init/references/multi-repo-detection.md` | Multi-repo workspace detection algorithm |
+| *(shared)* `init/references/constraint-doc-loading.md` | Constraint doc loading — Monorepo Scoping Rule |
 | *(shared)* `pr/references/platform-detection.md` | Platform detection and CLI management |
 
 ## Requirements

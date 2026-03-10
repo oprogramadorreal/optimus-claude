@@ -1,6 +1,6 @@
 {
   "name": "optimus",
-  "version": "1.20.0",
+  "version": "1.21.0",
   "description": "Research-backed project setup — CLAUDE.md, auto-format hooks, quality agents, TDD, code simplification, code review, unit testing, pull requests, feature verification, permissions, and commit messages",
   "author": {
     "name": "oprogramadorreal",

@@ -15,11 +15,7 @@ Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/multi-repo-detection.md` for wo
 
 1. Confirm the current directory is inside a git repository: `git rev-parse --is-inside-work-tree`. If not → inform the user and stop.
 2. Get the current branch: `git rev-parse --abbrev-ref HEAD`.
-3. Check that the current branch is not the default branch. Detect the default branch:
-   - Try `git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@'`
-   - If that fails, try common names: check if `origin/main` exists (`git rev-parse --verify origin/main 2>/dev/null`), then `origin/master`
-   - If no default branch can be determined (all methods fail) → inform the user: "Could not detect the default branch. Ensure `origin` is configured and has been fetched." Stop.
-   - If on the default branch → inform the user: "You're on the default branch (`<branch>`). Switch to a feature branch first." Stop.
+3. Check that the current branch is not the default branch. Detect the default branch using the algorithm in `$CLAUDE_PLUGIN_ROOT/skills/pr/references/default-branch-detection.md`. If no default branch can be determined → inform the user: "Could not detect the default branch. Ensure `origin` is configured and has been fetched." Stop. If on the default branch → inform the user: "You're on the default branch (`<branch>`). Switch to a feature branch first." Stop.
 
 ## Step 2: Platform Detection
 
