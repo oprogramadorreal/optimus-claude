@@ -10,7 +10,7 @@ output=""
 
 # 1. Check if optimus:init has been run
 if [ ! -f .claude/CLAUDE.md ] || [ ! -f .claude/docs/coding-guidelines.md ]; then
-  output+="[optimus] Project not initialized for Claude Code. Suggest \`/optimus:init\` to set up CLAUDE.md, coding guidelines, and quality agents."$'\n'
+  output+="IMPORTANT: This project has not been initialized with the optimus plugin. You MUST mention this to the user in your first response: recommend running \`/optimus:init\` to set up CLAUDE.md, coding guidelines, and quality agents for effective AI-assisted development."$'\n'
 else
   # 2. Check test infrastructure (only relevant if init was done)
   if [ ! -f .claude/docs/testing.md ]; then
