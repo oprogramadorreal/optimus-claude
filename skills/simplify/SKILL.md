@@ -46,7 +46,7 @@ Then use `AskUserQuestion` — header "Deep mode", question "Proceed with deep m
 - **Start deep mode** — "Run iterative cleanup until clean (max 5 iterations)"
 - **Normal mode** — "Single pass with manual approval instead"
 
-If the user selects **Normal mode**, continue with the standard single-pass flow. Record the user's choice as a `deep-mode` flag for subsequent steps. If deep mode is confirmed, initialize `iteration-count` to 0.
+If the user selects **Normal mode**, continue with the standard single-pass flow. Record the user's choice as a `deep-mode` flag for subsequent steps. If deep mode is confirmed, initialize `iteration-count` to 1.
 
 ## Step 2: Load Project Context and Map Analysis Areas
 
@@ -167,7 +167,11 @@ Prioritize by impact:
 
 Include "Areas with No Findings" to confirm coverage — the user should know those areas were reviewed, not skipped.
 
-**No findings at all:** Report as a positive result ("code follows project guidelines"). **Deep mode:** this is the convergence signal — report "Deep mode complete — no more findings after [N] iteration(s)" with the cumulative summary (see Step 6) and skip Steps 5–6. **Normal mode:** suggest tightening guidelines or broadening scope if the user expected issues.
+**No findings at all:**
+
+**Deep mode:** this is the convergence signal — report "Deep mode complete — no findings on iteration [N]", then skip to the cumulative summary and recommendation in Step 6 (bypass the apply phase).
+
+**Normal mode:** Report as a positive result ("code follows project guidelines"). Suggest tightening guidelines or broadening scope if the user expected issues.
 
 ## Step 5: Ask User How to Proceed
 
@@ -207,12 +211,11 @@ If no test command is available, warn the user that changes were applied without
 
 **Normal mode:** Skip this subsection — proceed to the recommendation below.
 
-**Deep mode:** After applying changes and running tests, increment `iteration-count`. Then check termination conditions:
+**Deep mode:** After applying changes and running tests, check termination conditions:
 
-1. **Zero findings in Step 3** → deep mode complete. Report: "Deep mode complete — no more findings after [N] iteration(s)."
-2. **`iteration-count` equals 5** → cap reached. Report: "Deep mode reached the iteration cap (5). Remaining findings may exist — re-run `/optimus:simplify deep` in a fresh conversation to continue."
-3. **All changes in this iteration were reverted due to test failures** → stop to prevent a loop of failed attempts. Report: "Deep mode stopped — all findings in iteration [N] caused test failures."
-4. **Otherwise** → present a brief iteration summary (iteration number, findings applied, findings reverted due to test failures) and **return to Step 3** for the next analysis pass. Keep the same scope from Step 1.
+1. **`iteration-count` equals 5** → cap reached. Report: "Deep mode reached the iteration cap (5). Remaining findings may exist — re-run `/optimus:simplify deep` in a fresh conversation to continue."
+2. **All changes in this iteration were reverted due to test failures** → stop to prevent a loop of failed attempts. Report: "Deep mode stopped — all findings in iteration [N] caused test failures."
+3. **Otherwise** → present a brief iteration summary (iteration number, findings applied, findings reverted due to test failures), increment `iteration-count`, and **return to Step 3** for the next analysis pass. Keep the same scope from Step 1.
 
 After the loop ends, present a cumulative summary across all iterations:
 
