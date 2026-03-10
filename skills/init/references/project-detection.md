@@ -23,7 +23,7 @@ If `.git/` exists in the current directory, skip this step and proceed to Step A
 - npm/yarn/pnpm workspaces: `workspaces` in root `package.json`, or `pnpm-workspace.yaml`
 - Lerna (`lerna.json`), Nx (`nx.json`), Turborepo (`turbo.json`), Rush (`rush.json`)
 - Cargo workspace: `[workspace]` in root `Cargo.toml`; Go workspace: `go.work`
-- Melos: `melos.yaml` at root (Flutter/Dart monorepo management tool)
+- Melos: `melos.yaml` at root (Dart/Flutter monorepo management tool)
 - Dart pub workspaces: root `pubspec.yaml` containing a `workspace:` field (Dart 3.6+ / Flutter 3.27+)
 - Gradle: `settings.gradle(.kts)` with `include`; Maven: `pom.xml` with `<modules>`
 - Bazel: `WORKSPACE` or `WORKSPACE.bazel`

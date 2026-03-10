@@ -125,7 +125,7 @@ Create `_mock/main.c` (or `main.cpp`) exercising the changed public APIs.
 **For Dart packages:**
 
 ```bash
-dart create -t package-simple _mock
+dart create -t console _mock
 ```
 
 Add path dependency to `_mock/pubspec.yaml`:
