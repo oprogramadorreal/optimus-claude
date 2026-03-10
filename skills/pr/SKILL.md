@@ -9,7 +9,23 @@ Create or update a PR (GitHub) or MR (GitLab) for the current branch using the C
 
 ## Step 1: Pre-flight
 
-Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/multi-repo-detection.md` for workspace detection. If a multi-repo workspace is detected, ask the user which repo to target using `AskUserQuestion` — header "Repository", question "This is a multi-repo workspace. Which repository should the PR/MR be created for?". List the child repos as options. Run all subsequent steps inside the selected repo.
+Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/multi-repo-detection.md` for workspace detection. If a multi-repo workspace is detected, run the multi-repo selection procedure below. Otherwise, skip to **Verify git state**.
+
+### Multi-repo selection
+
+1. For each child repo, check:
+   - Current branch: `git -C <repo-path> rev-parse --abbrev-ref HEAD`
+   - Default branch: use the algorithm from `$CLAUDE_PLUGIN_ROOT/skills/pr/references/default-branch-detection.md` (run inside the repo)
+   - Whether it has commits ahead of default: `git -C <repo-path> log --oneline origin/<default-branch>..HEAD 2>/dev/null | head -1`
+2. If default branch detection fails for a repo, warn the user (e.g., "Could not detect default branch for `<repo>` — skipping") and exclude it from the candidates list
+3. Filter to repos that are on a non-default branch AND have commits ahead of the default branch
+4. If **no repos** have changes → inform the user: "No repositories in this workspace have branches with changes ready for a PR." Stop.
+5. If **one repo** has changes → inform the user which repo was detected. Run Steps 2–7 inside that repo's directory. Stop.
+6. If **multiple repos** have changes → present the list and use `AskUserQuestion` — header "Multi-Repo PRs", question "Multiple repositories have changes ready for PRs:". Options:
+   - **All** — "Create PRs for all repos with changes (one at a time)"
+   - Each individual repo name — "Create PR for `<repo>` only"
+7. If the user selects **All**, run Steps 2–7 sequentially for each repo with changes (run all commands inside the repo's directory), reporting each PR result before moving to the next. Stop.
+8. If the user selects a specific repo, run Steps 2–7 inside that repo's directory. Stop.
 
 ### Verify git state
 

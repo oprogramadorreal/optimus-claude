@@ -20,7 +20,7 @@ The **Conventional PR** format mirrors [Conventional Commits](https://www.conven
 - **Ready to merge** — PRs/MRs are created as ready (not draft)
 - **User preview** — shows generated content before creating or updating, with option to adjust
 - **Shared template** — the Conventional PR template is reusable by other skills (e.g., `/optimus:tdd`)
-- **Multi-repo workspace support** — detects multi-repo workspaces and asks which repo to target
+- **Multi-repo workspace support** — detects multi-repo workspaces, auto-filters to repos with changes, and offers to create PRs for all or a specific repo
 
 ## Quick Start
 
@@ -134,7 +134,7 @@ A PR/MR already exists for this branch. What would you like to do?
 
 ## How It Works
 
-1. Detects multi-repo workspaces and asks which repo to target
+1. Detects multi-repo workspaces, auto-selects repos with changes ready for PRs
 2. Detects the hosting platform (GitHub/GitLab) from remote URLs or CI files
 3. Verifies the CLI (`gh`/`glab`) is installed and authenticated — offers installation if missing
 4. Checks if the current branch already has an open PR/MR
