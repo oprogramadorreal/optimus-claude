@@ -10,10 +10,14 @@
 
 ### Install
 
+Run these commands inside Claude Code:
+
 ```shell
 /plugin marketplace add https://github.com/oprogramadorreal/optimus-claude.git
 /plugin install optimus@optimus-claude
 ```
+
+> Having trouble? See [Troubleshooting](#troubleshooting).
 
 ### Run
 
@@ -78,6 +82,18 @@ The result: consistent patterns, meaningful names, and lean context across every
 **Before merging** — `/optimus:pr` to create or update pull requests, `/optimus:verify` to prove the feature branch works in an isolated sandbox, `/optimus:code-review` for pre-merge code quality review.
 
 **Complementary tools** — Anthropic's official [code-review](https://github.com/anthropics/claude-code/tree/main/plugins/code-review) plugin for post-push PR review, [claude-md-management](https://claude.com/plugins/claude-md-management) for CLAUDE.md scoring and revision, and the builtin `/simplify` for per-change cleanup.
+
+## Troubleshooting
+
+### Windows: SSL certificate error during install
+
+If you see `SSL certificate OpenSSL verify result: unable to get local issuer certificate` when running `/plugin marketplace add`, Git for Windows is using an outdated OpenSSL CA bundle. Fix it by switching to the native Windows certificate store:
+
+```shell
+git config --global http.sslBackend schannel
+```
+
+Then retry the install command.
 
 ## Contributing
 
