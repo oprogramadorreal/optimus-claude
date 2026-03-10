@@ -204,6 +204,10 @@ If no test command is available, warn the user that changes were applied without
 
 ### Final summary
 
+**Deep mode (non-final iteration):** Skip this subsection — the iteration progress summary in the deep mode loop below replaces it.
+
+**Deep mode (final iteration) and Normal mode:**
+
 - Scope analyzed (from Step 1)
 - Changes applied (with file references)
 - Changes skipped (with reasons if selective)
