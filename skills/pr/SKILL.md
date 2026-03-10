@@ -171,4 +171,6 @@ Proceed to Step 7.
 - Status: Ready to merge
 ```
 
-Recommend running `/optimus:verify` to prove the feature works, then `/optimus:code-review` for static quality review before merging. **Tip:** for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch.
+Recommend running `/optimus:verify` to prove the feature works, then `/optimus:code-review` for static quality review before merging.
+
+Tell the user: **Tip:** for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch.

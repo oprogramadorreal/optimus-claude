@@ -85,4 +85,8 @@ In a multi-repo workspace, present each repo's commit message under a heading wi
 - This skill is read-only — it only analyzes and suggests
 - When changes are too broad for a single commit, recommend splitting
 
-Recommend running `/optimus:pr` to create a pull request, or `/optimus:verify` to validate the feature end-to-end. **Tip:** for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch.
+Recommend the next step based on readiness:
+- If the feature is ready → `/optimus:pr` to create a pull request
+- If validation is needed first → `/optimus:verify` to validate end-to-end
+
+Tell the user: **Tip:** for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch.

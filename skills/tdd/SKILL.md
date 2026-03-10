@@ -452,4 +452,6 @@ If a worktree was used (Step 3), offer cleanup after the PR/MR is created:
 
 If the user prefers to keep the worktree (e.g., for further work), skip cleanup and note: "Worktree `.worktrees/<worktree-dir>` is still active. Remove it manually with `git worktree remove .worktrees/<worktree-dir>` when done."
 
-Recommend running `/optimus:code-review` to review the PR/MR before merging. **Tip:** for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch.
+Recommend running `/optimus:code-review` to review the PR/MR before merging.
+
+Tell the user: **Tip:** for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch.

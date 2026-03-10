@@ -185,4 +185,6 @@ If no test command is available, warn the user that changes were applied without
 - Any changes reverted due to test failures
 - Remaining findings not shown in this run (if cap was hit)
 
-Recommend running `/optimus:commit-message` to commit the changes. **Tip:** for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch.
+Recommend running `/optimus:commit-message` to commit the changes.
+
+Tell the user: **Tip:** for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch.
