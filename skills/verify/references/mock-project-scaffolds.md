@@ -125,8 +125,7 @@ Create `_mock/main.c` (or `main.cpp`) exercising the changed public APIs.
 **For Dart packages:**
 
 ```bash
-mkdir _mock && cd _mock
-dart create -t package-simple mock_consumer
+dart create -t package-simple _mock
 ```
 
 Add path dependency to `_mock/pubspec.yaml`:
@@ -136,7 +135,7 @@ dependencies:
     path: ../
 ```
 
-Create `_mock/bin/mock_consumer.dart` importing and exercising the changed public APIs.
+Create `_mock/bin/_mock.dart` importing and exercising the changed public APIs.
 
 **For Flutter packages/plugins:**
 

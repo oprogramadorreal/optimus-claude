@@ -85,7 +85,7 @@ Results are consolidated into a structured report with:
 
 ## Supported Stacks
 
-Node.js/TypeScript, Python, Rust, Go, C#/.NET, Java (Maven/Gradle), C/C++ (CMake). Mock project scaffolds are available for all stacks.
+Node.js/TypeScript, Python, Rust, Go, C#/.NET, Java (Maven/Gradle), C/C++ (CMake), Dart/Flutter. Mock project scaffolds are available for all stacks.
 
 ## Skill Structure
 

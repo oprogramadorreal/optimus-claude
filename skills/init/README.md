@@ -58,6 +58,7 @@ PostToolUse hooks that auto-format files after every Edit/MultiEdit/Write, insta
 | `format-csharp.sh` | csharpier | C#/.NET project detected |
 | `format-java.sh` | google-java-format | Java project detected |
 | `format-cpp.sh` | clang-format | C/C++ project detected |
+| `format-dart.sh` | dart format | Dart/Flutter project detected (built-in) |
 
 For stacks requiring external formatters (Python, Node.js, C#, Java, C/C++), `/optimus:init` checks your dependencies and asks before installing anything.
 
@@ -109,7 +110,7 @@ To understand or modify how the skill works, start with `SKILL.md`. Key customiz
 
 - **CLAUDE.md templates**: `templates/single-project-claude.md`, `templates/monorepo-claude.md`, `templates/subproject-claude.md`, `templates/multi-repo-claude.md`
 - **Coding guidelines**: `templates/docs/coding-guidelines.md`
-- **Formatter hooks**: `templates/hooks/` (Python, Node.js, Rust, Go, C#, Java, C/C++)
+- **Formatter hooks**: `templates/hooks/` (Python, Node.js, Rust, Go, C#, Java, C/C++, Dart/Flutter)
 - **Agents**: `templates/agents/` (code-simplifier, test-guardian)
 
 ### Tuning coding guidelines
