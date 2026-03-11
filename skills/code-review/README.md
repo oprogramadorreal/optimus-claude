@@ -11,6 +11,7 @@ Well-maintained code has [30%+ fewer AI-introduced defects](https://arxiv.org/ab
 - **Project-aware** — evaluates against your coding-guidelines.md, testing.md, architecture.md, and styling.md
 - **High signal only** — bugs, security issues, logic errors, explicit guideline violations; excludes style concerns and subjective suggestions
 - **Validation step** — each finding is independently verified (context check, intent check, pre-existing check, cross-agent consensus) using an evidence-based verification protocol before reporting
+- **Contradiction resolution** — cross-agent contradictions (e.g., "add more validation" vs. "simplify this validation") are detected and resolved by severity to prevent circular fix loops
 - **Actionable output** — findings include file:line references, confidence level (High/Medium), before/after code sketches, guideline citations, and severity levels
 - **Works without `/optimus:init`** — falls back to generic coding guidelines when project-specific docs are not available
 - **Multi-repo workspace support** — resolves per-repo documentation when opened from a workspace root containing multiple git repos

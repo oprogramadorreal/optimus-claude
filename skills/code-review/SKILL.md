@@ -185,6 +185,10 @@ Only findings with High or Medium confidence proceed to Step 5.
 
 Merge validated findings from Steps 3–4. Deduplicate: if two agents flagged the same file and line range for the same category, keep the more detailed version. For guideline findings flagged by both Agents 3 and 4, merge into one finding and note "confirmed by independent review".
 
+### Contradiction resolution
+
+After deduplication, check for **cross-agent contradictions** — findings that target the same code region but recommend opposite directions (e.g., "add more validation" vs. "simplify this validation"). Keep the higher-severity finding and drop the other. When severities are equal, keep the security/correctness finding — security requirements justify proportionate complexity.
+
 ### Change Summary
 
 Before presenting findings, write a concise summary (2–4 sentences) of what the reviewed changes accomplish. Describe the intent and effect of the changes — what was added, modified, or removed and why. Base this on the diff and the agents' analysis. This lets the user verify the review understood their changes correctly.

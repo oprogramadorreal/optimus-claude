@@ -32,6 +32,7 @@ Detailed prompt templates for each of the 6 review agents. These are used in Ste
 - Linter-catchable issues
 - General code quality concerns not tied to project guidelines
 - Issues explicitly silenced in code (e.g., `// eslint-disable`, `# noqa`)
+- Findings that contradict another agent's domain — e.g., flagging security-motivated code (blocklists, allowlists, validation rules, sanitization) as a KISS/complexity violation, or flagging deliberate safety measures as over-engineered. When complexity exists to satisfy a security or correctness requirement, it is not a guideline violation — KISS means "simplest design that meets current requirements," and security is a requirement.
 
 ---
 
@@ -89,6 +90,10 @@ Focus exclusively on:
 - Data integrity issues
 - API contract violations
 - Error propagation that hides failures
+
+When reviewing defensive patterns (blocklists, allowlists, input validation):
+- Flag only concrete, exploitable gaps — not theoretical incompleteness
+- Do NOT recommend adding entries to an otherwise-sound mechanism just because more could theoretically be added
 
 For each finding report in this exact format:
 - **File:** file:line
