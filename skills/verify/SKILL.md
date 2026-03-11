@@ -164,6 +164,7 @@ Run project setup inside the worktree (detect from `CLAUDE.md` or manifests):
 | Java (Gradle) | `gradle build -x test` |
 | C/C++ | `cmake -B build && cmake --build build` (or project-specific) |
 | Dart/Flutter | `flutter pub get` / `dart pub get` (match detected manager). If `build_runner` is in dev_dependencies, also run `dart run build_runner build --delete-conflicting-outputs` |
+| (other) | Detect from CLAUDE.md or manifest; search web for "[language] install dependencies command" if unclear. Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/unsupported-stack-fallback.md` and apply its validation and approval rules. |
 
 ### Verify sandbox
 

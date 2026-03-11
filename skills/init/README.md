@@ -59,8 +59,9 @@ PostToolUse hooks that auto-format files after every Edit/MultiEdit/Write, insta
 | `format-java.sh` | google-java-format | Java project detected |
 | `format-cpp.sh` | clang-format | C/C++ project detected |
 | `format-dart.sh` | dart format | Dart/Flutter project detected (built-in) |
+| *(custom)* | Web search result | Other stacks (best-effort with user approval) |
 
-For stacks requiring external formatters (Python, Node.js, C#, Java, C/C++), `/optimus:init` checks your dependencies and asks before installing anything.
+For stacks requiring external formatters (Python, Node.js, C#, Java, C/C++), `/optimus:init` checks your dependencies and asks before installing anything. For other stacks, it searches for the most popular formatter and creates a custom hook with user approval.
 
 ## Agents
 
@@ -99,6 +100,7 @@ Both agents reference your project's `.claude/CLAUDE.md` and `.claude/docs/` fil
 | `references/project-detection.md` | Project structure detection algorithm |
 | `references/multi-repo-detection.md` | Shared multi-repo workspace detection (used by 6 skills) |
 | `references/formatter-setup.md` | Formatter hook installation guidance |
+| `references/unsupported-stack-fallback.md` | Shared best-effort fallback for unsupported stacks (used by init, unit-test, verify) |
 | `references/verification-protocol.md` | Cross-cutting verification discipline for completion claims |
 | `references/prerequisite-check.md` | Shared prerequisite check with fallbacks (used by code-review, simplify, verify) |
 | `references/constraint-doc-loading.md` | Shared constraint doc loading for single project and monorepo (used by 5 skills) |

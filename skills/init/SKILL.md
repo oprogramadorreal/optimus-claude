@@ -30,6 +30,9 @@ Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/claude-md-best-practices.md`. K
 | CMakeLists.txt, Makefile | C/C++ | cmake, make |
 | Gemfile | Ruby | bundler |
 | pubspec.yaml | Dart/Flutter | pub |
+| (other manifest file) | Detect language from file contents | Search web for "[language] package manager" |
+
+If a manifest file is found that doesn't match any row above, read and apply `$CLAUDE_PLUGIN_ROOT/skills/init/references/unsupported-stack-fallback.md`.
 
 Note: `.sln` files reference `.csproj` projects — they confirm .NET presence but aren't independent project manifests. Don't count a root `.sln` for root-as-project detection. When a single root `.sln` references all `.csproj` files found during detection, treat the entire solution as one project (see .NET solution consolidation in `project-detection.md`). List all solution projects and their roles in the CLAUDE.md Project Structure section.
 
@@ -50,6 +53,8 @@ Note: For Dart/Flutter projects, when `build_runner` is in `dev_dependencies`, d
 | Python | default | pip (bare commands: `pytest`, `ruff`, etc.) |
 | Dart/Flutter | `pubspec.yaml` has Flutter SDK dependency (`dependencies.flutter.sdk: flutter`) | flutter (prefix commands with `flutter`) |
 | Dart/Flutter | `pubspec.yaml` without Flutter SDK dependency (pure Dart package) | dart (prefix commands with `dart`) |
+
+If a lock file doesn't match any row above and the package manager was not already determined by manifest detection, read and apply `$CLAUDE_PLUGIN_ROOT/skills/init/references/unsupported-stack-fallback.md` to identify the package manager via web search.
 
 Use the detected package manager for all commands in CLAUDE.md. For example, if the Node.js project uses pnpm, write `pnpm run build` not `npm run build`. If the Python project uses uv, write `uv run pytest` not just `pytest`. If the Dart project uses Flutter, write `flutter pub get` not `dart pub get`, and `flutter test` not `dart test`.
 
@@ -217,9 +222,9 @@ For each detected subproject (except root-as-project/root-as-member — the root
 
 Add auto-format hooks so files stay consistently formatted after every Edit/MultiEdit/Write. Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/formatter-setup.md` for the full hook template table, Python command detection, installation steps, and settings.json creation rules.
 
-Always overwrite existing hooks — these are verbatim templates, not project-customized content.
+Always overwrite existing template-based hooks — these are verbatim templates, not project-customized content.
 
-Supported stacks: Python (black + isort), Node.js (prettier), Rust (rustfmt), Go (gofmt), C#/.NET (csharpier), Java (google-java-format), C/C++ (clang-format), Dart/Flutter (dart format). Templates are in `$CLAUDE_PLUGIN_ROOT/skills/init/templates/hooks/`.
+Supported stacks: Python (black + isort), Node.js (prettier), Rust (rustfmt), Go (gofmt), C#/.NET (csharpier), Java (google-java-format), C/C++ (clang-format), Dart/Flutter (dart format). Other stacks are handled via best-effort fallback (see formatter-setup.md). Templates are in `$CLAUDE_PLUGIN_ROOT/skills/init/templates/hooks/`.
 
 Key rules:
 - External formatters not in deps → ask user before installing
@@ -305,7 +310,7 @@ Run through this checklist. **Fix any failures before reporting to the user.**
 - `.claude/docs/coding-guidelines.md`: `[PROJECT NAME]` replaced with actual name.
 - Each `testing.md`, `styling.md`, `architecture.md`: References the project's actual frameworks, tooling, and directory names.
 - Monorepo: each subproject's `CLAUDE.md` exists, mentions subproject name, and is <= 60 lines.
-- `.claude/hooks/*`: Each hook file matches its template.
+- `.claude/hooks/*`: Each template-based hook matches its template.
 - `.claude/agents/code-simplifier.md`: File exists and matches template.
 - `.claude/agents/test-guardian.md` (if test infrastructure was detected): File exists and matches template.
 - **Sync changes (Step 6b)**: If sync changes were applied, verify each modified file still has valid markdown and no truncated content.

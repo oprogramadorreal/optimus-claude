@@ -145,6 +145,14 @@ flutter create --template=app _mock
 
 Add path dependency to `_mock/pubspec.yaml` under `dependencies:` and create a test or main file exercising the widget/plugin APIs.
 
+### Other Stacks
+
+If the project's stack doesn't match any scaffold above, search the web for how to create a minimal consumer project for the detected language and package manager. Proposed commands must invoke a single well-known CLI tool with simple arguments (no shell operators, pipes, redirects, variable expansion, subshells, chained commands, or interpreter invocations; bare command name with no path separators; single line of printable ASCII). Present exact commands to the user for approval before executing. Follow the same principles as other stacks (see Mock Project Principles below). Specifically:
+1. Create `_mock/` directory
+2. Initialize a minimal project using the stack's standard tooling
+3. Add a local/path dependency pointing to `../`
+4. Create a main/entry file exercising the changed public APIs
+
 ## Mock Project Principles
 
 - **Minimal** — under 50 lines of consumer code per behavior being verified

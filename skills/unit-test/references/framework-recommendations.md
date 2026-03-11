@@ -17,6 +17,9 @@ Recommend the most popular test framework and coverage tooling for each tech sta
 | Dart/Flutter | flutter_test (Flutter) or package:test (Dart) | `flutter test --coverage` (LCOV) | genhtml (from lcov) |
 | Angular (new project) | Vitest | built-in `--coverage` (v8 provider) | Built-in |
 | Angular (existing tests) | Detect and keep existing | Detect existing coverage tooling | Detect existing |
+| (other) | Search web for "[language] most popular test framework" | Search web for "[language] code coverage tool" | Search web for "[language] coverage report tool" |
+
+**Unsupported stacks:** Search the web for the most popular test framework and coverage tooling for the detected language. Proposed install commands must invoke a single well-known CLI tool with simple arguments (no shell operators, pipes, redirects, variable expansion, subshells, chained commands, or interpreter invocations; bare command name with no path separators; single line of printable ASCII). Present exact commands to the user for approval before executing.
 
 ## Selection Guidelines
 

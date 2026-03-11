@@ -85,7 +85,7 @@ Results are consolidated into a structured report with:
 
 ## Supported Stacks
 
-Node.js/TypeScript, Python, Rust, Go, C#/.NET, Java (Maven/Gradle), C/C++ (CMake), Dart/Flutter. Mock project scaffolds are available for all stacks.
+Built-in support for Node.js/TypeScript, Python, Rust, Go, C#/.NET, Java (Maven/Gradle), C/C++ (CMake), Dart/Flutter. Other stacks are handled via best-effort web search fallback for dependency installation and mock project scaffolding.
 
 ## Skill Structure
 
@@ -108,3 +108,4 @@ Shared references consumed from other skills:
 - `pr/references/platform-detection.md` — GitHub/GitLab detection and CLI verification
 - `pr/references/pr-template.md` — Conventional PR format (test plan section)
 - `tdd/references/testing-anti-patterns.md` — mocking discipline for verification tests
+- `init/references/unsupported-stack-fallback.md` — best-effort fallback for unsupported tech stacks

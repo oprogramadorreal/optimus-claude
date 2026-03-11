@@ -127,6 +127,7 @@ The test-guardian agent and this skill are complementary — both use `testing.m
 | `references/framework-recommendations.md` | Stack-specific test framework, coverage tooling, and report tool recommendations |
 | *(shared)* `init/references/multi-repo-detection.md` | Multi-repo workspace detection algorithm |
 | *(shared)* `init/references/constraint-doc-loading.md` | Constraint doc loading — Monorepo Scoping Rule |
+| *(shared)* `init/references/unsupported-stack-fallback.md` | Best-effort fallback for unsupported tech stacks |
 
 ## Requirements
 

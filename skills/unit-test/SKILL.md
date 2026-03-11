@@ -66,7 +66,7 @@ Present a summary table to the user:
 
 ### Subprojects without a test framework
 
-Analyze the tech stack and recommend the most popular framework with appropriate coverage tooling. Consult `$CLAUDE_PLUGIN_ROOT/skills/unit-test/references/framework-recommendations.md` for stack-specific recommendations. These are starting points — analyze the actual project to decide. Ask for **explicit user approval** before installing anything.
+Analyze the tech stack and recommend the most popular framework with appropriate coverage tooling. Consult `$CLAUDE_PLUGIN_ROOT/skills/unit-test/references/framework-recommendations.md` for stack-specific recommendations. For unsupported stacks, read `$CLAUDE_PLUGIN_ROOT/skills/init/references/unsupported-stack-fallback.md` and apply its command validation and approval rules. These are starting points — analyze the actual project to decide. Ask for **explicit user approval** before installing anything.
 
 If installation fails (network issues, version conflicts, incompatible environments), report the error to the user and stop — do not proceed to test generation without a working framework.
 
