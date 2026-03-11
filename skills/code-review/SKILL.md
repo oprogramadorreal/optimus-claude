@@ -261,6 +261,7 @@ Use `AskUserQuestion` — header "Action", question "How would you like to proce
 ### PR/MR review mode
 
 Use `AskUserQuestion` — header "Action", question "How would you like to proceed with the review findings?":
+- **Fix issues** — "Apply suggested fixes directly, then run tests to verify"
 - **Post comment** — "Post the review summary as a PR/MR comment"
 - **Skip** — "Keep the report as reference only"
 
