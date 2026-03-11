@@ -248,13 +248,19 @@ For PR mode, include full-SHA code links:
 
 ## Step 6: Offer Actions
 
-Use `AskUserQuestion` to present options based on review mode:
+If the verdict is **CHANGES LOOK GOOD** (no findings), skip this step — do not present any action prompt. Go directly to the recommendation in the "Important" section below.
 
-**Local changes / branch diff** — header "Action", question "How would you like to proceed with the review findings?":
+If the verdict is **ISSUES FOUND**, use `AskUserQuestion` to present actions. The options depend on the review mode determined in Step 1:
+
+### Local changes / branch diff mode
+
+Use `AskUserQuestion` — header "Action", question "How would you like to proceed with the review findings?":
 - **Fix issues** — "Apply suggested fixes directly, then run tests to verify"
 - **Skip** — "Keep the report as reference only"
 
-**PR/MR review** — header "Action", question "How would you like to proceed with the review findings?":
+### PR/MR review mode
+
+Use `AskUserQuestion` — header "Action", question "How would you like to proceed with the review findings?":
 - **Post comment** — "Post the review summary as a PR/MR comment"
 - **Skip** — "Keep the report as reference only"
 
