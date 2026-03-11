@@ -2,7 +2,7 @@
   <img src="assets/banner.png" alt="optimus-claude" width="600">
 </div>
 
-**A Claude Code plugin that sets up your project for effective AI-assisted development** — CLAUDE.md, coding guidelines, formatter hooks, quality agents, TDD, and test coverage, all tailored to your actual codebase.
+**A Claude Code plugin that sets up your project for effective AI-assisted development** — optimized CLAUDE.md files, effective coding guidelines, formatter hooks, quality agents, TDD and test coverage, all tailored to your actual codebase.
 
 *Use it regularly and your project stays clean, consistent, tested, and well-documented — exactly the conditions where Claude Code performs at its best.*
 
