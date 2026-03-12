@@ -236,6 +236,6 @@ After the loop ends, present a cumulative summary across all iterations:
 - Total findings reverted (test failures): [N]
 - Test status: pass / fail / not available
 
-**Deep mode recommendation:** Recommend running `/optimus:commit-message` to commit the accumulated changes, then `/optimus:unit-test` to strengthen test coverage — deep simplification benefits from a strong safety net. Tell the user: **Tip:** for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch.
+**Deep mode recommendation:** Recommend running `/optimus:commit` to commit the accumulated changes, then `/optimus:unit-test` to strengthen test coverage — deep simplification benefits from a strong safety net. Tell the user: **Tip:** for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch.
 
-**Normal mode recommendation:** Recommend running `/optimus:commit-message` to commit the changes. Tell the user: **Tip:** for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch.
+**Normal mode recommendation:** Recommend running `/optimus:commit` to commit the changes. Tell the user: **Tip:** for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch.

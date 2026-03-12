@@ -59,6 +59,13 @@ The skill runs `git diff` (staged and unstaged) and `git status` to collect all 
 
 ## Relationship to Other Skills
 
+| | `/optimus:commit-message` | `/optimus:commit` |
+|---|---|---|
+| Purpose | Suggest a commit message | Commit (and optionally push) changes |
+| Output | Copyable code block | Git commit + optional push |
+| Modifies repo | No — read-only | Yes — stages, commits, pushes |
+| When to use | Want to preview the message first | Ready to commit |
+
 | | `/optimus:commit-message` | `/optimus:code-review` |
 |---|---|---|
 | Analyzes | Changed code intent | Changed code quality |
@@ -66,13 +73,14 @@ The skill runs `git diff` (staged and unstaged) and `git status` to collect all 
 | Workflow | Run after review passes | Run before committing |
 | Scope | All local changes | All local changes (or PR) |
 
-**Recommended sequence**: `/optimus:code-review` first (catch issues), then `/optimus:commit-message` (describe what you did). When the feature is ready, `/optimus:pr` to create a pull request or `/optimus:verify` to validate end-to-end.
+**Recommended sequence**: `/optimus:code-review` first (catch issues), then `/optimus:commit` (commit and push), then `/optimus:pr` (create a pull request). Use `/optimus:commit-message` if you only want to preview the message without committing.
 
 ## Skill Structure
 
 | File | Purpose |
 |---|---|
 | `SKILL.md` | Skill definition with step-by-step instructions |
+| `references/conventional-commit-format.md` | Conventional commit format specification (shared with `/optimus:commit`) |
 | *(shared)* `init/references/multi-repo-detection.md` | Multi-repo workspace detection algorithm |
 
 ## Requirements

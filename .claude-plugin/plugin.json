@@ -1,6 +1,6 @@
 {
   "name": "optimus",
-  "version": "1.28.1",
+  "version": "1.29.0",
   "description": "Sets up your project for effective AI-assisted development — optimized CLAUDE.md files, effective coding guidelines, formatter hooks, quality agents, TDD and test coverage, all tailored to your actual codebase.",
   "author": {
     "name": "oprogramadorreal",
@@ -9,5 +9,5 @@
   "homepage": "https://github.com/oprogramadorreal/optimus-claude",
   "repository": "https://github.com/oprogramadorreal/optimus-claude",
   "license": "MIT",
-  "keywords": ["optimus", "setup", "claude-md", "tdd", "simplify", "code-review", "unit-test", "verify", "pr", "permissions", "commit-message", "dev-setup", "formatter", "agents"]
+  "keywords": ["optimus", "setup", "claude-md", "tdd", "simplify", "code-review", "unit-test", "verify", "pr", "permissions", "commit", "commit-message", "dev-setup", "formatter", "agents"]
 }

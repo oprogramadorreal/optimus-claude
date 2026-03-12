@@ -66,5 +66,5 @@ Every skill must end with a recommendation for the next logical optimus skill. T
 
 ## Examples
 
-- `skills/commit-message/` — minimal skill (frontmatter + instructions, no templates).
+- `skills/commit-message/` — lightweight skill (frontmatter + instructions + shared reference, no templates).
 - `skills/init/` — full-featured skill (templates, references, agents, hooks).

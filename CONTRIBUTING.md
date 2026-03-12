@@ -25,6 +25,7 @@ optimus-claude/
 │   ├── verify/               # /optimus:verify
 │   ├── pr/                   # /optimus:pr
 │   ├── permissions/          # /optimus:permissions
+│   ├── commit/               # /optimus:commit
 │   └── commit-message/       # /optimus:commit-message
 ├── README.md
 ├── CONTRIBUTING.md

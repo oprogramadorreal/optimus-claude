@@ -397,7 +397,7 @@ If "Keep":
 
 Recommend the next step based on the verification outcome:
 - If **ALL PASSED** → `/optimus:code-review` for static quality review before merging
-- If **ISSUES FOUND** and user fixed them → `/optimus:commit-message` to commit the fixes, then re-run `/optimus:verify` to confirm
+- If **ISSUES FOUND** and user fixed them → `/optimus:commit` to commit the fixes, then re-run `/optimus:verify` to confirm
 - If **PARTIAL** → list the blocked/skipped items and suggest how to verify them
 
 Tell the user: **Tip:** for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch.

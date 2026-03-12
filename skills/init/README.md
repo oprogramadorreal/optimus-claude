@@ -132,9 +132,10 @@ Note: re-running `/optimus:init` always overwrites `coding-guidelines.md`, agent
 | `/optimus:code-review` | All docs + both agents | Pre-commit review with up to 6 parallel agents |
 | `/optimus:tdd` | CLAUDE.md, coding-guidelines.md, testing.md, both agents | Red-Green-Refactor TDD with feature branch workflow |
 | `/optimus:permissions` | Shares `.claude/settings.json` | Permission rules + path-restriction hook |
-| `/optimus:commit-message` | Independent | Conventional commit message suggestion |
+| `/optimus:commit` | Independent | Stage, commit, and optionally push with conventional message |
+| `/optimus:commit-message` | Independent | Conventional commit message suggestion (read-only) |
 
-commit-message and permissions are fully independent of init. simplify and code-review fall back to generic guidelines when project docs are missing. tdd and unit-test require init — both stop if CLAUDE.md is not found.
+commit, commit-message, and permissions are fully independent of init. simplify and code-review fall back to generic guidelines when project docs are missing. tdd and unit-test require init — both stop if CLAUDE.md is not found.
 
 ## Requirements
 
