@@ -74,14 +74,15 @@ The result: consistent patterns, meaningful names, and lean context across every
 ## Recommended Workflow
 
 1. **Initial setup** — `/optimus:init` to generate project context (audits and updates if already present)
-2. **Dev instructions** — `/optimus:dev-setup` to ensure the README has accurate setup instructions for humans
-3. **Test coverage** — `/optimus:unit-test` to establish or improve unit tests
-4. **After major changes** — re-run `/optimus:init` to audit and refresh docs
-5. **Code quality** — `/optimus:simplify` for full codebase analysis against your coding guidelines
+2. **Test coverage** — `/optimus:unit-test` to establish or improve unit tests
+3. **After major changes** — re-run `/optimus:init` to audit and refresh docs
+4. **Code quality** — `/optimus:simplify` for full codebase analysis against your coding guidelines
 
 **During development** — `/optimus:tdd` to build features test-first, `/optimus:commit-message` for conventional commits.
 
 **Before merging** — `/optimus:pr` to create or update pull requests, `/optimus:verify` to prove the feature branch works in an isolated sandbox, `/optimus:code-review` for pre-merge code quality review.
+
+**New to a codebase?** — `/optimus:dev-setup` ensures the README has accurate development setup instructions for onboarding.
 
 **Complementary tools** — Anthropic's official [code-review](https://github.com/anthropics/claude-code/tree/main/plugins/code-review) plugin for post-push PR review, [claude-md-management](https://claude.com/plugins/claude-md-management) for CLAUDE.md scoring and revision, and the builtin `/simplify` for per-change cleanup.
 
