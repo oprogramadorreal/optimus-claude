@@ -49,9 +49,9 @@ These insights flow into generated files in Steps 4–6b. The Detection Summary 
 
 **.NET solution consolidation:** When a single root `.sln` references all discovered `.csproj` files, collapse them into 1 project before applying the matrix above. Non-`.csproj` manifests still count separately.
 
-**If monorepo detected:** Inform user of detection signals and identified subprojects with tech stacks. Confirm before proceeding.
+**If monorepo detected:** Inform user of detection signals and identified subprojects with tech stacks in the Detection Summary (Step 1 Checkpoint).
 
-**If multi-repo workspace detected:** List each repo with its path and detected tech stack. For each repo, also report whether it is internally a monorepo or single project. Confirm before proceeding.
+**If multi-repo workspace detected:** List each repo with its path and detected tech stack in the Detection Summary (Step 1 Checkpoint). For each repo, also report whether it is internally a monorepo or single project.
 
 **Nested project handling:** When a repo has no manifest at its git root, but exactly 1 qualifying project in a subdirectory (via depth-2 check), and the root-as-project check fails for that repo — treat it as a **single project with a nested app root**. This applies both when running init directly in a repo and when processing repos within a multi-repo workspace. Note the subdirectory path; all commands in the generated CLAUDE.md must reference it (e.g., `cd ngapp && npm run build`).
 
@@ -72,7 +72,12 @@ Before proceeding, confirm you have all of the following. If any are missing, re
 - **Test infrastructure detected** (yes/no): test framework in dependencies, test command in scripts, or test directory present. If **no**: do not use `AskUserQuestion` about setting up tests or offer to skip — init never provisions test infrastructure. Note the absence in the summary and continue.
 - **Doc-sourced insights** (if any documentation found): verified conventions, architecture rationale, workflow rules — all cross-checked against source code
 
-Print this as a **Detection Summary** to the user before proceeding. This gives the user a chance to correct any misdetection before files are generated. If the user provides corrections, update the detection results accordingly before proceeding.
+Print this as a **Detection Summary** to the user. Then use `AskUserQuestion` — header "Detection", question "Does the detection summary look correct?":
+- **Proceed** — "Everything looks right — continue with setup"
+- **Correct** — "I need to fix something before continuing"
+- **Abort** — "Cancel init"
+
+If the user selects **Correct**, ask what needs to be changed, update the detection results accordingly, and re-present the updated Detection Summary with the same `AskUserQuestion`.
 
 If no test infrastructure was detected, include this note in the Detection Summary output:
 
