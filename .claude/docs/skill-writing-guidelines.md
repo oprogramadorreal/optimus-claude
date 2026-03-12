@@ -35,7 +35,7 @@ These quality principles apply to skill authoring just as they apply to code:
 - Load only metadata (name + description) at startup.
 - Load full SKILL.md when skill is invoked.
 - Load reference files only as needed within the skill's execution.
-- Keep file references one level deep from SKILL.md (avoid A->B->C chains).
+- Reference depth should not exceed two levels from SKILL.md (SKILL→A→B maximum). If you find yourself needing A→B→C→D, restructure by flattening the chain (preferred) — make SKILL.md reference the deeper files directly. Only inline content when the extracted file is small, single-use, and tightly coupled to its parent; otherwise inlining violates SRP by mixing concerns in one file. Circular references between files are never allowed.
 
 ## Directory Layout
 
