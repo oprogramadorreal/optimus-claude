@@ -74,9 +74,10 @@ The result: consistent patterns, meaningful names, and lean context across every
 
 ## Recommended Workflow
 
-1. **Initial setup** — `/optimus:init` to generate project context (audits and updates if already present)
-2. **Test coverage** — `/optimus:unit-test` to establish or improve unit tests
-3. **Code quality** — `/optimus:simplify` for full codebase analysis against your coding guidelines
+1. **Safety guardrails** — `/optimus:permissions` for branch protection, precious file safety, and streamlined tool permissions
+2. **Initial setup** — `/optimus:init` to generate project context (audits and updates if already present)
+3. **Test coverage** — `/optimus:unit-test` to establish or improve unit tests
+4. **Code quality** — `/optimus:simplify` for full codebase analysis against your coding guidelines
 
 **During development** — `/optimus:tdd` to build features test-first, `/optimus:commit` for conventional commits (or `/optimus:commit-message` to preview the message without committing).
 
@@ -86,9 +87,9 @@ The result: consistent patterns, meaningful names, and lean context across every
 
 **New to a codebase?** — `/optimus:dev-setup` ensures the README has accurate development setup instructions for onboarding.
 
-**Safety guardrails** — `/optimus:permissions` to enforce feature-branch workflow (blocks direct commits to protected branches), shield precious unversioned files (`.env`, certificates, databases) from accidental deletion, and auto-approve routine tool calls. For full isolation, see Complementary tools below.
+## Complementary Tools
 
-**Complementary tools** — Anthropic's official [code-review](https://github.com/anthropics/claude-code/tree/main/plugins/code-review) plugin for post-push PR review, [claude-md-management](https://claude.com/plugins/claude-md-management) for CLAUDE.md scoring and revision, the builtin `/simplify` for per-change cleanup, and Claude Code's [built-in sandboxing](https://code.claude.com/docs/en/sandboxing) or [Docker containers](https://www.docker.com/blog/docker-sandboxes-run-claude-code-and-other-coding-agents-unsupervised-but-safely/) for fully autonomous agent execution with OS-level isolation.
+Anthropic's official [code-review](https://github.com/anthropics/claude-code/tree/main/plugins/code-review) plugin for post-push PR review, [claude-md-management](https://claude.com/plugins/claude-md-management) for CLAUDE.md scoring and revision, the builtin `/simplify` for per-change cleanup, and Claude Code's [built-in sandboxing](https://code.claude.com/docs/en/sandboxing) or [Docker containers](https://www.docker.com/blog/docker-sandboxes-run-claude-code-and-other-coding-agents-unsupervised-but-safely/) for fully autonomous agent execution with OS-level isolation.
 
 ## Troubleshooting
 
