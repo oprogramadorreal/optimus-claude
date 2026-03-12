@@ -20,12 +20,12 @@ Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/multi-repo-detection.md` for wo
 2. If default branch detection fails for a repo, warn the user (e.g., "Could not detect default branch for `<repo>` — skipping") and exclude it from the candidates list
 3. Filter to repos that are on a non-default branch AND have commits ahead of the default branch
 4. If **no repos** have changes → inform the user: "No repositories in this workspace have branches with changes ready for a PR." Stop.
-5. If **one repo** has changes → inform the user which repo was detected. Run Steps 2–7 inside that repo's directory. Stop.
+5. If **one repo** has changes → inform the user which repo was detected and proceed to run Steps 2–8 inside that repo's directory
 6. If **multiple repos** have changes → present the list and use `AskUserQuestion` — header "Multi-Repo PRs", question "Multiple repositories have changes ready for PRs:". Options:
    - **All** — "Create PRs for all repos with changes (one at a time)"
    - Each individual repo name — "Create PR for `<repo>` only"
-7. If the user selects **All**, run Steps 2–7 sequentially for each repo with changes (run all commands inside the repo's directory), reporting each PR result before moving to the next. Stop.
-8. If the user selects a specific repo, run Steps 2–7 inside that repo's directory. Stop.
+7. If the user selects a specific repo, proceed to run Steps 2–8 inside that repo's directory
+8. If the user selects **All**, process each repo with changes through Steps 2–8 sequentially. For each repo: run all commands inside that repo's directory, complete Steps 2–7 fully (including the per-repo report in Step 7), then **continue to the next repo**. After the last repo, show the combined summary from Step 8
 
 ### Verify git state
 
@@ -34,6 +34,8 @@ Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/multi-repo-detection.md` for wo
 3. Check that the current branch is not the default branch. Detect the default branch using the algorithm in `$CLAUDE_PLUGIN_ROOT/skills/pr/references/default-branch-detection.md`. If no default branch can be determined → inform the user: "Could not detect the default branch. Ensure `origin` is configured and has been fetched." Stop. If on the default branch → inform the user: "You're on the default branch (`<branch>`). Switch to a feature branch first." Stop.
 
 ## Step 2: Platform Detection
+
+When processing multiple repos, show a heading (e.g., `## repo-name`) before starting this step for each repo.
 
 Read `$CLAUDE_PLUGIN_ROOT/skills/pr/references/platform-detection.md` and use the **Platform Detection Algorithm** section. If platform is unknown → inform the user that the hosting platform could not be determined and stop.
 
@@ -106,10 +108,10 @@ Generate a title and body following the template. When filling in the sections:
 
 ### Preview and confirm
 
-Present the generated title and body to the user:
+Present the generated title and body to the user (in a multi-repo workspace, include the repo name in the header):
 
 ```
-## PR Preview
+## PR Preview [— repo-name]
 
 **Title:** <title>
 
@@ -176,15 +178,29 @@ Write the body to a secure temp file (same pattern as Step 5). Clean up after th
 
 Proceed to Step 7.
 
-## Step 7: Report
+## Step 7: Per-Repo Report
 
 ```
-## PR/MR [Created / Updated]
+## PR/MR [Created / Updated] [— repo-name]
 
 - URL: [PR/MR URL]
 - Title: [title]
 - Target: [default-branch]
 - Status: Ready to merge
+```
+
+If processing multiple repos, **continue to the next repo** — go back to Step 2 for the next repo in the list. Do NOT show next-step recommendations or the fresh-conversation tip until all repos are done. After the last repo (or if processing a single repo), proceed to Step 8.
+
+## Step 8: Final Summary
+
+In a multi-repo workspace where multiple repos were processed, show a combined summary across all repos:
+
+```
+## All PRs/MRs Created
+
+| Repo | PR/MR | URL |
+|------|-------|-----|
+| `repo-name` | title | URL |
 ```
 
 Recommend running `/optimus:verify` to prove the feature works, then `/optimus:code-review` for static quality review before merging.
