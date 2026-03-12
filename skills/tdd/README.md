@@ -26,7 +26,7 @@ The [2025 DORA report](https://cloud.google.com/discover/how-test-driven-develop
 - **Quality gate** — after cycling completes, launches code-simplifier and test-guardian agents in parallel to catch cross-cycle issues (duplication between behaviors, naming drift, edge-case coverage gaps) before pushing
 - **Git worktree isolation** — optionally creates a git worktree for the feature branch, keeping the main workspace clean and enabling parallel work
 - **Bug-fix regression gate** — for bug fixes, verifies the red-green cycle is genuine: reverts the fix to confirm the test fails, then restores to confirm it passes
-- **Feature branch workflow** — creates a dedicated branch, commits after each cycle, pushes and creates a PR/MR at the end
+- **Feature branch workflow** — creates a dedicated `<type>/<slug>` branch (e.g., `feat/add-auth`, `fix/login-email`), commits after each cycle, pushes and creates a PR/MR at the end
 - **Automatic PR/MR creation** — detects GitHub/GitLab and creates a pull/merge request using the [Conventional PR](../pr/README.md) format (structured summary, changes, rationale, test plan). Suggests `/optimus:pr` if the CLI is missing
 - **Coverage tracking** — detects coverage commands from testing.md, test runner flags, or package scripts; reports delta
 - **Multi-repo workspace support** — targets specific repos in multi-repo setups
@@ -209,7 +209,7 @@ The skill produces a structured summary after completing:
 - Delta: +6%
 
 ### Git Activity
-- Branch: `tdd/add-password-reset-endpoint` (from `main`)
+- Branch: `feat/add-password-reset-endpoint` (from `main`)
 - Commits: 3
 - Pushed: ✓
 - PR: https://github.com/owner/repo/pull/42 (Conventional PR format)
@@ -219,7 +219,7 @@ The skill produces a structured summary after completing:
 
 1. Verifies project context (`CLAUDE.md`, `coding-guidelines.md`) and test infrastructure exist
 2. Distills lengthy specs into a single-sentence goal for confirmation, then analyzes task suitability — redirects unsuitable tasks (refactoring, docs, styling) to the right skill
-3. Creates a feature branch from the current branch (e.g., `tdd/add-password-reset`), with optional git worktree isolation
+3. Creates a feature branch from the current branch (e.g., `feat/add-password-reset`), with optional git worktree isolation
 4. Decomposes the feature or bug fix into small, testable behaviors for user approval
 5. For each behavior: Red (write failing test) → Green (minimal implementation) → Refactor (clean up against coding guidelines)
 6. Runs the full test suite at every transition (Red, Green, Refactor) and lint/type-check during Green
@@ -231,7 +231,7 @@ The skill produces a structured summary after completing:
 
 TDD automatically manages a feature branch for all work:
 
-1. **Branch creation** — Creates `tdd/<slug>` (or `tdd/fix-<slug>`) from the current branch before any code changes. Optionally sets up a git worktree (`.worktrees/<worktree-dir>`, where `<worktree-dir>` is the branch name with `/` replaced by `-`) so the main workspace stays on the original branch
+1. **Branch creation** — Creates `<type>/<slug>` (e.g., `feat/add-password-reset`, `fix/login-uppercase-email`) from the current branch before any code changes. Optionally sets up a git worktree (`.worktrees/<worktree-dir>`, where `<worktree-dir>` is the branch name with `/` replaced by `-`) so the main workspace stays on the original branch
 2. **Auto-commits** — After each completed Red-Green-Refactor cycle, TDD automatically stages and commits with a conventional message
 3. **Final commit** — Any uncommitted work (e.g., stopped mid-cycle) is committed at the end of the session
 4. **Push** — The feature branch is pushed to origin automatically
@@ -283,6 +283,8 @@ The user's original branch is never modified. All code review happens through th
 | `references/testing-anti-patterns.md` | Mocking anti-patterns and gate questions — loaded during Red step to prevent bad test patterns |
 | *(shared)* `init/references/multi-repo-detection.md` | Multi-repo workspace detection algorithm |
 | *(shared)* `init/references/constraint-doc-loading.md` | Constraint doc loading — Monorepo Scoping Rule |
+| *(shared)* `commit/references/branch-naming.md` | Branch naming convention |
+| *(shared)* `commit-message/references/conventional-commit-format.md` | Conventional commit message format |
 | *(shared)* `pr/references/platform-detection.md` | Platform detection and CLI management |
 
 ## Requirements

@@ -105,10 +105,7 @@ If **ambiguous** (the task has both testable and non-testable aspects, or it's u
 Always create a new branch from the current branch for TDD work. This keeps the user's original branch clean — all changes happen on the new branch.
 
 1. Record the current branch name (this becomes the PR/MR target later): `git rev-parse --abbrev-ref HEAD`
-2. Derive a branch name from the task description:
-   - For features: `tdd/<feature-slug>` (e.g., `tdd/add-password-reset-endpoint`)
-   - For bug fixes: `tdd/fix-<bug-slug>` (e.g., `tdd/fix-login-uppercase-email`)
-   - Slug rules: lowercase, hyphens for spaces, strip special characters, max 50 chars
+2. Derive a branch name from the task description. Read `$CLAUDE_PLUGIN_ROOT/skills/commit/references/branch-naming.md` for the naming convention. The `<type>` is `feat` for new features or `fix` for bug fixes (from the task classification in Step 2). The `<description>` is the slugified task description.
 3. Create and switch to the branch: `git checkout -b <branch-name>`
 4. Report the branch name to the user:
 
@@ -121,7 +118,7 @@ All TDD work will be committed to this branch.
 
 ### Worktree isolation (optional)
 
-After branch creation, offer git worktree isolation so the user's main workspace stays clean. First, derive a **worktree directory name** by replacing `/` with `-` in the branch name (e.g., `tdd/add-password-reset` → `tdd-add-password-reset`). Use this as `<worktree-dir>` in all worktree paths below.
+After branch creation, offer git worktree isolation so the user's main workspace stays clean. First, derive a **worktree directory name** by replacing `/` with `-` in the branch name (e.g., `feat/add-password-reset` → `feat-add-password-reset`). Use this as `<worktree-dir>` in all worktree paths below.
 
 Use `AskUserQuestion` — header "Workspace", question "Use a git worktree for isolated development? Your main workspace stays on the original branch.":
 - **Use worktree (Recommended)** — "Work in `.worktrees/<worktree-dir>` — main workspace stays clean, enables parallel work"
@@ -311,7 +308,7 @@ All tests: passing ✓
 After completing one Red-Green-Refactor cycle, automatically commit the work on the feature branch:
 
 1. Stage changes: prefer `git add <specific files>` for the test and implementation files touched in this cycle. Use `git add -A` only if many files were changed (e.g., renames, moves). Never stage files that look like secrets (`.env`, credentials, keys) — warn the user if any appear in `git status`
-2. Generate a conventional commit message following the format from `/optimus:commit-message` (type(scope): description) covering the behavior just completed
+2. Generate a conventional commit message. Read `$CLAUDE_PLUGIN_ROOT/skills/commit-message/references/conventional-commit-format.md` for the format. The message should cover the behavior just completed
 3. Commit: `git commit -m "<message>"`
 4. Report the commit:
 

@@ -7,10 +7,9 @@ A [Claude Code](https://docs.anthropic.com/en/docs/claude-code) skill that stage
 - Analyzes staged, unstaged, and untracked changes to generate a conventional commit message
 - Confirms with the user before committing — shows the message, branch, and file list
 - Offers "Commit and push" or "Commit only" — user decides per invocation
-- Proactive push-safety check — warns if the current branch is protected by the permissions hook
+- Protected branch handling — detects protected branches and offers to create a feature branch automatically
 - Handles untracked files — asks whether to include, exclude, or choose individually
 - Supports multi-repo workspaces — detects repos with changes and commits each independently
-- Never creates or switches branches — commits on the current branch
 
 ## Quick Start
 
@@ -56,7 +55,7 @@ Pushed to: origin/feat/signup-validation
 
 ## How It Works
 
-The skill runs `git diff` (staged and unstaged) and `git status` to collect all local changes, then analyzes the diff to generate a [Conventional Commits](https://www.conventionalcommits.org/) message. Before committing, it checks if the permissions hook (`.claude/hooks/restrict-paths.sh`) would block operations on the current branch and warns accordingly. The user always confirms via `AskUserQuestion` before any changes are made.
+The skill runs `git diff` (staged and unstaged) and `git status` to collect all local changes, then analyzes the diff to generate a [Conventional Commits](https://www.conventionalcommits.org/) message. Before committing, it checks if the permissions hook (`.claude/hooks/restrict-paths.sh`) marks the current branch as protected and, if so, offers to create a feature branch automatically. The user always confirms via `AskUserQuestion` before any changes are made.
 
 ## Relationship to Other Skills
 
@@ -81,6 +80,7 @@ The skill runs `git diff` (staged and unstaged) and `git status` to collect all 
 | File | Purpose |
 |---|---|
 | `SKILL.md` | Skill definition with step-by-step workflow |
+| `references/branch-naming.md` | Branch naming convention (shared with TDD) |
 | *(shared)* `commit-message/references/conventional-commit-format.md` | Conventional commit format specification |
 | *(shared)* `init/references/multi-repo-detection.md` | Multi-repo workspace detection algorithm |
 
