@@ -33,6 +33,12 @@
 #   is missing), it allows the operation rather than blocking it. This avoids
 #   breaking legitimate tool use when input formats change.
 #
+# MULTI-REPO WORKSPACE SUPPORT:
+#   When the project root is not itself a git repo (e.g., a directory
+#   containing multiple independent git repos), the hook resolves the git
+#   context per-file and per-command. This ensures precious file protection
+#   and branch protection work correctly in each sub-repo.
+#
 # PRECIOUS FILE PROTECTION (always-on):
 #   Well-known sensitive files (.env, *.key, *.pem, *.sqlite, etc.) that are
 #   not tracked by git receive extra protection: edits prompt for approval,
@@ -51,14 +57,48 @@ root="${CLAUDE_PROJECT_DIR}"
 # Fail-open: if project root is unknown, allow rather than block all tool use
 [[ -z "$root" ]] && exit 0
 
-# --- Precious file protection (always-on) ---
-is_git_repo=false
-git -C "$root" rev-parse --is-inside-work-tree &>/dev/null && is_git_repo=true
+# --- Git repo resolution (per-path, with caching) ---
+# In multi-repo workspaces the project root may not be a git repo.
+# We resolve the git toplevel from each file's directory instead.
+declare -A _git_root_cache 2>/dev/null || true  # associative array; ignore if bash < 4
+
+find_git_root() {
+  # Returns the git toplevel for a given path, or empty string if not in a repo.
+  # Results are cached to avoid repeated git calls.
+  local target_dir="$1"
+  [[ -d "$target_dir" ]] || target_dir="$(dirname "$target_dir")"
+  [[ -d "$target_dir" ]] || { echo ""; return; }
+
+  # Check cache (bash 4+ associative arrays)
+  if declare -p _git_root_cache &>/dev/null 2>&1; then
+    if [[ -n "${_git_root_cache[$target_dir]+_}" ]]; then
+      echo "${_git_root_cache[$target_dir]}"
+      return
+    fi
+  fi
+
+  local result
+  result="$(git -C "$target_dir" rev-parse --show-toplevel 2>/dev/null)" || result=""
+  # Normalize on Windows
+  if [[ -n "$result" ]] && command -v cygpath &>/dev/null; then
+    result="$(cygpath -u "$result" 2>/dev/null || echo "$result")"
+  fi
+
+  # Cache result
+  if declare -p _git_root_cache &>/dev/null 2>&1; then
+    _git_root_cache[$target_dir]="$result"
+  fi
+  echo "$result"
+}
 
 is_git_tracked() {
-  # Fail-open: if not a git repo or git unavailable, assume tracked (allow)
-  [[ "$is_git_repo" == "true" ]] || return 0
-  git -C "$root" ls-files --error-unmatch "$1" &>/dev/null
+  # Check if a file is tracked by git in its containing repo.
+  # Fail-open: if not in a git repo or git unavailable, assume tracked (allow).
+  local filepath="$1"
+  local repo_root
+  repo_root="$(find_git_root "$filepath")"
+  [[ -n "$repo_root" ]] || return 0  # fail-open: no repo → assume tracked
+  git -C "$repo_root" ls-files --error-unmatch "$filepath" &>/dev/null
 }
 
 is_precious() {
@@ -74,6 +114,10 @@ is_precious() {
     appsettings.*.json)
       # appsettings.json (no dot-suffix) is usually tracked; variants are not
       [[ "$lname" != "appsettings.json" ]] && return 0 ;;
+    # Service account / API keys
+    *keyfile*.json) return 0 ;;
+    # Monitoring agent configs (may contain license keys)
+    newrelic.config) return 0 ;;
     # Certificates / keys
     *.key|*.pem|*.pfx|*.p12|*.cert|*.crt|*.jks) return 0 ;;
     # Database files
@@ -150,6 +194,33 @@ get_current_branch() {
   git -C "${1:-$root}" rev-parse --abbrev-ref HEAD 2>/dev/null
 }
 
+# Resolve which git repo a git command targets.
+# Uses -C <path> if present, otherwise tries the project root.
+# Returns the repo directory suitable for get_current_branch, or empty if none.
+resolve_git_context() {
+  local dir="$1"  # from -C flag, or empty
+  if [[ -n "$dir" ]]; then
+    # Normalize Windows paths (d:/foo, D:\foo) to POSIX form (/d/foo)
+    command -v cygpath &>/dev/null && dir="$(cygpath -u "$dir" 2>/dev/null || echo "$dir")"
+    # -C was specified — resolve to an absolute path relative to project root
+    if [[ "$dir" != /* ]]; then
+      dir="$root/$dir"
+    fi
+    local repo_root
+    repo_root="$(find_git_root "$dir")"
+    if [[ -n "$repo_root" ]]; then
+      echo "$repo_root"
+      return
+    fi
+  fi
+  # No -C or -C didn't resolve — try project root
+  local root_repo
+  root_repo="$(find_git_root "$root")"
+  [[ -n "$root_repo" ]] && echo "$root_repo" && return
+  # Multi-repo workspace: no git at root and no -C — can't determine context
+  echo ""
+}
+
 # Parse git push arguments and deny if targeting a protected branch.
 # Called with all tokens after "git push" as arguments.
 # Calls deny_operation (which exits) if blocked; returns silently if allowed.
@@ -186,7 +257,7 @@ check_git_push() {
   if (( ${#positional[@]} <= 1 )); then
     # git push [remote] — pushes current branch
     local current
-    current="$(get_current_branch "${git_dir:-}")" || return 0
+    current="$(get_current_branch "${git_repo_dir:-}")" || return 0
     [[ "$current" == "HEAD" ]] && return 0
     targets=("$current")
   else
@@ -256,8 +327,6 @@ case "$tool_name" in
     if [[ "$cmd" == git\ * || "$cmd" == env\ *git\ * || "$cmd" == command\ *git\ * ]]; then
       # Normalize: extract the "git ..." portion for consistent token parsing
       git_portion="git ${cmd#*git }"
-      # Fail-open: if not a git repo, allow (no branches to protect)
-      [[ "$is_git_repo" == "true" ]] || exit 0
 
       read -ra tokens <<< "$git_portion"
       # Find git subcommand (skip global flags between 'git' and subcommand)
@@ -274,13 +343,18 @@ case "$tool_name" in
         esac
       done
 
+      # Resolve which git repo this command targets
+      git_repo_dir="$(resolve_git_context "$git_dir")"
+      # Fail-open: if we can't determine a git repo, allow (no branches to protect)
+      [[ -n "$git_repo_dir" ]] || exit 0
+
       case "$git_subcmd" in
         push)
           # Delegate to check_git_push with tokens after "git push"
           check_git_push "${tokens[@]:$((git_subcmd_idx+1))}"
           ;;
         commit|merge)
-          current_branch="$(get_current_branch "${git_dir:-}")" || exit 0
+          current_branch="$(get_current_branch "$git_repo_dir")" || exit 0
           [[ "$current_branch" == "HEAD" ]] && exit 0
           if is_protected_branch "$current_branch"; then
             deny_operation "BLOCKED: Cannot '$git_subcmd' on protected branch '$current_branch'. Switch to a feature branch first."
@@ -289,14 +363,14 @@ case "$tool_name" in
         reset)
           # Only block 'reset --hard' on protected branches
           [[ "$git_portion" == *--hard* ]] || exit 0
-          current_branch="$(get_current_branch "${git_dir:-}")" || exit 0
+          current_branch="$(get_current_branch "$git_repo_dir")" || exit 0
           [[ "$current_branch" == "HEAD" ]] && exit 0
           if is_protected_branch "$current_branch"; then
             deny_operation "BLOCKED: 'git reset --hard' on protected branch '$current_branch' is not allowed."
           fi
           ;;
         rebase)
-          current_branch="$(get_current_branch "${git_dir:-}")" || exit 0
+          current_branch="$(get_current_branch "$git_repo_dir")" || exit 0
           [[ "$current_branch" == "HEAD" ]] && exit 0
           if is_protected_branch "$current_branch"; then
             deny_operation "BLOCKED: 'git rebase' on protected branch '$current_branch' is not allowed."
@@ -330,14 +404,14 @@ case "$tool_name" in
             esac
           done
           [[ "$has_discard" == true ]] || exit 0
-          current_branch="$(get_current_branch "${git_dir:-}")" || exit 0
+          current_branch="$(get_current_branch "$git_repo_dir")" || exit 0
           [[ "$current_branch" == "HEAD" ]] && exit 0
           if is_protected_branch "$current_branch"; then
             deny_operation "BLOCKED: Discarding changes on protected branch '$current_branch' is not allowed."
           fi
           ;;
         restore)
-          current_branch="$(get_current_branch "${git_dir:-}")" || exit 0
+          current_branch="$(get_current_branch "$git_repo_dir")" || exit 0
           [[ "$current_branch" == "HEAD" ]] && exit 0
           if is_protected_branch "$current_branch"; then
             deny_operation "BLOCKED: 'git restore' on protected branch '$current_branch' is not allowed."

@@ -200,6 +200,8 @@ get_current_branch() {
 resolve_git_context() {
   local dir="$1"  # from -C flag, or empty
   if [[ -n "$dir" ]]; then
+    # Normalize Windows paths (d:/foo, D:\foo) to POSIX form (/d/foo)
+    command -v cygpath &>/dev/null && dir="$(cygpath -u "$dir" 2>/dev/null || echo "$dir")"
     # -C was specified — resolve to an absolute path relative to project root
     if [[ "$dir" != /* ]]; then
       dir="$root/$dir"
