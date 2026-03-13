@@ -74,7 +74,7 @@ If the required CLI tool (e.g., `cargo`, `flutter`, `dotnet`, `uv`) is not insta
 
 ### Unsupported stacks
 
-If the user selects "Other" and specifies a stack not in the tables above: read and apply `$CLAUDE_PLUGIN_ROOT/skills/init/references/unsupported-stack-fallback.md`. Search the web for "[language/framework] official project scaffolding CLI command". Apply the validation and approval rules from the fallback reference. If no scaffolding tool is found, create a minimal project manually (manifest file + entry point with hello-world code + `.gitignore`) with user approval.
+If the user selects "Other" and specifies a stack not in the tables above: return an **unsupported-stack signal** to the caller (SKILL.md) with the user's chosen stack name, so the caller can apply the unsupported-stack fallback procedure directly.
 
 ## Section 3: Post-Scaffold
 
