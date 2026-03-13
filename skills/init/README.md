@@ -6,6 +6,7 @@ What makes a good developer productive in a codebase also makes Claude Code prod
 
 ## Features
 
+- **New Project Scaffolding** — when run in an empty or near-empty directory, offers to scaffold a new project from scratch using official stack tooling (Vite, Next.js, Cargo, Flutter, .NET CLI, etc.), then continues with full init setup. One command to go from empty folder to a buildable, runnable project with CLAUDE.md, hooks, agents, and docs. Unsupported stacks are handled via best-effort web search fallback.
 - **Context Architecture** — creates CLAUDE.md files following [research-backed practices](https://www.humanlayer.dev/blog/writing-a-good-claude-md): a compact ~60-line root file within the LLM's peak attention window, with details in separate docs loaded only when needed. Just like you don't keep all backend details in your head while fixing a frontend bug, Claude shouldn't load everything into context at once.
 - **Code Consistency** — installs PostToolUse hooks that auto-format code every time Claude modifies a file. This prevents formatting drift — different styles introduce unnecessary token variation that adds no information.
 - **Code Quality** — deploys a [code-simplifier](templates/agents/code-simplifier.md) agent that enforces your project's [coding guidelines](templates/docs/coding-guidelines.md) — clean code, small functions, clear naming, proper abstractions. This isn't about aesthetics: well-maintained code has [30%+ fewer AI-introduced defects](https://arxiv.org/abs/2601.02200). The agent guards new code proactively; for a full project review, see `/optimus:simplify`.
@@ -104,6 +105,7 @@ Both agents reference your project's `.claude/CLAUDE.md` and `.claude/docs/` fil
 | `references/verification-protocol.md` | Cross-cutting verification discipline for completion claims |
 | `references/prerequisite-check.md` | Shared prerequisite check with fallbacks (used by code-review, simplify, verify) |
 | `references/constraint-doc-loading.md` | Shared constraint doc loading for single project and monorepo (used by 5 skills) |
+| `references/new-project-scaffolding.md` | New project scaffolding procedure for empty directories |
 | `templates/` | CLAUDE.md templates, doc templates, hook scripts, agent definitions |
 
 ## Customization

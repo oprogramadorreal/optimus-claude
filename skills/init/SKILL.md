@@ -1,5 +1,5 @@
 ---
-description: This skill prepares a project for Claude Code — generates CLAUDE.md with progressive disclosure docs, auto-format hooks, and code-quality agents (code-simplifier, test-guardian). Also audits and syncs existing documentation against source code. Replaces /init. Supports single projects, monorepos, and multi-repo workspaces (separate git repos under a shared parent directory).
+description: This skill prepares a project for Claude Code — generates CLAUDE.md with progressive disclosure docs, auto-format hooks, and code-quality agents (code-simplifier, test-guardian). Detects empty directories and offers new-project scaffolding via official stack tooling before setup. Also audits and syncs existing documentation against source code. Replaces /init. Supports single projects, monorepos, and multi-repo workspaces (separate git repos under a shared parent directory).
 disable-model-invocation: true
 ---
 
@@ -15,6 +15,20 @@ Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/claude-md-best-practices.md`. K
 - Only universally-applicable instructions
 
 ## Step 1: Detect Project Context
+
+### Empty-directory detection
+
+Before any project detection, check if the current directory is empty or near-empty. A directory is **near-empty** when it contains at most `.git/`, `.gitignore`, `LICENSE`, and/or a stub `README.md` (under 5 lines of non-empty content) — and **no manifest files** (`package.json`, `Cargo.toml`, `go.mod`, `pom.xml`, `build.gradle`, `*.csproj`, `*.sln`, `pubspec.yaml`, `pyproject.toml`, `CMakeLists.txt`) exist at any depth, and **no directories commonly used for source code** (`src/`, `lib/`, `app/`, `pkg/`, `cmd/`) are present.
+
+If the directory is empty or near-empty, use `AskUserQuestion` — header "Empty Project", question "This directory appears to be empty. Would you like to scaffold a new project?":
+- **Scaffold new project** — "Set up a new project from scratch (choose stack, generate hello-world app, then continue with full init setup)"
+- **Continue anyway** — "Proceed with init as-is (I'll add code myself later)"
+
+If the user chooses **Scaffold new project**: read and execute `$CLAUDE_PLUGIN_ROOT/skills/init/references/new-project-scaffolding.md`. If the scaffolding procedure returns an **unsupported-stack signal**, read and apply `$CLAUDE_PLUGIN_ROOT/skills/init/references/unsupported-stack-fallback.md` (steps 1–4) — search the web for the user's chosen stack's official scaffolding CLI command, apply the validation and approval rules from the fallback reference. If the fallback reaches step 5 (graceful skip), instead of skipping, create a minimal project manually (manifest file + entry point with hello-world code + `.gitignore`) with user approval. After scaffolding completes, discard all prior detection state and restart Step 1 from "Project detection" below — re-detect the now-populated project from scratch.
+
+If the user chooses **Continue anyway**: proceed with normal Step 1 detection below.
+
+### Project detection
 
 **Identify project type and package manager:** Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/tech-stack-detection.md` for the manifest-to-type table, package manager detection table, and command prefix rules. Apply those tables to the current project. For the .NET note in that reference, list all solution projects and their roles in the CLAUDE.md Project Structure section. For the Dart/Flutter note, document the commands in CLAUDE.md.
 
