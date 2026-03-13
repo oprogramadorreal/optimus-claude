@@ -16,7 +16,7 @@ Use `AskUserQuestion` — header "New Project", question "What would you like to
 
 Based on the answer, ask a follow-up `AskUserQuestion` — header "Tech Stack", question "Which stack would you like to use?" with options appropriate to the category (see Scaffold Commands Table below for the full list of built-in options). Always include an "Other" option for unlisted stacks.
 
-Then ask for the **project name** if not already clear from context. Validate it before use: it must match `^[a-zA-Z][a-zA-Z0-9._-]*$` (1–100 chars, no spaces or shell metacharacters). If invalid, ask again with guidance on valid naming for the chosen stack (lowercase with hyphens for Node.js; underscores for Python/Rust; PascalCase for .NET; etc.).
+Then ask for the **project name** if not already clear from context. Validate it before use: it must match `^[a-zA-Z][a-zA-Z0-9._-]{0,99}$` (no spaces or shell metacharacters). If invalid, ask again with guidance on valid naming for the chosen stack (lowercase with hyphens for Node.js; underscores for Python/Rust; PascalCase for .NET; etc.).
 
 ## Section 2: Scaffold Commands Table
 
@@ -39,7 +39,7 @@ Use the official scaffolding CLI for each stack. Do NOT manually generate boiler
 | Framework | Scaffold Command | Notes |
 |-----------|-----------------|-------|
 | Node.js / Express | `mkdir <name> && cd <name> && npm init -y` | After init: `npm install express` + create minimal `index.js` with hello-world route and `start` script in package.json |
-| Python / FastAPI | `uv init <name>` | After init: `cd <name> && uv add fastapi` + create minimal `main.py` with hello-world endpoint. If uv not available: `mkdir <name> && cd <name> && python3 -m venv .venv && source .venv/bin/activate && pip install fastapi uvicorn` + create `main.py` |
+| Python / FastAPI | `uv init <name>` | After init: `cd <name> && uv add fastapi` + create minimal `main.py` with hello-world endpoint. If uv not available: `mkdir <name> && cd <name> && python3 -m venv .venv && .venv/bin/pip install fastapi uvicorn` + create `main.py` (use `.venv/bin/pip` directly to avoid platform-specific activation) |
 | Rust / Axum | `cargo init <name>` | After init: add `axum` and `tokio` to `Cargo.toml` + replace `main.rs` with minimal hello-world server |
 | Go | `mkdir <name> && cd <name> && go mod init <name>` | Create minimal `main.go` with hello-world HTTP server |
 | C# / .NET Web API | `dotnet new webapi -o <name>` | Generates a complete hello-world API |
@@ -76,6 +76,16 @@ If the required CLI tool (e.g., `cargo`, `flutter`, `dotnet`, `uv`) is not insta
 
 If the user selects "Other" and specifies a stack not in the tables above: return an **unsupported-stack signal** to the caller (SKILL.md) with the user's chosen stack name, so the caller can apply the unsupported-stack fallback procedure directly.
 
+## Section 2.5: Enter Project Directory
+
+All scaffold commands create a `<name>/` subdirectory. Before post-scaffold steps, `cd` into it so all subsequent operations (and init re-detection) run from the project root:
+
+```
+cd <name>
+```
+
+If the scaffold tool placed files directly in the CWD (rare — e.g., manual setup), skip this step.
+
 ## Section 3: Post-Scaffold
 
 ### .gitignore
@@ -93,7 +103,7 @@ The project must have a `README.md` that tells a human developer how to build an
 2. If the scaffold tool generated a README without run instructions, or no README exists — create or update a minimal README:
    - `# <project-name>`
    - One-line description from the user's project description
-   - `## Development` section with commands for: install dependencies, run in dev mode, build for production, and run tests — using the correct package manager prefix (per `tech-stack-detection.md` rules). Only include commands that are actually available in the scaffolded project.
+   - `## Development` section with commands for: install dependencies, run in dev mode, build for production, and run tests — using the package manager detected from the scaffold command (npm/pnpm/yarn/bun for JS; uv/pip for Python; cargo for Rust; go for Go; dotnet for .NET). Only include commands that are actually available in the scaffolded project.
 
 ### Verify project works
 
@@ -103,4 +113,4 @@ Run the build or dev command to confirm the scaffolded project compiles/starts s
 
 1. If `.git/` does not exist, run `git init`.
 
-After git init, print: **"Scaffolding complete. Files are ready — use `/optimus:commit` when you want to make your first commit. Resuming project detection..."** and return control to init Step 1 at the "Project detection" subsection to re-detect the now-populated project from scratch.
+After git init, print: **"Scaffolding complete. Resuming project detection..."** and return control to init Step 1 at the "Project detection" subsection to re-detect the now-populated project from scratch.
