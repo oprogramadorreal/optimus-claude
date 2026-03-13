@@ -43,7 +43,7 @@ Use the official scaffolding CLI for each stack. Do NOT manually generate boiler
 | Rust / Axum | `cargo init <name>` | After init: add `axum` and `tokio` to `Cargo.toml` + replace `main.rs` with minimal hello-world server |
 | Go | `mkdir <name> && cd <name> && go mod init <name>` | Create minimal `main.go` with hello-world HTTP server |
 | C# / .NET Web API | `dotnet new webapi -o <name>` | Generates a complete hello-world API |
-| Java / Spring Boot | `mkdir -p <name> && curl --fail -sSL https://start.spring.io/starter.tgz -d type=maven-project -d language=java -d name=<name> -d artifactId=<name> \| tar -xzf - -C <name>` | If curl/Spring Initializr unavailable, search web for current alternative |
+| Java / Spring Boot | `mkdir -p <name> && curl --fail -sSL https://start.spring.io/starter.tgz -d type=maven-project -d language=java -d name=<name> -d artifactId=<name> -d baseDir= \| tar -xzf - -C <name>` | If curl/Spring Initializr unavailable, search web for current alternative |
 
 ### CLI tool stacks
 
@@ -59,7 +59,7 @@ Use the official scaffolding CLI for each stack. Do NOT manually generate boiler
 | Type | Scaffold Command | Notes |
 |------|-----------------|-------|
 | Flutter (mobile) | `flutter create <name>` | Generates a complete hello-world app |
-| React Native | `npx @react-native-community/cli init <name>` | |
+| React Native | `npx react-native@latest init <name>` | |
 | Dart (package) | `dart create -t package <name>` | |
 | Node.js (library) | `mkdir <name> && cd <name> && npm init -y` | Create `src/index.ts` with placeholder export |
 | Python (library) | `uv init --lib <name>` | If uv not available: manual setup |
