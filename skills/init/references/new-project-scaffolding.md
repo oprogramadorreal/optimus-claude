@@ -41,7 +41,7 @@ Use the official scaffolding CLI for each stack. Do NOT manually generate boiler
 | Node.js / Express | `mkdir <name> && cd <name> && npm init -y` | After init: `npm install express` + create minimal `index.js` with hello-world route and `start` script in package.json |
 | Python / FastAPI | `uv init <name>` | After init: `cd <name> && uv add fastapi` + create minimal `main.py` with hello-world endpoint. If uv not available: `mkdir <name> && cd <name> && python3 -m venv .venv` then install with `.venv/bin/pip` (Unix/macOS) or `.venv/Scripts/pip` (Windows): `pip install fastapi uvicorn` + create `main.py` |
 | Rust / Axum | `cargo init <name>` | After init: add `axum` and `tokio` to `Cargo.toml` + replace `main.rs` with minimal hello-world server |
-| Go | `mkdir <name> && cd <name> && go mod init <name>` | Create minimal `main.go` with hello-world HTTP server. Module path uses bare name as starter — ask the user if they prefer a URL-like path (e.g., `github.com/user/<name>`) |
+| Go | `mkdir <name> && cd <name> && go mod init <name>` | Create minimal `main.go` with hello-world HTTP server. Module path uses bare name as starter — ask the user if they prefer a URL-like path (e.g., `github.com/user/<name>`). Validate custom paths match `^[a-zA-Z0-9][a-zA-Z0-9._/-]*$` before use |
 | C# / .NET Web API | `dotnet new webapi -o <name>` | Generates a complete hello-world API |
 | Java / Spring Boot | `mkdir -p <name> && curl --fail -sSL https://start.spring.io/starter.tgz -d type=maven-project -d language=java -d name=<name> -d artifactId=<name> -d baseDir= \| tar -xzf - -C <name>` | If curl/Spring Initializr unavailable, search web for current alternative |
 
@@ -52,7 +52,7 @@ Use the official scaffolding CLI for each stack. Do NOT manually generate boiler
 | Node.js | `mkdir <name> && cd <name> && npm init -y` | Create `bin/<name>.js` with shebang + `bin` field in package.json |
 | Python | `uv init <name>` | Create `<name>/__main__.py` with hello-world print. If uv not available: manual venv setup |
 | Rust | `cargo init <name>` | Generates a complete hello-world CLI |
-| Go | `mkdir <name> && cd <name> && go mod init <name>` | Create `main.go` with hello-world print. Module path uses bare name as starter — ask the user if they prefer a URL-like path |
+| Go | `mkdir <name> && cd <name> && go mod init <name>` | Create `main.go` with hello-world print. Module path uses bare name as starter — ask the user if they prefer a URL-like path. Validate custom paths match `^[a-zA-Z0-9][a-zA-Z0-9._/-]*$` before use |
 
 ### Other stacks
 
