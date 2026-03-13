@@ -21,11 +21,13 @@
 - `[source dir]/` — [description]
 - `[tests dir]/` — [description]
 
+## Before Writing Code
+
+ALWAYS read `.claude/docs/coding-guidelines.md` before planning or implementing any changes. All code must follow these principles.
+
 ## Documentation
 
-Read the relevant doc before making changes:
-- `.claude/docs/coding-guidelines.md` - For new features, refactoring, code structure
-<!-- Only list docs that were actually created -->
+<!-- Only list docs that were actually created; coding-guidelines is covered above -->
 
 ## Agents
 

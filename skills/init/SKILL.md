@@ -162,7 +162,8 @@ Use template from `$CLAUDE_PLUGIN_ROOT/skills/init/templates/single-project-clau
 - Fill the Conventions section with 2-5 bullets drawn from doc-sourced insights (Step 1): architectural patterns, naming conventions, key entry points, and non-obvious rules. If no insights were found, infer conventions from the project structure (e.g., "Express routes in `src/routes/`, middleware in `src/middleware/`", "CLI entry point at `src/index.ts` using Commander.js").
 - Replace command placeholders with real commands using the detected package manager
 - Replace directory placeholders with actual project directories
-- In the Documentation section, list only docs that were actually created using `.claude/docs/` prefix
+- Keep the "Before Writing Code" section exactly as templated — do not modify or remove it
+- In the Documentation section, list only non-guideline docs that were actually created (testing.md, styling.md, architecture.md) using `.claude/docs/` prefix. The coding-guidelines.md reference is in the "Before Writing Code" section.
 - In the Agents section, list only agents that were actually installed: code-simplifier is always listed; test-guardian only if test infrastructure was detected (Step 1)
 
 The template follows WHAT/WHY/HOW structure. Keep total file under 60 lines. If no manifest was detected, use generic placeholders and inform user that manual customization is recommended.
@@ -176,7 +177,7 @@ Use template from `$CLAUDE_PLUGIN_ROOT/skills/init/templates/monorepo-claude.md`
 - If a workspace tool was detected (Step A), include "managed by [tool]" in the description line
 - If no workspace tool was detected (Step B only), use "Monorepo with [N] packages" or "Multi-project repository with [N] components" without referencing a workspace tool
 
-If root-as-project: also list root-scoped docs from `.claude/docs/` (testing.md, styling.md, architecture.md as applicable) in the Documentation section, alongside the shared `coding-guidelines.md`.
+Keep the "Before Writing Code" section exactly as templated — do not modify or remove it. If root-as-project: also list root-scoped docs from `.claude/docs/` (testing.md, styling.md, architecture.md as applicable) in the Documentation section. The coding-guidelines.md reference is in the "Before Writing Code" section.
 
 In the Agents section, list only agents that were actually installed: code-simplifier is always listed; test-guardian only if test infrastructure was detected (Step 1).
 
