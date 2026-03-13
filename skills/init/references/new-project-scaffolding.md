@@ -43,7 +43,7 @@ Use the official scaffolding CLI for each stack. Do NOT manually generate boiler
 | Rust / Axum | `cargo init <name>` | After init: add `axum` and `tokio` to `Cargo.toml` + replace `main.rs` with minimal hello-world server |
 | Go | `mkdir <name> && cd <name> && go mod init <name>` | Create minimal `main.go` with hello-world HTTP server |
 | C# / .NET Web API | `dotnet new webapi -o <name>` | Generates a complete hello-world API |
-| Java / Spring Boot | `curl --fail -sSL https://start.spring.io/starter.tgz -d type=maven-project -d language=java -d name=<name> -d artifactId=<name> \| tar -xzf - -C <name>` | If curl/Spring Initializr unavailable, search web for current alternative |
+| Java / Spring Boot | `mkdir -p <name> && curl --fail -sSL https://start.spring.io/starter.tgz -d type=maven-project -d language=java -d name=<name> -d artifactId=<name> \| tar -xzf - -C <name>` | If curl/Spring Initializr unavailable, search web for current alternative |
 
 ### CLI tool stacks
 
@@ -105,4 +105,4 @@ Run the build or dev command to confirm the scaffolded project compiles/starts s
 2. Run `git add -A && git commit -m "chore: scaffold <stack> project"`.
 3. All files should be clean — the `.gitignore` must prevent build artifacts from being committed.
 
-After the initial commit, print: **"Scaffolding complete. Resuming project detection..."** and return control to init Step 1 to re-detect the now-populated project from scratch.
+After the initial commit, print: **"Scaffolding complete. Resuming project detection..."** and return control to init Step 1 at the "Project detection" subsection to re-detect the now-populated project from scratch.
