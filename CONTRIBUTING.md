@@ -167,7 +167,7 @@ Available fixtures: `node`, `python`, `go`, `rust`, `csharp`, `monorepo`, `empty
 
 ### Skill execution tests (local)
 
-Runs skills against generated fixtures via `claude -p` (headless mode) and validates expected outputs against `test/expected-outputs.yaml`. Requires the `claude` CLI with an API key configured.
+Runs skills against generated fixtures via `claude -p` (headless mode) and validates expected outputs against `test/expected-outputs.yaml`. Requires the `claude` CLI installed and authenticated (plan subscription or API key).
 
 ```shell
 bash scripts/test-skills.sh                              # default: init + commit-message
@@ -180,7 +180,7 @@ bash scripts/test-skills.sh --budget 2.00                # set max budget per sk
 
 Skills use `AskUserQuestion` for interactive decisions, which doesn't work in headless mode. The test script works around this by using `--append-system-prompt` to instruct Claude to make default choices automatically.
 
-**Cost:** ~$0.50–2.00 per run depending on skills tested. Not intended for CI — run locally before merging significant changes.
+Not intended for CI — run locally before merging significant changes.
 
 **Adding expected outputs:** Edit `test/expected-outputs.yaml` to define what files a skill should create and what content they should contain. The format supports `files_exist`, `files_contain`, `files_not_exist`, `files_not_modified`, and `output_contains` assertions.
 

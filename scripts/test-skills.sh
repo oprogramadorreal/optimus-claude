@@ -2,8 +2,7 @@
 # Automated skill execution tests using claude -p (headless mode).
 # Runs optimus skills against generated fixtures and validates expected outputs.
 #
-# Requirements: claude CLI installed, API key configured
-# Cost: ~$0.50-2.00 per run depending on skills tested
+# Requirements: claude CLI installed and authenticated (plan subscription or API key)
 #
 # Usage:
 #   bash scripts/test-skills.sh                              # default: init + commit-message
@@ -312,7 +311,7 @@ echo
 # Check claude CLI is available
 if ! command -v claude &>/dev/null; then
   echo "ERROR: claude CLI not found. Install it first: https://docs.anthropic.com/en/docs/claude-code"
-  echo "       These tests require the claude CLI with an API key configured."
+  echo "       These tests require the claude CLI installed and authenticated."
   exit 1
 fi
 
