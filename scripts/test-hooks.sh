@@ -19,6 +19,8 @@ setup_fixture() {
   tmpdir=$(mktemp -d)
   cd "$tmpdir"
   git init -q .
+  git config user.email "test@test.com"
+  git config user.name "Test"
   # Create a dummy commit so git log works
   git commit --allow-empty -m "initial" -q
 }
