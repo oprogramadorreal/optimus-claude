@@ -40,7 +40,7 @@ fi
 echo "[Shebangs]"
 bad_shebangs=""
 while IFS= read -r f; do
-  first_line=$(git show ":$f" 2>/dev/null | head -1 | tr -d '\r')
+  first_line=$(git cat-file -p "HEAD:$f" 2>/dev/null | head -1 | tr -d '\r')
   if [[ "$first_line" == "#!/bin/bash"* ]]; then
     bad_shebangs+="  $f"$'\n'
   fi
@@ -77,7 +77,7 @@ while IFS= read -r f; do
 done < <(find ./skills -name 'SKILL.md' -not -path './.git/*')
 check "SKILL.md frontmatter valid" test -z "$fm_errors"
 if [ -n "$fm_errors" ]; then
-  printf "       Issues:\n$fm_errors"
+  printf "       Issues:\n%s" "$fm_errors"
 fi
 
 # --- 4. No ref in marketplace.json ---
