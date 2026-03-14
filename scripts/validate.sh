@@ -55,23 +55,24 @@ echo "[SKILL.md frontmatter]"
 fm_errors=""
 while IFS= read -r f; do
   skill_name=$(basename "$(dirname "$f")")
-  # Strip CR for Windows compat, then extract frontmatter between --- delimiters
-  clean=$(tr -d '\r' < "$f")
-  if ! echo "$clean" | head -1 | grep -q '^---'; then
+  # Strip CR for Windows compat; read first line directly to avoid broken pipe
+  first_line=$(head -1 "$f" | tr -d '\r')
+  if [[ "$first_line" != "---" ]]; then
     fm_errors+="  $f: missing frontmatter delimiter\n"
     continue
   fi
-  frontmatter=$(echo "$clean" | sed -n '2,/^---$/{ /^---$/d; p; }')
+  # Extract frontmatter between --- delimiters (lines 2..closing ---)
+  frontmatter=$(sed -n '2,/^---$/{ /^---$/d; p; }' "$f" | tr -d '\r')
   # Check description
-  if ! echo "$frontmatter" | grep -q '^description:'; then
+  if ! grep -q '^description:' <<< "$frontmatter"; then
     fm_errors+="  $f: missing description field\n"
   fi
   # Check disable-model-invocation
-  if ! echo "$frontmatter" | grep -q 'disable-model-invocation: true'; then
+  if ! grep -q 'disable-model-invocation: true' <<< "$frontmatter"; then
     fm_errors+="  $f: missing disable-model-invocation: true\n"
   fi
   # Check no name field (would shadow builtins)
-  if echo "$frontmatter" | grep -q '^name:'; then
+  if grep -q '^name:' <<< "$frontmatter"; then
     fm_errors+="  $f: has 'name:' field (shadows builtin commands)\n"
   fi
 done < <(find ./skills -name 'SKILL.md' -not -path './.git/*')
