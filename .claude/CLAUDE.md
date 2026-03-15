@@ -23,7 +23,7 @@ See `.claude/docs/skill-writing-guidelines.md` for skill structure, design princ
 
 ## Testing changes
 
-Run `bash scripts/test-skills.sh --fresh --all` before merging significant changes. See CONTRIBUTING.md for all test layers (validation, hooks, fixtures, skill execution) and the feature branch testing workflow. For faster iteration, use local marketplace: `/plugin marketplace add ./path/to/optimus-claude`.
+See CONTRIBUTING.md for the full testing workflow (validation, hooks, fixtures, skill execution) and the feature branch testing workflow.
 
 ## Key rules
 
