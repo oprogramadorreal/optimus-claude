@@ -156,6 +156,10 @@ run_skill_test() {
 
   echo "  RUN   $skill:$fixture (budget: \$$MAX_BUDGET, turns: $MAX_TURNS)"
 
+  # Snapshot git dirty count before claude runs (for files_not_modified checks)
+  local git_dirty_before
+  git_dirty_before=$(git status --porcelain 2>/dev/null | wc -l | tr -d ' ')
+
   # Run claude in headless mode
   local claude_output
   local exit_code=0
@@ -181,7 +185,7 @@ run_skill_test() {
   fi
 
   # Validate expected outputs
-  validate_outputs "$skill" "$fixture" "$work_dir" "$claude_output"
+  validate_outputs "$skill" "$fixture" "$work_dir" "$claude_output" "$git_dirty_before"
 
   # Cleanup
   cd "$PLUGIN_ROOT"
@@ -193,6 +197,7 @@ validate_outputs() {
   local fixture="$2"
   local work_dir="$3"
   local claude_output="$4"
+  local git_dirty_before="${5:-0}"
   local test_failed=false
 
   cd "$work_dir"
@@ -246,11 +251,12 @@ validate_outputs() {
       fi
       if [[ "$inline_value" == "true" ]]; then
         if [[ "$current_section" == "files_not_modified" ]]; then
-          # Check git status for modifications
+          # Check git status for new modifications (compare against pre-claude baseline)
           local modified
           modified=$(git status --porcelain 2>/dev/null | wc -l | tr -d ' ')
-          if [ "$modified" -gt 0 ]; then
-            echo "        FAIL  files_not_modified: $modified files changed"
+          local new_changes=$((modified - git_dirty_before))
+          if [ "$new_changes" -gt 0 ]; then
+            echo "        FAIL  files_not_modified: $new_changes new files changed"
             test_failed=true
           fi
         fi
