@@ -39,7 +39,7 @@ while [[ $# -gt 0 ]]; do
       echo "Usage: bash scripts/test-skills.sh [options]"
       echo "Options:"
       echo "  --skill <name>     Test specific skill (init, permissions, commit-message, dev-setup)"
-      echo "  --fixture <name>   Test against specific fixture (node, python, go, rust, csharp, monorepo, empty)"
+      echo "  --fixture <name>   Test against specific fixture (node, python, go, rust, csharp, monorepo, empty, multi-repo)"
       echo "  --all              Test all skill/fixture combinations"
       echo "  --fresh            Remove and regenerate all fixtures before testing"
       echo "  --turns <n>        Max agentic turns (default: 30)"
@@ -50,6 +50,11 @@ while [[ $# -gt 0 ]]; do
     *) echo "Unknown option: $1"; exit 1 ;;
   esac
 done
+
+# --- Validate flag combinations ---
+if [ -z "$SKILL_FILTER" ] && [ -n "$FIXTURE_FILTER" ]; then
+  echo "Error: --fixture requires --skill"; exit 1
+fi
 
 # --- Skill/fixture matrix ---
 # Each entry: skill_name:fixture_name
@@ -68,9 +73,14 @@ if $ALL_MODE; then
     "dev-setup:python-project"
   )
 elif [ -n "$SKILL_FILTER" ] && [ -n "$FIXTURE_FILTER" ]; then
-  TEST_MATRIX=("$SKILL_FILTER:${FIXTURE_FILTER}-project")
-  # Handle fixture names that already end in -project
-  [[ "$FIXTURE_FILTER" == *-project ]] && TEST_MATRIX=("$SKILL_FILTER:$FIXTURE_FILTER")
+  # Map fixture shorthand to directory name
+  if [[ "$FIXTURE_FILTER" == "multi-repo" ]]; then
+    TEST_MATRIX=("$SKILL_FILTER:multi-repo-workspace")
+  elif [[ "$FIXTURE_FILTER" == *-project ]] || [[ "$FIXTURE_FILTER" == *-workspace ]]; then
+    TEST_MATRIX=("$SKILL_FILTER:$FIXTURE_FILTER")
+  else
+    TEST_MATRIX=("$SKILL_FILTER:${FIXTURE_FILTER}-project")
+  fi
 elif [ -n "$SKILL_FILTER" ]; then
   # All fixtures for the given skill
   case "$SKILL_FILTER" in
@@ -128,8 +138,14 @@ run_skill_test() {
       prompt="Run /optimus:permissions to set up branch protection and permission rules for this project."
       ;;
     commit-message)
-      # Need some changes to analyze
-      echo "// new feature" >> index.js 2>/dev/null || echo "# new feature" >> README.md 2>/dev/null || true
+      # Need some changes to analyze — test for file existence to avoid creating unexpected files
+      if [ -f index.js ]; then
+        echo "// new feature" >> index.js
+      elif [ -f README.md ]; then
+        echo "# new feature" >> README.md
+      else
+        echo "# new feature" > README.md
+      fi
       prompt="Run /optimus:commit-message to suggest a conventional commit message for the current changes."
       ;;
     dev-setup)
@@ -272,7 +288,7 @@ validate_outputs() {
     fi
 
     # List items (6 or 8-space indent with dash)
-    if [[ "$line" =~ ^[[:space:]]+-[[:space:]]+\"?([^\"]*)\"?$ ]]; then
+    if [[ "$line" =~ ^[[:space:]]{6,8}-[[:space:]]+\"?([^\"]*)\"?$ ]]; then
       local value="${BASH_REMATCH[1]}"
 
       case "$current_section" in

@@ -37,7 +37,7 @@ assert_output_contains() {
   local label="$1"
   local expected="$2"
   local actual="$3"
-  if echo "$actual" | grep -q "$expected"; then
+  if echo "$actual" | grep -qF "$expected"; then
     printf "  PASS  %s\n" "$label"
     ((pass++)) || true
   else
@@ -62,7 +62,7 @@ assert_output_not_contains() {
   local label="$1"
   local unexpected="$2"
   local actual="$3"
-  if ! echo "$actual" | grep -q "$unexpected"; then
+  if ! echo "$actual" | grep -qF "$unexpected"; then
     printf "  PASS  %s\n" "$label"
     ((pass++)) || true
   else

@@ -4,3 +4,4 @@ workspace/
 evals/
 test/fixtures/
 __pycache__/
+*.stackdump
