@@ -33,6 +33,30 @@ Detailed prompt templates for each of the 6 review agents. These are used in Ste
 - General code quality concerns not tied to project guidelines
 - Issues explicitly silenced in code (e.g., `// eslint-disable`, `# noqa`)
 - Findings that contradict another agent's domain — e.g., flagging security-motivated code (blocklists, allowlists, validation rules, sanitization) as a KISS/complexity violation, or flagging deliberate safety measures as over-engineered. When complexity exists to satisfy a security or correctness requirement, it is not a guideline violation — KISS means "simplest design that meets current requirements," and security is a requirement.
+- Code introduced as a fix in a previous deep mode iteration — unless it contains a genuine new bug or vulnerability unrelated to the original fix intent (see "Iteration Context Block" below for the prior findings list)
+
+## Iteration Context Block (deep mode, iterations 2+)
+
+When `iteration-context` is non-empty, prepend the following block to every agent prompt, immediately before the line that introduces the list of changed file paths (e.g., "Review ONLY the diff/changed sections", "Review ONLY the following changed files", or "Analyze ONLY the following changed files"):
+
+```
+**Previous iteration context (iteration [N] of up to 5):**
+The following findings were detected and addressed in prior iterations. Do NOT re-flag code that was introduced as a fix unless it contains a genuine NEW bug or vulnerability — the fix was intentional and already validated.
+
+| File | Line | Category | Summary | Status |
+|------|------|----------|---------|--------|
+[one row per entry in iteration-context]
+
+Focus your review on NEW issues only — code changes from prior fixes are intentional.
+```
+
+Each row uses the format: `| path | line | category | one-sentence summary | fixed / reverted / persistent |`
+
+- **fixed** — the issue was resolved; the fix code is intentional and should not be re-flagged
+- **reverted** — the fix caused test failures and was rolled back; the original code remains — do not re-flag the same issue (it is known but unfixable without breaking tests)
+- **persistent** — a prior fix attempt failed; the issue is known and tracked
+
+Keep each summary to one sentence (under 120 characters). Omit code snippets and suggested fixes — agents can read the actual files if they need detail.
 
 ---
 

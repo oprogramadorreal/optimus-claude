@@ -159,7 +159,7 @@ Then use `AskUserQuestion` — header "Deep mode", question "Proceed with deep m
 
 If the user did not invoke with `deep`, skip this step entirely.
 
-If the user selects **Normal mode**, continue with the standard single-pass flow. Record the user's choice as a `deep-mode` flag for subsequent steps. If deep mode is confirmed, initialize `iteration-count` to 1, `total-fixed` to 0, `total-reverted` to 0, and `accumulated-findings` to an empty list.
+If the user selects **Normal mode**, continue with the standard single-pass flow. Record the user's choice as a `deep-mode` flag for subsequent steps. If deep mode is confirmed, initialize `iteration-count` to 1, `total-fixed` to 0, `total-reverted` to 0, `accumulated-findings` to an empty list, and `iteration-context` to empty.
 
 ## Step 4: Parallel Multi-Agent Review (up to 6 agents)
 
@@ -168,6 +168,8 @@ If the user selects **Normal mode**, continue with the standard single-pass flow
 Launch up to 6 `general-purpose` Agent tool calls simultaneously. Agents 1–4 always run; Agents 5–6 only run if the corresponding project agent file exists (checked in Step 2).
 
 Each agent receives the list of changed file paths from Step 1.
+
+**Deep mode iteration context (iterations 2+):** If `iteration-context` is non-empty, prepend it to every agent prompt before the file list. This tells agents what was already found and fixed so they avoid re-flagging intentional fixes. See the "Iteration Context Block (deep mode, iterations 2+)" section in `agent-prompts.md` for the exact template and placement instruction.
 
 Read `$CLAUDE_PLUGIN_ROOT/skills/code-review/references/agent-prompts.md` for the full prompt templates, quality bar, exclusion rules, and false positive guidance for all 6 agents.
 
@@ -308,7 +310,7 @@ For GitLab MRs: `glab api -X POST "projects/:id/merge_requests/<N>/notes" -F bod
 
 If deep mode is not active, skip this step entirely.
 
-Loop state (`iteration-count`, `total-fixed`, `total-reverted`, `accumulated-findings`) was initialized in Step 3.
+Loop state (`iteration-count`, `total-fixed`, `total-reverted`, `accumulated-findings`, `iteration-context`) was initialized in Step 3.
 
 If zero findings this iteration → convergence reached. Print "Iteration [N] of up to 5 — converged with zero findings." Then skip to the deep mode consolidated report below.
 
@@ -321,7 +323,7 @@ Check termination conditions:
 1. **All fixes in this iteration were reverted due to test failures** → stop. Report: "Deep mode stopped — all fixes in iteration [N] caused test failures."
 2. **No fixes were applied this iteration** (all findings lacked actionable edits) → stop. Report: "Deep mode stopped — no actionable fixes in iteration [N]. Remaining findings require manual review."
 3. **`iteration-count` equals 5** → cap reached. Report: "Deep mode reached the iteration cap (5). Remaining findings may exist — re-run `/optimus:code-review deep` in a fresh conversation to continue."
-4. **Otherwise** → increment `iteration-count` and **return to Step 4** for the next analysis pass. Re-gather the diff using `git diff` and `git status --short` only (fixes are unstaged working tree changes — `git diff --cached` shows the original staged state, not the post-fix state). For untracked files shown by `git status`, read their full content so agents can review them (untracked files do not appear in `git diff`). Do not re-run scope detection or mode selection. On subsequent iterations, instruct agents to focus only on files that had findings in the previous iteration, not the entire working tree diff.
+4. **Otherwise** → increment `iteration-count`. Build `iteration-context` from `accumulated-findings`: for each finding, extract file, line, category, a one-sentence summary (max 120 characters), and status (`fixed` / `reverted` / `persistent`). If `accumulated-findings` exceeds 30 entries, trim to 30 by evicting in this order: `fixed` entries first (lowest forward risk), then remaining entries by ascending severity (Suggestion → Warning → Critical). Never evict `reverted` or `persistent` entries — they suppress retry attempts on known-unfixable issues. If non-evictable entries alone exceed 30, keep all of them and note in iteration progress: "iteration-context overflow: [N] non-evictable entries." Then **return to Step 4** for the next analysis pass. Re-gather the diff using `git diff` and `git status --short` only (fixes are unstaged working tree changes — `git diff --cached` shows the original staged state, not the post-fix state). For untracked files shown by `git status`, read their full content so agents can review them (untracked files do not appear in `git diff`). Do not re-run scope detection or mode selection. On subsequent iterations, instruct agents to focus only on files that had findings in the previous iteration, not the entire working tree diff.
 
 ### Deep mode consolidated report
 
