@@ -10,7 +10,8 @@ Well-maintained code has [30%+ fewer AI-introduced defects](https://arxiv.org/ab
 - **Up to 6 parallel agents** — bug detection, security/logic, guideline compliance (×2 for cross-validation), plus code-simplifier and test-guardian when project agents are available
 - **Project-aware** — evaluates against your coding-guidelines.md, testing.md, architecture.md, and styling.md
 - **High signal only** — bugs, security issues, logic errors, explicit guideline violations; excludes style concerns and subjective suggestions
-- **Validation step** — each finding is independently verified (context check, intent check, pre-existing check, cross-agent consensus) using an evidence-based verification protocol before reporting
+- **Validation step** — each finding is independently verified (context check, intent check with git-history awareness, pre-existing check, cross-agent consensus) using an evidence-based verification protocol before reporting
+- **Change-intent awareness** — the intent check consults recent git history (`git log`) of flagged files to detect findings that would undo deliberate recent changes (security fixes, bug fixes, feature additions), softly reducing confidence rather than hard-filtering
 - **Contradiction resolution** — cross-agent contradictions (e.g., "add more validation" vs. "simplify this validation") are detected and resolved by severity to prevent circular fix loops
 - **Actionable output** — findings include file:line references, confidence level (High/Medium), before/after code sketches, guideline citations, and severity levels
 - **Works without `/optimus:init`** — falls back to generic coding guidelines when project-specific docs are not available
@@ -102,7 +103,7 @@ You then choose: **Fix issues**, **Post comment** (PR mode), or **Skip**.
 2. Loads project docs (CLAUDE.md, coding-guidelines.md, testing.md, etc.) with fallbacks for missing docs
 3. Deep mode activation — guard checks (test command required), user confirmation with credit/time warning (skipped in normal mode)
 4. Launches up to 6 parallel review agents (bug detection, security/logic, guideline compliance ×2, code-simplifier, test-guardian)
-5. Validates each finding using the verification protocol (context check, intent check, pre-existing check, cross-agent consensus — agent findings are treated as claims requiring independent evidence)
+5. Validates each finding using the verification protocol (context check, intent check with recent git-history awareness, pre-existing check, cross-agent consensus — agent findings are treated as claims requiring independent evidence)
 6. Consolidates, deduplicates, and presents structured report (capped at 15 per pass; deep mode accumulates across iterations)
 7. Offers actions (normal mode) or applies fixes and loops back to step 4 until clean (deep mode, max 5 iterations)
 
