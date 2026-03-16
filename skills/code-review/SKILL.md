@@ -159,7 +159,7 @@ Then use `AskUserQuestion` — header "Deep mode", question "Proceed with deep m
 
 If the user did not invoke with `deep`, skip this step entirely.
 
-If the user selects **Normal mode**, continue with the standard single-pass flow. Record the user's choice as a `deep-mode` flag for subsequent steps.
+If the user selects **Normal mode**, continue with the standard single-pass flow. Record the user's choice as a `deep-mode` flag for subsequent steps. If deep mode is active, initialize `accumulated-findings` to an empty list now — before the loop begins.
 
 ## Step 4: Parallel Multi-Agent Review (up to 6 agents)
 
@@ -308,7 +308,7 @@ For GitLab MRs: `glab api -X POST "projects/:id/merge_requests/<N>/notes" -F bod
 
 ### Deep mode
 
-Initialize loop state (first iteration only): `iteration-count` to 1, `total-fixed` to 0, `total-reverted` to 0, and `accumulated-findings` to an empty list.
+Initialize loop state (first iteration only): `iteration-count` to 1, `total-fixed` to 0, and `total-reverted` to 0. (`accumulated-findings` is already initialized in Step 3.)
 
 If zero findings this iteration → convergence reached. Print "Iteration [N] of up to 5 — converged with zero findings." Then skip to the deep mode consolidated report below.
 
