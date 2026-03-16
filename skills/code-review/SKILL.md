@@ -159,7 +159,7 @@ Then use `AskUserQuestion` — header "Deep mode", question "Proceed with deep m
 
 If the user did not invoke with `deep`, skip this step entirely.
 
-If the user selects **Normal mode**, continue with the standard single-pass flow. Record the user's choice as a `deep-mode` flag for subsequent steps. If deep mode is confirmed, initialize `iteration-count` to 1, `total-fixed` to 0, `total-reverted` to 0, and `accumulated-findings` to an empty list.
+If the user selects **Normal mode**, continue with the standard single-pass flow. Record the user's choice as a `deep-mode` flag for subsequent steps.
 
 ## Step 4: Parallel Multi-Agent Review (up to 6 agents)
 
@@ -302,23 +302,27 @@ For GitLab MRs: `glab api -X POST "projects/:id/merge_requests/<N>/notes" -F bod
 
 ### Deep mode
 
+On the first iteration, initialize `iteration-count` to 1, `total-fixed` to 0, `total-reverted` to 0, and `accumulated-findings` to an empty list.
+
 If zero findings this iteration → convergence reached. Print "Iteration [N] of up to 5 — converged with zero findings." Then skip to the deep mode consolidated report below.
 
 Otherwise, apply all findings from this iteration:
 
-1. For each finding, apply the suggested fix using Edit or MultiEdit
-2. After applying all fixes for this iteration, run the project's test command (from `.claude/CLAUDE.md`)
-3. Follow the verification protocol from `$CLAUDE_PLUGIN_ROOT/skills/init/references/verification-protocol.md`:
-   - If tests pass → add this iteration's fixed count to `total-fixed`
-   - If tests fail → revert all changes from this iteration, then re-apply one at a time (in the same order they were originally applied) with a test run after each. Keep changes that pass, skip those that fail. If a fix fails to apply cleanly after an earlier fix was skipped, treat it as failed. After bisect completes, run the full test suite once more on the combined retained changes — if this combined run fails, revert all retained fixes from this iteration. Add passing count to `total-fixed`, failing count to `total-reverted`. Mark reverted findings in `accumulated-findings` as "(reverted — test failure)"
+1. Before applying fixes, snapshot the current state: `git stash push -m "pre-iteration-N"`
+2. For each finding, apply the suggested fix
+3. After applying all fixes for this iteration, run the project's test command (from `.claude/CLAUDE.md`)
+4. Follow the verification protocol from `$CLAUDE_PLUGIN_ROOT/skills/init/references/verification-protocol.md`:
+   - If tests pass → `git stash drop` the snapshot, add this iteration's fixed count to `total-fixed`
+   - If tests fail → restore pre-iteration state (`git stash pop`), then re-apply one at a time (in the same order they were originally applied) with a test run after each. Keep changes that pass, skip those that fail. If a fix fails to apply cleanly after an earlier fix was skipped, treat it as failed. After bisect completes, run the full test suite once more on the combined retained changes — if this combined run fails, revert all retained fixes from this iteration by restoring from `git stash pop`. Add passing count to `total-fixed`, failing count to `total-reverted`. Mark reverted findings in `accumulated-findings` as "(reverted — test failure)"
 
 Print iteration progress: "Iteration [N] of up to 5 — [total-fixed] issues fixed so far, [total-reverted] reverted."
 
 Check termination conditions:
 
 1. **All fixes in this iteration were reverted due to test failures** → stop. Report: "Deep mode stopped — all fixes in iteration [N] caused test failures."
-2. **`iteration-count` equals 5** → cap reached. Report: "Deep mode reached the iteration cap (5). Remaining findings may exist — re-run `/optimus:code-review deep` in a fresh conversation to continue."
-3. **Otherwise** → increment `iteration-count` and **return to Step 4** for the next analysis pass. Re-gather the diff using only the local diff commands from Step 1 (`git diff --cached`, `git diff`, `git status --short`) — do not re-run scope detection or mode selection.
+2. **No fixes were applied this iteration** (all findings lacked actionable edits) → stop. Report: "Deep mode stopped — no actionable fixes in iteration [N]. Remaining findings require manual review."
+3. **`iteration-count` equals 5** → cap reached. Report: "Deep mode reached the iteration cap (5). Remaining findings may exist — re-run `/optimus:code-review deep` in a fresh conversation to continue."
+4. **Otherwise** → increment `iteration-count` and **return to Step 4** for the next analysis pass. Re-gather the diff using only the local diff commands from Step 1 (`git diff --cached`, `git diff`, `git status --short`) — do not re-run scope detection or mode selection. On subsequent iterations, instruct agents to focus only on files that had findings in the previous iteration, not the entire working tree diff.
 
 ### Deep mode consolidated report
 

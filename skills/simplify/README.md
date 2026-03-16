@@ -105,7 +105,7 @@ Each iteration:
 
 Deep mode stops when: no findings remain, the iteration cap (5) is reached, or all changes in an iteration fail tests. All changes remain as local modifications — review the full diff and commit when satisfied.
 
-Research confirms iterative multi-agent analysis catches issues that single-pass review misses, with most value in the first 2–3 iterations ([LLMLOOP, ICSME 2025](https://valerio-terragni.github.io/assets/pdf/ravi-icsme-2025.pdf)).
+Research confirms iterative analysis catches issues that single-pass review misses, with most value in the first 2–3 iterations ([LLMLOOP, ICSME 2025](https://valerio-terragni.github.io/assets/pdf/ravi-icsme-2025.pdf)).
 
 ## Relationship to Code-Simplifier Agent
 
