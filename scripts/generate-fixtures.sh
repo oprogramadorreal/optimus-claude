@@ -25,6 +25,7 @@ generate_node_project() {
     git init -q .
     git config user.email "test@test.com"
     git config user.name "Test"
+    git config core.autocrlf false
 
     cat > package.json <<'EOF'
 {
@@ -67,6 +68,7 @@ generate_python_project() {
     git init -q .
     git config user.email "test@test.com"
     git config user.name "Test"
+    git config core.autocrlf false
 
     cat > pyproject.toml <<'EOF'
 [project]
@@ -116,6 +118,7 @@ generate_go_project() {
     git init -q .
     git config user.email "test@test.com"
     git config user.name "Test"
+    git config core.autocrlf false
 
     cat > go.mod <<'EOF'
 module example.com/hello-go
@@ -155,6 +158,7 @@ generate_rust_project() {
     git init -q .
     git config user.email "test@test.com"
     git config user.name "Test"
+    git config core.autocrlf false
 
     cat > Cargo.toml <<'EOF'
 [package]
@@ -192,6 +196,7 @@ generate_csharp_project() {
     git init -q .
     git config user.email "test@test.com"
     git config user.name "Test"
+    git config core.autocrlf false
 
     cat > HelloCsharp.csproj <<'EOF'
 <Project Sdk="Microsoft.NET.Sdk">
@@ -236,6 +241,7 @@ generate_monorepo_project() {
     git init -q .
     git config user.email "test@test.com"
     git config user.name "Test"
+    git config core.autocrlf false
 
     # Root package.json with workspaces
     cat > package.json <<'EOF'
@@ -307,6 +313,7 @@ generate_empty_project() {
     git init -q .
     git config user.email "test@test.com"
     git config user.name "Test"
+    git config core.autocrlf false
     git commit --allow-empty -q -m "initial: empty project"
   )
   echo "  Created: empty-project"
@@ -323,6 +330,7 @@ generate_multi_repo_workspace() {
     git init -q .
     git config user.email "test@test.com"
     git config user.name "Test"
+    git config core.autocrlf false
     cat > package.json <<'EOF'
 {
   "name": "backend",
@@ -344,6 +352,7 @@ EOF
     git init -q .
     git config user.email "test@test.com"
     git config user.name "Test"
+    git config core.autocrlf false
     cat > package.json <<'EOF'
 {
   "name": "frontend",

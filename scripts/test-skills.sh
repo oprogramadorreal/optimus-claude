@@ -202,7 +202,7 @@ run_skill_test() {
     return
   fi
 
-  echo "  RUN   $skill:$fixture (turns: $MAX_TURNS)"
+  echo "  RUN   $skill:$fixture (max-turns: $MAX_TURNS)"
 
   # Snapshot git dirty count before claude runs (for files_not_modified checks)
   local git_dirty_before
