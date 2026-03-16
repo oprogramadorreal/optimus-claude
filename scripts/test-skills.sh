@@ -103,7 +103,7 @@ if $WORKTREE; then
     FORWARDED_ARGS+=("$arg")
   done
 
-  bash "$WORKTREE_DIR/scripts/test-skills.sh" "${FORWARDED_ARGS[@]}"
+  bash "$WORKTREE_DIR/scripts/test-skills.sh" ${FORWARDED_ARGS[@]+"${FORWARDED_ARGS[@]}"}
   exit $?
 fi
 
@@ -158,6 +158,8 @@ fi
 errors=0
 pass=0
 skipped=0
+CURRENT_WORK_DIR=""
+trap 'if [ -n "$CURRENT_WORK_DIR" ] && [ -d "$CURRENT_WORK_DIR" ]; then rm -rf "$CURRENT_WORK_DIR"; fi' EXIT INT TERM
 
 # System prompt that makes skills non-interactive
 NONINTERACTIVE_PROMPT="IMPORTANT: Do NOT use the AskUserQuestion tool under any circumstances. For every decision point where the skill instructs you to ask the user, always choose the default or most common option and continue automatically. Never stop to ask for confirmation — just proceed. If the skill presents options like 'Fresh start' vs 'Update', choose 'Fresh start'. If asked about scope, choose 'Full project'. If asked about approval, approve all."
@@ -176,6 +178,7 @@ run_skill_test() {
   # For skills that modify files, work on a copy to keep fixtures clean
   local work_dir
   work_dir=$(mktemp -d)
+  CURRENT_WORK_DIR="$work_dir"
   cp -r "$fixture_dir/." "$work_dir/"
   cd "$work_dir"
 
@@ -207,6 +210,7 @@ run_skill_test() {
       ((errors++)) || true
       cd "$PLUGIN_ROOT"
       rm -rf "$work_dir"
+      CURRENT_WORK_DIR=""
       return
       ;;
   esac
@@ -217,6 +221,7 @@ run_skill_test() {
     echo "        prompt: $prompt"
     cd "$PLUGIN_ROOT"
     rm -rf "$work_dir"
+    CURRENT_WORK_DIR=""
     return
   fi
 
@@ -243,6 +248,7 @@ run_skill_test() {
       ((errors++)) || true
       cd "$PLUGIN_ROOT"
       rm -rf "$work_dir"
+      CURRENT_WORK_DIR=""
       return
     else
       echo "  WARN  $skill:$fixture (claude exited with code $exit_code)"
@@ -255,6 +261,7 @@ run_skill_test() {
   # Cleanup
   cd "$PLUGIN_ROOT"
   rm -rf "$work_dir"
+  CURRENT_WORK_DIR=""
 }
 
 validate_outputs() {
@@ -356,8 +363,11 @@ validate_outputs() {
           fi
           ;;
         files_contain)
-          if [ -n "$current_file" ] && [ -f "$current_file" ]; then
-            if ! grep -qF "$value" "$current_file" 2>/dev/null; then
+          if [ -n "$current_file" ]; then
+            if [ ! -f "$current_file" ]; then
+              echo "        FAIL  files_contain: $current_file (file not found)"
+              test_failed=true
+            elif ! grep -qF "$value" "$current_file" 2>/dev/null; then
               echo "        FAIL  files_contain: $current_file should contain '$value'"
               test_failed=true
             fi
