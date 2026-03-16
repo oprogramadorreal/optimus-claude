@@ -100,7 +100,7 @@ You then choose: **Fix issues**, **Post comment** (PR mode), or **Skip**.
 
 1. Gathers local changes (or PR diff) via git commands
 2. Loads project docs (CLAUDE.md, coding-guidelines.md, testing.md, etc.) with fallbacks for missing docs
-3. Deep mode activation — guard checks (PR/MR not supported, test command required), user confirmation with credit/time warning (skipped in normal mode)
+3. Deep mode activation — guard checks (test command required), user confirmation with credit/time warning (skipped in normal mode)
 4. Launches up to 6 parallel review agents (bug detection, security/logic, guideline compliance ×2, code-simplifier, test-guardian)
 5. Validates each finding using the verification protocol (context check, intent check, pre-existing check, cross-agent consensus — agent findings are treated as claims requiring independent evidence)
 6. Consolidates, deduplicates, and presents structured report (capped at 15 per pass; deep mode accumulates across iterations)
@@ -114,7 +114,7 @@ Normal mode reports up to 15 findings per run. Deep mode loops analysis-fix cycl
 /optimus:code-review deep
 ```
 
-**Key differences from normal mode:** Deep mode **applies fixes automatically** at each iteration — it modifies your code, not just reports findings. It **requires a test command** (from `.claude/CLAUDE.md`) as its safety net; without one, it falls back to normal mode. All changes remain as local modifications — nothing is committed or pushed. Deep mode is not available for PR/MR review (only local changes and branch diff).
+**Key differences from normal mode:** Deep mode **applies fixes automatically** at each iteration — it modifies your code, not just reports findings. It **requires a test command** (from `.claude/CLAUDE.md`) as its safety net; without one, it falls back to normal mode. All changes remain as local modifications — nothing is committed or pushed.
 
 Deep mode runs the same multi-agent analysis-fix cycle repeatedly (max 5 iterations) until zero findings remain. Before starting, it warns about credit/time consumption and asks for explicit confirmation.
 
@@ -167,7 +167,7 @@ Anthropic's official [code-review](https://github.com/anthropics/claude-code/tre
 
 | File | Purpose |
 |---|---|
-| `SKILL.md` | Skill definition with 7-step review workflow (deep mode adds iteration loop in step 7) |
+| `SKILL.md` | Skill definition with 8-step review workflow (deep mode adds iteration loop in step 8) |
 | `references/agent-prompts.md` | Prompt templates for parallel review agents |
 | `references/deep-mode-bisect.md` | Stash-based snapshot/restore and bisect protocol for deep mode |
 | *(shared)* `init/references/multi-repo-detection.md` | Multi-repo workspace detection algorithm |

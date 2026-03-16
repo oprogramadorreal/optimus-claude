@@ -141,10 +141,6 @@ If the user did not invoke with `deep`, skip this step entirely.
 
 Deep mode loops review-fix cycles (Steps 4–8) until zero new findings remain or **5 iterations** are reached, then presents a single consolidated report with all fixes already applied as local changes.
 
-### PR/MR mode guard
-
-If the review mode is PR/MR (from Step 1), deep mode is not available — it auto-applies fixes locally, which does not apply to someone else's PR. Warn: "Deep mode is not available for PR/MR review — it auto-applies fixes locally. Falling back to normal mode." Then continue with the standard single-pass flow.
-
 ### Test command guard
 
 Before proceeding, check whether a test command is available (from `.claude/CLAUDE.md`). If no test command exists, deep mode's auto-fix loop has no safety net — fall back to normal mode and warn: "Deep mode requires a test command for safe auto-fix. Falling back to normal mode — run `/optimus:unit-test` first to enable deep mode." Then continue with the standard single-pass flow.
