@@ -124,10 +124,10 @@ This plugin is markdown-based — traditional unit tests don't apply. Instead, t
 **Before merging significant changes**, run the full skill test suite from a clean slate:
 
 ```shell
-bash scripts/test-skills.sh --fresh --all
+bash scripts/test-skills.sh --fresh --all --worktree
 ```
 
-This removes existing fixtures, regenerates them, and runs all skill/fixture combinations end-to-end via `claude -p`. See the subsections below for individual test layers and finer-grained options.
+This removes existing fixtures, regenerates them, and runs all skill/fixture combinations end-to-end via `claude -p`. The `--worktree` flag runs everything in a temporary git worktree so you can freely switch branches or edit files in the main tree from another terminal while tests execute in the isolated worktree. See the subsections below for individual test layers and finer-grained options.
 
 ### Structural validation (CI)
 
@@ -183,12 +183,15 @@ bash scripts/test-skills.sh --skill init                 # test one skill
 bash scripts/test-skills.sh --skill init --fixture node  # test one skill + one fixture
 bash scripts/test-skills.sh --all                        # test all skill/fixture combinations
 bash scripts/test-skills.sh --fresh --all                # clean + regenerate fixtures + test all
+bash scripts/test-skills.sh --fresh --all --worktree     # same, in an isolated worktree
 bash scripts/test-skills.sh --dry-run                    # show what would run without executing
 ```
 
 Skills use `AskUserQuestion` for interactive decisions, which doesn't work in headless mode. The test script works around this by using `--append-system-prompt` to instruct Claude to make default choices automatically.
 
 Not intended for CI — run locally before merging significant changes.
+
+**`--worktree` flag:** Creates a temporary detached git worktree from `HEAD`, runs the entire test suite there, and cleans up the worktree on exit (success or failure). This snapshots the code at the current commit so you can freely switch branches, edit plugin files, or start new work in the main tree from another terminal while the tests execute in the isolated worktree. The worktree is always temporary — no manual management needed. Combine with any other flags (`--fresh`, `--all`, `--skill`, etc.).
 
 **Adding expected outputs:** Edit `test/expected-outputs.yaml` to define what files a skill should create and what content they should contain. The format supports `files_exist`, `files_contain`, `files_not_exist`, `files_not_modified`, and `output_contains` assertions.
 

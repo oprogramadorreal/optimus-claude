@@ -9,10 +9,12 @@
 #   bash scripts/test-skills.sh --skill init                 # test one skill
 #   bash scripts/test-skills.sh --skill init --fixture node  # test one skill + one fixture
 #   bash scripts/test-skills.sh --all                        # test all testable skills
+#   bash scripts/test-skills.sh --fresh --all --worktree     # full run in isolated worktree
 #   bash scripts/test-skills.sh --dry-run                    # show what would run
 
 set -euo pipefail
 
+ORIGINAL_ARGS=("$@")
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PLUGIN_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 FIXTURES_DIR="$PLUGIN_ROOT/test/fixtures"
@@ -25,6 +27,7 @@ SKILL_FILTER=""
 FIXTURE_FILTER=""
 ALL_MODE=false
 FRESH=false
+WORKTREE=false
 
 # --- Parse args ---
 while [[ $# -gt 0 ]]; do
@@ -34,6 +37,7 @@ while [[ $# -gt 0 ]]; do
     --turns)    [[ $# -ge 2 ]] || { echo "Error: --turns requires a value"; exit 1; }; MAX_TURNS="$2"; shift 2 ;;
     --all)      ALL_MODE=true; shift ;;
     --fresh)    FRESH=true; shift ;;
+    --worktree) WORKTREE=true; shift ;;
     --dry-run)  DRY_RUN=true; shift ;;
     --help|-h)
       echo "Usage: bash scripts/test-skills.sh [options]"
@@ -42,6 +46,7 @@ while [[ $# -gt 0 ]]; do
       echo "  --fixture <name>   Test against specific fixture (node, python, go, rust, csharp, monorepo, empty, multi-repo)"
       echo "  --all              Test all skill/fixture combinations"
       echo "  --fresh            Remove and regenerate all fixtures before testing"
+      echo "  --worktree         Run in an isolated git worktree (keeps main tree free)"
       echo "  --turns <n>        Max agentic turns (default: 30)"
       echo "  --dry-run          Show what would run without executing"
       echo "  --help             Show this help"
@@ -54,6 +59,34 @@ done
 # --- Validate flag combinations ---
 if [ -z "$SKILL_FILTER" ] && [ -n "$FIXTURE_FILTER" ]; then
   echo "Error: --fixture requires --skill"; exit 1
+fi
+
+# --- Worktree isolation ---
+# Creates a temporary detached worktree and re-invokes the script from there,
+# so the user can keep working (switch branches, edit files) in the main tree.
+if $WORKTREE; then
+  WORKTREE_DIR=$(mktemp -d)
+  cleanup_worktree() {
+    echo
+    echo "Cleaning up worktree..."
+    git -C "$PLUGIN_ROOT" worktree remove "$WORKTREE_DIR" --force 2>/dev/null || true
+    rm -rf "$WORKTREE_DIR" 2>/dev/null || true
+  }
+  trap cleanup_worktree EXIT
+
+  COMMIT_SHORT=$(git -C "$PLUGIN_ROOT" rev-parse --short HEAD)
+  echo "Creating worktree at $WORKTREE_DIR (from $COMMIT_SHORT)..."
+  git -C "$PLUGIN_ROOT" worktree add --detach "$WORKTREE_DIR" HEAD -q
+
+  # Forward all args except --worktree
+  FORWARDED_ARGS=()
+  for arg in "${ORIGINAL_ARGS[@]}"; do
+    [[ "$arg" == "--worktree" ]] && continue
+    FORWARDED_ARGS+=("$arg")
+  done
+
+  bash "$WORKTREE_DIR/scripts/test-skills.sh" "${FORWARDED_ARGS[@]}"
+  exit $?
 fi
 
 # --- Skill/fixture matrix ---
