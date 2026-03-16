@@ -22,7 +22,7 @@ The [2025 DORA report](https://cloud.google.com/discover/how-test-driven-develop
 - **Guideline-aware refactoring** — applies your project's `coding-guidelines.md` during the Refactor step
 - **Convention-aware tests** — follows your `testing.md` for framework, file location, naming, and mocking patterns
 - **Test verification at every step** — runs the full test suite after Red, Green, and Refactor to catch regressions instantly
-- **Lint/type-check verification** — runs lint or type-check commands (if configured) during the Green step to catch type errors that passing tests might miss
+- **Lint/type-check verification** — runs lint or type-check commands (if configured) during the Green and Refactor steps to catch type errors that passing tests might miss
 - **Quality gate** — after cycling completes, launches code-simplifier and test-guardian agents in parallel to catch cross-cycle issues (duplication between behaviors, naming drift, edge-case coverage gaps) before pushing
 - **Git worktree isolation** — optionally creates a git worktree for the feature branch, keeping the main workspace clean and enabling parallel work
 - **Bug-fix regression gate** — for bug fixes, verifies the red-green cycle is genuine: reverts the fix to confirm the test fails, then restores to confirm it passes
@@ -222,7 +222,7 @@ The skill produces a structured summary after completing:
 3. Creates a feature branch from the current branch (e.g., `feat/add-password-reset`), with optional git worktree isolation
 4. Decomposes the feature or bug fix into small, testable behaviors for user approval
 5. For each behavior: Red (write failing test) → Green (minimal implementation) → Refactor (clean up against coding guidelines)
-6. Runs the full test suite at every transition (Red, Green, Refactor) and lint/type-check during Green
+6. Runs the full test suite at every transition (Red, Green, Refactor) and lint/type-check during Green and Refactor
 7. Automatically commits on the feature branch after each cycle
 8. Runs code-simplifier and test-guardian agents in parallel as a quality gate (if installed)
 9. Reports summary, pushes the branch, and creates a PR/MR with task description and coverage delta

@@ -281,7 +281,14 @@ Type-check: passing ✓ [or omit this line if no type-check command is available
 
 ## Step 6: Refactor — Clean Up While Green
 
-With all tests passing, review the code just written (both test and implementation) against `coding-guidelines.md`. Apply each principle as a lens — does the new code satisfy the guidelines? If not, refactor. Only extract abstractions if code written during this TDD session is already duplicated — don't search the entire codebase for extraction opportunities and don't extract speculatively.
+With all tests passing, review the code just written (both test and implementation) against `coding-guidelines.md`. Apply each principle as a lens — does the new code satisfy the guidelines? If not, refactor.
+
+**Refactoring scope:** Review code written in this TDD session **and** existing code that the new implementation directly interacts with (files it imports, calls, or inherits from). Look for:
+- Duplication between new code and existing code in those files — extract a shared abstraction
+- An existing method or class that should be adjusted to cleanly accommodate both the old and new usage
+- Naming inconsistencies between the new code and the existing code it touches
+
+Stay bounded: only consider files the new code already references — don't search the broader codebase for extraction opportunities and don't restructure code that the current behavior doesn't interact with. Eliminate duplication created by getting the test to work, but don't refactor further than necessary for this session.
 
 Also review the test:
 - Is the test name a clear behavior specification?
@@ -293,6 +300,8 @@ Make improvements only if they genuinely simplify or clarify. **Do not add featu
 ### Run the test suite
 
 Run the project's test command after every refactoring change. **All tests must remain green.** If any test fails, undo the last refactoring change — the refactoring was incorrect.
+
+If a lint or type-check command was run in Step 5, run it here too — refactoring can introduce lint or type errors that tests don't catch. If it fails, fix the issue before proceeding.
 
 Report to the user:
 
