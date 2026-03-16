@@ -1,11 +1,11 @@
 ---
-description: This skill performs local-first code review — analyzes uncommitted changes (or PRs/MRs) against project coding guidelines using up to 6 parallel review agents (bug detection, security/logic, guideline compliance ×2, code simplification, test coverage). HIGH SIGNAL only: real bugs, logic errors, security concerns, and guideline violations. Supports a "deep" parameter for iterative review-fix until zero findings remain.
+description: Reviews local changes, PRs/MRs, or branch diffs against project coding guidelines using up to 6 parallel review agents (bug detection, security/logic, guideline compliance ×2, code simplification, test coverage). Use before committing, on open PRs/MRs, or to review any branch diff. HIGH SIGNAL only: real bugs, logic errors, security concerns, and guideline violations. Supports a "deep" mode for iterative auto-fix — reviews and fixes code in a loop until zero findings remain.
 disable-model-invocation: true
 ---
 
 # Code Review
 
-Analyze local git changes (or a PR/MR) against the project's coding guidelines, using up to 6 parallel review agents for comprehensive coverage. High-signal findings only: bugs, logic errors, security issues, guideline violations. Excludes style concerns, subjective suggestions, and linter-catchable issues.
+Analyze local git changes, PRs/MRs, or branch diffs against the project's coding guidelines, using up to 6 parallel review agents for comprehensive coverage. High-signal findings only: bugs, logic errors, security issues, guideline violations. Excludes style concerns, subjective suggestions, and linter-catchable issues.
 
 ## Step 1: Determine Review Scope
 

@@ -1,5 +1,5 @@
 ---
-description: This skill analyzes the codebase against project coding guidelines as on-demand code simplification — run after /optimus:init, when code quality drifts, or for periodic cleanup. Surfaces issues that span multiple files (duplication across modules, pattern inconsistency, architectural drift) and presents a simplification plan for approval before changes are applied. Supports a "deep" parameter for iterative cleanup until zero findings remain.
+description: Analyzes the codebase against project coding guidelines as on-demand code simplification — run after /optimus:init, when code quality drifts, or for periodic cleanup. Surfaces issues that span multiple files (duplication across modules, pattern inconsistency, architectural drift) and presents a simplification plan for approval before changes are applied. Supports a "deep" parameter for iterative cleanup until zero findings remain.
 disable-model-invocation: true
 ---
 
