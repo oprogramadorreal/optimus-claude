@@ -159,7 +159,7 @@ Then use `AskUserQuestion` — header "Deep mode", question "Proceed with deep m
 
 If the user did not invoke with `deep`, skip this step entirely.
 
-If the user selects **Normal mode**, continue with the standard single-pass flow. Record the user's choice as a `deep-mode` flag for subsequent steps. If deep mode is active, initialize `accumulated-findings` to an empty list now — before the loop begins.
+If the user selects **Normal mode**, continue with the standard single-pass flow. Record the user's choice as a `deep-mode` flag for subsequent steps. If deep mode is confirmed, initialize `iteration-count` to 1, `total-fixed` to 0, `total-reverted` to 0, and `accumulated-findings` to an empty list.
 
 ## Step 4: Parallel Multi-Agent Review (up to 6 agents)
 
@@ -308,7 +308,7 @@ For GitLab MRs: `glab api -X POST "projects/:id/merge_requests/<N>/notes" -F bod
 
 ### Deep mode
 
-Initialize loop state (first iteration only): `iteration-count` to 1, `total-fixed` to 0, and `total-reverted` to 0. (`accumulated-findings` is already initialized in Step 3.)
+Loop state (`iteration-count`, `total-fixed`, `total-reverted`, `accumulated-findings`) was initialized in Step 3.
 
 If zero findings this iteration → convergence reached. Print "Iteration [N] of up to 5 — converged with zero findings." Then skip to the deep mode consolidated report below.
 
@@ -321,7 +321,7 @@ Check termination conditions:
 1. **All fixes in this iteration were reverted due to test failures** → stop. Report: "Deep mode stopped — all fixes in iteration [N] caused test failures."
 2. **No fixes were applied this iteration** (all findings lacked actionable edits) → stop. Report: "Deep mode stopped — no actionable fixes in iteration [N]. Remaining findings require manual review."
 3. **`iteration-count` equals 5** → cap reached. Report: "Deep mode reached the iteration cap (5). Remaining findings may exist — re-run `/optimus:code-review deep` in a fresh conversation to continue."
-4. **Otherwise** → increment `iteration-count` and **return to Step 4** for the next analysis pass. Re-gather the diff using only the local diff commands from Step 1 (`git diff --cached`, `git diff`, `git status --short`) — do not re-run scope detection or mode selection. On subsequent iterations, instruct agents to focus only on files that had findings in the previous iteration, not the entire working tree diff.
+4. **Otherwise** → increment `iteration-count` and **return to Step 4** for the next analysis pass. Re-gather the diff using `git diff` and `git status --short` only (fixes are unstaged working tree changes — `git diff --cached` shows the original staged state, not the post-fix state). Do not re-run scope detection or mode selection. On subsequent iterations, instruct agents to focus only on files that had findings in the previous iteration, not the entire working tree diff.
 
 ### Deep mode consolidated report
 
@@ -345,8 +345,6 @@ After presenting the consolidated report, clean up the baseline stash: check `gi
 - When changes are too broad for effective review, recommend narrowing scope
 
 After the review is complete, recommend the next step based on the outcome:
-- If deep mode completed → Recommend `/optimus:commit` to commit the accumulated fixes. After committing, recommend `/optimus:unit-test` to strengthen test coverage.
-- If issues were found and fixed (normal mode) → Recommend `/optimus:commit` to commit the fixes
-- If no issues or user skipped fixes → Recommend `/optimus:pr` to create a pull request (skip this if already reviewing a PR/MR)
-
-Tell the user: **Tip:** for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch.
+- If deep mode completed → Recommend `/optimus:commit` to commit the accumulated fixes. After committing, recommend `/optimus:unit-test` to strengthen test coverage. Tell the user: **Tip:** for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch.
+- If issues were found and fixed (normal mode) → Recommend `/optimus:commit` to commit the fixes. Tell the user: **Tip:** for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch.
+- If no issues or user skipped fixes → Recommend `/optimus:pr` to create a pull request (skip this if already reviewing a PR/MR). Tell the user: **Tip:** for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch.
