@@ -167,7 +167,7 @@ Anthropic's official [code-review](https://github.com/anthropics/claude-code/tre
 
 | File | Purpose |
 |---|---|
-| `SKILL.md` | Skill definition with 8-step review workflow |
+| `SKILL.md` | Skill definition with 7-step review workflow (deep mode adds iteration loop in step 7) |
 | `references/agent-prompts.md` | Prompt templates for parallel review agents |
 | `references/deep-mode-bisect.md` | Stash-based snapshot/restore and bisect protocol for deep mode |
 | *(shared)* `init/references/multi-repo-detection.md` | Multi-repo workspace detection algorithm |

@@ -137,7 +137,9 @@ Proceed immediately to Step 3 — do not wait for user confirmation.
 
 ## Step 3: Deep Mode Activation
 
-If the user invoked with `deep` (e.g., `/optimus:code-review deep` or `/optimus:code-review deep "focus on src/auth"`), activate deep mode. Deep mode loops review-fix cycles (Steps 4–8) until zero new findings remain or **5 iterations** are reached, then presents a single consolidated report with all fixes already applied as local changes.
+If the user did not invoke with `deep`, skip this step entirely.
+
+Deep mode loops review-fix cycles (Steps 4–8) until zero new findings remain or **5 iterations** are reached, then presents a single consolidated report with all fixes already applied as local changes.
 
 ### PR/MR mode guard
 
@@ -156,8 +158,6 @@ If a test command is available, warn the user:
 Then use `AskUserQuestion` — header "Deep mode", question "Proceed with deep mode?":
 - **Start deep mode** — "Run iterative review-fix until clean (max 5 iterations)"
 - **Normal mode** — "Single pass with manual fix option instead"
-
-If the user did not invoke with `deep`, skip this step entirely.
 
 If the user selects **Normal mode**, continue with the standard single-pass flow. Record the user's choice as a `deep-mode` flag for subsequent steps. If deep mode is confirmed, initialize `iteration-count` to 1, `total-fixed` to 0, `total-reverted` to 0, `accumulated-findings` to an empty list, and `iteration-context` to empty.
 
@@ -325,8 +325,8 @@ Check termination conditions:
 3. **`iteration-count` equals 5** → cap reached. Report: "Deep mode reached the iteration cap (5). Remaining findings may exist — re-run `/optimus:code-review deep` in a fresh conversation to continue."
 4. **Otherwise** → proceed with the next iteration:
    - 4a. Increment `iteration-count`.
-   - 4b. Build `iteration-context` from `accumulated-findings`: for each finding, extract file, line, category, a one-sentence summary (max 120 characters), and status (`fixed` / `reverted` / `persistent`). If `accumulated-findings` exceeds 30 entries, trim to 30 by evicting in this order: `fixed` entries first (lowest forward risk), then remaining entries by ascending severity (Suggestion → Warning → Critical). Never evict `reverted` or `persistent` entries — they suppress retry attempts on known-unfixable issues. If non-evictable entries alone exceed 30, cap at 60 — summarize the oldest `reverted` entries beyond 60 into a single line: "N additional reverted findings omitted — agents should not re-flag code in [file list]."
-   - 4c. Re-gather the diff using `git diff` and `git status --short` only (fixes are unstaged working tree changes — `git diff --cached` shows the original staged state, not the post-fix state). For untracked files shown by `git status`, read their full content so agents can review them (untracked files do not appear in `git diff`). Do not re-run scope detection or mode selection. On subsequent iterations, instruct agents to focus only on files that had findings in any previous iteration (from `accumulated-findings`), not the entire working tree diff.
+   - 4b. Build `iteration-context` from `accumulated-findings`: for each finding, extract file, line, category, a one-sentence summary (max 120 characters), and status (`fixed` / `reverted` / `persistent`). Apply the trimming algorithm from the "Iteration Context Trimming" section in `$CLAUDE_PLUGIN_ROOT/skills/code-review/references/deep-mode-bisect.md` if entries exceed 30.
+   - 4c. Re-gather the diff using `git diff --cached` and `git diff` (combining staged and unstaged changes) plus `git status --short` for untracked files. For untracked files shown by `git status`, read their full content so agents can review them (untracked files do not appear in `git diff`). Do not re-run scope detection or mode selection. On subsequent iterations, instruct agents to focus on files that had findings in any previous iteration (from `accumulated-findings`) plus any files modified since the previous iteration (compare `git diff` against the pre-iteration stash to detect fix side-effects).
    - 4d. **Return to Step 4** for the next analysis pass.
 
 ### Deep mode consolidated report

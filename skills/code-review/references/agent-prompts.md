@@ -33,7 +33,6 @@ Detailed prompt templates for each of the 6 review agents. These are used in Ste
 - General code quality concerns not tied to project guidelines
 - Issues explicitly silenced in code (e.g., `// eslint-disable`, `# noqa`)
 - Findings that contradict another agent's domain — e.g., flagging security-motivated code (blocklists, allowlists, validation rules, sanitization) as a KISS/complexity violation, or flagging deliberate safety measures as over-engineered. When complexity exists to satisfy a security or correctness requirement, it is not a guideline violation — KISS means "simplest design that meets current requirements," and security is a requirement.
-- Code introduced as a fix in a previous deep mode iteration — unless it contains a genuine new bug or vulnerability unrelated to the original fix intent (see "Iteration Context Block" below for the prior findings list)
 
 ## Iteration Context Block (deep mode, iterations 2+)
 
