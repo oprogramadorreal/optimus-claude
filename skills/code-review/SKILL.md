@@ -133,7 +133,7 @@ Before proceeding to the review, present a brief summary:
 - Agents available (with skip status for missing ones)
 - Project type (single project / monorepo / multi-repo workspace)
 
-Proceed immediately to Step 3 (or Step 4 if the user did not invoke with `deep`) — do not wait for user confirmation.
+Proceed immediately to Step 3 — do not wait for user confirmation.
 
 ## Step 3: Deep Mode Activation
 
@@ -310,7 +310,7 @@ Otherwise, apply all findings from this iteration:
 2. After applying all fixes for this iteration, run the project's test command (from `.claude/CLAUDE.md`)
 3. Follow the verification protocol from `$CLAUDE_PLUGIN_ROOT/skills/init/references/verification-protocol.md`:
    - If tests pass → add this iteration's fixed count to `total-fixed`
-   - If tests fail → revert all changes from this iteration, then re-apply one at a time (in the same order they were originally applied) with a test run after each. Keep changes that pass, skip those that fail. After bisect completes, run the full test suite once more on the combined retained changes — if this combined run fails, revert all retained fixes from this iteration. Add passing count to `total-fixed`, failing count to `total-reverted`. Mark reverted findings in `accumulated-findings` as "(reverted — test failure)"
+   - If tests fail → revert all changes from this iteration, then re-apply one at a time (in the same order they were originally applied) with a test run after each. Keep changes that pass, skip those that fail. If a fix fails to apply cleanly after an earlier fix was skipped, treat it as failed. After bisect completes, run the full test suite once more on the combined retained changes — if this combined run fails, revert all retained fixes from this iteration. Add passing count to `total-fixed`, failing count to `total-reverted`. Mark reverted findings in `accumulated-findings` as "(reverted — test failure)"
 
 Print iteration progress: "Iteration [N] of up to 5 — [total-fixed] issues fixed so far, [total-reverted] reverted."
 

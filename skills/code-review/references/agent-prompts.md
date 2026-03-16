@@ -1,6 +1,6 @@
 # Agent Prompt Templates
 
-Detailed prompt templates for each of the 6 review agents. These are used in Step 3 of the code review workflow.
+Detailed prompt templates for each of the 6 review agents. These are used in Step 4 of the code review workflow.
 
 ## Agent Constraints (All Agents)
 
