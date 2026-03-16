@@ -12,3 +12,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: bash scripts/validate.sh
+
+  test-hooks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash scripts/test-hooks.sh

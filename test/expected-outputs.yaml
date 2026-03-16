@@ -1,0 +1,96 @@
+# Expected outputs for optimus skill tests.
+# Used by scripts/test-skills.sh to validate skill execution results.
+#
+# Format per skill:
+#   <skill-name>:
+#     <fixture-name>:
+#       files_exist: [list of files that must exist after skill runs]
+#       files_contain:
+#         <file-path>: [list of strings that must appear in file]
+#       files_not_exist: [list of files that must NOT exist]
+#       output_contains: [list of strings in claude stdout]
+#       files_not_modified: true  # assert no files changed (read-only skills)
+#
+# Paths are relative to the fixture project root.
+
+init:
+  node-project:
+    files_exist:
+      - .claude/CLAUDE.md
+      - .claude/docs/coding-guidelines.md
+      - .claude/.optimus-version
+    files_contain:
+      .claude/docs/coding-guidelines.md:
+        - "Clarity over cleverness"
+
+  python-project:
+    files_exist:
+      - .claude/CLAUDE.md
+      - .claude/docs/coding-guidelines.md
+      - .claude/.optimus-version
+    files_contain:
+      .claude/docs/coding-guidelines.md:
+        - "Clarity over cleverness"
+
+  go-project:
+    files_exist:
+      - .claude/CLAUDE.md
+      - .claude/docs/coding-guidelines.md
+      - .claude/.optimus-version
+    files_contain:
+      .claude/docs/coding-guidelines.md:
+        - "Clarity over cleverness"
+
+  rust-project:
+    files_exist:
+      - .claude/CLAUDE.md
+      - .claude/docs/coding-guidelines.md
+      - .claude/.optimus-version
+    files_contain:
+      .claude/docs/coding-guidelines.md:
+        - "Clarity over cleverness"
+
+  csharp-project:
+    files_exist:
+      - .claude/CLAUDE.md
+      - .claude/docs/coding-guidelines.md
+      - .claude/.optimus-version
+    files_contain:
+      .claude/docs/coding-guidelines.md:
+        - "Clarity over cleverness"
+
+  monorepo-project:
+    files_exist:
+      - .claude/CLAUDE.md
+      - .claude/docs/coding-guidelines.md
+      - .claude/.optimus-version
+    files_contain:
+      .claude/docs/coding-guidelines.md:
+        - "Clarity over cleverness"
+
+  empty-project:
+    # Empty project triggers scaffolding prompt — init may or may not create files
+    # depending on Claude's decision. Just check it doesn't crash.
+    files_exist: []
+
+permissions:
+  node-project:
+    files_exist:
+      - .claude/hooks/restrict-paths.sh
+    files_contain:
+      .claude/hooks/restrict-paths.sh:
+        - "#!/usr/bin/env bash"
+
+commit-message:
+  node-project:
+    # Read-only skill: suggests a message but changes nothing
+    files_not_modified: true
+
+dev-setup:
+  node-project:
+    files_exist:
+      - README.md
+
+  python-project:
+    files_exist:
+      - README.md

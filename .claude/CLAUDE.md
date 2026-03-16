@@ -13,6 +13,8 @@ Read the root README.md to understand the plugin's full capabilities — skills,
 - `.claude-plugin/` — plugin manifests (plugin.json, marketplace.json)
 - `hooks/` — plugin-level hooks (SessionStart for project state awareness)
 - `skills/<name>/` — one directory per skill (SKILL.md + README.md + optional templates/ and references/)
+- `scripts/` — validation and test scripts (CI and local)
+- `test/` — expected outputs and generated fixtures for skill tests
 - `.claude/` — project-level Claude Code settings and hooks
 
 ## Skill-writing guidelines
@@ -21,11 +23,11 @@ See `.claude/docs/skill-writing-guidelines.md` for skill structure, design princ
 
 ## Testing changes
 
-Feature branch testing uses a two-level fetch — see CONTRIBUTING.md for the full workflow. For faster iteration, use local marketplace: `/plugin marketplace add ./path/to/optimus-claude`.
+See CONTRIBUTING.md for the full testing workflow (validation, hooks, fixtures, skill execution) and the feature branch testing workflow.
 
 ## Key rules
 
 - Do not run `/optimus:init` on this repo — it is the plugin itself, not a target project
 - Never leave a `ref` field in `marketplace.json` on the master branch
-- Bump the version in `.claude-plugin/plugin.json` for meaningful changes
+- Bump the version in `.claude-plugin/plugin.json` for meaningful changes, and update the version badge in `README.md` to match
 - Only `/optimus:init` writes `.claude/.optimus-version` in user projects — other skills that install template files must NOT update this file (it tracks init's full template audit, not individual file freshness)

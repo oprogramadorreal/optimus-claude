@@ -15,6 +15,11 @@ optimus-claude/
 ├── hooks/
 │   ├── hooks.json            # Plugin-level hooks (SessionStart for skill awareness)
 │   └── session-start         # Outputs dynamic project state on session start/resume/clear/compact
+├── scripts/
+│   ├── validate.sh           # Structural validation (CI)
+│   ├── test-hooks.sh         # Hook execution tests (CI)
+│   ├── generate-fixtures.sh  # Generates minimal project fixtures for testing (local)
+│   └── test-skills.sh        # Automated skill execution tests via claude -p (local)
 ├── skills/
 │   ├── init/                 # /optimus:init
 │   ├── dev-setup/            # /optimus:dev-setup
@@ -27,6 +32,9 @@ optimus-claude/
 │   ├── permissions/          # /optimus:permissions
 │   ├── commit/               # /optimus:commit
 │   └── commit-message/       # /optimus:commit-message
+├── test/
+│   ├── expected-outputs.yaml # Expected outputs for skill tests
+│   └── fixtures/             # Generated project fixtures (gitignored)
 ├── README.md
 ├── CONTRIBUTING.md
 └── LICENSE
@@ -109,6 +117,84 @@ Follow the conventions visible in existing skills — study `skills/commit-messa
 
 The `source` object supports an optional `"ref"` field to pin plugin code to a specific branch, tag, or SHA. This is only used during feature branch testing (see below) and must not be present on master.
 
+## Testing
+
+This plugin is markdown-based — traditional unit tests don't apply. Instead, testing is split into layers: fast structural checks that run in CI, and slower skill execution tests that run locally.
+
+**Before merging significant changes**, run the full skill test suite from a clean slate:
+
+```shell
+bash scripts/test-skills.sh --fresh --all --worktree
+```
+
+This removes existing fixtures, regenerates them, and runs all skill/fixture combinations end-to-end via `claude -p`. The `--worktree` flag runs everything in `.worktrees/skill-tests` inside the project directory so you can freely switch branches or edit files in the main tree while tests execute in the isolated worktree — and easily inspect the worktree from your IDE. See the subsections below for individual test layers and finer-grained options.
+
+### Structural validation (CI)
+
+Runs on every push and PR to master. Catches broken cross-references, syntax errors in templates, stale README entries, and other invariants.
+
+```shell
+bash scripts/validate.sh
+```
+
+Checks include:
+- CRLF and shebang consistency in scripts
+- SKILL.md frontmatter validity (`description`, `disable-model-invocation: true`, no `name:`)
+- Every `$CLAUDE_PLUGIN_ROOT/...` path resolves to an existing file
+- No orphaned files in `references/` or `templates/`
+- Template scripts parse without syntax errors (bash, node, python)
+- JSON templates are valid
+- Every skill directory has both `SKILL.md` and `README.md`
+- README lists all skills
+- `hooks.json` references existing scripts
+- Reference depth does not exceed 2 levels (SKILL → A → B max)
+
+### Hook execution tests (CI)
+
+Unit tests for the session-start hook and formatter hooks — the only executable code that runs on user machines.
+
+```shell
+bash scripts/test-hooks.sh
+```
+
+Tests all state combinations (uninitialized, partial, fully configured, dirty tree) and verifies:
+- Correct recommendations for each project state
+- Zero-output guarantee for fully configured projects
+- Formatter hooks parse JSON input and filter by file extension correctly
+
+### Fixture generator (local)
+
+Generates minimal project fixtures for testing skills. No dependencies installed — just enough files for project detection to work. Output goes to `test/fixtures/` (gitignored).
+
+```shell
+bash scripts/generate-fixtures.sh              # generate all fixtures
+bash scripts/generate-fixtures.sh node python   # generate specific ones
+```
+
+Available fixtures: `node`, `python`, `go`, `rust`, `csharp`, `monorepo`, `empty`, `multi-repo`.
+
+### Skill execution tests (local)
+
+Runs skills against generated fixtures via `claude -p` (headless mode) and validates expected outputs against `test/expected-outputs.yaml`. Requires the `claude` CLI installed and authenticated (plan subscription or API key).
+
+```shell
+bash scripts/test-skills.sh                              # default: init + commit-message
+bash scripts/test-skills.sh --skill init                 # test one skill
+bash scripts/test-skills.sh --skill init --fixture node  # test one skill + one fixture
+bash scripts/test-skills.sh --all                        # test all skill/fixture combinations
+bash scripts/test-skills.sh --fresh --all                # clean + regenerate fixtures + test all
+bash scripts/test-skills.sh --fresh --all --worktree     # same, in an isolated worktree
+bash scripts/test-skills.sh --dry-run                    # show what would run without executing
+```
+
+Skills use `AskUserQuestion` for interactive decisions, which doesn't work in headless mode. The test script works around this by using `--append-system-prompt` to instruct Claude to make default choices automatically.
+
+Not intended for CI — run locally before merging significant changes.
+
+**`--worktree` flag:** Creates a detached git worktree at `.worktrees/skill-tests` from `HEAD`, runs the entire test suite there, and cleans up the worktree on success. On failure, the worktree is preserved for debugging — the script prints the path and a cleanup command. A subsequent run with `--worktree` automatically removes stale worktrees from previous failed runs. This snapshots the code at the current commit so you can freely switch branches, edit plugin files, or start new work in the main tree while the tests run — and the worktree stays visible in your IDE for easy inspection. Combine with any other flags (`--fresh`, `--all`, `--skill`, etc.).
+
+**Adding expected outputs:** Edit `test/expected-outputs.yaml` to define what files a skill should create and what content they should contain. The format supports `files_exist`, `files_contain`, `files_not_exist`, `files_not_modified`, and `output_contains` assertions.
+
 ## Testing a feature branch
 
 This plugin's marketplace catalog and plugin code live in the same repository. Claude Code fetches them in two separate steps, which means testing from a feature branch requires changes at both levels:
@@ -174,4 +260,4 @@ No `ref` field is needed for local paths — Claude Code reads directly from the
 
 ## Version bumping
 
-The version in `.claude-plugin/plugin.json` affects update behavior. If two refs have the same manifest version, Claude Code may treat them as identical and skip the update. Bump the version in `plugin.json` when publishing meaningful changes.
+The version in `.claude-plugin/plugin.json` affects update behavior. If two refs have the same manifest version, Claude Code may treat them as identical and skip the update. Bump the version in `plugin.json` when publishing meaningful changes, and update the version badge in `README.md` to match.

@@ -104,7 +104,208 @@ if [ -n "$tmp_hits" ]; then
   printf "       Hardcoded /tmp:\n%s\n" "$tmp_hits"
 fi
 
+# --- 7. Cross-reference integrity ---
+# Every $CLAUDE_PLUGIN_ROOT/... path in skill files must point to an existing file.
+echo "[Cross-references]"
+broken_refs=""
+while IFS= read -r ref_line; do
+  # Extract the path after $CLAUDE_PLUGIN_ROOT/ or ${CLAUDE_PLUGIN_ROOT}/
+  # Paths appear inside backticks, quotes, or bare — extract until whitespace/backtick/quote
+  ref_path=$(printf '%s' "$ref_line" | sed -n 's|.*\$[{]\{0,1\}CLAUDE_PLUGIN_ROOT[}]\{0,1\}/\([^ `"'"'"']*\).*|\1|p' | head -1)
+  if [ -n "$ref_path" ] && [ ! -f "./$ref_path" ] && [ ! -d "./$ref_path" ]; then
+    # Get source file for context
+    src_file=$(printf '%s' "$ref_line" | cut -d: -f1)
+    broken_refs+="  $src_file -> $ref_path\n"
+  fi
+done < <(grep -rn '\$[{]\{0,1\}CLAUDE_PLUGIN_ROOT[}]\{0,1\}/' skills/ 2>/dev/null || true)
+check "All CLAUDE_PLUGIN_ROOT references resolve" test -z "$broken_refs"
+if [ -n "$broken_refs" ]; then
+  printf "       Broken references:\n%b" "$broken_refs"
+fi
+
+# --- 8. Orphan detection ---
+# Every file in references/ and templates/ should be referenced by at least one skill file.
+echo "[Orphan detection]"
+orphan_files=""
+# Build the set of all reference and template files
+while IFS= read -r f; do
+  # Skip README.md files in skill dirs (they're documentation, not referenced by SKILL.md via CLAUDE_PLUGIN_ROOT)
+  basename_f=$(basename "$f")
+  if [ "$basename_f" = "README.md" ]; then
+    continue
+  fi
+  # Normalize: strip leading ./
+  rel_path="${f#./}"
+  # Check if this file is referenced in any skill .md file:
+  # 1. By full relative path (e.g., skills/init/references/foo.md)
+  # 2. By basename only (e.g., format-python.py in a table or prose)
+  # 3. By parent directory reference (e.g., templates/hooks/ covers all files inside)
+  parent_dir=$(dirname "$rel_path")
+  if ! grep -rq "$rel_path" skills/ 2>/dev/null && \
+     ! grep -rq "$basename_f" skills/ 2>/dev/null && \
+     ! grep -rq "$parent_dir/" skills/ 2>/dev/null; then
+    orphan_files+="  $rel_path\n"
+  fi
+done < <(find ./skills -path '*/references/*' -o -path '*/templates/*' | grep -v '/__' | sort)
+check "No orphaned reference/template files" test -z "$orphan_files"
+if [ -n "$orphan_files" ]; then
+  printf "       Unreferenced files:\n%b" "$orphan_files"
+fi
+
+# --- 9. Template script syntax ---
+echo "[Template syntax]"
+syntax_errors=""
+
+# Shell scripts
+if command -v bash &>/dev/null; then
+  while IFS= read -r f; do
+    if ! bash -n "$f" 2>/dev/null; then
+      syntax_errors+="  $f: bash syntax error\n"
+    fi
+  done < <(find ./skills -path '*/templates/*.sh' -o -path '*/templates/**/*.sh' 2>/dev/null | sort)
+  # Also check hooks/session-start
+  if [ -f "./hooks/session-start" ]; then
+    if ! bash -n "./hooks/session-start" 2>/dev/null; then
+      syntax_errors+="  hooks/session-start: bash syntax error\n"
+    fi
+  fi
+fi
+
+# Node.js scripts
+if command -v node &>/dev/null; then
+  while IFS= read -r f; do
+    if ! node --check "$f" 2>/dev/null; then
+      syntax_errors+="  $f: node syntax error\n"
+    fi
+  done < <(find ./skills -path '*/templates/*.js' -o -path '*/templates/**/*.js' 2>/dev/null | sort)
+else
+  echo "  SKIP  Node.js syntax checks (node not installed)"
+fi
+
+# Python scripts — detect working python command (python3 may be a broken Windows alias)
+py_cmd=""
+if python3 --version &>/dev/null; then
+  py_cmd="python3"
+elif python --version &>/dev/null; then
+  py_cmd="python"
+fi
+if [ -n "$py_cmd" ]; then
+  while IFS= read -r f; do
+    if ! "$py_cmd" -c "import py_compile, sys; py_compile.compile(sys.argv[1], doraise=True)" "$f" 2>/dev/null; then
+      syntax_errors+="  $f: python syntax error\n"
+    fi
+  done < <(find ./skills -path '*/templates/*.py' -o -path '*/templates/**/*.py' 2>/dev/null | sort)
+else
+  echo "  SKIP  Python syntax checks (python not installed)"
+fi
+
+check "Template scripts parse without errors" test -z "$syntax_errors"
+if [ -n "$syntax_errors" ]; then
+  printf "       Syntax errors:\n%b" "$syntax_errors"
+fi
+
+# --- 10. JSON template validity ---
+echo "[JSON templates]"
+if command -v jq &>/dev/null; then
+  json_errors=""
+  while IFS= read -r f; do
+    # Skip known files with intentional placeholders (e.g., <python-cmd>)
+    if grep -q '<python-cmd>' "$f" 2>/dev/null; then
+      continue
+    fi
+    if ! jq empty "$f" 2>/dev/null; then
+      json_errors+="  $f: invalid JSON\n"
+    fi
+  done < <(find ./skills -path '*/templates/*.json' -o -path '*/templates/**/*.json' 2>/dev/null | sort)
+  check "JSON templates are valid" test -z "$json_errors"
+  if [ -n "$json_errors" ]; then
+    printf "       Invalid JSON:\n%b" "$json_errors"
+  fi
+else
+  echo "  SKIP  JSON template checks (jq not installed)"
+fi
+
+# --- 11. Skill directory completeness ---
+echo "[Skill completeness]"
+missing_files=""
+for skill_dir in ./skills/*/; do
+  skill_name=$(basename "$skill_dir")
+  if [ ! -f "$skill_dir/SKILL.md" ]; then
+    missing_files+="  skills/$skill_name/SKILL.md\n"
+  fi
+  if [ ! -f "$skill_dir/README.md" ]; then
+    missing_files+="  skills/$skill_name/README.md\n"
+  fi
+done
+check "Every skill has SKILL.md and README.md" test -z "$missing_files"
+if [ -n "$missing_files" ]; then
+  printf "       Missing files:\n%b" "$missing_files"
+fi
+
+# --- 12. README skill list vs actual skills/ directories ---
+echo "[README consistency]"
+readme_mismatch=""
+# Get actual skill names from directories
+actual_skills=""
+for skill_dir in ./skills/*/; do
+  actual_skills+="$(basename "$skill_dir") "
+done
+# Check each actual skill is mentioned in README.md
+for skill in $actual_skills; do
+  if ! grep -q "/optimus:$skill" README.md 2>/dev/null; then
+    readme_mismatch+="  skills/$skill: not listed in README.md\n"
+  fi
+done
+check "README lists all skills" test -z "$readme_mismatch"
+if [ -n "$readme_mismatch" ]; then
+  printf "       Missing from README:\n%b" "$readme_mismatch"
+fi
+
+# --- 13. hooks.json validity ---
+echo "[Plugin hooks]"
+if command -v jq &>/dev/null; then
+  check "hooks.json is valid JSON" jq empty hooks/hooks.json
+  # Check that referenced command scripts exist
+  hook_missing=""
+  while IFS= read -r cmd; do
+    # Extract script path from command string (strip quotes and $CLAUDE_PLUGIN_ROOT)
+    script_path=$(printf '%s' "$cmd" | sed "s|.*'\${CLAUDE_PLUGIN_ROOT}/\([^']*\)'.*|\1|" | sed 's|"${CLAUDE_PLUGIN_ROOT}/||;s|"||g')
+    if [ -n "$script_path" ] && [ ! -f "./$script_path" ]; then
+      hook_missing+="  $script_path\n"
+    fi
+  done < <(jq -r '.. | .command? // empty' hooks/hooks.json 2>/dev/null)
+  check "Hook command scripts exist" test -z "$hook_missing"
+  if [ -n "$hook_missing" ]; then
+    printf "       Missing hook scripts:\n%b" "$hook_missing"
+  fi
+else
+  echo "  SKIP  hooks.json checks (jq not installed)"
+fi
+
+# --- 14. Reference depth check (max 2 levels from SKILL.md) ---
+echo "[Reference depth]"
+deep_refs=""
+# For each reference file that is loaded by a SKILL.md, check if it loads further
+# references that themselves load more (3+ levels deep)
+while IFS= read -r ref_file; do
+  # This is a level-1 reference (loaded by SKILL.md). Check what it references.
+  while IFS= read -r l2_line; do
+    l2_path=$(printf '%s' "$l2_line" | sed -n 's|.*\$[{]\{0,1\}CLAUDE_PLUGIN_ROOT[}]\{0,1\}/\([^ `"'"'"']*\).*|\1|p' | head -1)
+    if [ -z "$l2_path" ] || [ ! -f "./$l2_path" ]; then
+      continue
+    fi
+    # This is a level-2 reference. Check if IT references more files (level-3 = too deep)
+    if grep -q '\$[{]\{0,1\}CLAUDE_PLUGIN_ROOT[}]\{0,1\}/' "./$l2_path" 2>/dev/null; then
+      deep_refs+="  $ref_file -> $l2_path -> (further refs)\n"
+    fi
+  done < <(grep '\$[{]\{0,1\}CLAUDE_PLUGIN_ROOT[}]\{0,1\}/' "./$ref_file" 2>/dev/null || true)
+done < <(find ./skills -path '*/references/*.md' | sort)
+check "Reference depth <= 2 levels" test -z "$deep_refs"
+if [ -n "$deep_refs" ]; then
+  printf "       Deep reference chains (3+ levels):\n%b" "$deep_refs"
+fi
+
 # --- Summary ---
 echo
 echo "=== Results: $pass passed, $errors failed ==="
-exit "$errors"
+if [ "$errors" -gt 0 ]; then exit 1; else exit 0; fi
