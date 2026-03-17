@@ -93,7 +93,9 @@ By default, the skill caps findings at 12 per run. For exhaustive cleanup, use `
 /optimus:simplify deep
 ```
 
-Deep mode runs the same analysis-apply cycle repeatedly (max 5 iterations) until zero findings remain. Deep mode requires a test command — without one, the auto-apply loop has no safety net, so it falls back to normal mode. Before starting, it warns about credit/time consumption and breakage risk with low test coverage, and asks for explicit confirmation.
+**Key differences from normal mode:** Deep mode **applies changes automatically** at each iteration — it modifies your code, not just reports findings. It **requires a test command** (from `.claude/CLAUDE.md`) as its safety net; without one, it falls back to normal mode. All changes remain as local modifications — nothing is committed or pushed.
+
+Deep mode runs the same analysis-apply cycle repeatedly (max 5 iterations) until zero findings remain. Before starting, it warns about credit/time consumption and breakage risk with low test coverage, and asks for explicit confirmation.
 
 Each iteration:
 1. Analyzes code (same caps: 12 findings, 5 per area)
@@ -102,6 +104,8 @@ Each iteration:
 4. Loops back for the next pass, or stops when clean
 
 Deep mode stops when: no findings remain, the iteration cap (5) is reached, or all changes in an iteration fail tests. All changes remain as local modifications — review the full diff and commit when satisfied.
+
+Iterative LLM feedback loops with automated verification consistently improve output quality, with the largest gains in early iterations and diminishing returns in later stages ([LLMLOOP, ICSME 2025](https://valerio-terragni.github.io/assets/pdf/ravi-icsme-2025.pdf)).
 
 ## Relationship to Code-Simplifier Agent
 

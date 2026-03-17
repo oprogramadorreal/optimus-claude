@@ -1,17 +1,19 @@
 # optimus:code-review
 
-A [Claude Code](https://docs.anthropic.com/en/docs/claude-code) skill that reviews local changes (or PRs/MRs) against your project's coding guidelines — using up to 6 parallel review agents for comprehensive coverage. High-signal findings only: bugs, logic errors, security issues, guideline violations.
+A [Claude Code](https://docs.anthropic.com/en/docs/claude-code) skill that reviews local changes (or PRs/MRs) against your project's coding guidelines — using up to 6 parallel review agents for comprehensive coverage. High-signal findings only: bugs, logic errors, security issues, guideline violations. Supports a **deep mode** for iterative auto-fix until zero findings remain.
 
 Well-maintained code has [30%+ fewer AI-introduced defects](https://arxiv.org/abs/2601.02200). `/optimus:init` sets up quality infrastructure with agents that guard new code automatically, and `/optimus:simplify` reviews existing code across the project. `/optimus:code-review` is the inner-loop complement: a focused review of your changes before they enter the repo.
 
 ## Features
 
 - **Local-first** — reviews uncommitted changes by default (staged + unstaged + untracked); PR/MR and branch-diff modes available on request
-- **Up to 6 parallel agents** — bug detection, security/logic, guideline compliance (×2 for cross-validation), plus code-simplifier and test-guardian when project agents are available
+- **Up to 6 parallel agents** — bug detection, security/logic, guideline compliance (x2 for cross-validation), plus code-simplifier and test-guardian when project agents are available
 - **Project-aware** — evaluates against your coding-guidelines.md, testing.md, architecture.md, and styling.md
 - **High signal only** — bugs, security issues, logic errors, explicit guideline violations; excludes style concerns and subjective suggestions
+- **Change-intent awareness** — checks recent git history to avoid flagging code that was deliberately introduced (e.g., a null check added for a bug fix), reducing false positives
 - **Validation step** — each finding is independently verified (context check, intent check, pre-existing check, cross-agent consensus) using an evidence-based verification protocol before reporting
 - **Contradiction resolution** — cross-agent contradictions (e.g., "add more validation" vs. "simplify this validation") are detected and resolved by severity to prevent circular fix loops
+- **Deep mode** — iterative review-fix loop (max 5 iterations) with automatic fix application and test verification; catches issues that single-pass review misses due to LLM attention limitations
 - **Actionable output** — findings include file:line references, confidence level (High/Medium), before/after code sketches, guideline citations, and severity levels
 - **Works without `/optimus:init`** — falls back to generic coding guidelines when project-specific docs are not available
 - **Multi-repo workspace support** — resolves per-repo documentation when opened from a workspace root containing multiple git repos
@@ -31,6 +33,8 @@ In Claude Code, use any of these:
 - `/optimus:code-review` "review PR #42"
 - `/optimus:code-review` "review changes since main"
 - `/optimus:code-review` "focus on src/auth"
+- `/optimus:code-review deep` — iterative review-fix until clean (max 5 passes)
+- `/optimus:code-review deep` "review PR #42" — deep mode on a PR
 
 ## When to Run
 
@@ -38,6 +42,46 @@ In Claude Code, use any of these:
 - **Before creating a PR** — self-review your branch changes
 - **On a teammate's PR** — review PR changes with project-specific context
 - **After major changes** — verify new code follows project patterns
+- **For thorough cleanup** — use `deep` mode to catch issues that single-pass review misses
+
+## Deep Mode
+
+Deep mode addresses a fundamental limitation of single-pass LLM review: attention saturation on large diffs causes issues to be missed. Running the same review multiple times consistently finds new issues — deep mode automates this iteration.
+
+### How it works
+
+1. Confirms with the user (warns about credit/time cost)
+2. Runs the full multi-agent review (same 6 agents as normal mode)
+3. Auto-applies all validated fixes (no per-change approval)
+4. Runs tests — if failures occur, reverts all fixes and re-applies one at a time to isolate the breaking fix
+5. Checks termination: converged (zero findings), all reverted, cap reached (5), or continues
+6. Repeats from step 2 with awareness of prior findings
+
+### Key differences from normal mode
+
+| Aspect | Normal mode | Deep mode |
+|--------|-------------|-----------|
+| Iterations | 1 (single pass) | Up to 5 |
+| Fix approval | User chooses (Fix / Post / Skip) | Automatic (confirmed upfront) |
+| Test verification | After user-approved fixes | After every iteration |
+| Failed fixes | N/A | Reverted individually via bisect |
+| Output | Immediate report | Consolidated report after all iterations |
+| Requirement | None | Test command in CLAUDE.md |
+
+### Iteration context
+
+On iterations 2+, each agent receives a table of prior findings with their status (fixed / reverted / persistent). This prevents re-flagging code that was intentionally modified by prior fixes and focuses agents on genuinely new issues.
+
+### Stop conditions
+
+- **Convergence** — zero new findings (code is clean)
+- **All reverted** — every fix in an iteration caused test failures
+- **No actionable fixes** — findings exist but lack concrete code edits
+- **Cap reached** — 5 iterations completed (re-run in fresh conversation to continue)
+
+### Research context
+
+Iterative LLM feedback loops with automated verification (tests, static analysis) consistently improve output quality, with the largest gains in early iterations and diminishing returns in later stages ([LLMLOOP, ICSME 2025](https://valerio-terragni.github.io/assets/pdf/ravi-icsme-2025.pdf)).
 
 ## Example Output
 
@@ -93,14 +137,25 @@ The skill presents a structured review report:
 
 You then choose: **Fix issues**, **Post comment** (PR mode), or **Skip**.
 
+In deep mode, the consolidated report includes iteration stats:
+
+```
+### Summary
+- Iterations: 3
+- Total fixed: 8
+- Total reverted (test failures): 1
+```
+
 ## How It Works
 
 1. Gathers local changes (or PR diff) via git commands
 2. Loads project docs (CLAUDE.md, coding-guidelines.md, testing.md, etc.) with fallbacks for missing docs
-3. Launches up to 6 parallel review agents (bug detection, security/logic, guideline compliance ×2, code-simplifier, test-guardian)
-4. Validates each finding using the verification protocol (context check, intent check, pre-existing check, cross-agent consensus — agent findings are treated as claims requiring independent evidence)
-5. Consolidates, deduplicates, and presents structured report (capped at 10 findings)
-6. Offers actions: fix issues, post PR comment, or skip
+3. Activates deep mode if requested (requires test command, confirms with user)
+4. Launches up to 6 parallel review agents (bug detection, security/logic, guideline compliance x2, code-simplifier, test-guardian)
+5. Validates each finding using the verification protocol (context check, intent check, change-intent awareness, pre-existing check, cross-agent consensus)
+6. Consolidates, deduplicates, and presents structured report (capped at 15 findings)
+7. Offers actions: fix issues, post PR comment, or skip (normal mode)
+8. In deep mode: auto-applies fixes, runs tests, reverts failures via bisect, repeats up to 5 iterations, then presents a consolidated report
 
 ## Relationship to Official /code-review
 
@@ -112,7 +167,8 @@ Anthropic's official [code-review](https://github.com/anthropics/claude-code/tre
 | Guidelines | CLAUDE.md only | coding-guidelines.md, testing.md, styling.md, architecture.md |
 | Agents | 4 (parallel review agents) | Up to 6 (parallel review agents) |
 | Agent types | 2 CLAUDE.md compliance + 1 bug + 1 security | 2 guideline compliance + 1 bug + 1 security + code-simplifier + test-guardian |
-| Validation | Sub-agent validation + confidence scoring | Inline validation (context, intent, pre-existing, consensus) |
+| Validation | Sub-agent validation + confidence scoring | Inline validation (context, intent, change-intent, pre-existing, consensus) |
+| Deep mode | No | Yes — iterative auto-fix (max 5 iterations) |
 | Output | Terminal + inline PR comments | Terminal + optional PR comment or fix-in-place |
 | Install | `claude plugin add code-review` | Part of optimus plugin |
 
@@ -126,7 +182,8 @@ Anthropic's official [code-review](https://github.com/anthropics/claude-code/tre
 | Focus | Bugs, security, guideline compliance | Cross-file patterns, duplication, drift |
 | Trigger | Before commit/PR | Periodic or after major milestones |
 | Action | Report + optional fix | Plan + apply on approval |
-| Agents | Up to 6 parallel (bug, security, guidelines ×2, simplifier, test-guardian) | None (direct analysis) |
+| Deep mode | Yes — iterative review-fix loop | Yes — iterative cleanup loop |
+| Agents | Up to 6 parallel (bug, security, guidelines x2, simplifier, test-guardian) | None (direct analysis) |
 
 | | `/optimus:code-review` | `/optimus:commit-message` |
 |---|---|---|
@@ -138,8 +195,8 @@ Anthropic's official [code-review](https://github.com/anthropics/claude-code/tre
 
 | File | Purpose |
 |---|---|
-| `SKILL.md` | Skill definition with 6-step review workflow |
-| `references/agent-prompts.md` | Prompt templates for parallel review agents |
+| `SKILL.md` | Skill definition with 8-step review workflow |
+| `references/agent-prompts.md` | Prompt templates for parallel review agents (including iteration context block for deep mode) |
 | *(shared)* `init/references/multi-repo-detection.md` | Multi-repo workspace detection algorithm |
 | *(shared)* `init/references/prerequisite-check.md` | Shared prerequisite check with fallbacks |
 | *(shared)* `init/references/constraint-doc-loading.md` | Constraint doc loading (single project, monorepo) |
@@ -151,6 +208,7 @@ Anthropic's official [code-review](https://github.com/anthropics/claude-code/tre
 - Git
 - Project initialized with `/optimus:init` (recommended, not required — enables all 6 agents and project-specific guidelines)
 - GitHub CLI (`gh`) or GitLab CLI (`glab`) for PR/MR review mode (optional)
+- Test command in `.claude/CLAUDE.md` for deep mode (required)
 
 ## License
 
