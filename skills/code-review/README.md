@@ -12,7 +12,7 @@ Well-maintained code has [30%+ fewer AI-introduced defects](https://arxiv.org/ab
 - **High signal only** — bugs, security issues, logic errors, explicit guideline violations; excludes style concerns and subjective suggestions
 - **Change-intent awareness** — checks recent git history and PR/MR descriptions to avoid flagging code that was deliberately introduced (e.g., a null check added for a bug fix), reducing false positives
 - **PR/MR context awareness** — in PR/MR mode, agents receive the author's description as an intent signal (with explicit guardrails against bias) so they understand the "why" behind changes without suppressing genuine findings
-- **Validation step** — each finding is independently verified (context check, intent check, pre-existing check, cross-agent consensus) using an evidence-based verification protocol before reporting
+- **Validation step** — each finding is independently verified (context check, intent check, pre-existing check, cross-agent consensus, assumption check) using an evidence-based verification protocol before reporting
 - **Contradiction resolution** — cross-agent contradictions (e.g., "add more validation" vs. "simplify this validation") are detected and resolved by severity to prevent circular fix loops
 - **Deep mode** — iterative review-fix loop (max 5 iterations) with automatic fix application and test verification; catches issues that single-pass review misses due to LLM attention limitations
 - **Actionable output** — findings include file:line references, confidence level (High/Medium), before/after code sketches, guideline citations, and severity levels
@@ -153,7 +153,7 @@ In deep mode, the consolidated report includes iteration stats:
 2. Loads project docs (CLAUDE.md, coding-guidelines.md, testing.md, etc.) with fallbacks for missing docs
 3. Activates deep mode if requested (requires test command, confirms with user)
 4. Launches up to 6 parallel review agents (bug detection, security/logic, guideline compliance x2, code-simplifier, test-guardian)
-5. Validates each finding using the verification protocol (context check, intent check, change-intent awareness, PR/MR context, pre-existing check, cross-agent consensus)
+5. Validates each finding using the verification protocol (context check, intent check, change-intent awareness, PR/MR context, pre-existing check, cross-agent consensus, assumption check)
 6. Consolidates, deduplicates, and presents structured report (capped at 15 findings)
 7. Offers actions: fix issues, post PR comment, or skip (normal mode)
 8. In deep mode: auto-applies fixes, runs tests, reverts failures via bisect, repeats up to 5 iterations, then presents a consolidated report

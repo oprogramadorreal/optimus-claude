@@ -203,6 +203,7 @@ For each finding from Step 4:
 2. **Intent check** — look for comments, test assertions, or established patterns that explain the code's behavior (what looks like a bug may be intentional)
 3. **Pre-existing check** — verify the issue was introduced by the changes, not pre-existing in unchanged code
 4. **Cross-agent consensus** — for guideline findings, check if both Agents 3 and 4 flagged the same issue (consensus = higher confidence)
+5. **Assumption check** — if an agent flagged a changed function or endpoint, verify whether the code also assumes something about inputs, dependencies, or environment that is not validated or documented. Unvalidated assumptions that could cause runtime failures strengthen the finding's confidence.
 
 ### Change-intent awareness
 

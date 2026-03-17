@@ -49,6 +49,23 @@ When you catch yourself thinking any of these, STOP and run the verification:
 | "I already checked earlier" | Earlier ≠ now — state may have changed |
 | "Partial verification is enough" | Partial verification proves nothing |
 
+## Assumption Check
+
+Before committing to an approach (architecture, algorithm, API design, dependency choice), surface and verify assumptions:
+
+1. **LIST** — what does this approach assume about inputs, scale, dependencies, or environment?
+2. **CHALLENGE** — for each assumption, ask: what happens if this assumption is wrong?
+3. **ALTERNATIVES** — are there simpler or more robust approaches not yet considered?
+4. **EVIDENCE** — is the chosen approach supported by project constraints (architecture.md, coding guidelines), or is it preference?
+
+| Thought | Reality |
+|---------|---------|
+| "This is the obvious approach" | Obvious to whom? List what it assumes |
+| "The user asked for X, so X" | The user's goal matters more than their suggested implementation |
+| "This library/pattern is standard" | Standard doesn't mean right for this project — check constraints |
+| "Everyone does it this way" | Popularity is not evidence of fitness |
+| "This worked before" | Different context may invalidate prior success |
+
 ## Red Flags
 
 Stop immediately if you notice:
@@ -58,3 +75,5 @@ Stop immediately if you notice:
 - Readiness to commit/push without a fresh test run
 - Treating agent self-reports as ground truth
 - Skipping verification due to fatigue or time pressure
+- Agreeing with an approach without considering alternatives
+- Implementing the first solution that comes to mind
