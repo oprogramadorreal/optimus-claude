@@ -310,7 +310,7 @@ Loop state (`iteration-count`, `total-fixed`, `total-reverted`, `accumulated-fin
 
 If zero findings this iteration → convergence reached. Print "Iteration [N] of up to 5 — converged with zero findings." Then skip to the deep mode consolidated report below.
 
-Otherwise, apply all findings from this iteration following `$CLAUDE_PLUGIN_ROOT/skills/code-review/references/deep-mode-bisect.md` (snapshot, apply, test, bisect on failure). Apply the verification protocol from `$CLAUDE_PLUGIN_ROOT/skills/init/references/verification-protocol.md` to validate test results.
+Otherwise, apply all findings from this iteration following `$CLAUDE_PLUGIN_ROOT/skills/code-review/references/deep-mode-bisect.md` (apply, test, bisect on failure).
 
 Print iteration progress: "Iteration [N] of up to 5 — [total-fixed] issues fixed so far, [total-reverted] reverted."
 
@@ -321,8 +321,8 @@ Check termination conditions:
 3. **`iteration-count` equals 5** → cap reached. Report: "Deep mode reached the iteration cap (5). Remaining findings may exist — re-run `/optimus:code-review deep` in a fresh conversation to continue."
 4. **Otherwise** → proceed with the next iteration:
    - 4a. Increment `iteration-count`.
-   - 4b. Build `iteration-context` from `accumulated-findings`: for each finding, extract file, line, category, a one-sentence summary (max 120 characters), and status (`fixed` / `reverted` / `persistent`). Apply the trimming algorithm from the "Iteration Context Trimming" section in `$CLAUDE_PLUGIN_ROOT/skills/code-review/references/deep-mode-bisect.md` if entries exceed 30.
-   - 4c. Re-gather the diff using `git diff --cached` and `git diff` (combining staged and unstaged changes) plus `git status --short` for untracked files. For untracked files shown by `git status`, read their full content so agents can review them (untracked files do not appear in `git diff`). Do not re-run scope detection or mode selection. On subsequent iterations, instruct agents to focus on files that had findings in any previous iteration (from `accumulated-findings`) plus any files modified since the previous iteration (compare `git diff` against the pre-iteration stash to detect fix side-effects).
+   - 4b. Build `iteration-context` from `accumulated-findings`: for each finding, extract file, line, category, a one-sentence summary (max 120 characters), and status (`fixed` / `reverted` / `persistent`).
+   - 4c. Re-gather the diff using `git diff --cached` and `git diff` (combining staged and unstaged changes) plus `git status --short` for untracked files. For untracked files shown by `git status`, read their full content so agents can review them (untracked files do not appear in `git diff`). Do not re-run scope detection or mode selection. Instruct agents to focus on files that had findings in any previous iteration (from `accumulated-findings`) plus any newly modified files.
    - 4d. **Return to Step 4** for the next analysis pass.
 
 ### Deep mode consolidated report
@@ -336,8 +336,6 @@ After the loop ends (convergence, cap, or failure stop), present the full consol
 ```
 
 All fixes are already applied as local changes (never committed or pushed). The user can review the full diff before committing.
-
-After presenting the consolidated report, clean up the baseline stash: check `git stash list` for an entry matching the recorded baseline message. If found, drop it by its `stash@{N}` reference. If not found, skip cleanup. Inform the user: if fixes were applied, report cleanup result; if zero-iteration convergence (no fixes applied), report "No baseline stash needed (converged without fixes)."
 
 ## Important
 
