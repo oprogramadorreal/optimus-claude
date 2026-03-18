@@ -38,14 +38,15 @@ git status --short
 
 - **If local changes found** → review them (staged + unstaged + untracked)
 - **If no local changes** → detect the comparison base and check for commits ahead:
-  1. **Detect PR/MR target branch** — check if an open PR/MR exists for the current branch and extract its target branch:
-     - If GitHub: `gh pr view --json number,state,baseRefName 2>/dev/null` — if open, use `baseRefName`
-     - If GitLab: `glab mr view --output json 2>/dev/null` — if opened, use `target_branch`
-     - If platform unknown: try both, ignore all errors — use the first successful result
+  1. **Detect platform** — read `$CLAUDE_PLUGIN_ROOT/skills/pr/references/platform-detection.md` and use the **Platform Detection Algorithm** section to determine if the project is GitHub, GitLab, or unknown.
+  2. **Detect PR/MR target branch** — check if an open PR/MR exists for the current branch and extract its target branch:
+     - If GitHub: `gh pr view --json number,state,baseRefName 2>/dev/null` — only use `baseRefName` if `state` equals `"OPEN"`; if `state` is not `"OPEN"`, treat as "no open PR"
+     - If GitLab: `glab mr view --output json 2>/dev/null` — only use `target_branch` if `state` equals `"opened"`; if `state` is not `"opened"`, treat as "no open MR". If the command fails, treat as no open MR — unless the failure appears to be an auth or connectivity error, in which case inform the user before falling back
+     - If platform unknown: try both, ignore CLI-unavailable errors — use the first result where an open PR/MR is confirmed (state check passed)
      - If no open PR/MR found or CLI unavailable → detect the default branch using `$CLAUDE_PLUGIN_ROOT/skills/pr/references/default-branch-detection.md`
-  2. Use the detected branch as `<base-branch>`. Run `git log --oneline origin/<base-branch>..HEAD`
-  3. If commits found → offer to review the branch diff (if the base came from an open PR/MR, mention that the review uses the PR's target branch)
-  4. If an open PR/MR was found in step 1 → also offer to review it directly (PR mode)
+  3. Use the detected branch as `<base-branch>`. Run `git log --oneline origin/<base-branch>..HEAD`
+  4. If commits found → offer to review the branch diff (if the base came from an open PR/MR, mention that the review uses the PR's target branch)
+  5. If an open PR/MR was found in step 2 → also offer to review it directly (PR mode)
 - **If nothing at all** → inform the user there are no changes to review and suggest staging changes or specifying a PR
 
 ### PR mode (explicit request)

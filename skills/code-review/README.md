@@ -202,6 +202,7 @@ Anthropic's official [code-review](https://github.com/anthropics/claude-code/tre
 | *(shared)* `init/references/prerequisite-check.md` | Shared prerequisite check with fallbacks |
 | *(shared)* `init/references/constraint-doc-loading.md` | Constraint doc loading (single project, monorepo) |
 | *(shared)* `pr/references/platform-detection.md` | Platform detection and CLI management |
+| *(shared)* `pr/references/default-branch-detection.md` | Default branch detection fallback |
 
 ## Requirements
 
