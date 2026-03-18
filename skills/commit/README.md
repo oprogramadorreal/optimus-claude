@@ -27,7 +27,7 @@ The skill will analyze your local changes, generate a commit message, and ask yo
 
 - **After making changes** — commit your work with a well-structured message without manual effort
 - **After `/optimus:code-review`** — once fixes pass review, commit and push in one step
-- **After `/optimus:simplify`** — commit the simplification changes
+- **After `/optimus:refactor`** — commit the refactoring changes
 - **When you want to push immediately** — choose "Commit and push" to avoid a separate push step
 
 ## Example Flow

@@ -4,7 +4,7 @@ A [Claude Code](https://docs.anthropic.com/en/docs/claude-code) skill that impro
 
 Well-maintained code has [30%+ fewer AI-introduced defects](https://arxiv.org/abs/2601.02200), and tests are what make AI agents self-correcting: make change → run tests → see failure → fix. `/optimus:init` installs a test-guardian agent that monitors coverage gaps, but it doesn't write tests. `/optimus:unit-test` is the active complement: it fills gaps deliberately.
 
-**Conservative by design** — only adds new test files, never refactors or restructures existing source code. If code is untestable as-is, it flags it rather than changing it. Refactoring is the domain of `/optimus:simplify`.
+**Conservative by design** — only adds new test files, never refactors or restructures existing source code. If code is untestable as-is, it flags it rather than changing it. Refactoring is the domain of `/optimus:refactor`.
 
 ## Features
 
@@ -64,7 +64,7 @@ The skill produces a structured summary after completing:
 ### Not Testable Without Refactoring
 - src/services/payment.ts — inline Stripe API calls without injection
 - src/db/migrate.ts — direct database connection, no repository pattern
-- To address these, run /optimus:simplify to review and restructure the code first.
+- To address these, run /optimus:refactor to review and restructure the code first.
 ```
 
 ## How It Works
@@ -92,10 +92,10 @@ The test-guardian agent and this skill are complementary — both use `testing.m
 
 ## Relationship to Other Skills
 
-| | `/optimus:unit-test` | `/optimus:simplify` |
+| | `/optimus:unit-test` | `/optimus:refactor` |
 |---|---|---|
 | Scope | Test files only | Source code |
-| When code is untestable | Flags it, suggests `/optimus:simplify` | Restructures code to make it testable |
+| When code is untestable | Flags it, suggests `/optimus:refactor` | Restructures code to make it testable |
 | Modifies source? | Never | Yes, with approval |
 
 | | `/optimus:unit-test` | `/optimus:init` |
@@ -104,7 +104,7 @@ The test-guardian agent and this skill are complementary — both use `testing.m
 | Test files | Writes new tests | Does not write tests |
 | Coverage analysis | Measures and reports | Does not analyze |
 
-**Workflow**: `/optimus:init` (set up everything including test infrastructure) → `/optimus:unit-test` (write tests to increase coverage) → `/optimus:simplify` (restructure untestable code) → `/optimus:unit-test` again (test the restructured code).
+**Workflow**: `/optimus:init` (set up everything including test infrastructure) → `/optimus:unit-test` (write tests to increase coverage) → `/optimus:refactor` (restructure untestable code) → `/optimus:unit-test` again (test the restructured code).
 
 ## Skill Structure
 

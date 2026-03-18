@@ -3,7 +3,7 @@
 </div>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-1.43.0-blue" alt="Version">
+  <img src="https://img.shields.io/badge/version-1.44.0-blue" alt="Version">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
   <img src="https://img.shields.io/badge/Claude_Code-1.0.33+-blueviolet" alt="Claude Code">
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey" alt="Platform">
@@ -55,7 +55,7 @@ Every skill operates on the same shared foundation: **your project's coding guid
 
 `/optimus:init` analyzes your codebase and generates constraint docs — coding guidelines, CLAUDE.md, quality agents, and formatter hooks — into your `.claude/` directory. From that point on, every optimus skill loads those guidelines, and skills that make completion claims apply the verification protocol as a gate before reporting.
 
-`/optimus:code-review` doesn't run a generic review — its agents check *your* naming conventions, *your* architectural patterns, and *your* DRY principles alongside bugs and security. `/optimus:tdd` applies them during the Refactor step. `/optimus:simplify` uses them as its quality lens. `/optimus:unit-test` follows them for test naming and structure.
+`/optimus:code-review` doesn't run a generic review — its agents check *your* naming conventions, *your* architectural patterns, and *your* DRY principles alongside bugs and security. `/optimus:tdd` applies them during the Refactor step. `/optimus:refactor` uses them as its quality lens. `/optimus:unit-test` follows them for test naming and structure.
 
 Every skill is also conservative by default — `/optimus:unit-test` never refactors source code, `/optimus:verify` runs in an isolated sandbox and never pushes to remote, and `/optimus:commit` warns about secret files before proceeding.
 
@@ -78,7 +78,7 @@ The result: consistent patterns, meaningful names, and lean context across every
 | [`/optimus:init`](skills/init/README.md) | Project setup — CLAUDE.md, coding guidelines, formatter hooks, code-simplifier & test-guardian agents, test infrastructure (framework, coverage tooling, testing docs). Detects empty directories and offers new-project scaffolding via official stack tooling before setup. Monorepos, multi-repo workspaces, intelligent audit on re-run (template files always refreshed, plugin version tracked in `.claude/.optimus-version` to detect template improvements across updates). Best-effort fallback for unsupported stacks via web search. |
 | [`/optimus:unit-test`](skills/unit-test/README.md) | Fills test coverage gaps — discovers gaps, writes convention-following tests. Never refactors source. *Requires init (which sets up test infrastructure).* |
 | [`/optimus:tdd`](skills/tdd/README.md) | Test-driven Red-Green-Refactor — feature branch, per-behavior commits, parallel agent quality gate, PR/MR. The [most effective discipline](https://code.claude.com/docs/en/best-practices) for reliable AI-assisted code. *Requires init.* |
-| [`/optimus:simplify`](skills/simplify/README.md) | Cross-file code simplification — duplication, pattern inconsistency, architectural drift. Prioritized plan (capped at 12), test-verified. `deep` mode for iterative cleanup until clean (max 5 iterations). *Run init first (recommended).* |
+| [`/optimus:refactor`](skills/refactor/README.md) | Guideline compliance + testability refactoring with 4 parallel agents — duplication, pattern inconsistency, testability barriers, architectural drift. Prioritized plan (capped at 8), test-verified. `deep` mode for iterative refactoring (default 5, up to 10 iterations). *Run init first (recommended).* |
 | [`/optimus:code-review`](skills/code-review/README.md) | Pre-merge review with up to 6 parallel agents — bugs, security, guideline compliance, code-simplifier, test-guardian. Change-intent awareness via git history. `deep` mode for iterative auto-fix until clean (max 5 iterations). GitHub & GitLab. *Run init first (recommended).* |
 | [`/optimus:verify`](skills/verify/README.md) | Feature branch verification in an isolated sandbox — extracts/generates a test plan from the PR and branch diff, runs automated checks, launches up to 4 parallel agents for functional verification (tests, integration, mock projects, code tracing). Never pushes to remote. *Run init first (recommended).* |
 
@@ -98,7 +98,7 @@ The result: consistent patterns, meaningful names, and lean context across every
 1. **Safety guardrails** — `/optimus:permissions` for branch protection, precious file safety, and streamlined tool permissions
 2. **Initial setup** — `/optimus:init` to generate project context and set up test infrastructure (audits and updates if already present)
 3. **Test coverage** — `/optimus:unit-test` to write tests and improve coverage
-4. **Code quality** — `/optimus:simplify` for full codebase analysis against your coding guidelines
+4. **Code quality** — `/optimus:refactor` for full codebase refactoring against your coding guidelines and testability
 
 **During development** — `/optimus:tdd` to build features test-first, `/optimus:commit` for conventional commits (or `/optimus:commit-message` to preview the message without committing).
 
@@ -112,7 +112,7 @@ The result: consistent patterns, meaningful names, and lean context across every
 
 ## Complementary Tools
 
-optimus-claude is designed to work alongside official tools, not replace them. Use Anthropic's official [code-review](https://github.com/anthropics/claude-code/tree/main/plugins/code-review) plugin for post-push PR review, [claude-md-management](https://claude.com/plugins/claude-md-management) for CLAUDE.md scoring and revision, the builtin `/simplify` for per-change cleanup, and Claude Code's [built-in sandboxing](https://code.claude.com/docs/en/sandboxing) or [Docker containers](https://www.docker.com/blog/docker-sandboxes-run-claude-code-and-other-coding-agents-unsupervised-but-safely/) for fully autonomous agent execution with OS-level isolation.
+optimus-claude is designed to work alongside official tools, not replace them. Use Anthropic's official [code-review](https://github.com/anthropics/claude-code/tree/main/plugins/code-review) plugin for post-push PR review, [claude-md-management](https://claude.com/plugins/claude-md-management) for CLAUDE.md scoring and revision, the builtin `/simplify` for per-change cleanup (complemented by `/optimus:refactor` for project-wide restructuring), and Claude Code's [built-in sandboxing](https://code.claude.com/docs/en/sandboxing) or [Docker containers](https://www.docker.com/blog/docker-sandboxes-run-claude-code-and-other-coding-agents-unsupervised-but-safely/) for fully autonomous agent execution with OS-level isolation.
 
 ## Troubleshooting
 

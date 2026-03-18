@@ -9,7 +9,7 @@ What makes a good developer productive in a codebase also makes Claude Code prod
 - **New Project Scaffolding** — when run in an empty or near-empty directory, offers to scaffold a new project from scratch using official stack tooling (Vite, Next.js, Cargo, Flutter, .NET CLI, etc.), then continues with full init setup. One command to go from empty folder to a buildable, runnable project with CLAUDE.md, hooks, agents, and docs. Unsupported stacks are handled via best-effort web search fallback.
 - **Context Architecture** — creates CLAUDE.md files following [research-backed practices](https://www.humanlayer.dev/blog/writing-a-good-claude-md): a compact ~60-line root file within the LLM's peak attention window, with details in separate docs loaded only when needed. Just like you don't keep all backend details in your head while fixing a frontend bug, Claude shouldn't load everything into context at once.
 - **Code Consistency** — installs PostToolUse hooks that auto-format code every time Claude modifies a file. This prevents formatting drift — different styles introduce unnecessary token variation that adds no information.
-- **Code Quality** — deploys a [code-simplifier](templates/agents/code-simplifier.md) agent that enforces your project's [coding guidelines](templates/docs/coding-guidelines.md) — clean code, small functions, clear naming, proper abstractions. This isn't about aesthetics: well-maintained code has [30%+ fewer AI-introduced defects](https://arxiv.org/abs/2601.02200). The agent guards new code proactively; for a full project review, see `/optimus:simplify`.
+- **Code Quality** — deploys a [code-simplifier](templates/agents/code-simplifier.md) agent that enforces your project's [coding guidelines](templates/docs/coding-guidelines.md) — clean code, small functions, clear naming, proper abstractions. This isn't about aesthetics: well-maintained code has [30%+ fewer AI-introduced defects](https://arxiv.org/abs/2601.02200). The agent guards new code proactively; for a full project review, see `/optimus:refactor`.
 - **Test Coverage** — installs a [test-guardian](templates/agents/test-guardian.md) agent that monitors coverage gaps when test infrastructure is detected — flagging untested code, verifying that existing tests still pass, and checking that test commands are runnable. It doesn't write tests or install frameworks; it ensures the project maintains its testing standards as it evolves. This directly enables Anthropic's [#1 best practice](https://code.claude.com/docs/en/best-practices): giving Claude a way to verify its work.
 - **Documentation Freshness** — reviews existing documentation (README, CONTRIBUTING, etc.) for contradictions against the actual source code. Stale docs in context degrade LLM performance — if documentation says one thing and the code says another, you're actively harming output quality.
 - **Audit on re-run** — compares docs against current project state, classifies sections as Outdated / Missing / Accurate / User-added (always preserved), and lets you choose what to update. User-added content (custom conventions, workflow rules, architecture decisions not derivable from the codebase) is never discarded — even on "Fresh start". Tracks plugin version in `.claude/.optimus-version` — when the plugin has been updated, the audit also compares generated docs against current templates to surface plugin-side improvements
@@ -104,7 +104,7 @@ Both agents reference your project's `.claude/CLAUDE.md` and `.claude/docs/` fil
 | `references/formatter-setup.md` | Formatter hook installation guidance |
 | `references/unsupported-stack-fallback.md` | Shared best-effort fallback for unsupported stacks (used by init, dev-setup, verify) |
 | `references/verification-protocol.md` | Cross-cutting verification discipline for completion claims |
-| `references/prerequisite-check.md` | Shared prerequisite check with fallbacks (used by code-review, simplify, verify) |
+| `references/prerequisite-check.md` | Shared prerequisite check with fallbacks (used by code-review, refactor, verify) |
 | `references/constraint-doc-loading.md` | Shared constraint doc loading for single project and monorepo (used by 5 skills) |
 | `references/new-project-scaffolding.md` | New project scaffolding procedure for empty directories |
 | `references/test-infra-provisioning.md` | Test infrastructure provisioning procedure (framework, coverage, health check, docs) |
@@ -122,7 +122,7 @@ To understand or modify how the skill works, start with `SKILL.md`. Key customiz
 
 ### Tuning coding guidelines
 
-The coding guidelines file (`.claude/docs/coding-guidelines.md` in your project) is the primary control surface for how the code-simplifier agent, `/optimus:simplify`, and `/optimus:code-review` evaluate your code. Every principle you add, remove, or edit directly changes what these tools flag.
+The coding guidelines file (`.claude/docs/coding-guidelines.md` in your project) is the primary control surface for how the code-simplifier agent, `/optimus:refactor`, and `/optimus:code-review` evaluate your code. Every principle you add, remove, or edit directly changes what these tools flag.
 
 Note: re-running `/optimus:init` always overwrites `coding-guidelines.md`, agents, and hooks from the latest plugin templates — use `git diff` to review changes. When the plugin version has increased since the last run, the audit also compares generated docs against current templates to detect improvements. To add project-specific rules that survive re-runs, put them in `.claude/CLAUDE.md` instead.
 
@@ -133,14 +133,14 @@ Note: re-running `/optimus:init` always overwrites `coding-guidelines.md`, agent
 | Skill | Uses from init | What it adds |
 |---|---|---|
 | `/optimus:unit-test` | test-guardian agent, testing.md, CLAUDE.md, test framework, coverage tooling | Writes test files to increase coverage |
-| `/optimus:simplify` | coding-guidelines.md, code-simplifier agent | Full-project code review against guidelines |
+| `/optimus:refactor` | coding-guidelines.md, code-simplifier agent | Full-project refactoring for guideline compliance and testability |
 | `/optimus:code-review` | All docs + both agents | Pre-commit review with up to 6 parallel agents |
 | `/optimus:tdd` | CLAUDE.md, coding-guidelines.md, testing.md, both agents | Red-Green-Refactor TDD with feature branch workflow |
 | `/optimus:permissions` | Shares `.claude/settings.json` | Permission rules + path-restriction hook |
 | `/optimus:commit` | Independent | Stage, commit, and optionally push with conventional message |
 | `/optimus:commit-message` | Independent | Conventional commit message suggestion (read-only) |
 
-commit, commit-message, and permissions are fully independent of init. simplify and code-review fall back to generic guidelines when project docs are missing. tdd and unit-test require init — both stop if CLAUDE.md is not found.
+commit, commit-message, and permissions are fully independent of init. refactor and code-review fall back to generic guidelines when project docs are missing. tdd and unit-test require init — both stop if CLAUDE.md is not found.
 
 ## Requirements
 
