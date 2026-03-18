@@ -143,7 +143,7 @@ Proceed immediately to Step 3 — do not wait for user confirmation.
 
 If the user invoked with `deep` (e.g., `/optimus:code-review deep`, `/optimus:code-review deep "review PR #42"`, or `/optimus:code-review deep "focus on src/auth"`), activate deep mode. Deep mode loops review-fix cycles (Steps 4–8) until zero new findings remain or **5 iterations** are reached, then presents a single consolidated report with all fixes already applied as local changes.
 
-Before proceeding, check whether a test command is available (from `.claude/CLAUDE.md`). If no test command exists, deep mode's auto-apply loop has no safety net — fall back to normal mode and warn: "Deep mode requires a test command for safe auto-apply. Falling back to normal mode — run `/optimus:unit-test` first to enable deep mode." Then continue with the standard single-pass flow.
+Before proceeding, check whether a test command is available (from `.claude/CLAUDE.md`). If no test command exists, deep mode's auto-apply loop has no safety net — fall back to normal mode and warn: "Deep mode requires a test command for safe auto-apply. Falling back to normal mode — re-run `/optimus:init` to set up test infrastructure first." Then continue with the standard single-pass flow.
 
 If a test command is available, warn the user:
 

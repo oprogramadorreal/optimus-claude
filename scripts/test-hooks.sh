@@ -99,8 +99,8 @@ echo "# Project" > .claude/CLAUDE.md
 echo "# Guidelines" > .claude/docs/coding-guidelines.md
 echo "# Simplifier" > .claude/agents/code-simplifier.md
 output=$(bash "$SESSION_START" 2>/dev/null || true)
-assert_output_contains "Suggests unit-test when testing.md missing" "/optimus:unit-test" "$output"
-assert_output_not_contains "Does not suggest init when already initialized" "/optimus:init" "$output"
+assert_output_contains "Suggests re-running init when testing.md missing" "/optimus:init" "$output"
+assert_output_not_contains "Does not suggest unit-test for missing testing docs" "/optimus:unit-test" "$output"
 cleanup_fixture
 
 echo "[session-start: init done, has testing but missing test-guardian]"

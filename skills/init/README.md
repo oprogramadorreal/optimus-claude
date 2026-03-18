@@ -43,8 +43,9 @@ In Claude Code, use any of these:
 3. **Creates directory structure** — `.claude/docs/`, `.claude/hooks/`, `.claude/agents/`
 4. **Generates CLAUDE.md** — WHAT/WHY/HOW structure, progressive disclosure, <=60 lines (soft limit when preserving user content)
 5. **Installs formatter hooks** — per detected stack; deploys code-quality agents
-6. **Creates scoped documentation** — coding guidelines (always), testing, styling, architecture (when detected)
-7. **Syncs existing project docs** — cross-checks README, CONTRIBUTING, etc. against source code for factual contradictions
+6. **Sets up test infrastructure** — installs test framework and coverage tooling (with approval), runs health check, provisions test-guardian agent, testing docs, and README testing section
+7. **Creates scoped documentation** — coding guidelines (always), styling, architecture (when detected)
+8. **Syncs existing project docs** — cross-checks README, CONTRIBUTING, etc. against source code for factual contradictions
 
 ## Formatter Hooks
 
@@ -101,11 +102,13 @@ Both agents reference your project's `.claude/CLAUDE.md` and `.claude/docs/` fil
 | `references/project-detection.md` | Project structure detection algorithm |
 | `references/multi-repo-detection.md` | Shared multi-repo workspace detection (used by 6 skills) |
 | `references/formatter-setup.md` | Formatter hook installation guidance |
-| `references/unsupported-stack-fallback.md` | Shared best-effort fallback for unsupported stacks (used by init, unit-test, verify) |
+| `references/unsupported-stack-fallback.md` | Shared best-effort fallback for unsupported stacks (used by init, dev-setup, verify) |
 | `references/verification-protocol.md` | Cross-cutting verification discipline for completion claims |
 | `references/prerequisite-check.md` | Shared prerequisite check with fallbacks (used by code-review, simplify, verify) |
 | `references/constraint-doc-loading.md` | Shared constraint doc loading for single project and monorepo (used by 5 skills) |
 | `references/new-project-scaffolding.md` | New project scaffolding procedure for empty directories |
+| `references/test-infra-provisioning.md` | Test infrastructure provisioning procedure (framework, coverage, health check, docs) |
+| `references/test-framework-recommendations.md` | Stack-specific test framework, coverage tooling, and report tool recommendations |
 | `templates/` | CLAUDE.md templates, doc templates, hook scripts, agent definitions |
 
 ## Customization
@@ -129,7 +132,7 @@ Note: re-running `/optimus:init` always overwrites `coding-guidelines.md`, agent
 
 | Skill | Uses from init | What it adds |
 |---|---|---|
-| `/optimus:unit-test` | test-guardian agent, testing.md, CLAUDE.md | Writes test files, provisions coverage tooling |
+| `/optimus:unit-test` | test-guardian agent, testing.md, CLAUDE.md, test framework, coverage tooling | Writes test files to increase coverage |
 | `/optimus:simplify` | coding-guidelines.md, code-simplifier agent | Full-project code review against guidelines |
 | `/optimus:code-review` | All docs + both agents | Pre-commit review with up to 6 parallel agents |
 | `/optimus:tdd` | CLAUDE.md, coding-guidelines.md, testing.md, both agents | Red-Green-Refactor TDD with feature branch workflow |

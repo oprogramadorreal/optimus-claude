@@ -67,7 +67,7 @@ The skill analyzes your project, scans existing documentation, and proposes deve
 |-------|-------|----------|
 | `/optimus:init` | `.claude/` setup for AI-assisted development | Claude Code |
 | `/optimus:dev-setup` | README setup instructions for humans | Developers |
-| `/optimus:unit-test` | Test coverage and infrastructure | Both |
+| `/optimus:unit-test` | Test coverage improvement | Both |
 
 **Recommended sequence**: `/optimus:init` first (AI context), then `/optimus:dev-setup` (human context), then `/optimus:unit-test` (test coverage).
 
