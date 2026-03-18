@@ -30,6 +30,7 @@ optimus-claude/
 │   ├── verify/               # /optimus:verify
 │   ├── pr/                   # /optimus:pr
 │   ├── permissions/          # /optimus:permissions
+│   ├── reset/                # /optimus:reset
 │   ├── commit/               # /optimus:commit
 │   └── commit-message/       # /optimus:commit-message
 ├── test/
