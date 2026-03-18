@@ -38,8 +38,8 @@ This skill is part of the [optimus](https://github.com/oprogramadorreal/optimus-
 
 ## Prerequisites
 
-1. **`/optimus:init`** — required. Installs `CLAUDE.md` and `coding-guidelines.md` used during Refactor
-2. **`/optimus:unit-test`** — recommended. Provisions test framework, coverage tooling, and `testing.md` if missing
+1. **`/optimus:init`** — required. Installs `CLAUDE.md`, `coding-guidelines.md`, test framework, coverage tooling, and `testing.md`
+2. **`/optimus:unit-test`** — recommended. Writes retroactive tests to increase coverage before starting TDD
 3. **`/optimus:permissions`** — recommended. Enables branch-aware git protection so TDD can commit and push to feature branches while protecting main/master
 4. **`gh` or `glab` CLI** — optional. Needed for automatic PR/MR creation (GitHub CLI or GitLab CLI)
 
@@ -250,7 +250,7 @@ The user's original branch is never modified. All code review happens through th
 | Direction | Test-first (new code) | Test-after (existing code) |
 | Scope | One feature or bug fix | Full project or directory |
 | Cycle | Red-Green-Refactor per behavior | Discover → generate → verify |
-| Infrastructure | Requires existing test setup | Provisions if missing |
+| Infrastructure | Requires existing test setup | Requires `/optimus:init` setup |
 | Refactoring | Applies guidelines in Refactor step | Never modifies source code |
 
 | | `/optimus:tdd` | `/optimus:simplify` |
@@ -272,7 +272,7 @@ The user's original branch is never modified. All code review happens through th
 | Update support | No | Yes — regenerate existing PR description |
 | Format | Both use the shared Conventional PR template |
 
-**Full workflow**: `/optimus:init` → `/optimus:unit-test` (provision infrastructure + retroactive tests) → `/optimus:permissions` (branch-aware git protection) → `/optimus:tdd` (build new features test-first — creates branch, commits, pushes, creates PR/MR) → `/optimus:code-review` (review the PR/MR). Use `/optimus:pr` to update the PR description later or to create PRs for non-TDD work.
+**Full workflow**: `/optimus:init` (set up everything including test infrastructure) → `/optimus:unit-test` (retroactive tests to increase coverage) → `/optimus:permissions` (branch-aware git protection) → `/optimus:tdd` (build new features test-first — creates branch, commits, pushes, creates PR/MR) → `/optimus:code-review` (review the PR/MR). Use `/optimus:pr` to update the PR description later or to create PRs for non-TDD work.
 
 ## Skill Structure
 
@@ -292,7 +292,7 @@ The user's original branch is never modified. All code review happens through th
 - [Claude Code](https://docs.anthropic.com/en/docs/claude-code) 1.0.33+ (plugin support)
 - Git
 - Project initialized with `/optimus:init` (required — provides `coding-guidelines.md` for Refactor step)
-- Working test infrastructure (framework, runner) — run `/optimus:unit-test` first if missing
+- Working test infrastructure (framework, runner) — run `/optimus:init` first if missing
 
 ## License
 

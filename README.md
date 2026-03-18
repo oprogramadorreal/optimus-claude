@@ -3,7 +3,7 @@
 </div>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-1.39.2-blue" alt="Version">
+  <img src="https://img.shields.io/badge/version-1.40.0-blue" alt="Version">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
   <img src="https://img.shields.io/badge/Claude_Code-1.0.33+-blueviolet" alt="Claude Code">
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey" alt="Platform">
@@ -75,8 +75,8 @@ The result: consistent patterns, meaningful names, and lean context across every
 
 | Skill | Description |
 |-------|-------------|
-| [`/optimus:init`](skills/init/README.md) | Project setup — CLAUDE.md, coding guidelines, formatter hooks, code-simplifier & test-guardian agents. Detects empty directories and offers new-project scaffolding via official stack tooling before setup. Monorepos, multi-repo workspaces, intelligent audit on re-run (template files always refreshed, plugin version tracked in `.claude/.optimus-version` to detect template improvements across updates). Best-effort fallback for unsupported stacks via web search. |
-| [`/optimus:unit-test`](skills/unit-test/README.md) | Fills test coverage gaps — discovers gaps, provisions infrastructure, writes convention-following tests. Never refactors source. *Requires init.* |
+| [`/optimus:init`](skills/init/README.md) | Project setup — CLAUDE.md, coding guidelines, formatter hooks, code-simplifier & test-guardian agents, test infrastructure (framework, coverage tooling, testing docs). Detects empty directories and offers new-project scaffolding via official stack tooling before setup. Monorepos, multi-repo workspaces, intelligent audit on re-run (template files always refreshed, plugin version tracked in `.claude/.optimus-version` to detect template improvements across updates). Best-effort fallback for unsupported stacks via web search. |
+| [`/optimus:unit-test`](skills/unit-test/README.md) | Fills test coverage gaps — discovers gaps, writes convention-following tests. Never refactors source. *Requires init (which sets up test infrastructure).* |
 | [`/optimus:tdd`](skills/tdd/README.md) | Test-driven Red-Green-Refactor — feature branch, per-behavior commits, parallel agent quality gate, PR/MR. The [most effective discipline](https://code.claude.com/docs/en/best-practices) for reliable AI-assisted code. *Requires init.* |
 | [`/optimus:simplify`](skills/simplify/README.md) | Cross-file code simplification — duplication, pattern inconsistency, architectural drift. Prioritized plan (capped at 12), test-verified. `deep` mode for iterative cleanup until clean (max 5 iterations). *Run init first (recommended).* |
 | [`/optimus:code-review`](skills/code-review/README.md) | Pre-merge review with up to 6 parallel agents — bugs, security, guideline compliance, code-simplifier, test-guardian. Change-intent awareness via git history. `deep` mode for iterative auto-fix until clean (max 5 iterations). GitHub & GitLab. *Run init first (recommended).* |
@@ -95,8 +95,8 @@ The result: consistent patterns, meaningful names, and lean context across every
 ## Recommended Workflow
 
 1. **Safety guardrails** — `/optimus:permissions` for branch protection, precious file safety, and streamlined tool permissions
-2. **Initial setup** — `/optimus:init` to generate project context (audits and updates if already present)
-3. **Test coverage** — `/optimus:unit-test` to establish or improve unit tests
+2. **Initial setup** — `/optimus:init` to generate project context and set up test infrastructure (audits and updates if already present)
+3. **Test coverage** — `/optimus:unit-test` to write tests and improve coverage
 4. **Code quality** — `/optimus:simplify` for full codebase analysis against your coding guidelines
 
 **During development** — `/optimus:tdd` to build features test-first, `/optimus:commit` for conventional commits (or `/optimus:commit-message` to preview the message without committing).

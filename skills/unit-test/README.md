@@ -1,6 +1,6 @@
 # optimus:unit-test
 
-A [Claude Code](https://docs.anthropic.com/en/docs/claude-code) skill that improves unit test coverage for existing code — discovering gaps, provisioning test infrastructure, and generating tests that follow your project's conventions.
+A [Claude Code](https://docs.anthropic.com/en/docs/claude-code) skill that improves unit test coverage for existing code — discovering gaps and generating tests that follow your project's conventions. Requires `/optimus:init` to have set up test infrastructure first.
 
 Well-maintained code has [30%+ fewer AI-introduced defects](https://arxiv.org/abs/2601.02200), and tests are what make AI agents self-correcting: make change → run tests → see failure → fix. `/optimus:init` installs a test-guardian agent that monitors coverage gaps, but it doesn't write tests. `/optimus:unit-test` is the active complement: it fills gaps deliberately.
 
@@ -9,11 +9,7 @@ Well-maintained code has [30%+ fewer AI-introduced defects](https://arxiv.org/ab
 ## Features
 
 - **Pre-flight check** — verifies `/optimus:init` has been run and identifies available guideline documents
-- **Project-wide discovery** — scans for test files, frameworks, coverage tooling, and optimus infrastructure status
-- **Framework recommendation** — analyzes tech stack and recommends the most popular test framework with coverage tooling
-- **Coverage tooling setup** — detects when a framework exists but coverage measurement is missing; installs report generators for tools that only produce machine-readable output
-- **Build/bootstrap repair** — fixes test infrastructure and test files that fail to compile (deprecated imports, missing polyfills, renamed APIs) with user approval before proceeding
-- **Infrastructure provisioning** — installs test-guardian agent, creates testing.md, updates CLAUDE.md, README.md, and .gitignore if init skipped them
+- **Project-wide discovery** — scans for test files, frameworks, coverage tooling; stops if no test framework found (recommends running `/optimus:init`)
 - **Achievable threshold estimation** — analyzes testable vs untestable code to set realistic coverage targets without requiring refactoring
 - **Prioritized test plan** — up to 10 items per run, highest-value targets first, user-approved before execution
 - **Conservative test writing** — adds new test files only; fixes failing tests, not source code
@@ -48,13 +44,6 @@ The skill produces a structured summary after completing:
 ```
 ## Unit Test Summary
 
-### Infrastructure Provisioned
-- Installed test-guardian agent (.claude/agents/test-guardian.md)
-- Created testing.md (.claude/docs/testing.md)
-- Added test commands to CLAUDE.md
-- Added testing section to README.md
-- Added coverage output directory to .gitignore
-
 ### Coverage
 - Coverage tooling: vitest --coverage
 - Before: 23% → After: 41%
@@ -81,14 +70,12 @@ The skill produces a structured summary after completing:
 ## How It Works
 
 1. Verifies project context exists and identifies available guideline documents
-2. Discovers existing test infrastructure, framework, coverage tooling, and gaps
-3. Recommends and installs test framework + coverage tooling (including report generators) if missing (with approval)
-4. Provisions optimus infrastructure (test-guardian, testing.md, CLAUDE.md updates, README testing section, .gitignore for test artifacts)
-5. Measures baseline coverage and estimates achievable target without refactoring
-6. Presents prioritized test generation plan (capped at 10 items)
-7. Writes tests following project conventions and mocking anti-patterns; self-reviews against a quality checklist before running each test
-8. Runs the full test suite with evidence-based verification to ensure no regressions
-9. Reports coverage impact, bugs discovered, and code flagged as untestable
+2. Discovers existing test infrastructure, framework, and coverage tooling; stops if no framework found
+3. Measures baseline coverage and estimates achievable target without refactoring
+4. Presents prioritized test generation plan (capped at 10 items)
+5. Writes tests following project conventions and mocking anti-patterns; self-reviews against a quality checklist before running each test
+6. Runs the full test suite with evidence-based verification to ensure no regressions
+7. Reports coverage impact, bugs discovered, and code flagged as untestable
 
 ## Relationship to Test-Guardian Agent
 
@@ -99,7 +86,7 @@ The test-guardian agent and this skill are complementary — both use `testing.m
 | Trigger | Automatic, after code changes | On-demand, user-invoked |
 | Scope | Current task changes | Full project or scoped directory |
 | Action | Flags gaps, doesn't write tests | Writes and verifies new tests |
-| Infrastructure | Requires existing setup | Provisions if missing |
+| Infrastructure | Requires existing setup | Requires `/optimus:init` setup |
 | Coverage | Reports delta | Analyzes achievable threshold, moves toward it |
 | Role | Passive monitoring | Active test generation |
 
@@ -113,21 +100,19 @@ The test-guardian agent and this skill are complementary — both use `testing.m
 
 | | `/optimus:unit-test` | `/optimus:init` |
 |---|---|---|
-| Test infrastructure | Provisions if missing | Installs test-guardian agent |
+| Test infrastructure | Requires init to set it up | Installs framework, coverage tooling, test-guardian agent, testing docs |
 | Test files | Writes new tests | Does not write tests |
-| Coverage tooling | Recommends and installs | Does not handle |
+| Coverage analysis | Measures and reports | Does not analyze |
 
-**Workflow**: `/optimus:init` (set up infrastructure) → `/optimus:unit-test` (write tests) → `/optimus:simplify` (restructure untestable code) → `/optimus:unit-test` again (test the restructured code).
+**Workflow**: `/optimus:init` (set up everything including test infrastructure) → `/optimus:unit-test` (write tests to increase coverage) → `/optimus:simplify` (restructure untestable code) → `/optimus:unit-test` again (test the restructured code).
 
 ## Skill Structure
 
 | File | Purpose |
 |---|---|
-| `SKILL.md` | Skill definition with 8-step workflow |
-| `references/framework-recommendations.md` | Stack-specific test framework, coverage tooling, and report tool recommendations |
+| `SKILL.md` | Skill definition with 6-step workflow |
 | *(shared)* `init/references/multi-repo-detection.md` | Multi-repo workspace detection algorithm |
 | *(shared)* `init/references/constraint-doc-loading.md` | Constraint doc loading — Monorepo Scoping Rule |
-| *(shared)* `init/references/unsupported-stack-fallback.md` | Best-effort fallback for unsupported tech stacks |
 
 ## Requirements
 

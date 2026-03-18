@@ -17,7 +17,7 @@ else
     # Check monorepo subprojects too
     has_testing=$(find . -maxdepth 4 -path '*/docs/testing.md' -print -quit 2>/dev/null)
     if [ -z "$has_testing" ]; then
-      output+="[optimus] Testing docs missing. Suggest \`/optimus:unit-test\` to provision test infrastructure."$'\n'
+      output+="[optimus] Testing docs missing. Suggest re-running \`/optimus:init\` to set up test infrastructure."$'\n'
     fi
   fi
 
