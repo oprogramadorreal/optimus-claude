@@ -119,9 +119,10 @@ Each iteration:
 1. Launches up to 4 parallel agents with iteration context (same cap: 8 findings per run)
 2. Auto-applies all findings (test suite validates; failures trigger per-change bisect)
 3. Runs the test suite — reverts any change that causes failures
-4. Loops back for the next pass, or stops when clean
+4. Presents an **iteration report** — a table showing each finding attempted, what changed, why, and its status (fixed/reverted/persistent)
+5. Loops back for the next pass, or stops when clean
 
-Deep mode stops when: no findings remain, the iteration cap is reached, or all changes in an iteration fail tests. All changes remain as local modifications — review the full diff and commit when satisfied.
+Deep mode stops when: no findings remain, the iteration cap is reached, or all changes in an iteration fail tests. All changes remain as local modifications — review the full diff and commit when satisfied. After all iterations complete, a **cumulative report** summarizes every change across all iterations in a single table.
 
 Iterative LLM feedback loops with automated verification consistently improve output quality, with the largest gains in early iterations and diminishing returns in later stages ([LLMLOOP, ICSME 2025](https://valerio-terragni.github.io/assets/pdf/ravi-icsme-2025.pdf)).
 
