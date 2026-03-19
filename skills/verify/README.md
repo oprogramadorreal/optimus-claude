@@ -25,7 +25,7 @@ All work happens inside the sandbox. The remote repository is never modified.
 - **On the default branch** — this skill is for feature branches only
 - **For static code review** — use `/optimus:code-review` instead (it analyzes code quality)
 - **For writing tests** — use `/optimus:tdd` (test-driven development) or `/optimus:unit-test` (coverage gaps)
-- **For code quality** — use `/optimus:simplify` (cross-file simplification)
+- **For code quality** — use `/optimus:refactor` (guideline compliance and testability refactoring)
 
 ## How It Works
 

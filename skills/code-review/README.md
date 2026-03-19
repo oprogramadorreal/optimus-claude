@@ -2,7 +2,7 @@
 
 A [Claude Code](https://docs.anthropic.com/en/docs/claude-code) skill that reviews local changes (or PRs/MRs) against your project's coding guidelines — using up to 6 parallel review agents for comprehensive coverage. High-signal findings only: bugs, logic errors, security issues, guideline violations. Supports a **deep mode** for iterative auto-fix until zero findings remain.
 
-Well-maintained code has [30%+ fewer AI-introduced defects](https://arxiv.org/abs/2601.02200). `/optimus:init` sets up quality infrastructure with agents that guard new code automatically, and `/optimus:simplify` reviews existing code across the project. `/optimus:code-review` is the inner-loop complement: a focused review of your changes before they enter the repo.
+Well-maintained code has [30%+ fewer AI-introduced defects](https://arxiv.org/abs/2601.02200). `/optimus:init` sets up quality infrastructure with agents that guard new code automatically, and `/optimus:refactor` restructures existing code across the project. `/optimus:code-review` is the inner-loop complement: a focused review of your changes before they enter the repo.
 
 ## Features
 
@@ -177,14 +177,14 @@ Anthropic's official [code-review](https://github.com/anthropics/claude-code/tre
 
 ## Relationship to Other Skills
 
-| | `/optimus:code-review` | `/optimus:simplify` |
+| | `/optimus:code-review` | `/optimus:refactor` |
 |---|---|---|
 | Scope | Changed files only | Full project or directory |
-| Focus | Bugs, security, guideline compliance | Cross-file patterns, duplication, drift |
-| Trigger | Before commit/PR | Periodic or after major milestones |
+| Focus | Bugs, security, guideline compliance | Guideline compliance, testability, duplication, drift |
+| Trigger | Before commit/PR | Periodic or before /optimus:unit-test |
 | Action | Report + optional fix | Plan + apply on approval |
 | Deep mode | Yes — iterative review-fix loop | Yes — iterative cleanup loop |
-| Agents | Up to 6 parallel (bug, security, guidelines x2, simplifier, test-guardian) | None (direct analysis) |
+| Agents | Up to 6 parallel (bug, security, guidelines x2, simplifier, test-guardian) | Up to 4 parallel (guideline compliance, testability, duplication/consistency, code simplifier) |
 
 | | `/optimus:code-review` | `/optimus:commit-message` |
 |---|---|---|

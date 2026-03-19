@@ -157,7 +157,7 @@ Each behavior becomes one Red-Green-Refactor cycle. The feature is built increme
 
 ## When NOT to Run
 
-- **Refactoring existing code** — use `/optimus:simplify` instead (change structure, keep behavior, verify with existing tests)
+- **Refactoring existing code** — use `/optimus:refactor` instead (change structure, keep behavior, verify with existing tests)
 - **Adding tests to existing code** — use `/optimus:unit-test` instead (retroactive test generation)
 - **Exploratory prototyping** — TDD works best when you can describe expected behavior upfront
 
@@ -172,7 +172,7 @@ The skill analyzes your task before starting and redirects unsuitable work to th
 | "Add pagination to product list API" | Yes | New testable behavior — query params, response shape |
 | "Implement shopping cart (frontend + backend)" | Yes (decomposed) | Large feature — skill breaks it into small cycles per behavior |
 | "Add rate limiting to all API endpoints" | Yes | New testable behavior per endpoint |
-| "Refactor auth module into smaller files" | No → `/optimus:simplify` | No new behavior — restructuring only |
+| "Refactor auth module into smaller files" | No → `/optimus:refactor` | No new behavior — restructuring only |
 | "Update README documentation" | No | No testable code |
 | "Change button color to blue" | No | Pure styling — no logic to test |
 | "Update .env configuration" | No | Configuration — no testable behavior |
@@ -253,7 +253,7 @@ The user's original branch is never modified. All code review happens through th
 | Infrastructure | Requires existing test setup | Requires `/optimus:init` setup |
 | Refactoring | Applies guidelines in Refactor step | Never modifies source code |
 
-| | `/optimus:tdd` | `/optimus:simplify` |
+| | `/optimus:tdd` | `/optimus:refactor` |
 |---|---|---|
 | Purpose | Implement new behavior test-first | Restructure existing code |
 | Tests | Writes new tests | Uses existing tests as safety net |
