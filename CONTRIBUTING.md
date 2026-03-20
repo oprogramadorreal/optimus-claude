@@ -31,6 +31,8 @@ optimus-claude/
 │   ├── pr/                   # /optimus:pr
 │   ├── permissions/          # /optimus:permissions
 │   ├── reset/                # /optimus:reset
+│   ├── branch/               # /optimus:branch
+│   ├── worktree/             # /optimus:worktree
 │   ├── commit/               # /optimus:commit
 │   └── commit-message/       # /optimus:commit-message
 ├── test/

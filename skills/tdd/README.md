@@ -24,7 +24,7 @@ The [2025 DORA report](https://cloud.google.com/discover/how-test-driven-develop
 - **Test verification at every step** — runs the full test suite after Red, Green, and Refactor to catch regressions instantly
 - **Lint/type-check verification** — runs lint or type-check commands (if configured) during the Green and Refactor steps to catch type errors that passing tests might miss
 - **Quality gate** — after cycling completes, launches code-simplifier and test-guardian agents in parallel to catch cross-cycle issues (duplication between behaviors, naming drift, edge-case coverage gaps) before pushing
-- **Git worktree isolation** — optionally creates a git worktree for the feature branch, keeping the main workspace clean and enabling parallel work
+- **Git worktree isolation** — optionally creates a git worktree for the feature branch, keeping the main workspace clean and enabling parallel work. Automatically detects if already inside a worktree (e.g., created by `/optimus:worktree`) and skips to prevent recursive worktrees
 - **Bug-fix regression gate** — for bug fixes, verifies the red-green cycle is genuine: reverts the fix to confirm the test fails, then restores to confirm it passes
 - **Feature branch workflow** — creates a dedicated `<type>/<slug>` branch (e.g., `feat/add-auth`, `fix/login-email`), commits after each cycle, pushes and creates a PR/MR at the end
 - **Automatic PR/MR creation** — detects GitHub/GitLab and creates a pull/merge request using the [Conventional PR](../pr/README.md) format (structured summary, changes, rationale, test plan). Suggests `/optimus:pr` if the CLI is missing
@@ -284,6 +284,7 @@ The user's original branch is never modified. All code review happens through th
 | *(shared)* `init/references/multi-repo-detection.md` | Multi-repo workspace detection algorithm |
 | *(shared)* `init/references/constraint-doc-loading.md` | Constraint doc loading — Monorepo Scoping Rule |
 | *(shared)* `commit/references/branch-naming.md` | Branch naming convention |
+| *(shared)* `worktree/references/worktree-setup.md` | Worktree setup procedure and recursive guard |
 | *(shared)* `commit-message/references/conventional-commit-format.md` | Conventional commit message format |
 | *(shared)* `pr/references/platform-detection.md` | Platform detection and CLI management |
 

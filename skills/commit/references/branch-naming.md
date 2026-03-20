@@ -1,6 +1,6 @@
 # Branch Naming Convention
 
-Shared reference for generating feature branch names. Consumed by `commit` and `tdd` skills.
+Shared reference for generating feature branch names. Consumed by `branch`, `commit`, `tdd`, and `worktree` skills.
 
 ## Format
 
@@ -22,6 +22,19 @@ Use the conventional commit type that best describes the change:
 | `test` | Adding or updating tests |
 | `chore` | Build, CI, dependencies, tooling |
 | `perf` | Performance improvement |
+
+## Type Detection Keywords
+
+When inferring `<type>` from a description or context:
+- Keywords like "add", "implement", "create", "new" → `feat`
+- Keywords like "fix", "bug", "broken", "error", "crash" → `fix`
+- Keywords like "refactor", "restructure", "clean up", "simplify" → `refactor`
+- Keywords like "test", "coverage", "spec" → `test`
+- Keywords like "docs", "readme", "documentation", "comment" → `docs`
+- Keywords like "style", "format", "lint", "whitespace" → `style`
+- Keywords like "performance", "optimize", "speed", "cache" → `perf`
+- Keywords like "build", "ci", "dependency", "upgrade", "config" → `chore`
+- When ambiguous, default to `feat` for new files or `fix` for modifications
 
 ## Slug Rules
 
