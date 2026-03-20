@@ -1,6 +1,6 @@
 # Prompt Templates Reference
 
-12 prompt architectures for different task types. Load only the template matching the task — do not load the entire file.
+13 prompt architectures for different task types. Load only the template matching the task — do not load the entire file.
 
 ## Table of Contents
 

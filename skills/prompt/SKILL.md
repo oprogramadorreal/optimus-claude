@@ -78,7 +78,7 @@ Before writing any prompt, silently extract these 9 dimensions from the user's i
 
 If 1-2 critical dimensions are genuinely missing, ask via `AskUserQuestion`. Group related questions into a single call when possible.
 
-**Prompt Decompiler mode:** if the user pastes an existing prompt and wants to break it down, adapt it for a different tool, simplify it, or split it — this is a distinct task from building from scratch. Load `references/templates.md` Template L for the Prompt Decompiler workflow.
+**Prompt Decompiler mode:** if the user pastes an existing prompt and wants to break it down, adapt it for a different tool, simplify it, or split it — this is a distinct task from building from scratch. Load `$CLAUDE_PLUGIN_ROOT/skills/prompt/references/templates.md` Template L for the Prompt Decompiler workflow.
 
 ### Step 3 — Route to Target Tool
 
@@ -100,7 +100,7 @@ Based on the task type and target tool, select the appropriate prompt architectu
 | Professional document, business writing, report | B — CO-STAR |
 | Complex multi-step project | C — RISEN |
 | Creative work, brand voice, iterative content | D — CRISPE |
-| Logic, math, debugging (non-reasoning models only) | E — Chain of Thought |
+| Logic, math, debugging (standard models only — not o3/o4-mini/R1/Qwen3 thinking) | E — Chain of Thought |
 | Format-critical output, pattern replication | F — Few-Shot |
 | Code editing in Cursor / Windsurf / Copilot | G — File-Scope |
 | Autonomous agent (Claude Code, Devin, SWE-agent) | H — ReAct + Stop Conditions |
@@ -181,10 +181,10 @@ Output in this exact structure:
 
 Recommend the next step based on context:
 
-- If the prompt was for Claude Code and the user is in an active project → "You can paste this prompt directly. For a fresh start, consider running it in a new conversation."
+- If the prompt was for Claude Code and the user is in an active project → suggest `/optimus:tdd` to build test-first from the prompt, or `/optimus:commit` to commit related work. Mention they can paste the prompt directly or in a new conversation.
 - If the prompt was for an external tool and the user has related code changes → suggest `/optimus:commit` to commit related work
-- If the user might need another prompt → "Need a prompt for another tool or task? Just describe what you need."
-- Default → offer to craft another prompt or refine the current one
+- If the user might need another prompt → "Need a prompt for another tool or task? Just describe what you need." If there are pending code changes, also suggest `/optimus:commit`.
+- Default → offer to craft another prompt or refine the current one. If the project lacks setup, suggest `/optimus:init`.
 
 Tell the user: **Tip:** for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch.
 
