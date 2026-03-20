@@ -9,18 +9,15 @@
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey" alt="Platform">
 </p>
 
-**A Claude Code plugin that sets up your project for effective AI-assisted development** — optimized CLAUDE.md files, effective coding guidelines, formatter hooks, quality agents, TDD and test coverage, all tailored to your actual codebase.
+**A Claude Code plugin that sets up your project for effective AI-assisted engineering.**
 
-*Use it regularly and your project stays clean, consistent, tested, and well-documented — exactly the conditions where Claude Code performs at its prime.*
+**The problem:** AI amplifies whatever it finds. Messy code leads to messier AI-generated code, which becomes the new context for even worse output — a vicious cycle that compounds faster than any human could create technical debt. Without maintained context, any AI coding tool's quality degrades with every file it reads.
 
-### Highlights
+**The solution:** Optimus Claude generates tailored and optimized CLAUDE.md files, coding guidelines, formatter hooks, quality agents, TDD and test coverage, all based on your actual codebase.
 
-- **Consistency by design** — Every skill enforces your project's naming conventions, patterns, and architecture
-- **No surprise behavior** — Install and keep using Claude Code exactly as before. Skills only run when you call them
-- **Safe by default** — Skills confirm before acting, warn about risks, and respect your autonomy
-- **Team force multiplier** — All output goes into `.claude/` and travels with git — teammates get consistent behavior even without the plugin installed
-- **Auto-formatting on every edit** — Consistent code means less context noise — [fewer re-prompts and more accurate generation](https://code.claude.com/docs/en/best-practices)
-- **Persistent quality agents** — code-simplifier and test-guardian enforce your guidelines continuously, not just when you run a skill
+*Use it regularly and your project stays clean, consistent, tested, and well-documented. Exactly the conditions where Claude Code performs at its prime.*
+
+**The philosophy:** Optimus Claude is all about perfecting context: the codebase, unit tests, docs, commit messages, PR descriptions, branch names — it's all context and it all adds up to shape how well Claude Code performs. Optimus Claude provides developers ways to create and maintain optimal context for AI-assisted engineering across the entire development workflow.
 
 ## Quick Start
 
@@ -39,7 +36,7 @@ Run these commands inside Claude Code:
 
 Start a new Claude Code session and type `/optimus:init` in any project directory. See [Skills](#skills) for the full list.
 
-## Why This Plugin?
+## Why It Works
 
 What makes a good developer productive also makes Claude Code productive: **clean code, good tests, and clear docs.**
 
