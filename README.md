@@ -58,9 +58,7 @@ The result: consistent patterns, meaningful names, and lean context across every
 
 **Explicit invocation** — Skills never auto-trigger. Claude Code's default behavior is never altered unless you explicitly call a `/optimus` skill.
 
-**Project-scoped output** — Everything is written into the project's `.claude/` directory and travels with the repo via git — any teammate gets identical behavior, even without the plugin installed. Keep the plugin installed for daily skills like TDD, commit, and code-review.
-
-**Conservative by default** — Skills default to the least destructive option. `/optimus:code-review` reports are read-only, `/optimus:verify` sandboxes isolate risky work, `/optimus:unit-test` never modifies source code, and `/optimus:commit` confirms before acting. Deep and iterative modes exist but must be explicitly requested.
+**Project-scoped output** — Formatter hooks, quality agents, and coding guidelines are installed into `.claude/` and travel with the repo via git — self-contained and working for every teammate without the plugin. The plugin layers development skills on top: TDD, code-review, commit, refactor, and more.
 
 ## Skills
 
