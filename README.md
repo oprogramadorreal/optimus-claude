@@ -23,7 +23,7 @@
 
 ---
 
-**The philosophy:** This is all about perfecting context. The codebase, unit tests, docs, commit messages, PR descriptions, branch names — it's all context and it all adds up to shape how well Claude Code performs. Optimus Claude provides developers ways to create and maintain optimal context for AI-assisted engineering across the entire development workflow.
+**The philosophy:** This is all about perfecting context. The codebase, prompts, unit tests, docs, commit messages, PR descriptions, branch names — it's all context and it all adds up to shape how well Claude Code performs. Optimus Claude provides developers ways to create and maintain optimal context for AI-assisted engineering across the entire development workflow.
 
 ## Quick Start
 
