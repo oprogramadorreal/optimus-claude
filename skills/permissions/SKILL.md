@@ -87,6 +87,7 @@ Run through this checklist. Fix any issues before reporting.
 - Trust model reminder: commands not on the deny list will execute without prompts inside the project (database operations, file deletions, network requests, etc.). See the skill's README for the full trust model
 - Git branch protection is active — git operations (commit, push, rebase, reset, merge) are allowed on feature branches but blocked on protected branches (master, main, develop, dev, development, staging, stage, prod, production, release). Customize the `PROTECTED_BRANCHES` array in `.claude/hooks/restrict-paths.sh`
 - Precious file protection is always active — the hook automatically protects well-known sensitive files (`.env`, `*.key`, `*.pem`, `*.sqlite`, etc.) that are not tracked by git
+- Sandboxing note: this skill provides defense-in-depth, not OS-level isolation. For full sandboxing, see the skill's README ("Where This Fits" section) which covers built-in sandboxing, devcontainers, and platform-specific recommendations
 
 4. Scan for precious unversioned files in the project:
    ```bash

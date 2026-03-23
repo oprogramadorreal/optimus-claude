@@ -24,7 +24,7 @@ LLMs have frozen weights at inference time and learn nothing from sessions. CLAU
 
 ### High-Leverage Point
 
-CLAUDE.md is one of the highest leverage points in your Claude Code setup. Craft it deliberately rather than auto-generating. Consider every line carefully.
+CLAUDE.md is one of the highest leverage points in your Claude Code setup. Craft it deliberately — whether by hand or through analysis-driven generation — and consider every line carefully.
 
 ## Content Structure: WHAT/WHY/HOW Framework
 
@@ -94,9 +94,9 @@ Create individual markdown files for detailed topics:
 - Let tooling handle formatting enforcement
 
 ### Auto-Generated Content
-- Avoid `/init` commands or auto-generated templates for CLAUDE.md
-- The file requires deliberate crafting, not boilerplate
-- Generic content dilutes the effectiveness
+- Avoid blind auto-generation that produces generic boilerplate for CLAUDE.md
+- Template-guided generation is acceptable when it includes codebase analysis, quality checklists, and project-specific content — the result should read as if hand-crafted
+- Generic content dilutes the effectiveness — every line must reflect the actual project
 
 ### Irrelevant Instructions
 - Claude ignores content marked as non-relevant

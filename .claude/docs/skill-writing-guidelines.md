@@ -7,6 +7,9 @@ These quality principles apply to skill authoring just as they apply to code:
 - **Follow Existing Patterns** — match existing skill structure, frontmatter conventions, and reference patterns. Prefer established approaches over novel ones. When introducing a different pattern, apply it consistently — don't leave skills in a mixed state.
 - **KISS** — default to the simplest instructions that meet current requirements. Don't add steps or branches for hypothetical scenarios. Remove dead steps — unused branches, commented-out instructions, and redundant clarifications add noise without value. Safety procedures (validation rules, command allowlists, user-approval gates) and explicit behavioral constraints are requirements — their detail is justified, not a simplicity violation.
 - **SRP** — each skill focused on one concern, each step on one action. When a step handles multiple concerns or mixes abstraction levels, decompose it.
+
+  > **Exception — orchestration skills:** A skill may span multiple concerns when it serves as a one-time setup orchestrator whose value depends on executing all steps atomically (e.g., `skills/init/` handles project detection, CLAUDE.md generation, hooks, agents, and test infrastructure as a single coherent setup). Decomposing these into separate skills would force users to run them in sequence with no clear benefit. Keep orchestration skills well-structured internally — each step should still follow SRP.
+
 - **Intention-Revealing Names** — skill names, template files, and reference docs should convey purpose without tracing through content. Avoid generic names like `helper.md`, `utils.md`, or `doc2.md`.
 - **Pragmatic Abstractions** — extract shared references when 2+ skills reuse a procedure. Don't add indirection for its own sake. Don't extract for hypothetical future reuse.
 
