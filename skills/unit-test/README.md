@@ -70,12 +70,10 @@ The skill produces a structured summary after completing:
 ## How It Works
 
 1. Verifies project context exists and identifies available guideline documents
-2. Discovers existing test infrastructure, framework, and coverage tooling; stops if no framework found
-3. Measures baseline coverage and estimates achievable target without refactoring
-4. Presents prioritized test generation plan (capped at 10 items)
-5. Writes tests following project conventions and mocking anti-patterns; self-reviews against a quality checklist before running each test
-6. Runs the full test suite with evidence-based verification to ensure no regressions
-7. Reports coverage impact, bugs discovered, and code flagged as untestable
+2. Discovers test infrastructure, runs existing tests, measures baseline coverage, and estimates achievable target (agent-assisted)
+3. Presents prioritized test generation plan (capped at 10 items)
+4. Writes tests following project conventions and mocking anti-patterns; self-reviews against a quality checklist before running each test
+5. Runs the full test suite with evidence-based verification, then reports coverage impact, bugs discovered, and code flagged as untestable
 
 ## Relationship to Test-Guardian Agent
 
@@ -110,7 +108,8 @@ The test-guardian agent and this skill are complementary — both use `testing.m
 
 | File | Purpose |
 |---|---|
-| `SKILL.md` | Skill definition with 6-step workflow |
+| `SKILL.md` | Skill definition with 5-step workflow |
+| `references/agent-prompts.md` | Agent prompt templates for Discovery & Coverage Reconnaissance subagent |
 | *(shared)* `init/references/multi-repo-detection.md` | Multi-repo workspace detection algorithm |
 | *(shared)* `init/references/constraint-doc-loading.md` | Constraint doc loading — Monorepo Scoping Rule |
 

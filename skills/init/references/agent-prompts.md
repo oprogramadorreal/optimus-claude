@@ -53,12 +53,12 @@ Apply the tables and algorithms from these reference files to the current projec
    - Step C: Supporting signals (docker-compose, README descriptions, concurrently scripts, proxy configs)
 
    Decision summary:
-   - No `.git/` in current dir + 2+ child dirs with `.git/` -> confirmed multi-repo workspace
-   - Workspace config found -> confirmed monorepo
-   - 2+ projects with manifests -> confirmed monorepo (but see .NET consolidation)
-   - Supporting signals + 1 manifest dir -> likely monorepo (flag as ambiguous)
-   - Supporting signals only -> insufficient evidence (flag as ambiguous)
-   - No signals -> single project
+   - No `.git/` in current dir + 2+ child dirs with `.git/` → confirmed multi-repo workspace
+   - Workspace config found → confirmed monorepo
+   - 2+ projects with manifests → confirmed monorepo (but see .NET consolidation)
+   - Supporting signals + 1 manifest dir → likely monorepo (flag as ambiguous)
+   - Supporting signals only → insufficient evidence (flag as ambiguous)
+   - No signals → single project
 
    .NET solution consolidation: When a single root `.sln` references all discovered `.csproj` files, collapse them into 1 project before applying the matrix above. Non-`.csproj` manifests still count separately.
 
@@ -129,8 +129,8 @@ You will receive the Detection Results (project name, tech stack, commands, stru
 ### Plugin version check
 
 Read `$CLAUDE_PLUGIN_ROOT/.claude-plugin/plugin.json` to get the current plugin version. Then check if `.claude/.optimus-version` exists in the project:
-- **Current plugin version is newer than stored version** -> the plugin has been updated. Include in the Audit Report header: "Plugin updated from vX.Y.Z to vA.B.C — templates may have improved." Do not shortcut any file as "Accurate" without also comparing it against the current template.
-- **Same version or no `.optimus-version` file** -> proceed with normal audit behavior.
+- **Current plugin version is newer than stored version** → the plugin has been updated. Include in the Audit Report header: "Plugin updated from vX.Y.Z to vA.B.C — templates may have improved." Do not shortcut any file as "Accurate" without also comparing it against the current template.
+- **Same version or no `.optimus-version` file** → proceed with normal audit behavior.
 
 ### Audit tasks
 
