@@ -62,6 +62,7 @@ Status values:
 - **persistent** — fix attempted multiple times, still failing
 
 Focus your review on NEW issues only. Do NOT re-flag code that was introduced by a prior fix — those changes are intentional. If you find a genuine NEW issue in code that was part of a prior fix, flag it as a new finding (do not reference the prior finding).
+
 ```
 
 **Summary column**: one sentence, max 120 characters, describing the issue (not the fix).
