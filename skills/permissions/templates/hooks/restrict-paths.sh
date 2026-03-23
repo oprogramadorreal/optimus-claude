@@ -108,7 +108,7 @@ is_precious() {
   [[ "${OSTYPE:-}" == msys* || "${OSTYPE:-}" == cygwin* || "${OSTYPE:-}" == darwin* ]] && lname="${lname,,}"
   case "$lname" in
     # Secrets / credentials
-    .env|.env.*) return 0 ;;
+    .env*) return 0 ;;
     local.settings.json|credentials.*|secrets.*) return 0 ;;
     docker-compose.override.yml) return 0 ;;
     appsettings.*.json)
