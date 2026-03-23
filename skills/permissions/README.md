@@ -185,7 +185,7 @@ The hook automatically protects well-known sensitive and irreplaceable files tha
 
 | Pattern | Category |
 |---------|----------|
-| `.env`, `.env.*` | Secrets |
+| `.env*` | Secrets |
 | `appsettings.*.json` (not `appsettings.json`) | Secrets |
 | `local.settings.json` | Secrets |
 | `credentials.*`, `secrets.*` | Secrets |
