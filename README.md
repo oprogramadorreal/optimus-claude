@@ -66,26 +66,26 @@ The result: consistent patterns, meaningful names, and lean context across every
 
 | Skill | Description |
 |-------|-------------|
-| [`/optimus:init`](skills/init/README.md) | Project setup — CLAUDE.md, coding guidelines, formatter hooks, code-simplifier & test-guardian agents, test infrastructure (framework, coverage tooling, testing docs). Detects empty directories and offers new-project scaffolding via official stack tooling before setup. Monorepos, multi-repo workspaces, intelligent audit on re-run (template files always refreshed, plugin version tracked in `.claude/.optimus-version` to detect template improvements across updates). Best-effort fallback for unsupported stacks via web search. |
-| [`/optimus:unit-test`](skills/unit-test/README.md) | Fills test coverage gaps — discovers gaps, writes convention-following tests. Never refactors source. *Requires init (which sets up test infrastructure).* |
-| [`/optimus:tdd`](skills/tdd/README.md) | Test-driven Red-Green-Refactor — feature branch, per-behavior commits, parallel agent quality gate, PR/MR. The [most effective discipline](https://code.claude.com/docs/en/best-practices) for reliable AI-assisted code. *Requires init.* |
-| [`/optimus:refactor`](skills/refactor/README.md) | Guideline compliance + testability refactoring with 4 parallel agents — duplication, pattern inconsistency, testability barriers, architectural drift. Prioritized plan (capped at 8), test-verified. `deep` mode for iterative refactoring (default 5, up to 10 iterations). *Run init first (recommended).* |
-| [`/optimus:code-review`](skills/code-review/README.md) | Pre-merge review with up to 6 parallel agents — bugs, security, guideline compliance, code-simplifier, test-guardian. Change-intent awareness via git history. `deep` mode for iterative auto-fix until clean (max 5 iterations). GitHub & GitLab. *Run init first (recommended).* |
-| [`/optimus:verify`](skills/verify/README.md) | Feature branch verification in an isolated sandbox — extracts/generates a test plan from the PR and branch diff, runs automated checks, launches up to 4 parallel agents for functional verification (tests, integration, mock projects, code tracing). Never pushes to remote. *Run init first (recommended).* |
+| [`/optimus:init`](skills/init/README.md) | Initializes effective project documentation, formatter hooks, code-quality agents, and unit test infrastructure. Detects empty directories and offers new-project scaffolding. Intelligent audit on re-run. |
+| [`/optimus:unit-test`](skills/unit-test/README.md) | Discovers test coverage gaps and writes convention-following tests. Never refactors source code. *Requires init.* |
+| [`/optimus:tdd`](skills/tdd/README.md) | Guides test-driven development through Red-Green-Refactor cycles with per-behavior commits, parallel quality gate, and PR/MR creation. *Requires init.* |
+| [`/optimus:refactor`](skills/refactor/README.md) | Refactors code for guideline compliance and testability using 4 parallel agents. `deep` mode for iterative refactoring. *Run init first (recommended).* |
+| [`/optimus:code-review`](skills/code-review/README.md) | Reviews changes for bugs, security issues, and guideline compliance using up to 6 parallel agents. `deep` mode for iterative auto-fix. *Run init first (recommended).* |
+| [`/optimus:verify`](skills/verify/README.md) | Verifies a feature branch in an isolated sandbox — extracts a test plan from the PR, runs automated checks, and launches parallel agents for functional verification. *Run init first (recommended).* |
 
 ### Utility
 
 | Skill | Description |
 |-------|-------------|
-| [`/optimus:branch`](skills/branch/README.md) | Switches local changes to a new branch with a meaningful name — analyzes conversation context and git diffs to derive the branch type and name following conventional naming. Never commits or pushes. Multi-repo aware. |
-| [`/optimus:worktree`](skills/worktree/README.md) | Creates a git worktree for isolated parallel development — new branch in a separate directory with project setup and test baseline. Enables multiple Claude Code sessions on different tasks simultaneously. VSCode 1.103+ native integration. Multi-repo aware. |
-| [`/optimus:dev-setup`](skills/dev-setup/README.md) | Ensures the project README has comprehensive, accurate "how to run in dev mode" instructions — detects tech stack, external services (docker-compose), environment config, and generates step-by-step setup sections. Audits existing instructions against actual project state. Works standalone or after init. |
-| [`/optimus:pr`](skills/pr/README.md) | Creates or updates PR/MR with [Conventional PR](skills/pr/references/pr-template.md) format — structured summary, changes, rationale, test plan. Offers CLI installation. Shared template used by TDD. |
-| [`/optimus:permissions`](skills/permissions/README.md) | Branch protection (feature branches work freely; protected branches require PRs), precious unversioned file safety (`.env`, certificates, databases), and auto-approved routine tool calls. Allow/deny rules + PreToolUse hook. Especially useful on native Windows where OS-level sandboxing is unavailable. |
-| [`/optimus:commit`](skills/commit/README.md) | Stages, commits, and optionally pushes with a [conventional commit](https://www.conventionalcommits.org/) message. Confirms before committing. On protected branches, offers to create a feature branch automatically. Multi-repo aware. |
-| [`/optimus:commit-message`](skills/commit-message/README.md) | [Conventional commit](https://www.conventionalcommits.org/) suggestions from local git changes. Splits multi-concern diffs. Multi-repo aware. Read-only — preview only. |
-| [`/optimus:prompt`](skills/prompt/README.md) | Crafts optimized, copy-ready prompts for any AI tool — 9-dimension intent extraction, 30+ tool profiles, 13 auto-selected templates, 36 diagnostic patterns, token efficiency audit. Accepts input in any language; English output by default for better AI performance. Works with LLMs, coding agents, image generators, workflow tools, and more. |
-| [`/optimus:reset`](skills/reset/README.md) | Removes files installed by `/optimus:init` and `/optimus:permissions`. Compares each file against plugin templates and classifies as unmodified, likely generated, or user-modified. Always asks before deleting. Git-tracked files are noted as recoverable. Tests are never touched. Monorepo and multi-repo aware. Use for clean reinstall or to stop using optimus. |
+| [`/optimus:branch`](skills/branch/README.md) | Switches local changes to a new conventionally named branch derived from conversation context and git diffs. Never commits or pushes. |
+| [`/optimus:worktree`](skills/worktree/README.md) | Creates an isolated git worktree for parallel development on a separate branch. Runs project setup and test baseline automatically. |
+| [`/optimus:dev-setup`](skills/dev-setup/README.md) | Ensures the project README has accurate, step-by-step development setup instructions by auditing against actual project state. |
+| [`/optimus:pr`](skills/pr/README.md) | Creates or updates a PR/MR with structured summary, changes, rationale, and test plan. Supports GitHub and GitLab. |
+| [`/optimus:permissions`](skills/permissions/README.md) | Configures branch protection, precious file safety, and auto-approved routine tool calls via allow/deny rules and a PreToolUse hook. |
+| [`/optimus:commit`](skills/commit/README.md) | Stages, commits, and optionally pushes with a conventional commit message. Offers feature branch creation on protected branches. |
+| [`/optimus:commit-message`](skills/commit-message/README.md) | Suggests conventional commit messages from local git changes. Recommends splitting multi-concern diffs. Read-only. |
+| [`/optimus:prompt`](skills/prompt/README.md) | Crafts optimized, copy-ready prompts for any AI tool — extracts intent, selects from 13 templates, and audits for token efficiency. |
+| [`/optimus:reset`](skills/reset/README.md) | Removes files installed by init and permissions. Classifies each file before deletion and always asks for confirmation. |
 
 ## Recommended Workflow
 
