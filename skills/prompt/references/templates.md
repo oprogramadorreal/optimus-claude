@@ -370,45 +370,49 @@ Run these in order. Each output feeds the next.
 
 ## Template M — Exploration + Plan Architecture
 
-*For Claude Code plan mode — read-only codebase exploration that produces an implementation plan. NOT for execution. Plan mode cannot edit files, write files, or run destructive commands.*
+*Your output is a PROMPT the user will paste as the first message in a new Claude Code plan-mode conversation — NEVER produce the plan itself.*
 
-*This prompt will be the FIRST message in a NEW Claude Code conversation. It must be fully self-contained — include all relevant context (stack, architecture decisions, constraints, prior findings) directly in the prompt. Do not assume any prior conversation history.*
+*Plan-mode Claude reads the project's CLAUDE.md and explores the codebase on its own. The prompt tells it WHAT to figure out — it does not pre-answer those questions.*
+
+*Verify and optimize the user's input before including it in "Context." Read referenced files to confirm findings, ask the user if something seems incorrect, and synthesize the information into clear, actionable context. Do not copy user input verbatim — craft it. But do not add codebase exploration details beyond what the user provided.*
+
+*Do not include plan-mode-redundant instructions (e.g., "do not execute changes," "this is read-only") — plan mode enforces these automatically.*
+
+*You may or may not be running inside the target project. If you are (i.e., the current codebase is where the plan-mode prompt will be executed), use that access to improve the prompt: verify user claims against actual files, check that referenced paths exist, validate findings, and ask smarter clarifying questions. But use codebase access to improve the prompt's accuracy — not to pre-do plan-mode's exploration work.*
 
 ```
-Problem Statement:
-[What needs to be built, changed, or investigated — one clear paragraph]
+## Goal
+[What needs to be achieved — the problem or change, in one clear paragraph.
+Include WHY it matters if that shapes the approach.]
 
-Codebase Orientation:
-- Repository: [repo name / path]
-- Key directories: [where to start exploring]
-- Known entry points: [files, modules, or patterns to trace from]
+## Context
+[Verified, optimized synthesis of the user's input: findings, constraints, prior
+decisions, referenced documents. Verify correctness where possible, ask if
+something seems off, and integrate seamlessly — but do not add codebase
+exploration details beyond what the user provided.]
 
-Exploration Goals:
-- [What areas of the codebase to explore and why]
-- [What patterns, conventions, or architectures to identify]
-- [What dependencies or integrations to map]
+## Starting Hints (optional — omit if the user did not mention specific locations)
+[Specific files, directories, or patterns the user mentioned as relevant.]
 
-Questions the Plan Must Answer:
-1. [Specific question about feasibility, approach, or architecture]
-2. [Specific question about existing patterns to follow]
-3. [Specific question about risks or trade-offs]
+## What to Figure Out
+[Questions that plan-mode Claude should answer through its own codebase
+exploration. Frame as questions, not as pre-explored findings.]
+1. [Question about feasibility, approach, or architecture]
+2. [Question about existing patterns to follow or reuse]
+3. [Question about risks, trade-offs, or open decisions]
 
-Plan Document Requirements:
-The plan must include:
-- [Section — e.g., "Current architecture summary with relevant file paths"]
-- [Section — e.g., "Proposed changes listing every file to create or modify"]
-- [Section — e.g., "Implementation sequence with dependencies between steps"]
-- [Section — e.g., "Risks, open questions, and trade-offs"]
+## Plan Deliverable
+The plan should include:
+- [Section the user needs — e.g., "Proposed approach with rationale"]
+- [Section the user needs — e.g., "Files to create or modify, with what changes"]
+- [Section the user needs — e.g., "Implementation sequence and dependencies"]
+- [Section the user needs — e.g., "Risks and open questions"]
 
-Success Criteria:
-- [What makes this plan actionable — e.g., "Every file to modify is identified with its absolute path"]
-- [Quality bar — e.g., "A developer could start implementing from this plan without asking clarifying questions"]
-
-Scope Boundaries:
-- Focus exploration on: [directories / modules / layers]
-- Do NOT explore: [irrelevant areas — saves time and tokens]
+## Scope
+- Focus on: [areas relevant to the goal]
+- Out of scope: [areas to skip — saves tokens]
 ```
 
-**When to use:** The user wants Claude Code in plan mode to explore a codebase and produce an implementation plan. The prompt guides *what to explore* and *what the plan should contain* — it does not guide execution.
+**When to use:** The user wants Claude Code in plan mode to explore a codebase and produce an implementation plan. The prompt provides problem context and defines what the plan should contain — it does NOT pre-explore the codebase or pre-answer analytical questions.
 
 **When NOT to use:** The user wants Claude Code to execute changes directly — use Template H instead.
