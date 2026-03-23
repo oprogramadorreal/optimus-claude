@@ -373,7 +373,7 @@ Run these in order. Each output feeds the next.
 *For Claude Code plan mode — produces a PROMPT the user pastes into a new plan-mode conversation. NEVER produce the plan itself.*
 
 - Plan-mode Claude reads the project's CLAUDE.md and explores the codebase on its own — the prompt tells it WHAT to figure out, not pre-answers
-- Verify and optimize user input: read referenced files to confirm findings, ask if something seems incorrect, synthesize into clear context — do not copy verbatim, do not add codebase exploration details beyond what the user provided
+- Verify and optimize user input: read referenced files to confirm findings, ask if something seems incorrect, synthesize into clear context — do not copy verbatim. Resolve entity names to paths (validation), but do not explore code structure or internals beyond what the user provided
 - If running inside the target project, use codebase access to validate user claims and improve prompt accuracy — but not to pre-do plan-mode's exploration
 - Omit plan-mode-redundant instructions (execution guardrails, "do not execute," "read-only") — plan mode enforces these automatically
 
