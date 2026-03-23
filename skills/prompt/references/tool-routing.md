@@ -117,15 +117,11 @@ These models reason internally across thousands of tokens. Adding CoT or "think 
 
 ### Claude Code (plan mode)
 
-- Read-only mode — explores the codebase and produces a plan, cannot edit files
 - Plan-mode Claude reads the project's CLAUDE.md for codebase orientation — do NOT replicate that information in the prompt
-- The prompt tells plan-mode Claude WHAT to figure out — it does not pre-answer those questions or pre-explore the codebase
-- Verify and optimize user input: read referenced files to confirm findings, ask if something seems incorrect, synthesize into clear context — but do not add codebase exploration details beyond what the user provided
-- If running inside the target project, use codebase access to validate user claims and improve prompt accuracy (check paths exist, confirm findings) — but not to pre-do plan-mode's exploration
-- "What to Figure Out" is the highest-value section — frame as questions for plan-mode Claude to answer through exploration, not as pre-explored findings
+- "What to Figure Out" is the highest-value section — frame as questions, not pre-explored findings
 - Scope boundaries help avoid wasted exploration — include when the user specified relevant areas
-- Do NOT include plan-mode-redundant instructions (execution guardrails, "do not execute," "read-only mode") — plan mode enforces these automatically
 - The prompt must be self-contained — it will be pasted as the first message in a fresh conversation with no prior context
+- See Template M in templates.md for full behavioral rules (input verification, codebase access policy, redundant-instruction exclusions)
 
 ### Cursor / Windsurf
 

@@ -370,15 +370,12 @@ Run these in order. Each output feeds the next.
 
 ## Template M — Exploration + Plan Architecture
 
-*Your output is a PROMPT the user will paste as the first message in a new Claude Code plan-mode conversation — NEVER produce the plan itself.*
+*For Claude Code plan mode — produces a PROMPT the user pastes into a new plan-mode conversation. NEVER produce the plan itself.*
 
-*Plan-mode Claude reads the project's CLAUDE.md and explores the codebase on its own. The prompt tells it WHAT to figure out — it does not pre-answer those questions.*
-
-*Verify and optimize the user's input before including it in "Context." Read referenced files to confirm findings, ask the user if something seems incorrect, and synthesize the information into clear, actionable context. Do not copy user input verbatim — craft it. But do not add codebase exploration details beyond what the user provided.*
-
-*Do not include plan-mode-redundant instructions (e.g., "do not execute changes," "this is read-only") — plan mode enforces these automatically.*
-
-*You may or may not be running inside the target project. If you are (i.e., the current codebase is where the plan-mode prompt will be executed), use that access to improve the prompt: verify user claims against actual files, check that referenced paths exist, validate findings, and ask smarter clarifying questions. But use codebase access to improve the prompt's accuracy — not to pre-do plan-mode's exploration work.*
+- Plan-mode Claude reads the project's CLAUDE.md and explores the codebase on its own — the prompt tells it WHAT to figure out, not pre-answers
+- Verify and optimize user input: read referenced files to confirm findings, ask if something seems incorrect, synthesize into clear context — do not copy verbatim, do not add codebase exploration details beyond what the user provided
+- If running inside the target project, use codebase access to validate user claims and improve prompt accuracy — but not to pre-do plan-mode's exploration
+- Omit plan-mode-redundant instructions (execution guardrails, "do not execute," "read-only") — plan mode enforces these automatically
 
 ```
 ## Goal
