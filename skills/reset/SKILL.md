@@ -111,7 +111,7 @@ These files have ALL content filled in by init from project analysis — no temp
 
 | Project file | Template fingerprint (line 1 HTML comment) | Template section headings |
 |---|---|---|
-| `.claude/CLAUDE.md` | `<!-- Keep this file and .claude/docs/ updated when project structure, conventions, or tooling changes -->` | `Conventions`, `Commands`, `Project Structure`, `Before Writing Code`, `Documentation` |
+| `.claude/CLAUDE.md` | `<!-- Keep this file and .claude/docs/ updated when project structure, conventions, or tooling changes -->` | `Conventions`, `Commands`, `Project Structure`, `Before Writing Code`, `Documentation` (also accept trailing `Agents` — legacy section from older plugin versions) |
 | `.claude/docs/testing.md` | *(no comment — check heading)* First line: `# Testing` | `Test Runner`, `Running Tests`, `Test Structure`, `Writing Tests`, `Workflow`, `Coverage` |
 | `.claude/docs/styling.md` | *(no comment — check heading)* First line: `# Styling` | `Stack`, `Conventions`, `File Organization`, `Adding New Components` |
 | `.claude/docs/architecture.md` | *(no comment — check heading)* First line: `# Architecture` | `Overview`, `Directory Map`, `Data Flow`, `Key Patterns`, `Dependencies Between Modules` |
