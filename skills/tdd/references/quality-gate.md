@@ -20,8 +20,8 @@ Launch up to 2 `general-purpose` Agent tool calls simultaneously — one per ava
 
 For each agent, read the shared constraints and its prompt template from `$CLAUDE_PLUGIN_ROOT/skills/tdd/references/agents/`:
 - Shared: `shared-constraints.md`
-- Agent A: `agent-a-code-simplifier.md`
-- Agent B: `agent-b-test-guardian.md`
+- Agent 1: `agent-1-code-simplifier.md`
+- Agent 2: `agent-2-test-guardian.md`
 
 ### Present findings
 

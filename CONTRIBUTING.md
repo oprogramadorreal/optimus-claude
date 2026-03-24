@@ -56,7 +56,7 @@ skills/<skill-name>/
 │   ├── hooks/                # PostToolUse hook scripts
 │   └── docs/                 # Documentation templates
 └── references/               # Technical reference docs consumed by the skill (optional)
-                              #   e.g., agent prompt templates — externalize here instead of inlining in SKILL.md
+    └── agents/               # Per-agent prompt templates + shared-constraints.md (when skill uses agents)
 ```
 
 **`SKILL.md`** is the key file. It starts with YAML frontmatter and contains the instructions Claude Code follows when the skill is invoked:

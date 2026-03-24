@@ -1,4 +1,4 @@
-# Agent B — Test Guardian (only if test infrastructure detected)
+# Agent 2 — Test Guardian (only if test infrastructure detected)
 
 ```
 Read `$CLAUDE_PLUGIN_ROOT/agents/test-guardian.md` for your role and approach.

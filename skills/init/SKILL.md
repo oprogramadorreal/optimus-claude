@@ -35,6 +35,8 @@ If the user chooses **Continue anyway**: proceed with normal Step 1 detection be
 
 Delegate codebase analysis to a detection agent to keep the main context clean for CLAUDE.md generation.
 
+Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/agents/shared-constraints.md` for constraints that apply to all agents.
+
 Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/agents/agent-1-codebase-detection.md` for the full prompt template, detection algorithms, and return format for the Codebase Detection Agent.
 
 Read these reference files and provide their content to the agent as context before the Agent 1 prompt:
@@ -87,7 +89,7 @@ If no test infrastructure was detected, include this note in the Detection Summa
 
 Delegate the audit comparison to an agent to keep the main context clean for file generation.
 
-Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/agents/agent-2-documentation-audit.md` for the full prompt template, comparison dimensions, classification rules, and return format for the Documentation Audit Agent.
+Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/agents/agent-2-documentation-audit.md` for the full prompt template, comparison dimensions, classification rules, and return format for the Documentation Audit Agent. Apply the shared constraints from `shared-constraints.md` (read in Step 1).
 
 Launch 1 `general-purpose` Agent tool call using the Agent 2 prompt from the agent-2-documentation-audit.md file. **Provide the Detection Results from Step 1 as context** at the start of the agent prompt (before the agent template content).
 

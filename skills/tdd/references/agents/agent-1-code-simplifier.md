@@ -1,4 +1,4 @@
-# Agent A — Code Simplifier (always runs)
+# Agent 1 — Code Simplifier (always runs)
 
 ```
 Read `$CLAUDE_PLUGIN_ROOT/agents/code-simplifier.md` for your role and approach.

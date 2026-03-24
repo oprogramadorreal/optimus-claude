@@ -17,6 +17,8 @@ Ensure the project has accurate, whole-project-scope "how to run in development 
 
 Delegate project scanning to a detection agent to keep the main context clean for content generation.
 
+Read `$CLAUDE_PLUGIN_ROOT/skills/dev-setup/references/agents/shared-constraints.md` for constraints that apply to all agents.
+
 Read `$CLAUDE_PLUGIN_ROOT/skills/dev-setup/references/agents/agent-1-project-context-detection.md` for the full prompt template, detection tasks, and return format for the Project Context Detection Agent.
 
 Read these reference files and provide their content to the agent as context before the Agent 1 prompt:
@@ -50,7 +52,7 @@ Give the user a chance to correct misdetections before proceeding.
 
 Delegate documentation scanning to an audit agent that cross-checks existing docs against the detected project state.
 
-Read `$CLAUDE_PLUGIN_ROOT/skills/dev-setup/references/agents/agent-2-dev-instructions-audit.md` for the full prompt template, audit tasks, and return format for the Dev Instructions Audit Agent.
+Read `$CLAUDE_PLUGIN_ROOT/skills/dev-setup/references/agents/agent-2-dev-instructions-audit.md` for the full prompt template, audit tasks, and return format for the Dev Instructions Audit Agent. Apply the shared constraints from `shared-constraints.md` (read in Step 1).
 
 Read this reference file and provide its content to the agent as context before the Agent 2 prompt:
 - `$CLAUDE_PLUGIN_ROOT/skills/init/references/readme-section-detection.md` — heading patterns, section boundary detection, classification rules
