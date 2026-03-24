@@ -28,11 +28,3 @@ ALWAYS read `.claude/docs/coding-guidelines.md` before planning or implementing 
 ## Documentation
 
 <!-- Only list docs that were actually created; coding-guidelines is covered above -->
-
-## Agents
-
-After implementing features or fixing bugs:
-- `.claude/agents/code-simplifier.md` — simplifies recently changed code
-<!-- Only list if test-guardian was installed:
-- `.claude/agents/test-guardian.md` — flags missing test coverage
--->

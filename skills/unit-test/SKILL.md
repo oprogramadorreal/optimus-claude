@@ -40,9 +40,9 @@ Delegate test infrastructure scanning, test execution, and coverage analysis to 
 
 For each subproject (or the single project):
 
-Read `$CLAUDE_PLUGIN_ROOT/skills/unit-test/references/agent-prompts.md` for the full prompt template, scanning patterns, execution rules, and return format for the Discovery & Coverage Reconnaissance Agent.
+Read `$CLAUDE_PLUGIN_ROOT/skills/unit-test/references/agents/discovery-reconnaissance.md` for the full prompt template, scanning patterns, execution rules, and return format for the Discovery & Coverage Reconnaissance Agent.
 
-Launch 1 `general-purpose` Agent tool call using the Agent 1 prompt from the agent-prompts.md file.
+Launch 1 `general-purpose` Agent tool call using the agent prompt from `discovery-reconnaissance.md`.
 
 | Agent | Role | Runs when |
 |-------|------|-----------|

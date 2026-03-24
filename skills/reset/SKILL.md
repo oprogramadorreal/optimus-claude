@@ -50,8 +50,6 @@ Scan for all files that optimus skills may have created. Only list files that ac
 - `.claude/docs/testing.md`
 - `.claude/docs/styling.md`
 - `.claude/docs/architecture.md`
-- `.claude/agents/code-simplifier.md`
-- `.claude/agents/test-guardian.md`
 - `.claude/hooks/format-python.py`
 - `.claude/hooks/format-node.js`
 - `.claude/hooks/format-rust.sh`
@@ -71,6 +69,14 @@ Scan for all files that optimus skills may have created. Only list files that ac
 **Multi-repo workspace root:**
 - `CLAUDE.md` at workspace root (local-only file)
 
+#### Legacy files (from previous optimus versions)
+
+Check if these files exist — they were installed by older versions and are no longer needed:
+- `.claude/agents/code-simplifier.md`
+- `.claude/agents/test-guardian.md`
+
+If found, classify as `LEGACY`.
+
 ### Step 2 — Classify each file
 
 For each file found in Step 1, determine two things:
@@ -87,8 +93,6 @@ For these files, read both the project file and the corresponding template from 
 
 | Project file | Template source |
 |---|---|
-| `.claude/agents/code-simplifier.md` | `$CLAUDE_PLUGIN_ROOT/skills/init/templates/agents/code-simplifier.md` |
-| `.claude/agents/test-guardian.md` | `$CLAUDE_PLUGIN_ROOT/skills/init/templates/agents/test-guardian.md` |
 | `.claude/hooks/format-python.py` | `$CLAUDE_PLUGIN_ROOT/skills/init/templates/hooks/format-python.py` |
 | `.claude/hooks/format-node.js` | `$CLAUDE_PLUGIN_ROOT/skills/init/templates/hooks/format-node.js` |
 | `.claude/hooks/format-rust.sh` | `$CLAUDE_PLUGIN_ROOT/skills/init/templates/hooks/format-rust.sh` |
@@ -111,7 +115,7 @@ These files have ALL content filled in by init from project analysis — no temp
 
 | Project file | Template fingerprint (line 1 HTML comment) | Template section headings |
 |---|---|---|
-| `.claude/CLAUDE.md` | `<!-- Keep this file and .claude/docs/ updated when project structure, conventions, or tooling changes -->` | `Conventions`, `Commands`, `Project Structure`, `Before Writing Code`, `Documentation`, `Agents` |
+| `.claude/CLAUDE.md` | `<!-- Keep this file and .claude/docs/ updated when project structure, conventions, or tooling changes -->` | `Conventions`, `Commands`, `Project Structure`, `Before Writing Code`, `Documentation` |
 | `.claude/docs/testing.md` | *(no comment — check heading)* First line: `# Testing` | `Test Runner`, `Running Tests`, `Test Structure`, `Writing Tests`, `Workflow`, `Coverage` |
 | `.claude/docs/styling.md` | *(no comment — check heading)* First line: `# Styling` | `Stack`, `Conventions`, `File Organization`, `Adding New Components` |
 | `.claude/docs/architecture.md` | *(no comment — check heading)* First line: `# Architecture` | `Overview`, `Directory Map`, `Data Flow`, `Key Patterns`, `Dependencies Between Modules` |
@@ -137,6 +141,7 @@ If fingerprints match → classify as `LIKELY_GENERATED`. If fingerprints don't 
 #### Classification summary
 
 Each file gets one of:
+- `LEGACY` — installed by a previous optimus version, no longer needed (safe to remove)
 - `UNMODIFIED` — exact match with plugin template (safe to remove)
 - `LIKELY_GENERATED` — has optimus fingerprints, content was filled in by init
 - `MODIFIED` — differs from template or lacks optimus fingerprints (user customized)
@@ -146,14 +151,17 @@ Each file gets one of:
 
 Present the full categorized file list to the user. For each file, show:
 - The file path
-- Its classification (UNMODIFIED / LIKELY_GENERATED / MODIFIED)
+- Its classification (LEGACY / UNMODIFIED / LIKELY_GENERATED / MODIFIED)
 - Whether it is git-tracked (if yes, note: "recoverable via `git checkout`")
 
 Group by classification. Example format:
 
 ```
+## Legacy (from previous optimus versions)
+- .claude/agents/code-simplifier.md (git-tracked) — agents are now bundled with the plugin
+- .claude/agents/test-guardian.md (git-tracked) — agents are now bundled with the plugin
+
 ## Unmodified (exact match with plugin template)
-- .claude/agents/code-simplifier.md (git-tracked)
 - .claude/hooks/format-node.js (git-tracked)
 - .claude/.optimus-version (git-tracked)
 
@@ -174,9 +182,9 @@ Then ask the user using AskUserQuestion:
 - Header: "Reset"
 - Question: "Review the files above. Which should be removed?"
 - Options:
-  1. "Remove all" (Recommended) — remove all optimus files (UNMODIFIED + LIKELY_GENERATED + MODIFIED). Safe when git-tracked
-  2. "Keep modified" — remove UNMODIFIED + LIKELY_GENERATED, keep MODIFIED files
-  3. "Unmodified only" — remove only UNMODIFIED (most conservative)
+  1. "Remove all" (Recommended) — remove all optimus files (LEGACY + UNMODIFIED + LIKELY_GENERATED + MODIFIED). Safe when git-tracked
+  2. "Keep modified" — remove LEGACY + UNMODIFIED + LIKELY_GENERATED, keep MODIFIED files
+  3. "Unmodified only" — remove only LEGACY + UNMODIFIED (most conservative)
   4. "Abort" — cancel reset, do not remove anything
 
 If user selects "Abort" → inform the user that no files were removed → stop.

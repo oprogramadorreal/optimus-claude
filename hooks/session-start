@@ -21,20 +21,9 @@ else
     fi
   fi
 
-  # 3. Check quality agents
-  missing_agents=""
-  [ ! -f .claude/agents/code-simplifier.md ] && missing_agents+="code-simplifier "
-  # test-guardian is only expected when test infrastructure exists (testing.md present)
-  has_any_testing=$( [ -f .claude/docs/testing.md ] && echo y || find . -maxdepth 4 -path '*/docs/testing.md' -print -quit 2>/dev/null)
-  if [ -n "$has_any_testing" ] && [ ! -f .claude/agents/test-guardian.md ]; then
-    missing_agents+="test-guardian "
-  fi
-  if [ -n "$missing_agents" ]; then
-    output+="[optimus] Missing agents: ${missing_agents% }. Run \`/optimus:init\` to install them."$'\n'
-  fi
 fi
 
-# 4. Git state (uncommitted changes or unpushed commits)
+# 3. Git state (uncommitted changes or unpushed commits)
 if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   changed=$(git status --porcelain 2>/dev/null | wc -l | tr -d ' ')
   unpushed=$(git log --oneline '@{u}..HEAD' 2>/dev/null | wc -l | tr -d ' ') || unpushed=0

@@ -130,12 +130,12 @@ Iterative LLM feedback loops with automated verification consistently improve ou
 
 4 specialized agents run in parallel, each with max 8 findings:
 
-| Agent | Role | Runs when |
-|-------|------|-----------|
-| 1 — Guideline Compliance | Explicit violations of project docs with exact rule citations | Always |
-| 2 — Testability Analyzer | Structural barriers to unit testing — hardcoded deps, tight coupling, global state | Always |
-| 3 — Duplication & Consistency | Cross-file duplication, pattern inconsistency, missing abstractions, architectural drift | Always |
-| 4 — Code Simplifier | Unnecessary complexity, naming, dead code, pattern violations | `.claude/agents/code-simplifier.md` exists |
+| Agent | Role |
+|-------|------|
+| 1 — Guideline Compliance | Explicit violations of project docs with exact rule citations |
+| 2 — Testability Analyzer | Structural barriers to unit testing — hardcoded deps, tight coupling, global state |
+| 3 — Duplication & Consistency | Cross-file duplication, pattern inconsistency, missing abstractions, architectural drift |
+| 4 — Code Simplifier | Unnecessary complexity, naming, dead code, pattern violations |
 
 ## Relationship to Code-Simplifier Agent
 
@@ -167,7 +167,7 @@ Claude Code includes a builtin `/simplify` command. `/optimus:refactor` is the e
 | File | Purpose |
 |---|---|
 | `SKILL.md` | Skill definition with 8-step parallel agent workflow |
-| `references/agent-prompts.md` | Prompt templates for all 4 analysis agents |
+| `references/agents/` | Individual agent prompt files, shared constraints, and context blocks for all 4 analysis agents |
 | *(shared)* `init/references/multi-repo-detection.md` | Multi-repo workspace detection algorithm |
 | *(shared)* `init/references/prerequisite-check.md` | Shared prerequisite check with fallbacks |
 | *(shared)* `init/references/constraint-doc-loading.md` | Constraint doc loading (single project, monorepo) |

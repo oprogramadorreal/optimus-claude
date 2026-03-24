@@ -17,15 +17,15 @@ Ensure the project has accurate, whole-project-scope "how to run in development 
 
 Delegate project scanning to a detection agent to keep the main context clean for content generation.
 
-Read `$CLAUDE_PLUGIN_ROOT/skills/dev-setup/references/agent-prompts.md` for the full prompt template, detection tasks, and return format for the Project Context Detection Agent.
+Read `$CLAUDE_PLUGIN_ROOT/skills/dev-setup/references/agents/project-context-detection.md` for the full prompt template, detection tasks, and return format for the Project Context Detection Agent.
 
-Read these reference files and provide their content to the agent as context before the Agent 1 prompt:
+Read these reference files and provide their content to the agent as context before the agent prompt:
 - `$CLAUDE_PLUGIN_ROOT/skills/init/references/multi-repo-detection.md` — workspace detection
 - `$CLAUDE_PLUGIN_ROOT/skills/init/references/project-detection.md` — monorepo/single-project detection
 - `$CLAUDE_PLUGIN_ROOT/skills/init/references/tech-stack-detection.md` — manifest → tech stack + package manager
 - `$CLAUDE_PLUGIN_ROOT/skills/dev-setup/references/dev-setup-sections.md` — signal-to-section mapping and external services detection
 
-Launch 1 `general-purpose` Agent tool call using the Agent 1 prompt from the agent-prompts.md file, prepended with the reference file contents above.
+Launch 1 `general-purpose` Agent tool call using the agent prompt from `project-context-detection.md`, prepended with the reference file contents above.
 
 | Agent | Role | Runs when |
 |-------|------|-----------|
@@ -50,12 +50,12 @@ Give the user a chance to correct misdetections before proceeding.
 
 Delegate documentation scanning to an audit agent that cross-checks existing docs against the detected project state.
 
-Read `$CLAUDE_PLUGIN_ROOT/skills/dev-setup/references/agent-prompts.md` for the full prompt template, audit tasks, and return format for the Dev Instructions Audit Agent.
+Read `$CLAUDE_PLUGIN_ROOT/skills/dev-setup/references/agents/dev-instructions-audit.md` for the full prompt template, audit tasks, and return format for the Dev Instructions Audit Agent.
 
-Read this reference file and provide its content to the agent as context before the Agent 2 prompt:
+Read this reference file and provide its content to the agent as context before the agent prompt:
 - `$CLAUDE_PLUGIN_ROOT/skills/init/references/readme-section-detection.md` — heading patterns, section boundary detection, classification rules
 
-Launch 1 `general-purpose` Agent tool call using the Agent 2 prompt from the agent-prompts.md file. **Provide the Context Detection Results from Step 1 as context** at the start of the agent prompt (before the readme-section-detection.md content and Agent 2 template).
+Launch 1 `general-purpose` Agent tool call using the agent prompt from `dev-instructions-audit.md`. **Provide the Context Detection Results from Step 1 as context** at the start of the agent prompt (before the readme-section-detection.md content and agent template).
 
 | Agent | Role | Runs when |
 |-------|------|-----------|

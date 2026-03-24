@@ -110,17 +110,6 @@ If a multi-repo workspace was detected in Step 1, resolve prerequisites per-repo
 
 Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/prerequisite-check.md` and apply the prerequisite check (CLAUDE.md + coding-guidelines.md existence, fallback logic).
 
-### Agent prerequisites
-
-Check that these files exist:
-- `.claude/agents/code-simplifier.md`
-- `.claude/agents/test-guardian.md`
-
-**If either is missing**, warn the user and recommend running `/optimus:init` to install them. Use these fallbacks so the skill can still run:
-- `code-simplifier.md` missing → Agent 5 (Code Simplifier) will be skipped in Step 4; the review still covers bugs, security, and guidelines via Agents 1–4
-- `test-guardian.md` missing → Agent 6 (Test Guardian) will be skipped in Step 4; test coverage gaps will not be analyzed
-- Both missing → both agents skipped; only Agents 1–4 run (still provides bug, security, and guideline coverage); strongly recommend `/optimus:init` for full 6-agent review
-
 ### Load constraint docs
 
 Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/constraint-doc-loading.md` for the full document loading procedure (single project and monorepo layouts, scoping rules).
@@ -136,7 +125,6 @@ Apply the "Submodule Exclusion" rule from `$CLAUDE_PLUGIN_ROOT/skills/init/refer
 Before proceeding to the review, present a brief summary:
 - Docs loaded (with paths)
 - Docs missing (with fallback status)
-- Agents available (with skip status for missing ones)
 - Project type (single project / monorepo / multi-repo workspace)
 
 Proceed immediately to Step 3 — do not wait for user confirmation.
@@ -163,40 +151,38 @@ If the user selects **Normal mode**, continue with the standard single-pass flow
 
 ## Step 4: Parallel Multi-Agent Review (up to 6 agents)
 
-4 core review agents + 2 project-level agents, all launched in parallel for maximum coverage.
+6 review agents launched in parallel for maximum coverage.
 
-Launch up to 6 `general-purpose` Agent tool calls simultaneously. Agents 1–4 always run; Agents 5–6 only run if the corresponding project agent file exists (checked in Step 2).
+Launch 6 `general-purpose` Agent tool calls simultaneously.
 
 Each agent receives the list of changed file paths from Step 1.
 
-Read `$CLAUDE_PLUGIN_ROOT/skills/code-review/references/agent-prompts.md` for the full prompt templates, quality bar, exclusion rules, and false positive guidance for all 6 agents.
+Read the agent prompt files from `$CLAUDE_PLUGIN_ROOT/skills/code-review/references/agents/` for individual agent prompts. Read `$CLAUDE_PLUGIN_ROOT/skills/code-review/references/agents/shared-constraints.md` for the shared quality bar, exclusion rules, and false positive guidance that apply to all agents.
 
 ### PR/MR context injection (PR/MR mode only)
 
-If a `pr-description` was captured in Step 1 and its body is non-empty, prepend the PR/MR context block to every agent prompt before the file list. Read the **PR/MR Context Block** section in `$CLAUDE_PLUGIN_ROOT/skills/code-review/references/agent-prompts.md` for the template, truncation rule, and guardrail language.
+If a `pr-description` was captured in Step 1 and its body is non-empty, prepend the PR/MR context block to every agent prompt before the file list. Read `$CLAUDE_PLUGIN_ROOT/skills/code-review/references/agents/context-blocks.md` for the template, truncation rule, and guardrail language.
 
 ### Iteration context injection (deep mode, iterations 2+)
 
-If deep mode is active and `iteration-count` > 1, prepend the iteration context block to every agent prompt before the file list (after the PR/MR context block, if present). Read the **Iteration Context Block** section in `$CLAUDE_PLUGIN_ROOT/skills/code-review/references/agent-prompts.md` for the template and format.
+If deep mode is active and `iteration-count` > 1, prepend the iteration context block to every agent prompt before the file list (after the PR/MR context block, if present). Read `$CLAUDE_PLUGIN_ROOT/skills/code-review/references/agents/context-blocks.md` for the template and format.
 
 ### Agent overview
 
-| Agent | Role | Runs when |
-|-------|------|-----------|
-| 1 — Bug Detector | Null access, off-by-one, race conditions, resource leaks, type mismatches | Always |
-| 2 — Security & Logic | SQL injection, XSS, hardcoded secrets, missing auth, API contract violations | Always |
-| 3 — Guideline Compliance A | Explicit violations of project docs with exact rule citations | Always |
-| 4 — Guideline Compliance B | Same task as Agent 3 — independent review reduces false negatives | Always |
-| 5 — Code Simplifier | Unnecessary complexity, naming, dead code, pattern violations | `.claude/agents/code-simplifier.md` exists |
-| 6 — Test Guardian | Test coverage gaps, structural barriers to testability | `.claude/agents/test-guardian.md` exists |
+| Agent | Role |
+|-------|------|
+| 1 — Bug Detector | Null access, off-by-one, race conditions, resource leaks, type mismatches |
+| 2 — Security & Logic | SQL injection, XSS, hardcoded secrets, missing auth, API contract violations |
+| 3 — Guideline Compliance A | Explicit violations of project docs with exact rule citations |
+| 4 — Guideline Compliance B | Same task as Agent 3 — independent review reduces false negatives |
+| 5 — Code Simplifier | Unnecessary complexity, naming, dead code, pattern violations |
+| 6 — Test Guardian | Test coverage gaps, structural barriers to testability |
 
 Each agent: max 8 findings, structured list format. Guideline agents (3–4) are constructed dynamically based on Step 2's doc loading results (single project vs monorepo paths).
 
 ### Execution
 
-Launch all available agents simultaneously (parallel, not sequential). Wait for all launched agents to complete before proceeding to Step 5.
-
-**Agent availability summary**: Agents 1–4 always run (no project dependencies). Agents 5–6 depend on installed project agents. If neither project agent exists, note in the summary and recommend `/optimus:init` for full 6-agent review.
+Launch all 6 agents simultaneously (parallel, not sequential). Wait for all agents to complete before proceeding to Step 5.
 
 ## Step 5: Validate Findings
 

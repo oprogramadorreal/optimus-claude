@@ -1,6 +1,6 @@
 {
   "name": "optimus",
-  "version": "1.52.4",
+  "version": "1.53.0",
   "description": "Sets up your project for effective AI-assisted development — optimized CLAUDE.md files, effective coding guidelines, formatter hooks, quality agents, TDD and test coverage, all tailored to your actual codebase.",
   "author": {
     "name": "oprogramadorreal",

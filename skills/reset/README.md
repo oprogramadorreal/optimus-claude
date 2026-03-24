@@ -49,9 +49,9 @@ The skill **always** asks before removing anything. After presenting the categor
 | `.claude/docs/testing.md` | Heuristic (section headings) |
 | `.claude/docs/styling.md` | Heuristic (section headings) |
 | `.claude/docs/architecture.md` | Heuristic (section headings) |
-| `.claude/agents/code-simplifier.md` | Exact match |
-| `.claude/agents/test-guardian.md` | Exact match |
 | `.claude/hooks/format-*.{py,js,sh}` | Exact match (one per detected tech stack) |
+| `.claude/agents/code-simplifier.md` | Legacy (from previous versions) |
+| `.claude/agents/test-guardian.md` | Legacy (from previous versions) |
 
 ### Files from `/optimus:permissions`
 

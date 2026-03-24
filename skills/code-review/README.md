@@ -226,7 +226,7 @@ Anthropic's official [code-review](https://github.com/anthropics/claude-code/tre
 | File | Purpose |
 |---|---|
 | `SKILL.md` | Skill definition with 8-step review workflow |
-| `references/agent-prompts.md` | Prompt templates for parallel review agents (including PR/MR context block and iteration context block for deep mode) |
+| `references/agents/` | Individual agent prompt files, shared constraints, and context blocks for parallel review agents |
 | *(shared)* `init/references/multi-repo-detection.md` | Multi-repo workspace detection algorithm |
 | *(shared)* `init/references/prerequisite-check.md` | Shared prerequisite check with fallbacks |
 | *(shared)* `init/references/constraint-doc-loading.md` | Constraint doc loading (single project, monorepo) |

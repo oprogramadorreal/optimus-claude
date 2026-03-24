@@ -56,9 +56,9 @@ Default to high freedom unless the task is fragile. Provide a sensible default w
 ## Directory Layout
 
 - `SKILL.md` (required) + `README.md` (required).
-- Templates in `templates/` (`hooks/`, `agents/`, `docs/` subdirs).
+- Templates in `templates/` (`hooks/`, `docs/` subdirs).
 - Reference docs in `references/`.
-- When agents use prompt templates, externalize to `references/agent-prompts.md` — don't inline them in SKILL.md (see `skills/code-review/` for the pattern).
+- When agents use prompt templates, externalize to individual files under `references/agents/` — one file per agent, plus `shared-constraints.md` for common rules and `context-blocks.md` for conditional context injection. Don't inline agent prompts in SKILL.md (see `skills/code-review/` for the pattern). Plugin-level agent definitions (reusable across skills) live in the top-level `agents/` directory.
 
 ## Shared References
 

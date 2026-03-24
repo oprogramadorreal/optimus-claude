@@ -94,7 +94,7 @@ skills/verify/
 ├── SKILL.md                          # 9-step verification workflow
 ├── README.md                         # This file
 └── references/
-    ├── agent-prompts.md              # Prompt templates for the 4 verification agents
+    ├── agents/                       # Individual agent prompt files and shared constraints for the 4 verification agents
     ├── mock-project-scaffolds.md     # Per-stack minimal consumer project templates
     └── test-plan-extraction.md       # PR parsing and diff-based generation algorithm
 ```

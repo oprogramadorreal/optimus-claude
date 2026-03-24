@@ -11,6 +11,7 @@ Read the root README.md to understand the plugin's full capabilities — skills,
 ## Project layout
 
 - `.claude-plugin/` — plugin manifests (plugin.json, marketplace.json)
+- `agents/` — plugin-level agent definitions (reusable across skills)
 - `hooks/` — plugin-level hooks (SessionStart for project state awareness)
 - `skills/<name>/` — one directory per skill (SKILL.md + README.md + optional templates/ and references/)
 - `scripts/` — validation and test scripts (CI and local)
