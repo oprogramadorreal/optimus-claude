@@ -2,7 +2,7 @@
 
 A [Claude Code](https://docs.anthropic.com/en/docs/claude-code) skill that improves unit test coverage for existing code — discovering gaps and generating tests that follow your project's conventions. Requires `/optimus:init` to have set up test infrastructure first.
 
-Well-maintained code has [30%+ fewer AI-introduced defects](https://arxiv.org/abs/2601.02200), and tests are what make AI agents self-correcting: make change → run tests → see failure → fix. `/optimus:init` installs a test-guardian agent that monitors coverage gaps, but it doesn't write tests. `/optimus:unit-test` is the active complement: it fills gaps deliberately.
+Well-maintained code has [30%+ fewer AI-introduced defects](https://arxiv.org/abs/2601.02200), and tests are what make AI agents self-correcting: make change → run tests → see failure → fix. The plugin includes a test-guardian agent that monitors coverage gaps, but it doesn't write tests. `/optimus:unit-test` is the active complement: it fills gaps deliberately.
 
 **Conservative by design** — only adds new test files, never refactors or restructures existing source code. If code is untestable as-is, it flags it rather than changing it. Refactoring is the domain of `/optimus:refactor`.
 
@@ -98,7 +98,7 @@ The test-guardian agent and this skill are complementary — both use `testing.m
 
 | | `/optimus:unit-test` | `/optimus:init` |
 |---|---|---|
-| Test infrastructure | Requires init to set it up | Installs framework, coverage tooling, test-guardian agent, testing docs |
+| Test infrastructure | Requires init to set it up | Installs framework, coverage tooling, testing docs |
 | Test files | Writes new tests | Does not write tests |
 | Coverage analysis | Measures and reports | Does not analyze |
 
@@ -109,7 +109,7 @@ The test-guardian agent and this skill are complementary — both use `testing.m
 | File | Purpose |
 |---|---|
 | `SKILL.md` | Skill definition with 5-step workflow |
-| `references/agent-prompts.md` | Agent prompt templates for Discovery & Coverage Reconnaissance subagent |
+| `agents/` | Individual agent prompt files for Test Infrastructure Analysis subagent |
 | *(shared)* `init/references/multi-repo-detection.md` | Multi-repo workspace detection algorithm |
 | *(shared)* `init/references/constraint-doc-loading.md` | Constraint doc loading — Monorepo Scoping Rule |
 

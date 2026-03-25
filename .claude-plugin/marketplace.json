@@ -5,7 +5,7 @@
     "url": "https://github.com/oprogramadorreal"
   },
   "metadata": {
-    "description": "Sets up your project for effective AI-assisted development — optimized CLAUDE.md files, effective coding guidelines, formatter hooks, quality agents, TDD and test coverage, all tailored to your actual codebase."
+    "description": "Sets up your project for effective AI-assisted development — optimized CLAUDE.md files, effective coding guidelines, formatter hooks, built-in code-quality agents, TDD and test coverage, all tailored to your actual codebase."
   },
   "plugins": [
     {
@@ -14,7 +14,7 @@
         "source": "url",
         "url": "https://github.com/oprogramadorreal/optimus-claude.git"
       },
-      "description": "Sets up your project for effective AI-assisted development — optimized CLAUDE.md files, effective coding guidelines, formatter hooks, quality agents, TDD and test coverage, all tailored to your actual codebase."
+      "description": "Sets up your project for effective AI-assisted development — optimized CLAUDE.md files, effective coding guidelines, formatter hooks, built-in code-quality agents, TDD and test coverage, all tailored to your actual codebase."
     }
   ]
 }

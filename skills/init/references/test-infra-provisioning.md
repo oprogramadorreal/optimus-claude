@@ -30,10 +30,6 @@ After framework exists (pre-existing or just installed), run the test suite once
 
 This phase runs **regardless** of whether the steps above installed anything — test infrastructure may have been added manually. Provision what is missing:
 
-### Test-guardian agent
-
-Copy `$CLAUDE_PLUGIN_ROOT/skills/init/templates/agents/test-guardian.md` to `.claude/agents/test-guardian.md`. Always overwrite — this is a verbatim template, not project-customized content.
-
 ### Testing documentation
 
 If `.claude/docs/testing.md` doesn't exist, create it using `$CLAUDE_PLUGIN_ROOT/skills/init/templates/docs/testing.md` as the skeleton. Fill in all placeholders with actual project details (framework name, test commands, directory structure, conventions from existing test files). Don't leave any `[placeholder]` text.
@@ -42,7 +38,7 @@ If `.claude/docs/testing.md` already exists, review it for accuracy. Propose upd
 
 ### CLAUDE.md testing references
 
-If `.claude/CLAUDE.md` doesn't reference testing, add test commands and a testing.md reference. Keep within init's compact ~60-line style — add to existing sections rather than creating new ones. Also update the Agents section to list test-guardian if it was just installed and is not yet listed.
+If `.claude/CLAUDE.md` doesn't reference testing, add test commands and a testing.md reference. Keep within init's compact ~60-line style — add to existing sections rather than creating new ones.
 
 ### Monorepo subprojects
 

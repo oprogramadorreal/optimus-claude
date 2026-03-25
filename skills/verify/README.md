@@ -93,8 +93,8 @@ Built-in support for Node.js/TypeScript, Python, Rust, Go, C#/.NET, Java (Maven/
 skills/verify/
 ├── SKILL.md                          # 9-step verification workflow
 ├── README.md                         # This file
+├── agents/                           # Individual agent prompt files for the 4 verification agents
 └── references/
-    ├── agent-prompts.md              # Prompt templates for the 4 verification agents
     ├── mock-project-scaffolds.md     # Per-stack minimal consumer project templates
     └── test-plan-extraction.md       # PR parsing and diff-based generation algorithm
 ```

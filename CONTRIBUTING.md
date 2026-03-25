@@ -12,6 +12,11 @@ optimus-claude/
 ├── .claude-plugin/
 │   ├── plugin.json           # Plugin metadata (name, version, author)
 │   └── marketplace.json      # Marketplace catalog (how Claude Code discovers the plugin)
+├── agents/                    # Plugin-level agents — user-invokable, also extended by skill-level agents
+│   ├── code-simplifier.md     # Code simplification agent (extended by code-review, refactor, tdd)
+│   ├── test-guardian.md       # Test coverage monitoring agent (extended by code-review, tdd)
+│   └── README.md              # Two-tier agent architecture documentation
+├── references/                # Shared reference docs (shared-agent-constraints, context-injection-blocks)
 ├── hooks/
 │   ├── hooks.json            # Plugin-level hooks (SessionStart for skill awareness)
 │   └── session-start         # Outputs dynamic project state on session start/resume/clear/compact
@@ -53,10 +58,9 @@ skills/<skill-name>/
 ├── README.md                 # User-facing documentation
 ├── templates/                # YAML, markdown, and shell templates (optional)
 │   ├── hooks/                # PostToolUse hook scripts
-│   ├── agents/               # Agent definition files
 │   └── docs/                 # Documentation templates
+├── agents/                   # Individual agent prompt files (one per agent, plus shared-constraints.md)
 └── references/               # Technical reference docs consumed by the skill (optional)
-                              #   e.g., agent prompt templates — externalize here instead of inlining in SKILL.md
 ```
 
 **`SKILL.md`** is the key file. It starts with YAML frontmatter and contains the instructions Claude Code follows when the skill is invoked:
@@ -77,6 +81,24 @@ All skills **must** use `disable-model-invocation: true`. This is a core design 
 **Shared references:** When a procedure is used by 2+ skills (e.g., multi-repo workspace detection, platform detection), extract it to a reference file owned by the canonical skill. Consuming skills read the reference and apply their own policy. This avoids logic duplication while keeping each skill self-contained. See `skills/init/references/multi-repo-detection.md` and `skills/pr/references/platform-detection.md` for examples.
 
 **Note:** The `name` field is intentionally omitted from frontmatter. When present, it strips the plugin namespace prefix — `/optimus:init` would appear as just `/init`, shadowing the builtin command. See [anthropics/claude-code#22063](https://github.com/anthropics/claude-code/issues/22063).
+
+## Agent architecture
+
+The plugin uses a two-tier agent design. See `agents/README.md` for the full explanation.
+
+**Create a plugin-level agent** (`agents/`) when:
+- The agent represents a reusable quality concern (e.g., code simplification, test coverage monitoring)
+- Multiple skills will extend its core behavior via the specialization pattern
+
+**Create a skill-level agent** (`skills/<name>/agents/`) when:
+- The agent is specific to one skill's workflow (e.g., bug-detector for code-review, behavior-tracer for verify)
+- The agent needs skill-specific scope, output format, or exclusion boundaries
+
+**Extend a plugin-level agent** from a skill-level agent when:
+- The skill needs the same core behavior but with different scope or output format
+- Use `Read $CLAUDE_PLUGIN_ROOT/agents/<name>.md for your approach` to inherit, then add skill-specific instructions
+
+**Add shared constraints** to `references/shared-agent-constraints.md` when the rule applies to all analysis agents across all skills. Add skill-specific addendums to the skill's own `shared-constraints.md`.
 
 ## Adding or modifying a skill
 
@@ -144,12 +166,13 @@ Checks include:
 - CRLF and shebang consistency in scripts
 - SKILL.md frontmatter validity (`description`, `disable-model-invocation: true`, no `name:`)
 - Every `$CLAUDE_PLUGIN_ROOT/...` path resolves to an existing file
-- No orphaned files in `references/` or `templates/`
+- No orphaned files in `references/`, `templates/`, or `agents/`
 - Template scripts parse without syntax errors (bash, node, python)
 - JSON templates are valid
 - Every skill directory has both `SKILL.md` and `README.md`
 - README lists all skills
 - `hooks.json` references existing scripts
+- Plugin-level agent files have required frontmatter fields
 - Reference depth does not exceed 2 levels (SKILL → A → B max)
 
 ### Hook execution tests (CI)

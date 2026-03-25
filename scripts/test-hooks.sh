@@ -94,45 +94,20 @@ cleanup_fixture
 
 echo "[session-start: init done, no testing docs]"
 setup_fixture
-mkdir -p .claude/docs .claude/agents
+mkdir -p .claude/docs
 echo "# Project" > .claude/CLAUDE.md
 echo "# Guidelines" > .claude/docs/coding-guidelines.md
-echo "# Simplifier" > .claude/agents/code-simplifier.md
 output=$(bash "$SESSION_START" 2>/dev/null || true)
 assert_output_contains "Suggests re-running init when testing.md missing" "/optimus:init" "$output"
 assert_output_not_contains "Does not suggest unit-test for missing testing docs" "/optimus:unit-test" "$output"
 cleanup_fixture
 
-echo "[session-start: init done, has testing but missing test-guardian]"
-setup_fixture
-mkdir -p .claude/docs .claude/agents
-echo "# Project" > .claude/CLAUDE.md
-echo "# Guidelines" > .claude/docs/coding-guidelines.md
-echo "# Testing" > .claude/docs/testing.md
-echo "# Simplifier" > .claude/agents/code-simplifier.md
-output=$(bash "$SESSION_START" 2>/dev/null || true)
-assert_output_contains "Reports missing test-guardian agent" "test-guardian" "$output"
-cleanup_fixture
-
-echo "[session-start: init done, missing code-simplifier]"
-setup_fixture
-mkdir -p .claude/docs .claude/agents
-echo "# Project" > .claude/CLAUDE.md
-echo "# Guidelines" > .claude/docs/coding-guidelines.md
-echo "# Testing" > .claude/docs/testing.md
-echo "# Guardian" > .claude/agents/test-guardian.md
-output=$(bash "$SESSION_START" 2>/dev/null || true)
-assert_output_contains "Reports missing code-simplifier agent" "code-simplifier" "$output"
-cleanup_fixture
-
 echo "[session-start: fully configured, clean tree]"
 setup_fixture
-mkdir -p .claude/docs .claude/agents
+mkdir -p .claude/docs
 echo "# Project" > .claude/CLAUDE.md
 echo "# Guidelines" > .claude/docs/coding-guidelines.md
 echo "# Testing" > .claude/docs/testing.md
-echo "# Simplifier" > .claude/agents/code-simplifier.md
-echo "# Guardian" > .claude/agents/test-guardian.md
 # Stage and commit everything so working tree is clean and there's an upstream
 git add -A && git commit -q -m "setup"
 output=$(bash "$SESSION_START" 2>/dev/null || true)
@@ -141,12 +116,10 @@ cleanup_fixture
 
 echo "[session-start: fully configured, uncommitted changes]"
 setup_fixture
-mkdir -p .claude/docs .claude/agents
+mkdir -p .claude/docs
 echo "# Project" > .claude/CLAUDE.md
 echo "# Guidelines" > .claude/docs/coding-guidelines.md
 echo "# Testing" > .claude/docs/testing.md
-echo "# Simplifier" > .claude/agents/code-simplifier.md
-echo "# Guardian" > .claude/agents/test-guardian.md
 git add -A && git commit -q -m "setup"
 # Create uncommitted change
 echo "new content" > dirty-file.txt

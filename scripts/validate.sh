@@ -117,14 +117,14 @@ while IFS= read -r ref_line; do
     src_file=$(printf '%s' "$ref_line" | cut -d: -f1)
     broken_refs+="  $src_file -> $ref_path\n"
   fi
-done < <(grep -rn '\$[{]\{0,1\}CLAUDE_PLUGIN_ROOT[}]\{0,1\}/' skills/ 2>/dev/null || true)
+done < <(grep -rn '\$[{]\{0,1\}CLAUDE_PLUGIN_ROOT[}]\{0,1\}/' skills/ references/ 2>/dev/null || true)
 check "All CLAUDE_PLUGIN_ROOT references resolve" test -z "$broken_refs"
 if [ -n "$broken_refs" ]; then
   printf "       Broken references:\n%b" "$broken_refs"
 fi
 
 # --- 8. Orphan detection ---
-# Every file in references/ and templates/ should be referenced by at least one skill file.
+# Every file in references/, templates/, and agents/ should be referenced by at least one skill file.
 echo "[Orphan detection]"
 orphan_files=""
 # Build the set of all reference and template files
@@ -146,8 +146,8 @@ while IFS= read -r f; do
      ! grep -rq "$parent_dir/" skills/ 2>/dev/null; then
     orphan_files+="  $rel_path\n"
   fi
-done < <(find ./skills -path '*/references/*' -o -path '*/templates/*' | grep -v '/__' | sort)
-check "No orphaned reference/template files" test -z "$orphan_files"
+done < <(( find ./skills -path '*/references/*' -o -path '*/templates/*' -o -path '*/agents/*'; find ./references ./agents -type f 2>/dev/null ) | grep -v '/__' | sort)
+check "No orphaned reference/template/agent files" test -z "$orphan_files"
 if [ -n "$orphan_files" ]; then
   printf "       Unreferenced files:\n%b" "$orphan_files"
 fi
@@ -282,7 +282,32 @@ else
   echo "  SKIP  hooks.json checks (jq not installed)"
 fi
 
-# --- 14. Reference depth check (max 2 levels from SKILL.md) ---
+# --- 14. Plugin-level agents ---
+echo "[Plugin agents]"
+agent_issues=""
+for agent_file in agents/code-simplifier.md agents/test-guardian.md; do
+  if [ ! -f "$agent_file" ]; then
+    agent_issues+="  $agent_file: missing\n"
+  else
+    # Check frontmatter has tools: field
+    if ! grep -q '^tools:' "$agent_file" 2>/dev/null; then
+      agent_issues+="  $agent_file: missing 'tools:' in frontmatter\n"
+    fi
+    if ! grep -q '^name:' "$agent_file" 2>/dev/null; then
+      agent_issues+="  $agent_file: missing 'name:' in frontmatter\n"
+    fi
+  fi
+done
+# Check that old template agents directory does NOT exist
+if [ -d "skills/init/templates/agents" ] && [ "$(ls -A skills/init/templates/agents 2>/dev/null)" ]; then
+  agent_issues+="  skills/init/templates/agents/ still contains files (should be moved to agents/)\n"
+fi
+check "Plugin-level agents valid" test -z "$agent_issues"
+if [ -n "$agent_issues" ]; then
+  printf "       Issues:\n%b" "$agent_issues"
+fi
+
+# --- 15. Reference depth check (max 2 levels from SKILL.md) ---
 echo "[Reference depth]"
 deep_refs=""
 # For each reference file that is loaded by a SKILL.md, check if it loads further
@@ -295,11 +320,13 @@ while IFS= read -r ref_file; do
       continue
     fi
     # This is a level-2 reference. Check if IT references more files (level-3 = too deep)
-    if grep -q '\$[{]\{0,1\}CLAUDE_PLUGIN_ROOT[}]\{0,1\}/' "./$l2_path" 2>/dev/null; then
+    # Exclude references to top-level agents/ and references/ — these are leaf files (role definitions, shared constraints)
+    has_deep=$(grep '\$[{]\{0,1\}CLAUDE_PLUGIN_ROOT[}]\{0,1\}/' "./$l2_path" 2>/dev/null | grep -v '\$[{]\{0,1\}CLAUDE_PLUGIN_ROOT[}]\{0,1\}/agents/' | grep -v '\$[{]\{0,1\}CLAUDE_PLUGIN_ROOT[}]\{0,1\}/references/' || true)
+    if [ -n "$has_deep" ]; then
       deep_refs+="  $ref_file -> $l2_path -> (further refs)\n"
     fi
   done < <(grep '\$[{]\{0,1\}CLAUDE_PLUGIN_ROOT[}]\{0,1\}/' "./$ref_file" 2>/dev/null || true)
-done < <(find ./skills -path '*/references/*.md' | sort)
+done < <(find ./skills -path '*/references/*.md' -o -path '*/agents/*.md' | sort)
 check "Reference depth <= 2 levels" test -z "$deep_refs"
 if [ -n "$deep_refs" ]; then
   printf "       Deep reference chains (3+ levels):\n%b" "$deep_refs"
