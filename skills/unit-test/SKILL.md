@@ -41,13 +41,13 @@ Delegate test infrastructure scanning, test execution, and coverage analysis to 
 For each subproject (or the single project):
 
 Read `$CLAUDE_PLUGIN_ROOT/skills/unit-test/agents/shared-constraints.md` for agent constraints.
-Read `$CLAUDE_PLUGIN_ROOT/skills/unit-test/agents/test-discoverer.md` for the full prompt template, scanning patterns, execution rules, and return format for the Discovery & Coverage Reconnaissance Agent.
+Read `$CLAUDE_PLUGIN_ROOT/skills/unit-test/agents/test-infrastructure-analyzer.md` for the full prompt template, scanning patterns, execution rules, and return format for the Test Infrastructure Analyzer Agent.
 
-Launch 1 `general-purpose` Agent tool call using the prompt from test-discoverer.md, prepended with the shared constraints.
+Launch 1 `general-purpose` Agent tool call using the prompt from test-infrastructure-analyzer.md, prepended with the shared constraints.
 
 | Agent | Role | Runs when |
 |-------|------|-----------|
-| 1 — Discovery & Coverage Reconnaissance | Scan test files/frameworks/runners, run existing tests, measure coverage, classify code testability | Always |
+| 1 — Test Infrastructure Analysis | Scan test files/frameworks/runners, run existing tests, measure coverage, classify code testability | Always |
 
 Wait for the agent to complete.
 

@@ -109,7 +109,7 @@ Both agents reference your project's `.claude/CLAUDE.md` and `.claude/docs/` fil
 | `references/new-project-scaffolding.md` | New project scaffolding procedure for empty directories |
 | `references/test-infra-provisioning.md` | Test infrastructure provisioning procedure (framework, coverage, health check, docs) |
 | `references/test-framework-recommendations.md` | Stack-specific test framework, coverage tooling, and report tool recommendations |
-| `agents/` | Individual agent prompt files for Codebase Detection and Documentation Audit subagents |
+| `agents/` | Individual agent prompt files for Project Analysis and Documentation Audit subagents |
 | `templates/` | CLAUDE.md templates, doc templates, hook scripts |
 
 ## Customization

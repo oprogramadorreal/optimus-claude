@@ -134,7 +134,7 @@ Iterative LLM feedback loops with automated verification consistently improve ou
 |-------|------|-----------|
 | 1 — Guideline Compliance | Explicit violations of project docs with exact rule citations | Always |
 | 2 — Testability Analyzer | Structural barriers to unit testing — hardcoded deps, tight coupling, global state | Always |
-| 3 — Duplication & Consistency | Cross-file duplication, pattern inconsistency, missing abstractions, architectural drift | Always |
+| 3 — Consistency Analyzer | Cross-file duplication, pattern inconsistency, missing abstractions, architectural drift | Always |
 | 4 — Code Simplifier | Unnecessary complexity, naming, dead code, pattern violations | Always |
 
 ## Relationship to Code-Simplifier Agent

@@ -31,12 +31,12 @@ Each skill-level agent directory typically contains:
 | Skill | Agents | Notes |
 |-------|--------|-------|
 | code-review | bug-detector, code-simplifier, guideline-reviewer, security-reviewer, test-guardian | + context-blocks.md for PR/MR and iteration context |
-| refactor | code-simplifier, duplication-analyzer, guideline-reviewer, testability-analyzer | + context-blocks.md for iteration context |
+| refactor | code-simplifier, consistency-analyzer, guideline-reviewer, testability-analyzer | + context-blocks.md for iteration context |
 | tdd | code-simplifier, test-guardian | Quality gate after each TDD cycle |
 | verify | behavior-tracer, integration-verifier, mock-project-verifier, test-writer | Sandbox-only verification agents |
-| init | codebase-detector, documentation-auditor | Project analysis during setup |
-| dev-setup | project-detector, instructions-auditor | Dev environment analysis |
-| unit-test | test-discoverer | Test infrastructure discovery |
+| init | project-analyzer, documentation-auditor | Project analysis during setup |
+| dev-setup | dev-environment-detector, dev-setup-auditor | Dev environment analysis |
+| unit-test | test-infrastructure-analyzer | Test infrastructure analysis |
 
 ## The specialization pattern
 

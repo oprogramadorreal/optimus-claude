@@ -36,17 +36,17 @@ If the user chooses **Continue anyway**: proceed with normal Step 1 detection be
 Delegate codebase analysis to a detection agent to keep the main context clean for CLAUDE.md generation.
 
 Read `$CLAUDE_PLUGIN_ROOT/skills/init/agents/shared-constraints.md` for agent constraints.
-Read `$CLAUDE_PLUGIN_ROOT/skills/init/agents/codebase-detector.md` for the full prompt template, detection algorithms, and return format for the Codebase Detection Agent.
+Read `$CLAUDE_PLUGIN_ROOT/skills/init/agents/project-analyzer.md` for the full prompt template, detection algorithms, and return format for the Project Analyzer Agent.
 
 Read these reference files and provide their content to the agent as context before the agent prompt:
 - `$CLAUDE_PLUGIN_ROOT/skills/init/references/tech-stack-detection.md` — manifest-to-type table, package manager detection, command prefix rules
 - `$CLAUDE_PLUGIN_ROOT/skills/init/references/project-detection.md` — full detection algorithm
 
-Launch 1 `general-purpose` Agent tool call using the prompt from codebase-detector.md, prepended with the shared constraints and reference file contents above.
+Launch 1 `general-purpose` Agent tool call using the prompt from project-analyzer.md, prepended with the shared constraints and reference file contents above.
 
 | Agent | Role | Runs when |
 |-------|------|-----------|
-| 1 — Codebase Detection | Manifest reading, tech-stack detection, structure detection, doc insight extraction, existing files inventory, test infrastructure check | Always |
+| 1 — Project Analysis | Manifest reading, tech-stack detection, structure detection, doc insight extraction, existing files inventory, test infrastructure check | Always |
 
 Wait for the agent to complete. Use the agent's **Detection Results** to populate the Step 1 Checkpoint below.
 

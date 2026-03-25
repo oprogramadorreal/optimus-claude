@@ -76,7 +76,7 @@ The skill analyzes your project, scans existing documentation, and proposes deve
 | File | Purpose |
 |------|---------|
 | `SKILL.md` | Skill definition with step-by-step instructions |
-| `agents/` | Individual agent prompt files for Project Context Detection and Dev Instructions Audit subagents |
+| `agents/` | Individual agent prompt files for Dev Environment Detection and Dev Setup Audit subagents |
 | `references/dev-setup-sections.md` | Section templates, signal-to-section mapping, PM command tables, external services detection |
 | *(shared)* `init/references/readme-section-detection.md` | Algorithm for finding existing dev instructions in documentation |
 | *(shared)* `init/references/tech-stack-detection.md` | Manifest → tech stack and package manager detection tables |

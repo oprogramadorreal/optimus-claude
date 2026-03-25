@@ -142,7 +142,7 @@ If deep mode is active and `iteration-count` > 1, prepend the iteration context 
 |-------|------|-----------|
 | 1 — Guideline Compliance | Explicit violations of project docs with exact rule citations | Always |
 | 2 — Testability Analyzer | Structural barriers to unit testing — hardcoded deps, tight coupling, global state | Always |
-| 3 — Duplication & Consistency | Cross-file duplication, pattern inconsistency, missing abstractions, architectural drift | Always |
+| 3 — Consistency Analyzer | Cross-file duplication, pattern inconsistency, missing abstractions, architectural drift | Always |
 | 4 — Code Simplifier | Unnecessary complexity, naming, dead code, pattern violations | Always |
 
 Each agent: max 8 findings, structured list format. The Guideline Compliance agent (Agent 1) is constructed dynamically based on Step 3's doc loading results (single project vs monorepo paths).

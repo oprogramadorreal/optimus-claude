@@ -1,11 +1,11 @@
 ---
-name: project-detector
+name: dev-environment-detector
 description: Analyzes project tech stack, commands, services, and infrastructure to produce a structured context detection summary for dev setup documentation.
 model: opus
 tools: Read, Bash, Glob, Grep
 ---
 
-# Project Detector
+# Dev Environment Detector
 
 You are a project detection specialist analyzing a codebase to produce a structured Context Detection Results summary for writing development setup instructions.
 
