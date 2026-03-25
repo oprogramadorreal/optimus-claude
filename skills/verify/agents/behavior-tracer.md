@@ -2,7 +2,7 @@
 name: behavior-tracer
 description: Verifies code correctness through static analysis, execution path tracing, and optional runtime verification scripts.
 model: opus
-tools: Read, Bash, Glob, Grep
+tools: Read, Write, Edit, Bash, Glob, Grep
 ---
 
 # Behavior Tracer
