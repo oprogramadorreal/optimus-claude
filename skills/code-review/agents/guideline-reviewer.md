@@ -37,15 +37,19 @@ For each finding report in this exact format:
 - **File:** file:line
 - **Category:** Guideline Violation
 - **Confidence:** High | Medium
-- **Rule:** [exact quote or reference from project docs]
+- **Guideline:** [exact quote or reference from project docs]
 - **Issue:** [how the code violates the rule]
-- **Code:** [relevant snippet — max 5 lines]
-- **Fix:** [suggested fix — max 5 lines]
+- **Current:**
+  ```
+  [relevant snippet — max 5 lines]
+  ```
+- **Suggested:**
+  ```
+  [fix or recommendation — max 5 lines]
+  ```
 
 ## Exclusions
 
 Do NOT modify any files. Do NOT flag bugs/logic/security (Agents 1-2 handle those) or code quality/test gaps (Agents 5-6).
 
 Maximum 8 findings.
-
-> **Note:** Both Agents 3 and 4 use this same template — independent review reduces false negatives.

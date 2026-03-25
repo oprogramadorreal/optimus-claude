@@ -21,11 +21,20 @@ This code was built using TDD — every behavior has a test. Focus on what TDD's
 - Test-to-source mapping for all new/modified source files
 - Structural barriers that prevent unit testing (tight coupling, hidden dependencies)
 
-Run the full test suite to confirm everything passes.
+Apply shared constraints from `shared-constraints.md`.
+
 Apply the focus areas from your role definition and the project's testing conventions.
 
 ## Output Format
 
-For each finding: source file and function name, finding type (Test Gap | Structural Barrier), what should be tested or what barrier prevents testing, recommended test file path (if applicable).
-Do NOT write test code. Only identify gaps.
-Maximum 5 findings. Report as a structured list.
+For each finding report in this exact format:
+
+- **File:** source file and function name
+- **Category:** Test Gap | Structural Barrier
+- **Confidence:** High | Medium
+- **Issue:** [what should be tested or what barrier prevents testing]
+- **Test file:** [recommended test file path, if applicable]
+
+## Exclusions
+
+Do NOT modify any files. Do NOT write test code. Only identify gaps.
