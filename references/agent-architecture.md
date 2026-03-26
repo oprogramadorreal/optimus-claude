@@ -1,10 +1,10 @@
-# Agents
+# Agent Architecture
 
 Agents (subagents) are separate Claude instances spawned via the Agent tool, each running in its own context window. This isolates their work from the main conversation — keeping the primary context clean and focused — and enables multiple agents to run in parallel. Each agent receives a specific task, works autonomously with restricted tool access, and returns a focused result.
 
-optimus-claude uses a two-tier agent architecture: **plugin-level agents** in this directory and **skill-level agents** inside individual `skills/<name>/agents/` directories.
+optimus-claude uses a two-tier agent architecture: **plugin-level agents** in the `agents/` directory and **skill-level agents** inside individual `skills/<name>/agents/` directories.
 
-## Plugin-level agents (this directory)
+## Plugin-level agents (`agents/`)
 
 | Agent | Purpose |
 |-------|---------|
