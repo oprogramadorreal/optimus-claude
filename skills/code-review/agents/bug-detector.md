@@ -27,8 +27,6 @@ git log --no-merges --oneline -10 -- <file>
 git log --no-merges --oneline --extended-regexp --grep="^fix[(: ]|^revert[(: ]|bug.fix" -10 -- <file>
 ```
 
-Use history results to boost confidence on findings in historically problematic areas and note recurring patterns alongside findings.
-
 **Constraints:**
 - Do NOT report git history as standalone findings — history informs your analysis, it is not a finding category
 - If git commands fail (shallow clone, missing history), skip the pre-scan gracefully and proceed with normal analysis

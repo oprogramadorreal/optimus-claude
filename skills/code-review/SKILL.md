@@ -147,7 +147,7 @@ Then use `AskUserQuestion` — header "Deep mode", question "Proceed with deep m
 
 If the user did not invoke with `deep`, skip this step.
 
-If the user selects **Normal mode**, continue with the standard single-pass flow. Record the user's choice as a `deep-mode` flag for subsequent steps. If deep mode is confirmed, initialize `iteration-count` to 1, `total-fixed` to 0, `total-reverted` to 0, and `accumulated-findings` to an empty list. Each entry in `accumulated-findings` tracks: **file** (with line), **category** (Bug, Security, Guideline Violation, Code Quality, Test Coverage Gap, Contract Quality), **guideline** (the specific project rule, or "General: bug/security"), **summary** (one-sentence description of the issue), **fix description** (brief description of the fix applied or attempted), **iteration** (which iteration discovered it), and **status** (updated through apply/test phases).
+If the user selects **Normal mode**, continue with the standard single-pass flow. Record the user's choice as a `deep-mode` flag for subsequent steps. If deep mode is confirmed, initialize `iteration-count` to 1, `total-fixed` to 0, `total-reverted` to 0, and `accumulated-findings` to an empty list. Each entry in `accumulated-findings` tracks: **file** (with line), **category** (Bug, Security, Guideline Violation, Code Quality, Test Coverage Gap, Contract Quality), **guideline** (the specific project rule, or "General: bug/security/contract quality"), **summary** (one-sentence description of the issue), **fix description** (brief description of the fix applied or attempted), **iteration** (which iteration discovered it), and **status** (updated through apply/test phases).
 
 ## Step 4: Parallel Multi-Agent Review (up to 7 agents)
 
@@ -193,7 +193,7 @@ If no changed file matches, skip Agent 7 entirely (zero cost).
 
 ### Execution
 
-Launch up to 7 `general-purpose` Agent tool calls simultaneously (5, 6, or 7, depending on Agent 6 and 7 availability). Wait for all launched agents to complete before proceeding to Step 5.
+Wait for all launched agents to complete before proceeding to Step 5.
 
 ## Step 5: Validate Findings
 
@@ -254,8 +254,8 @@ Before presenting findings, write a concise summary (2–4 sentences) of what th
 ### Severity
 
 - **Critical** — Bugs, security vulnerabilities, runtime failures
-- **Warning** — Guideline violations, missing error handling, test coverage gaps for critical paths
-- **Suggestion** — Code quality improvements, minor guideline drift, test coverage gaps for non-critical paths
+- **Warning** — Guideline violations, missing error handling, test coverage gaps for critical paths, backward-incompatible contract changes
+- **Suggestion** — Code quality improvements, minor guideline drift, test coverage gaps for non-critical paths, minor contract quality issues
 
 ### Finding cap
 
@@ -289,7 +289,7 @@ Maximum **15 findings** across all sources, prioritized by severity then confide
 **[N]. [Finding title]** (Critical/Warning/Suggestion — [Bug/Security/Guideline/Quality/Test Gap/Contract])
 - **File:** `file:line`
 - **Category:** [Bug | Security | Guideline Violation | Code Quality | Test Coverage Gap | Contract Quality]
-- **Guideline:** [which project guideline, or "General: bug/security"]
+- **Guideline:** [which project guideline, or "General: bug/security/contract quality"]
 - **Issue:** [concrete description]
 - **Current:**
   ```
@@ -379,7 +379,7 @@ Column definitions:
 - **File** — `file:line`
 - **What Changed** — Brief description of the fix applied or attempted
 - **Reason** — Why the change was needed (the issue/problem)
-- **Guideline / Category** — The specific project guideline violated (or "General: bug/security" for non-guideline findings), plus the category (Bug, Security, Guideline Violation, Code Quality, Test Coverage Gap, Contract Quality)
+- **Guideline / Category** — The specific project guideline violated (or "General: bug/security/contract quality" for non-guideline findings), plus the category (Bug, Security, Guideline Violation, Code Quality, Test Coverage Gap, Contract Quality)
 - **Status** — `fixed`, `reverted — test failure`, `reverted — attempt 2`, or `persistent — fix failed`
 
 For condition 4 (continue), after presenting the iteration report also show the progress summary: "Iteration [N] of up to 5 — [total-fixed] findings fixed so far, [total-reverted] reverted. Starting next pass..." If the **next** iteration will be 3 or higher, append to the progress summary: "Note: context is accumulating — if output quality degrades, consider finishing remaining findings in a fresh conversation." Then increment `iteration-count` and **return to Step 4** for the next analysis pass. When returning to Step 4, re-gather the current diff (the codebase has changed due to applied fixes) and focus agents on files that had findings in any previous iteration plus any newly modified files.

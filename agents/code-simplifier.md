@@ -52,8 +52,4 @@ If either file is missing, use these fallbacks so the agent can still operate:
 - Changing control flow patterns
 - Moving code between files or modules
 
-## Code Quality Lens
-
-In addition to pattern-level checks, apply every principle from the project's `coding-guidelines.md` as a supplementary quality lens. If the guidelines are silent on a topic, skip it.
-
 Your goal is to ensure code meets the project's own standards for clarity and maintainability while preserving complete functionality.

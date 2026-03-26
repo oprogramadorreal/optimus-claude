@@ -31,12 +31,19 @@ For each finding report in this exact format:
 - **File:** file:line
 - **Category:** Contract Quality
 - **Confidence:** High | Medium
+- **Guideline:** [which project guideline, or "General: contract quality"]
 - **Issue:** [concrete description]
-- **Code:** [relevant snippet — max 5 lines]
-- **Fix:** [suggested fix — max 5 lines]
+- **Current:**
+  ```
+  [relevant snippet — max 5 lines]
+  ```
+- **Suggested:**
+  ```
+  [fix or recommendation — max 5 lines]
+  ```
 
 ## Exclusions
 
-Do NOT modify any files. Do NOT flag bugs (bug-detector handles that), general input sanitization (security-reviewer handles that), guidelines (guideline-reviewer), code quality (code-simplifier), or test gaps (test-guardian).
+Do NOT modify any files. Do NOT flag bugs (bug-detector handles that), security-focused input sanitization such as XSS or injection (security-reviewer handles that), guidelines (guideline-reviewer), code quality (code-simplifier), or test gaps (test-guardian).
 
 Maximum 8 findings.

@@ -32,7 +32,7 @@ If either file is missing, use these fallbacks so the agent can still operate:
 
 8. **Check Test Quality**: When reviewing existing tests alongside coverage gaps, also check for test quality issues: behavioral assertions over implementation details, descriptive test names, no shared mutable state, explicit setup/teardown, and self-contained readable tests (DAMP over DRY).
 
-*(Items 7–8 canonical source: `skills/tdd/references/testing-anti-patterns.md` — update both locations when rules change.)*
+*(Item 7 canonical source: `skills/tdd/references/testing-anti-patterns.md` — update both locations when rules change.)*
 
 ## What You Do NOT Do
 
