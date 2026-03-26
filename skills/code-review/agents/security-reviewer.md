@@ -26,7 +26,7 @@ Review ONLY the diff/changed sections of the provided files.
 - Unsafe deserialization
 - Missing authentication/authorization checks
 - Data integrity issues
-- API contract violations
+- API contract violations (security-relevant: missing auth on endpoints, overly permissive parameter acceptance)
 - Error propagation that hides failures
 
 When reviewing defensive patterns (blocklists, allowlists, input validation):
@@ -47,6 +47,6 @@ For each finding report in this exact format:
 
 ## Exclusions
 
-Do NOT modify any files. Do NOT flag bugs (bug-detector handles that), guidelines (guideline-reviewer), or code quality/test gaps (code-simplifier, test-guardian).
+Do NOT modify any files. Do NOT flag bugs (bug-detector handles that), guidelines (guideline-reviewer), code quality/test gaps (code-simplifier, test-guardian), or contract design quality such as backward compatibility, type safety, and versioning (contracts-reviewer handles that when applicable).
 
 Maximum 8 findings.
