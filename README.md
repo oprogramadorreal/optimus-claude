@@ -3,7 +3,7 @@
 </div>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-1.53.0-blue" alt="Version">
+  <img src="https://img.shields.io/badge/version-1.53.1-blue" alt="Version">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
   <img src="https://img.shields.io/badge/Claude_Code-1.0.33+-blueviolet" alt="Claude Code">
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey" alt="Platform">
@@ -46,7 +46,7 @@ Start a new Claude Code session and type `/optimus:init` in any project director
 
 Every skill operates on the same shared foundation: **your project's coding guidelines** and a **verification protocol** that demands evidence over confidence.
 
-`/optimus:init` analyzes your codebase and generates constraint docs — coding guidelines, CLAUDE.md, formatter hooks, and test infrastructure (framework, coverage tooling, testing docs) — into your `.claude/` directory. The plugin bundles quality agents at two levels: **plugin-level agents** (code-simplifier, test-guardian) that define reusable quality concerns, and **skill-level agents** that adapt them for specific workflows within skills like code-review, refactor, and tdd. Skill-level agents often extend the plugin-level definitions with skill-specific scope and output format — see [`agents/README.md`](agents/README.md) for the full architecture. From that point on, every optimus skill loads those guidelines, and skills that make completion claims apply the verification protocol as a gate before reporting.
+`/optimus:init` analyzes your codebase and generates constraint docs — coding guidelines, CLAUDE.md, formatter hooks, and test infrastructure (framework, coverage tooling, testing docs) — into your `.claude/` directory. The plugin bundles quality agents at two levels: **plugin-level agents** (code-simplifier, test-guardian) that define reusable quality concerns, and **skill-level agents** that adapt them for specific workflows within skills like code-review, refactor, and tdd. Skill-level agents often extend the plugin-level definitions with skill-specific scope and output format — see [`references/agent-architecture.md`](references/agent-architecture.md) for the full architecture. From that point on, every optimus skill loads those guidelines, and skills that make completion claims apply the verification protocol as a gate before reporting.
 
 `/optimus:code-review` doesn't run a generic review — its agents check *your* naming conventions, *your* architectural patterns, and *your* DRY principles alongside bugs and security. `/optimus:tdd` applies them during the Refactor step. `/optimus:refactor` uses them as its quality lens. `/optimus:unit-test` follows them for test naming and structure.
 

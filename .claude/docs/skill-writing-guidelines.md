@@ -58,7 +58,7 @@ Default to high freedom unless the task is fragile. Provide a sensible default w
 - `SKILL.md` (required) + `README.md` (required).
 - Templates in `templates/` (`hooks/`, `docs/` subdirs).
 - Reference docs in `references/`.
-- When agents use prompt templates, split into individual files under `agents/` — one file per agent, plus `shared-constraints.md` for common rules and `context-blocks.md` for conditional context injection. Don't inline agent prompts in SKILL.md (see `skills/code-review/` for the pattern). Plugin-level agent definitions (reusable across skills) live in the top-level `agents/` directory — see `agents/README.md` for the two-tier architecture and when to use each tier.
+- When agents use prompt templates, split into individual files under `agents/` — one file per agent, plus `shared-constraints.md` for common rules and `context-blocks.md` for conditional context injection. Don't inline agent prompts in SKILL.md (see `skills/code-review/` for the pattern). Plugin-level agent definitions (reusable across skills) live in the top-level `agents/` directory — see `references/agent-architecture.md` for the two-tier architecture and when to use each tier.
 
 ## Shared References
 

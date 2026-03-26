@@ -15,8 +15,7 @@ optimus-claude/
 ├── agents/                    # Plugin-level agents — user-invokable, also extended by skill-level agents
 │   ├── code-simplifier.md     # Code simplification agent (extended by code-review, refactor, tdd)
 │   ├── test-guardian.md       # Test coverage monitoring agent (extended by code-review, tdd)
-│   └── README.md              # Two-tier agent architecture documentation
-├── references/                # Shared reference docs (shared-agent-constraints, context-injection-blocks)
+├── references/                # Shared reference docs (agent-architecture, shared-agent-constraints, context-injection-blocks)
 ├── hooks/
 │   ├── hooks.json            # Plugin-level hooks (SessionStart for skill awareness)
 │   └── session-start         # Outputs dynamic project state on session start/resume/clear/compact
@@ -84,7 +83,7 @@ All skills **must** use `disable-model-invocation: true`. This is a core design 
 
 ## Agent architecture
 
-The plugin uses a two-tier agent design. See `agents/README.md` for the full explanation.
+The plugin uses a two-tier agent design. See `references/agent-architecture.md` for the full explanation.
 
 **Create a plugin-level agent** (`agents/`) when:
 - The agent represents a reusable quality concern (e.g., code simplification, test coverage monitoring)
