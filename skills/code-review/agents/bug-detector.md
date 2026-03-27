@@ -21,13 +21,15 @@ Before analyzing code, run these git commands on each changed file to identify h
 
 ```bash
 # Recent changes to each file (identify churn hotspots)
-git log --no-merges --oneline -10 -- <file>
+git log --no-merges --oneline -10 -- "<file>"
 
 # Prior bug fixes and reverts touching each file
-git log --no-merges --oneline --extended-regexp --grep="^fix[(: ]|^revert[(: ]|bug.fix" -10 -- <file>
+git log --no-merges --oneline --extended-regexp --grep="^fix[(: ]|^revert[(: ]|bug.fix" -10 -- "<file>"
 ```
 
 **Constraints:**
+- Use the Bash tool ONLY for the git commands listed above — do not run any other shell commands
+- Always quote file paths in shell commands to prevent metacharacter expansion
 - Do NOT report git history as standalone findings — history informs your analysis, it is not a finding category
 - If git commands fail (shallow clone, missing history), skip the pre-scan gracefully and proceed with normal analysis
 

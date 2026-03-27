@@ -101,7 +101,7 @@ The skill presents a structured review report:
 - Lines changed: +142 / -28
 - Findings: 3 (Critical: 1, Warning: 1, Suggestion: 1)
 - Docs used: CLAUDE.md, coding-guidelines.md, testing.md
-- Agents: bug-detector, security-reviewer, guideline-A, guideline-B, code-simplifier, test-guardian, contracts-reviewer
+- Agents: bug-detector, security-reviewer, guideline-A, guideline-B, code-simplifier, test-guardian
 - Verdict: ISSUES FOUND
 
 ### Findings
@@ -196,7 +196,7 @@ Anthropic's official [code-review](https://github.com/anthropics/claude-code/tre
 | Default target | Pull requests | Local uncommitted changes |
 | Guidelines | CLAUDE.md only | coding-guidelines.md, testing.md, styling.md, architecture.md |
 | Agents | 4 (parallel review agents) | Up to 7 (parallel review agents) |
-| Agent types | 2 CLAUDE.md compliance + 1 bug + 1 security | 2 guideline compliance + 1 bug + 1 security + code-simplifier + test-guardian + contracts-reviewer |
+| Agent types | 2 CLAUDE.md compliance + 1 bug + 1 security | 2 guideline compliance + 1 bug + 1 security + code-simplifier + test-guardian (conditional) + contracts-reviewer (conditional) |
 | Validation | Sub-agent validation + confidence scoring | Inline validation (context, intent, change-intent, PR/MR context, pre-existing, consensus, runtime assumption check) |
 | Deep mode | No | Yes — iterative auto-fix (max 5 iterations) |
 | Output | Terminal + inline PR comments | Terminal + optional PR comment or fix-in-place |

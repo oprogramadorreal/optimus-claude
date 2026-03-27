@@ -47,6 +47,6 @@ For each finding report in this exact format:
 
 ## Exclusions
 
-Do NOT modify any files. Do NOT flag bugs (bug-detector handles that), guidelines (guideline-reviewer), code quality/test gaps (code-simplifier, test-guardian), or contract design quality such as backward compatibility, type safety, and versioning (contracts-reviewer handles that when applicable).
+Do NOT modify any files. Do NOT flag bugs (bug-detector handles that), guidelines (guideline-reviewer), code quality/test gaps (code-simplifier, test-guardian), or contract design quality such as backward compatibility, type safety, and versioning (handled by a separate agent when applicable).
 
 Maximum 8 findings.

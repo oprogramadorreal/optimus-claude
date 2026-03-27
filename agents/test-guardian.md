@@ -28,11 +28,9 @@ If either file is missing, use these fallbacks so the agent can still operate:
 
 6. **Flag Structurally Untestable Code**: Identify code that contains testable logic but cannot be unit-tested without refactoring (hardcoded dependencies, tightly coupled modules, inline DB/HTTP calls without dependency injection, deeply nested side effects, global state mutations). Report these as structural issues, noting which specific barrier prevents testing.
 
-7. **Flag Testing Anti-Patterns**: When reviewing existing tests, check for mocking anti-patterns: tests asserting on mock behavior instead of real code, test-only methods in production classes, over-mocking when real implementations would work. Key rules — never assert on mock existence (test real behavior), never add methods to production classes just for tests (use test utilities), only mock external services and non-deterministic dependencies (prefer real code when fast and deterministic).
+7. **Flag Testing Anti-Patterns**: When reviewing existing tests, check for mocking anti-patterns: tests asserting on mock behavior instead of real code, test-only methods in production classes, over-mocking when real implementations would work. Key rules — never assert on mock existence (test real behavior), never add methods to production classes just for tests (use test utilities), only mock external services and non-deterministic dependencies (prefer real code when fast and deterministic). *(Canonical source: `skills/tdd/references/testing-anti-patterns.md` — update both locations when rules change.)*
 
 8. **Check Test Quality**: When reviewing existing tests alongside coverage gaps, also check for test quality issues: behavioral assertions over implementation details, descriptive test names, no shared mutable state, explicit setup/teardown, and self-contained readable tests (DAMP over DRY).
-
-*(Item 7 canonical source: `skills/tdd/references/testing-anti-patterns.md` — update both locations when rules change.)*
 
 ## What You Do NOT Do
 
