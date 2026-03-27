@@ -21,6 +21,10 @@ harness is headless — there is no terminal to approve tool permission prompts.
 bypasses allow/deny lists and PreToolUse hooks (including /optimus:permissions).
 For safer operation, use Claude Code's built-in sandboxing (macOS/Linux) or
 devcontainers, which provide OS-level isolation even with --dangerously-skip-permissions.
+
+The test command is extracted from .claude/CLAUDE.md or --test-command and executed
+via shell=True. Treat cloned repos as untrusted — review .claude/CLAUDE.md before
+running the harness on unfamiliar codebases.
 """
 
 import argparse
@@ -58,7 +62,7 @@ def make_initial_progress(skill, scope, max_iterations, test_command, project_ro
     return {
         "schema_version": 1,
         "skill": skill,
-        "started_at": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "started_at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "config": {
             "max_iterations": max_iterations,
             "test_command": test_command,
@@ -108,8 +112,8 @@ def git_rev_parse_head(cwd):
     return result.stdout.strip()
 
 
-def git_revert_to(commit, cwd):
-    """Revert all working tree changes back to a commit."""
+def git_restore_to(commit, cwd):
+    """Restore working tree to match a commit."""
     result = subprocess.run(
         ["git", "checkout", commit, "--", "."],
         cwd=str(cwd),
@@ -222,38 +226,43 @@ def run_tests(test_command, cwd):
 # ---------------------------------------------------------------------------
 
 
-def apply_single_fix(fix, cwd):
-    """Apply a single fix by replacing pre_edit_content with post_edit_content."""
+def _is_path_within(filepath, root):
+    """Check if filepath is within root (Python 3.8 compatible)."""
+    try:
+        filepath.relative_to(root)
+        return True
+    except ValueError:
+        return False
+
+
+def _swap_content(fix, cwd, find_key, replace_key):
+    """Swap one content string for another in a file."""
     filepath = (Path(cwd) / fix["file"]).resolve()
-    if not filepath.is_relative_to(Path(cwd).resolve()):
+    if not _is_path_within(filepath, Path(cwd).resolve()):
         return False
     if not filepath.exists():
         return False
     content = filepath.read_text(encoding="utf-8")
-    pre = fix.get("pre_edit_content", "")
-    post = fix.get("post_edit_content", "")
-    if not pre or pre not in content:
+    find = fix.get(find_key, "")
+    replace = fix.get(replace_key, "")
+    if not find or find not in content:
         return False
-    content = content.replace(pre, post, 1)
-    filepath.write_text(content, encoding="utf-8")
+    if not replace:
+        return False  # Refuse to delete content with empty replacement
+    if content.count(find) != 1:
+        return False  # Ambiguous match — refuse to apply/revert
+    filepath.write_text(content.replace(find, replace, 1), encoding="utf-8")
     return True
+
+
+def apply_single_fix(fix, cwd):
+    """Apply a single fix by replacing pre_edit_content with post_edit_content."""
+    return _swap_content(fix, cwd, "pre_edit_content", "post_edit_content")
 
 
 def revert_single_fix(fix, cwd):
     """Revert a single fix by replacing post_edit_content with pre_edit_content."""
-    filepath = (Path(cwd) / fix["file"]).resolve()
-    if not filepath.is_relative_to(Path(cwd).resolve()):
-        return False
-    if not filepath.exists():
-        return False
-    content = filepath.read_text(encoding="utf-8")
-    post = fix.get("post_edit_content", "")
-    pre = fix.get("pre_edit_content", "")
-    if not post or post not in content:
-        return False
-    content = content.replace(post, pre, 1)
-    filepath.write_text(content, encoding="utf-8")
-    return True
+    return _swap_content(fix, cwd, "post_edit_content", "pre_edit_content")
 
 
 def bisect_fixes(fixes, test_command, cwd, progress):
@@ -265,13 +274,22 @@ def bisect_fixes(fixes, test_command, cwd, progress):
     """
     print(f"{PREFIX} Bisecting {len(fixes)} fixes...")
     # Revert all this iteration's fixes mechanically (preserves prior uncommitted work)
-    for fix in reversed(fixes):
-        revert_single_fix(fix, cwd)
+    revert_failures = set()
+    for i in range(len(fixes) - 1, -1, -1):
+        if not revert_single_fix(fixes[i], cwd):
+            revert_failures.add(i)
+            print(f"{PREFIX} WARNING: Could not mechanically revert fix for {fixes[i].get('file')}")
 
     fixed_count = 0
     reverted_count = 0
 
-    for fix in fixes:
+    for i, fix in enumerate(fixes):
+        if i in revert_failures:
+            # Revert failed — fix is still applied, skip re-apply
+            mark_finding_status(progress, fix, "fixed",
+                                "Revert failed during bisection — fix retained")
+            fixed_count += 1
+            continue
         applied = apply_single_fix(fix, cwd)
         if not applied:
             # Can't mechanically apply — skip, mark reverted
@@ -285,9 +303,14 @@ def bisect_fixes(fixes, test_command, cwd, progress):
             mark_finding_status(progress, fix, "fixed", None)
             fixed_count += 1
         else:
-            revert_single_fix(fix, cwd)
-            mark_finding_status(progress, fix, "reverted—test failure", "Test failure during bisection")
-            reverted_count += 1
+            if not revert_single_fix(fix, cwd):
+                print(f"{PREFIX} WARNING: Could not revert failing fix for {fix.get('file')} — retaining fix")
+                mark_finding_status(progress, fix, "fixed",
+                                    "Revert failed after test failure — fix retained")
+                fixed_count += 1
+            else:
+                mark_finding_status(progress, fix, "reverted—test failure", "Test failure during bisection")
+                reverted_count += 1
 
     return fixed_count, reverted_count
 
@@ -299,9 +322,10 @@ def bisect_fixes(fixes, test_command, cwd, progress):
 
 def mark_finding_status(progress, fix, status, detail):
     """Update a finding's status in the progress file."""
-    # Try to find existing finding by file+line match
+    # Try to find existing finding by file+line+category match
     for f in progress["findings"]:
-        if f["file"] == fix["file"] and f.get("line") == fix.get("line"):
+        if (f["file"] == fix["file"] and f.get("line") == fix.get("line")
+                and f.get("category") == fix.get("category")):
             old_status = f["status"]
             # Promote reverted -> attempt 2 -> persistent
             if status == "reverted—test failure" and old_status == "reverted—test failure":
@@ -450,7 +474,9 @@ def run_skill_session(progress, args):
         if result.stderr:
             print(f"{PREFIX} Stderr: {result.stderr[:500]}")
 
-    if result.returncode > 1:
+    if result.returncode == 1:
+        print(f"{PREFIX} WARNING: claude exited with code 1 (may indicate partial failure): {result.stderr[:200]}")
+    elif result.returncode > 1:
         raise RuntimeError(
             f"claude exited with code {result.returncode}: {result.stderr[:200]}"
         )
@@ -554,6 +580,12 @@ def print_report(progress):
     )
     print(
         f"{PREFIX} To rollback everything:       git reset --hard {base[:8]}"
+    )
+    print(f"{PREFIX}")
+    print(f"{PREFIX} Next: run /optimus:commit to commit the fixes.")
+    print(
+        f"{PREFIX} Tip: start a fresh conversation for the next skill "
+        f"— each skill gathers its own context from scratch."
     )
 
 
@@ -701,6 +733,25 @@ Examples:
                 print(f"{PREFIX} ERROR: No progress file to resume from: {progress_path}")
                 sys.exit(1)
         progress = read_progress(progress_path)
+        # Validate progress file structure
+        required_keys = ["skill", "iteration", "config", "findings"]
+        for key in required_keys:
+            if key not in progress:
+                print(f"{PREFIX} ERROR: Progress file missing required field '{key}'")
+                sys.exit(1)
+        if progress["skill"] != args.skill:
+            print(
+                f"{PREFIX} ERROR: Progress file skill '{progress['skill']}' "
+                f"does not match --skill '{args.skill}'"
+            )
+            sys.exit(1)
+        saved_root = Path(progress["config"].get("project_root", "")).resolve()
+        if saved_root != project_root:
+            print(
+                f"{PREFIX} ERROR: Progress file project_root '{saved_root}' "
+                f"does not match --project-dir '{project_root}'"
+            )
+            sys.exit(1)
         print(f"{PREFIX} Resuming from iteration {progress['iteration']['current']}")
     else:
         if progress_path.exists():
@@ -716,6 +767,7 @@ Examples:
 
     # Print startup info
     max_iter = progress["config"]["max_iterations"]
+    # 7 agents for code-review, 4 for refactor; +1 per iteration for harness overhead
     estimated_messages = max_iter * (7 if args.skill == "code-review" else 4) + max_iter
     print(f"{PREFIX} Starting {args.skill} harness (max {max_iter} iterations)")
     print(f"{PREFIX} Test command: {test_command}")
@@ -747,7 +799,7 @@ Examples:
                 break
             except (RuntimeError, subprocess.TimeoutExpired) as e:
                 print(f"{PREFIX} Session error: {e}")
-                git_checkout_clean(project_root)
+                git_restore_to(pre_hash, project_root)
                 if attempt == 0:
                     print(f"{PREFIX} Retrying iteration {iteration}...")
                 else:
@@ -782,7 +834,7 @@ Examples:
                     }
                 else:
                     print(f"{PREFIX} Tests failed with unparseable output — reverting iteration")
-                    git_revert_to(pre_hash, project_root)
+                    git_restore_to(pre_hash, project_root)
                     progress["termination"] = {
                         "reason": "parse-failure",
                         "message": "Could not parse skill output and tests failed",
@@ -791,10 +843,10 @@ Examples:
                     print_report(progress)
                     sys.exit(1)
             else:
-                print(f"{PREFIX} No output and no changes — treating as no-actionable")
+                print(f"{PREFIX} No output and no changes — treating as convergence")
                 result = {
-                    "no_new_findings": False,
-                    "no_actionable_fixes": True,
+                    "no_new_findings": True,
+                    "no_actionable_fixes": False,
                     "fixes_applied": [],
                     "new_findings": [],
                 }
@@ -814,6 +866,14 @@ Examples:
                 "message": f"Zero new findings on iteration {iteration}",
             }
             progress["iteration"]["completed"] = iteration
+            progress["iteration_history"].append({
+                "iteration": iteration,
+                "new_findings": 0,
+                "fixed": 0,
+                "reverted": 0,
+                "persistent": 0,
+                "test_passed": True,
+            })
             write_progress(progress_path, progress)
             print(f"{PREFIX} Converged: no new findings.")
             break
@@ -825,6 +885,14 @@ Examples:
                 "message": "Findings exist but none had actionable code edits",
             }
             progress["iteration"]["completed"] = iteration
+            progress["iteration_history"].append({
+                "iteration": iteration,
+                "new_findings": new_count,
+                "fixed": 0,
+                "reverted": 0,
+                "persistent": 0,
+                "test_passed": True,
+            })
             write_progress(progress_path, progress)
             print(f"{PREFIX} No actionable fixes — remaining findings need manual review.")
             break
@@ -845,6 +913,7 @@ Examples:
                 mark_all_fixed(progress, fixes)
                 fixed_count = len(fixes)
                 reverted_count = 0
+                all_reverted = False
                 print(f"{PREFIX} Results: {fixed_count} fixed, 0 reverted")
             else:
                 # Bisect: revert all, re-apply one-by-one
@@ -856,29 +925,21 @@ Examples:
                     f"{reverted_count} reverted (bisection)"
                 )
 
+                # Update test status after bisection
+                if fixed_count > 0:
+                    test_ok, test_summary = run_tests(test_command, project_root)
+                    progress["test_results"]["last_full_run"] = "pass" if test_ok else "fail"
+                    progress["test_results"]["last_run_output_summary"] = test_summary
+                    if not test_ok:
+                        print(f"{PREFIX} WARNING: Combined fixes fail tests — interaction bug detected")
+
                 # Check all-reverted
-                if fixed_count == 0 and reverted_count > 0:
-                    progress["termination"] = {
-                        "reason": "all-reverted",
-                        "message": f"All {reverted_count} fixes in iteration {iteration} caused test failures",
-                    }
-                    progress["iteration"]["completed"] = iteration
-                    hist_entry = {
-                        "iteration": iteration,
-                        "new_findings": new_count,
-                        "fixed": 0,
-                        "reverted": reverted_count,
-                        "persistent": 0,
-                        "test_passed": False,
-                    }
-                    progress["iteration_history"].append(hist_entry)
-                    write_progress(progress_path, progress)
-                    print(f"{PREFIX} All fixes reverted — stopping.")
-                    break
+                all_reverted = fixed_count == 0 and reverted_count > 0
         else:
             fixed_count = 0
             reverted_count = 0
             test_ok = True
+            all_reverted = False
 
         # Record iteration history
         persistent_count = sum(
@@ -898,11 +959,20 @@ Examples:
         progress["iteration_history"].append(hist_entry)
         progress["iteration"]["completed"] = iteration
 
+        if all_reverted:
+            progress["termination"] = {
+                "reason": "all-reverted",
+                "message": f"All {reverted_count} fixes in iteration {iteration} caused test failures",
+            }
+            write_progress(progress_path, progress)
+            print(f"{PREFIX} All fixes reverted — stopping.")
+            break
+
         # Update scope for next iteration
         update_scope(progress, result)
 
-        # Checkpoint commit
-        if not args.no_commit and (fixed_count > 0 or git_diff_has_changes(project_root)):
+        # Checkpoint commit (skip if post-bisection tests failed — interaction bug)
+        if not args.no_commit and test_ok and (fixed_count > 0 or git_diff_has_changes(project_root)):
             git_commit_checkpoint(progress, iteration, project_root)
             print(f"{PREFIX} Checkpoint: deep-mode({args.skill}): iteration {iteration}")
 
@@ -923,12 +993,13 @@ Examples:
     # Final report
     print_report(progress)
 
-    # Clean up progress file on convergence (leave it for other termination types)
+    # Archive progress file on convergence (leave it for other termination types)
     if progress["termination"]["reason"] == "convergence":
-        print(f"{PREFIX} Cleaning up progress file (converged).")
-        progress_path.unlink(missing_ok=True)
+        done_path = progress_path.with_suffix(".done.json")
+        shutil.move(str(progress_path), str(done_path))
         backup = Path(str(progress_path) + BACKUP_SUFFIX)
         backup.unlink(missing_ok=True)
+        print(f"{PREFIX} Progress archived to {done_path.name}")
 
 
 if __name__ == "__main__":
