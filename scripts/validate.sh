@@ -194,7 +194,7 @@ if [ -n "$py_cmd" ]; then
     if ! "$py_cmd" -c "import py_compile, sys; py_compile.compile(sys.argv[1], doraise=True)" "$f" 2>/dev/null; then
       syntax_errors+="  $f: python syntax error\n"
     fi
-  done < <(find ./skills -path '*/templates/*.py' -o -path '*/templates/**/*.py' 2>/dev/null | sort)
+  done < <(find ./skills -path '*/templates/*.py' -o -path '*/templates/**/*.py' 2>/dev/null; find ./scripts -name '*.py' 2>/dev/null | sort)
 else
   echo "  SKIP  Python syntax checks (python not installed)"
 fi
