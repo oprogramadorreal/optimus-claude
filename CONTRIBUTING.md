@@ -15,7 +15,7 @@ optimus-claude/
 ├── agents/                    # Plugin-level agents — user-invokable, also extended by skill-level agents
 │   ├── code-simplifier.md     # Code simplification agent (extended by code-review, refactor, tdd)
 │   ├── test-guardian.md       # Test coverage monitoring agent (extended by code-review, tdd)
-├── references/                # Shared reference docs (agent-architecture, shared-agent-constraints, context-injection-blocks)
+├── references/                # Shared reference docs (agent-architecture, shared-agent-constraints, context-injection-blocks, harness-mode)
 ├── hooks/
 │   ├── hooks.json            # Plugin-level hooks (SessionStart for skill awareness)
 │   └── session-start         # Outputs dynamic project state on session start/resume/clear/compact
@@ -23,7 +23,8 @@ optimus-claude/
 │   ├── validate.sh           # Structural validation (CI)
 │   ├── test-hooks.sh         # Hook execution tests (CI)
 │   ├── generate-fixtures.sh  # Generates minimal project fixtures for testing (local)
-│   └── test-skills.sh        # Automated skill execution tests via claude -p (local)
+│   ├── test-skills.sh        # Automated skill execution tests via claude -p (local)
+│   └── deep-mode-harness.py  # External deep-mode orchestrator (local)
 ├── skills/
 │   ├── init/                 # /optimus:init
 │   ├── dev-setup/            # /optimus:dev-setup

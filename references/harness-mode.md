@@ -2,6 +2,18 @@
 
 When running under the external deep-mode harness (detected by `HARNESS_MODE_ACTIVE` in the system prompt), execute exactly **one iteration** of the deep mode cycle, then exit. The harness handles the iteration loop, test execution, bisection, termination detection, and final reporting.
 
+## Contents
+
+1. [Read progress file](#1-read-progress-file)
+2. [Build iteration context](#2-build-iteration-context-iterations-2)
+3. [Run one analysis cycle](#3-run-one-analysis-cycle)
+4. [Validate findings](#4-validate-findings)
+5. [Consolidate and deduplicate findings](#5-consolidate-and-deduplicate-findings)
+6. [Apply fixes](#6-apply-fixes)
+7. [Do NOT run tests](#7-do-not-run-tests)
+8. [Output structured JSON](#8-output-structured-json)
+9. [Exit](#9-exit)
+
 ## Execution Steps
 
 ### 1. Read progress file

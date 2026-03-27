@@ -133,16 +133,9 @@ Proceed immediately to Step 3 — do not wait for user confirmation.
 
 ### Harness mode detection
 
-If the system prompt contains `HARNESS_MODE_ACTIVE`, the skill is running inside the external deep-mode harness (a fresh `claude -p` session per iteration). Read `$CLAUDE_PLUGIN_ROOT/references/harness-mode.md` for the full single-iteration execution protocol. In summary:
+If the system prompt contains `HARNESS_MODE_ACTIVE`, read `$CLAUDE_PLUGIN_ROOT/references/harness-mode.md` and follow its single-iteration execution protocol. The reference covers progress file reading, state initialization, and step overrides (including the Step 8 apply/output protocol). Then proceed directly to Step 4 — skip user confirmation.
 
-1. Read the progress file path from the system prompt
-2. Read the progress file JSON — extract `iteration.current`, `findings` (accumulated from prior iterations), `scope_files.current`, and `config`
-3. Initialize: `deep-mode` = true, `iteration-count` = iteration from file, `accumulated-findings` = findings from file, file list = `scope_files.current`
-4. Skip user confirmation — proceed directly to Step 4 (agents run identically)
-5. Steps 4–6 execute normally (agents, validation, consolidation use `accumulated-findings` from the file, same as in-memory)
-6. At Step 8: follow the harness-mode overrides (apply fixes with `pre_edit_content`/`post_edit_content` capture, skip test execution, skip loop, output JSON, exit)
-
-If `HARNESS_MODE_ACTIVE` is NOT in the system prompt, continue with the standard interactive flow below (unchanged).
+If `HARNESS_MODE_ACTIVE` is NOT in the system prompt, continue with the standard interactive flow below.
 
 ### Interactive deep mode
 
@@ -355,21 +348,7 @@ For GitLab MRs: `glab api -X POST "projects/:id/merge_requests/<N>/notes" -F bod
 
 ### Harness mode overrides
 
-If harness mode is active (`HARNESS_MODE_ACTIVE` in system prompt), override the standard deep mode flow for this step:
-
-**Apply fixes** — same Edit/MultiEdit as normal, but for EACH fix also record `pre_edit_content` (the exact original code before editing — the string that was replaced) and `post_edit_content` (the exact code after editing — the replacement string). These enable the harness to mechanically apply/revert individual fixes during test bisection. For fixes spanning multiple locations in a single file, output one entry per edit location.
-
-**Skip test execution** — do NOT run the test command. The harness runs tests externally to keep test output out of the context window.
-
-**Skip termination checks** — do NOT check convergence, iteration cap, or all-reverted conditions. The harness makes these decisions.
-
-**Skip iteration loop-back** — do NOT return to Step 4 for another pass.
-
-**Skip consolidated report** — do NOT present the cumulative report or per-iteration markdown report.
-
-**Output structured JSON** — write the iteration results in a ` ```json:harness-output ` fenced code block following the format specified in `$CLAUDE_PLUGIN_ROOT/references/harness-mode.md` (step 8). Then stop — do not output anything after the JSON block.
-
-After outputting the JSON, exit immediately. The harness reads the output, runs tests, updates the progress file, and decides whether to launch another iteration.
+If harness mode is active (`HARNESS_MODE_ACTIVE` in system prompt), follow the apply and output protocol from `$CLAUDE_PLUGIN_ROOT/references/harness-mode.md` (steps 6–9) instead of the standard deep mode flow below.
 
 ---
 

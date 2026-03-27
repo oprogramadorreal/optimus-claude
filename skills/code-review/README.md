@@ -14,7 +14,7 @@ Well-maintained code has [30%+ fewer AI-introduced defects](https://arxiv.org/ab
 - **PR/MR context awareness** — in PR/MR mode, agents receive the author's description as an intent signal (with explicit guardrails against bias) so they understand the "why" behind changes without suppressing genuine findings
 - **Validation step** — each finding is independently verified (context check, intent check, pre-existing check, cross-agent consensus, runtime assumption check) using an evidence-based verification protocol before reporting
 - **Contradiction resolution** — cross-agent contradictions (e.g., "add more validation" vs. "simplify this validation") are detected and resolved by severity to prevent circular fix loops
-- **Deep mode** — iterative review-fix loop (max 5 iterations) with automatic fix application and test verification; catches issues that single-pass review misses due to LLM attention limitations
+- **Deep mode** — iterative review-fix loop (max 5 iterations) with automatic fix application and test verification; catches issues that single-pass review misses due to LLM attention limitations. External harness (`scripts/deep-mode-harness.py`) available for multi-session deep mode with fresh context per iteration
 - **Actionable output** — findings include file:line references, confidence level (High/Medium), before/after code sketches, guideline citations, and severity levels
 - **Works without `/optimus:init`** — falls back to generic coding guidelines when project-specific docs are not available
 - **Multi-repo workspace support** — resolves per-repo documentation when opened from a workspace root containing multiple git repos
@@ -83,6 +83,21 @@ On iterations 2+, each agent receives a table of prior findings with their statu
 - **Cap reached** — 5 iterations completed (continue in a fresh conversation)
 
 On iterations 3+, a context-accumulation warning notes that output quality may degrade and suggests finishing remaining findings in a fresh conversation.
+
+### External harness (multi-session deep mode)
+
+For larger codebases or when context accumulation degrades quality, use the external harness script (`scripts/deep-mode-harness.py`). It launches a fresh `claude -p` session per iteration, passing state through a JSON progress file. Each session gets a clean context window, eliminating the context bloat that limits in-conversation deep mode.
+
+```bash
+python scripts/deep-mode-harness.py --skill code-review
+python scripts/deep-mode-harness.py --skill code-review --scope "src/auth"
+python scripts/deep-mode-harness.py --skill code-review --max-iterations 8
+python scripts/deep-mode-harness.py --skill code-review --resume
+```
+
+The harness handles test execution, fix bisection, checkpoint commits, and termination detection externally — the skill only needs to analyze and apply fixes in a single pass per session.
+
+**Security note:** Each `claude -p` session runs with `--dangerously-skip-permissions` because the harness is headless (no terminal for permission prompts). This bypasses allow/deny lists and PreToolUse hooks, including those from `/optimus:permissions`. For safer operation, use [built-in sandboxing](https://code.claude.com/docs/en/sandboxing) (macOS/Linux) or [devcontainers](https://code.claude.com/docs/en/devcontainer), which provide OS-level isolation even with `--dangerously-skip-permissions`.
 
 ### Research context
 

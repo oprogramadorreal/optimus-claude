@@ -15,11 +15,15 @@ Usage:
   python scripts/deep-mode-harness.py --skill code-review --scope "src/auth"
   python scripts/deep-mode-harness.py --skill refactor --max-iterations 8 --scope "src/api"
   python scripts/deep-mode-harness.py --skill code-review --resume
-  python scripts/deep-mode-harness.py --skill code-review --verbose
+
+Security: Each claude -p session runs with --dangerously-skip-permissions because the
+harness is headless — there is no terminal to approve tool permission prompts. This
+bypasses allow/deny lists and PreToolUse hooks (including /optimus:permissions).
+For safer operation, use Claude Code's built-in sandboxing (macOS/Linux) or
+devcontainers, which provide OS-level isolation even with --dangerously-skip-permissions.
 """
 
 import argparse
-import copy
 import datetime
 import json
 import os
@@ -99,25 +103,41 @@ def git_rev_parse_head(cwd):
         text=True,
         cwd=str(cwd),
     )
-    return result.stdout.strip() if result.returncode == 0 else "unknown"
+    if result.returncode != 0:
+        return None
+    return result.stdout.strip()
 
 
 def git_revert_to(commit, cwd):
     """Revert all working tree changes back to a commit."""
-    subprocess.run(["git", "checkout", commit, "--", "."], cwd=str(cwd))
+    result = subprocess.run(
+        ["git", "checkout", commit, "--", "."],
+        cwd=str(cwd),
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"git checkout {commit} failed: {result.stderr}")
 
 
 def git_checkout_clean(cwd):
     """Discard all unstaged changes."""
-    subprocess.run(["git", "checkout", "."], cwd=str(cwd))
+    result = subprocess.run(
+        ["git", "checkout", "."], cwd=str(cwd), capture_output=True, text=True
+    )
+    if result.returncode != 0:
+        print(f"{PREFIX} WARNING: git checkout . failed: {result.stderr[:200]}")
 
 
 def git_diff_has_changes(cwd):
-    """Check if there are any uncommitted changes."""
-    result = subprocess.run(
+    """Check if there are any uncommitted changes (staged or unstaged)."""
+    unstaged = subprocess.run(
         ["git", "diff", "--quiet"], cwd=str(cwd), capture_output=True
     )
-    return result.returncode != 0
+    staged = subprocess.run(
+        ["git", "diff", "--cached", "--quiet"], cwd=str(cwd), capture_output=True
+    )
+    return unstaged.returncode != 0 or staged.returncode != 0
 
 
 def git_commit_checkpoint(progress, iteration, cwd):
@@ -133,8 +153,20 @@ def git_commit_checkpoint(progress, iteration, cwd):
         f"{fixed} fixed, {reverted} reverted"
     )
 
-    subprocess.run(["git", "add", "-A"], cwd=str(cwd))
-    subprocess.run(["git", "commit", "-m", msg, "--allow-empty"], cwd=str(cwd))
+    add_result = subprocess.run(
+        ["git", "add", "-u"], cwd=str(cwd), capture_output=True, text=True
+    )
+    if add_result.returncode != 0:
+        print(f"{PREFIX} WARNING: git add -u failed: {add_result.stderr[:200]}")
+        return
+    result = subprocess.run(
+        ["git", "commit", "-m", msg, "--allow-empty"],
+        cwd=str(cwd),
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        print(f"{PREFIX} WARNING: checkpoint commit failed: {result.stderr[:200]}")
 
 
 # ---------------------------------------------------------------------------
@@ -163,16 +195,20 @@ def read_progress(path):
 def run_tests(test_command, cwd):
     """Run the project's test command. Returns (passed: bool, output: str)."""
     print(f"{PREFIX} Running tests: {test_command}")
-    result = subprocess.run(
-        test_command,
-        shell=True,
-        capture_output=True,
-        text=True,
-        cwd=str(cwd),
-        timeout=300,  # 5 min for tests
-    )
+    try:
+        result = subprocess.run(
+            test_command,
+            shell=True,
+            capture_output=True,
+            text=True,
+            cwd=str(cwd),
+            timeout=300,  # 5 min for tests
+        )
+    except subprocess.TimeoutExpired:
+        print(f"{PREFIX} Tests timed out after 300s")
+        return False, "Test command timed out after 300s"
     passed = result.returncode == 0
-    output = (result.stdout + "\n" + result.stderr).strip()
+    output = ((result.stdout or "") + "\n" + (result.stderr or "")).strip()
     # Truncate output for summary
     summary_lines = output.split("\n")[-5:]
     summary = "\n".join(summary_lines)
@@ -188,7 +224,9 @@ def run_tests(test_command, cwd):
 
 def apply_single_fix(fix, cwd):
     """Apply a single fix by replacing pre_edit_content with post_edit_content."""
-    filepath = Path(cwd) / fix["file"]
+    filepath = (Path(cwd) / fix["file"]).resolve()
+    if not filepath.is_relative_to(Path(cwd).resolve()):
+        return False
     if not filepath.exists():
         return False
     content = filepath.read_text(encoding="utf-8")
@@ -203,7 +241,9 @@ def apply_single_fix(fix, cwd):
 
 def revert_single_fix(fix, cwd):
     """Revert a single fix by replacing post_edit_content with pre_edit_content."""
-    filepath = Path(cwd) / fix["file"]
+    filepath = (Path(cwd) / fix["file"]).resolve()
+    if not filepath.is_relative_to(Path(cwd).resolve()):
+        return False
     if not filepath.exists():
         return False
     content = filepath.read_text(encoding="utf-8")
@@ -216,13 +256,17 @@ def revert_single_fix(fix, cwd):
     return True
 
 
-def bisect_fixes(fixes, test_command, pre_hash, cwd, progress):
+def bisect_fixes(fixes, test_command, cwd, progress):
     """
     Revert all fixes, then re-apply one by one with test after each.
     Returns (fixed_count, reverted_count).
+    Uses mechanical revert (post→pre content swap) to preserve uncommitted
+    changes from prior iterations when --no-commit is active.
     """
     print(f"{PREFIX} Bisecting {len(fixes)} fixes...")
-    git_revert_to(pre_hash, cwd)
+    # Revert all this iteration's fixes mechanically (preserves prior uncommitted work)
+    for fix in reversed(fixes):
+        revert_single_fix(fix, cwd)
 
     fixed_count = 0
     reverted_count = 0
@@ -424,6 +468,9 @@ def parse_harness_output(raw_output):
     Extract the json:harness-output block from claude's response.
     With --output-format json, the output is a JSON object with a 'result' field.
     """
+    if not raw_output:
+        return None
+
     # Try to parse as --output-format json envelope
     text = raw_output
     try:
@@ -439,15 +486,6 @@ def parse_harness_output(raw_output):
     if match:
         try:
             return json.loads(match.group(1))
-        except json.JSONDecodeError:
-            pass
-
-    # Fallback: look for any JSON with fixes_applied key
-    pattern2 = r"\{[^{}]*\"fixes_applied\"[^{}]*\}"
-    match2 = re.search(pattern2, text, re.DOTALL)
-    if match2:
-        try:
-            return json.loads(match2.group(0))
         except json.JSONDecodeError:
             pass
 
@@ -510,7 +548,7 @@ def print_report(progress):
             )
 
     print(f"{PREFIX}")
-    base = progress["config"].get("base_commit", "?")
+    base = progress["config"].get("base_commit") or "?"
     print(
         f"{PREFIX} To squash checkpoint commits: git rebase -i {base[:8]}"
     )
@@ -609,6 +647,11 @@ Examples:
         help="Show detailed skill session output",
     )
     parser.add_argument(
+        "--test-command",
+        default="",
+        help="Override the test command (default: auto-detect from .claude/CLAUDE.md)",
+    )
+    parser.add_argument(
         "--project-dir",
         default=".",
         help="Target project directory (default: current directory)",
@@ -635,11 +678,11 @@ Examples:
         sys.exit(1)
 
     # Detect test command
-    test_command = detect_test_command(project_root)
+    test_command = args.test_command or detect_test_command(project_root)
     if not test_command:
         print(f"{PREFIX} ERROR: No test command found in .claude/CLAUDE.md.")
         print(f"{PREFIX} Deep mode requires a test command for safe auto-apply.")
-        print(f"{PREFIX} Run /optimus:init to set up test infrastructure first.")
+        print(f"{PREFIX} Run /optimus:init to set up test infrastructure, or pass --test-command.")
         sys.exit(1)
 
     # Initialize or resume
@@ -666,6 +709,11 @@ Examples:
             args.skill, args.scope, args.max_iterations, test_command, project_root
         )
 
+    # Validate base commit
+    if not progress["config"]["base_commit"]:
+        print(f"{PREFIX} ERROR: Cannot determine HEAD commit. Is this a git repository?")
+        sys.exit(1)
+
     # Print startup info
     max_iter = progress["config"]["max_iterations"]
     estimated_messages = max_iter * (7 if args.skill == "code-review" else 4) + max_iter
@@ -683,6 +731,9 @@ Examples:
 
         # Snapshot git state before this iteration
         pre_hash = git_rev_parse_head(project_root)
+        if not pre_hash:
+            print(f"{PREFIX} ERROR: Cannot determine HEAD commit before iteration {iteration}.")
+            sys.exit(1)
 
         # Write progress file for skill to read
         args.progress_file = str(progress_path)
@@ -723,6 +774,12 @@ Examples:
                 if test_ok:
                     progress["test_results"]["last_full_run"] = "pass"
                     progress["test_results"]["last_run_output_summary"] = test_summary
+                    result = {
+                        "no_new_findings": False,
+                        "no_actionable_fixes": False,
+                        "fixes_applied": [],
+                        "new_findings": [],
+                    }
                 else:
                     print(f"{PREFIX} Tests failed with unparseable output — reverting iteration")
                     git_revert_to(pre_hash, project_root)
@@ -775,9 +832,7 @@ Examples:
         # Merge new findings into progress (with applied-pending-test status)
         fixes = result.get("fixes_applied", [])
         for fix in fixes:
-            fix_copy = copy.deepcopy(fix)
-            fix_copy["status"] = "applied-pending-test"
-            mark_finding_status(progress, fix_copy, "applied-pending-test", None)
+            mark_finding_status(progress, fix, "applied-pending-test", None)
 
         # Run tests (HARNESS-SIDE)
         if fixes:
@@ -794,7 +849,7 @@ Examples:
             else:
                 # Bisect: revert all, re-apply one-by-one
                 fixed_count, reverted_count = bisect_fixes(
-                    fixes, test_command, pre_hash, project_root, progress
+                    fixes, test_command, project_root, progress
                 )
                 print(
                     f"{PREFIX} Results: {fixed_count} fixed, "
