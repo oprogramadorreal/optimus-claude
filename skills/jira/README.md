@@ -138,6 +138,168 @@ Apply this update to the JIRA issue?
 - **Simple tasks** — if the task is obvious from conversation context, just describe it inline
 - **Already have context** — if you've already pasted the JIRA content into the conversation
 
+## Writing JIRA Issues for AI-Assisted Development
+
+This section is a guide for **Product Owners, Product Managers, and anyone who writes JIRA tickets** that developers will implement with AI assistance. The `/optimus:jira` skill extracts structured context from your JIRA issues — when you write well-structured tickets, the skill extracts your intent directly. When tickets are vague, the skill has to *infer* acceptance criteria, which is less accurate and may miss your actual requirements.
+
+**The rule is simple:** explicit acceptance criteria in your ticket = accurate implementation. Vague prose = the AI guesses what "done" means.
+
+### Recommended Description Template
+
+Use this structure in the JIRA issue description field. Copy it as a template for your team.
+
+```
+## Goal
+[One sentence: what capability is being added or what problem is being fixed, and why it matters.]
+
+## Acceptance Criteria
+1. [Verb + observable outcome — e.g., "Returns 200 with user profile when valid token is provided"]
+2. [Verb + observable outcome]
+3. [Verb + observable outcome]
+4. [Error/edge case — e.g., "Returns 400 with error message when token is expired"]
+5. [Error/edge case]
+
+## Technical Notes (optional)
+- [Constraints, dependencies, or architecture decisions — e.g., "Must use the existing AuthService, not a new implementation"]
+- [Performance requirements — e.g., "Response time under 200ms at p95"]
+- [References — e.g., "See RFC-042 for the token format specification"]
+
+## Out of Scope (optional)
+- [What this ticket explicitly does NOT cover — e.g., "Email notifications will be handled in PROJ-456"]
+```
+
+### Field-by-Field Guidance
+
+| JIRA Field | What the skill does with it | How to fill it well |
+|---|---|---|
+| **Summary** | Becomes the task title and is used to generate a one-sentence goal | Write a clear action phrase: "Add password reset endpoint", not "Password stuff" or "Auth work" |
+| **Description** | Primary source for goal and acceptance criteria extraction | Use the template above. Structure with headers and numbered lists |
+| **Acceptance Criteria** | Extracted directly if present as numbered lists, checkboxes, or Given/When/Then blocks. Inferred from prose if missing | Always include explicit criteria — this is the single most impactful field for AI-assisted development |
+| **Issue Type** | Determines which downstream skill is recommended (TDD for stories/bugs, refactor for tech debt) | Set accurately — it affects the development workflow suggestion |
+| **Priority** | Included in the structured context for the developer | Set to reflect actual business priority |
+| **Sprint** | The skill fetches sprint name, goal, and sibling issues to give developers broader context | Assign to a sprint with a meaningful sprint goal |
+| **Epic / Parent** | Linked in the context output so the developer sees the bigger picture | Link to the parent epic — it helps the AI understand scope boundaries |
+| **Labels** | Included in context output | Use labels consistently (e.g., `api`, `frontend`, `security`) — they help scope the work |
+| **Issue Links** | The skill fetches linked issue summaries and link types (blocks, relates to, etc.) | Link related issues — especially blockers and dependencies. The AI uses these to avoid conflicting implementations |
+| **Comments** | The skill distills "Key Decisions" from the last 10 comments. Ignores status updates and @mentions without substance | Use comments for **decisions and clarifications** that affect implementation: "We decided to use JWT instead of session tokens because..." Status updates like "Started working on this" are ignored |
+
+### Writing Good Acceptance Criteria
+
+Each criterion should be **independently testable** — a developer (or AI) should be able to write one test per criterion.
+
+| Rule | Bad | Good |
+|---|---|---|
+| Use verb + observable outcome | "Handle errors" | "Return 400 with JSON error body when request payload is missing required fields" |
+| One behavior per criterion | "User can register and log in" | "1. POST /register creates account and returns 201" (separate criterion for login) |
+| Include boundary and error cases | (just the happy path) | "Return 404 when user ID does not exist in the database" |
+| Specify formats when relevant | "Return the data" | "Return JSON array of user objects, each containing id, name, and email" |
+| Avoid implementation details | "Use a Redis cache with 5-minute TTL" | "Response time under 200ms for repeated queries within 5 minutes" |
+| Be specific about quantities | "Support pagination" | "Accept `page` and `per_page` query parameters; default to page 1, 20 items per page; return total count in `X-Total-Count` header" |
+
+**Given/When/Then** format also works well and is extracted automatically:
+
+```
+Given a registered user with a valid email
+When they request a password reset
+Then they receive an email with a reset link that expires in 1 hour
+```
+
+### Good vs. Bad: Side-by-Side Comparison
+
+**Vague ticket (skill must infer):**
+
+```
+Summary: Password stuff
+Description: We need to do something about password resets.
+             Users are asking for it. John mentioned it would be useful.
+Acceptance Criteria: (none)
+Comments: "Started working on this" / "Any updates?"
+```
+
+What the skill produces — inferred, possibly inaccurate:
+
+```
+### Goal
+Implement password reset functionality.
+
+### Acceptance Criteria
+1. User can request a password reset via email
+2. System sends a reset link to the registered email
+3. Reset link allows setting a new password
+4. Invalid or expired links are handled gracefully
+5. User receives confirmation after successful reset
+```
+
+These criteria are generic. They miss specifics about token expiration, rate limiting, endpoint contracts, and error responses. The developer has to make assumptions.
+
+---
+
+**Well-structured ticket (skill extracts directly):**
+
+```
+Summary: Add password reset endpoint
+Description:
+  ## Goal
+  Implement a password reset flow so users who forget their password
+  can securely set a new one via email.
+
+  ## Acceptance Criteria
+  1. POST /auth/reset-password accepts email, returns 200 regardless
+     of whether the account exists (no user enumeration)
+  2. If account exists, generates a reset token with 1-hour expiration
+     and sends an email with the reset link
+  3. GET /auth/reset-password/:token returns 200 if token is valid,
+     400 if expired or invalid
+  4. PUT /auth/reset-password/:token accepts new password (min 8 chars),
+     updates account, invalidates the token
+  5. Rate limit: max 3 reset requests per email per hour
+
+  ## Technical Notes
+  - Use existing EmailService for sending (do not add a new mailer)
+  - Token format: signed JWT with user ID and expiration
+  - See AUTH-410 for rate limiting patterns already in the codebase
+
+  ## Out of Scope
+  - SMS-based reset (planned for AUTH-500)
+  - Admin-triggered password reset
+
+Comments: "Decided to use JWT tokens instead of random strings so we
+           can embed the user ID without a DB lookup — see AUTH-410
+           for precedent."
+```
+
+What the skill produces — extracted directly, accurate:
+
+```
+### Goal
+Implement a password reset flow so users can securely set a new password via email.
+
+### Acceptance Criteria
+1. POST /auth/reset-password accepts email, returns 200 regardless of whether
+   the account exists (no user enumeration)
+2. If account exists, generates a reset token with 1-hour expiration and sends
+   an email with the reset link
+3. GET /auth/reset-password/:token returns 200 if valid, 400 if expired/invalid
+4. PUT /auth/reset-password/:token accepts new password (min 8 chars), updates
+   account, invalidates the token
+5. Rate limit: max 3 reset requests per email per hour
+
+### Key Decisions (from comments)
+- Use JWT tokens instead of random strings to embed user ID without DB lookup
+  (precedent: AUTH-410)
+```
+
+Every criterion is specific, testable, and maps to exactly one test case. The developer (and AI) knows precisely what to build.
+
+### Tips for Comments
+
+The skill extracts a **Key Decisions** section from your JIRA comments. To make this useful:
+
+- **Do comment:** Decisions ("We chose approach A over B because..."), scope clarifications ("This does NOT need to handle X"), edge cases discovered during refinement, links to design docs or RFCs
+- **Don't bother commenting for AI context:** Status updates ("Started this today"), @mentions without context ("@john can you look at this?"), automated transition messages
+
+The skill ignores routine comments and only surfaces decisions that would affect implementation.
+
 ## Relationship to Other Skills
 
 | Workflow | Skills |
