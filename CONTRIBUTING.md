@@ -41,7 +41,8 @@ optimus-claude/
 │   ├── branch/               # /optimus:branch
 │   ├── worktree/             # /optimus:worktree
 │   ├── commit/               # /optimus:commit
-│   └── commit-message/       # /optimus:commit-message
+│   ├── commit-message/       # /optimus:commit-message
+│   └── jira/                 # /optimus:jira
 ├── test/
 │   ├── expected-outputs.yaml # Expected outputs for skill tests
 │   ├── deep-mode-harness/    # Python unit tests for the deep harness
