@@ -45,6 +45,8 @@ Before starting TDD cycles, analyze whether the user's task is a good fit for te
 
 ### Gather the task
 
+**Design doc detection:** If the user's input references a file path ending in `.md` inside `docs/design/` (e.g., `/optimus:tdd "implement docs/design/2026-03-29-auth-system.md"`), read that file and use its Goal, Components, and Interfaces sections as the task description. If no explicit reference but a `docs/design/` directory exists with `.md` files, check the most recent one (by filename date prefix). If it was created today, mention it: "Found design doc `<path>` — use it as the basis for TDD?" via `AskUserQuestion` — header "Design doc", options "Use it" / "Ignore — describe a different task". If no design doc is found or the user ignores it, proceed normally below.
+
 If the user provided a task description inline (e.g., `/optimus:tdd "Add auth endpoint"`), use it. Otherwise, use `AskUserQuestion` — header "TDD scope", question "What feature or bug fix do you want to implement with TDD?":
 - **New feature** — "Implement a new capability (e.g., 'Add user authentication endpoint')"
 - **Bug fix** — "Fix a bug by reproducing it with a test first (e.g., 'Login fails when email has uppercase')"
