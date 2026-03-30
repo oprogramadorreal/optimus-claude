@@ -64,6 +64,14 @@ For monorepos with **full project** scope: ask which subprojects to include (def
 
 ## Step 2: Deep Mode Activation
 
+### Harness mode detection
+
+If the system prompt contains `HARNESS_MODE_ACTIVE`, read `$CLAUDE_PLUGIN_ROOT/references/harness-mode.md` and follow its single-iteration execution protocol. The reference covers progress file reading, state initialization, and step overrides (including the Step 8 apply/output protocol). Then proceed directly to Step 4 — skip user confirmation.
+
+If `HARNESS_MODE_ACTIVE` is NOT in the system prompt, continue with the standard interactive flow below.
+
+### Interactive deep mode
+
 If the `deep` flag was detected in Step 1, activate deep mode. Deep mode loops analysis-apply cycles (Steps 4–8) until zero findings remain or the iteration cap is reached.
 
 Before proceeding, check whether a test command is available (from `.claude/CLAUDE.md`). If no test command exists, deep mode's auto-apply loop has no safety net — fall back to normal mode and warn: "Deep mode requires a test command for safe auto-apply. Falling back to normal mode — re-run `/optimus:init` to set up test infrastructure first." Set `deep-mode` to false. Then continue with the standard single-pass flow.
@@ -276,6 +284,14 @@ Use `AskUserQuestion` — header "Action", question "How would you like to proce
 If the user selects **Selective**, ask which finding numbers to apply (e.g., "1, 3, 5"). Remember the user's choice and approved finding numbers for Step 8.
 
 ## Step 8: Apply Approved Changes and Verify
+
+### Harness mode overrides
+
+If harness mode is active (`HARNESS_MODE_ACTIVE` in system prompt), follow the apply and output protocol from `$CLAUDE_PLUGIN_ROOT/references/harness-mode.md` (steps 6–9) instead of the standard flow below. In harness mode, also skip user approval — all validated findings are applied automatically.
+
+---
+
+### Standard flow
 
 For each approved finding (skipping any annotated "(persistent — fix failed)" — these have already failed in a prior iteration):
 1. Apply the refactoring using Edit or MultiEdit

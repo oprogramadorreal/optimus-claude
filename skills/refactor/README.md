@@ -18,7 +18,7 @@ Well-maintained code has [30%+ fewer AI-introduced defects](https://arxiv.org/ab
 - **Test verification** — runs the test suite after applying changes with evidence-based verification; reverts any change that causes failures
 - **Conservative by default** — only suggests changes justified by the project's own guidelines
 - **Prioritized findings** — Critical/Warning/Suggestion severity with concrete before/after sketches, capped at 8 per run for focused, manageable output
-- **Deep mode** — iterative refactoring that loops analysis-apply cycles until zero findings remain (default 5 iterations, configurable up to 10), with explicit user consent and risk warnings
+- **Deep mode** — iterative refactoring that loops analysis-apply cycles until zero findings remain (default 5 iterations, configurable up to 10), with explicit user consent and risk warnings. External harness (`scripts/deep-mode-harness.py`) available for multi-session deep mode with fresh context per iteration
 - **Works without `/optimus:init`** — falls back to generic coding guidelines when project-specific docs aren't available
 - **Multi-repo workspace support** — resolves per-repo documentation when opened from a workspace root containing multiple git repos
 - **Submodule exclusion** — automatically skips files inside git submodules
@@ -125,6 +125,20 @@ Each iteration:
 Deep mode stops when: no findings remain, the iteration cap is reached, or all changes in an iteration fail tests. From iteration 3 onward, a context-accumulation warning appears; if the cap is reached, all continuation options are framed under starting a fresh conversation. All changes remain as local modifications — review the full diff and commit when satisfied. After all iterations complete, a **cumulative report** summarizes every change across all iterations in a single table.
 
 Iterative LLM feedback loops with automated verification consistently improve output quality, with the largest gains in early iterations and diminishing returns in later stages ([LLMLOOP, ICSME 2025](https://valerio-terragni.github.io/assets/pdf/ravi-icsme-2025.pdf)).
+
+### External harness (multi-session deep mode)
+
+For larger codebases or when context accumulation degrades quality, use the external harness script (`scripts/deep-mode-harness.py`). It launches a fresh `claude -p` session per iteration, passing state through a JSON progress file.
+
+```bash
+python scripts/deep-mode-harness.py --skill refactor --scope "src/api"
+python scripts/deep-mode-harness.py --skill refactor --max-iterations 8
+python scripts/deep-mode-harness.py --skill refactor --resume
+```
+
+The harness handles test execution, fix bisection, checkpoint commits, and termination detection externally.
+
+**Security note:** Each `claude -p` session runs with `--dangerously-skip-permissions` because the harness is headless (no terminal for permission prompts). This bypasses allow/deny lists and PreToolUse hooks, including those from `/optimus:permissions`. For safer operation, use [built-in sandboxing](https://code.claude.com/docs/en/sandboxing) (macOS/Linux) or [devcontainers](https://code.claude.com/docs/en/devcontainer), which provide OS-level isolation even with `--dangerously-skip-permissions`.
 
 ## Agent Architecture
 

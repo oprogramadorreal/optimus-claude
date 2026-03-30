@@ -131,6 +131,14 @@ Proceed immediately to Step 3 — do not wait for user confirmation.
 
 ## Step 3: Deep Mode Activation
 
+### Harness mode detection
+
+If the system prompt contains `HARNESS_MODE_ACTIVE`, read `$CLAUDE_PLUGIN_ROOT/references/harness-mode.md` and follow its single-iteration execution protocol. The reference covers progress file reading, state initialization, and step overrides (including the Step 8 apply/output protocol). Then proceed directly to Step 4 — skip user confirmation.
+
+If `HARNESS_MODE_ACTIVE` is NOT in the system prompt, continue with the standard interactive flow below.
+
+### Interactive deep mode
+
 If the user invoked with `deep` (e.g., `/optimus:code-review deep`, `/optimus:code-review deep "review PR #42"`, or `/optimus:code-review deep "focus on src/auth"`), activate deep mode. Deep mode loops review-fix cycles (Steps 4–8) until zero new findings remain or **5 iterations** are reached, then presents a single consolidated report with all fixes already applied as local changes.
 
 Before proceeding, check whether a test command is available (from `.claude/CLAUDE.md`). If no test command exists, deep mode's auto-apply loop has no safety net — fall back to normal mode and warn: "Deep mode requires a test command for safe auto-apply. Falling back to normal mode — re-run `/optimus:init` to set up test infrastructure first." Then continue with the standard single-pass flow.
@@ -337,6 +345,12 @@ For GitLab MRs: `glab api -X POST "projects/:id/merge_requests/<N>/notes" -F bod
 ## Step 8: Apply and Iterate (Deep Mode)
 
 **Normal mode:** Skip this step.
+
+### Harness mode overrides
+
+If harness mode is active (`HARNESS_MODE_ACTIVE` in system prompt), follow the apply and output protocol from `$CLAUDE_PLUGIN_ROOT/references/harness-mode.md` (steps 6–9) instead of the standard deep mode flow below.
+
+---
 
 ### Convergence check
 
