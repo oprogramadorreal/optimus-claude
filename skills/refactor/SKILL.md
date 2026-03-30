@@ -81,7 +81,7 @@ If the `harness` keyword was detected in Step 1, read the **Skill-Triggered Invo
 - `scope` = scope text from Step 1 argument parsing
 - `max_iterations` = parsed iteration cap from Step 1 (if specified)
 
-Do not proceed to Step 3 — the reference protocol handles presentation, and either stops (harness launch) or falls through to the interactive deep mode flow below.
+The reference protocol presents the command and stops. Do not proceed to Step 3 or any remaining steps.
 
 ### Interactive deep mode
 

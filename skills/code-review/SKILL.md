@@ -144,7 +144,7 @@ If the user invoked with `deep harness` (e.g., `/optimus:code-review deep harnes
 - `scope` = everything after `deep harness` in the user's arguments
 - `max_iterations` = not specified (use harness default)
 
-Do not proceed to Step 4 — the reference protocol handles presentation, and either stops (harness launch) or falls through to the interactive deep mode flow below.
+The reference protocol presents the command and stops. Do not proceed to Step 4 or any remaining steps.
 
 ### Interactive deep mode
 
