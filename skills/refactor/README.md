@@ -18,7 +18,8 @@ Well-maintained code has [30%+ fewer AI-introduced defects](https://arxiv.org/ab
 - **Test verification** — runs the test suite after applying changes with evidence-based verification; reverts any change that causes failures
 - **Conservative by default** — only suggests changes justified by the project's own guidelines
 - **Prioritized findings** — Critical/Warning/Suggestion severity with concrete before/after sketches, capped at 8 per run for focused, manageable output
-- **Deep mode** — iterative refactoring that loops analysis-apply cycles until zero findings remain (default 5 iterations, configurable up to 10), with explicit user consent and risk warnings. External harness (`scripts/deep-mode-harness.py`) available for multi-session deep mode with fresh context per iteration
+- **Deep mode** — iterative refactoring that loops analysis-apply cycles until zero findings remain (default 5 iterations, configurable up to 10), with explicit user consent and risk warnings
+- **Deep harness** — `/optimus:refactor deep harness` launches an external orchestrator with fresh `claude -p` sessions per iteration, eliminating context bloat for large codebases
 - **Works without `/optimus:init`** — falls back to generic coding guidelines when project-specific docs aren't available
 - **Multi-repo workspace support** — resolves per-repo documentation when opened from a workspace root containing multiple git repos
 - **Submodule exclusion** — automatically skips files inside git submodules
@@ -39,6 +40,8 @@ In Claude Code, use any of these:
 - `/optimus:refactor deep` — iterative refactoring (default 5 iterations)
 - `/optimus:refactor deep 8` — deep mode with custom iteration cap
 - `/optimus:refactor deep "focus on src/auth"` — deep mode with scope
+- `/optimus:refactor deep harness` — deep harness mode (5 iterations, fresh context per iteration)
+- `/optimus:refactor deep harness 8 "focus on backend"` — deep harness with options
 
 ## When to Run
 
@@ -126,11 +129,16 @@ Deep mode stops when: no findings remain, the iteration cap is reached, or all c
 
 Iterative LLM feedback loops with automated verification consistently improve output quality, with the largest gains in early iterations and diminishing returns in later stages ([LLMLOOP, ICSME 2025](https://valerio-terragni.github.io/assets/pdf/ravi-icsme-2025.pdf)).
 
-### External harness (multi-session deep mode)
+### Deep harness mode
 
-For larger codebases or when context accumulation degrades quality, use the external harness script (`scripts/deep-mode-harness.py`). It launches a fresh `claude -p` session per iteration, passing state through a JSON progress file.
+For larger codebases or when context accumulation degrades quality, use deep harness mode. It launches a fresh `claude -p` session per iteration — each runs a normal-mode analysis pass with prior findings injected as context.
 
 ```bash
+# Invoke from within a conversation:
+/optimus:refactor deep harness
+/optimus:refactor deep harness 8 "focus on backend"
+
+# Or run the script directly:
 python scripts/deep-mode-harness.py --skill refactor --scope "src/api"
 python scripts/deep-mode-harness.py --skill refactor --max-iterations 8
 python scripts/deep-mode-harness.py --skill refactor --resume

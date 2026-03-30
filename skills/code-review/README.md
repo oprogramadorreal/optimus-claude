@@ -1,6 +1,6 @@
 # optimus:code-review
 
-A [Claude Code](https://docs.anthropic.com/en/docs/claude-code) skill that reviews local changes (or PRs/MRs) against your project's coding guidelines — using up to 7 parallel review agents for comprehensive coverage. High-signal findings only: bugs, logic errors, security issues, guideline violations. Supports a **deep mode** for iterative auto-fix until zero findings remain.
+A [Claude Code](https://docs.anthropic.com/en/docs/claude-code) skill that reviews local changes (or PRs/MRs) against your project's coding guidelines — using up to 7 parallel review agents for comprehensive coverage. High-signal findings only: bugs, logic errors, security issues, guideline violations. Supports **deep mode** for iterative auto-fix (in-conversation or via external **deep harness** with fresh context per iteration).
 
 Well-maintained code has [30%+ fewer AI-introduced defects](https://arxiv.org/abs/2601.02200). `/optimus:init` sets up quality infrastructure with agents that guard new code automatically, and `/optimus:refactor` restructures existing code across the project. `/optimus:code-review` is the inner-loop complement: a focused review of your changes before they enter the repo.
 
@@ -14,7 +14,8 @@ Well-maintained code has [30%+ fewer AI-introduced defects](https://arxiv.org/ab
 - **PR/MR context awareness** — in PR/MR mode, agents receive the author's description as an intent signal (with explicit guardrails against bias) so they understand the "why" behind changes without suppressing genuine findings
 - **Validation step** — each finding is independently verified (context check, intent check, pre-existing check, cross-agent consensus, runtime assumption check) using an evidence-based verification protocol before reporting
 - **Contradiction resolution** — cross-agent contradictions (e.g., "add more validation" vs. "simplify this validation") are detected and resolved by severity to prevent circular fix loops
-- **Deep mode** — iterative review-fix loop (max 5 iterations) with automatic fix application and test verification; catches issues that single-pass review misses due to LLM attention limitations. External harness (`scripts/deep-mode-harness.py`) available for multi-session deep mode with fresh context per iteration
+- **Deep mode** — iterative review-fix loop (max 5 iterations) with automatic fix application and test verification; catches issues that single-pass review misses due to LLM attention limitations
+- **Deep harness** — `/optimus:code-review deep harness` launches an external orchestrator with fresh `claude -p` sessions per iteration, eliminating context bloat for large codebases
 - **Actionable output** — findings include file:line references, confidence level (High/Medium), before/after code sketches, guideline citations, and severity levels
 - **Works without `/optimus:init`** — falls back to generic coding guidelines when project-specific docs are not available
 - **Multi-repo workspace support** — resolves per-repo documentation when opened from a workspace root containing multiple git repos
@@ -36,6 +37,8 @@ In Claude Code, use any of these:
 - `/optimus:code-review` "focus on src/auth"
 - `/optimus:code-review deep` — iterative review-fix until clean (max 5 passes)
 - `/optimus:code-review deep` "review PR #42" — deep mode on a PR
+- `/optimus:code-review deep harness` — deep harness mode (external, fresh context per iteration)
+- `/optimus:code-review deep harness` "focus on src/auth" — deep harness with scope
 
 ## When to Run
 
@@ -84,14 +87,18 @@ On iterations 2+, each agent receives a table of prior findings with their statu
 
 On iterations 3+, a context-accumulation warning notes that output quality may degrade and suggests finishing remaining findings in a fresh conversation.
 
-### External harness (multi-session deep mode)
+### Deep harness mode
 
-For larger codebases or when context accumulation degrades quality, use the external harness script (`scripts/deep-mode-harness.py`). It launches a fresh `claude -p` session per iteration, passing state through a JSON progress file. Each session gets a clean context window, eliminating the context bloat that limits in-conversation deep mode.
+For larger codebases or when context accumulation degrades quality, use deep harness mode. It launches a fresh `claude -p` session per iteration — each runs a normal-mode analysis pass with prior findings injected as context, giving every iteration a clean context window.
 
 ```bash
+# Invoke from within a conversation:
+/optimus:code-review deep harness
+/optimus:code-review deep harness "focus on src/auth"
+
+# Or run the script directly:
 python scripts/deep-mode-harness.py --skill code-review
-python scripts/deep-mode-harness.py --skill code-review --scope "src/auth"
-python scripts/deep-mode-harness.py --skill code-review --max-iterations 8
+python scripts/deep-mode-harness.py --skill code-review --scope "src/auth" --max-iterations 8
 python scripts/deep-mode-harness.py --skill code-review --resume
 ```
 

@@ -11,6 +11,9 @@ Requirements:
   - Python 3.8+ (stdlib only — no pip dependencies)
 
 Usage:
+  /optimus:code-review deep harness            # invoke from within a conversation
+  /optimus:refactor deep harness 8 "backend"   # with iteration cap and scope
+
   python scripts/deep-mode-harness.py --skill code-review
   python scripts/deep-mode-harness.py --skill code-review --scope "src/auth"
   python scripts/deep-mode-harness.py --skill refactor --max-iterations 8 --scope "src/api"
@@ -46,7 +49,7 @@ DEFAULT_MAX_ITERATIONS = 5
 MAX_ITERATIONS_HARD_CAP = 20
 DEFAULT_MAX_TURNS = 30
 SESSION_TIMEOUT = 600  # 10 minutes per iteration
-PROGRESS_FILE_NAME = "deep-mode-progress.json"
+PROGRESS_FILE_NAME = ".claude/deep-mode-progress.json"
 BACKUP_SUFFIX = ".bak"
 
 PREFIX = "[deep-mode]"
@@ -239,6 +242,7 @@ def git_commit_checkpoint(progress, iteration, cwd):
 def write_progress(path, progress):
     """Write the progress file with a backup."""
     path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
     if path.exists():
         shutil.copy2(str(path), str(path) + BACKUP_SUFFIX)
     path.write_text(json.dumps(progress, indent=2) + "\n", encoding="utf-8")

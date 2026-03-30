@@ -33,8 +33,9 @@ Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/prerequisite-check.md` and appl
 
 Extract from the user's arguments:
 1. `deep` flag (present/absent)
-2. A number immediately after `deep` → iteration cap (optional, default 5, hard cap 10)
-3. Everything else → scope/focus instructions (natural language)
+2. `harness` keyword after `deep` (present/absent)
+3. A number immediately after `deep` or `deep harness` → iteration cap (optional, default 5, hard cap 10)
+4. Everything else → scope/focus instructions (natural language)
 
 Examples:
 - `/optimus:refactor` → full project, normal mode
@@ -44,6 +45,9 @@ Examples:
 - `/optimus:refactor deep 8` → full project, deep (8 iterations)
 - `/optimus:refactor deep "focus on src/api"` → scope to src/api, deep (5 iterations)
 - `/optimus:refactor deep 10 backend` → scope to backend, deep (10 iterations)
+- `/optimus:refactor deep harness` → harness mode, 5 iterations, full project
+- `/optimus:refactor deep harness 8` → harness mode, 8 iterations
+- `/optimus:refactor deep harness "focus on backend"` → harness mode, scoped
 
 If the iteration cap exceeds 10, clamp it to 10 and warn: "Iteration cap clamped to 10 (maximum)."
 If the iteration cap is less than 1, clamp it to 1 and warn: "Iteration cap clamped to 1 (minimum)."
@@ -66,9 +70,18 @@ For monorepos with **full project** scope: ask which subprojects to include (def
 
 ### Harness mode detection
 
-If the system prompt contains `HARNESS_MODE_ACTIVE`, read `$CLAUDE_PLUGIN_ROOT/references/harness-mode.md` and follow its single-iteration execution protocol. The reference covers progress file reading, state initialization, and step overrides (including the Step 8 apply/output protocol). Then proceed directly to Step 4 — skip user confirmation.
+If the system prompt contains `HARNESS_MODE_ACTIVE`, read `$CLAUDE_PLUGIN_ROOT/references/harness-mode.md` and follow its single-iteration execution protocol. The reference covers progress file reading, state initialization, and step overrides (including the Step 8 apply/output protocol). Then proceed directly to Step 3 — skip user confirmation.
 
 If `HARNESS_MODE_ACTIVE` is NOT in the system prompt, continue with the standard interactive flow below.
+
+### Skill-triggered harness invocation
+
+If the `harness` keyword was detected in Step 1, read the **Skill-Triggered Invocation** section of `$CLAUDE_PLUGIN_ROOT/references/harness-mode.md` and follow its steps. Pass:
+- `skill_name` = `refactor`
+- `scope` = scope text from Step 1 argument parsing
+- `max_iterations` = parsed iteration cap from Step 1 (if specified)
+
+Do not proceed to Step 3 — the reference protocol handles presentation, and either stops (harness launch) or falls through to the interactive deep mode flow below.
 
 ### Interactive deep mode
 
@@ -86,7 +99,7 @@ Then use `AskUserQuestion` — header "Deep mode", question "Proceed with deep m
 - **Start deep mode** — "Run iterative refactoring until clean (max [cap] iterations)"
 - **Normal mode** — "Single pass with manual approval instead"
 
-Tell the user: *Tip: For large codebases or extended sessions, the external harness gives fresh context per iteration: `python scripts/deep-mode-harness.py --skill refactor`*
+Tell the user: *Tip: For large codebases or extended sessions, re-run with `/optimus:refactor deep harness` to launch the external harness with fresh context per iteration.*
 
 If the user did not invoke with `deep`, skip this step.
 

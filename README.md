@@ -3,7 +3,7 @@
 </div>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-1.55.0-blue" alt="Version">
+  <img src="https://img.shields.io/badge/version-1.55.1-blue" alt="Version">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
   <img src="https://img.shields.io/badge/Claude_Code-1.0.33+-blueviolet" alt="Claude Code">
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey" alt="Platform">
@@ -69,8 +69,8 @@ The result: consistent patterns, meaningful names, and lean context across every
 | [`/optimus:init`](skills/init/README.md) | Initializes effective project documentation, formatter hooks, and unit test infrastructure. Detects empty directories and offers new-project scaffolding. Intelligent audit on re-run. |
 | [`/optimus:unit-test`](skills/unit-test/README.md) | Discovers test coverage gaps and writes convention-following tests. Never refactors source code. *Requires init.* |
 | [`/optimus:tdd`](skills/tdd/README.md) | Guides test-driven development through Red-Green-Refactor cycles with per-behavior commits, parallel quality gate, and PR/MR creation. *Requires init.* |
-| [`/optimus:refactor`](skills/refactor/README.md) | Refactors code for guideline compliance and testability using 4 parallel agents. `deep` mode for iterative refactoring. External harness (`scripts/deep-mode-harness.py`) for multi-session deep mode with fresh context per iteration. *Run init first (recommended).* |
-| [`/optimus:code-review`](skills/code-review/README.md) | Reviews changes for bugs, security issues, and guideline compliance using up to 7 parallel agents. `deep` mode for iterative auto-fix. External harness (`scripts/deep-mode-harness.py`) for multi-session deep mode with fresh context per iteration. *Run init first (recommended).* |
+| [`/optimus:refactor`](skills/refactor/README.md) | Refactors code for guideline compliance and testability using 4 parallel agents. `deep` mode for iterative refactoring. `deep harness` for multi-iteration analysis with fresh context per iteration. *Run init first (recommended).* |
+| [`/optimus:code-review`](skills/code-review/README.md) | Reviews changes for bugs, security issues, and guideline compliance using up to 7 parallel agents. `deep` mode for iterative auto-fix. `deep harness` for multi-iteration analysis with fresh context per iteration. *Run init first (recommended).* |
 | [`/optimus:verify`](skills/verify/README.md) | Verifies a feature branch in an isolated sandbox — extracts a test plan from the PR, runs automated checks, and launches parallel agents for functional verification. *Run init first (recommended).* |
 
 ### Utility

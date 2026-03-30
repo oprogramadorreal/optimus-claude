@@ -24,7 +24,7 @@ optimus-claude/
 │   ├── test-hooks.sh         # Hook execution tests (CI)
 │   ├── generate-fixtures.sh  # Generates minimal project fixtures for testing (local)
 │   ├── test-skills.sh        # Automated skill execution tests via claude -p (local)
-│   └── deep-mode-harness.py  # External deep-mode orchestrator (local)
+│   └── deep-mode-harness.py  # Deep harness orchestrator — invoked via `deep harness` or directly (local)
 ├── skills/
 │   ├── init/                 # /optimus:init
 │   ├── dev-setup/            # /optimus:dev-setup

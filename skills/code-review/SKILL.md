@@ -137,6 +137,15 @@ If the system prompt contains `HARNESS_MODE_ACTIVE`, read `$CLAUDE_PLUGIN_ROOT/r
 
 If `HARNESS_MODE_ACTIVE` is NOT in the system prompt, continue with the standard interactive flow below.
 
+### Skill-triggered harness invocation
+
+If the user invoked with `deep harness` (e.g., `/optimus:code-review deep harness` or `/optimus:code-review deep harness "focus on src/auth"`), read the **Skill-Triggered Invocation** section of `$CLAUDE_PLUGIN_ROOT/references/harness-mode.md` and follow its steps. Pass:
+- `skill_name` = `code-review`
+- `scope` = everything after `deep harness` in the user's arguments
+- `max_iterations` = not specified (use harness default)
+
+Do not proceed to Step 4 — the reference protocol handles presentation, and either stops (harness launch) or falls through to the interactive deep mode flow below.
+
 ### Interactive deep mode
 
 If the user invoked with `deep` (e.g., `/optimus:code-review deep`, `/optimus:code-review deep "review PR #42"`, or `/optimus:code-review deep "focus on src/auth"`), activate deep mode. Deep mode loops review-fix cycles (Steps 4–8) until zero new findings remain or **5 iterations** are reached, then presents a single consolidated report with all fixes already applied as local changes.
@@ -153,7 +162,7 @@ Then use `AskUserQuestion` — header "Deep mode", question "Proceed with deep m
 - **Start deep mode** — "Run iterative review-fix until clean (max 5 iterations)"
 - **Normal mode** — "Single pass with manual approval instead"
 
-Tell the user: *Tip: For large codebases or extended sessions, the external harness gives fresh context per iteration: `python scripts/deep-mode-harness.py --skill code-review`*
+Tell the user: *Tip: For large codebases or extended sessions, re-run with `/optimus:code-review deep harness` to launch the external harness with fresh context per iteration.*
 
 If the user did not invoke with `deep`, skip this step.
 
