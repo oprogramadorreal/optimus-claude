@@ -30,7 +30,6 @@ running the harness on unfamiliar codebases.
 import argparse
 import datetime
 import json
-import os
 import re
 import shutil
 import subprocess
@@ -113,7 +112,7 @@ def git_rev_parse_head(cwd):
 
 
 def git_restore_to(commit, cwd):
-    """Restore working tree to match a commit."""
+    """Restore working tree to match a commit (tracked + untracked files)."""
     result = subprocess.run(
         ["git", "checkout", commit, "--", "."],
         cwd=str(cwd),
@@ -122,26 +121,66 @@ def git_restore_to(commit, cwd):
     )
     if result.returncode != 0:
         raise RuntimeError(f"git checkout {commit} failed: {result.stderr}")
+    # Remove untracked files/dirs left by the failed iteration
+    subprocess.run(
+        ["git", "clean", "-fd"], cwd=str(cwd), capture_output=True, text=True
+    )
 
 
-def git_checkout_clean(cwd):
-    """Discard all unstaged changes."""
+def git_stash_snapshot(cwd):
+    """Create a stash snapshot of current working tree without modifying it.
+
+    Returns a stash commit SHA that can be restored later, or None if no changes.
+    Uses 'git stash create' which creates a commit object without modifying the
+    working tree, index, or stash reflog.
+    """
     result = subprocess.run(
+        ["git", "stash", "create", "--include-untracked"],
+        capture_output=True,
+        text=True,
+        cwd=str(cwd),
+    )
+    sha = result.stdout.strip()
+    return sha if sha else None
+
+
+def git_restore_snapshot(snapshot_sha, cwd):
+    """Restore working tree from a stash snapshot created by git_stash_snapshot."""
+    # First reset to HEAD to clean working tree (tracked files)
+    subprocess.run(
         ["git", "checkout", "."], cwd=str(cwd), capture_output=True, text=True
     )
+    # Remove untracked files/dirs left by the failed iteration
+    subprocess.run(
+        ["git", "clean", "-fd"], cwd=str(cwd), capture_output=True, text=True
+    )
+    # Then apply the snapshot (includes untracked files if --include-untracked was used)
+    result = subprocess.run(
+        ["git", "stash", "apply", snapshot_sha],
+        cwd=str(cwd),
+        capture_output=True,
+        text=True,
+    )
     if result.returncode != 0:
-        print(f"{PREFIX} WARNING: git checkout . failed: {result.stderr[:200]}")
+        print(f"{PREFIX} WARNING: Could not restore snapshot: {result.stderr[:200]}")
+        return False
+    return True
 
 
 def git_diff_has_changes(cwd):
-    """Check if there are any uncommitted changes (staged or unstaged)."""
+    """Check if there are any uncommitted changes (staged, unstaged, or untracked)."""
     unstaged = subprocess.run(
         ["git", "diff", "--quiet"], cwd=str(cwd), capture_output=True
     )
     staged = subprocess.run(
         ["git", "diff", "--cached", "--quiet"], cwd=str(cwd), capture_output=True
     )
-    return unstaged.returncode != 0 or staged.returncode != 0
+    untracked = subprocess.run(
+        ["git", "ls-files", "--others", "--exclude-standard"],
+        cwd=str(cwd), capture_output=True, text=True,
+    )
+    return (unstaged.returncode != 0 or staged.returncode != 0
+            or bool(untracked.stdout.strip()))
 
 
 def git_commit_checkpoint(progress, iteration, cwd):
@@ -158,10 +197,10 @@ def git_commit_checkpoint(progress, iteration, cwd):
     )
 
     add_result = subprocess.run(
-        ["git", "add", "-u"], cwd=str(cwd), capture_output=True, text=True
+        ["git", "add", "-A"], cwd=str(cwd), capture_output=True, text=True
     )
     if add_result.returncode != 0:
-        print(f"{PREFIX} WARNING: git add -u failed: {add_result.stderr[:200]}")
+        print(f"{PREFIX} WARNING: git add -A failed: {add_result.stderr[:200]}")
         return
     result = subprocess.run(
         ["git", "commit", "-m", msg, "--allow-empty"],
@@ -293,7 +332,7 @@ def bisect_fixes(fixes, test_command, cwd, progress):
         applied = apply_single_fix(fix, cwd)
         if not applied:
             # Can't mechanically apply — skip, mark reverted
-            mark_finding_status(progress, fix, "reverted—test failure",
+            mark_finding_status(progress, fix, "reverted — test failure",
                                 "Could not mechanically re-apply fix")
             reverted_count += 1
             continue
@@ -309,7 +348,7 @@ def bisect_fixes(fixes, test_command, cwd, progress):
                                     "Revert failed after test failure — fix retained")
                 fixed_count += 1
             else:
-                mark_finding_status(progress, fix, "reverted—test failure", "Test failure during bisection")
+                mark_finding_status(progress, fix, "reverted — test failure", "Test failure during bisection")
                 reverted_count += 1
 
     return fixed_count, reverted_count
@@ -328,10 +367,10 @@ def mark_finding_status(progress, fix, status, detail):
                 and f.get("category") == fix.get("category")):
             old_status = f["status"]
             # Promote reverted -> attempt 2 -> persistent
-            if status == "reverted—test failure" and old_status == "reverted—test failure":
-                status = "reverted—attempt 2"
-            elif status == "reverted—test failure" and old_status == "reverted—attempt 2":
-                status = "persistent—fix failed"
+            if status == "reverted — test failure" and old_status == "reverted — test failure":
+                status = "reverted — attempt 2"
+            elif status == "reverted — test failure" and old_status == "reverted — attempt 2":
+                status = "persistent — fix failed"
 
             f["status"] = status
             f["iteration_last_attempted"] = progress["iteration"]["current"]
@@ -394,7 +433,7 @@ def update_scope(progress, result):
     # code-review: narrow scope
     finding_files = set()
     for f in progress["findings"]:
-        if f["status"] != "persistent—fix failed":
+        if f["status"] != "persistent — fix failed":
             finding_files.add(f["file"])
     for f in result.get("fixes_applied", []):
         finding_files.add(f["file"])
@@ -410,7 +449,7 @@ def update_scope(progress, result):
 # ---------------------------------------------------------------------------
 
 
-def run_skill_session(progress, args):
+def run_skill_session(progress, args, resolved_progress_path):
     """
     Launch a fresh claude -p session for one iteration.
     Returns the raw stdout output.
@@ -418,7 +457,7 @@ def run_skill_session(progress, args):
     skill = progress["skill"]
     iteration = progress["iteration"]["current"]
     max_iter = progress["config"]["max_iterations"]
-    progress_path = os.path.abspath(args.progress_file)
+    progress_path = str(resolved_progress_path)
 
     # Build the skill invocation prompt
     if skill == "code-review":
@@ -530,10 +569,10 @@ def print_report(progress):
     total_reverted = sum(
         1
         for f in findings
-        if f["status"] in ("reverted—test failure", "reverted—attempt 2")
+        if f["status"] in ("reverted — test failure", "reverted — attempt 2")
     )
     total_persistent = sum(
-        1 for f in findings if f["status"] == "persistent—fix failed"
+        1 for f in findings if f["status"] == "persistent — fix failed"
     )
     iterations = progress["iteration"]["completed"]
 
@@ -608,7 +647,7 @@ def detect_test_command(project_root):
     # Look for explicit test command patterns
     patterns = [
         r"(?:test|tests)\s*(?:command|cmd)\s*[:=]\s*`([^`]+)`",
-        r"```\s*(?:bash|sh)?\s*\n\s*(.+?(?:test|spec|jest|pytest|cargo test|go test|dotnet test).+?)\s*\n\s*```",
+        r"```\s*(?:bash|sh)?\s*\n\s*(.+?(?:test|spec|jest|pytest|cargo test|go test|dotnet test).*)\s*\n\s*```",
         r"(?:run\s+tests?|testing)\s*[:]\s*`([^`]+)`",
     ]
     for pattern in patterns:
@@ -787,19 +826,25 @@ Examples:
             print(f"{PREFIX} ERROR: Cannot determine HEAD commit before iteration {iteration}.")
             sys.exit(1)
 
+        # When --no-commit, prior iterations leave uncommitted changes.
+        # Snapshot them so we can restore on failure without losing that work.
+        pre_snapshot = git_stash_snapshot(project_root) if args.no_commit else None
+
         # Write progress file for skill to read
-        args.progress_file = str(progress_path)
         write_progress(progress_path, progress)
 
         # Launch fresh claude -p session (with 1 retry)
         output = None
         for attempt in range(2):
             try:
-                output = run_skill_session(progress, args)
+                output = run_skill_session(progress, args, progress_path)
                 break
             except (RuntimeError, subprocess.TimeoutExpired) as e:
                 print(f"{PREFIX} Session error: {e}")
-                git_restore_to(pre_hash, project_root)
+                if pre_snapshot:
+                    git_restore_snapshot(pre_snapshot, project_root)
+                else:
+                    git_restore_to(pre_hash, project_root)
                 if attempt == 0:
                     print(f"{PREFIX} Retrying iteration {iteration}...")
                 else:
@@ -826,15 +871,19 @@ Examples:
                 if test_ok:
                     progress["test_results"]["last_full_run"] = "pass"
                     progress["test_results"]["last_run_output_summary"] = test_summary
+                    # Changes passed tests but are untracked — stop to avoid silent drift
                     result = {
                         "no_new_findings": False,
-                        "no_actionable_fixes": False,
+                        "no_actionable_fixes": True,
                         "fixes_applied": [],
                         "new_findings": [],
                     }
                 else:
                     print(f"{PREFIX} Tests failed with unparseable output — reverting iteration")
-                    git_restore_to(pre_hash, project_root)
+                    if pre_snapshot:
+                        git_restore_snapshot(pre_snapshot, project_root)
+                    else:
+                        git_restore_to(pre_hash, project_root)
                     progress["termination"] = {
                         "reason": "parse-failure",
                         "message": "Could not parse skill output and tests failed",
@@ -861,6 +910,20 @@ Examples:
 
         # Check convergence
         if result.get("no_new_findings", False):
+            # Safety check: if skill unexpectedly left changes, verify tests
+            conv_test_passed = True
+            if git_diff_has_changes(project_root):
+                print(f"{PREFIX} Convergence but working tree has changes — verifying tests")
+                conv_ok, conv_summary = run_tests(test_command, project_root)
+                conv_test_passed = conv_ok
+                progress["test_results"]["last_full_run"] = "pass" if conv_ok else "fail"
+                progress["test_results"]["last_run_output_summary"] = conv_summary
+                if not conv_ok:
+                    print(f"{PREFIX} Tests failed on convergence — reverting unexpected changes")
+                    if pre_snapshot:
+                        git_restore_snapshot(pre_snapshot, project_root)
+                    else:
+                        git_restore_to(pre_hash, project_root)
             progress["termination"] = {
                 "reason": "convergence",
                 "message": f"Zero new findings on iteration {iteration}",
@@ -872,14 +935,30 @@ Examples:
                 "fixed": 0,
                 "reverted": 0,
                 "persistent": 0,
-                "test_passed": True,
+                "test_passed": conv_test_passed,
             })
             write_progress(progress_path, progress)
+            if not args.no_commit and conv_test_passed and git_diff_has_changes(project_root):
+                git_commit_checkpoint(progress, iteration, project_root)
             print(f"{PREFIX} Converged: no new findings.")
             break
 
         # Check no actionable fixes
         if result.get("no_actionable_fixes", False):
+            # Safety check: if skill unexpectedly left changes, verify tests
+            noact_test_passed = True
+            if git_diff_has_changes(project_root):
+                print(f"{PREFIX} No actionable fixes but working tree has changes — verifying tests")
+                noact_ok, noact_summary = run_tests(test_command, project_root)
+                noact_test_passed = noact_ok
+                progress["test_results"]["last_full_run"] = "pass" if noact_ok else "fail"
+                progress["test_results"]["last_run_output_summary"] = noact_summary
+                if not noact_ok:
+                    print(f"{PREFIX} Tests failed — reverting unexpected changes")
+                    if pre_snapshot:
+                        git_restore_snapshot(pre_snapshot, project_root)
+                    else:
+                        git_restore_to(pre_hash, project_root)
             progress["termination"] = {
                 "reason": "no-actionable",
                 "message": "Findings exist but none had actionable code edits",
@@ -891,16 +970,24 @@ Examples:
                 "fixed": 0,
                 "reverted": 0,
                 "persistent": 0,
-                "test_passed": True,
+                "test_passed": noact_test_passed,
             })
             write_progress(progress_path, progress)
+            if not args.no_commit and noact_test_passed and git_diff_has_changes(project_root):
+                git_commit_checkpoint(progress, iteration, project_root)
             print(f"{PREFIX} No actionable fixes — remaining findings need manual review.")
             break
 
-        # Merge new findings into progress (with applied-pending-test status)
+        # Merge new findings into progress
         fixes = result.get("fixes_applied", [])
+        applied_keys = {(f.get("file"), f.get("line"), f.get("category")) for f in fixes}
         for fix in fixes:
             mark_finding_status(progress, fix, "applied-pending-test", None)
+        # Also record discovered-but-not-applied findings (prevents re-reporting)
+        for nf in result.get("new_findings", []):
+            key = (nf.get("file"), nf.get("line"), nf.get("category"))
+            if key not in applied_keys:
+                mark_finding_status(progress, nf, "discovered", None)
 
         # Run tests (HARNESS-SIDE)
         if fixes:
@@ -931,7 +1018,26 @@ Examples:
                     progress["test_results"]["last_full_run"] = "pass" if test_ok else "fail"
                     progress["test_results"]["last_run_output_summary"] = test_summary
                     if not test_ok:
-                        print(f"{PREFIX} WARNING: Combined fixes fail tests — interaction bug detected")
+                        print(f"{PREFIX} WARNING: Combined fixes fail tests — interaction bug, reverting all")
+                        if pre_snapshot:
+                            git_restore_snapshot(pre_snapshot, project_root)
+                        else:
+                            git_restore_to(pre_hash, project_root)
+                        # Only re-mark fixes that bisection had marked as "fixed" —
+                        # already-reverted ones retain their original status
+                        interaction_reverted = 0
+                        for fix in fixes:
+                            for f in progress["findings"]:
+                                if (f["file"] == fix.get("file")
+                                        and f.get("line") == fix.get("line")
+                                        and f.get("category") == fix.get("category")
+                                        and f.get("status") == "fixed"):
+                                    mark_finding_status(progress, fix, "reverted — test failure",
+                                                        "Interaction bug — combined fixes failed")
+                                    interaction_reverted += 1
+                                    break
+                        reverted_count += interaction_reverted
+                        fixed_count -= interaction_reverted
 
                 # Check all-reverted
                 all_reverted = fixed_count == 0 and reverted_count > 0
@@ -945,7 +1051,7 @@ Examples:
         persistent_count = sum(
             1
             for f in progress["findings"]
-            if f["status"] == "persistent—fix failed"
+            if f["status"] == "persistent — fix failed"
             and f.get("iteration_last_attempted") == iteration
         )
         hist_entry = {

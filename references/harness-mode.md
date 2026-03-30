@@ -57,12 +57,12 @@ Apply the same validation protocol as the skill's normal validation step. Indepe
 
 Apply the same deduplication rules as interactive deep mode, matching against `accumulated-findings` by file + line range + category:
 - If existing finding is `"fixed"` → skip new entry (code was intentionally changed)
-- If existing finding is `"persistent—fix failed"` → annotate new as `"persistent—fix failed"`
-- If existing finding is `"reverted—test failure"` → annotate new as `"reverted—attempt 2"` (the harness will promote to `"persistent—fix failed"` if it fails again)
+- If existing finding is `"persistent — fix failed"` → annotate new as `"persistent — fix failed"`
+- If existing finding is `"reverted — test failure"` → annotate new as `"reverted — attempt 2"` (the harness will promote to `"persistent — fix failed"` if it fails again)
 
 ### 6. Apply fixes
 
-Apply all validated findings using Edit or MultiEdit — same as normal mode. Skip any annotated `"persistent—fix failed"`.
+Apply all validated findings using Edit or MultiEdit — same as normal mode. Skip any annotated `"persistent — fix failed"`.
 
 **Critical for harness bisection**: For EACH fix applied, record:
 - `pre_edit_content` — the exact original code before editing (the string that was replaced)
