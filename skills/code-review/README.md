@@ -97,7 +97,7 @@ python scripts/deep-mode-harness.py --skill code-review --resume
 
 The harness handles test execution, fix bisection, checkpoint commits, and termination detection externally — the skill only needs to analyze and apply fixes in a single pass per session.
 
-**Security note:** Each `claude -p` session runs with `--dangerously-skip-permissions` because the harness is headless (no terminal for permission prompts). This bypasses allow/deny lists and PreToolUse hooks, including those from `/optimus:permissions`. For safer operation, use [built-in sandboxing](https://code.claude.com/docs/en/sandboxing) (macOS/Linux) or [devcontainers](https://code.claude.com/docs/en/devcontainer), which provide OS-level isolation even with `--dangerously-skip-permissions`.
+**Security note:** By default, each `claude -p` session runs with `--dangerously-skip-permissions` because the harness is headless (no terminal for permission prompts). For a safer alternative, use `--allowed-tools` to restrict sessions to a specific tool whitelist. For OS-level isolation, use [built-in sandboxing](https://code.claude.com/docs/en/sandboxing) (macOS/Linux) or [devcontainers](https://code.claude.com/docs/en/devcontainer).
 
 ### Research context
 

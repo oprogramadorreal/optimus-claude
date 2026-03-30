@@ -16,11 +16,12 @@ Usage:
   python scripts/deep-mode-harness.py --skill refactor --max-iterations 8 --scope "src/api"
   python scripts/deep-mode-harness.py --skill code-review --resume
 
-Security: Each claude -p session runs with --dangerously-skip-permissions because the
-harness is headless — there is no terminal to approve tool permission prompts. This
-bypasses allow/deny lists and PreToolUse hooks (including /optimus:permissions).
-For safer operation, use Claude Code's built-in sandboxing (macOS/Linux) or
-devcontainers, which provide OS-level isolation even with --dangerously-skip-permissions.
+Security: By default, each claude -p session runs with --dangerously-skip-permissions
+because the harness is headless — there is no terminal to approve tool prompts. This
+bypasses allow/deny lists and PreToolUse hooks. For a safer alternative, use
+--allowed-tools to restrict sessions to a specific tool whitelist via --allowedTools.
+For OS-level isolation, use Claude Code's built-in sandboxing (macOS/Linux) or
+devcontainers.
 
 The test command is extracted from .claude/CLAUDE.md or --test-command and executed
 via shell=True. Treat cloned repos as untrusted — review .claude/CLAUDE.md before
@@ -521,12 +522,20 @@ def run_skill_session(progress, args, resolved_progress_path):
         prompt,
         "--append-system-prompt",
         harness_system,
-        "--dangerously-skip-permissions",
+    ]
+
+    # Permission handling: --allowedTools (safer) or --dangerously-skip-permissions (default)
+    if getattr(args, "allowed_tools", None):
+        cmd.extend(["--allowedTools", args.allowed_tools])
+    else:
+        cmd.append("--dangerously-skip-permissions")
+
+    cmd.extend([
         "--max-turns",
         str(args.max_turns),
         "--output-format",
         "json",
-    ]
+    ])
 
     if args.verbose:
         print(f"{PREFIX} Command: {' '.join(cmd[:6])}...")
@@ -757,6 +766,18 @@ Examples:
         "--project-dir",
         default=".",
         help="Target project directory (default: current directory)",
+    )
+    parser.add_argument(
+        "--allowed-tools",
+        default="",
+        help=(
+            "Use --allowedTools instead of --dangerously-skip-permissions. "
+            "Comma-separated list of tools to allow "
+            "(default when flag is given without value: "
+            "Read,Edit,Write,MultiEdit,Glob,Grep,Bash,Agent)"
+        ),
+        nargs="?",
+        const="Read,Edit,Write,MultiEdit,Glob,Grep,Bash,Agent",
     )
 
     args = parser.parse_args()
