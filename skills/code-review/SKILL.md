@@ -153,6 +153,8 @@ Then use `AskUserQuestion` — header "Deep mode", question "Proceed with deep m
 - **Start deep mode** — "Run iterative review-fix until clean (max 5 iterations)"
 - **Normal mode** — "Single pass with manual approval instead"
 
+*Tip: For large codebases or extended sessions, the external harness gives fresh context per iteration: `python scripts/deep-mode-harness.py --skill code-review`*
+
 If the user did not invoke with `deep`, skip this step.
 
 If the user selects **Normal mode**, continue with the standard single-pass flow. Record the user's choice as a `deep-mode` flag for subsequent steps. If deep mode is confirmed, initialize `iteration-count` to 1, `total-fixed` to 0, `total-reverted` to 0, and `accumulated-findings` to an empty list. Each entry in `accumulated-findings` tracks: **file** (with line), **category** (Bug, Security, Guideline Violation, Code Quality, Test Coverage Gap, Contract Quality), **guideline** (the specific project rule, or "General: bug/security/contract quality"), **summary** (one-sentence description of the issue), **fix description** (brief description of the fix applied or attempted), **iteration** (which iteration discovered it), and **status** (updated through apply/test phases).
