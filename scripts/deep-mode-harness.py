@@ -304,10 +304,11 @@ def revert_single_fix(fix, cwd):
 
 def bisect_fixes(fixes, test_command, cwd, progress):
     """
-    Revert all fixes, then re-apply one by one with test after each.
+    Incremental bisection: revert all fixes, then re-apply one by one,
+    keeping passing fixes applied so subsequent fixes can depend on them.
+    After the first pass, retry reverted fixes (they may depend on fixes
+    that were applied later in the first pass).
     Returns (fixed_count, reverted_count).
-    Uses mechanical revert (post→pre content swap) to preserve uncommitted
-    changes from prior iterations when --no-commit is active.
     """
     print(f"{PREFIX} Bisecting {len(fixes)} fixes...")
     # Revert all this iteration's fixes mechanically (preserves prior uncommitted work)
@@ -319,20 +320,18 @@ def bisect_fixes(fixes, test_command, cwd, progress):
 
     fixed_count = 0
     reverted_count = 0
+    reverted_indices = []
 
+    # First pass: apply incrementally, keeping passing fixes
     for i, fix in enumerate(fixes):
         if i in revert_failures:
-            # Revert failed — fix is still applied, skip re-apply
             mark_finding_status(progress, fix, "fixed",
                                 "Revert failed during bisection — fix retained")
             fixed_count += 1
             continue
         applied = apply_single_fix(fix, cwd)
         if not applied:
-            # Can't mechanically apply — skip, mark reverted
-            mark_finding_status(progress, fix, "reverted — test failure",
-                                "Could not mechanically re-apply fix")
-            reverted_count += 1
+            reverted_indices.append(i)
             continue
 
         ok, _ = run_tests(test_command, cwd)
@@ -346,8 +345,42 @@ def bisect_fixes(fixes, test_command, cwd, progress):
                                     "Revert failed after test failure — fix retained")
                 fixed_count += 1
             else:
-                mark_finding_status(progress, fix, "reverted — test failure", "Test failure during bisection")
+                reverted_indices.append(i)
+
+    # Second pass: retry reverted fixes — they may depend on fixes that
+    # were applied later in the first pass (e.g., fix A uses an import
+    # that fix B added, but B had a higher index)
+    if reverted_indices and fixed_count > 0:
+        print(f"{PREFIX} Retrying {len(reverted_indices)} reverted fixes...")
+        for i in reverted_indices:
+            fix = fixes[i]
+            applied = apply_single_fix(fix, cwd)
+            if not applied:
+                mark_finding_status(progress, fix, "reverted — test failure",
+                                    "Could not mechanically re-apply fix")
                 reverted_count += 1
+                continue
+
+            ok, _ = run_tests(test_command, cwd)
+            if ok:
+                mark_finding_status(progress, fix, "fixed", "Passed on retry (dependency resolved)")
+                fixed_count += 1
+            else:
+                if not revert_single_fix(fix, cwd):
+                    print(f"{PREFIX} WARNING: Could not revert failing fix for {fix.get('file')} — retaining fix")
+                    mark_finding_status(progress, fix, "fixed",
+                                        "Revert failed after test failure — fix retained")
+                    fixed_count += 1
+                else:
+                    mark_finding_status(progress, fix, "reverted — test failure", "Test failure during bisection")
+                    reverted_count += 1
+    else:
+        # No retry needed — mark remaining reverted fixes
+        for i in reverted_indices:
+            mark_finding_status(progress, fixes[i], "reverted — test failure",
+                                "Could not mechanically re-apply fix" if i not in revert_failures
+                                else "Test failure during bisection")
+            reverted_count += 1
 
     return fixed_count, reverted_count
 
