@@ -70,6 +70,8 @@ Apply all validated findings using Edit or MultiEdit — same as normal mode. Sk
 
 These content pairs enable the harness to mechanically apply/revert individual fixes during test bisection without needing another Claude session. Each pair must be precise enough that `content.replace(pre_edit_content, post_edit_content)` produces the same result as the Edit tool call.
 
+An empty `post_edit_content` is valid — it means the fix deletes the matched code (e.g., removing dead code or a redundant check). The harness supports this.
+
 For fixes that span multiple locations in a single file, output one entry per edit location.
 
 ### 7. Do NOT run tests

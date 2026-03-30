@@ -286,8 +286,6 @@ def _swap_content(fix, cwd, find_key, replace_key):
     replace = fix.get(replace_key, "")
     if not find or find not in content:
         return False
-    if not replace:
-        return False  # Refuse to delete content with empty replacement
     if content.count(find) != 1:
         return False  # Ambiguous match — refuse to apply/revert
     filepath.write_text(content.replace(find, replace, 1), encoding="utf-8")
