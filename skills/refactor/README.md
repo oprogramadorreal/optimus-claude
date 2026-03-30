@@ -186,6 +186,7 @@ Claude Code includes a builtin `/simplify` command. `/optimus:refactor` is the e
 | *(shared)* `init/references/prerequisite-check.md` | Shared prerequisite check with fallbacks |
 | *(shared)* `init/references/constraint-doc-loading.md` | Constraint doc loading (single project, monorepo) |
 | *(shared)* `init/references/verification-protocol.md` | Evidence-based test verification protocol |
+| *(shared)* `references/harness-mode.md` | Harness mode single-iteration execution protocol |
 
 ## Requirements
 

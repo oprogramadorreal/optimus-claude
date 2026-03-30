@@ -153,7 +153,7 @@ Then use `AskUserQuestion` — header "Deep mode", question "Proceed with deep m
 - **Start deep mode** — "Run iterative review-fix until clean (max 5 iterations)"
 - **Normal mode** — "Single pass with manual approval instead"
 
-*Tip: For large codebases or extended sessions, the external harness gives fresh context per iteration: `python scripts/deep-mode-harness.py --skill code-review`*
+Tell the user: *Tip: For large codebases or extended sessions, the external harness gives fresh context per iteration: `python scripts/deep-mode-harness.py --skill code-review`*
 
 If the user did not invoke with `deep`, skip this step.
 
@@ -347,12 +347,6 @@ For GitLab MRs: `glab api -X POST "projects/:id/merge_requests/<N>/notes" -F bod
 ## Step 8: Apply and Iterate (Deep Mode)
 
 **Normal mode:** Skip this step.
-
-### Harness mode overrides
-
-If harness mode is active (`HARNESS_MODE_ACTIVE` in system prompt), follow the apply and output protocol from `$CLAUDE_PLUGIN_ROOT/references/harness-mode.md` (steps 6–9) instead of the standard deep mode flow below.
-
----
 
 ### Convergence check
 

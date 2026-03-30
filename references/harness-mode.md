@@ -95,7 +95,7 @@ At the end of the response, output the iteration results in this exact format:
       "guideline": "<specific rule or 'General: ...'>",
       "summary": "<one-sentence, max 120 chars>",
       "fix_description": "<brief description of the fix applied>",
-      "severity": "<Critical | High | Medium>",
+      "severity": "<Critical | Warning | Suggestion>",
       "confidence": "<High | Medium>",
       "agent": "<agent-name>",
       "pre_edit_content": "<exact original code>",

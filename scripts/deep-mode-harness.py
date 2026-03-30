@@ -133,7 +133,8 @@ def git_stash_snapshot(cwd):
 
     Returns a stash commit SHA that can be restored later, or None if no changes.
     Uses 'git stash create' which creates a commit object without modifying the
-    working tree, index, or stash reflog.
+    working tree, index, or stash reflog. The commit is then registered in the
+    stash reflog so that 'git stash apply' processes the untracked-files tree.
     """
     result = subprocess.run(
         ["git", "stash", "create", "--include-untracked"],
@@ -142,7 +143,16 @@ def git_stash_snapshot(cwd):
         cwd=str(cwd),
     )
     sha = result.stdout.strip()
-    return sha if sha else None
+    if not sha:
+        return None
+    # Register in stash reflog so 'git stash apply' handles untracked files
+    subprocess.run(
+        ["git", "stash", "store", "-m", "deep-mode snapshot", sha],
+        capture_output=True,
+        text=True,
+        cwd=str(cwd),
+    )
+    return sha
 
 
 def git_restore_snapshot(snapshot_sha, cwd):
@@ -185,7 +195,7 @@ def git_diff_has_changes(cwd):
 
 
 def git_commit_checkpoint(progress, iteration, cwd):
-    """Create a checkpoint commit for this iteration."""
+    """Create a checkpoint commit for this iteration. Returns True on success."""
     skill = progress["skill"]
     hist = progress["iteration_history"]
     latest = hist[-1] if hist else {}
@@ -202,7 +212,13 @@ def git_commit_checkpoint(progress, iteration, cwd):
     )
     if add_result.returncode != 0:
         print(f"{PREFIX} WARNING: git add -A failed: {add_result.stderr[:200]}")
-        return
+        return False
+    # Un-stage harness state files from checkpoint commits
+    for pattern in [PROGRESS_FILE_NAME, PROGRESS_FILE_NAME + BACKUP_SUFFIX]:
+        subprocess.run(
+            ["git", "reset", "HEAD", "--", pattern],
+            cwd=str(cwd), capture_output=True, text=True,
+        )
     result = subprocess.run(
         ["git", "commit", "-m", msg, "--allow-empty"],
         cwd=str(cwd),
@@ -211,6 +227,8 @@ def git_commit_checkpoint(progress, iteration, cwd):
     )
     if result.returncode != 0:
         print(f"{PREFIX} WARNING: checkpoint commit failed: {result.stderr[:200]}")
+        return False
+    return True
 
 
 # ---------------------------------------------------------------------------
@@ -242,12 +260,16 @@ def run_tests(test_command, cwd):
     # On Windows, shell=True uses cmd.exe which doesn't support bash operators
     # like && or ||. Wrap with bash -c if the command uses them.
     effective_command = test_command
-    if sys.platform == "win32" and any(op in test_command for op in ("&&", "||", "|")):
-        effective_command = f'bash -c {shutil.quote(test_command)}'
+    use_shell = True
+    if sys.platform == "win32" and ("&&" in test_command or "||" in test_command):
+        # On Windows, shell=True uses cmd.exe which misparses bash operators.
+        # Use subprocess list form with bash -c to avoid cmd.exe entirely.
+        effective_command = ["bash", "-c", test_command]
+        use_shell = False
     try:
         result = subprocess.run(
             effective_command,
-            shell=True,
+            shell=use_shell,
             capture_output=True,
             text=True,
             cwd=str(cwd),
@@ -287,12 +309,24 @@ def _swap_content(fix, cwd, find_key, replace_key):
     filepath = (Path(cwd) / fix_file).resolve()
     if not _is_path_within(filepath, Path(cwd).resolve()):
         return False
+    # Block writes to sensitive paths
+    try:
+        rel = filepath.relative_to(Path(cwd).resolve())
+        if any(part.startswith(".git") for part in rel.parts):
+            return False
+    except ValueError:
+        return False
     if not filepath.exists():
         return False
     content = filepath.read_text(encoding="utf-8")
     find = fix.get(find_key, "")
     replace = fix.get(replace_key, "")
-    if not find or find not in content:
+    if not find:
+        # Empty find string — cannot locate target in file content.
+        # This happens when reverting a deletion fix (empty post_edit_content):
+        # the revert needs to re-insert pre_edit_content but has no position info.
+        return False
+    if find not in content:
         return False
     if content.count(find) != 1:
         return False  # Ambiguous match — refuse to apply/revert
@@ -333,9 +367,9 @@ def bisect_fixes(fixes, test_command, cwd, progress):
     # First pass: apply incrementally, keeping passing fixes
     for i, fix in enumerate(fixes):
         if i in revert_failures:
-            mark_finding_status(progress, fix, "fixed",
-                                "Revert failed during bisection — fix retained")
-            fixed_count += 1
+            mark_finding_status(progress, fix, "retained — revert failed",
+                                "Could not mechanically revert during bisection — fix retained untested")
+            fixed_count += 1  # counts toward applied (fix is in codebase)
             continue
         applied = apply_single_fix(fix, cwd)
         if not applied:
@@ -386,8 +420,7 @@ def bisect_fixes(fixes, test_command, cwd, progress):
         # No retry needed — mark remaining reverted fixes
         for i in reverted_indices:
             mark_finding_status(progress, fixes[i], "reverted — test failure",
-                                "Could not mechanically re-apply fix" if i not in revert_failures
-                                else "Test failure during bisection")
+                                "Test failure during bisection")
             reverted_count += 1
 
     return fixed_count, reverted_count
@@ -499,13 +532,11 @@ def run_skill_session(progress, args, resolved_progress_path):
     # Use forward slashes for cross-platform compatibility in system prompt
     progress_path = str(resolved_progress_path).replace("\\", "/")
 
-    # Build the skill invocation prompt
+    # Build the skill invocation prompt (skill is validated by argparse choices)
     if skill == "code-review":
         prompt = "/optimus:code-review deep"
-    elif skill == "refactor":
-        prompt = f"/optimus:refactor deep {max_iter}"
     else:
-        raise ValueError(f"Unsupported skill: {skill}")
+        prompt = f"/optimus:refactor deep {max_iter}"
 
     # Add scope hint
     scope_paths = progress["scope_files"]["current"]
@@ -613,7 +644,7 @@ def parse_harness_output(raw_output):
 def print_report(progress):
     """Print the consolidated cumulative report."""
     findings = progress["findings"]
-    total_fixed = sum(1 for f in findings if f["status"] == "fixed")
+    total_fixed = sum(1 for f in findings if f["status"] in ("fixed", "retained — revert failed"))
     total_reverted = sum(
         1
         for f in findings
@@ -704,6 +735,45 @@ def detect_test_command(project_root):
             return match.group(1).strip()
 
     return None
+
+
+# ---------------------------------------------------------------------------
+# Safe-exit helper (convergence / no-actionable)
+# ---------------------------------------------------------------------------
+
+
+def handle_safe_exit(progress, progress_path, args, reason, message, log_message,
+                     iteration, new_count, test_command, project_root,
+                     pre_snapshot, pre_hash):
+    """Handle convergence or no-actionable-fixes exit with test verification."""
+    test_passed = True
+    if git_diff_has_changes(project_root):
+        print(f"{PREFIX} {log_message} but working tree has changes — verifying tests")
+        ok, summary = run_tests(test_command, project_root)
+        test_passed = ok
+        progress["test_results"]["last_full_run"] = "pass" if ok else "fail"
+        progress["test_results"]["last_run_output_summary"] = summary
+        if not ok:
+            print(f"{PREFIX} Tests failed — reverting unexpected changes")
+            if pre_snapshot:
+                if not git_restore_snapshot(pre_snapshot, project_root):
+                    git_restore_to(pre_hash, project_root)
+            else:
+                git_restore_to(pre_hash, project_root)
+    progress["termination"] = {"reason": reason, "message": message}
+    progress["iteration"]["completed"] = iteration
+    progress["iteration_history"].append({
+        "iteration": iteration,
+        "new_findings": new_count,
+        "fixed": 0,
+        "reverted": 0,
+        "persistent": 0,
+        "test_passed": test_passed,
+    })
+    write_progress(progress_path, progress)
+    if not args.no_commit and test_passed and git_diff_has_changes(project_root):
+        git_commit_checkpoint(progress, iteration, project_root)
+    return test_passed
 
 
 # ---------------------------------------------------------------------------
@@ -844,13 +914,20 @@ Examples:
                 f"does not match --skill '{args.skill}'"
             )
             sys.exit(1)
-        saved_root = Path(progress["config"].get("project_root", "")).resolve()
+        saved_root_str = progress["config"].get("project_root")
+        if not saved_root_str:
+            print(f"{PREFIX} ERROR: Progress file missing project_root")
+            sys.exit(1)
+        saved_root = Path(saved_root_str).resolve()
         if saved_root != project_root:
             print(
                 f"{PREFIX} ERROR: Progress file project_root '{saved_root}' "
                 f"does not match --project-dir '{project_root}'"
             )
             sys.exit(1)
+        # Allow extending the iteration cap on resume
+        if args.max_iterations != DEFAULT_MAX_ITERATIONS:
+            progress["config"]["max_iterations"] = args.max_iterations
         print(f"{PREFIX} Resuming from iteration {progress['iteration']['current']}")
     else:
         if progress_path.exists():
@@ -867,7 +944,9 @@ Examples:
     # Print startup info
     max_iter = progress["config"]["max_iterations"]
     # 7 agents for code-review, 4 for refactor; +1 per iteration for harness overhead
-    estimated_messages = max_iter * (7 if args.skill == "code-review" else 4) + max_iter
+    remaining = max_iter - progress["iteration"]["current"] + 1
+    agents = 7 if args.skill == "code-review" else 4
+    estimated_messages = remaining * agents + remaining
     print(f"{PREFIX} Starting {args.skill} harness (max {max_iter} iterations)")
     print(f"{PREFIX} Test command: {test_command}")
     print(f"{PREFIX} Base commit: {progress['config']['base_commit'][:8]}")
@@ -902,7 +981,8 @@ Examples:
             except (RuntimeError, subprocess.TimeoutExpired) as e:
                 print(f"{PREFIX} Session error: {e}")
                 if pre_snapshot:
-                    git_restore_snapshot(pre_snapshot, project_root)
+                    if not git_restore_snapshot(pre_snapshot, project_root):
+                        git_restore_to(pre_hash, project_root)
                 else:
                     git_restore_to(pre_hash, project_root)
                 if attempt == 0:
@@ -941,7 +1021,8 @@ Examples:
                 else:
                     print(f"{PREFIX} Tests failed with unparseable output — reverting iteration")
                     if pre_snapshot:
-                        git_restore_snapshot(pre_snapshot, project_root)
+                        if not git_restore_snapshot(pre_snapshot, project_root):
+                            git_restore_to(pre_hash, project_root)
                     else:
                         git_restore_to(pre_hash, project_root)
                     progress["termination"] = {
@@ -970,71 +1051,29 @@ Examples:
 
         # Check convergence
         if result.get("no_new_findings", False):
-            # Safety check: if skill unexpectedly left changes, verify tests
-            conv_test_passed = True
-            if git_diff_has_changes(project_root):
-                print(f"{PREFIX} Convergence but working tree has changes — verifying tests")
-                conv_ok, conv_summary = run_tests(test_command, project_root)
-                conv_test_passed = conv_ok
-                progress["test_results"]["last_full_run"] = "pass" if conv_ok else "fail"
-                progress["test_results"]["last_run_output_summary"] = conv_summary
-                if not conv_ok:
-                    print(f"{PREFIX} Tests failed on convergence — reverting unexpected changes")
-                    if pre_snapshot:
-                        git_restore_snapshot(pre_snapshot, project_root)
-                    else:
-                        git_restore_to(pre_hash, project_root)
-            progress["termination"] = {
-                "reason": "convergence",
-                "message": f"Zero new findings on iteration {iteration}",
-            }
-            progress["iteration"]["completed"] = iteration
-            progress["iteration_history"].append({
-                "iteration": iteration,
-                "new_findings": 0,
-                "fixed": 0,
-                "reverted": 0,
-                "persistent": 0,
-                "test_passed": conv_test_passed,
-            })
-            write_progress(progress_path, progress)
-            if not args.no_commit and conv_test_passed and git_diff_has_changes(project_root):
-                git_commit_checkpoint(progress, iteration, project_root)
+            handle_safe_exit(
+                progress, progress_path, args,
+                reason="convergence",
+                message=f"Zero new findings on iteration {iteration}",
+                log_message="Convergence",
+                iteration=iteration, new_count=0,
+                test_command=test_command, project_root=project_root,
+                pre_snapshot=pre_snapshot, pre_hash=pre_hash,
+            )
             print(f"{PREFIX} Converged: no new findings.")
             break
 
         # Check no actionable fixes
         if result.get("no_actionable_fixes", False):
-            # Safety check: if skill unexpectedly left changes, verify tests
-            noact_test_passed = True
-            if git_diff_has_changes(project_root):
-                print(f"{PREFIX} No actionable fixes but working tree has changes — verifying tests")
-                noact_ok, noact_summary = run_tests(test_command, project_root)
-                noact_test_passed = noact_ok
-                progress["test_results"]["last_full_run"] = "pass" if noact_ok else "fail"
-                progress["test_results"]["last_run_output_summary"] = noact_summary
-                if not noact_ok:
-                    print(f"{PREFIX} Tests failed — reverting unexpected changes")
-                    if pre_snapshot:
-                        git_restore_snapshot(pre_snapshot, project_root)
-                    else:
-                        git_restore_to(pre_hash, project_root)
-            progress["termination"] = {
-                "reason": "no-actionable",
-                "message": "Findings exist but none had actionable code edits",
-            }
-            progress["iteration"]["completed"] = iteration
-            progress["iteration_history"].append({
-                "iteration": iteration,
-                "new_findings": new_count,
-                "fixed": 0,
-                "reverted": 0,
-                "persistent": 0,
-                "test_passed": noact_test_passed,
-            })
-            write_progress(progress_path, progress)
-            if not args.no_commit and noact_test_passed and git_diff_has_changes(project_root):
-                git_commit_checkpoint(progress, iteration, project_root)
+            handle_safe_exit(
+                progress, progress_path, args,
+                reason="no-actionable",
+                message="Findings exist but none had actionable code edits",
+                log_message="No actionable fixes",
+                iteration=iteration, new_count=new_count,
+                test_command=test_command, project_root=project_root,
+                pre_snapshot=pre_snapshot, pre_hash=pre_hash,
+            )
             print(f"{PREFIX} No actionable fixes — remaining findings need manual review.")
             break
 
@@ -1080,11 +1119,14 @@ Examples:
                     if not test_ok:
                         print(f"{PREFIX} WARNING: Combined fixes fail tests — interaction bug, reverting all")
                         if pre_snapshot:
-                            git_restore_snapshot(pre_snapshot, project_root)
+                            if not git_restore_snapshot(pre_snapshot, project_root):
+                                git_restore_to(pre_hash, project_root)
                         else:
                             git_restore_to(pre_hash, project_root)
                         # Only re-mark fixes that bisection had marked as "fixed" —
-                        # already-reverted ones retain their original status
+                        # already-reverted ones retain their original status.
+                        # Update findings directly to avoid mark_finding_status
+                        # re-searching and potentially matching a different entry.
                         interaction_reverted = 0
                         for fix in fixes:
                             for f in progress["findings"]:
@@ -1092,8 +1134,13 @@ Examples:
                                         and f.get("line") == fix.get("line")
                                         and f.get("category") == fix.get("category")
                                         and f.get("status") == "fixed"):
-                                    mark_finding_status(progress, fix, "reverted — test failure",
-                                                        "Interaction bug — combined fixes failed")
+                                    f["status"] = "reverted — test failure"
+                                    f["iteration_last_attempted"] = progress["iteration"]["current"]
+                                    f.setdefault("status_history", []).append({
+                                        "iteration": progress["iteration"]["current"],
+                                        "status": "reverted — test failure",
+                                        "detail": "Interaction bug — combined fixes failed",
+                                    })
                                     interaction_reverted += 1
                                     break
                         reverted_count += interaction_reverted
@@ -1139,8 +1186,11 @@ Examples:
 
         # Checkpoint commit (skip if post-bisection tests failed — interaction bug)
         if not args.no_commit and test_ok and (fixed_count > 0 or git_diff_has_changes(project_root)):
-            git_commit_checkpoint(progress, iteration, project_root)
-            print(f"{PREFIX} Checkpoint: deep-mode({args.skill}): iteration {iteration}")
+            if git_commit_checkpoint(progress, iteration, project_root):
+                print(f"{PREFIX} Checkpoint: deep-mode({args.skill}): iteration {iteration}")
+            else:
+                print(f"{PREFIX} WARNING: Checkpoint failed — switching to --no-commit for remaining iterations")
+                args.no_commit = True
 
         # Check iteration cap
         if iteration >= max_iter:

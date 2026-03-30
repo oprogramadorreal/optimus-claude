@@ -86,7 +86,7 @@ Then use `AskUserQuestion` — header "Deep mode", question "Proceed with deep m
 - **Start deep mode** — "Run iterative refactoring until clean (max [cap] iterations)"
 - **Normal mode** — "Single pass with manual approval instead"
 
-*Tip: For large codebases or extended sessions, the external harness gives fresh context per iteration: `python scripts/deep-mode-harness.py --skill refactor`*
+Tell the user: *Tip: For large codebases or extended sessions, the external harness gives fresh context per iteration: `python scripts/deep-mode-harness.py --skill refactor`*
 
 If the user did not invoke with `deep`, skip this step.
 
@@ -286,14 +286,6 @@ Use `AskUserQuestion` — header "Action", question "How would you like to proce
 If the user selects **Selective**, ask which finding numbers to apply (e.g., "1, 3, 5"). Remember the user's choice and approved finding numbers for Step 8.
 
 ## Step 8: Apply Approved Changes and Verify
-
-### Harness mode overrides
-
-If harness mode is active (`HARNESS_MODE_ACTIVE` in system prompt), follow the apply and output protocol from `$CLAUDE_PLUGIN_ROOT/references/harness-mode.md` (steps 6–9) instead of the standard flow below. In harness mode, also skip user approval — all validated findings are applied automatically.
-
----
-
-### Standard flow
 
 For each approved finding (skipping any annotated "(persistent — fix failed)" — these have already failed in a prior iteration):
 1. Apply the refactoring using Edit or MultiEdit
