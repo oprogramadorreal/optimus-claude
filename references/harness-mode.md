@@ -44,7 +44,7 @@ Where `<python_cmd>` is `python3` or `python` (whichever worked in step 2). Wrap
 
 Output the following directly — no `AskUserQuestion`:
 
-> **Deep harness mode** — launches an external orchestrator that spawns fresh `claude -p` sessions per iteration with clean context windows.
+> **Deep harness mode** — copy and run the command below in your terminal. The harness must run outside Claude Code because the Bash tool enforces a timeout (default 2 minutes, max 10 minutes), while the harness runs for an extended period — each iteration spawns a full `claude -p` session that may take several minutes, and multiple iterations run in sequence. Running it in your terminal gives you real-time progress output, Ctrl+C control, and fresh context windows per iteration (avoiding quality degradation from context accumulation).
 >
 > Python: `[version string from step 2]`
 >
