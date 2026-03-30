@@ -71,7 +71,7 @@ def make_initial_progress(skill, scope, max_iterations, test_command, project_ro
                 "paths": [scope] if scope else [],
                 "base_ref": None,
             },
-            "project_root": str(project_root),
+            "project_root": str(project_root).replace("\\", "/"),
             "base_commit": base_commit,
         },
         "iteration": {"current": 1, "completed": 0},
@@ -239,9 +239,14 @@ def read_progress(path):
 def run_tests(test_command, cwd):
     """Run the project's test command. Returns (passed: bool, output: str)."""
     print(f"{PREFIX} Running tests: {test_command}")
+    # On Windows, shell=True uses cmd.exe which doesn't support bash operators
+    # like && or ||. Wrap with bash -c if the command uses them.
+    effective_command = test_command
+    if sys.platform == "win32" and any(op in test_command for op in ("&&", "||", "|")):
+        effective_command = f'bash -c {shutil.quote(test_command)}'
     try:
         result = subprocess.run(
-            test_command,
+            effective_command,
             shell=True,
             capture_output=True,
             text=True,
@@ -277,7 +282,9 @@ def _is_path_within(filepath, root):
 
 def _swap_content(fix, cwd, find_key, replace_key):
     """Swap one content string for another in a file."""
-    filepath = (Path(cwd) / fix["file"]).resolve()
+    # Normalize path separators for cross-platform compatibility
+    fix_file = fix["file"].replace("\\", "/")
+    filepath = (Path(cwd) / fix_file).resolve()
     if not _is_path_within(filepath, Path(cwd).resolve()):
         return False
     if not filepath.exists():
@@ -489,7 +496,8 @@ def run_skill_session(progress, args, resolved_progress_path):
     skill = progress["skill"]
     iteration = progress["iteration"]["current"]
     max_iter = progress["config"]["max_iterations"]
-    progress_path = str(resolved_progress_path)
+    # Use forward slashes for cross-platform compatibility in system prompt
+    progress_path = str(resolved_progress_path).replace("\\", "/")
 
     # Build the skill invocation prompt
     if skill == "code-review":
