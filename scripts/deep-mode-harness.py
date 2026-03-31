@@ -747,9 +747,11 @@ def detect_test_command(project_root):
 
 
 def handle_safe_exit(progress, progress_path, args, reason, message, log_message,
-                     iteration, new_count, test_command, project_root,
-                     pre_snapshot, pre_hash):
+                     new_count, pre_snapshot, pre_hash):
     """Handle convergence or no-actionable-fixes exit with test verification."""
+    iteration = progress["iteration"]["current"]
+    project_root = progress["config"]["project_root"]
+    test_command = progress["config"]["test_command"]
     test_passed = True
     if git_diff_has_changes(project_root):
         print(f"{PREFIX} {log_message} but working tree has changes — verifying tests")
@@ -1060,8 +1062,7 @@ Examples:
                 reason="convergence",
                 message=f"Zero new findings on iteration {iteration}",
                 log_message="Convergence",
-                iteration=iteration, new_count=0,
-                test_command=test_command, project_root=project_root,
+                new_count=0,
                 pre_snapshot=pre_snapshot, pre_hash=pre_hash,
             )
             print(f"{PREFIX} Converged: no new findings.")
@@ -1074,8 +1075,7 @@ Examples:
                 reason="no-actionable",
                 message="Findings exist but none had actionable code edits",
                 log_message="No actionable fixes",
-                iteration=iteration, new_count=new_count,
-                test_command=test_command, project_root=project_root,
+                new_count=new_count,
                 pre_snapshot=pre_snapshot, pre_hash=pre_hash,
             )
             print(f"{PREFIX} No actionable fixes — remaining findings need manual review.")
@@ -1127,10 +1127,8 @@ Examples:
                                 git_restore_to(pre_hash, project_root)
                         else:
                             git_restore_to(pre_hash, project_root)
-                        # Only re-mark fixes that bisection had marked as "fixed" —
+                        # Re-mark fixes that bisection had marked as "fixed" —
                         # already-reverted ones retain their original status.
-                        # Update findings directly to avoid mark_finding_status
-                        # re-searching and potentially matching a different entry.
                         interaction_reverted = 0
                         for fix in fixes:
                             for f in progress["findings"]:
@@ -1138,13 +1136,9 @@ Examples:
                                         and f.get("line") == fix.get("line")
                                         and f.get("category") == fix.get("category")
                                         and f.get("status") == "fixed"):
-                                    f["status"] = "reverted — test failure"
-                                    f["iteration_last_attempted"] = progress["iteration"]["current"]
-                                    f.setdefault("status_history", []).append({
-                                        "iteration": progress["iteration"]["current"],
-                                        "status": "reverted — test failure",
-                                        "detail": "Interaction bug — combined fixes failed",
-                                    })
+                                    mark_finding_status(progress, fix,
+                                                        "reverted — test failure",
+                                                        "Interaction bug — combined fixes failed")
                                     interaction_reverted += 1
                                     break
                         reverted_count += interaction_reverted
