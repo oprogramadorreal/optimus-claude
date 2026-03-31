@@ -1046,6 +1046,7 @@ Examples:
                 else:
                     git_restore_to(pre_hash, project_root)
                 if attempt == 0:
+                    write_progress(progress_path, progress)
                     print(f"{PREFIX} Retrying iteration {iteration}...")
                 else:
                     print(f"{PREFIX} Iteration {iteration} failed after retry. Stopping.")
