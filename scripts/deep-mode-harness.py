@@ -258,6 +258,47 @@ def read_progress(path):
 # ---------------------------------------------------------------------------
 
 
+def _find_bash():
+    """Return the path to a usable bash executable, preferring Git Bash on Windows."""
+    if sys.platform != "win32":
+        return "bash"
+
+    # shutil.which respects PATH order — check if it resolves to WSL's bash
+    candidate = shutil.which("bash")
+    if candidate:
+        normalized = candidate.replace("\\", "/").lower()
+        if "system32" not in normalized:
+            return candidate  # Not WSL — use it (likely Git Bash already on PATH)
+
+    # WSL bash or no bash on PATH — look for Git Bash explicitly
+    # Method 1: use git --exec-path to find Git's installation
+    try:
+        result = subprocess.run(
+            ["git", "--exec-path"],
+            capture_output=True, text=True, timeout=5,
+        )
+        if result.returncode == 0:
+            # e.g. "C:/Program Files/Git/mingw64/libexec/git-core"
+            git_exec = Path(result.stdout.strip())
+            git_root = git_exec.parent.parent  # up from mingw64/libexec/git-core
+            git_bash = git_root / "bin" / "bash.exe"
+            if git_bash.exists():
+                return str(git_bash)
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        pass
+
+    # Method 2: check common installation paths
+    for path in [
+        Path("C:/Program Files/Git/bin/bash.exe"),
+        Path("C:/Program Files (x86)/Git/bin/bash.exe"),
+    ]:
+        if path.exists():
+            return str(path)
+
+    # Fallback: return bare "bash" and let it fail with a clear error downstream
+    return "bash"
+
+
 def run_tests(test_command, cwd):
     """Run the project's test command. Returns (passed: bool, output: str)."""
     print(f"{PREFIX} Running tests: {test_command}")
@@ -268,7 +309,7 @@ def run_tests(test_command, cwd):
     if sys.platform == "win32" and ("&&" in test_command or "||" in test_command):
         # On Windows, shell=True uses cmd.exe which misparses bash operators.
         # Use subprocess list form with bash -c to avoid cmd.exe entirely.
-        effective_command = ["bash", "-c", test_command]
+        effective_command = [_find_bash(), "-c", test_command]
         use_shell = False
     try:
         result = subprocess.run(
@@ -743,7 +784,10 @@ def detect_test_command(project_root):
     for pattern in patterns:
         match = re.search(pattern, content, re.IGNORECASE | re.MULTILINE)
         if match:
-            return match.group(1).strip()
+            cmd = match.group(1).strip()
+            # Remove trailing shell comments (e.g. "npm test  # Run tests")
+            cmd = re.sub(r"\s+#\s.*$", "", cmd)
+            return cmd
 
     return None
 
