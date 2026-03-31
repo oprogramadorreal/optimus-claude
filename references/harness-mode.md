@@ -106,7 +106,7 @@ Use only compact fields (file, line, category, summary, status) — do NOT inclu
 
 ### 3. Run one analysis cycle
 
-Launch all agents in parallel — same agents, same prompts, same parallelism as the skill's normal agent step. Inject the iteration context block (from step 2) into agent prompts before the file list, following the same injection order as interactive mode.
+Launch all agents in parallel — same agents, same prompts, same parallelism as the skill's normal agent step. Inject the Iteration Context Block (from step 2) into agent prompts before the file list, following the same injection order as interactive mode.
 
 ### 4. Validate findings
 

@@ -306,9 +306,10 @@ def run_tests(test_command, cwd):
     # like && or ||. Wrap with bash -c if the command uses them.
     effective_command = test_command
     use_shell = True
-    if sys.platform == "win32" and ("&&" in test_command or "||" in test_command):
-        # On Windows, shell=True uses cmd.exe which misparses bash operators.
-        # Use subprocess list form with bash -c to avoid cmd.exe entirely.
+    if sys.platform == "win32":
+        # On Windows, shell=True uses cmd.exe which misparses bash operators
+        # (&&, ||), subshells ($(...)), env vars ($VAR), and redirections (2>).
+        # Always route through bash for consistent behavior.
         effective_command = [_find_bash(), "-c", test_command]
         use_shell = False
     try:
@@ -755,6 +756,10 @@ def print_report(progress):
     elif term["reason"] in ("parse-failure", "crash"):
         print(f"{PREFIX} No fixes were retained. Check the test output above for details.")
         print(f"{PREFIX} To rollback everything: git reset --hard {base[:8]}")
+        print(
+            f"{PREFIX} Tip: start a fresh conversation for the next skill "
+            f"— each skill gathers its own context from scratch."
+        )
     else:
         print(f"{PREFIX} No issues found — the codebase looks clean for this skill.")
         print(
@@ -932,10 +937,13 @@ Examples:
     project_root = Path(args.project_dir).resolve()
 
     # Check claude CLI
-    claude_check = subprocess.run(
-        ["claude", "--version"], capture_output=True, text=True
-    )
-    if claude_check.returncode != 0:
+    try:
+        claude_check = subprocess.run(
+            ["claude", "--version"], capture_output=True, text=True
+        )
+    except FileNotFoundError:
+        claude_check = None
+    if claude_check is None or claude_check.returncode != 0:
         print(f"{PREFIX} ERROR: claude CLI not found. Install and authenticate first.")
         sys.exit(1)
 
