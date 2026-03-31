@@ -8,3 +8,4 @@ __pycache__/
 *.stackdump
 .claude/deep-mode-progress.json
 .claude/deep-mode-progress.json.bak
+.claude/deep-mode-progress.done.json
