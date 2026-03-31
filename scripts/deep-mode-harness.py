@@ -697,18 +697,25 @@ def print_report(progress):
 
     print(f"{PREFIX}")
     base = progress["config"].get("base_commit") or "?"
-    print(
-        f"{PREFIX} To squash checkpoint commits: git rebase -i {base[:8]}"
-    )
-    print(
-        f"{PREFIX} To rollback everything:       git reset --hard {base[:8]}"
-    )
-    print(f"{PREFIX}")
-    print(f"{PREFIX} Next: run /optimus:commit to commit the fixes.")
-    print(
-        f"{PREFIX} Tip: start a fresh conversation for the next skill "
-        f"— each skill gathers its own context from scratch."
-    )
+
+    if total_fixed > 0:
+        print(
+            f"{PREFIX} To squash checkpoint commits: git rebase -i {base[:8]}"
+        )
+        print(
+            f"{PREFIX} To rollback everything:       git reset --hard {base[:8]}"
+        )
+        print(f"{PREFIX}")
+        print(f"{PREFIX} Next: run /optimus:commit to commit the fixes.")
+        print(
+            f"{PREFIX} Tip: start a fresh conversation for the next skill "
+            f"— each skill gathers its own context from scratch."
+        )
+    elif term["reason"] in ("parse-failure", "crash"):
+        print(f"{PREFIX} No fixes were retained. Check the test output above for details.")
+        print(f"{PREFIX} To rollback everything: git reset --hard {base[:8]}")
+    else:
+        print(f"{PREFIX} No issues found — the codebase looks clean for this skill.")
 
 
 # ---------------------------------------------------------------------------
@@ -985,7 +992,10 @@ Examples:
                 output = run_skill_session(progress, args, progress_path)
                 break
             except (RuntimeError, subprocess.TimeoutExpired) as e:
-                print(f"{PREFIX} Session error: {e}")
+                if isinstance(e, subprocess.TimeoutExpired):
+                    print(f"{PREFIX} Session timed out after {SESSION_TIMEOUT}s")
+                else:
+                    print(f"{PREFIX} Session error: {e}")
                 if pre_snapshot:
                     if not git_restore_snapshot(pre_snapshot, project_root):
                         git_restore_to(pre_hash, project_root)
@@ -1011,6 +1021,10 @@ Examples:
             # No parseable output — check if fixes were applied via git
             if git_diff_has_changes(project_root):
                 print(f"{PREFIX} No JSON output but git shows changes — proceeding to test")
+                if output and len(output) < 50:
+                    print(f"{PREFIX}   Hint: session output was very short — may have hit max-turns limit")
+                elif not output:
+                    print(f"{PREFIX}   Hint: session produced no output (likely timed out)")
                 # Can't do per-fix bisection without pre/post content
                 # Run tests on the whole batch
                 test_ok, test_summary = run_tests(test_command, project_root)
@@ -1026,11 +1040,16 @@ Examples:
                     }
                 else:
                     print(f"{PREFIX} Tests failed with unparseable output — reverting iteration")
+                    if test_summary:
+                        for line in test_summary.split("\n"):
+                            print(f"{PREFIX}   {line}")
                     if pre_snapshot:
                         if not git_restore_snapshot(pre_snapshot, project_root):
                             git_restore_to(pre_hash, project_root)
                     else:
                         git_restore_to(pre_hash, project_root)
+                    progress["test_results"]["last_full_run"] = "fail"
+                    progress["test_results"]["last_run_output_summary"] = test_summary
                     progress["termination"] = {
                         "reason": "parse-failure",
                         "message": "Could not parse skill output and tests failed",
