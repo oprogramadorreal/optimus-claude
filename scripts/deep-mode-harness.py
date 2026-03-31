@@ -1226,13 +1226,11 @@ Examples:
     # Final report
     print_report(progress)
 
-    # Archive progress file on convergence (leave it for other termination types)
-    if progress["termination"]["reason"] == "convergence":
-        done_path = progress_path.with_suffix(".done.json")
-        shutil.move(str(progress_path), str(done_path))
-        backup = Path(str(progress_path) + BACKUP_SUFFIX)
-        backup.unlink(missing_ok=True)
-        print(f"{PREFIX} Progress archived to {done_path.name}")
+    # Archive progress file and clean up backup
+    done_path = progress_path.with_suffix(".done.json")
+    shutil.move(str(progress_path), str(done_path))
+    Path(str(progress_path) + BACKUP_SUFFIX).unlink(missing_ok=True)
+    print(f"{PREFIX} Progress archived to {done_path.name}")
 
 
 if __name__ == "__main__":

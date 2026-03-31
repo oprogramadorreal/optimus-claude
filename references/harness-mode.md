@@ -30,15 +30,10 @@ Construct the harness command using these parameters passed by the calling skill
 - `resume` — from step 3
 
 ```
-<python_cmd> "<plugin_root>/scripts/deep-mode-harness.py" \
-  --skill <skill_name> \
-  --progress-file .claude/deep-mode-progress.json \
-  [--max-iterations <N>] \
-  [--scope "<scope>"] \
-  [--resume]
+<python_cmd> "<plugin_root>/scripts/deep-mode-harness.py" --skill <skill_name> --progress-file .claude/deep-mode-progress.json [--max-iterations <N>] [--scope "<scope>"] [--resume]
 ```
 
-Where `<python_cmd>` is `python3` or `python` (whichever worked in step 2). Wrap `<plugin_root>` in quotes to handle paths with spaces.
+Where `<python_cmd>` is `python3` or `python` (whichever worked in step 2). Wrap `<plugin_root>` in quotes to handle paths with spaces. The constructed command must be a single line (no backslash continuations) for easy copy-paste on all platforms.
 
 ### 5. Present command
 
@@ -54,7 +49,7 @@ Output the following directly — no `AskUserQuestion`:
 >
 > Additional options: `--verbose`, `--no-commit`, `--allowed-tools Read,Edit,Write,MultiEdit,Glob,Grep,Bash,Agent`
 >
-> After completion, return here and run `/optimus:commit` to commit the fixes.
+> After completion, the harness archives the progress file to `.claude/deep-mode-progress.done.json` for reference. You can delete it before committing. Return here and run `/optimus:commit` to commit the fixes.
 
 ### 6. Stop
 
