@@ -6,3 +6,5 @@ test/fixtures/
 .worktrees/
 __pycache__/
 *.stackdump
+.claude/deep-mode-progress.json
+.claude/deep-mode-progress.json.bak

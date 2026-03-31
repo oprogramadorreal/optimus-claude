@@ -217,7 +217,7 @@ def _build_commit_body(progress, iteration, max_entries=10):
     def _fmt(f):
         loc = f"{f['file']}:{f.get('line', '?')}"
         cat = f.get("category", "unknown")
-        summary = f.get("summary", "")
+        summary = f.get("summary", "").replace("\n", " ").replace("\r", "")
         # Truncate long summaries for readability
         if len(summary) > 72:
             summary = summary[:69] + "..."
@@ -1114,6 +1114,8 @@ Examples:
         }
         write_progress(progress_path, progress)
         print(f"{PREFIX} Progress saved. Resume with --resume flag.")
+        print_report(progress)
+        return
 
     # Final report
     print_report(progress)
