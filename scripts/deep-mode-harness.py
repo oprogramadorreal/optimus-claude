@@ -280,7 +280,7 @@ def _find_bash():
         if result.returncode == 0:
             # e.g. "C:/Program Files/Git/mingw64/libexec/git-core"
             git_exec = Path(result.stdout.strip())
-            git_root = git_exec.parent.parent  # up from mingw64/libexec/git-core
+            git_root = git_exec.parent.parent.parent  # up from mingw64/libexec/git-core
             git_bash = git_root / "bin" / "bash.exe"
             if git_bash.exists():
                 return str(git_bash)
@@ -480,7 +480,7 @@ def mark_finding_status(progress, fix, status, detail):
     """Update a finding's status in the progress file."""
     # Try to find existing finding by file+line+category match
     for f in progress["findings"]:
-        if (f["file"] == fix["file"] and f.get("line") == fix.get("line")
+        if (f["file"] == fix.get("file", "") and f.get("line") == fix.get("line")
                 and f.get("category") == fix.get("category")):
             old_status = f["status"]
             # Promote reverted -> attempt 2 -> persistent

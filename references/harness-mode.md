@@ -50,6 +50,8 @@ Output the following directly — no `AskUserQuestion`:
 > Additional options: `--verbose`, `--no-commit`, `--allowed-tools Read,Edit,Write,MultiEdit,Glob,Grep,Bash,Agent`
 >
 > After completion, the harness archives the progress file to `.claude/deep-mode-progress.done.json` for reference. You can delete it before committing. Return here and run `/optimus:commit` to commit the fixes.
+>
+> **Tip:** for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch.
 
 ### 6. Stop
 
