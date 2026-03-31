@@ -47,7 +47,9 @@ Output the following directly — no `AskUserQuestion`:
 > <constructed command from step 4>
 > ```
 >
-> Additional options: `--verbose`, `--no-commit`, `--allowed-tools Read,Edit,Write,MultiEdit,Glob,Grep,Bash,Agent`
+> Additional options: `--scope "<text>"`, `--max-iterations <N>`, `--verbose`, `--no-commit`, `--resume`, `--allowed-tools Read,Edit,Write,MultiEdit,Glob,Grep,Bash,Agent`
+>
+> You can edit the command before running it — for example, add `--scope "focus on src/auth"` to narrow the analysis, or `--max-iterations 12` to increase the cap. When running the script directly from your terminal (without invoking the skill first), use these flags to pass context that would otherwise come from the skill arguments.
 >
 > **WARNING:** The harness will iterate up to N times, each spawning a fresh `claude -p` session. On each iteration it analyzes code, applies fixes, runs tests, and creates a checkpoint commit. All commits are local — nothing is pushed. To undo everything: `git reset --hard <base-commit>`.
 >
