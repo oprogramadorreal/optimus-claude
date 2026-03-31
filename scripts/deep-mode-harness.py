@@ -45,7 +45,7 @@ from pathlib import Path
 # Constants
 # ---------------------------------------------------------------------------
 
-DEFAULT_MAX_ITERATIONS = 5
+DEFAULT_MAX_ITERATIONS = 8
 MAX_ITERATIONS_HARD_CAP = 20
 DEFAULT_MAX_TURNS = 30
 SESSION_TIMEOUT = 600  # 10 minutes per iteration
@@ -197,6 +197,55 @@ def git_diff_has_changes(cwd):
             or bool(untracked.stdout.strip()))
 
 
+def _build_commit_body(progress, iteration, max_entries=10):
+    """Build commit body listing per-fix details for this iteration."""
+    findings = progress.get("findings", [])
+    iter_findings = [
+        f for f in findings if f.get("iteration_last_attempted") == iteration
+    ]
+    if not iter_findings:
+        return ""
+
+    fixed = [f for f in iter_findings if f.get("status") == "fixed"]
+    reverted = [
+        f for f in iter_findings
+        if f.get("status", "").startswith("reverted")
+    ]
+
+    lines = ["Harness checkpoint — automated fixes applied and tested.", ""]
+
+    def _fmt(f):
+        loc = f"{f['file']}:{f.get('line', '?')}"
+        cat = f.get("category", "unknown")
+        summary = f.get("summary", "")
+        # Truncate long summaries for readability
+        if len(summary) > 72:
+            summary = summary[:69] + "..."
+        return f"- {loc} [{cat}] {summary}"
+
+    if fixed:
+        lines.append("Fixed:")
+        shown = fixed[:max_entries]
+        for f in shown:
+            lines.append(_fmt(f))
+        overflow = len(fixed) - max_entries
+        if overflow > 0:
+            lines.append(f"- ... and {overflow} more")
+        lines.append("")
+
+    if reverted:
+        lines.append("Reverted (test failure):")
+        shown = reverted[:max_entries]
+        for f in shown:
+            lines.append(_fmt(f))
+        overflow = len(reverted) - max_entries
+        if overflow > 0:
+            lines.append(f"- ... and {overflow} more")
+        lines.append("")
+
+    return "\n".join(lines)
+
+
 def git_commit_checkpoint(progress, iteration, cwd):
     """Create a checkpoint commit for this iteration. Returns True on success."""
     skill = progress["skill"]
@@ -205,10 +254,12 @@ def git_commit_checkpoint(progress, iteration, cwd):
     fixed = latest.get("fixed", 0)
     reverted = latest.get("reverted", 0)
 
-    msg = (
-        f"deep-mode({skill}): iteration {iteration} — "
+    title = (
+        f"deep-harness({skill}): iteration {iteration} — "
         f"{fixed} fixed, {reverted} reverted"
     )
+    body = _build_commit_body(progress, iteration)
+    msg = f"{title}\n\n{body}" if body else title
 
     add_result = subprocess.run(
         ["git", "add", "-A"], cwd=str(cwd), capture_output=True, text=True
@@ -750,6 +801,17 @@ def print_report(progress):
         print(
             f"{PREFIX} To rollback everything:       git reset --hard {base[:8]}"
         )
+        # Suggest push if on a feature branch (not main/master)
+        branch_result = subprocess.run(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            cwd=progress["config"]["project_root"],
+            capture_output=True, text=True,
+        )
+        branch = branch_result.stdout.strip() if branch_result.returncode == 0 else ""
+        if branch and branch not in ("main", "master"):
+            print(
+                f"{PREFIX} To push checkpoint branch:    git push -u origin {branch}"
+            )
         print(f"{PREFIX}")
         print(f"{PREFIX} Next: run /optimus:commit to commit the fixes.")
         print(
@@ -1013,6 +1075,16 @@ Examples:
         print(f"{PREFIX} ERROR: Cannot determine HEAD commit. Is this a git repository?")
         sys.exit(1)
 
+    # Refuse to start with uncommitted changes (fresh runs only)
+    if not args.resume and not args.no_commit and git_diff_has_changes(project_root):
+        print(f"{PREFIX} ERROR: Uncommitted changes detected.")
+        print(f"{PREFIX} The harness creates checkpoint commits per iteration,")
+        print(f"{PREFIX} which would include your existing changes in the first commit.")
+        print(f"{PREFIX}")
+        print(f"{PREFIX} Commit your changes first:  git add -A && git commit -m \"wip\"")
+        print(f"{PREFIX} Or stash them:              git stash push -m \"pre-harness\"")
+        sys.exit(1)
+
     # Print startup info
     max_iter = progress["config"]["max_iterations"]
     # 7 agents for code-review, 4 for refactor; +1 per iteration for harness overhead
@@ -1023,9 +1095,41 @@ Examples:
     print(f"{PREFIX} Test command: {test_command}")
     print(f"{PREFIX} Base commit: {progress['config']['base_commit'][:8]}")
     print(f"{PREFIX} Estimated messages: ~{estimated_messages} (check rate limits)")
+    print(f"{PREFIX} Press Ctrl+C to stop — progress is saved. Resume with --resume.")
     print(f"{PREFIX}")
 
     # Main iteration loop
+    try:
+        _run_iteration_loop(args, progress, progress_path, project_root,
+                            test_command, max_iter)
+    except KeyboardInterrupt:
+        print(f"\n{PREFIX} Interrupted. Saving progress...")
+        write_progress(progress_path, progress)
+        if not args.no_commit and git_diff_has_changes(project_root):
+            print(f"{PREFIX} Committing completed work from current iteration...")
+            git_commit_checkpoint(progress, progress["iteration"]["current"],
+                                 project_root)
+        progress["termination"] = {
+            "reason": "interrupted",
+            "message": "User pressed Ctrl+C",
+        }
+        print(f"{PREFIX} Progress saved. Resume with --resume flag.")
+
+    # Final report
+    print_report(progress)
+
+    # Archive progress file and clean up backup
+    done_path = progress_path.with_suffix(".done.json")
+    if done_path.exists():
+        done_path.unlink()
+    shutil.move(str(progress_path), str(done_path))
+    Path(str(progress_path) + BACKUP_SUFFIX).unlink(missing_ok=True)
+    print(f"{PREFIX} Progress archived to {done_path.name}")
+
+
+def _run_iteration_loop(args, progress, progress_path, project_root,
+                        test_command, max_iter):
+    """Inner iteration loop, extracted to allow KeyboardInterrupt wrapping."""
     while True:
         iteration = progress["iteration"]["current"]
         print(f"{PREFIX} === Iteration {iteration}/{max_iter} ===")
@@ -1264,7 +1368,7 @@ Examples:
         # Checkpoint commit (skip if post-bisection tests failed — interaction bug)
         if not args.no_commit and test_ok and (fixed_count > 0 or git_diff_has_changes(project_root)):
             if git_commit_checkpoint(progress, iteration, project_root):
-                print(f"{PREFIX} Checkpoint: deep-mode({args.skill}): iteration {iteration}")
+                print(f"{PREFIX} Checkpoint: deep-harness({args.skill}): iteration {iteration}")
             else:
                 print(f"{PREFIX} WARNING: Checkpoint failed — switching to --no-commit for remaining iterations")
                 args.no_commit = True
@@ -1282,17 +1386,6 @@ Examples:
         # Next iteration
         progress["iteration"]["current"] += 1
         write_progress(progress_path, progress)
-
-    # Final report
-    print_report(progress)
-
-    # Archive progress file and clean up backup
-    done_path = progress_path.with_suffix(".done.json")
-    if done_path.exists():
-        done_path.unlink()
-    shutil.move(str(progress_path), str(done_path))
-    Path(str(progress_path) + BACKUP_SUFFIX).unlink(missing_ok=True)
-    print(f"{PREFIX} Progress archived to {done_path.name}")
 
 
 if __name__ == "__main__":

@@ -131,20 +131,20 @@ Iterative LLM feedback loops with automated verification consistently improve ou
 
 ### Deep harness mode
 
-For larger codebases or when context accumulation degrades quality, use deep harness mode. It launches a fresh `claude -p` session per iteration — each runs a normal-mode analysis pass with prior findings injected as context.
+For larger codebases or when context accumulation degrades quality, use deep harness mode. It launches a fresh `claude -p` session per iteration (default 8, max 20) — each runs a normal-mode analysis pass with prior findings injected as context.
 
 ```bash
 # Invoke from within a conversation:
 /optimus:refactor deep harness
-/optimus:refactor deep harness 8 "focus on backend"
+/optimus:refactor deep harness 10 "focus on backend"
 
 # Or run the script directly:
 python scripts/deep-mode-harness.py --skill refactor --scope "src/api"
-python scripts/deep-mode-harness.py --skill refactor --max-iterations 8
+python scripts/deep-mode-harness.py --skill refactor --max-iterations 10
 python scripts/deep-mode-harness.py --skill refactor --resume
 ```
 
-The harness handles test execution, fix bisection, checkpoint commits, and termination detection externally.
+The harness handles test execution, fix bisection, checkpoint commits (with detailed per-fix messages), and termination detection externally. Press Ctrl+C at any time to stop safely; resume later with `--resume`.
 
 **Security note:** By default, each `claude -p` session runs with `--dangerously-skip-permissions` because the harness is headless (no terminal for permission prompts). For a safer alternative, use `--allowed-tools` to restrict sessions to a specific tool whitelist. For OS-level isolation, use [built-in sandboxing](https://code.claude.com/docs/en/sandboxing) (macOS/Linux) or [devcontainers](https://code.claude.com/docs/en/devcontainer).
 

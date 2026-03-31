@@ -39,7 +39,7 @@ Where `<python_cmd>` is `python3` or `python` (whichever worked in step 2). Wrap
 
 Output the following directly — no `AskUserQuestion`:
 
-> **Deep harness mode** — copy and run the command below in your terminal. The harness must run outside Claude Code because the Bash tool enforces a timeout (default 2 minutes, max 10 minutes), while the harness runs for an extended period — each iteration spawns a full `claude -p` session that may take several minutes, and multiple iterations run in sequence. Running it in your terminal gives you real-time progress output, Ctrl+C control, and fresh context windows per iteration (avoiding quality degradation from context accumulation).
+> **Deep harness mode** — copy and run this command in your terminal:
 >
 > Python: `[version string from step 2]`
 >
@@ -49,9 +49,9 @@ Output the following directly — no `AskUserQuestion`:
 >
 > Additional options: `--verbose`, `--no-commit`, `--allowed-tools Read,Edit,Write,MultiEdit,Glob,Grep,Bash,Agent`
 >
-> After completion, the harness archives the progress file to `.claude/deep-mode-progress.done.json` for reference. You can delete it before committing. Return here and run `/optimus:commit` to commit the fixes.
+> **WARNING:** The harness will iterate up to N times, each spawning a fresh `claude -p` session. On each iteration it analyzes code, applies fixes, runs tests, and creates a checkpoint commit. All commits are local — nothing is pushed. To undo everything: `git reset --hard <base-commit>`.
 >
-> **Tip:** for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch.
+> **Why terminal?** The Bash tool enforces a timeout (default 2 min, max 10 min), but each iteration may take several minutes. Running in your terminal gives real-time progress and avoids timeout issues.
 
 ### 6. Stop
 

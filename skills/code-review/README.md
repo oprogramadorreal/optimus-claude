@@ -89,7 +89,7 @@ On iterations 3+, a context-accumulation warning notes that output quality may d
 
 ### Deep harness mode
 
-For larger codebases or when context accumulation degrades quality, use deep harness mode. It launches a fresh `claude -p` session per iteration — each runs a normal-mode analysis pass with prior findings injected as context, giving every iteration a clean context window.
+For larger codebases or when context accumulation degrades quality, use deep harness mode. It launches a fresh `claude -p` session per iteration (default 8, max 20) — each runs a normal-mode analysis pass with prior findings injected as context, giving every iteration a clean context window.
 
 ```bash
 # Invoke from within a conversation:
@@ -98,11 +98,11 @@ For larger codebases or when context accumulation degrades quality, use deep har
 
 # Or run the script directly:
 python scripts/deep-mode-harness.py --skill code-review
-python scripts/deep-mode-harness.py --skill code-review --scope "src/auth" --max-iterations 8
+python scripts/deep-mode-harness.py --skill code-review --scope "src/auth" --max-iterations 10
 python scripts/deep-mode-harness.py --skill code-review --resume
 ```
 
-The harness handles test execution, fix bisection, checkpoint commits, and termination detection externally — the skill only needs to analyze and apply fixes in a single pass per session.
+The harness handles test execution, fix bisection, checkpoint commits (with detailed per-fix messages), and termination detection externally — the skill only needs to analyze and apply fixes in a single pass per session. Press Ctrl+C at any time to stop safely; resume later with `--resume`.
 
 **Security note:** By default, each `claude -p` session runs with `--dangerously-skip-permissions` because the harness is headless (no terminal for permission prompts). For a safer alternative, use `--allowed-tools` to restrict sessions to a specific tool whitelist. For OS-level isolation, use [built-in sandboxing](https://code.claude.com/docs/en/sandboxing) (macOS/Linux) or [devcontainers](https://code.claude.com/docs/en/devcontainer).
 
