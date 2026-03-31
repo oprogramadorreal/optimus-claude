@@ -79,7 +79,7 @@ def make_initial_progress(skill, scope, max_iterations, test_command, project_ro
         },
         "iteration": {"current": 1, "completed": 0},
         "findings": [],
-        "scope_files": {"current": [], "newly_modified_this_iteration": []},
+        "scope_files": {"current": [scope] if scope else []},
         "test_results": {"last_full_run": None, "last_run_output_summary": None},
         "iteration_history": [],
         "termination": {"reason": None, "message": None},
@@ -357,7 +357,7 @@ def _swap_content(fix, cwd, find_key, replace_key):
     # Block writes to sensitive paths
     try:
         rel = filepath.relative_to(Path(cwd).resolve())
-        if any(part.startswith(".git") for part in rel.parts):
+        if any(part == ".git" for part in rel.parts):
             return False
     except ValueError:
         return False
@@ -757,6 +757,10 @@ def print_report(progress):
         print(f"{PREFIX} To rollback everything: git reset --hard {base[:8]}")
     else:
         print(f"{PREFIX} No issues found — the codebase looks clean for this skill.")
+        print(
+            f"{PREFIX} Tip: start a fresh conversation for the next skill "
+            f"— each skill gathers its own context from scratch."
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -1199,7 +1203,7 @@ Examples:
                                 if (f["file"] == fix.get("file")
                                         and f.get("line") == fix.get("line")
                                         and f.get("category") == fix.get("category")
-                                        and f.get("status") == "fixed"):
+                                        and f.get("status") in ("fixed", "retained — revert failed")):
                                     mark_finding_status(progress, fix,
                                                         "reverted — test failure",
                                                         "Interaction bug — combined fixes failed")

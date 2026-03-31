@@ -75,8 +75,6 @@ When running under the external deep-mode harness (detected by `HARNESS_MODE_ACT
 8. [Output structured JSON](#8-output-structured-json)
 9. [Exit](#9-exit)
 
-### Execution Steps
-
 ### 1. Read progress file
 
 Read the JSON progress file at the path specified in the system prompt. Extract:
