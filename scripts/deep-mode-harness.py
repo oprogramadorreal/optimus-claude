@@ -670,6 +670,9 @@ def parse_harness_output(raw_output):
     except (json.JSONDecodeError, TypeError):
         pass
 
+    if not isinstance(text, str):
+        return None
+
     # Extract json:harness-output block
     pattern = r"```json:harness-output\s*\n(.*?)\n\s*```"
     match = re.search(pattern, text, re.DOTALL)
@@ -1285,6 +1288,8 @@ Examples:
 
     # Archive progress file and clean up backup
     done_path = progress_path.with_suffix(".done.json")
+    if done_path.exists():
+        done_path.unlink()
     shutil.move(str(progress_path), str(done_path))
     Path(str(progress_path) + BACKUP_SUFFIX).unlink(missing_ok=True)
     print(f"{PREFIX} Progress archived to {done_path.name}")
