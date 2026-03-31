@@ -274,7 +274,7 @@ def git_commit_checkpoint(progress, iteration, cwd):
             cwd=str(cwd), capture_output=True, text=True,
         )
     result = subprocess.run(
-        ["git", "commit", "-m", msg, "--allow-empty"],
+        ["git", "commit", "-m", msg],
         cwd=str(cwd),
         capture_output=True,
         text=True,
@@ -1103,8 +1103,7 @@ Examples:
         _run_iteration_loop(args, progress, progress_path, project_root,
                             test_command, max_iter)
     except KeyboardInterrupt:
-        print(f"\n{PREFIX} Interrupted. Saving progress...")
-        write_progress(progress_path, progress)
+        print(f"\n{PREFIX} Interrupted.")
         if not args.no_commit and git_diff_has_changes(project_root):
             print(f"{PREFIX} Committing completed work from current iteration...")
             git_commit_checkpoint(progress, progress["iteration"]["current"],
@@ -1113,6 +1112,7 @@ Examples:
             "reason": "interrupted",
             "message": "User pressed Ctrl+C",
         }
+        write_progress(progress_path, progress)
         print(f"{PREFIX} Progress saved. Resume with --resume flag.")
 
     # Final report
