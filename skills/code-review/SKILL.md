@@ -22,7 +22,7 @@ Examples:
 - `/optimus:code-review` → local changes, normal mode
 - `/optimus:code-review src/auth` → scope to path, normal mode
 - `/optimus:code-review --pr 42` or `/optimus:code-review #42` → PR mode, normal
-- `/optimus:code-review deep` → local changes, deep mode (5 iterations)
+- `/optimus:code-review deep` → local changes, deep mode (8 iterations)
 - `/optimus:code-review deep "focus on src/auth"` → scoped, deep mode
 - `/optimus:code-review deep harness` → harness mode (present command and stop)
 - `/optimus:code-review deep harness "focus on src/auth"` → harness mode, scoped
@@ -58,18 +58,18 @@ The reference protocol presents the command and stops. Do not proceed to Step 3 
 
 ### Interactive deep mode
 
-If the `deep` flag was detected in Step 1 (without `harness`), activate deep mode. Deep mode loops review-fix cycles (Steps 5–9) until zero new findings remain or **5 iterations** are reached, then presents a single consolidated report with all fixes already applied as local changes.
+If the `deep` flag was detected in Step 1 (without `harness`), activate deep mode. Deep mode loops review-fix cycles (Steps 5–9) until zero new findings remain or **8 iterations** are reached, then presents a single consolidated report with all fixes already applied as local changes.
 
 Before proceeding, check whether a test command is available (from `.claude/CLAUDE.md`). If no test command exists, deep mode's auto-apply loop has no safety net — fall back to normal mode and warn: "Deep mode requires a test command for safe auto-apply. Falling back to normal mode — re-run `/optimus:init` to set up test infrastructure first." Then continue with the standard single-pass flow.
 
 If a test command is available, warn the user:
 
-> **Deep mode** runs up to 5 iterative review-fix passes. Each iteration is a full multi-agent review cycle — credit and time consumption multiplies with iteration count. Fixes are applied automatically at each iteration without per-change approval. Low test coverage increases the chance of undetected breakage; consider running `/optimus:unit-test` first to strengthen the safety net. Each iteration also accumulates context — on large codebases, output quality may degrade in later iterations.
+> **Deep mode** runs up to 8 iterative review-fix passes. Each iteration is a full multi-agent review cycle — credit and time consumption multiplies with iteration count. Fixes are applied automatically at each iteration without per-change approval. Low test coverage increases the chance of undetected breakage; consider running `/optimus:unit-test` first to strengthen the safety net. Each iteration also accumulates context — on large codebases, output quality may degrade in later iterations.
 >
 > Test command: `[test command from CLAUDE.md]`
 
 Then use `AskUserQuestion` — header "Deep mode", question "Proceed with deep mode?":
-- **Start deep mode** — "Run iterative review-fix until clean (max 5 iterations)"
+- **Start deep mode** — "Run iterative review-fix until clean (max 8 iterations)"
 - **Normal mode** — "Single pass with manual approval instead"
 
 Tell the user: *Tip: For large codebases or extended sessions, re-run with `/optimus:code-review deep harness` to launch the external harness with fresh context per iteration.*
@@ -396,7 +396,7 @@ After applying fixes and running tests, check termination conditions in order:
 
 1. **All fixes this iteration were reverted** due to test failures → stop to prevent a loop of failed attempts. Report: "Deep mode stopped — all fixes in iteration [N] caused test failures."
 2. **No fixes were applied** (all findings lacked actionable code edits) → stop. Report: "Deep mode stopped — remaining findings require manual review."
-3. **`iteration-count` equals 5** → cap reached. Report: "Deep mode reached the iteration cap (5). Remaining findings may exist — continue in a fresh conversation: re-run `/optimus:code-review deep`, or narrow scope with `/optimus:code-review deep \"focus on <area>\"`."
+3. **`iteration-count` equals 8** → cap reached. Report: "Deep mode reached the iteration cap (8). Remaining findings may exist — continue in a fresh conversation: re-run `/optimus:code-review deep`, or narrow scope with `/optimus:code-review deep \"focus on <area>\"`."
 4. **Otherwise** → continue to the next pass (iteration report and loop-back below).
 
 **For all four conditions above**, present the iteration report immediately after the termination/continuation message. This report is informational and non-blocking — no user prompt follows:
@@ -417,7 +417,7 @@ Column definitions:
 - **Guideline / Category** — The specific project guideline violated (or "General: bug/security/contract quality" for non-guideline findings), plus the category (Bug, Security, Guideline Violation, Code Quality, Test Coverage Gap, Contract Quality)
 - **Status** — `fixed`, `reverted — test failure`, `reverted — attempt 2`, or `persistent — fix failed`
 
-For condition 4 (continue), after presenting the iteration report also show the progress summary: "Iteration [N] of up to 5 — [total-fixed] findings fixed so far, [total-reverted] reverted. Starting next pass..." If the **next** iteration will be 3 or higher, append to the progress summary: "Note: context is accumulating — if output quality degrades, consider finishing remaining findings in a fresh conversation." Then increment `iteration-count` and **return to Step 5** for the next analysis pass. When returning to Step 5, re-gather the current diff (the codebase has changed due to applied fixes) and focus agents on files that had findings in any previous iteration plus any newly modified files.
+For condition 4 (continue), after presenting the iteration report also show the progress summary: "Iteration [N] of up to 8 — [total-fixed] findings fixed so far, [total-reverted] reverted. Starting next pass..." If the **next** iteration will be 3 or higher, append to the progress summary: "Note: context is accumulating — if output quality degrades, consider finishing remaining findings in a fresh conversation." Then increment `iteration-count` and **return to Step 5** for the next analysis pass. When returning to Step 5, re-gather the current diff (the codebase has changed due to applied fixes) and focus agents on files that had findings in any previous iteration plus any newly modified files.
 
 ### Consolidated report
 
@@ -474,4 +474,4 @@ After the review is complete, recommend the next step based on the outcome:
 Tell the user:
 
 - **Tip:** for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch.
-- **Tip (normal mode only):** Single-pass review can miss issues due to LLM attention limits. Run `/optimus:code-review deep` to iterate automatically — it fixes, tests, and repeats until clean (max 5 passes). Requires a test command in `.claude/CLAUDE.md`.
+- **Tip (normal mode only):** Single-pass review can miss issues due to LLM attention limits. Run `/optimus:code-review deep` to iterate automatically — it fixes, tests, and repeats until clean (max 8 passes). Requires a test command in `.claude/CLAUDE.md`.

@@ -1,5 +1,5 @@
 ---
-description: Refactors existing code for guideline compliance and testability using up to 4 parallel analysis agents (guideline compliance, testability barriers, duplication/consistency, optional code-simplifier). Two goals — align code with project guidelines AND make untestable code testable so /optimus:unit-test can safely increase coverage. Use after /optimus:init to align existing code, before /optimus:unit-test to remove testability barriers, or periodically to prevent tech debt. Supports flexible scoping and a "deep" mode for iterative refactoring (default 5, up to 10 iterations).
+description: Refactors existing code for guideline compliance and testability using up to 4 parallel analysis agents (guideline compliance, testability barriers, duplication/consistency, optional code-simplifier). Two goals — align code with project guidelines AND make untestable code testable so /optimus:unit-test can safely increase coverage. Use after /optimus:init to align existing code, before /optimus:unit-test to remove testability barriers, or periodically to prevent tech debt. Supports flexible scoping and a "deep" mode for iterative refactoring (default 8, up to 10 iterations).
 disable-model-invocation: true
 ---
 
@@ -34,18 +34,18 @@ Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/prerequisite-check.md` and appl
 Extract from the user's arguments:
 1. `deep` flag (present/absent)
 2. `harness` keyword after `deep` (present/absent)
-3. A number immediately after `deep` or `deep harness` → iteration cap (optional, default 5, hard cap 10)
+3. A number immediately after `deep` or `deep harness` → iteration cap (optional, default 8, hard cap 10)
 4. Everything else → scope/focus instructions (natural language)
 
 Examples:
 - `/optimus:refactor` → full project, normal mode
 - `/optimus:refactor backend only` → scope to backend, normal mode
 - `/optimus:refactor "focus on auth module"` → scope to auth, normal mode
-- `/optimus:refactor deep` → full project, deep (5 iterations)
+- `/optimus:refactor deep` → full project, deep (8 iterations)
 - `/optimus:refactor deep 8` → full project, deep (8 iterations)
-- `/optimus:refactor deep "focus on src/api"` → scope to src/api, deep (5 iterations)
+- `/optimus:refactor deep "focus on src/api"` → scope to src/api, deep (8 iterations)
 - `/optimus:refactor deep 10 backend` → scope to backend, deep (10 iterations)
-- `/optimus:refactor deep harness` → harness mode, 5 iterations, full project
+- `/optimus:refactor deep harness` → harness mode, 8 iterations, full project
 - `/optimus:refactor deep harness 8` → harness mode, 8 iterations
 - `/optimus:refactor deep harness "focus on backend"` → harness mode, scoped
 
@@ -396,4 +396,4 @@ After the refactoring is complete, recommend the next step based on the outcome:
 Tell the user:
 
 - **Tip:** for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch.
-- **Tip (normal mode only):** Single-pass analysis can miss issues due to LLM attention limits. Run `/optimus:refactor deep` to iterate automatically — it applies, tests, and repeats until clean (max 5 passes by default, configurable up to 10). Requires a test command in `.claude/CLAUDE.md`.
+- **Tip (normal mode only):** Single-pass analysis can miss issues due to LLM attention limits. Run `/optimus:refactor deep` to iterate automatically — it applies, tests, and repeats until clean (max 8 passes by default, configurable up to 10). Requires a test command in `.claude/CLAUDE.md`.

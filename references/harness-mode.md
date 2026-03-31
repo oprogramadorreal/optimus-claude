@@ -26,7 +26,7 @@ Run `ls .claude/deep-mode-progress.json 2>/dev/null` via Bash. If the file exist
 Construct the harness command using these parameters passed by the calling skill:
 - `skill_name` — the skill identifier (e.g., `code-review`, `refactor`)
 - `scope` — optional scope text from user arguments (omit `--scope` if empty)
-- `max_iterations` — optional iteration cap (omit `--max-iterations` if using default 5)
+- `max_iterations` — optional iteration cap (omit `--max-iterations` if using default 8)
 - `resume` — from step 3
 
 ```
@@ -51,7 +51,7 @@ Output the following directly — no `AskUserQuestion`:
 >
 > **WARNING:** The harness will iterate up to N times, each spawning a fresh `claude -p` session. On each iteration it analyzes code, applies fixes, runs tests, and creates a checkpoint commit. All commits are local — nothing is pushed. To undo everything: `git reset --hard <base-commit>`.
 >
-> **Why terminal?** The Bash tool enforces a timeout (default 2 min, max 10 min), but each iteration may take several minutes. Running in your terminal gives real-time progress and avoids timeout issues.
+> **Why can't I run it for you?** The Bash tool enforces a timeout (default 2 min, max 10 min), but each iteration may take several minutes. Running in your terminal gives real-time progress and avoids timeout issues.
 
 ### 6. Stop
 

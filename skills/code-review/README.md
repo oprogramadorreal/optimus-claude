@@ -14,7 +14,7 @@ Well-maintained code has [30%+ fewer AI-introduced defects](https://arxiv.org/ab
 - **PR/MR context awareness** — in PR/MR mode, agents receive the author's description as an intent signal (with explicit guardrails against bias) so they understand the "why" behind changes without suppressing genuine findings
 - **Validation step** — each finding is independently verified (context check, intent check, pre-existing check, cross-agent consensus, runtime assumption check) using an evidence-based verification protocol before reporting
 - **Contradiction resolution** — cross-agent contradictions (e.g., "add more validation" vs. "simplify this validation") are detected and resolved by severity to prevent circular fix loops
-- **Deep mode** — iterative review-fix loop (max 5 iterations) with automatic fix application and test verification; catches issues that single-pass review misses due to LLM attention limitations
+- **Deep mode** — iterative review-fix loop (max 8 iterations) with automatic fix application and test verification; catches issues that single-pass review misses due to LLM attention limitations
 - **Deep harness** — `/optimus:code-review deep harness` launches an external orchestrator with fresh `claude -p` sessions per iteration, eliminating context bloat for large codebases
 - **Actionable output** — findings include file:line references, confidence level (High/Medium), before/after code sketches, guideline citations, and severity levels
 - **Works without `/optimus:init`** — falls back to generic coding guidelines when project-specific docs are not available
@@ -35,7 +35,7 @@ In Claude Code, use any of these:
 - `/optimus:code-review` "review PR #42"
 - `/optimus:code-review` "review changes since main"
 - `/optimus:code-review` "focus on src/auth"
-- `/optimus:code-review deep` — iterative review-fix until clean (max 5 passes)
+- `/optimus:code-review deep` — iterative review-fix until clean (max 8 passes)
 - `/optimus:code-review deep` "review PR #42" — deep mode on a PR
 - `/optimus:code-review deep harness` — deep harness mode (external, fresh context per iteration)
 - `/optimus:code-review deep harness` "focus on src/auth" — deep harness with scope
@@ -67,7 +67,7 @@ Deep mode addresses a fundamental limitation of single-pass LLM review: attentio
 
 | Aspect | Normal mode | Deep mode |
 |--------|-------------|-----------|
-| Iterations | 1 (single pass) | Up to 5 |
+| Iterations | 1 (single pass) | Up to 8 |
 | Fix approval | User chooses (Fix / Post / Skip) | Automatic (confirmed upfront) |
 | Test verification | After user-approved fixes | After every iteration |
 | Failed fixes | N/A | Reverted individually via bisect |
@@ -83,7 +83,7 @@ On iterations 2+, each agent receives a table of prior findings with their statu
 - **Convergence** — zero new findings (code is clean)
 - **All reverted** — every fix in an iteration caused test failures
 - **No actionable fixes** — findings exist but lack concrete code edits
-- **Cap reached** — 5 iterations completed (continue in a fresh conversation)
+- **Cap reached** — 8 iterations completed (continue in a fresh conversation)
 
 On iterations 3+, a context-accumulation warning notes that output quality may degrade and suggests finishing remaining findings in a fresh conversation.
 
@@ -207,7 +207,7 @@ This is followed by the full detailed findings with code snippets (same format a
 5. Validates each finding using the verification protocol (context check, intent check, change-intent awareness, PR/MR context, pre-existing check, cross-agent consensus, runtime assumption check)
 6. Consolidates, deduplicates, and presents structured report (capped at 15 findings)
 7. Offers actions: fix issues, post PR comment, or skip (normal mode)
-8. In deep mode: auto-applies fixes, runs tests, reverts failures via bisect, presents per-iteration report tables, repeats up to 5 iterations, then presents a cumulative summary table and detailed consolidated report
+8. In deep mode: auto-applies fixes, runs tests, reverts failures via bisect, presents per-iteration report tables, repeats up to 8 iterations, then presents a cumulative summary table and detailed consolidated report
 
 ## Relationship to Official /code-review
 
@@ -220,7 +220,7 @@ Anthropic's official [code-review](https://github.com/anthropics/claude-code/tre
 | Agents | 4 (parallel review agents) | Up to 7 (parallel review agents) |
 | Agent types | 2 CLAUDE.md compliance + 1 bug + 1 security | 2 guideline compliance + 1 bug + 1 security + code-simplifier + test-guardian (conditional) + contracts-reviewer (conditional) |
 | Validation | Sub-agent validation + confidence scoring | Inline validation (context, intent, change-intent, PR/MR context, pre-existing, consensus, runtime assumption check) |
-| Deep mode | No | Yes — iterative auto-fix (max 5 iterations) |
+| Deep mode | No | Yes — iterative auto-fix (max 8 iterations) |
 | Output | Terminal + inline PR comments | Terminal + optional PR comment or fix-in-place |
 | Install | `claude plugin add code-review` | Part of optimus plugin |
 
