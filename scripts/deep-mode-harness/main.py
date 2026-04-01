@@ -301,15 +301,7 @@ def _handle_safe_exit(progress, progress_path, args, test_command, project_root,
             print(f"{PREFIX} Tests failed — reverting unexpected changes")
             restore_working_tree(pre_snapshot, pre_hash, project_root)
     progress["termination"] = {"reason": reason, "message": message}
-    progress["iteration"]["completed"] = iteration
-    progress["iteration_history"].append({
-        "iteration": iteration,
-        "new_findings": new_count,
-        "fixed": 0,
-        "reverted": 0,
-        "persistent": 0,
-        "test_passed": test_passed,
-    })
+    _record_iteration_history(progress, iteration, new_count, 0, 0, test_passed)
     write_progress(progress_path, progress)
     if not args.no_commit and test_passed and git_diff_has_changes(project_root):
         git_commit_checkpoint(progress, iteration, project_root)

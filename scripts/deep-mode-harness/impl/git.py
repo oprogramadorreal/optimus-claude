@@ -1,5 +1,4 @@
 import subprocess
-from pathlib import Path
 
 from .constants import BACKUP_SUFFIX, PREFIX, PROGRESS_FILE_NAME
 
