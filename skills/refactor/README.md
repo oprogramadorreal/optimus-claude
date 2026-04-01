@@ -141,6 +141,7 @@ For larger codebases or when context accumulation degrades quality, use deep har
 # Or run the script directly:
 python scripts/deep-mode-harness.py --skill refactor --scope "src/api"
 python scripts/deep-mode-harness.py --skill refactor --max-iterations 10
+python scripts/deep-mode-harness.py --skill refactor --timeout 1200 --scope "src/api"
 python scripts/deep-mode-harness.py --skill refactor --resume
 ```
 

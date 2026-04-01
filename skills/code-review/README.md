@@ -99,6 +99,7 @@ For larger codebases or when context accumulation degrades quality, use deep har
 # Or run the script directly:
 python scripts/deep-mode-harness.py --skill code-review
 python scripts/deep-mode-harness.py --skill code-review --scope "src/auth" --max-iterations 10
+python scripts/deep-mode-harness.py --skill code-review --timeout 1200
 python scripts/deep-mode-harness.py --skill code-review --resume
 ```
 

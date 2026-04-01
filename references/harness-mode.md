@@ -30,7 +30,7 @@ Construct the harness command using these parameters passed by the calling skill
 - `resume` — from step 3
 
 ```
-<python_cmd> "<plugin_root>/scripts/deep-mode-harness.py" --skill <skill_name> --progress-file .claude/deep-mode-progress.json [--max-iterations <N>] [--scope "<scope>"] [--resume]
+<python_cmd> "<plugin_root>/scripts/deep-mode-harness.py" --skill <skill_name> --progress-file .claude/deep-mode-progress.json [--max-iterations <N>] [--scope "<scope>"] [--timeout <seconds>] [--resume]
 ```
 
 Where `<python_cmd>` is `python3` or `python` (whichever worked in step 2). Wrap `<plugin_root>` in quotes to handle paths with spaces. The constructed command must be a single line (no backslash continuations) for easy copy-paste on all platforms.
@@ -47,7 +47,7 @@ Output the following directly — no `AskUserQuestion`:
 > <constructed command from step 4>
 > ```
 >
-> Additional options: `--scope "<text>"`, `--max-iterations <N>`, `--verbose`, `--no-commit`, `--resume`, `--allowed-tools Read,Edit,Write,MultiEdit,Glob,Grep,Bash,Agent`
+> Additional options: `--timeout <seconds>`, `--scope "<text>"`, `--max-iterations <N>`, `--verbose`, `--no-commit`, `--resume`, `--allowed-tools Read,Edit,Write,MultiEdit,Glob,Grep,Bash,Agent`
 >
 > You can edit the command before running it — for example, add `--scope "focus on src/auth"` to narrow the analysis, or `--max-iterations 12` to increase the cap. When running the script directly from your terminal (without invoking the skill first), use these flags to pass context that would otherwise come from the skill arguments.
 >

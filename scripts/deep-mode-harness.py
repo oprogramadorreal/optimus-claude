@@ -48,7 +48,7 @@ from pathlib import Path
 DEFAULT_MAX_ITERATIONS = 8
 MAX_ITERATIONS_HARD_CAP = 20
 DEFAULT_MAX_TURNS = 30
-SESSION_TIMEOUT = 600  # 10 minutes per iteration
+DEFAULT_SESSION_TIMEOUT = 900  # 15 minutes per iteration
 PROGRESS_FILE_NAME = ".claude/deep-mode-progress.json"
 BACKUP_SUFFIX = ".bak"
 
@@ -681,7 +681,7 @@ def run_skill_session(progress, args, resolved_progress_path):
         capture_output=True,
         text=True,
         cwd=progress["config"]["project_root"],
-        timeout=SESSION_TIMEOUT,
+        timeout=args.timeout,
     )
 
     if args.verbose:
@@ -988,6 +988,12 @@ Examples:
         nargs="?",
         const="Read,Edit,Write,MultiEdit,Glob,Grep,Bash,Agent",
     )
+    parser.add_argument(
+        "--timeout",
+        type=int,
+        default=DEFAULT_SESSION_TIMEOUT,
+        help=f"Per-iteration timeout in seconds (default: {DEFAULT_SESSION_TIMEOUT})",
+    )
 
     args = parser.parse_args()
 
@@ -1158,7 +1164,7 @@ def _run_iteration_loop(args, progress, progress_path, project_root,
                 break
             except (RuntimeError, subprocess.TimeoutExpired) as e:
                 if isinstance(e, subprocess.TimeoutExpired):
-                    print(f"{PREFIX} Session timed out after {SESSION_TIMEOUT}s")
+                    print(f"{PREFIX} Session timed out after {args.timeout}s")
                 else:
                     print(f"{PREFIX} Session error: {e}")
                 if pre_snapshot:
