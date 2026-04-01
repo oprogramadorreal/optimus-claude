@@ -2,10 +2,10 @@ import json
 from unittest.mock import patch
 
 from impl.progress import (
-    record_test_result,
     generate_finding_id,
     make_initial_progress,
     read_progress,
+    record_test_result,
     write_progress,
 )
 
@@ -31,7 +31,9 @@ class TestRecordTestResult:
     def test_pass(self, sample_progress):
         record_test_result(sample_progress, True, "all passed")
         assert sample_progress["test_results"]["last_full_run"] == "pass"
-        assert sample_progress["test_results"]["last_run_output_summary"] == "all passed"
+        assert (
+            sample_progress["test_results"]["last_run_output_summary"] == "all passed"
+        )
 
     def test_fail(self, sample_progress):
         record_test_result(sample_progress, False, "2 failed")

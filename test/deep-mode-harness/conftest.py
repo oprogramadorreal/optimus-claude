@@ -4,7 +4,12 @@ from pathlib import Path
 import pytest
 
 # Add the package to sys.path so tests can import impl modules
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "scripts" / "deep-mode-harness"))
+sys.path.insert(
+    0,
+    str(
+        Path(__file__).resolve().parent.parent.parent / "scripts" / "deep-mode-harness"
+    ),
+)
 
 
 @pytest.fixture

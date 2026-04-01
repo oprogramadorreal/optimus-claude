@@ -46,7 +46,7 @@ optimus-claude/
 │   ├── expected-outputs.yaml # Expected outputs for skill tests
 │   ├── deep-mode-harness/    # Python unit tests for the deep harness
 │   └── fixtures/             # Generated project fixtures (gitignored)
-├── requirements-dev.txt      # Python dev dependencies (pytest, pytest-cov)
+├── requirements-dev.txt      # Python dev dependencies (pytest, pytest-cov, black, isort)
 ├── install.cmd               # Create .venv and install dev dependencies
 ├── test.cmd                  # Run Python unit tests
 ├── test-coverage.cmd         # Run Python tests with coverage report
@@ -202,7 +202,7 @@ Unit tests for the deep-mode harness Python modules — the only Python code in 
 **First-time setup:**
 
 ```shell
-install.cmd                    # creates .venv and installs pytest + pytest-cov
+install.cmd                    # creates .venv and installs dev dependencies
 ```
 
 **Run tests:**

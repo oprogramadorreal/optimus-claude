@@ -14,7 +14,9 @@ def make_initial_progress(skill, scope, max_iterations, test_command, project_ro
     return {
         "schema_version": 1,
         "skill": skill,
-        "started_at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "started_at": datetime.datetime.now(datetime.timezone.utc).strftime(
+            "%Y-%m-%dT%H:%M:%SZ"
+        ),
         "config": {
             "max_iterations": max_iterations,
             "test_command": test_command,

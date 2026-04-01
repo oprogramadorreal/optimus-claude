@@ -50,7 +50,13 @@ from impl.constants import (
     PREFIX,
     PROGRESS_FILE_NAME,
 )
-from impl.findings import finding_key, finding_matches, mark_all_fixed, mark_finding_status, update_scope
+from impl.findings import (
+    finding_key,
+    finding_matches,
+    mark_all_fixed,
+    mark_finding_status,
+    update_scope,
+)
 from impl.fixes import bisect_fixes
 from impl.git import (
     git_commit_checkpoint,
@@ -61,14 +67,13 @@ from impl.git import (
 )
 from impl.parser import parse_harness_output
 from impl.progress import (
-    record_test_result,
     make_initial_progress,
     read_progress,
+    record_test_result,
     write_progress,
 )
 from impl.reporting import detect_test_command, print_report
 from impl.runner import run_skill_session, run_tests
-
 
 # ---------------------------------------------------------------------------
 # Argument parsing
@@ -260,7 +265,10 @@ def _handle_interrupt(args, progress, progress_path, project_root):
     if not args.no_commit and git_diff_has_changes(project_root):
         print(f"{PREFIX} Committing completed work from current iteration...")
         # Interrupt may occur before _record_iteration_history runs
-        if not progress["iteration_history"] or progress["iteration_history"][-1].get("iteration") != iteration:
+        if (
+            not progress["iteration_history"]
+            or progress["iteration_history"][-1].get("iteration") != iteration
+        ):
             _record_iteration_history(progress, iteration, 0, 0, 0, False)
         git_commit_checkpoint(progress, iteration, project_root)
     progress["termination"] = {
@@ -287,9 +295,19 @@ def _archive_progress(progress_path):
 # ---------------------------------------------------------------------------
 
 
-def _handle_safe_exit(progress, progress_path, args, test_command, project_root,
-                      reason, message, log_message, new_count, pre_snapshot,
-                      pre_hash):
+def _handle_safe_exit(
+    progress,
+    progress_path,
+    args,
+    test_command,
+    project_root,
+    reason,
+    message,
+    log_message,
+    new_count,
+    pre_snapshot,
+    pre_hash,
+):
     """Handle convergence or no-actionable-fixes exit with test verification."""
     iteration = progress["iteration"]["current"]
     test_passed = True
@@ -308,8 +326,9 @@ def _handle_safe_exit(progress, progress_path, args, test_command, project_root,
     return test_passed
 
 
-def _run_session_with_retry(args, progress, progress_path, pre_stash, pre_head,
-                            project_root, iteration):
+def _run_session_with_retry(
+    args, progress, progress_path, pre_stash, pre_head, project_root, iteration
+):
     """Launch a claude session with one retry on failure.
 
     Returns raw output on success, or None if both attempts failed.
@@ -337,8 +356,9 @@ def _run_session_with_retry(args, progress, progress_path, pre_stash, pre_head,
                 return None
 
 
-def _recover_from_missing_output(output, test_command, project_root,
-                                 pre_stash, pre_head, progress, progress_path):
+def _recover_from_missing_output(
+    output, test_command, project_root, pre_stash, pre_head, progress, progress_path
+):
     """Handle iterations where the skill produced no parseable JSON output.
 
     Returns a synthetic result dict if recovery succeeds, or None on failure.
@@ -355,7 +375,9 @@ def _recover_from_missing_output(output, test_command, project_root,
 
     print(f"{PREFIX} No JSON output but git shows changes — proceeding to test")
     if output and len(output) < 50:
-        print(f"{PREFIX}   Hint: session output was very short — may have hit max-turns limit")
+        print(
+            f"{PREFIX}   Hint: session output was very short — may have hit max-turns limit"
+        )
     elif not output:
         print(f"{PREFIX}   Hint: session produced no output (likely timed out)")
 
@@ -406,21 +428,28 @@ def _mark_interaction_failures(fixes, progress):
                 continue
             status = finding.get("status")
             if status == "fixed":
-                mark_finding_status(progress, fix,
-                                    "reverted — test failure",
-                                    "Interaction bug — combined fixes failed")
+                mark_finding_status(
+                    progress,
+                    fix,
+                    "reverted — test failure",
+                    "Interaction bug — combined fixes failed",
+                )
                 reverted += 1
             elif status == "retained — revert failed":
-                mark_finding_status(progress, fix,
-                                    "reverted — test failure",
-                                    "Interaction bug — full working tree restore removed retained fix")
+                mark_finding_status(
+                    progress,
+                    fix,
+                    "reverted — test failure",
+                    "Interaction bug — full working tree restore removed retained fix",
+                )
                 reverted += 1
             break
     return reverted
 
 
-def _test_and_reconcile_fixes(fixes, test_command, project_root, progress,
-                              pre_stash, pre_head):
+def _test_and_reconcile_fixes(
+    fixes, test_command, project_root, progress, pre_stash, pre_head
+):
     """Run tests on applied fixes, bisecting on failure.
 
     Returns (fixed_count, reverted_count, test_passed, all_reverted).
@@ -450,7 +479,9 @@ def _test_and_reconcile_fixes(fixes, test_command, project_root, progress,
         test_passed, test_summary = run_tests(test_command, project_root)
         record_test_result(progress, test_passed, test_summary)
         if not test_passed:
-            print(f"{PREFIX} WARNING: Combined fixes fail tests — interaction bug, reverting all")
+            print(
+                f"{PREFIX} WARNING: Combined fixes fail tests — interaction bug, reverting all"
+            )
             restore_working_tree(pre_stash, pre_head, project_root)
             interaction_reverted = _mark_interaction_failures(fixes, progress)
             reverted_count += interaction_reverted
@@ -460,22 +491,26 @@ def _test_and_reconcile_fixes(fixes, test_command, project_root, progress,
     return fixed_count, reverted_count, test_passed, all_reverted
 
 
-def _record_iteration_history(progress, iteration, new_count, fixed_count,
-                              reverted_count, test_passed):
+def _record_iteration_history(
+    progress, iteration, new_count, fixed_count, reverted_count, test_passed
+):
     """Append an entry to the iteration history."""
     persistent_count = sum(
-        1 for f in progress["findings"]
+        1
+        for f in progress["findings"]
         if f["status"] == "persistent — fix failed"
         and f.get("iteration_last_attempted") == iteration
     )
-    progress["iteration_history"].append({
-        "iteration": iteration,
-        "new_findings": new_count,
-        "fixed": fixed_count,
-        "reverted": reverted_count,
-        "persistent": persistent_count,
-        "test_passed": test_passed,
-    })
+    progress["iteration_history"].append(
+        {
+            "iteration": iteration,
+            "new_findings": new_count,
+            "fixed": fixed_count,
+            "reverted": reverted_count,
+            "persistent": persistent_count,
+            "test_passed": test_passed,
+        }
+    )
     progress["iteration"]["completed"] = iteration
 
 
@@ -484,8 +519,9 @@ def _record_iteration_history(progress, iteration, new_count, fixed_count,
 # ---------------------------------------------------------------------------
 
 
-def _run_iteration_loop(args, progress, progress_path, project_root,
-                        test_command, max_iter):
+def _run_iteration_loop(
+    args, progress, progress_path, project_root, test_command, max_iter
+):
     """Run the iterative analysis-apply loop until convergence or cap."""
     skip_commits = args.no_commit
     while True:
@@ -495,7 +531,9 @@ def _run_iteration_loop(args, progress, progress_path, project_root,
 
         pre_head = git_rev_parse_head(project_root)
         if not pre_head:
-            print(f"{PREFIX} ERROR: Cannot determine HEAD commit before iteration {iteration}.")
+            print(
+                f"{PREFIX} ERROR: Cannot determine HEAD commit before iteration {iteration}."
+            )
             sys.exit(1)
 
         # When --no-commit, prior iterations leave uncommitted changes.
@@ -505,8 +543,13 @@ def _run_iteration_loop(args, progress, progress_path, project_root,
         write_progress(progress_path, progress)
 
         output = _run_session_with_retry(
-            args, progress, progress_path, pre_stash, pre_head,
-            project_root, iteration,
+            args,
+            progress,
+            progress_path,
+            pre_stash,
+            pre_head,
+            project_root,
+            iteration,
         )
         if output is None:
             break
@@ -516,8 +559,13 @@ def _run_iteration_loop(args, progress, progress_path, project_root,
 
         if result is None:
             result = _recover_from_missing_output(
-                output, test_command, project_root,
-                pre_stash, pre_head, progress, progress_path,
+                output,
+                test_command,
+                project_root,
+                pre_stash,
+                pre_head,
+                progress,
+                progress_path,
             )
             if result is None:
                 break
@@ -532,12 +580,17 @@ def _run_iteration_loop(args, progress, progress_path, project_root,
         # Check convergence
         if result.get("no_new_findings", False):
             _handle_safe_exit(
-                progress, progress_path, args, test_command, project_root,
+                progress,
+                progress_path,
+                args,
+                test_command,
+                project_root,
                 reason="convergence",
                 message=f"Zero new findings on iteration {iteration}",
                 log_message="Convergence",
                 new_count=0,
-                pre_snapshot=pre_stash, pre_hash=pre_head,
+                pre_snapshot=pre_stash,
+                pre_hash=pre_head,
             )
             print(f"{PREFIX} Converged: no new findings.")
             break
@@ -545,14 +598,21 @@ def _run_iteration_loop(args, progress, progress_path, project_root,
         # Check no actionable fixes
         if result.get("no_actionable_fixes", False):
             _handle_safe_exit(
-                progress, progress_path, args, test_command, project_root,
+                progress,
+                progress_path,
+                args,
+                test_command,
+                project_root,
                 reason="no-actionable",
                 message="Findings exist but none had actionable code edits",
                 log_message="No actionable fixes",
                 new_count=new_count,
-                pre_snapshot=pre_stash, pre_hash=pre_head,
+                pre_snapshot=pre_stash,
+                pre_hash=pre_head,
             )
-            print(f"{PREFIX} No actionable fixes — remaining findings need manual review.")
+            print(
+                f"{PREFIX} No actionable fixes — remaining findings need manual review."
+            )
             break
 
         # Merge new findings into progress
@@ -566,8 +626,9 @@ def _run_iteration_loop(args, progress, progress_path, project_root,
             )
         )
 
-        _record_iteration_history(progress, iteration, new_count,
-                                  fixed_count, reverted_count, test_passed)
+        _record_iteration_history(
+            progress, iteration, new_count, fixed_count, reverted_count, test_passed
+        )
 
         if all_reverted:
             progress["termination"] = {
@@ -581,11 +642,19 @@ def _run_iteration_loop(args, progress, progress_path, project_root,
         update_scope(progress, result)
 
         # Checkpoint commit (skip if post-bisection tests failed — interaction bug)
-        if not skip_commits and test_passed and (fixed_count > 0 or git_diff_has_changes(project_root)):
+        if (
+            not skip_commits
+            and test_passed
+            and (fixed_count > 0 or git_diff_has_changes(project_root))
+        ):
             if git_commit_checkpoint(progress, iteration, project_root):
-                print(f"{PREFIX} Checkpoint: deep-harness({args.skill}): iteration {iteration}")
+                print(
+                    f"{PREFIX} Checkpoint: deep-harness({args.skill}): iteration {iteration}"
+                )
             else:
-                print(f"{PREFIX} WARNING: Checkpoint failed — skipping commits for remaining iterations")
+                print(
+                    f"{PREFIX} WARNING: Checkpoint failed — skipping commits for remaining iterations"
+                )
                 skip_commits = True
 
         # Check iteration cap
@@ -625,7 +694,9 @@ def main():
         progress_path = project_root / progress_path
 
     if args.resume:
-        progress, resume_error = _load_resumed_progress(progress_path, args, project_root)
+        progress, resume_error = _load_resumed_progress(
+            progress_path, args, project_root
+        )
         if resume_error:
             print(f"{PREFIX} ERROR: {resume_error}")
             sys.exit(1)
@@ -633,32 +704,44 @@ def main():
         progress["config"]["test_command"] = test_command
     else:
         if progress_path.exists():
-            print(f"{PREFIX} WARNING: Overwriting existing progress file: {progress_path}")
+            print(
+                f"{PREFIX} WARNING: Overwriting existing progress file: {progress_path}"
+            )
         progress = make_initial_progress(
             args.skill, args.scope, args.max_iterations, test_command, project_root
         )
 
     # Validate base commit
     if not progress["config"]["base_commit"]:
-        print(f"{PREFIX} ERROR: Cannot determine HEAD commit. Is this a git repository?")
+        print(
+            f"{PREFIX} ERROR: Cannot determine HEAD commit. Is this a git repository?"
+        )
         sys.exit(1)
 
     # Refuse to start with uncommitted changes (fresh runs only)
     if not args.resume and not args.no_commit and git_diff_has_changes(project_root):
         print(f"{PREFIX} ERROR: Uncommitted changes detected.")
         print(f"{PREFIX} The harness creates checkpoint commits per iteration,")
-        print(f"{PREFIX} which would include your existing changes in the first commit.")
+        print(
+            f"{PREFIX} which would include your existing changes in the first commit."
+        )
         print(f"{PREFIX}")
-        print(f"{PREFIX} Commit your changes first:  git add -A && git commit -m \"wip\"")
-        print(f"{PREFIX} Or stash them:              git stash push -m \"pre-harness\"")
+        print(f'{PREFIX} Commit your changes first:  git add -A && git commit -m "wip"')
+        print(f'{PREFIX} Or stash them:              git stash push -m "pre-harness"')
         sys.exit(1)
 
     _print_startup_info(args, progress)
 
     # Main iteration loop
     try:
-        _run_iteration_loop(args, progress, progress_path, project_root,
-                            test_command, progress["config"]["max_iterations"])
+        _run_iteration_loop(
+            args,
+            progress,
+            progress_path,
+            project_root,
+            test_command,
+            progress["config"]["max_iterations"],
+        )
     except KeyboardInterrupt:
         _handle_interrupt(args, progress, progress_path, project_root)
         return

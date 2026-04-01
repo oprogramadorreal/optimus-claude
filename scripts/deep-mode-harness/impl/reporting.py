@@ -8,11 +8,14 @@ from .git import git_current_branch
 def print_report(progress):
     """Print the consolidated cumulative report."""
     findings = progress["findings"]
-    total_fixed = sum(1 for f in findings if f["status"] in ("fixed", "retained — revert failed"))
+    total_fixed = sum(
+        1 for f in findings if f["status"] in ("fixed", "retained — revert failed")
+    )
     total_reverted = sum(
         1
         for f in findings
-        if f["status"] in ("reverted — test failure", "reverted — attempt 2", "skipped — apply failed")
+        if f["status"]
+        in ("reverted — test failure", "reverted — attempt 2", "skipped — apply failed")
     )
     total_persistent = sum(
         1 for f in findings if f["status"] == "persistent — fix failed"
@@ -59,22 +62,18 @@ def print_report(progress):
     base = progress["config"].get("base_commit") or "?"
 
     if total_fixed > 0:
-        print(
-            f"{PREFIX} To squash checkpoint commits: git rebase -i {base[:8]}"
-        )
-        print(
-            f"{PREFIX} To rollback everything:       git reset --hard {base[:8]}"
-        )
+        print(f"{PREFIX} To squash checkpoint commits: git rebase -i {base[:8]}")
+        print(f"{PREFIX} To rollback everything:       git reset --hard {base[:8]}")
         # Suggest push if on a feature branch (not main/master)
         branch = git_current_branch(progress["config"]["project_root"])
         if branch and branch not in ("main", "master"):
-            print(
-                f"{PREFIX} To push checkpoint branch:    git push -u origin {branch}"
-            )
+            print(f"{PREFIX} To push checkpoint branch:    git push -u origin {branch}")
         print(f"{PREFIX}")
         print(f"{PREFIX} Next: run /optimus:commit to commit the fixes.")
     elif term["reason"] in ("parse-failure", "crash"):
-        print(f"{PREFIX} No fixes were retained. Check the test output above for details.")
+        print(
+            f"{PREFIX} No fixes were retained. Check the test output above for details."
+        )
         print(f"{PREFIX} To rollback everything: git reset --hard {base[:8]}")
     else:
         print(f"{PREFIX} No issues found — the codebase looks clean for this skill.")
@@ -111,5 +110,3 @@ def detect_test_command(project_root):
             return cmd
 
     return None
-
-

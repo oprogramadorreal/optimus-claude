@@ -36,7 +36,10 @@ class TestDetectTestCommand:
 
 class TestPrintReport:
     def test_clean_report(self, sample_progress, capsys):
-        sample_progress["termination"] = {"reason": "convergence", "message": "No new findings"}
+        sample_progress["termination"] = {
+            "reason": "convergence",
+            "message": "No new findings",
+        }
         sample_progress["iteration"]["completed"] = 1
         print_report(sample_progress)
         output = capsys.readouterr().out

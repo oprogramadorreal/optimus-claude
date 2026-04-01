@@ -49,14 +49,16 @@ class TestBuildCommitBody:
     def test_max_entries_truncation(self):
         findings = []
         for i in range(15):
-            findings.append({
-                "iteration_last_attempted": 1,
-                "status": "fixed",
-                "file": f"src/file{i}.js",
-                "line": i,
-                "category": "bug",
-                "summary": f"Fix {i}",
-            })
+            findings.append(
+                {
+                    "iteration_last_attempted": 1,
+                    "status": "fixed",
+                    "file": f"src/file{i}.js",
+                    "line": i,
+                    "category": "bug",
+                    "summary": f"Fix {i}",
+                }
+            )
         progress = {"findings": findings}
         body = _build_commit_body(progress, 1, max_entries=5)
         assert "... and 10 more" in body

@@ -50,14 +50,24 @@ class TestMarkFindingStatus:
         assert len(sample_progress["findings"][0]["status_history"]) == 2
 
     def test_promotion_reverted_to_attempt2(self, sample_progress, sample_fix):
-        mark_finding_status(sample_progress, sample_fix, "reverted — test failure", "fail 1")
-        mark_finding_status(sample_progress, sample_fix, "reverted — test failure", "fail 2")
+        mark_finding_status(
+            sample_progress, sample_fix, "reverted — test failure", "fail 1"
+        )
+        mark_finding_status(
+            sample_progress, sample_fix, "reverted — test failure", "fail 2"
+        )
         assert sample_progress["findings"][0]["status"] == "reverted — attempt 2"
 
     def test_promotion_attempt2_to_persistent(self, sample_progress, sample_fix):
-        mark_finding_status(sample_progress, sample_fix, "reverted — test failure", "fail 1")
-        mark_finding_status(sample_progress, sample_fix, "reverted — test failure", "fail 2")
-        mark_finding_status(sample_progress, sample_fix, "reverted — test failure", "fail 3")
+        mark_finding_status(
+            sample_progress, sample_fix, "reverted — test failure", "fail 1"
+        )
+        mark_finding_status(
+            sample_progress, sample_fix, "reverted — test failure", "fail 2"
+        )
+        mark_finding_status(
+            sample_progress, sample_fix, "reverted — test failure", "fail 3"
+        )
         assert sample_progress["findings"][0]["status"] == "persistent — fix failed"
 
     def test_sequential_ids(self, sample_progress):

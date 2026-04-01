@@ -66,6 +66,18 @@
           }
         ]
       }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|MultiEdit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/format-python.py",
+            "timeout": 30
+          }
+        ]
+      }
     ]
   }
 }

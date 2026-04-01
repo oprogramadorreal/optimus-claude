@@ -65,9 +65,12 @@ def _try_apply_fix(fix, test_command, cwd, progress, pass_detail=None):
         mark_finding_status(progress, fix, "fixed", pass_detail)
         return "fixed", None
     if not revert_single_fix(fix, cwd):
-        print(f"{PREFIX} WARNING: Could not revert failing fix for {fix.get('file')} — retaining fix")
-        mark_finding_status(progress, fix, "fixed",
-                            "Revert failed after test failure — fix retained")
+        print(
+            f"{PREFIX} WARNING: Could not revert failing fix for {fix.get('file')} — retaining fix"
+        )
+        mark_finding_status(
+            progress, fix, "fixed", "Revert failed after test failure — fix retained"
+        )
         return "fixed", None
     return "reverted", test_summary
 
@@ -86,7 +89,9 @@ def bisect_fixes(fixes, test_command, cwd, progress):
     for i in range(len(fixes) - 1, -1, -1):
         if not revert_single_fix(fixes[i], cwd):
             revert_failures.add(i)
-            print(f"{PREFIX} WARNING: Could not mechanically revert fix for {fixes[i].get('file')}")
+            print(
+                f"{PREFIX} WARNING: Could not mechanically revert fix for {fixes[i].get('file')}"
+            )
 
     fixed_count = 0
     reverted_count = 0
@@ -97,8 +102,12 @@ def bisect_fixes(fixes, test_command, cwd, progress):
     # First pass: apply incrementally, keeping passing fixes
     for i, fix in enumerate(fixes):
         if i in revert_failures:
-            mark_finding_status(progress, fix, "retained — revert failed",
-                                "Could not mechanically revert during bisection — fix retained untested")
+            mark_finding_status(
+                progress,
+                fix,
+                "retained — revert failed",
+                "Could not mechanically revert during bisection — fix retained untested",
+            )
             fixed_count += 1  # counts toward applied (fix is in codebase)
             continue
         outcome, fail_summary = _try_apply_fix(fix, test_command, cwd, progress)
@@ -106,8 +115,12 @@ def bisect_fixes(fixes, test_command, cwd, progress):
             fixed_count += 1
         elif outcome == "skipped":
             # Fix could not be applied (file changed, content not found) — no retry needed
-            mark_finding_status(progress, fix, "skipped — apply failed",
-                                "Could not mechanically apply fix during bisection")
+            mark_finding_status(
+                progress,
+                fix,
+                "skipped — apply failed",
+                "Could not mechanically apply fix during bisection",
+            )
             skipped_count += 1
         else:
             reverted_indices.append(i)
@@ -121,13 +134,21 @@ def bisect_fixes(fixes, test_command, cwd, progress):
         for i in reverted_indices:
             fix = fixes[i]
             outcome, fail_summary = _try_apply_fix(
-                fix, test_command, cwd, progress,
-                pass_detail="Passed on retry (dependency resolved)")
+                fix,
+                test_command,
+                cwd,
+                progress,
+                pass_detail="Passed on retry (dependency resolved)",
+            )
             if outcome == "fixed":
                 fixed_count += 1
             elif outcome == "skipped":
-                mark_finding_status(progress, fix, "skipped — apply failed",
-                                    "Could not mechanically re-apply fix on retry")
+                mark_finding_status(
+                    progress,
+                    fix,
+                    "skipped — apply failed",
+                    "Could not mechanically re-apply fix on retry",
+                )
                 skipped_count += 1
             else:
                 # Use the latest failure summary (retry may differ from first attempt)
@@ -137,8 +158,9 @@ def bisect_fixes(fixes, test_command, cwd, progress):
     else:
         # No retry needed — mark remaining reverted fixes
         for i in reverted_indices:
-            mark_finding_status(progress, fixes[i], "reverted — test failure",
-                                reverted_summaries.get(i))
+            mark_finding_status(
+                progress, fixes[i], "reverted — test failure", reverted_summaries.get(i)
+            )
             reverted_count += 1
 
     return fixed_count, reverted_count, skipped_count

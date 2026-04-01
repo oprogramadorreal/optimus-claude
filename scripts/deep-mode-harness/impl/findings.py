@@ -22,11 +22,13 @@ def _truncate_failure_hint(detail, max_len=200):
 
 
 # Statuses that indicate a failed fix attempt
-_FAILURE_STATUSES = frozenset({
-    "reverted — test failure",
-    "reverted — attempt 2",
-    "persistent — fix failed",
-})
+_FAILURE_STATUSES = frozenset(
+    {
+        "reverted — test failure",
+        "reverted — attempt 2",
+        "persistent — fix failed",
+    }
+)
 
 
 def mark_finding_status(progress, fix, status, detail):
@@ -36,18 +38,26 @@ def mark_finding_status(progress, fix, status, detail):
         if finding_matches(existing, fix):
             old_status = existing["status"]
             # Promote reverted -> attempt 2 -> persistent
-            if status == "reverted — test failure" and old_status == "reverted — test failure":
+            if (
+                status == "reverted — test failure"
+                and old_status == "reverted — test failure"
+            ):
                 status = "reverted — attempt 2"
-            elif status == "reverted — test failure" and old_status == "reverted — attempt 2":
+            elif (
+                status == "reverted — test failure"
+                and old_status == "reverted — attempt 2"
+            ):
                 status = "persistent — fix failed"
 
             existing["status"] = status
             existing["iteration_last_attempted"] = progress["iteration"]["current"]
-            existing.setdefault("status_history", []).append({
-                "iteration": progress["iteration"]["current"],
-                "status": status,
-                "detail": detail,
-            })
+            existing.setdefault("status_history", []).append(
+                {
+                    "iteration": progress["iteration"]["current"],
+                    "status": status,
+                    "detail": detail,
+                }
+            )
             # Store compact failure context for the next iteration's prompt
             if status in _FAILURE_STATUSES:
                 existing["last_failure_hint"] = _truncate_failure_hint(detail)

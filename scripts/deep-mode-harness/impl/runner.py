@@ -23,7 +23,9 @@ def _find_bash():
     try:
         result = subprocess.run(
             ["git", "--exec-path"],
-            capture_output=True, text=True, timeout=5,
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
         if result.returncode == 0:
             # e.g. "C:/Program Files/Git/mingw64/libexec/git-core"
@@ -129,12 +131,14 @@ def run_skill_session(progress, args, resolved_progress_path):
     else:
         cmd.append("--dangerously-skip-permissions")
 
-    cmd.extend([
-        "--max-turns",
-        str(args.max_turns),
-        "--output-format",
-        "json",
-    ])
+    cmd.extend(
+        [
+            "--max-turns",
+            str(args.max_turns),
+            "--output-format",
+            "json",
+        ]
+    )
 
     if args.verbose:
         print(f"{PREFIX} Command: {' '.join(cmd[:6])}...")
@@ -153,7 +157,9 @@ def run_skill_session(progress, args, resolved_progress_path):
             print(f"{PREFIX} Stderr: {result.stderr[:500]}")
 
     if result.returncode == 1:
-        print(f"{PREFIX} WARNING: claude exited with code 1 (may indicate partial failure): {result.stderr[:200]}")
+        print(
+            f"{PREFIX} WARNING: claude exited with code 1 (may indicate partial failure): {result.stderr[:200]}"
+        )
     elif result.returncode > 1:
         raise RuntimeError(
             f"claude exited with code {result.returncode}: {result.stderr[:200]}"

@@ -19,7 +19,7 @@ class TestParseHarnessOutput:
         assert parse_harness_output("No JSON here") is None
 
     def test_malformed_json(self):
-        raw = '```json:harness-output\n{not valid json}\n```'
+        raw = "```json:harness-output\n{not valid json}\n```"
         assert parse_harness_output(raw) is None
 
     def test_empty_input(self):

@@ -106,7 +106,9 @@ def git_diff_has_changes(cwd):
     if subprocess.run(["git", "diff", "--cached", "--quiet"], **run_kw).returncode != 0:
         return True
     untracked = subprocess.run(
-        ["git", "ls-files", "--others", "--exclude-standard"], **run_kw, text=True,
+        ["git", "ls-files", "--others", "--exclude-standard"],
+        **run_kw,
+        text=True,
     )
     return bool(untracked.stdout.strip())
 
@@ -133,10 +135,7 @@ def _build_commit_body(progress, iteration, max_entries=10):
         return ""
 
     fixed = [f for f in iter_findings if f.get("status") == "fixed"]
-    reverted = [
-        f for f in iter_findings
-        if f.get("status", "").startswith("reverted")
-    ]
+    reverted = [f for f in iter_findings if f.get("status", "").startswith("reverted")]
 
     lines = ["Harness checkpoint — automated fixes applied and tested.", ""]
 
@@ -190,7 +189,9 @@ def git_commit_checkpoint(progress, iteration, cwd):
     for pattern in [PROGRESS_FILE_NAME, PROGRESS_FILE_NAME + BACKUP_SUFFIX]:
         subprocess.run(
             ["git", "reset", "HEAD", "--", pattern],
-            cwd=str(cwd), capture_output=True, text=True,
+            cwd=str(cwd),
+            capture_output=True,
+            text=True,
         )
     result = subprocess.run(
         ["git", "commit", "-m", msg],
