@@ -19,14 +19,12 @@ def _swap_content(fix, cwd, find_key, replace_key):
     # Normalize path separators for cross-platform compatibility
     fix_file = fix["file"].replace("\\", "/")
     filepath = (Path(cwd) / fix_file).resolve()
-    if not _is_path_within(filepath, Path(cwd).resolve()):
+    cwd_resolved = Path(cwd).resolve()
+    if not _is_path_within(filepath, cwd_resolved):
         return False
     # Block writes to sensitive paths
-    try:
-        rel = filepath.relative_to(Path(cwd).resolve())
-        if any(part == ".git" for part in rel.parts):
-            return False
-    except ValueError:
+    rel = filepath.relative_to(cwd_resolved)
+    if any(part == ".git" for part in rel.parts):
         return False
     if not filepath.exists():
         return False

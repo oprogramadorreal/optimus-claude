@@ -597,6 +597,9 @@ def _run_iteration_loop(
 
         # Check no actionable fixes
         if result.get("no_actionable_fixes", False):
+            # Register discovered findings before exiting
+            for new_finding in result.get("new_findings", []):
+                mark_finding_status(progress, new_finding, "discovered", None)
             _handle_safe_exit(
                 progress,
                 progress_path,
