@@ -53,12 +53,15 @@ def git_stash_snapshot(cwd):
     if not sha:
         return None
     # Register in stash reflog so 'git stash apply' handles untracked files
-    subprocess.run(
+    store = subprocess.run(
         ["git", "stash", "store", "-m", "deep-mode snapshot", sha],
         capture_output=True,
         text=True,
         cwd=str(cwd),
     )
+    if store.returncode != 0:
+        print(f"{PREFIX} WARNING: git stash store failed: {store.stderr[:200]}")
+        return None
     return sha
 
 
@@ -68,7 +71,7 @@ def git_restore_snapshot(snapshot_sha, cwd):
     subprocess.run(
         ["git", "checkout", "."], cwd=str(cwd), capture_output=True, text=True
     )
-    # Remove untracked files/dirs left by the failed iteration
+    # Remove untracked files so stash apply can recreate them cleanly
     subprocess.run(
         ["git", "clean", "-fd"], cwd=str(cwd), capture_output=True, text=True
     )
@@ -98,18 +101,15 @@ def git_current_branch(cwd):
 
 def git_diff_has_changes(cwd):
     """Check if there are any uncommitted changes (staged, unstaged, or untracked)."""
-    unstaged = subprocess.run(
-        ["git", "diff", "--quiet"], cwd=str(cwd), capture_output=True
-    )
-    staged = subprocess.run(
-        ["git", "diff", "--cached", "--quiet"], cwd=str(cwd), capture_output=True
-    )
+    run_kw = dict(cwd=str(cwd), capture_output=True)
+    if subprocess.run(["git", "diff", "--quiet"], **run_kw).returncode != 0:
+        return True
+    if subprocess.run(["git", "diff", "--cached", "--quiet"], **run_kw).returncode != 0:
+        return True
     untracked = subprocess.run(
-        ["git", "ls-files", "--others", "--exclude-standard"],
-        cwd=str(cwd), capture_output=True, text=True,
+        ["git", "ls-files", "--others", "--exclude-standard"], **run_kw, text=True,
     )
-    return (unstaged.returncode != 0 or staged.returncode != 0
-            or bool(untracked.stdout.strip()))
+    return bool(untracked.stdout.strip())
 
 
 def restore_working_tree(stash_sha, head_commit, cwd):
