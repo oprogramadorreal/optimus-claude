@@ -97,10 +97,10 @@ For larger codebases or when context accumulation degrades quality, use deep har
 /optimus:code-review deep harness "focus on src/auth"
 
 # Or run the script directly:
-python scripts/deep-mode-harness.py --skill code-review
-python scripts/deep-mode-harness.py --skill code-review --scope "src/auth" --max-iterations 10
-python scripts/deep-mode-harness.py --skill code-review --timeout 1200
-python scripts/deep-mode-harness.py --skill code-review --resume
+python scripts/deep-mode-harness/main.py --skill code-review
+python scripts/deep-mode-harness/main.py --skill code-review --scope "src/auth" --max-iterations 10
+python scripts/deep-mode-harness/main.py --skill code-review --timeout 1200
+python scripts/deep-mode-harness/main.py --skill code-review --resume
 ```
 
 The harness handles test execution, fix bisection, checkpoint commits (with detailed per-fix messages), and termination detection externally — the skill only needs to analyze and apply fixes in a single pass per session. Press Ctrl+C at any time to stop safely; resume later with `--resume`.

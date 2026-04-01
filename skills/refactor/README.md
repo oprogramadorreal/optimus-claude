@@ -139,10 +139,10 @@ For larger codebases or when context accumulation degrades quality, use deep har
 /optimus:refactor deep harness 10 "focus on backend"
 
 # Or run the script directly:
-python scripts/deep-mode-harness.py --skill refactor --scope "src/api"
-python scripts/deep-mode-harness.py --skill refactor --max-iterations 10
-python scripts/deep-mode-harness.py --skill refactor --timeout 1200 --scope "src/api"
-python scripts/deep-mode-harness.py --skill refactor --resume
+python scripts/deep-mode-harness/main.py --skill refactor --scope "src/api"
+python scripts/deep-mode-harness/main.py --skill refactor --max-iterations 10
+python scripts/deep-mode-harness/main.py --skill refactor --timeout 1200 --scope "src/api"
+python scripts/deep-mode-harness/main.py --skill refactor --resume
 ```
 
 The harness handles test execution, fix bisection, checkpoint commits (with detailed per-fix messages), and termination detection externally. Press Ctrl+C at any time to stop safely; resume later with `--resume`.

@@ -22,8 +22,18 @@ Read the root README.md to understand the plugin's full capabilities — skills,
 ## Commands
 
 ```bash
-bash scripts/validate.sh && bash scripts/test-hooks.sh   # Run tests
+bash scripts/validate.sh && bash scripts/test-hooks.sh   # Run structural + hook tests
 ```
+
+### Python tests (deep-mode-harness)
+
+```bash
+python -m pytest test/deep-mode-harness/                  # Run unit tests
+python -m pytest test/deep-mode-harness/ --cov scripts/deep-mode-harness/impl --cov-report=term-missing  # With coverage
+```
+
+Or use the batch scripts: `test.cmd` (tests), `test-coverage.cmd` (coverage + HTML report in htmlcov/).
+First-time setup: `install.cmd` (creates `.venv` and installs pytest + pytest-cov).
 
 ## Skill-writing guidelines
 

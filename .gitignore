@@ -5,6 +5,9 @@ evals/
 test/fixtures/
 .worktrees/
 __pycache__/
+.venv/
+htmlcov/
+.coverage
 *.stackdump
 .claude/deep-mode-progress.json
 .claude/deep-mode-progress.json.bak

@@ -24,7 +24,9 @@ optimus-claude/
 │   ├── test-hooks.sh         # Hook execution tests (CI)
 │   ├── generate-fixtures.sh  # Generates minimal project fixtures for testing (local)
 │   ├── test-skills.sh        # Automated skill execution tests via claude -p (local)
-│   └── deep-mode-harness.py  # Deep harness orchestrator — invoked via `deep harness` or directly (local)
+│   └── deep-mode-harness/    # Deep harness orchestrator (Python package)
+│       ├── main.py           # Entry point — invoked via `deep harness` or directly
+│       └── impl/             # Internal modules (constants, git, progress, runner, etc.)
 ├── skills/
 │   ├── init/                 # /optimus:init
 │   ├── dev-setup/            # /optimus:dev-setup
@@ -42,7 +44,12 @@ optimus-claude/
 │   └── commit-message/       # /optimus:commit-message
 ├── test/
 │   ├── expected-outputs.yaml # Expected outputs for skill tests
+│   ├── deep-mode-harness/    # Python unit tests for the deep harness
 │   └── fixtures/             # Generated project fixtures (gitignored)
+├── requirements-dev.txt      # Python dev dependencies (pytest, pytest-cov)
+├── install.cmd               # Create .venv and install dev dependencies
+├── test.cmd                  # Run Python unit tests
+├── test-coverage.cmd         # Run Python tests with coverage report
 ├── README.md
 ├── CONTRIBUTING.md
 └── LICENSE
@@ -144,7 +151,7 @@ The `source` object supports an optional `"ref"` field to pin plugin code to a s
 
 ## Testing
 
-This plugin is markdown-based — traditional unit tests don't apply. Instead, testing is split into layers: fast structural checks that run in CI, and slower skill execution tests that run locally.
+This plugin is mostly markdown-based. Testing is split into layers: fast structural checks that run in CI, Python unit tests for the deep-mode harness, and slower skill execution tests that run locally.
 
 **Before merging significant changes**, run the full skill test suite from a clean slate:
 
@@ -187,6 +194,30 @@ Tests all state combinations (uninitialized, partial, fully configured, dirty tr
 - Correct recommendations for each project state
 - Zero-output guarantee for fully configured projects
 - Formatter hooks parse JSON input and filter by file extension correctly
+
+### Python unit tests (deep-mode-harness)
+
+Unit tests for the deep-mode harness Python modules — the only Python code in the plugin.
+
+**First-time setup:**
+
+```shell
+install.cmd                    # creates .venv and installs pytest + pytest-cov
+```
+
+**Run tests:**
+
+```shell
+test.cmd                       # run all Python unit tests
+test-coverage.cmd              # run with coverage (HTML report in htmlcov/)
+```
+
+Or manually via pytest:
+
+```shell
+.venv\Scripts\activate
+python -m pytest test/deep-mode-harness/ -v
+```
 
 ### Fixture generator (local)
 

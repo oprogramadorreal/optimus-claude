@@ -1,0 +1,203 @@
+import subprocess
+from pathlib import Path
+
+from .constants import BACKUP_SUFFIX, PREFIX, PROGRESS_FILE_NAME
+
+
+def git_rev_parse_head(cwd):
+    """Get the current HEAD commit SHA."""
+    result = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        capture_output=True,
+        text=True,
+        cwd=str(cwd),
+    )
+    if result.returncode != 0:
+        return None
+    return result.stdout.strip()
+
+
+def git_restore_to(commit, cwd):
+    """Restore working tree to match a commit (tracked + untracked files)."""
+    result = subprocess.run(
+        ["git", "checkout", commit, "--", "."],
+        cwd=str(cwd),
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"git checkout {commit} failed: {result.stderr}")
+    # Remove untracked files/dirs left by the failed iteration
+    subprocess.run(
+        ["git", "clean", "-fd"], cwd=str(cwd), capture_output=True, text=True
+    )
+
+
+def git_stash_snapshot(cwd):
+    """Create a stash snapshot of current working tree without modifying it.
+
+    Returns a stash commit SHA that can be restored later, or None if no changes.
+    Uses 'git stash create' which creates a commit object without modifying the
+    working tree, index, or stash reflog. The commit is then registered in the
+    stash reflog so that 'git stash apply' processes the untracked-files tree.
+    """
+    result = subprocess.run(
+        ["git", "stash", "create", "--include-untracked"],
+        capture_output=True,
+        text=True,
+        cwd=str(cwd),
+    )
+    sha = result.stdout.strip()
+    if not sha:
+        return None
+    # Register in stash reflog so 'git stash apply' handles untracked files
+    subprocess.run(
+        ["git", "stash", "store", "-m", "deep-mode snapshot", sha],
+        capture_output=True,
+        text=True,
+        cwd=str(cwd),
+    )
+    return sha
+
+
+def git_restore_snapshot(snapshot_sha, cwd):
+    """Restore working tree from a stash snapshot created by git_stash_snapshot."""
+    # First reset to HEAD to clean working tree (tracked files)
+    subprocess.run(
+        ["git", "checkout", "."], cwd=str(cwd), capture_output=True, text=True
+    )
+    # Remove untracked files/dirs left by the failed iteration
+    subprocess.run(
+        ["git", "clean", "-fd"], cwd=str(cwd), capture_output=True, text=True
+    )
+    # Then apply the snapshot (includes untracked files if --include-untracked was used)
+    result = subprocess.run(
+        ["git", "stash", "apply", snapshot_sha],
+        cwd=str(cwd),
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        print(f"{PREFIX} WARNING: Could not restore snapshot: {result.stderr[:200]}")
+        return False
+    return True
+
+
+def git_current_branch(cwd):
+    """Get the current branch name, or empty string on failure."""
+    result = subprocess.run(
+        ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+        cwd=str(cwd),
+        capture_output=True,
+        text=True,
+    )
+    return result.stdout.strip() if result.returncode == 0 else ""
+
+
+def git_diff_has_changes(cwd):
+    """Check if there are any uncommitted changes (staged, unstaged, or untracked)."""
+    unstaged = subprocess.run(
+        ["git", "diff", "--quiet"], cwd=str(cwd), capture_output=True
+    )
+    staged = subprocess.run(
+        ["git", "diff", "--cached", "--quiet"], cwd=str(cwd), capture_output=True
+    )
+    untracked = subprocess.run(
+        ["git", "ls-files", "--others", "--exclude-standard"],
+        cwd=str(cwd), capture_output=True, text=True,
+    )
+    return (unstaged.returncode != 0 or staged.returncode != 0
+            or bool(untracked.stdout.strip()))
+
+
+def restore_working_tree(stash_sha, head_commit, cwd):
+    """Restore working tree to its pre-iteration state.
+
+    Tries the stash snapshot first (preserves uncommitted work from prior
+    --no-commit iterations), falls back to git checkout of the HEAD commit.
+    """
+    if stash_sha:
+        if git_restore_snapshot(stash_sha, cwd):
+            return
+    git_restore_to(head_commit, cwd)
+
+
+def _build_commit_body(progress, iteration, max_entries=10):
+    """Build commit body listing per-fix details for this iteration."""
+    findings = progress.get("findings", [])
+    iter_findings = [
+        f for f in findings if f.get("iteration_last_attempted") == iteration
+    ]
+    if not iter_findings:
+        return ""
+
+    fixed = [f for f in iter_findings if f.get("status") == "fixed"]
+    reverted = [
+        f for f in iter_findings
+        if f.get("status", "").startswith("reverted")
+    ]
+
+    lines = ["Harness checkpoint — automated fixes applied and tested.", ""]
+
+    def format_finding_line(finding):
+        loc = f"{finding['file']}:{finding.get('line', '?')}"
+        cat = finding.get("category", "unknown")
+        summary = finding.get("summary", "").replace("\n", " ").replace("\r", "")
+        if len(summary) > 72:
+            summary = summary[:69] + "..."
+        return f"- {loc} [{cat}] {summary}"
+
+    def append_section(header, items):
+        if not items:
+            return
+        lines.append(header)
+        for item in items[:max_entries]:
+            lines.append(format_finding_line(item))
+        overflow = len(items) - max_entries
+        if overflow > 0:
+            lines.append(f"- ... and {overflow} more")
+        lines.append("")
+
+    append_section("Fixed:", fixed)
+    append_section("Reverted (test failure):", reverted)
+
+    return "\n".join(lines)
+
+
+def git_commit_checkpoint(progress, iteration, cwd):
+    """Create a checkpoint commit for this iteration. Returns True on success."""
+    skill = progress["skill"]
+    hist = progress["iteration_history"]
+    latest = hist[-1] if hist else {}
+    fixed = latest.get("fixed", 0)
+    reverted = latest.get("reverted", 0)
+
+    title = (
+        f"deep-harness({skill}): iteration {iteration} — "
+        f"{fixed} fixed, {reverted} reverted"
+    )
+    body = _build_commit_body(progress, iteration)
+    msg = f"{title}\n\n{body}" if body else title
+
+    add_result = subprocess.run(
+        ["git", "add", "-A"], cwd=str(cwd), capture_output=True, text=True
+    )
+    if add_result.returncode != 0:
+        print(f"{PREFIX} WARNING: git add -A failed: {add_result.stderr[:200]}")
+        return False
+    # Un-stage harness state files from checkpoint commits
+    for pattern in [PROGRESS_FILE_NAME, PROGRESS_FILE_NAME + BACKUP_SUFFIX]:
+        subprocess.run(
+            ["git", "reset", "HEAD", "--", pattern],
+            cwd=str(cwd), capture_output=True, text=True,
+        )
+    result = subprocess.run(
+        ["git", "commit", "-m", msg],
+        cwd=str(cwd),
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        print(f"{PREFIX} WARNING: checkpoint commit failed: {result.stderr[:200]}")
+        return False
+    return True

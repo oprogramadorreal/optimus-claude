@@ -30,7 +30,7 @@ Construct the harness command using these parameters passed by the calling skill
 - `resume` — from step 3
 
 ```
-<python_cmd> "<plugin_root>/scripts/deep-mode-harness.py" --skill <skill_name> --progress-file .claude/deep-mode-progress.json [--max-iterations <N>] [--scope "<scope>"] [--timeout <seconds>] [--resume]
+<python_cmd> "<plugin_root>/scripts/deep-mode-harness/main.py" --skill <skill_name> --progress-file .claude/deep-mode-progress.json [--max-iterations <N>] [--scope "<scope>"] [--timeout <seconds>] [--resume]
 ```
 
 Where `<python_cmd>` is `python3` or `python` (whichever worked in step 2). Wrap `<plugin_root>` in quotes to handle paths with spaces. The constructed command must be a single line (no backslash continuations) for easy copy-paste on all platforms.
