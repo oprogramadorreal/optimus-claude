@@ -44,8 +44,17 @@ Status values:
 - **reverted** — applied but caused test failure, reverted
 - **persistent** — fix attempted multiple times, still failing
 
-Focus your review on NEW issues only. Do NOT re-flag code that was introduced by a prior fix — those changes are intentional. If you find a genuine NEW bug in code that was part of a prior fix, flag it as a new finding (do not reference the prior finding).
+[if any findings have status reverted or persistent, append this section:]
+
+### Failed Fix Attempts
+[one bullet per reverted/persistent finding — omit for fixed findings]
+- **<file>:<line>** (<category>): Tried: <fix_description>. Failed: <last_failure_hint>
+
+[If fix_description is empty, write "Tried: (no description)". If last_failure_hint is empty, write "Failed: (no test output captured)".]
+
+Focus your review on NEW issues only. Do NOT re-flag code that was introduced by a prior fix — those changes are intentional. If you find a genuine NEW bug in code that was part of a prior fix, flag it as a new finding (do not reference the prior finding). For reverted/persistent findings, use the "Failed Fix Attempts" section to understand what was already tried and WHY it failed — attempt a different approach rather than repeating the same fix.
 
 ```
 
 **Summary column**: one sentence, max 120 characters, describing the issue (not the fix).
+**Failed Fix Attempts section**: only included when there are reverted or persistent findings. Kept compact — one line per finding with truncated test output (max ~200 chars). This gives the next iteration enough signal to try a different approach without bloating context.

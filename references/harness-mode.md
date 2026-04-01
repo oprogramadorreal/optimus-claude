@@ -102,9 +102,15 @@ If `iteration-count` > 1, construct the Iteration Context Block from the accumul
 | File | Line | Category | Summary | Status |
 |------|------|----------|---------|--------|
 [one row per finding from accumulated-findings]
+
+### Failed Fix Attempts
+[one bullet per reverted/persistent finding only — omit fixed findings]
+- **<file>:<line>** (<category>): Tried: <fix_description>. Failed: <last_failure_hint>
 ```
 
-Use only compact fields (file, line, category, summary, status) — do NOT include code content (`pre_edit_content` / `post_edit_content`) in the context block, as that would recreate context bloat.
+The main table uses only compact fields (file, line, category, summary, status). Do NOT include code content (`pre_edit_content` / `post_edit_content`) in the context block, as that would recreate context bloat.
+
+The "Failed Fix Attempts" section is appended **only when reverted or persistent findings exist**. It surfaces `fix_description` (what was tried) and `last_failure_hint` (truncated test failure output, max ~200 chars) so the next iteration can try a different approach instead of repeating the same fix. Omit the section entirely if all findings are fixed.
 
 ### 3. Run one analysis cycle
 

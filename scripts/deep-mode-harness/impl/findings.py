@@ -11,6 +11,24 @@ def finding_matches(finding, fix):
     return finding_key(finding) == finding_key(fix)
 
 
+def _truncate_failure_hint(detail, max_len=200):
+    """Extract a compact failure hint from a test output summary."""
+    if not detail:
+        return None
+    hint = detail.strip()
+    if len(hint) > max_len:
+        hint = hint[:max_len] + "..."
+    return hint
+
+
+# Statuses that indicate a failed fix attempt
+_FAILURE_STATUSES = frozenset({
+    "reverted — test failure",
+    "reverted — attempt 2",
+    "persistent — fix failed",
+})
+
+
 def mark_finding_status(progress, fix, status, detail):
     """Update a finding's status in the progress file."""
     # Try to find existing finding by file+line+category match
@@ -30,6 +48,11 @@ def mark_finding_status(progress, fix, status, detail):
                 "status": status,
                 "detail": detail,
             })
+            # Store compact failure context for the next iteration's prompt
+            if status in _FAILURE_STATUSES:
+                existing["last_failure_hint"] = _truncate_failure_hint(detail)
+            elif status == "fixed":
+                existing.pop("last_failure_hint", None)
             return
 
     # Not found — add as new finding

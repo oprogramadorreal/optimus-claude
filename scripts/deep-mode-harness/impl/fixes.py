@@ -59,17 +59,17 @@ def revert_single_fix(fix, cwd):
 def _try_apply_fix(fix, test_command, cwd, progress, pass_detail=None):
     """Apply a single fix, test, revert on failure. Returns 'fixed'|'reverted'|'skipped'."""
     if not apply_single_fix(fix, cwd):
-        return "skipped"
-    test_passed, _ = run_tests(test_command, cwd)
+        return "skipped", None
+    test_passed, test_summary = run_tests(test_command, cwd)
     if test_passed:
         mark_finding_status(progress, fix, "fixed", pass_detail)
-        return "fixed"
+        return "fixed", None
     if not revert_single_fix(fix, cwd):
         print(f"{PREFIX} WARNING: Could not revert failing fix for {fix.get('file')} — retaining fix")
         mark_finding_status(progress, fix, "fixed",
                             "Revert failed after test failure — fix retained")
-        return "fixed"
-    return "reverted"
+        return "fixed", None
+    return "reverted", test_summary
 
 
 def bisect_fixes(fixes, test_command, cwd, progress):
@@ -92,6 +92,7 @@ def bisect_fixes(fixes, test_command, cwd, progress):
     reverted_count = 0
     skipped_count = 0
     reverted_indices = []
+    reverted_summaries = {}  # index -> test failure summary for reverted fixes
 
     # First pass: apply incrementally, keeping passing fixes
     for i, fix in enumerate(fixes):
@@ -100,7 +101,7 @@ def bisect_fixes(fixes, test_command, cwd, progress):
                                 "Could not mechanically revert during bisection — fix retained untested")
             fixed_count += 1  # counts toward applied (fix is in codebase)
             continue
-        outcome = _try_apply_fix(fix, test_command, cwd, progress)
+        outcome, fail_summary = _try_apply_fix(fix, test_command, cwd, progress)
         if outcome == "fixed":
             fixed_count += 1
         elif outcome == "skipped":
@@ -110,6 +111,7 @@ def bisect_fixes(fixes, test_command, cwd, progress):
             skipped_count += 1
         else:
             reverted_indices.append(i)
+            reverted_summaries[i] = fail_summary
 
     # Second pass: retry reverted fixes — they may depend on fixes that
     # were applied later in the first pass (e.g., fix A uses an import
@@ -118,8 +120,9 @@ def bisect_fixes(fixes, test_command, cwd, progress):
         print(f"{PREFIX} Retrying {len(reverted_indices)} reverted fixes...")
         for i in reverted_indices:
             fix = fixes[i]
-            outcome = _try_apply_fix(fix, test_command, cwd, progress,
-                                     pass_detail="Passed on retry (dependency resolved)")
+            outcome, fail_summary = _try_apply_fix(
+                fix, test_command, cwd, progress,
+                pass_detail="Passed on retry (dependency resolved)")
             if outcome == "fixed":
                 fixed_count += 1
             elif outcome == "skipped":
@@ -127,14 +130,15 @@ def bisect_fixes(fixes, test_command, cwd, progress):
                                     "Could not mechanically re-apply fix on retry")
                 skipped_count += 1
             else:
-                mark_finding_status(progress, fix, "reverted — test failure",
-                                    "Test failure during bisection")
+                # Use the latest failure summary (retry may differ from first attempt)
+                summary = fail_summary or reverted_summaries.get(i)
+                mark_finding_status(progress, fix, "reverted — test failure", summary)
                 reverted_count += 1
     else:
         # No retry needed — mark remaining reverted fixes
         for i in reverted_indices:
             mark_finding_status(progress, fixes[i], "reverted — test failure",
-                                "Test failure during bisection")
+                                reverted_summaries.get(i))
             reverted_count += 1
 
     return fixed_count, reverted_count, skipped_count
