@@ -579,6 +579,7 @@ def _run_iteration_loop(
 
         # Check convergence
         if result.get("no_new_findings", False):
+            _register_iteration_findings(progress, result, fixes=[])
             _handle_safe_exit(
                 progress,
                 progress_path,
