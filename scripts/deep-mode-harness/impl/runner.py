@@ -50,8 +50,6 @@ def _find_bash():
 def run_tests(test_command, cwd):
     """Run the project's test command. Returns (passed: bool, output: str)."""
     print(f"{PREFIX} Running tests: {test_command}")
-    # On Windows, shell=True uses cmd.exe which doesn't support bash operators
-    # like && or ||. Wrap with bash -c if the command uses them.
     if sys.platform == "win32":
         # On Windows, shell=True uses cmd.exe which misparses bash operators
         # (&&, ||), subshells ($(...)), env vars ($VAR), and redirections (2>).
@@ -126,7 +124,7 @@ def run_skill_session(progress, args, resolved_progress_path):
     ]
 
     # Permission handling: --allowedTools (safer) or --dangerously-skip-permissions (default)
-    if getattr(args, "allowed_tools", None):
+    if args.allowed_tools:
         cmd.extend(["--allowedTools", args.allowed_tools])
     else:
         cmd.append("--dangerously-skip-permissions")

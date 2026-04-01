@@ -259,13 +259,9 @@ def _handle_interrupt(args, progress, progress_path, project_root):
     iteration = progress["iteration"]["current"]
     if not args.no_commit and git_diff_has_changes(project_root):
         print(f"{PREFIX} Committing completed work from current iteration...")
-        # Ensure iteration_history has an entry so the commit message is accurate
+        # Interrupt may occur before _record_iteration_history runs
         if not progress["iteration_history"] or progress["iteration_history"][-1].get("iteration") != iteration:
-            progress["iteration_history"].append({
-                "iteration": iteration, "new_findings": 0,
-                "fixed": 0, "reverted": 0, "persistent": 0,
-                "test_passed": False,
-            })
+            _record_iteration_history(progress, iteration, 0, 0, 0, False)
         git_commit_checkpoint(progress, iteration, project_root)
     progress["termination"] = {
         "reason": "interrupted",
@@ -452,10 +448,9 @@ def _test_and_reconcile_fixes(fixes, test_command, project_root, progress,
     fixed_count, reverted_count, skipped_count = bisect_fixes(
         fixes, test_command, project_root, progress
     )
-    reverted_count += skipped_count  # skipped fixes count toward reverted total
     print(
         f"{PREFIX} Results: {fixed_count} fixed, "
-        f"{reverted_count} reverted (bisection)"
+        f"{reverted_count} reverted, {skipped_count} skipped (bisection)"
     )
 
     # Verify combined fixes don't interact badly

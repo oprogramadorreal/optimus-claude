@@ -28,9 +28,11 @@ def git_restore_to(commit, cwd):
     if result.returncode != 0:
         raise RuntimeError(f"git checkout {commit} failed: {result.stderr}")
     # Remove untracked files/dirs left by the failed iteration
-    subprocess.run(
+    clean = subprocess.run(
         ["git", "clean", "-fd"], cwd=str(cwd), capture_output=True, text=True
     )
+    if clean.returncode != 0:
+        print(f"{PREFIX} WARNING: git clean -fd failed: {clean.stderr[:200]}")
 
 
 def git_stash_snapshot(cwd):
