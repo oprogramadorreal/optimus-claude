@@ -137,14 +137,14 @@ def run_skill_session(progress, args, resolved_progress_path, _run=subprocess.ru
     Returns the raw stdout output.
     """
     iteration = progress["iteration"]["current"]
-    max_iter = progress["config"]["max_iterations"]
+    max_iterations = progress["config"]["max_iterations"]
     # Use forward slashes for cross-platform compatibility in system prompt
     progress_path = normalize_path(str(resolved_progress_path))
 
     prompt = _build_prompt(
-        progress["skill"], max_iter, progress["scope_files"]["current"]
+        progress["skill"], max_iterations, progress["scope_files"]["current"]
     )
-    harness_system = _build_harness_system(progress_path, iteration, max_iter)
+    harness_system = _build_harness_system(progress_path, iteration, max_iterations)
     cmd = _build_cmd(prompt, harness_system, args.allowed_tools, args.max_turns)
 
     if args.verbose:

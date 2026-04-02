@@ -85,13 +85,24 @@ def git_restore_snapshot(snapshot_sha, cwd):
     if result.returncode != 0:
         print(f"{PREFIX} WARNING: Could not restore snapshot: {result.stderr[:200]}")
         return False
-    # Drop the stash entry to avoid accumulating orphaned snapshots
-    subprocess.run(
-        ["git", "stash", "drop", snapshot_sha],
+    # Drop the stash entry to avoid accumulating orphaned snapshots.
+    # git stash drop requires a stash ref (stash@{N}), not a raw SHA.
+    list_result = subprocess.run(
+        ["git", "stash", "list", "--format=%gd %H"],
         cwd=str(cwd),
         capture_output=True,
         text=True,
     )
+    for entry in list_result.stdout.strip().splitlines():
+        parts = entry.split(" ", 1)
+        if len(parts) == 2 and parts[1] == snapshot_sha:
+            subprocess.run(
+                ["git", "stash", "drop", parts[0]],
+                cwd=str(cwd),
+                capture_output=True,
+                text=True,
+            )
+            break
     return True
 
 
