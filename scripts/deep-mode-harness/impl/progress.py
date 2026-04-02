@@ -8,15 +8,26 @@ from .constants import BACKUP_SUFFIX
 from .git import git_rev_parse_head
 
 
-def make_initial_progress(skill, scope, max_iterations, test_command, project_root):
+def make_initial_progress(
+    skill,
+    scope,
+    max_iterations,
+    test_command,
+    project_root,
+    base_commit=None,
+    started_at=None,
+):
     """Create the initial progress file structure."""
-    base_commit = git_rev_parse_head(project_root)
+    if base_commit is None:
+        base_commit = git_rev_parse_head(project_root)
+    if started_at is None:
+        started_at = datetime.datetime.now(datetime.timezone.utc).strftime(
+            "%Y-%m-%dT%H:%M:%SZ"
+        )
     return {
         "schema_version": 1,
         "skill": skill,
-        "started_at": datetime.datetime.now(datetime.timezone.utc).strftime(
-            "%Y-%m-%dT%H:%M:%SZ"
-        ),
+        "started_at": started_at,
         "config": {
             "max_iterations": max_iterations,
             "test_command": test_command,

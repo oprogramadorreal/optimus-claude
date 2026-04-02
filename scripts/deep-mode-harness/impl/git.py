@@ -16,6 +16,18 @@ def git_rev_parse_head(cwd):
     return result.stdout.strip()
 
 
+def _clean_working_tree(cwd):
+    """Reset tracked files and remove untracked files/dirs."""
+    subprocess.run(
+        ["git", "checkout", "."], cwd=str(cwd), capture_output=True, text=True
+    )
+    clean = subprocess.run(
+        ["git", "clean", "-fd"], cwd=str(cwd), capture_output=True, text=True
+    )
+    if clean.returncode != 0:
+        print(f"{PREFIX} WARNING: git clean -fd failed: {clean.stderr[:200]}")
+
+
 def git_restore_to(commit, cwd):
     """Restore working tree to match a commit (tracked + untracked files)."""
     result = subprocess.run(
@@ -26,12 +38,7 @@ def git_restore_to(commit, cwd):
     )
     if result.returncode != 0:
         raise RuntimeError(f"git checkout {commit} failed: {result.stderr}")
-    # Remove untracked files/dirs left by the failed iteration
-    clean = subprocess.run(
-        ["git", "clean", "-fd"], cwd=str(cwd), capture_output=True, text=True
-    )
-    if clean.returncode != 0:
-        print(f"{PREFIX} WARNING: git clean -fd failed: {clean.stderr[:200]}")
+    _clean_working_tree(cwd)
 
 
 def git_stash_snapshot(cwd):
@@ -66,14 +73,8 @@ def git_stash_snapshot(cwd):
 
 def git_restore_snapshot(snapshot_sha, cwd):
     """Restore working tree from a stash snapshot created by git_stash_snapshot."""
-    # First reset to HEAD to clean working tree (tracked files)
-    subprocess.run(
-        ["git", "checkout", "."], cwd=str(cwd), capture_output=True, text=True
-    )
-    # Remove untracked files so stash apply can recreate them cleanly
-    subprocess.run(
-        ["git", "clean", "-fd"], cwd=str(cwd), capture_output=True, text=True
-    )
+    # Clean working tree so stash apply can recreate files cleanly
+    _clean_working_tree(cwd)
     # Then apply the snapshot (includes untracked files if --include-untracked was used)
     result = subprocess.run(
         ["git", "stash", "apply", snapshot_sha],
@@ -100,14 +101,25 @@ def git_current_branch(cwd):
 
 def git_diff_has_changes(cwd):
     """Check if there are any uncommitted changes (staged, unstaged, or untracked)."""
-    run_kw = dict(cwd=str(cwd), capture_output=True)
-    if subprocess.run(["git", "diff", "--quiet"], **run_kw).returncode != 0:
+    cwd_str = str(cwd)
+    if (
+        subprocess.run(
+            ["git", "diff", "--quiet"], cwd=cwd_str, capture_output=True
+        ).returncode
+        != 0
+    ):
         return True
-    if subprocess.run(["git", "diff", "--cached", "--quiet"], **run_kw).returncode != 0:
+    if (
+        subprocess.run(
+            ["git", "diff", "--cached", "--quiet"], cwd=cwd_str, capture_output=True
+        ).returncode
+        != 0
+    ):
         return True
     untracked = subprocess.run(
         ["git", "ls-files", "--others", "--exclude-standard"],
-        **run_kw,
+        cwd=cwd_str,
+        capture_output=True,
         text=True,
     )
     return bool(untracked.stdout.strip())
@@ -125,6 +137,30 @@ def restore_working_tree(stash_sha, head_commit, cwd):
     git_restore_to(head_commit, cwd)
 
 
+def _format_finding_line(finding):
+    """Format a single finding as a commit-body bullet."""
+    loc = f"{finding['file']}:{finding.get('line', '?')}"
+    cat = finding.get("category", "unknown")
+    summary = finding.get("summary", "").replace("\n", " ").replace("\r", "")
+    if len(summary) > 72:
+        summary = summary[:69] + "..."
+    return f"- {loc} [{cat}] {summary}"
+
+
+def _format_section(header, items, max_entries=10):
+    """Format a section of findings as commit-body lines."""
+    if not items:
+        return []
+    lines = [header]
+    for item in items[:max_entries]:
+        lines.append(_format_finding_line(item))
+    overflow = len(items) - max_entries
+    if overflow > 0:
+        lines.append(f"- ... and {overflow} more")
+    lines.append("")
+    return lines
+
+
 def _build_commit_body(progress, iteration, max_entries=10):
     """Build commit body listing per-fix details for this iteration."""
     findings = progress.get("findings", [])
@@ -138,28 +174,8 @@ def _build_commit_body(progress, iteration, max_entries=10):
     reverted = [f for f in iter_findings if f.get("status", "").startswith("reverted")]
 
     lines = ["Harness checkpoint — automated fixes applied and tested.", ""]
-
-    def format_finding_line(finding):
-        loc = f"{finding['file']}:{finding.get('line', '?')}"
-        cat = finding.get("category", "unknown")
-        summary = finding.get("summary", "").replace("\n", " ").replace("\r", "")
-        if len(summary) > 72:
-            summary = summary[:69] + "..."
-        return f"- {loc} [{cat}] {summary}"
-
-    def append_section(header, items):
-        if not items:
-            return
-        lines.append(header)
-        for item in items[:max_entries]:
-            lines.append(format_finding_line(item))
-        overflow = len(items) - max_entries
-        if overflow > 0:
-            lines.append(f"- ... and {overflow} more")
-        lines.append("")
-
-    append_section("Fixed:", fixed)
-    append_section("Reverted (test failure):", reverted)
+    lines.extend(_format_section("Fixed:", fixed, max_entries))
+    lines.extend(_format_section("Reverted (test failure):", reverted, max_entries))
 
     return "\n".join(lines)
 

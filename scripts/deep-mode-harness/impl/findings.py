@@ -1,3 +1,4 @@
+from .constants import FAILURE_STATUSES
 from .progress import generate_finding_id
 
 
@@ -21,14 +22,45 @@ def _truncate_failure_hint(detail, max_len=200):
     return hint
 
 
-# Statuses that indicate a failed fix attempt
-_FAILURE_STATUSES = frozenset(
-    {
-        "reverted — test failure",
-        "reverted — attempt 2",
-        "persistent — fix failed",
+def _new_finding_from_fix(fix, progress, status, detail):
+    """Build a new finding record from a fix dict."""
+    iteration = progress["iteration"]["current"]
+    line = fix.get("line", 0)
+    return {
+        "id": generate_finding_id(progress),
+        "file": fix.get("file", "").replace("\\", "/"),
+        "line": line,
+        "end_line": fix.get("end_line", line),
+        "category": fix.get("category", ""),
+        "guideline": fix.get("guideline", ""),
+        "summary": fix.get("summary", ""),
+        "fix_description": fix.get("fix_description", ""),
+        "iteration_discovered": iteration,
+        "iteration_last_attempted": iteration,
+        "status": status,
+        "status_history": [
+            {
+                "iteration": iteration,
+                "status": status,
+                "detail": detail,
+            }
+        ],
+        "agent": fix.get("agent", ""),
+        "confidence": fix.get("confidence", ""),
+        "severity": fix.get("severity", ""),
+        "pre_edit_content": fix.get("pre_edit_content", ""),
+        "post_edit_content": fix.get("post_edit_content", ""),
     }
-)
+
+
+def _promote_status(new_status, old_status):
+    """Promote repeated revert statuses through the escalation chain."""
+    if new_status == "reverted — test failure":
+        if old_status == "reverted — test failure":
+            return "reverted — attempt 2"
+        if old_status == "reverted — attempt 2":
+            return "persistent — fix failed"
+    return new_status
 
 
 def mark_finding_status(progress, fix, status, detail):
@@ -36,18 +68,7 @@ def mark_finding_status(progress, fix, status, detail):
     # Try to find existing finding by file+line+category match
     for existing in progress["findings"]:
         if finding_matches(existing, fix):
-            old_status = existing["status"]
-            # Promote reverted -> attempt 2 -> persistent
-            if (
-                status == "reverted — test failure"
-                and old_status == "reverted — test failure"
-            ):
-                status = "reverted — attempt 2"
-            elif (
-                status == "reverted — test failure"
-                and old_status == "reverted — attempt 2"
-            ):
-                status = "persistent — fix failed"
+            status = _promote_status(status, existing["status"])
 
             existing["status"] = status
             existing["iteration_last_attempted"] = progress["iteration"]["current"]
@@ -59,38 +80,14 @@ def mark_finding_status(progress, fix, status, detail):
                 }
             )
             # Store compact failure context for the next iteration's prompt
-            if status in _FAILURE_STATUSES:
+            if status in FAILURE_STATUSES:
                 existing["last_failure_hint"] = _truncate_failure_hint(detail)
             elif status == "fixed":
                 existing.pop("last_failure_hint", None)
             return
 
     # Not found — add as new finding
-    new_finding = {
-        "id": generate_finding_id(progress),
-        "file": fix.get("file", ""),
-        "line": fix.get("line", 0),
-        "end_line": fix.get("end_line", fix.get("line", 0)),
-        "category": fix.get("category", ""),
-        "guideline": fix.get("guideline", ""),
-        "summary": fix.get("summary", ""),
-        "fix_description": fix.get("fix_description", ""),
-        "iteration_discovered": progress["iteration"]["current"],
-        "iteration_last_attempted": progress["iteration"]["current"],
-        "status": status,
-        "status_history": [
-            {
-                "iteration": progress["iteration"]["current"],
-                "status": status,
-                "detail": detail,
-            }
-        ],
-        "agent": fix.get("agent", ""),
-        "confidence": fix.get("confidence", ""),
-        "severity": fix.get("severity", ""),
-        "pre_edit_content": fix.get("pre_edit_content", ""),
-        "post_edit_content": fix.get("post_edit_content", ""),
-    }
+    new_finding = _new_finding_from_fix(fix, progress, status, detail)
     progress["findings"].append(new_finding)
 
 

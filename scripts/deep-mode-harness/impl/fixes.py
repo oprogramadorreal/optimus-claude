@@ -14,7 +14,7 @@ def _is_path_within(filepath, root):
         return False
 
 
-def _swap_content(fix, cwd, find_key, replace_key):
+def _swap_content(fix, cwd, source_field, target_field):
     """Swap one content string for another in a file."""
     # Normalize path separators for cross-platform compatibility
     fix_file = fix["file"].replace("\\", "/")
@@ -28,9 +28,12 @@ def _swap_content(fix, cwd, find_key, replace_key):
         return False
     if not filepath.exists():
         return False
-    content = filepath.read_text(encoding="utf-8")
-    find = fix.get(find_key, "")
-    replace = fix.get(replace_key, "")
+    try:
+        content = filepath.read_text(encoding="utf-8")
+    except (UnicodeDecodeError, OSError):
+        return False
+    find = fix.get(source_field, "")
+    replace = fix.get(target_field, "")
     if not find:
         # Empty find string — cannot locate target in file content.
         # This happens when reverting a deletion fix (empty post_edit_content):
@@ -84,11 +87,11 @@ def bisect_fixes(fixes, test_command, cwd, progress):
     print(f"{PREFIX} Bisecting {len(fixes)} fixes...")
     # Revert all this iteration's fixes mechanically (preserves prior uncommitted work)
     revert_failures = set()
-    for i in range(len(fixes) - 1, -1, -1):
-        if not revert_single_fix(fixes[i], cwd):
-            revert_failures.add(i)
+    for fix_index, fix in reversed(list(enumerate(fixes))):
+        if not revert_single_fix(fix, cwd):
+            revert_failures.add(fix_index)
             print(
-                f"{PREFIX} WARNING: Could not mechanically revert fix for {fixes[i].get('file')}"
+                f"{PREFIX} WARNING: Could not mechanically revert fix for {fix.get('file')}"
             )
 
     fixed_count = 0

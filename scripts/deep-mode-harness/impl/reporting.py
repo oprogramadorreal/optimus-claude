@@ -1,22 +1,15 @@
 import re
 from pathlib import Path
 
-from .constants import PREFIX
+from .constants import FIXED_STATUSES, PREFIX, REVERTED_STATUSES
 from .git import git_current_branch
 
 
-def print_report(progress):
+def print_report(progress, current_branch=None):
     """Print the consolidated cumulative report."""
     findings = progress["findings"]
-    total_fixed = sum(
-        1 for f in findings if f["status"] in ("fixed", "retained — revert failed")
-    )
-    total_reverted = sum(
-        1
-        for f in findings
-        if f["status"]
-        in ("reverted — test failure", "reverted — attempt 2", "skipped — apply failed")
-    )
+    total_fixed = sum(1 for f in findings if f["status"] in FIXED_STATUSES)
+    total_reverted = sum(1 for f in findings if f["status"] in REVERTED_STATUSES)
     total_persistent = sum(
         1 for f in findings if f["status"] == "persistent — fix failed"
     )
@@ -65,7 +58,11 @@ def print_report(progress):
         print(f"{PREFIX} To squash checkpoint commits: git rebase -i {base[:8]}")
         print(f"{PREFIX} To rollback everything:       git reset --hard {base[:8]}")
         # Suggest push if on a feature branch (not main/master)
-        branch = git_current_branch(progress["config"]["project_root"])
+        branch = (
+            current_branch
+            if current_branch is not None
+            else git_current_branch(progress["config"]["project_root"])
+        )
         if branch and branch not in ("main", "master"):
             print(f"{PREFIX} To push checkpoint branch:    git push -u origin {branch}")
         print(f"{PREFIX}")
@@ -84,16 +81,17 @@ def print_report(progress):
     )
 
 
-def detect_test_command(project_root):
+def detect_test_command(project_root, content=None):
     """
     Try to extract the test command from .claude/CLAUDE.md.
     Looks for common patterns like 'test command: ...' or code blocks with test commands.
+    Pass content directly to skip filesystem access (useful for testing).
     """
-    claude_md = Path(project_root) / ".claude" / "CLAUDE.md"
-    if not claude_md.exists():
-        return None
-
-    content = claude_md.read_text(encoding="utf-8")
+    if content is None:
+        claude_md = Path(project_root) / ".claude" / "CLAUDE.md"
+        if not claude_md.exists():
+            return None
+        content = claude_md.read_text(encoding="utf-8")
 
     # Look for explicit test command patterns
     patterns = [
