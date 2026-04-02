@@ -10,9 +10,9 @@ PREFIX = "[deep-mode]"
 PERSISTENT_STATUS = "persistent — fix failed"
 
 
-def normalize_path(p):
+def normalize_path(path_str):
     """Normalize path separators for cross-platform compatibility."""
-    return p.replace("\\", "/")
+    return path_str.replace("\\", "/")
 
 
 # Status grouping constants — single source of truth for status classification

@@ -116,7 +116,7 @@ def update_scope(progress, result):
         if finding["status"] != PERSISTENT_STATUS:
             finding_files.add(finding["file"])
     for fix in result.get("fixes_applied", []):
-        finding_files.add(fix["file"])
+        finding_files.add(fix.get("file", ""))
 
     # Merge with existing scope
     current = set(progress["scope_files"]["current"])

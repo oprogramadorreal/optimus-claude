@@ -82,11 +82,11 @@ def print_report(progress, current_branch=None):
 def _format_finding_line(finding):
     """Format a single finding as a commit-body bullet."""
     loc = f"{finding['file']}:{finding.get('line', '?')}"
-    cat = finding.get("category", "unknown")
+    category = finding.get("category", "unknown")
     summary = finding.get("summary", "").replace("\n", " ").replace("\r", "")
     if len(summary) > 72:
         summary = summary[:69] + "..."
-    return f"- {loc} [{cat}] {summary}"
+    return f"- {loc} [{category}] {summary}"
 
 
 def _format_section(header, items, max_entries=10):
@@ -134,18 +134,25 @@ def detect_test_command(project_root, content=None):
             return None
         content = claude_md.read_text(encoding="utf-8")
 
-    # Look for explicit test command patterns
-    patterns = [
+    # Look for explicit test command patterns (inline backtick style)
+    inline_patterns = [
         r"(?:test|tests)\s*(?:command|cmd)\s*[:=]\s*`([^`]+)`",
-        r"```\s*(?:bash|sh)?\s*\n\s*(.+?(?:test|spec|jest|pytest|cargo test|go test|dotnet test).*)\s*\n\s*```",
         r"(?:run\s+tests?|testing)\s*[:]\s*`([^`]+)`",
     ]
-    for pattern in patterns:
+    for pattern in inline_patterns:
         match = re.search(pattern, content, re.IGNORECASE | re.MULTILINE)
         if match:
             cmd = match.group(1).strip()
-            # Remove trailing shell comments (e.g. "npm test  # Run tests")
             cmd = re.sub(r"\s+#\s.*$", "", cmd)
             return cmd
+
+    # Search within bash/sh code blocks for lines containing test commands
+    block_pattern = r"```\s*(?:bash|sh)?\s*\n([\s\S]*?)\n\s*```"
+    test_kw = r"(?:test|spec|jest|pytest|cargo test|go test|dotnet test)"
+    for block_match in re.finditer(block_pattern, content):
+        for line in block_match.group(1).strip().splitlines():
+            line = line.strip()
+            if line and re.search(test_kw, line, re.IGNORECASE):
+                return re.sub(r"\s+#\s.*$", "", line)
 
     return None

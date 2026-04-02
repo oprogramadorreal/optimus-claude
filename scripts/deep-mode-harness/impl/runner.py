@@ -81,12 +81,12 @@ def run_tests(test_command, cwd, timeout=DEFAULT_TEST_TIMEOUT):
     return passed, summary
 
 
-def _build_prompt(skill, max_iter, scope_paths):
+def _build_prompt(skill, max_iterations, scope_paths):
     """Build the skill invocation prompt string."""
     prompt = (
         "/optimus:code-review deep"
         if skill == "code-review"
-        else f"/optimus:refactor deep {max_iter}"
+        else f"/optimus:refactor deep {max_iterations}"
     )
     if scope_paths:
         paths_str = ", ".join(scope_paths[:20])
@@ -94,12 +94,12 @@ def _build_prompt(skill, max_iter, scope_paths):
     return prompt
 
 
-def _build_harness_system(progress_path, iteration, max_iter):
+def _build_harness_system(progress_path, iteration, max_iterations):
     """Build the harness-mode system prompt injected into the claude session."""
     return (
         f"HARNESS_MODE_ACTIVE: You are running inside the deep-mode harness. "
         f"Progress file: {progress_path}\n"
-        f"This is iteration {iteration} of {max_iter}. "
+        f"This is iteration {iteration} of {max_iterations}. "
         f"Do NOT use AskUserQuestion. Do NOT loop. Do NOT run tests. "
         f"Read the progress file for accumulated findings and scope. "
         f"After applying fixes, output structured JSON in a "
