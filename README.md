@@ -69,7 +69,7 @@ The result: consistent patterns, meaningful names, and lean context across every
 | [`/optimus:init`](skills/init/README.md) | Initializes effective project documentation, formatter hooks, and unit test infrastructure. Detects empty directories and offers new-project scaffolding. Intelligent audit on re-run. |
 | [`/optimus:unit-test`](skills/unit-test/README.md) | Discovers test coverage gaps and writes convention-following tests. Never refactors source code. *Requires init.* |
 | [`/optimus:tdd`](skills/tdd/README.md) | Guides test-driven development through Red-Green-Refactor cycles with per-behavior commits, parallel quality gate, and PR/MR creation. *Requires init.* |
-| [`/optimus:refactor`](skills/refactor/README.md) | Refactors code for guideline compliance and testability using 4 parallel agents. `deep` mode for iterative refactoring. `deep harness` for multi-iteration analysis with fresh context per iteration. *Run init first (recommended).* |
+| [`/optimus:refactor`](skills/refactor/README.md) | Refactors code for guideline compliance and testability using 4 parallel agents. `testability` or `guidelines` focus mode to prioritize finding categories. `deep` mode for iterative refactoring. `deep harness` for multi-iteration analysis with fresh context per iteration. *Run init first (recommended).* |
 | [`/optimus:code-review`](skills/code-review/README.md) | Reviews changes for bugs, security issues, and guideline compliance using up to 7 parallel agents. `deep` mode for iterative auto-fix. `deep harness` for multi-iteration analysis with fresh context per iteration. *Run init first (recommended).* |
 | [`/optimus:verify`](skills/verify/README.md) | Verifies a feature branch in an isolated sandbox — extracts a test plan from the PR, runs automated checks, and launches parallel agents for functional verification. *Run init first (recommended).* |
 
@@ -92,7 +92,7 @@ The result: consistent patterns, meaningful names, and lean context across every
 1. **Safety guardrails** — `/optimus:permissions` for branch protection, precious file safety, and streamlined tool permissions
 2. **Initial setup** — `/optimus:init` to generate project context and set up test infrastructure (audits and updates if already present)
 3. **Test coverage** — `/optimus:unit-test` to write tests and improve coverage
-4. **Code quality** — `/optimus:refactor` for full codebase refactoring against your coding guidelines and testability
+4. **Code quality** — `/optimus:refactor` for full codebase refactoring against your coding guidelines and testability (if unit-test flagged untestable code, use `/optimus:refactor testability` then re-run `/optimus:unit-test` after refactoring)
 
 **During development** — `/optimus:branch` to move work to a properly named branch, `/optimus:tdd` to build features test-first, `/optimus:worktree` for parallel isolated workspaces, `/optimus:prompt` to craft optimized prompts for any AI tool in your workflow, `/optimus:commit` for conventional commits (or `/optimus:commit-message` to preview the message without committing).
 

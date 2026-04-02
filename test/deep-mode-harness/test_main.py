@@ -419,6 +419,30 @@ class TestBuildArgumentParser:
         )
         assert args.allowed_tools == "Read,Grep"
 
+    def test_focus_testability(self):
+        parser = _build_argument_parser()
+        args = parser.parse_args(
+            ["--skill", "refactor", "--focus", "testability"]
+        )
+        assert args.focus == "testability"
+
+    def test_focus_guidelines(self):
+        parser = _build_argument_parser()
+        args = parser.parse_args(
+            ["--skill", "refactor", "--focus", "guidelines"]
+        )
+        assert args.focus == "guidelines"
+
+    def test_focus_default_empty(self):
+        parser = _build_argument_parser()
+        args = parser.parse_args(["--skill", "refactor"])
+        assert args.focus == ""
+
+    def test_focus_invalid_rejected(self):
+        parser = _build_argument_parser()
+        with pytest.raises(SystemExit):
+            parser.parse_args(["--skill", "refactor", "--focus", "invalid"])
+
 
 # ---------------------------------------------------------------------------
 # _print_startup_info

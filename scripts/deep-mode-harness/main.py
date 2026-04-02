@@ -13,10 +13,13 @@ Requirements:
 Usage:
   /optimus:code-review deep harness            # invoke from within a conversation
   /optimus:refactor deep harness 8 "backend"   # with iteration cap and scope
+  /optimus:refactor deep harness testability   # with focus mode
 
   python scripts/deep-mode-harness/main.py --skill code-review
   python scripts/deep-mode-harness/main.py --skill code-review --scope "src/auth"
   python scripts/deep-mode-harness/main.py --skill refactor --max-iterations 8 --scope "src/api"
+  python scripts/deep-mode-harness/main.py --skill refactor --focus testability
+  python scripts/deep-mode-harness/main.py --skill refactor --focus guidelines --scope "src/api"
   python scripts/deep-mode-harness/main.py --skill code-review --resume
 
 Security: By default, each claude -p session runs with --dangerously-skip-permissions
@@ -109,6 +112,12 @@ Examples:
         "--scope",
         default="",
         help="Path filter or scope hint (e.g., 'src/auth')",
+    )
+    parser.add_argument(
+        "--focus",
+        choices=["testability", "guidelines"],
+        default="",
+        help="Finding-cap priority: testability or guidelines (default: balanced)",
     )
     parser.add_argument(
         "--progress-file",
@@ -716,7 +725,12 @@ def main(argv=None):
                 f"{PREFIX} WARNING: Overwriting existing progress file: {progress_path}"
             )
         progress = make_initial_progress(
-            args.skill, args.scope, args.max_iterations, test_command, project_root
+            args.skill,
+            args.scope,
+            args.max_iterations,
+            test_command,
+            project_root,
+            focus=args.focus or "",
         )
 
     # Validate base commit

@@ -25,6 +25,7 @@ def sample_progress():
             "scope": {"mode": "local-changes", "paths": [], "base_ref": None},
             "project_root": "/tmp/project",
             "base_commit": "abc1234567890",
+            "focus": "",
         },
         "iteration": {"current": 1, "completed": 0},
         "findings": [],

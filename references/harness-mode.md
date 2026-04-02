@@ -27,10 +27,11 @@ Construct the harness command using these parameters passed by the calling skill
 - `skill_name` — the skill identifier (e.g., `code-review`, `refactor`)
 - `scope` — optional scope text from user arguments (omit `--scope` if empty)
 - `max_iterations` — optional iteration cap (omit `--max-iterations` if using default 8)
+- `focus` — optional focus keyword for finding-cap priority (omit `--focus` if empty)
 - `resume` — from step 3
 
 ```
-<python_cmd> "<plugin_root>/scripts/deep-mode-harness/main.py" --skill <skill_name> --progress-file .claude/deep-mode-progress.json [--max-iterations <N>] [--scope "<scope>"] [--timeout <seconds>] [--resume]
+<python_cmd> "<plugin_root>/scripts/deep-mode-harness/main.py" --skill <skill_name> --progress-file .claude/deep-mode-progress.json [--max-iterations <N>] [--scope "<scope>"] [--focus <focus>] [--timeout <seconds>] [--resume]
 ```
 
 Where `<python_cmd>` is `python3` or `python` (whichever worked in step 2). Wrap `<plugin_root>` in quotes to handle paths with spaces. The constructed command must be a single line (no backslash continuations) for easy copy-paste on all platforms.
@@ -85,12 +86,14 @@ Read the JSON progress file at the path specified in the system prompt. Extract:
 - `scope_files.current` — file paths to analyze
 - `config.test_command` — the test command (for reference only — do NOT run it)
 - `config.max_iterations` — the iteration cap (for reference only — do NOT check it)
+- `config.focus` — finding-cap priority mode (empty string = balanced)
 
 Initialize from the progress file:
 - `deep-mode` = true
 - `iteration-count` = `iteration.current`
 - `accumulated-findings` = `findings` array (restoring cross-session state from disk)
 - File list for agents = `scope_files.current`
+- `focus` = `config.focus` (apply to Step 6 finding-cap logic)
 
 ### 2. Build iteration context (iterations 2+)
 

@@ -199,6 +199,30 @@ class TestBuildPrompt:
         assert "path/19" in result
         assert "path/20" not in result
 
+    def test_focus_testability(self):
+        result = _build_prompt("refactor", 8, [], focus="testability")
+        assert result == "/optimus:refactor deep 8 testability"
+
+    def test_focus_guidelines(self):
+        result = _build_prompt("refactor", 5, [], focus="guidelines")
+        assert result == "/optimus:refactor deep 5 guidelines"
+
+    def test_focus_with_scope(self):
+        result = _build_prompt("refactor", 8, ["src/auth"], focus="testability")
+        assert "testability" in result
+        assert "focus on: src/auth" in result
+        # Focus keyword should appear before scope
+        assert result.index("testability") < result.index("focus on:")
+
+    def test_focus_empty_string(self):
+        result = _build_prompt("refactor", 8, [])
+        assert result == "/optimus:refactor deep 8"
+
+    def test_focus_code_review_ignored(self):
+        # Code-review doesn't use focus, but _build_prompt should still accept it
+        result = _build_prompt("code-review", 8, [], focus="testability")
+        assert "testability" in result
+
 
 class TestBuildHarnessSystem:
     def test_contains_required_fields(self):

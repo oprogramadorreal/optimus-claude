@@ -15,6 +15,7 @@ def make_initial_progress(
     project_root,
     base_commit=None,
     started_at=None,
+    focus="",
 ):
     """Create the initial progress file structure."""
     if base_commit is None:
@@ -37,6 +38,7 @@ def make_initial_progress(
             },
             "project_root": normalize_path(str(project_root)),
             "base_commit": base_commit,
+            "focus": focus,
         },
         "iteration": {"current": 1, "completed": 0},
         "findings": [],

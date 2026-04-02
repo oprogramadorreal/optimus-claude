@@ -40,8 +40,34 @@ In Claude Code, use any of these:
 - `/optimus:refactor deep` — iterative refactoring (default 8 iterations)
 - `/optimus:refactor deep 8` — deep mode with custom iteration cap
 - `/optimus:refactor deep "focus on src/auth"` — deep mode with scope
+- `/optimus:refactor testability` — prioritize testability improvements
+- `/optimus:refactor guidelines` — prioritize guideline compliance
+- `/optimus:refactor deep testability` — iterative deep mode with testability focus
+- `/optimus:refactor deep guidelines` — iterative deep mode with guidelines focus
 - `/optimus:refactor deep harness` — deep harness mode (8 iterations, fresh context per iteration)
 - `/optimus:refactor deep harness 8 "focus on backend"` — deep harness with options
+- `/optimus:refactor deep harness testability` — deep harness with testability focus
+
+## Focus Mode
+
+By default, refactor balances all analysis categories equally within its 8-finding cap. Use a focus keyword to prioritize:
+
+- `/optimus:refactor testability` — reserve 6 of 8 finding slots for testability barriers
+- `/optimus:refactor guidelines` — reserve 6 of 8 finding slots for guideline compliance
+- `/optimus:refactor` — balanced across all categories (default)
+
+Combine with scope, deep mode, and harness:
+- `/optimus:refactor deep testability "backend only"`
+- `/optimus:refactor deep guidelines`
+- `/optimus:refactor deep harness testability`
+- `/optimus:refactor deep harness guidelines`
+
+Focus does NOT skip other categories — high-severity findings from non-focused categories still surface in the remaining 2 slots.
+
+**When to use focus:**
+- After `/optimus:unit-test` flags "Not Testable Without Refactoring" → use `testability`
+- After `/optimus:init` establishes new guidelines → use `guidelines`
+- For periodic cleanup → omit focus for balanced analysis
 
 ## When to Run
 
