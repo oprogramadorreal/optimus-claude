@@ -153,7 +153,7 @@ def detect_test_command(project_root, content=None):
             return cmd
 
     # Search within bash/sh code blocks for lines containing test commands
-    block_pattern = r"```\s*(?:bash|sh)?\s*\n([\s\S]*?)\n\s*```"
+    block_pattern = r"```\s*(?:bash|sh)\s*\n([\s\S]*?)\n\s*```"
     test_command_pattern = r"(?:test|spec|jest|pytest|cargo test|go test|dotnet test)"
     for block_match in re.finditer(block_pattern, content):
         for line in block_match.group(1).strip().splitlines():
