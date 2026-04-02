@@ -53,6 +53,7 @@ from impl.constants import (
     PERSISTENT_STATUS,
     PREFIX,
     PROGRESS_FILE_NAME,
+    VALID_FOCUS_MODES,
 )
 from impl.findings import (
     finding_key,
@@ -115,7 +116,7 @@ Examples:
     )
     parser.add_argument(
         "--focus",
-        choices=["testability", "guidelines"],
+        choices=sorted(VALID_FOCUS_MODES),
         default="",
         help="Finding-cap priority: testability or guidelines (refactor only; default: balanced)",
     )
@@ -738,6 +739,12 @@ def main(argv=None):
             project_root,
             focus=args.focus,
         )
+
+    # Validate focus mode (progress file may contain hand-edited values on --resume)
+    focus = progress["config"].get("focus", "")
+    if focus and focus not in VALID_FOCUS_MODES:
+        print(f"{PREFIX} ERROR: Invalid focus mode '{focus}' in progress file.")
+        return 1
 
     # Validate base commit
     if not progress["config"]["base_commit"]:
