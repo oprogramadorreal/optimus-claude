@@ -302,13 +302,18 @@ The skill ignores routine comments and only surfaces decisions that would affect
 
 ## Relationship to Other Skills
 
-| Workflow | Skills |
-|----------|--------|
-| JIRA → TDD | `/optimus:jira PROJ-123` fetches context, then `/optimus:tdd` implements test-first |
-| JIRA → Branch → TDD | `/optimus:jira` for context, `/optimus:branch` to create a named branch, `/optimus:tdd` to build |
-| JIRA → Refactor | `/optimus:jira` for tech debt tickets, then `/optimus:refactor` to restructure |
+The skill saves structured task context to `docs/jira/<ISSUE-KEY>.md` — downstream skills auto-detect this file, no copy-paste needed.
 
-The jira skill only fetches and structures context — it never creates branches, writes code, or modifies your project. It outputs a task description that subsequent skills consume naturally from the conversation.
+| Task complexity | Workflow |
+|----------------|----------|
+| Simple (1–3 criteria) | `/optimus:jira PROJ-123` → `/optimus:tdd` (auto-detects task file) |
+| Medium (4–6 criteria) | `/optimus:jira PROJ-123` → plan mode (jira generates prompt) → `/optimus:tdd` |
+| Complex (7+ criteria) | `/optimus:jira PROJ-123` → `/optimus:brainstorm` (auto-detects task file) → plan mode → `/optimus:tdd` |
+| Tech debt | `/optimus:jira PROJ-123` → `/optimus:refactor` |
+
+The skill recommends the right path based on acceptance criteria count and task complexity — you don't need to memorize these.
+
+The jira skill only fetches and structures context — it never creates branches, writes code, or modifies your project (except writing the task file to `docs/jira/`).
 
 ## Supported MCP Servers
 

@@ -85,6 +85,26 @@ Present the structured task to the user. Use `AskUserQuestion` — header "Task 
 
 If "Adjust": use `AskUserQuestion` — header "Refinement", question "What would you like to change?" (free text). Apply the changes and present the updated version. Re-confirm.
 
+### Save task context to file
+
+After the user confirms the structured task, save it to a persistent file so downstream skills (`/optimus:tdd`, `/optimus:brainstorm`) can auto-detect it without copy-paste.
+
+1. Create the `docs/jira/` directory at the project root if it doesn't exist
+2. Write the structured task to `docs/jira/<ISSUE-KEY>.md` (e.g., `docs/jira/AUTH-456.md`) with YAML frontmatter:
+
+```markdown
+---
+source: jira
+issue: [ISSUE-KEY]
+date: [YYYY-MM-DD]
+---
+
+[The full structured task content from above — Goal, Acceptance Criteria, Context, Key Decisions]
+```
+
+3. If a file for the same issue key already exists, overwrite it (the user re-fetched for fresh context)
+4. Report the file path: "Task context saved to `docs/jira/<ISSUE-KEY>.md`"
+
 ## Step 5: Improve JIRA Issue (optional)
 
 Use `AskUserQuestion` — header "Improve issue", question "Would you like to improve this JIRA issue's description? This adds structured acceptance criteria and better formatting directly in JIRA.":
@@ -128,11 +148,63 @@ If **Improve description**:
 
 ## Step 6: Recommend Next Step
 
-Based on the issue type and context, recommend the next skill:
+First, handle tech debt and refactoring tickets separately — they have a fixed route:
 
-- **Story / Feature / New capability** → "Recommend running `/optimus:tdd` to implement this feature test-first."
-- **Bug** → "Recommend running `/optimus:tdd` to reproduce the bug with a failing test, then fix it."
 - **Refactoring / Tech debt** → "Recommend running `/optimus:refactor` to restructure the code."
 - **Any task** → also mention `/optimus:branch` if the user hasn't created a feature branch yet
 
-Tell the user: **Tip:** for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch. Copy the task description above and paste it as input (e.g., `/optimus:tdd "Task: PROJ-123 — [summary]"`).
+For stories, features, and bugs, assess implementation complexity from the structured task's acceptance criteria and context to recommend the right path:
+
+### Simple (1–3 acceptance criteria, single component, clear implementation path)
+
+> Recommend running `/optimus:tdd` to implement this test-first. It will auto-detect the task file at `docs/jira/<ISSUE-KEY>.md`.
+
+### Medium (4–6 acceptance criteria, 2–3 components, some design decisions needed)
+
+> This task has a few moving parts — recommend exploring the codebase in plan mode before implementing.
+
+Use `AskUserQuestion` — header "Plan mode", question "Would you like a plan-mode prompt for this task? It will help you explore the codebase and plan the implementation before coding.":
+- **Generate prompt** — "Create a ready-to-paste plan-mode prompt"
+- **Skip to TDD** — "I'll go straight to `/optimus:tdd`"
+
+If **Generate prompt**: assemble a self-contained plan-mode prompt pre-filled from the structured task:
+
+````
+```
+## Goal
+[Goal from the structured task]
+
+## Context
+[Acceptance criteria + context fields + key decisions from the structured task]
+
+## Starting Hints
+- Task context: docs/jira/<ISSUE-KEY>.md
+
+## What to Figure Out
+1. Which existing files and modules need to be modified or extended?
+2. What's the right implementation sequence given the acceptance criteria?
+3. Are there existing patterns in the codebase to follow or reuse?
+4. What are the risks or edge cases not covered by the acceptance criteria?
+
+## Plan Deliverable
+The plan should include:
+- Proposed approach with rationale
+- Files to create or modify, with what changes
+- Implementation sequence and dependencies
+- Test strategy for each acceptance criterion
+
+## Scope
+- Focus on: [component/area from the structured task context]
+- Out of scope: [anything explicitly excluded in the JIRA issue]
+```
+````
+
+Present with: "Paste this as the first message in a new Claude Code conversation started in **plan mode**. Once the plan is approved, run `/optimus:tdd` to build it test-first."
+
+If **Skip to TDD**: recommend `/optimus:tdd` as in the simple path.
+
+### Complex (7+ acceptance criteria, multiple components, architecture/migration mentions, or unclear design direction)
+
+> This task needs design thinking before implementation. Recommend running `/optimus:brainstorm` to explore design approaches — it will auto-detect the task file at `docs/jira/<ISSUE-KEY>.md`.
+
+Tell the user: **Tip:** for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch.
