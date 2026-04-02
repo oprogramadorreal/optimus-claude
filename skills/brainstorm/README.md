@@ -1,4 +1,4 @@
-# /optimus:brainstorm
+# optimus:brainstorm
 
 Guides structured design brainstorming — explores the codebase, asks clarifying questions, proposes multiple approaches with trade-offs, and writes an approved design doc to the project.
 

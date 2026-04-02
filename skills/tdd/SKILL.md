@@ -57,7 +57,7 @@ Before starting TDD cycles, analyze whether the user's task is a good fit for te
 
 Design docs take priority over JIRA files because they are more detailed (they incorporate JIRA context if brainstorm consumed it). Detected context feeds into the existing task-gathering cascade below — it does NOT bypass Step 3 decomposition. TDD still independently decomposes the goal into behaviors.
 
-If the user provided a task description inline (e.g., `/optimus:tdd "Add auth endpoint"`), use it. Otherwise, use `AskUserQuestion` — header "TDD scope", question "What feature or bug fix do you want to implement with TDD?":
+If context detection above resolved a task description (user accepted a design doc or JIRA context), use it — skip the inline/prompt gathering below. Otherwise, if the user provided a task description inline (e.g., `/optimus:tdd "Add auth endpoint"`), use it. Otherwise, use `AskUserQuestion` — header "TDD scope", question "What feature or bug fix do you want to implement with TDD?":
 - **New feature** — "Implement a new capability (e.g., 'Add user authentication endpoint')"
 - **Bug fix** — "Fix a bug by reproducing it with a test first (e.g., 'Login fails when email has uppercase')"
 

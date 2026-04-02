@@ -4,6 +4,15 @@ Procedure for fetching, structuring, and searching JIRA data via MCP tools. Call
 
 The skill passes two variables from detection: `jira-server-name` (the MCP server key) and the tool prefix (e.g., `mcp__atlassian__` or `mcp__mcp-atlassian__`).
 
+## Contents
+
+1. [Tool Name Resolution](#tool-name-resolution) — map operations to server-specific tool names
+2. [Search Procedures](#search-procedures) — assigned issues, by project, sprint siblings
+3. [Fetch Procedure (Single Issue)](#fetch-procedure-single-issue) — issue details, links, comments, sprint context
+4. [Truncation Limits](#truncation-limits) — field-level size caps
+5. [Structured Output Format](#structured-output-format) — assembled output template
+6. [Error Handling](#error-handling) — error-to-message mapping
+
 ## Tool Name Resolution
 
 Different MCP servers expose different tool names. Use `ToolSearch` at runtime to discover available tools — never hard-code assumptions.

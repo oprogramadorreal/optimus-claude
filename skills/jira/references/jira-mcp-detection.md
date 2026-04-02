@@ -2,6 +2,14 @@
 
 Shared detection and setup procedure for JIRA MCP integration. Called by the jira skill to locate a configured JIRA MCP server or guide the user through first-time setup.
 
+## Contents
+
+1. [Detection Procedure](#detection-procedure) — check `.mcp.json`, probe for tools, report result
+2. [Guided Setup Procedure](#guided-setup-procedure) — interactive setup when no server is detected
+   - [Step A: Choose Server Type](#step-a-choose-server-type)
+   - [Step B (Rovo): Atlassian Rovo MCP Server Setup](#step-b-rovo-atlassian-rovo-mcp-server-setup)
+   - [Step B (Community): sooperset/mcp-atlassian Setup](#step-b-community-soopersetmcp-atlassian-setup)
+
 ## Detection Procedure
 
 ### 1. Check `.mcp.json`
