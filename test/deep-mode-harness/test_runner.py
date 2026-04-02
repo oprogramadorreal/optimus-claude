@@ -1,6 +1,16 @@
+import subprocess
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
-from impl.runner import _find_bash, run_tests
+import pytest
+from impl.runner import (
+    _build_cmd,
+    _build_harness_system,
+    _build_prompt,
+    _find_bash,
+    run_skill_session,
+    run_tests,
+)
 
 
 class TestFindBash:
@@ -167,3 +177,143 @@ class TestFindBashGitExecPath:
                 mock_path_cls.return_value = mock_instance
                 result = _find_bash()
         assert result == "bash"
+
+
+class TestBuildPrompt:
+    def test_code_review_skill(self):
+        result = _build_prompt("code-review", 8, [])
+        assert result == "/optimus:code-review deep"
+
+    def test_refactor_skill(self):
+        result = _build_prompt("refactor", 5, [])
+        assert result == "/optimus:refactor deep 5"
+
+    def test_with_scope_paths(self):
+        result = _build_prompt("code-review", 8, ["src/auth", "src/api"])
+        assert "focus on: src/auth, src/api" in result
+
+    def test_scope_paths_capped_at_20(self):
+        paths = [f"path/{i}" for i in range(25)]
+        result = _build_prompt("refactor", 8, paths)
+        # Only first 20 paths should be included
+        assert "path/19" in result
+        assert "path/20" not in result
+
+
+class TestBuildHarnessSystem:
+    def test_contains_required_fields(self):
+        result = _build_harness_system("/tmp/progress.json", 3, 8)
+        assert "HARNESS_MODE_ACTIVE" in result
+        assert "/tmp/progress.json" in result
+        assert "iteration 3 of 8" in result
+        assert "AskUserQuestion" in result
+        assert "json:harness-output" in result
+
+
+class TestBuildCmd:
+    def test_with_allowed_tools(self):
+        cmd = _build_cmd("prompt", "system", "Read,Edit", 30)
+        assert "--allowedTools" in cmd
+        assert "Read,Edit" in cmd
+        assert "--dangerously-skip-permissions" not in cmd
+
+    def test_without_allowed_tools(self):
+        cmd = _build_cmd("prompt", "system", "", 30)
+        assert "--dangerously-skip-permissions" in cmd
+        assert "--allowedTools" not in cmd
+
+    def test_none_allowed_tools(self):
+        cmd = _build_cmd("prompt", "system", None, 30)
+        assert "--dangerously-skip-permissions" in cmd
+
+    def test_includes_prompt_and_system(self):
+        cmd = _build_cmd("my prompt", "my system", "", 15)
+        assert cmd[0] == "claude"
+        assert "-p" in cmd
+        assert "my prompt" in cmd
+        assert "--append-system-prompt" in cmd
+        assert "my system" in cmd
+        assert "--max-turns" in cmd
+        assert "15" in cmd
+        assert "--output-format" in cmd
+        assert "json" in cmd
+
+
+class TestRunSkillSession:
+    def _make_progress(self, iteration=1, max_iter=8, skill="code-review", scope=None):
+        return {
+            "skill": skill,
+            "iteration": {"current": iteration},
+            "config": {
+                "max_iterations": max_iter,
+                "project_root": "/tmp/project",
+            },
+            "scope_files": {"current": scope or []},
+        }
+
+    def _make_args(self, verbose=False, allowed_tools="", max_turns=30, timeout=900):
+        return SimpleNamespace(
+            verbose=verbose,
+            allowed_tools=allowed_tools,
+            max_turns=max_turns,
+            timeout=timeout,
+        )
+
+    def test_returns_stdout(self):
+        mock_run = MagicMock(
+            return_value=MagicMock(returncode=0, stdout="output", stderr="")
+        )
+        progress = self._make_progress()
+        args = self._make_args()
+        result = run_skill_session(progress, args, "/tmp/progress.json", _run=mock_run)
+        assert result == "output"
+
+    def test_verbose_prints_command_and_exit_code(self, capsys):
+        mock_run = MagicMock(
+            return_value=MagicMock(returncode=0, stdout="out", stderr="")
+        )
+        progress = self._make_progress()
+        args = self._make_args(verbose=True)
+        run_skill_session(progress, args, "/tmp/progress.json", _run=mock_run)
+        captured = capsys.readouterr().out
+        assert "Command:" in captured
+        assert "Exit code: 0" in captured
+
+    def test_verbose_prints_stderr(self, capsys):
+        mock_run = MagicMock(
+            return_value=MagicMock(returncode=0, stdout="out", stderr="some warning")
+        )
+        progress = self._make_progress()
+        args = self._make_args(verbose=True)
+        run_skill_session(progress, args, "/tmp/progress.json", _run=mock_run)
+        captured = capsys.readouterr().out
+        assert "Stderr: some warning" in captured
+
+    def test_verbose_no_stderr_skips_line(self, capsys):
+        mock_run = MagicMock(
+            return_value=MagicMock(returncode=0, stdout="out", stderr="")
+        )
+        progress = self._make_progress()
+        args = self._make_args(verbose=True)
+        run_skill_session(progress, args, "/tmp/progress.json", _run=mock_run)
+        captured = capsys.readouterr().out
+        assert "Stderr:" not in captured
+
+    def test_exit_code_greater_than_1_raises(self):
+        mock_run = MagicMock(
+            return_value=MagicMock(returncode=2, stdout="", stderr="fatal error")
+        )
+        progress = self._make_progress()
+        args = self._make_args()
+        with pytest.raises(RuntimeError, match="claude exited with code 2"):
+            run_skill_session(progress, args, "/tmp/progress.json", _run=mock_run)
+
+    def test_exit_code_1_warns_but_returns(self, capsys):
+        mock_run = MagicMock(
+            return_value=MagicMock(returncode=1, stdout="partial", stderr="warn")
+        )
+        progress = self._make_progress()
+        args = self._make_args()
+        result = run_skill_session(progress, args, "/tmp/progress.json", _run=mock_run)
+        assert result == "partial"
+        assert "WARNING" in capsys.readouterr().out

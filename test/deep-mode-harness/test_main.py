@@ -1,6 +1,8 @@
 import shutil
+import subprocess
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -14,10 +16,16 @@ sys.path.insert(
 
 from main import (
     _archive_progress,
+    _build_argument_parser,
+    _handle_safe_exit,
     _load_resumed_progress,
     _mark_combined_regression,
+    _print_startup_info,
     _record_iteration_history,
+    _recover_from_missing_output,
     _register_iteration_findings,
+    _run_session_with_retry,
+    _test_and_reconcile_fixes,
     _validate_environment,
 )
 
@@ -373,3 +381,397 @@ class TestArchiveProgress:
         progress_path.write_text('{"data": 1}', encoding="utf-8")
         _archive_progress(progress_path)
         assert progress_path.with_suffix(".done.json").exists()
+
+
+# ---------------------------------------------------------------------------
+# _build_argument_parser
+# ---------------------------------------------------------------------------
+
+
+class TestBuildArgumentParser:
+    def test_default_values(self):
+        parser = _build_argument_parser()
+        args = parser.parse_args(["--skill", "code-review"])
+        assert args.skill == "code-review"
+        assert args.max_iterations == 8
+        assert args.scope == ""
+        assert args.resume is False
+        assert args.no_commit is False
+        assert args.verbose is False
+        assert args.test_command == ""
+        assert args.project_dir == "."
+
+    def test_refactor_skill(self):
+        parser = _build_argument_parser()
+        args = parser.parse_args(["--skill", "refactor", "--max-iterations", "12"])
+        assert args.skill == "refactor"
+        assert args.max_iterations == 12
+
+    def test_allowed_tools_default_const(self):
+        parser = _build_argument_parser()
+        args = parser.parse_args(["--skill", "code-review", "--allowed-tools"])
+        assert "Read" in args.allowed_tools
+
+    def test_allowed_tools_explicit(self):
+        parser = _build_argument_parser()
+        args = parser.parse_args(
+            ["--skill", "code-review", "--allowed-tools", "Read,Grep"]
+        )
+        assert args.allowed_tools == "Read,Grep"
+
+
+# ---------------------------------------------------------------------------
+# _print_startup_info
+# ---------------------------------------------------------------------------
+
+
+class TestPrintStartupInfo:
+    def test_prints_key_info(self, capsys, sample_progress):
+        args = SimpleNamespace(skill="code-review")
+        _print_startup_info(args, sample_progress)
+        output = capsys.readouterr().out
+        assert "code-review" in output
+        assert "npm test" in output
+        assert "abc12345" in output
+        assert "Estimated messages" in output
+
+    def test_refactor_estimates_fewer_agents(self, capsys, sample_progress):
+        args = SimpleNamespace(skill="refactor")
+        _print_startup_info(args, sample_progress)
+        output = capsys.readouterr().out
+        # refactor = 4 agents/iter vs code-review = 7; estimated messages differ
+        assert "Estimated messages" in output
+
+
+# ---------------------------------------------------------------------------
+# _handle_safe_exit
+# ---------------------------------------------------------------------------
+
+
+class TestHandleSafeExit:
+    @patch("main.git_diff_has_changes", return_value=False)
+    @patch("main.write_progress")
+    def test_no_changes_sets_termination(
+        self, mock_write, mock_diff, sample_progress, tmp_path
+    ):
+        args = SimpleNamespace(no_commit=False)
+        _handle_safe_exit(
+            sample_progress,
+            tmp_path / "progress.json",
+            args,
+            "npm test",
+            tmp_path,
+            None,
+            "abc123",
+            reason="convergence",
+            message="No new findings",
+            log_message="Convergence",
+            new_count=0,
+        )
+        assert sample_progress["termination"]["reason"] == "convergence"
+        assert len(sample_progress["iteration_history"]) == 1
+
+    @patch("main.git_commit_checkpoint", return_value=True)
+    @patch("main.git_diff_has_changes", side_effect=[True, True])
+    @patch("main.run_tests", return_value=(True, "all pass"))
+    @patch("main.record_test_result")
+    @patch("main.write_progress")
+    def test_changes_with_passing_tests_commits(
+        self,
+        mock_write,
+        mock_record,
+        mock_run_tests,
+        mock_diff,
+        mock_commit,
+        sample_progress,
+        tmp_path,
+    ):
+        args = SimpleNamespace(no_commit=False)
+        _handle_safe_exit(
+            sample_progress,
+            tmp_path / "progress.json",
+            args,
+            "npm test",
+            tmp_path,
+            None,
+            "abc123",
+            reason="convergence",
+            message="No new findings",
+            log_message="Convergence",
+            new_count=0,
+        )
+        mock_commit.assert_called_once()
+
+    @patch("main.restore_working_tree")
+    @patch("main.git_diff_has_changes", return_value=True)
+    @patch("main.run_tests", return_value=(False, "FAIL"))
+    @patch("main.record_test_result")
+    @patch("main.write_progress")
+    def test_changes_with_failing_tests_reverts(
+        self,
+        mock_write,
+        mock_record,
+        mock_run_tests,
+        mock_diff,
+        mock_restore,
+        sample_progress,
+        tmp_path,
+    ):
+        args = SimpleNamespace(no_commit=False)
+        _handle_safe_exit(
+            sample_progress,
+            tmp_path / "progress.json",
+            args,
+            "npm test",
+            tmp_path,
+            "stash-ref",
+            "abc123",
+            reason="no-actionable",
+            message="No fixes",
+            log_message="No actionable fixes",
+            new_count=2,
+        )
+        mock_restore.assert_called_once_with("stash-ref", "abc123", tmp_path)
+
+
+# ---------------------------------------------------------------------------
+# _run_session_with_retry
+# ---------------------------------------------------------------------------
+
+
+class TestRunSessionWithRetry:
+    @patch("main.run_skill_session", return_value="output")
+    def test_success_first_attempt(self, mock_session, sample_progress, tmp_path):
+        args = SimpleNamespace(timeout=900)
+        result = _run_session_with_retry(
+            args, sample_progress, tmp_path / "p.json", None, "abc", tmp_path, 1
+        )
+        assert result == "output"
+        assert mock_session.call_count == 1
+
+    @patch("main.write_progress")
+    @patch("main.restore_working_tree")
+    @patch(
+        "main.run_skill_session",
+        side_effect=[RuntimeError("crash"), "output"],
+    )
+    def test_retries_on_first_failure(
+        self, mock_session, mock_restore, mock_write, sample_progress, tmp_path
+    ):
+        args = SimpleNamespace(timeout=900)
+        result = _run_session_with_retry(
+            args, sample_progress, tmp_path / "p.json", None, "abc", tmp_path, 1
+        )
+        assert result == "output"
+        assert mock_session.call_count == 2
+
+    @patch("main.write_progress")
+    @patch("main.restore_working_tree")
+    @patch(
+        "main.run_skill_session",
+        side_effect=[RuntimeError("crash"), RuntimeError("crash2")],
+    )
+    def test_returns_none_after_two_failures(
+        self, mock_session, mock_restore, mock_write, sample_progress, tmp_path
+    ):
+        args = SimpleNamespace(timeout=900)
+        result = _run_session_with_retry(
+            args, sample_progress, tmp_path / "p.json", None, "abc", tmp_path, 1
+        )
+        assert result is None
+        assert sample_progress["termination"]["reason"] == "crash"
+
+    @patch("main.write_progress")
+    @patch("main.restore_working_tree")
+    @patch(
+        "main.run_skill_session",
+        side_effect=subprocess.TimeoutExpired("claude", 900),
+    )
+    def test_handles_timeout(
+        self, mock_session, mock_restore, mock_write, sample_progress, tmp_path
+    ):
+        args = SimpleNamespace(timeout=900)
+        result = _run_session_with_retry(
+            args, sample_progress, tmp_path / "p.json", None, "abc", tmp_path, 1
+        )
+        assert result is None
+
+
+# ---------------------------------------------------------------------------
+# _recover_from_missing_output
+# ---------------------------------------------------------------------------
+
+
+class TestRecoverFromMissingOutput:
+    @patch("main.git_diff_has_changes", return_value=False)
+    def test_no_changes_returns_convergence(self, mock_diff, sample_progress, tmp_path):
+        result = _recover_from_missing_output(
+            "", "npm test", tmp_path, None, "abc", sample_progress, tmp_path / "p.json"
+        )
+        assert result is not None
+        assert result["no_new_findings"] is True
+
+    @patch("main.record_test_result")
+    @patch("main.run_tests", return_value=(True, "pass"))
+    @patch("main.git_diff_has_changes", return_value=True)
+    def test_changes_passing_tests_returns_no_actionable(
+        self, mock_diff, mock_tests, mock_record, sample_progress, tmp_path
+    ):
+        result = _recover_from_missing_output(
+            "some output",
+            "npm test",
+            tmp_path,
+            None,
+            "abc",
+            sample_progress,
+            tmp_path / "p.json",
+        )
+        assert result is not None
+        assert result["no_actionable_fixes"] is True
+
+    @patch("main.write_progress")
+    @patch("main.restore_working_tree")
+    @patch("main.record_test_result")
+    @patch("main.run_tests", return_value=(False, "FAIL\nerror details"))
+    @patch("main.git_diff_has_changes", return_value=True)
+    def test_changes_failing_tests_reverts(
+        self,
+        mock_diff,
+        mock_tests,
+        mock_record,
+        mock_restore,
+        mock_write,
+        sample_progress,
+        tmp_path,
+    ):
+        result = _recover_from_missing_output(
+            "x",
+            "npm test",
+            tmp_path,
+            "stash",
+            "abc",
+            sample_progress,
+            tmp_path / "p.json",
+        )
+        assert result is None
+        assert sample_progress["termination"]["reason"] == "parse-failure"
+        mock_restore.assert_called_once()
+
+    @patch("main.record_test_result")
+    @patch("main.run_tests", return_value=(True, "pass"))
+    @patch("main.git_diff_has_changes", return_value=True)
+    def test_short_output_prints_hint(
+        self, mock_diff, mock_tests, mock_record, sample_progress, tmp_path, capsys
+    ):
+        _recover_from_missing_output(
+            "hi",
+            "npm test",
+            tmp_path,
+            None,
+            "abc",
+            sample_progress,
+            tmp_path / "p.json",
+        )
+        assert "very short" in capsys.readouterr().out
+
+    @patch("main.record_test_result")
+    @patch("main.run_tests", return_value=(True, "pass"))
+    @patch("main.git_diff_has_changes", return_value=True)
+    def test_empty_output_prints_hint(
+        self, mock_diff, mock_tests, mock_record, sample_progress, tmp_path, capsys
+    ):
+        _recover_from_missing_output(
+            "",
+            "npm test",
+            tmp_path,
+            None,
+            "abc",
+            sample_progress,
+            tmp_path / "p.json",
+        )
+        assert "no output" in capsys.readouterr().out
+
+
+# ---------------------------------------------------------------------------
+# _test_and_reconcile_fixes
+# ---------------------------------------------------------------------------
+
+
+class TestTestAndReconcileFixes:
+    def test_no_fixes_returns_early(self, sample_progress):
+        fixed, reverted, passed, all_rev = _test_and_reconcile_fixes(
+            [], "npm test", "/tmp", sample_progress, None, "abc"
+        )
+        assert fixed == 0 and reverted == 0 and passed is True and all_rev is False
+
+    @patch("main.mark_all_fixed")
+    @patch("main.record_test_result")
+    @patch("main.run_tests", return_value=(True, "pass"))
+    def test_all_pass(self, mock_tests, mock_record, mock_mark, sample_progress):
+        fixes = [{"file": "a.js", "line": 1, "category": "bug", "summary": "x"}]
+        fixed, reverted, passed, all_rev = _test_and_reconcile_fixes(
+            fixes, "npm test", "/tmp", sample_progress, None, "abc"
+        )
+        assert fixed == 1
+        assert reverted == 0
+        assert passed is True
+        mock_mark.assert_called_once()
+
+    @patch("main.bisect_fixes", return_value=(1, 1, 0))
+    @patch("main.record_test_result")
+    @patch("main.run_tests", side_effect=[(False, "FAIL"), (True, "pass")])
+    def test_bisect_on_failure(
+        self, mock_tests, mock_record, mock_bisect, sample_progress
+    ):
+        fixes = [
+            {"file": "a.js", "line": 1, "category": "bug", "summary": "x"},
+            {"file": "b.js", "line": 2, "category": "bug", "summary": "y"},
+        ]
+        fixed, reverted, passed, all_rev = _test_and_reconcile_fixes(
+            fixes, "npm test", "/tmp", sample_progress, None, "abc"
+        )
+        assert fixed == 1
+        assert reverted == 1
+        mock_bisect.assert_called_once()
+
+    @patch("main._mark_combined_regression", return_value=2)
+    @patch("main.restore_working_tree")
+    @patch("main.bisect_fixes", return_value=(2, 0, 0))
+    @patch("main.record_test_result")
+    @patch("main.run_tests", side_effect=[(False, "FAIL"), (False, "FAIL combined")])
+    def test_combined_interaction_bug_reverts_all(
+        self,
+        mock_tests,
+        mock_record,
+        mock_bisect,
+        mock_restore,
+        mock_mark_regression,
+        sample_progress,
+    ):
+        fixes = [
+            {"file": "a.js", "line": 1, "category": "bug", "summary": "x"},
+            {"file": "b.js", "line": 2, "category": "bug", "summary": "y"},
+        ]
+        fixed, reverted, passed, all_rev = _test_and_reconcile_fixes(
+            fixes, "npm test", "/tmp", sample_progress, "stash", "abc"
+        )
+        assert fixed == 0
+        assert reverted == 2
+        assert all_rev is True
+        mock_restore.assert_called_once()
+
+    @patch("main.bisect_fixes", return_value=(0, 2, 0))
+    @patch("main.record_test_result")
+    @patch("main.run_tests", return_value=(False, "FAIL"))
+    def test_all_reverted_flag(
+        self, mock_tests, mock_record, mock_bisect, sample_progress
+    ):
+        fixes = [
+            {"file": "a.js", "line": 1, "category": "bug", "summary": "x"},
+            {"file": "b.js", "line": 2, "category": "bug", "summary": "y"},
+        ]
+        fixed, reverted, passed, all_rev = _test_and_reconcile_fixes(
+            fixes, "npm test", "/tmp", sample_progress, None, "abc"
+        )
+        assert all_rev is True
+        assert fixed == 0
