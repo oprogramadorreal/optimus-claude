@@ -41,13 +41,13 @@ def print_report(progress, current_branch=None):
         )
         print(f"{PREFIX}   {'-'*4} {'-'*5} {'-'*40} {'-'*15} {'-'*40} {'-'*20}")
         for row_num, finding in enumerate(findings, 1):
-            file_loc = f"{finding['file']}:{finding.get('line', '?')}"
-            if len(file_loc) > 40:
-                file_loc = "..." + file_loc[-37:]
+            file_location = f"{finding['file']}:{finding.get('line', '?')}"
+            if len(file_location) > 40:
+                file_location = "..." + file_location[-37:]
             summary = finding["summary"][:40]
-            iter_num = finding.get("iteration_discovered", "?")
+            iteration_num = finding.get("iteration_discovered", "?")
             print(
-                f"{PREFIX}   {row_num:<4} {iter_num:<5} {file_loc:<40} "
+                f"{PREFIX}   {row_num:<4} {iteration_num:<5} {file_location:<40} "
                 f"{finding['category']:<15} {summary:<40} {finding['status']}"
             )
 
@@ -83,12 +83,12 @@ def print_report(progress, current_branch=None):
 
 def _format_finding_line(finding):
     """Format a single finding as a commit-body bullet."""
-    loc = f"{finding['file']}:{finding.get('line', '?')}"
+    location = f"{finding['file']}:{finding.get('line', '?')}"
     category = finding.get("category", "unknown")
     summary = finding.get("summary", "").replace("\n", " ").replace("\r", "")
     if len(summary) > 72:
         summary = summary[:69] + "..."
-    return f"- {loc} [{category}] {summary}"
+    return f"- {location} [{category}] {summary}"
 
 
 def _format_section(header, items, max_entries=10):
@@ -158,7 +158,11 @@ def detect_test_command(project_root, content=None):
     for block_match in re.finditer(block_pattern, content):
         for line in block_match.group(1).strip().splitlines():
             line = line.strip()
-            if line and re.search(test_command_pattern, line, re.IGNORECASE):
+            if (
+                line
+                and not line.startswith("#")
+                and re.search(test_command_pattern, line, re.IGNORECASE)
+            ):
                 return re.sub(r"\s+#\s.*$", "", line)
 
     return None

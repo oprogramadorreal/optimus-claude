@@ -112,7 +112,7 @@ def update_scope(progress, result):
     if progress["skill"] == "refactor":
         return  # refactor keeps constant scope
 
-    # code-review: narrow scope
+    # code-review: widen scope with active findings + modified files
     finding_files = set()
     for finding in progress["findings"]:
         if finding["status"] != PERSISTENT_STATUS:

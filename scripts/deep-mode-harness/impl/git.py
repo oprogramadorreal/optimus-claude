@@ -194,6 +194,8 @@ def git_commit_checkpoint(progress, iteration, cwd):
         text=True,
     )
     if result.returncode != 0:
+        if "nothing to commit" in (result.stdout + result.stderr):
+            return True  # Not a failure — just nothing to commit after unstaging
         print(f"{PREFIX} WARNING: checkpoint commit failed: {result.stderr[:200]}")
         return False
     return True
