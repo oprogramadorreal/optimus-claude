@@ -81,31 +81,22 @@ def run_tests(test_command, cwd, timeout=DEFAULT_TEST_TIMEOUT):
     return passed, summary
 
 
-def run_skill_session(progress, args, resolved_progress_path):
-    """
-    Launch a fresh claude -p session for one iteration.
-    Returns the raw stdout output.
-    """
-    skill = progress["skill"]
-    iteration = progress["iteration"]["current"]
-    max_iter = progress["config"]["max_iterations"]
-    # Use forward slashes for cross-platform compatibility in system prompt
-    progress_path = normalize_path(str(resolved_progress_path))
-
-    # Build the skill invocation prompt (skill is validated by argparse choices)
-    if skill == "code-review":
-        prompt = "/optimus:code-review deep"
-    else:
-        prompt = f"/optimus:refactor deep {max_iter}"
-
-    # Add scope hint
-    scope_paths = progress["scope_files"]["current"]
+def _build_prompt(skill, max_iter, scope_paths):
+    """Build the skill invocation prompt string."""
+    prompt = (
+        "/optimus:code-review deep"
+        if skill == "code-review"
+        else f"/optimus:refactor deep {max_iter}"
+    )
     if scope_paths:
         paths_str = ", ".join(scope_paths[:20])
         prompt += f' "focus on: {paths_str}"'
+    return prompt
 
-    # Harness-mode system prompt
-    harness_system = (
+
+def _build_harness_system(progress_path, iteration, max_iter):
+    """Build the harness-mode system prompt injected into the claude session."""
+    return (
         f"HARNESS_MODE_ACTIVE: You are running inside the deep-mode harness. "
         f"Progress file: {progress_path}\n"
         f"This is iteration {iteration} of {max_iter}. "
@@ -115,6 +106,9 @@ def run_skill_session(progress, args, resolved_progress_path):
         f"```json:harness-output block and stop."
     )
 
+
+def _build_cmd(prompt, harness_system, allowed_tools, max_turns):
+    """Assemble the claude CLI argument list."""
     cmd = [
         "claude",
         "-p",
@@ -122,26 +116,41 @@ def run_skill_session(progress, args, resolved_progress_path):
         "--append-system-prompt",
         harness_system,
     ]
-
-    # Permission handling: --allowedTools (safer) or --dangerously-skip-permissions (default)
-    if args.allowed_tools:
-        cmd.extend(["--allowedTools", args.allowed_tools])
+    if allowed_tools:
+        cmd.extend(["--allowedTools", allowed_tools])
     else:
         cmd.append("--dangerously-skip-permissions")
-
     cmd.extend(
         [
             "--max-turns",
-            str(args.max_turns),
+            str(max_turns),
             "--output-format",
             "json",
         ]
     )
+    return cmd
+
+
+def run_skill_session(progress, args, resolved_progress_path, _run=subprocess.run):
+    """
+    Launch a fresh claude -p session for one iteration.
+    Returns the raw stdout output.
+    """
+    iteration = progress["iteration"]["current"]
+    max_iter = progress["config"]["max_iterations"]
+    # Use forward slashes for cross-platform compatibility in system prompt
+    progress_path = normalize_path(str(resolved_progress_path))
+
+    prompt = _build_prompt(
+        progress["skill"], max_iter, progress["scope_files"]["current"]
+    )
+    harness_system = _build_harness_system(progress_path, iteration, max_iter)
+    cmd = _build_cmd(prompt, harness_system, args.allowed_tools, args.max_turns)
 
     if args.verbose:
         print(f"{PREFIX} Command: {' '.join(cmd[:6])}...")
 
-    result = subprocess.run(
+    result = _run(
         cmd,
         capture_output=True,
         text=True,
@@ -154,13 +163,14 @@ def run_skill_session(progress, args, resolved_progress_path):
         if result.stderr:
             print(f"{PREFIX} Stderr: {result.stderr[:500]}")
 
+    # claude exit codes: 0=success, 1=partial/warning, >1=fatal
+    if result.returncode > 1:
+        raise RuntimeError(
+            f"claude exited with code {result.returncode}: {result.stderr[:200]}"
+        )
     if result.returncode == 1:
         print(
             f"{PREFIX} WARNING: claude exited with code 1 (may indicate partial failure): {result.stderr[:200]}"
-        )
-    elif result.returncode > 1:
-        raise RuntimeError(
-            f"claude exited with code {result.returncode}: {result.stderr[:200]}"
         )
 
     return result.stdout
