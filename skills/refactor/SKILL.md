@@ -1,5 +1,5 @@
 ---
-description: Refactors existing code for guideline compliance and testability using up to 4 parallel analysis agents (guideline compliance, testability barriers, duplication/consistency, optional code-simplifier). Two goals — align code with project guidelines AND make untestable code testable so /optimus:unit-test can safely increase coverage. Use after /optimus:init to align existing code, before /optimus:unit-test to remove testability barriers, or periodically to prevent tech debt. Supports flexible scoping and a "deep" mode for iterative refactoring (default 5, up to 10 iterations).
+description: Refactors existing code for guideline compliance and testability using up to 4 parallel analysis agents (guideline compliance, testability barriers, duplication/consistency, optional code-simplifier). Two goals — align code with project guidelines AND make untestable code testable so /optimus:unit-test can safely increase coverage. Use after /optimus:init to align existing code, before /optimus:unit-test to remove testability barriers, or periodically to prevent tech debt. Supports flexible scoping and a "deep" mode for iterative refactoring (default 8, up to 10 iterations).
 disable-model-invocation: true
 ---
 
@@ -33,17 +33,21 @@ Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/prerequisite-check.md` and appl
 
 Extract from the user's arguments:
 1. `deep` flag (present/absent)
-2. A number immediately after `deep` → iteration cap (optional, default 5, hard cap 10)
-3. Everything else → scope/focus instructions (natural language)
+2. `harness` keyword after `deep` (present/absent)
+3. A number immediately after `deep` or `deep harness` → iteration cap (optional, default 8, hard cap 10)
+4. Everything else → scope/focus instructions (natural language)
 
 Examples:
 - `/optimus:refactor` → full project, normal mode
 - `/optimus:refactor backend only` → scope to backend, normal mode
 - `/optimus:refactor "focus on auth module"` → scope to auth, normal mode
-- `/optimus:refactor deep` → full project, deep (5 iterations)
+- `/optimus:refactor deep` → full project, deep (8 iterations)
 - `/optimus:refactor deep 8` → full project, deep (8 iterations)
-- `/optimus:refactor deep "focus on src/api"` → scope to src/api, deep (5 iterations)
+- `/optimus:refactor deep "focus on src/api"` → scope to src/api, deep (8 iterations)
 - `/optimus:refactor deep 10 backend` → scope to backend, deep (10 iterations)
+- `/optimus:refactor deep harness` → harness mode, 8 iterations, full project
+- `/optimus:refactor deep harness 8` → harness mode, 8 iterations
+- `/optimus:refactor deep harness "focus on backend"` → harness mode, scoped
 
 If the iteration cap exceeds 10, clamp it to 10 and warn: "Iteration cap clamped to 10 (maximum)."
 If the iteration cap is less than 1, clamp it to 1 and warn: "Iteration cap clamped to 1 (minimum)."
@@ -64,6 +68,23 @@ For monorepos with **full project** scope: ask which subprojects to include (def
 
 ## Step 2: Deep Mode Activation
 
+### Harness mode detection
+
+If the system prompt contains `HARNESS_MODE_ACTIVE`, read `$CLAUDE_PLUGIN_ROOT/references/harness-mode.md` and follow its single-iteration execution protocol. The reference covers progress file reading, state initialization, and step overrides (including the Step 8 apply/output protocol). Then proceed directly to Step 3 — skip user confirmation.
+
+If `HARNESS_MODE_ACTIVE` is NOT in the system prompt, continue with the standard interactive flow below.
+
+### Skill-triggered harness invocation
+
+If the `harness` keyword was detected in Step 1, read the **Skill-Triggered Invocation** section of `$CLAUDE_PLUGIN_ROOT/references/harness-mode.md` and follow its steps. Pass:
+- `skill_name` = `refactor`
+- `scope` = scope text from Step 1 argument parsing
+- `max_iterations` = parsed iteration cap from Step 1 (if specified)
+
+The reference protocol presents the command and stops. Do not proceed to Step 3 or any remaining steps.
+
+### Interactive deep mode
+
 If the `deep` flag was detected in Step 1, activate deep mode. Deep mode loops analysis-apply cycles (Steps 4–8) until zero findings remain or the iteration cap is reached.
 
 Before proceeding, check whether a test command is available (from `.claude/CLAUDE.md`). If no test command exists, deep mode's auto-apply loop has no safety net — fall back to normal mode and warn: "Deep mode requires a test command for safe auto-apply. Falling back to normal mode — re-run `/optimus:init` to set up test infrastructure first." Set `deep-mode` to false. Then continue with the standard single-pass flow.
@@ -77,6 +98,8 @@ If a test command is available, warn the user:
 Then use `AskUserQuestion` — header "Deep mode", question "Proceed with deep mode?":
 - **Start deep mode** — "Run iterative refactoring until clean (max [cap] iterations)"
 - **Normal mode** — "Single pass with manual approval instead"
+
+Tell the user: *Tip: For large codebases or extended sessions, re-run with `/optimus:refactor deep harness` to launch the external harness with fresh context per iteration.*
 
 If the user did not invoke with `deep`, skip this step.
 
@@ -373,4 +396,4 @@ After the refactoring is complete, recommend the next step based on the outcome:
 Tell the user:
 
 - **Tip:** for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch.
-- **Tip (normal mode only):** Single-pass analysis can miss issues due to LLM attention limits. Run `/optimus:refactor deep` to iterate automatically — it applies, tests, and repeats until clean (max 5 passes by default, configurable up to 10). Requires a test command in `.claude/CLAUDE.md`.
+- **Tip (normal mode only):** Single-pass analysis can miss issues due to LLM attention limits. Run `/optimus:refactor deep` to iterate automatically — it applies, tests, and repeats until clean (max 8 passes by default, configurable up to 10). Requires a test command in `.claude/CLAUDE.md`.

@@ -5,4 +5,11 @@ evals/
 test/fixtures/
 .worktrees/
 __pycache__/
+.pytest_cache/
+.venv/
+htmlcov/
+.coverage
 *.stackdump
+.claude/deep-mode-progress.json
+.claude/deep-mode-progress.json.bak
+.claude/deep-mode-progress.done.json

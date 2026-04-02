@@ -18,7 +18,8 @@ Well-maintained code has [30%+ fewer AI-introduced defects](https://arxiv.org/ab
 - **Test verification** — runs the test suite after applying changes with evidence-based verification; reverts any change that causes failures
 - **Conservative by default** — only suggests changes justified by the project's own guidelines
 - **Prioritized findings** — Critical/Warning/Suggestion severity with concrete before/after sketches, capped at 8 per run for focused, manageable output
-- **Deep mode** — iterative refactoring that loops analysis-apply cycles until zero findings remain (default 5 iterations, configurable up to 10), with explicit user consent and risk warnings
+- **Deep mode** — iterative refactoring that loops analysis-apply cycles until zero findings remain (default 8 iterations, configurable up to 10), with explicit user consent and risk warnings
+- **Deep harness** — `/optimus:refactor deep harness` launches an external orchestrator with fresh `claude -p` sessions per iteration, eliminating context bloat for large codebases
 - **Works without `/optimus:init`** — falls back to generic coding guidelines when project-specific docs aren't available
 - **Multi-repo workspace support** — resolves per-repo documentation when opened from a workspace root containing multiple git repos
 - **Submodule exclusion** — automatically skips files inside git submodules
@@ -36,9 +37,11 @@ In Claude Code, use any of these:
 - `/optimus:refactor backend only` — scope to a specific area
 - `/optimus:refactor "focus on the auth module"` — natural language scoping
 - `/optimus:refactor "review changes since last week"` — incremental review
-- `/optimus:refactor deep` — iterative refactoring (default 5 iterations)
+- `/optimus:refactor deep` — iterative refactoring (default 8 iterations)
 - `/optimus:refactor deep 8` — deep mode with custom iteration cap
 - `/optimus:refactor deep "focus on src/auth"` — deep mode with scope
+- `/optimus:refactor deep harness` — deep harness mode (8 iterations, fresh context per iteration)
+- `/optimus:refactor deep harness 8 "focus on backend"` — deep harness with options
 
 ## When to Run
 
@@ -105,13 +108,13 @@ By default, the skill caps findings at 8 per run. For exhaustive refactoring, us
 
 ```
 /optimus:refactor deep
-/optimus:refactor deep 8        # custom iteration cap (default 5, max 10)
+/optimus:refactor deep 8        # custom iteration cap (default 8, max 10)
 /optimus:refactor deep "backend" # deep mode with scope
 ```
 
 **Key differences from normal mode:** Deep mode **applies changes automatically** at each iteration — it modifies your code, not just reports findings. It **requires a test command** (from `.claude/CLAUDE.md`) as its safety net; without one, it falls back to normal mode. All changes remain as local modifications — nothing is committed or pushed.
 
-Deep mode runs the same multi-agent analysis-apply cycle repeatedly (default 5, up to 10 iterations) until zero findings remain. Before starting, it warns about credit/time consumption and breakage risk with low test coverage, and asks for explicit confirmation.
+Deep mode runs the same multi-agent analysis-apply cycle repeatedly (default 8, up to 10 iterations) until zero findings remain. Before starting, it warns about credit/time consumption and breakage risk with low test coverage, and asks for explicit confirmation.
 
 **Iteration memory:** On iterations 2+, all agents receive a table of prior findings with their status (fixed/reverted/persistent). This prevents circular fixes — agents focus on NEW issues only and do not undo work from previous iterations.
 
@@ -125,6 +128,26 @@ Each iteration:
 Deep mode stops when: no findings remain, the iteration cap is reached, or all changes in an iteration fail tests. From iteration 3 onward, a context-accumulation warning appears; if the cap is reached, all continuation options are framed under starting a fresh conversation. All changes remain as local modifications — review the full diff and commit when satisfied. After all iterations complete, a **cumulative report** summarizes every change across all iterations in a single table.
 
 Iterative LLM feedback loops with automated verification consistently improve output quality, with the largest gains in early iterations and diminishing returns in later stages ([LLMLOOP, ICSME 2025](https://valerio-terragni.github.io/assets/pdf/ravi-icsme-2025.pdf)).
+
+### Deep harness mode
+
+For larger codebases or when context accumulation degrades quality, use deep harness mode. It launches a fresh `claude -p` session per iteration (default 8, max 20) — each runs a normal-mode analysis pass with prior findings injected as context.
+
+```bash
+# Invoke from within a conversation:
+/optimus:refactor deep harness
+/optimus:refactor deep harness 10 "focus on backend"
+
+# Or run the script directly:
+python scripts/deep-mode-harness/main.py --skill refactor --scope "src/api"
+python scripts/deep-mode-harness/main.py --skill refactor --max-iterations 10
+python scripts/deep-mode-harness/main.py --skill refactor --timeout 1200 --scope "src/api"
+python scripts/deep-mode-harness/main.py --skill refactor --resume
+```
+
+The harness handles test execution, fix bisection, checkpoint commits (with detailed per-fix messages), and termination detection externally. Press Ctrl+C at any time to stop safely; resume later with `--resume`.
+
+**Security note:** By default, each `claude -p` session runs with `--dangerously-skip-permissions` because the harness is headless (no terminal for permission prompts). For a safer alternative, use `--allowed-tools` to restrict sessions to a specific tool whitelist. For OS-level isolation, use [built-in sandboxing](https://code.claude.com/docs/en/sandboxing) (macOS/Linux) or [devcontainers](https://code.claude.com/docs/en/devcontainer).
 
 ## Agent Architecture
 
@@ -172,6 +195,7 @@ Claude Code includes a builtin `/simplify` command. `/optimus:refactor` is the e
 | *(shared)* `init/references/prerequisite-check.md` | Shared prerequisite check with fallbacks |
 | *(shared)* `init/references/constraint-doc-loading.md` | Constraint doc loading (single project, monorepo) |
 | *(shared)* `init/references/verification-protocol.md` | Evidence-based test verification protocol |
+| *(shared)* `references/harness-mode.md` | Harness mode single-iteration execution protocol |
 
 ## Requirements
 
