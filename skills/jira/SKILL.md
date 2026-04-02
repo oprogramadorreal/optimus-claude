@@ -1,11 +1,11 @@
 ---
-description: Fetches and optimizes context from a JIRA issue for AI-assisted development. Searches assigned issues or fetches by key. Distills title, description, acceptance criteria, sprint context, and comments into a structured task description. Optionally improves the JIRA issue itself. Use before /optimus:tdd or /optimus:branch to pull task context from JIRA.
+description: Fetches and optimizes context from a JIRA issue for AI-assisted development. Searches assigned issues or fetches by key. Distills title, description, acceptance criteria, sprint context, and comments into a structured task description. Analyzes the codebase to surface gaps, missing criteria, and realistic scope. Optionally improves the JIRA issue itself. Use before /optimus:tdd or /optimus:branch to pull task context from JIRA.
 disable-model-invocation: true
 ---
 
 # JIRA Context
 
-Fetch a JIRA issue, distill it into an optimized task description for Claude Code, and optionally improve the issue's description in JIRA. The skill works with any JIRA MCP server (Atlassian Rovo or community servers like sooperset/mcp-atlassian) and guides first-time setup when no server is configured.
+Fetch a JIRA issue, distill it into an optimized task description for Claude Code, analyze the codebase to identify gaps and realistic scope, and optionally improve the issue's description in JIRA. The skill works with any JIRA MCP server (Atlassian Rovo or community servers like sooperset/mcp-atlassian) and guides first-time setup when no server is configured.
 
 ## Step 1: Detect JIRA MCP Server
 
@@ -105,19 +105,37 @@ date: [YYYY-MM-DD]
 3. If a file for the same issue key already exists, overwrite it (the user re-fetched for fresh context)
 4. Report the file path: "Task context saved to `docs/jira/<ISSUE-KEY>.md`"
 
-## Step 5: Improve JIRA Issue (optional)
+## Step 5: Analyze Against Codebase
+
+Read `$CLAUDE_PLUGIN_ROOT/skills/jira/references/jira-codebase-analysis.md` and follow the **Analysis Procedure** using the Goal and Acceptance Criteria from Step 4.
+
+Present the **Impact Summary** to the user.
+
+Use `AskUserQuestion` — header "Codebase impact", question "How would you like to use these findings?":
+- **Update JIRA and local context** — "Add suggested criteria to the JIRA issue and enrich the local task file"
+- **Update local context only** — "Add findings to `docs/jira/<ISSUE-KEY>.md` but don't touch JIRA"
+- **Skip** — "Proceed without changes"
+
+If **Update JIRA and local context**: update the `docs/jira/<ISSUE-KEY>.md` file following the **Context File Update** procedure in the reference, then proceed to Step 6 with the suggested criteria queued for inclusion in the JIRA update.
+
+If **Update local context only**: update the `docs/jira/<ISSUE-KEY>.md` file following the **Context File Update** procedure. Proceed to Step 6.
+
+If **Skip**: proceed to Step 6.
+
+## Step 6: Improve JIRA Issue (optional)
 
 Use `AskUserQuestion` — header "Improve issue", question "Would you like to improve this JIRA issue's description? This adds structured acceptance criteria and better formatting directly in JIRA.":
 - **Improve description** — "Update the JIRA issue with the structured content above"
 - **Skip** — "Keep the JIRA issue as-is"
 
-If **Skip** → proceed to Step 6.
+If **Skip** → proceed to Step 7.
 
 If **Improve description**:
 
 1. Generate an improved description for the JIRA issue:
    - Preserve the original description's intent and content
    - Add structured acceptance criteria (if not already present)
+   - If Step 5 queued suggested criteria for JIRA inclusion, merge them into the acceptance criteria section
    - Improve formatting (headers, lists, clear sections)
    - Do not remove any information from the original
 
@@ -134,7 +152,8 @@ If **Improve description**:
 
 ### Changes
 - [What was added/restructured — e.g., "Added 5 acceptance criteria",
-  "Restructured into Goal/Criteria/Notes sections"]
+  "Restructured into Goal/Criteria/Notes sections",
+  "Merged 2 codebase-informed criteria from impact analysis"]
 ```
 
 3. Use `AskUserQuestion` — header "Confirm update", question "Apply this update to the JIRA issue?":
@@ -144,22 +163,22 @@ If **Improve description**:
 
 4. If **Apply**: use the MCP update tool to write the improved description. Report success or failure.
 5. If **Edit first**: let the user describe changes, regenerate, and re-confirm.
-6. If **Cancel**: proceed to Step 6 without writing.
+6. If **Cancel**: proceed to Step 7 without writing.
 
-## Step 6: Recommend Next Step
+## Step 7: Recommend Next Step
 
 First, handle tech debt and refactoring tickets separately — they have a fixed route:
 
 - **Refactoring / Tech debt** → "Recommend running `/optimus:refactor` to restructure the code."
 - **Any task** → also mention `/optimus:branch` if the user hasn't created a feature branch yet
 
-For stories, features, and bugs, assess implementation complexity from the structured task's acceptance criteria and context to recommend the right path:
+For stories, features, and bugs, use the **Scope Assessment** from Step 5 as the primary complexity signal. If Step 5 was skipped, fall back to assessing complexity from the structured task's acceptance criteria count and context.
 
-### Simple (1–3 acceptance criteria, single component, clear implementation path)
+### Simple (codebase assessment: simple, or 1–3 acceptance criteria with single component)
 
 > Recommend running `/optimus:tdd` to implement this test-first. It will auto-detect the task file at `docs/jira/<ISSUE-KEY>.md`.
 
-### Medium (4–6 acceptance criteria, 2–3 components, some design decisions needed)
+### Medium (codebase assessment: medium, or 4–6 acceptance criteria across 2–3 components)
 
 > This task has a few moving parts — recommend exploring the codebase in plan mode before implementing.
 
@@ -167,7 +186,7 @@ Use `AskUserQuestion` — header "Plan mode", question "Would you like a plan-mo
 - **Generate prompt** — "Create a ready-to-paste plan-mode prompt"
 - **Skip to TDD** — "I'll go straight to `/optimus:tdd`"
 
-If **Generate prompt**: assemble a self-contained plan-mode prompt pre-filled from the structured task:
+If **Generate prompt**: assemble a self-contained plan-mode prompt pre-filled from the structured task (and codebase impact findings if available from Step 5):
 
 ````
 ```
@@ -175,10 +194,13 @@ If **Generate prompt**: assemble a self-contained plan-mode prompt pre-filled fr
 [Goal from the structured task]
 
 ## Context
-[Acceptance criteria + context fields + key decisions from the structured task]
+[Acceptance criteria + context fields + key decisions from the structured task.
+If Step 5 produced a codebase impact summary, include the Files Affected and
+Risks sections here.]
 
 ## Starting Hints
 - Task context: docs/jira/<ISSUE-KEY>.md
+[If Step 5 ran, add key files identified in the impact summary]
 
 ## What to Figure Out
 1. Which existing files and modules need to be modified or extended?
@@ -203,7 +225,7 @@ Present with: "Paste this as the first message in a new Claude Code conversation
 
 If **Skip to TDD**: recommend `/optimus:tdd` as in the simple path.
 
-### Complex (7+ acceptance criteria, multiple components, architecture/migration mentions, or unclear design direction)
+### Complex (codebase assessment: complex, or 7+ acceptance criteria, multiple components, architecture/migration mentions, or unclear design direction)
 
 > This task needs design thinking before implementation. Recommend running `/optimus:brainstorm` to explore design approaches — it will auto-detect the task file at `docs/jira/<ISSUE-KEY>.md`.
 

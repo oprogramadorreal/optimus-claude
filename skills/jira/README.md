@@ -1,8 +1,8 @@
 # optimus:jira
 
-A [Claude Code](https://docs.anthropic.com/en/docs/claude-code) skill that fetches and optimizes context from a JIRA issue for AI-assisted development. Distills title, description, acceptance criteria, sprint context, and comments into a structured task description ready for other optimus skills. Optionally improves the JIRA issue itself.
+A [Claude Code](https://docs.anthropic.com/en/docs/claude-code) skill that fetches and optimizes context from a JIRA issue for AI-assisted development. Distills title, description, acceptance criteria, sprint context, and comments into a structured task description ready for other optimus skills. Analyzes the codebase to surface missing criteria, realistic scope, and risks. Optionally improves the JIRA issue itself.
 
-JIRA issues are context — and like all context, their quality directly affects how well Claude Code performs. A vague ticket with no acceptance criteria produces vague implementations. This skill extracts the signal from JIRA and structures it for optimal AI consumption.
+JIRA issues are context — and like all context, their quality directly affects how well Claude Code performs. A vague ticket with no acceptance criteria produces vague implementations. This skill extracts the signal from JIRA, compares it against the actual codebase to find gaps, and structures it for optimal AI consumption.
 
 ## Features
 
@@ -11,8 +11,9 @@ JIRA issues are context — and like all context, their quality directly affects
 - **Search or fetch** — find issues by key (`PROJ-123`), search your assigned issues, or browse by project
 - **Structured distillation** — transforms raw JIRA data into a goal, acceptance criteria, and context summary
 - **Sprint awareness** — includes current sprint name, goal, and sibling issues for broader context
-- **Improve JIRA issues** — optionally writes back structured acceptance criteria and better formatting to JIRA (double-confirmed before writing)
-- **Cross-skill flow** — recommends the next optimus skill based on issue type (TDD for features/bugs, refactor for tech debt)
+- **Codebase impact analysis** — compares JIRA requirements against actual code to surface missing criteria, implicit dependencies, and realistic scope assessment
+- **Improve JIRA issues** — optionally writes back structured acceptance criteria (including codebase-informed gaps) and better formatting to JIRA (double-confirmed before writing)
+- **Cross-skill flow** — recommends the next optimus skill based on codebase-assessed complexity (TDD for simple, plan mode for medium, brainstorm for complex, refactor for tech debt)
 
 ## Quick Start
 
@@ -311,9 +312,9 @@ The skill saves structured task context to `docs/jira/<ISSUE-KEY>.md` — downst
 | Complex (7+ criteria) | `/optimus:jira PROJ-123` → `/optimus:brainstorm` (auto-detects task file) → plan mode → `/optimus:tdd` |
 | Tech debt | `/optimus:jira PROJ-123` → `/optimus:refactor` |
 
-The skill recommends the right path based on acceptance criteria count and task complexity — you don't need to memorize these.
+The skill recommends the right path based on codebase-assessed complexity (not just criteria count) — you don't need to memorize these.
 
-The jira skill only fetches and structures context — it never creates branches, writes code, or modifies your project (except writing the task file to `docs/jira/`).
+The jira skill fetches, structures, and analyzes context — it never creates branches, writes code, or modifies your project (except writing the task file to `docs/jira/`).
 
 ## Supported MCP Servers
 
@@ -328,9 +329,10 @@ The skill auto-detects which server is configured and adapts its tool calls acco
 
 | File | Purpose |
 |------|---------|
-| `SKILL.md` | Skill definition with 6-step workflow |
+| `SKILL.md` | Skill definition with 7-step workflow |
 | `references/jira-mcp-detection.md` | MCP server detection and guided setup procedure |
 | `references/jira-context-extraction.md` | Context fetching, search, and structuring procedure |
+| `references/jira-codebase-analysis.md` | Codebase impact analysis, scope assessment, and criteria suggestion procedure |
 
 ## Requirements
 

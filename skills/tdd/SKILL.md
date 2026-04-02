@@ -51,7 +51,7 @@ Before starting TDD cycles, analyze whether the user's task is a good fit for te
 
 2. **Design doc auto-discovery** — if no explicit reference but `docs/design/` exists with `.md` files, check the most recent one (by filename date prefix). If it was created recently, mention it: "Found design doc `<path>` — use it as the basis for TDD?" via `AskUserQuestion` — header "Design doc", options "Use it" / "Ignore — describe a different task". Design docs contain full approach details from `/optimus:brainstorm` — use Goal, Components, and Interfaces sections as the task description.
 
-3. **JIRA context auto-discovery** — if no design doc found (or user ignored it) but `docs/jira/` exists with `.md` files, check the most recent one (by file modification time). If it was created recently, mention it: "Found JIRA context `<path>` — use it as the basis for TDD?" via `AskUserQuestion` — header "JIRA context", options "Use it" / "Ignore — describe a different task". JIRA context provides Goal and Acceptance Criteria as the task description.
+3. **JIRA context auto-discovery** — if no design doc found (or user ignored it) but `docs/jira/` exists with `.md` files, read each file's YAML frontmatter and select the one with the most recent `date` field. If it was created recently, mention it: "Found JIRA context `<path>` — use it as the basis for TDD?" via `AskUserQuestion` — header "JIRA context", options "Use it" / "Ignore — describe a different task". JIRA context provides Goal and Acceptance Criteria as the task description.
 
 4. **No context found** — proceed with normal task gathering below.
 
