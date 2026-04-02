@@ -26,9 +26,11 @@ def print_report(progress, current_branch=None):
     print(f"{PREFIX}   Persistent:    {total_persistent}")
     print(f"{PREFIX}   Final tests:   {last_test}")
 
-    term = progress["termination"]
-    if term["reason"]:
-        print(f"{PREFIX}   Stopped:       {term['reason']} — {term.get('message', '')}")
+    termination = progress["termination"]
+    if termination["reason"]:
+        print(
+            f"{PREFIX}   Stopped:       {termination['reason']} — {termination.get('message', '')}"
+        )
 
     print(f"{PREFIX} {'=' * 50}")
 
@@ -65,7 +67,7 @@ def print_report(progress, current_branch=None):
             print(f"{PREFIX} To push checkpoint branch:    git push -u origin {branch}")
         print(f"{PREFIX}")
         print(f"{PREFIX} Next: run /optimus:commit to commit the fixes.")
-    elif term["reason"] in ("parse-failure", "crash"):
+    elif termination["reason"] in ("parse-failure", "crash"):
         print(
             f"{PREFIX} No fixes were retained. Check the test output above for details."
         )
@@ -112,7 +114,7 @@ def build_commit_body(progress, iteration, max_entries=10):
     if not iter_findings:
         return ""
 
-    fixed = [f for f in iter_findings if f.get("status") == "fixed"]
+    fixed = [f for f in iter_findings if f.get("status") in FIXED_STATUSES]
     reverted = [f for f in iter_findings if f.get("status") in REVERTED_STATUSES]
 
     lines = ["Harness checkpoint — automated fixes applied and tested.", ""]
@@ -148,11 +150,11 @@ def detect_test_command(project_root, content=None):
 
     # Search within bash/sh code blocks for lines containing test commands
     block_pattern = r"```\s*(?:bash|sh)?\s*\n([\s\S]*?)\n\s*```"
-    test_kw = r"(?:test|spec|jest|pytest|cargo test|go test|dotnet test)"
+    test_command_pattern = r"(?:test|spec|jest|pytest|cargo test|go test|dotnet test)"
     for block_match in re.finditer(block_pattern, content):
         for line in block_match.group(1).strip().splitlines():
             line = line.strip()
-            if line and re.search(test_kw, line, re.IGNORECASE):
+            if line and re.search(test_command_pattern, line, re.IGNORECASE):
                 return re.sub(r"\s+#\s.*$", "", line)
 
     return None
