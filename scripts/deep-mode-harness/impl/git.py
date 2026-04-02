@@ -1,6 +1,6 @@
 import subprocess
 
-from .constants import BACKUP_SUFFIX, PREFIX, PROGRESS_FILE_NAME
+from .constants import BACKUP_SUFFIX, PREFIX, PROGRESS_FILE_NAME, SKILL_COMMIT_TYPE
 
 
 def git_rev_parse_head(cwd):
@@ -163,12 +163,9 @@ def git_commit_checkpoint(progress, iteration, cwd):
     history = progress["iteration_history"]
     latest = history[-1] if history else {}
     fixed = latest.get("fixed", 0)
-    reverted = latest.get("reverted", 0)
 
-    title = (
-        f"deep-harness({skill}): iteration {iteration} — "
-        f"{fixed} fixed, {reverted} reverted"
-    )
+    commit_type = SKILL_COMMIT_TYPE.get(skill, "chore")
+    title = f"{commit_type}(deep-harness): iteration {iteration} — {fixed} fixed"
     # Lazy import to avoid circular dependency (reporting imports git_current_branch)
     from .reporting import build_commit_body
 

@@ -7,6 +7,12 @@ PROGRESS_FILE_NAME = ".claude/deep-mode-progress.json"
 BACKUP_SUFFIX = ".bak"
 
 PREFIX = "[deep-mode]"
+
+# Maps skill names to conventional commit types. Unknown skills fall back to "chore".
+SKILL_COMMIT_TYPE = {
+    "code-review": "fix",
+    "refactor": "refactor",
+}
 PERSISTENT_STATUS = "persistent — fix failed"
 
 
