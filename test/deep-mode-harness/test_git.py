@@ -120,6 +120,18 @@ class TestCleanWorkingTree:
         _clean_working_tree("/tmp/project")
         assert "WARNING" in capsys.readouterr().out
 
+    @patch("impl.git.subprocess.run")
+    def test_checkout_failure_prints_warning(self, mock_run, capsys):
+        # checkout fails, clean succeeds
+        mock_run.side_effect = [
+            MagicMock(returncode=1, stderr="error: checkout failed"),
+            MagicMock(returncode=0),
+        ]
+        _clean_working_tree("/tmp/project")
+        output = capsys.readouterr().out
+        assert "WARNING" in output
+        assert "git checkout" in output
+
 
 class TestGitRestoreTo:
     @patch("impl.git._clean_working_tree")
@@ -243,6 +255,21 @@ class TestGitRestoreSnapshot:
         assert git_restore_snapshot("abc123", "/tmp") is False
         assert "WARNING" in capsys.readouterr().out
 
+    @patch("impl.git.subprocess.run")
+    @patch("impl.git._clean_working_tree")
+    def test_success_drops_matching_stash(self, mock_clean, mock_run):
+        mock_run.side_effect = [
+            MagicMock(returncode=0),  # stash apply
+            MagicMock(
+                returncode=0, stdout="stash@{0} abc123\nstash@{1} def456\n"
+            ),  # stash list
+            MagicMock(returncode=0),  # stash drop
+        ]
+        assert git_restore_snapshot("abc123", "/tmp") is True
+        # Verify stash drop was called with the correct ref
+        drop_call = mock_run.call_args_list[2]
+        assert drop_call[0][0] == ["git", "stash", "drop", "stash@{0}"]
+
 
 class TestGitCommitCheckpoint:
     @patch("impl.git.subprocess.run")
@@ -270,12 +297,12 @@ class TestGitCommitCheckpoint:
 
     @patch("impl.git.subprocess.run")
     def test_commit_failure(self, mock_run, capsys):
-        # add succeeds, reset calls succeed, commit fails
+        # add succeeds, reset calls succeed, commit fails with real error
         mock_run.side_effect = [
             MagicMock(returncode=0),  # git add -A
             MagicMock(returncode=0),  # git reset (progress file)
             MagicMock(returncode=0),  # git reset (backup)
-            MagicMock(returncode=1, stderr="nothing to commit"),  # git commit
+            MagicMock(returncode=1, stdout="", stderr="fatal: something broke"),
         ]
         progress = {
             "skill": "code-review",
@@ -284,3 +311,23 @@ class TestGitCommitCheckpoint:
         }
         assert git_commit_checkpoint(progress, 1, "/tmp") is False
         assert "WARNING" in capsys.readouterr().out
+
+    @patch("impl.git.subprocess.run")
+    def test_nothing_to_commit_returns_true(self, mock_run):
+        # add succeeds, reset calls succeed, commit says nothing to commit
+        mock_run.side_effect = [
+            MagicMock(returncode=0),  # git add -A
+            MagicMock(returncode=0),  # git reset (progress file)
+            MagicMock(returncode=0),  # git reset (backup)
+            MagicMock(
+                returncode=1,
+                stdout="On branch main\nnothing to commit, working tree clean\n",
+                stderr="",
+            ),
+        ]
+        progress = {
+            "skill": "code-review",
+            "iteration_history": [{"iteration": 1, "fixed": 0, "reverted": 0}],
+            "findings": [],
+        }
+        assert git_commit_checkpoint(progress, 1, "/tmp") is True

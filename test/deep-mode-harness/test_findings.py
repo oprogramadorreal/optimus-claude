@@ -1,4 +1,5 @@
 from impl.findings import (
+    _escalate_revert_status,
     _truncate_failure_hint,
     finding_matches,
     mark_all_fixed,
@@ -102,6 +103,23 @@ class TestMarkFindingStatus:
         mark_finding_status(sample_progress, fix2, "fixed", None)
         assert sample_progress["findings"][0]["id"] == "f-001"
         assert sample_progress["findings"][1]["id"] == "f-002"
+
+
+class TestEscalateRevertStatus:
+    def test_persistent_status_stays_persistent(self):
+        """Once a finding reaches persistent status, it stays persistent."""
+        assert (
+            _escalate_revert_status(
+                "reverted — test failure", "persistent — fix failed"
+            )
+            == "persistent — fix failed"
+        )
+
+    def test_persistent_status_stays_for_any_new_status(self):
+        assert (
+            _escalate_revert_status("fixed", "persistent — fix failed")
+            == "persistent — fix failed"
+        )
 
 
 class TestMarkAllFixed:
