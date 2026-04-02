@@ -266,7 +266,7 @@ def _print_startup_info(args, progress):
     print(f"{PREFIX} Base commit: {progress['config']['base_commit'][:8]}")
     print(f"{PREFIX} Estimated messages: ~{estimated_messages} (check rate limits)")
     focus = progress["config"].get("focus", "")
-    if focus:
+    if focus and args.skill == "refactor":
         print(f"{PREFIX} Focus: {focus}")
     print(f"{PREFIX} Press Ctrl+C to stop — progress is saved. Resume with --resume.")
     print(f"{PREFIX}")
@@ -702,6 +702,11 @@ def main(argv=None):
     if args.max_iterations < 1:
         print(f"{PREFIX} Iteration cap clamped to 1 (minimum).")
         args.max_iterations = 1
+
+    # Focus modes only apply to refactor
+    if args.focus and args.skill != "refactor":
+        print(f"{PREFIX} ERROR: --focus is only supported with --skill refactor.")
+        return 1
 
     project_root = Path(args.project_dir).resolve()
     test_command, env_error = _validate_environment(project_root, args)

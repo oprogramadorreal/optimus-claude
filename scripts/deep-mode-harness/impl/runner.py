@@ -3,7 +3,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from .constants import DEFAULT_TEST_TIMEOUT, PREFIX, normalize_path
+from .constants import DEFAULT_TEST_TIMEOUT, PREFIX, VALID_FOCUS_MODES, normalize_path
 
 
 def _find_bash():
@@ -90,6 +90,8 @@ def _build_prompt(skill, max_iterations, scope_paths, focus=""):
     )
     # Focus modes only apply to refactor — code-review has no finding-cap priority
     if focus and skill != "code-review":
+        if focus not in VALID_FOCUS_MODES:
+            raise ValueError(f"Invalid focus mode: {focus!r}")
         prompt += f" {focus}"
     if scope_paths:
         paths_str = ", ".join(scope_paths[:20])
