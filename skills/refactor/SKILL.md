@@ -1,5 +1,5 @@
 ---
-description: Refactors existing code for guideline compliance and testability using up to 4 parallel analysis agents (guideline compliance, testability barriers, duplication/consistency, optional code-simplifier). Two goals — align code with project guidelines AND make untestable code testable so /optimus:unit-test can safely increase coverage. Use after /optimus:init to align existing code, before /optimus:unit-test to remove testability barriers, or periodically to prevent tech debt. Supports flexible scoping and a "deep" mode for iterative refactoring (default 8, up to 10 iterations).
+description: Refactors existing code for guideline compliance and testability using up to 4 parallel analysis agents (guideline compliance, testability barriers, duplication/consistency, optional code-simplifier). Two goals — align code with project guidelines AND make untestable code testable so /optimus:unit-test can safely increase coverage. Use after /optimus:init to align existing code, before /optimus:unit-test to remove testability barriers, or periodically to prevent tech debt. Supports "testability" or "guidelines" focus to prioritize finding categories, flexible scoping, and a "deep" mode for iterative refactoring (default 8, up to 10 iterations).
 disable-model-invocation: true
 ---
 
@@ -245,7 +245,7 @@ Maximum **8 findings** per run.
 - If other categories have fewer than 2 findings, redistribute unused slots to the focused category
 - Category mapping:
   - `testability` focus: Testability Barrier findings + any finding with a "Testability impact" line → reserved slots. All others → other slots.
-  - `guidelines` focus: Guideline Violation, Inconsistency, Duplication, Code Quality findings → reserved slots. Testability Barrier findings → other slots.
+  - `guidelines` focus: Guideline Violation, Inconsistency, Duplication, Missing Abstraction, Architectural Drift, Code Quality findings → reserved slots. Testability Barrier findings → other slots.
 
 **When no focus is active** (default balanced mode):
 - Prioritize by severity then confidence across all categories (current behavior)

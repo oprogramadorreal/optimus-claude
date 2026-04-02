@@ -27,7 +27,7 @@ Construct the harness command using these parameters passed by the calling skill
 - `skill_name` — the skill identifier (e.g., `code-review`, `refactor`)
 - `scope` — optional scope text from user arguments (omit `--scope` if empty)
 - `max_iterations` — optional iteration cap (omit `--max-iterations` if using default 8)
-- `focus` — optional focus keyword for finding-cap priority (omit `--focus` if empty)
+- `focus` — optional focus keyword for finding-cap priority, used by `refactor` (omit `--focus` if empty or if the skill does not define focus modes)
 - `resume` — from step 3
 
 ```
@@ -86,14 +86,14 @@ Read the JSON progress file at the path specified in the system prompt. Extract:
 - `scope_files.current` — file paths to analyze
 - `config.test_command` — the test command (for reference only — do NOT run it)
 - `config.max_iterations` — the iteration cap (for reference only — do NOT check it)
-- `config.focus` — finding-cap priority mode (empty string = balanced)
+- `config.focus` — finding-cap priority mode (empty string = balanced; used by `refactor` for finding-cap allocation)
 
 Initialize from the progress file:
 - `deep-mode` = true
 - `iteration-count` = `iteration.current`
 - `accumulated-findings` = `findings` array (restoring cross-session state from disk)
 - File list for agents = `scope_files.current`
-- `focus` = `config.focus` (apply to Step 6 finding-cap logic)
+- `focus` = `config.focus` (apply to finding-cap logic if the skill supports focus modes)
 
 ### 2. Build iteration context (iterations 2+)
 

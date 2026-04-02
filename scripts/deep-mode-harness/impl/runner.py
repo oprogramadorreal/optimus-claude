@@ -88,7 +88,7 @@ def _build_prompt(skill, max_iterations, scope_paths, focus=""):
         if skill == "code-review"
         else f"/optimus:refactor deep {max_iterations}"
     )
-    if focus:
+    if focus and skill != "code-review":
         prompt += f" {focus}"
     if scope_paths:
         paths_str = ", ".join(scope_paths[:20])

@@ -47,6 +47,7 @@ def sample_progress():
             "scope": {"mode": "local-changes", "paths": [], "base_ref": None},
             "project_root": "/tmp/project",
             "base_commit": "abc1234567890",
+            "focus": "",
         },
         "iteration": {"current": 1, "completed": 0},
         "findings": [],
@@ -465,6 +466,19 @@ class TestPrintStartupInfo:
         output = capsys.readouterr().out
         # refactor = 4 agents/iter vs code-review = 7; estimated messages differ
         assert "Estimated messages" in output
+
+    def test_prints_focus_when_active(self, capsys, sample_progress):
+        sample_progress["config"]["focus"] = "testability"
+        args = SimpleNamespace(skill="refactor")
+        _print_startup_info(args, sample_progress)
+        output = capsys.readouterr().out
+        assert "Focus: testability" in output
+
+    def test_omits_focus_when_empty(self, capsys, sample_progress):
+        args = SimpleNamespace(skill="refactor")
+        _print_startup_info(args, sample_progress)
+        output = capsys.readouterr().out
+        assert "Focus:" not in output
 
 
 # ---------------------------------------------------------------------------

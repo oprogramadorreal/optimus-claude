@@ -209,19 +209,16 @@ class TestBuildPrompt:
 
     def test_focus_with_scope(self):
         result = _build_prompt("refactor", 8, ["src/auth"], focus="testability")
-        assert "testability" in result
-        assert "focus on: src/auth" in result
-        # Focus keyword should appear before scope
-        assert result.index("testability") < result.index("focus on:")
+        assert result == '/optimus:refactor deep 8 testability "focus on: src/auth"'
 
     def test_focus_empty_string(self):
         result = _build_prompt("refactor", 8, [])
         assert result == "/optimus:refactor deep 8"
 
-    def test_focus_code_review_ignored(self):
-        # Code-review doesn't use focus, but _build_prompt should still accept it
+    def test_focus_skipped_for_code_review(self):
+        # Code-review doesn't support focus — _build_prompt should not append it
         result = _build_prompt("code-review", 8, [], focus="testability")
-        assert "testability" in result
+        assert "testability" not in result
 
 
 class TestBuildHarnessSystem:
@@ -271,6 +268,7 @@ class TestRunSkillSession:
             "config": {
                 "max_iterations": max_iter,
                 "project_root": "/tmp/project",
+                "focus": "",
             },
             "scope_files": {"current": scope or []},
         }

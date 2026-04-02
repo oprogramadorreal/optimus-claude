@@ -87,6 +87,7 @@ The skill presents a structured plan before making any changes:
 
 ### Summary
 - Scope: full project
+- Focus: balanced (default)
 - Areas analyzed: 4
 - Total findings: 6 shown (of ~12 detected) — Critical: 2, Warning: 3, Suggestion: 1
 - Cross-cutting findings: 2

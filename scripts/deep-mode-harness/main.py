@@ -264,6 +264,9 @@ def _print_startup_info(args, progress):
     print(f"{PREFIX} Test command: {test_command}")
     print(f"{PREFIX} Base commit: {progress['config']['base_commit'][:8]}")
     print(f"{PREFIX} Estimated messages: ~{estimated_messages} (check rate limits)")
+    focus = progress["config"].get("focus", "")
+    if focus:
+        print(f"{PREFIX} Focus: {focus}")
     print(f"{PREFIX} Press Ctrl+C to stop — progress is saved. Resume with --resume.")
     print(f"{PREFIX}")
 
@@ -719,6 +722,9 @@ def main(argv=None):
             return 1
         # Sync freshly detected test command into resumed progress
         progress["config"]["test_command"] = test_command
+        # Sync focus if explicitly provided on resume
+        if args.focus:
+            progress["config"]["focus"] = args.focus
     else:
         if progress_path.exists():
             print(
@@ -730,7 +736,7 @@ def main(argv=None):
             args.max_iterations,
             test_command,
             project_root,
-            focus=args.focus or "",
+            focus=args.focus,
         )
 
     # Validate base commit

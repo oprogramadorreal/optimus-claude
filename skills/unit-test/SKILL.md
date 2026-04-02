@@ -157,7 +157,7 @@ Report to the user:
 
 ### Not Testable Without Refactoring
 - [List of code flagged as untestable — with brief explanation of what structural change would be needed]
-- To address these, run `/optimus:refactor testability` to prioritize testability improvements — this reserves 6 of 8 finding slots for structural barriers like hardcoded dependencies, tight coupling, and global state.
+- To address these, run `/optimus:refactor testability` to prioritize testability improvements.
 ```
 
 For multi-repo workspaces, present results per repo (one summary block per repo) and include the repo name/path in each section header.
