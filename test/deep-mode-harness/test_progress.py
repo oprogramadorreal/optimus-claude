@@ -82,3 +82,25 @@ class TestMakeInitialProgress:
         assert progress["config"]["scope"]["mode"] == "directory"
         assert progress["config"]["scope"]["paths"] == ["src/api"]
         assert progress["scope_files"]["current"] == ["src/api"]
+
+    @patch("impl.progress.git_rev_parse_head", return_value="abc123def456")
+    def test_focus_stored_in_config(self, mock_git, tmp_path):
+        progress = make_initial_progress(
+            "refactor", "", 8, "pytest", tmp_path, focus="testability"
+        )
+        assert progress["config"]["focus"] == "testability"
+
+    @patch("impl.progress.git_rev_parse_head", return_value="abc123def456")
+    def test_focus_default_empty(self, mock_git, tmp_path):
+        progress = make_initial_progress("refactor", "", 8, "pytest", tmp_path)
+        assert progress["config"]["focus"] == ""
+
+    @patch("impl.progress.git_rev_parse_head", return_value="abc123def456")
+    def test_focus_persists_in_json(self, mock_git, tmp_path):
+        progress = make_initial_progress(
+            "refactor", "", 8, "pytest", tmp_path, focus="guidelines"
+        )
+        path = tmp_path / "progress.json"
+        write_progress(path, progress)
+        loaded = read_progress(path)
+        assert loaded["config"]["focus"] == "guidelines"

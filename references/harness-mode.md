@@ -27,10 +27,11 @@ Construct the harness command using these parameters passed by the calling skill
 - `skill_name` — the skill identifier (e.g., `code-review`, `refactor`)
 - `scope` — optional scope text from user arguments (omit `--scope` if empty)
 - `max_iterations` — optional iteration cap (omit `--max-iterations` if using default 8)
+- `focus` — optional focus keyword for finding-cap priority, used by `refactor` (omit `--focus` if empty or if the skill does not define focus modes)
 - `resume` — from step 3
 
 ```
-<python_cmd> "<plugin_root>/scripts/deep-mode-harness/main.py" --skill <skill_name> --progress-file .claude/deep-mode-progress.json [--max-iterations <N>] [--scope "<scope>"] [--timeout <seconds>] [--resume]
+<python_cmd> "<plugin_root>/scripts/deep-mode-harness/main.py" --skill <skill_name> --progress-file .claude/deep-mode-progress.json [--max-iterations <N>] [--scope "<scope>"] [--focus <focus>] [--timeout <seconds>] [--resume]
 ```
 
 Where `<python_cmd>` is `python3` or `python` (whichever worked in step 2). Wrap `<plugin_root>` in quotes to handle paths with spaces. The constructed command must be a single line (no backslash continuations) for easy copy-paste on all platforms.
@@ -47,7 +48,7 @@ Output the following directly — no `AskUserQuestion`:
 > <constructed command from step 4>
 > ```
 >
-> Additional options: `--timeout <seconds>`, `--scope "<text>"`, `--max-iterations <N>`, `--verbose`, `--no-commit`, `--resume`, `--allowed-tools Read,Edit,Write,MultiEdit,Glob,Grep,Bash,Agent`
+> Additional options: `--timeout <seconds>`, `--scope "<text>"`, `--max-iterations <N>`, `--focus <testability|guidelines>`, `--verbose`, `--no-commit`, `--resume`, `--allowed-tools Read,Edit,Write,MultiEdit,Glob,Grep,Bash,Agent`
 >
 > You can edit the command before running it — for example, add `--scope "focus on src/auth"` to narrow the analysis, or `--max-iterations 12` to increase the cap. When running the script directly from your terminal (without invoking the skill first), use these flags to pass context that would otherwise come from the skill arguments.
 >
@@ -85,12 +86,14 @@ Read the JSON progress file at the path specified in the system prompt. Extract:
 - `scope_files.current` — file paths to analyze
 - `config.test_command` — the test command (for reference only — do NOT run it)
 - `config.max_iterations` — the iteration cap (for reference only — do NOT check it)
+- `config.focus` — finding-cap priority mode (empty string = balanced; used by `refactor` for finding-cap allocation)
 
 Initialize from the progress file:
 - `deep-mode` = true
 - `iteration-count` = `iteration.current`
 - `accumulated-findings` = `findings` array (restoring cross-session state from disk)
 - File list for agents = `scope_files.current`
+- `focus` = `config.focus` (apply to finding-cap logic if the skill supports focus modes)
 
 ### 2. Build iteration context (iterations 2+)
 

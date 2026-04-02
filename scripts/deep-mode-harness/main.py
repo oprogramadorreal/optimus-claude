@@ -13,10 +13,13 @@ Requirements:
 Usage:
   /optimus:code-review deep harness            # invoke from within a conversation
   /optimus:refactor deep harness 8 "backend"   # with iteration cap and scope
+  /optimus:refactor deep harness testability   # with focus mode
 
   python scripts/deep-mode-harness/main.py --skill code-review
   python scripts/deep-mode-harness/main.py --skill code-review --scope "src/auth"
   python scripts/deep-mode-harness/main.py --skill refactor --max-iterations 8 --scope "src/api"
+  python scripts/deep-mode-harness/main.py --skill refactor --focus testability
+  python scripts/deep-mode-harness/main.py --skill refactor --focus guidelines --scope "src/api"
   python scripts/deep-mode-harness/main.py --skill code-review --resume
 
 Security: By default, each claude -p session runs with --dangerously-skip-permissions
@@ -50,6 +53,7 @@ from impl.constants import (
     PERSISTENT_STATUS,
     PREFIX,
     PROGRESS_FILE_NAME,
+    VALID_FOCUS_MODES,
 )
 from impl.findings import (
     finding_key,
@@ -109,6 +113,12 @@ Examples:
         "--scope",
         default="",
         help="Path filter or scope hint (e.g., 'src/auth')",
+    )
+    parser.add_argument(
+        "--focus",
+        choices=sorted(VALID_FOCUS_MODES),
+        default="",
+        help="Finding-cap priority: testability or guidelines (refactor only; default: balanced)",
     )
     parser.add_argument(
         "--progress-file",
@@ -255,6 +265,9 @@ def _print_startup_info(args, progress):
     print(f"{PREFIX} Test command: {test_command}")
     print(f"{PREFIX} Base commit: {progress['config']['base_commit'][:8]}")
     print(f"{PREFIX} Estimated messages: ~{estimated_messages} (check rate limits)")
+    focus = progress["config"].get("focus", "")
+    if focus and args.skill == "refactor":
+        print(f"{PREFIX} Focus: {focus}")
     print(f"{PREFIX} Press Ctrl+C to stop — progress is saved. Resume with --resume.")
     print(f"{PREFIX}")
 
@@ -690,6 +703,11 @@ def main(argv=None):
         print(f"{PREFIX} Iteration cap clamped to 1 (minimum).")
         args.max_iterations = 1
 
+    # Focus modes only apply to refactor
+    if args.focus and args.skill != "refactor":
+        print(f"{PREFIX} ERROR: --focus is only supported with --skill refactor.")
+        return 1
+
     project_root = Path(args.project_dir).resolve()
     test_command, env_error = _validate_environment(project_root, args)
     if env_error:
@@ -710,14 +728,28 @@ def main(argv=None):
             return 1
         # Sync freshly detected test command into resumed progress
         progress["config"]["test_command"] = test_command
+        # Sync focus if explicitly provided on resume
+        if args.focus:
+            progress["config"]["focus"] = args.focus
     else:
         if progress_path.exists():
             print(
                 f"{PREFIX} WARNING: Overwriting existing progress file: {progress_path}"
             )
         progress = make_initial_progress(
-            args.skill, args.scope, args.max_iterations, test_command, project_root
+            args.skill,
+            args.scope,
+            args.max_iterations,
+            test_command,
+            project_root,
+            focus=args.focus,
         )
+
+    # Validate focus mode (progress file may contain hand-edited values on --resume)
+    focus = progress["config"].get("focus", "")
+    if focus and focus not in VALID_FOCUS_MODES:
+        print(f"{PREFIX} ERROR: Invalid focus mode '{focus}' in progress file.")
+        return 1
 
     # Validate base commit
     if not progress["config"]["base_commit"]:

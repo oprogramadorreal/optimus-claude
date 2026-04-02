@@ -3,7 +3,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from .constants import DEFAULT_TEST_TIMEOUT, PREFIX, normalize_path
+from .constants import DEFAULT_TEST_TIMEOUT, PREFIX, VALID_FOCUS_MODES, normalize_path
 
 
 def _find_bash():
@@ -81,13 +81,18 @@ def run_tests(test_command, cwd, timeout=DEFAULT_TEST_TIMEOUT):
     return passed, summary
 
 
-def _build_prompt(skill, max_iterations, scope_paths):
+def _build_prompt(skill, max_iterations, scope_paths, focus=""):
     """Build the skill invocation prompt string."""
     prompt = (
         "/optimus:code-review deep"
         if skill == "code-review"
         else f"/optimus:refactor deep {max_iterations}"
     )
+    # Focus modes only apply to refactor — code-review has no finding-cap priority
+    if focus and skill != "code-review":
+        if focus not in VALID_FOCUS_MODES:
+            raise ValueError(f"Invalid focus mode: {focus!r}")
+        prompt += f" {focus}"
     if scope_paths:
         paths_str = ", ".join(scope_paths[:20])
         prompt += f' "focus on: {paths_str}"'
@@ -142,7 +147,10 @@ def run_skill_session(progress, args, resolved_progress_path, _run=subprocess.ru
     progress_path = normalize_path(str(resolved_progress_path))
 
     prompt = _build_prompt(
-        progress["skill"], max_iterations, progress["scope_files"]["current"]
+        progress["skill"],
+        max_iterations,
+        progress["scope_files"]["current"],
+        focus=progress["config"].get("focus", ""),
     )
     harness_system = _build_harness_system(progress_path, iteration, max_iterations)
     cmd = _build_cmd(prompt, harness_system, args.allowed_tools, args.max_turns)

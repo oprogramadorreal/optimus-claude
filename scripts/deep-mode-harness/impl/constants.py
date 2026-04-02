@@ -14,6 +14,7 @@ SKILL_COMMIT_TYPE = {
     "refactor": "refactor",
 }
 PERSISTENT_STATUS = "persistent — fix failed"
+VALID_FOCUS_MODES = frozenset({"testability", "guidelines"})
 
 
 def normalize_path(path_str):

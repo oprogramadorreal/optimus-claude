@@ -237,6 +237,7 @@ Anthropic's official [code-review](https://github.com/anthropics/claude-code/tre
 | Action | Report + optional fix | Plan + apply on approval |
 | Deep mode | Yes — iterative review-fix loop | Yes — iterative cleanup loop |
 | Agents | Up to 7 parallel (bug, security, guidelines x2, simplifier, test-guardian, contracts-reviewer) | Up to 4 parallel (guideline compliance, testability, duplication/consistency, code simplifier) |
+| Focus modes | N/A | `testability` or `guidelines` keyword adjusts finding-cap priority |
 
 | | `/optimus:code-review` | `/optimus:commit-message` |
 |---|---|---|

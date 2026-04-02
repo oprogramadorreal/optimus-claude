@@ -64,7 +64,7 @@ The skill produces a structured summary after completing:
 ### Not Testable Without Refactoring
 - src/services/payment.ts — inline Stripe API calls without injection
 - src/db/migrate.ts — direct database connection, no repository pattern
-- To address these, run /optimus:refactor to review and restructure the code first.
+- To address these, run /optimus:refactor testability to prioritize testability improvements.
 ```
 
 ## How It Works
@@ -93,7 +93,7 @@ The test-guardian agent and this skill are complementary — both use `testing.m
 | | `/optimus:unit-test` | `/optimus:refactor` |
 |---|---|---|
 | Scope | Test files only | Source code |
-| When code is untestable | Flags it, suggests `/optimus:refactor` | Restructures code to make it testable |
+| When code is untestable | Flags it, suggests `/optimus:refactor testability` | Restructures code to make it testable |
 | Modifies source? | Never | Yes, with approval |
 
 | | `/optimus:unit-test` | `/optimus:init` |
@@ -102,7 +102,7 @@ The test-guardian agent and this skill are complementary — both use `testing.m
 | Test files | Writes new tests | Does not write tests |
 | Coverage analysis | Measures and reports | Does not analyze |
 
-**Workflow**: `/optimus:init` (set up everything including test infrastructure) → `/optimus:unit-test` (write tests to increase coverage) → `/optimus:refactor` (restructure untestable code) → `/optimus:unit-test` again (test the restructured code).
+**Workflow**: `/optimus:init` (set up everything including test infrastructure) → `/optimus:unit-test` (write tests to increase coverage) → `/optimus:refactor testability` (restructure untestable code with testability focus) → `/optimus:unit-test` again (test the restructured code).
 
 ## Skill Structure
 
