@@ -1,7 +1,7 @@
 import re
 from pathlib import Path
 
-from .constants import FIXED_STATUSES, PREFIX, REVERTED_STATUSES
+from .constants import FIXED_STATUSES, PERSISTENT_STATUS, PREFIX, REVERTED_STATUSES
 from .git import git_current_branch
 
 
@@ -10,9 +10,7 @@ def print_report(progress, current_branch=None):
     findings = progress["findings"]
     total_fixed = sum(1 for f in findings if f["status"] in FIXED_STATUSES)
     total_reverted = sum(1 for f in findings if f["status"] in REVERTED_STATUSES)
-    total_persistent = sum(
-        1 for f in findings if f["status"] == "persistent — fix failed"
-    )
+    total_persistent = sum(1 for f in findings if f["status"] == PERSISTENT_STATUS)
     iterations = progress["iteration"]["completed"]
 
     last_test = progress["test_results"]["last_full_run"] or "not available"
@@ -79,6 +77,49 @@ def print_report(progress, current_branch=None):
         f"{PREFIX} Tip: start a fresh conversation for the next skill "
         f"— each skill gathers its own context from scratch."
     )
+
+
+def _format_finding_line(finding):
+    """Format a single finding as a commit-body bullet."""
+    loc = f"{finding['file']}:{finding.get('line', '?')}"
+    cat = finding.get("category", "unknown")
+    summary = finding.get("summary", "").replace("\n", " ").replace("\r", "")
+    if len(summary) > 72:
+        summary = summary[:69] + "..."
+    return f"- {loc} [{cat}] {summary}"
+
+
+def _format_section(header, items, max_entries=10):
+    """Format a section of findings as commit-body lines."""
+    if not items:
+        return []
+    lines = [header]
+    for item in items[:max_entries]:
+        lines.append(_format_finding_line(item))
+    overflow = len(items) - max_entries
+    if overflow > 0:
+        lines.append(f"- ... and {overflow} more")
+    lines.append("")
+    return lines
+
+
+def build_commit_body(progress, iteration, max_entries=10):
+    """Build commit body listing per-fix details for this iteration."""
+    findings = progress.get("findings", [])
+    iter_findings = [
+        f for f in findings if f.get("iteration_last_attempted") == iteration
+    ]
+    if not iter_findings:
+        return ""
+
+    fixed = [f for f in iter_findings if f.get("status") == "fixed"]
+    reverted = [f for f in iter_findings if f.get("status") in REVERTED_STATUSES]
+
+    lines = ["Harness checkpoint — automated fixes applied and tested.", ""]
+    lines.extend(_format_section("Fixed:", fixed, max_entries))
+    lines.extend(_format_section("Reverted (test failure):", reverted, max_entries))
+
+    return "\n".join(lines)
 
 
 def detect_test_command(project_root, content=None):

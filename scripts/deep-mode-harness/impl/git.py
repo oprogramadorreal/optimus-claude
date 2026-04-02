@@ -137,49 +137,6 @@ def restore_working_tree(stash_sha, head_commit, cwd):
     git_restore_to(head_commit, cwd)
 
 
-def _format_finding_line(finding):
-    """Format a single finding as a commit-body bullet."""
-    loc = f"{finding['file']}:{finding.get('line', '?')}"
-    cat = finding.get("category", "unknown")
-    summary = finding.get("summary", "").replace("\n", " ").replace("\r", "")
-    if len(summary) > 72:
-        summary = summary[:69] + "..."
-    return f"- {loc} [{cat}] {summary}"
-
-
-def _format_section(header, items, max_entries=10):
-    """Format a section of findings as commit-body lines."""
-    if not items:
-        return []
-    lines = [header]
-    for item in items[:max_entries]:
-        lines.append(_format_finding_line(item))
-    overflow = len(items) - max_entries
-    if overflow > 0:
-        lines.append(f"- ... and {overflow} more")
-    lines.append("")
-    return lines
-
-
-def _build_commit_body(progress, iteration, max_entries=10):
-    """Build commit body listing per-fix details for this iteration."""
-    findings = progress.get("findings", [])
-    iter_findings = [
-        f for f in findings if f.get("iteration_last_attempted") == iteration
-    ]
-    if not iter_findings:
-        return ""
-
-    fixed = [f for f in iter_findings if f.get("status") == "fixed"]
-    reverted = [f for f in iter_findings if f.get("status", "").startswith("reverted")]
-
-    lines = ["Harness checkpoint — automated fixes applied and tested.", ""]
-    lines.extend(_format_section("Fixed:", fixed, max_entries))
-    lines.extend(_format_section("Reverted (test failure):", reverted, max_entries))
-
-    return "\n".join(lines)
-
-
 def git_commit_checkpoint(progress, iteration, cwd):
     """Create a checkpoint commit for this iteration. Returns True on success."""
     skill = progress["skill"]
@@ -192,7 +149,10 @@ def git_commit_checkpoint(progress, iteration, cwd):
         f"deep-harness({skill}): iteration {iteration} — "
         f"{fixed} fixed, {reverted} reverted"
     )
-    body = _build_commit_body(progress, iteration)
+    # Lazy import to avoid circular dependency (reporting imports git_current_branch)
+    from .reporting import build_commit_body
+
+    body = build_commit_body(progress, iteration)
     msg = f"{title}\n\n{body}" if body else title
 
     add_result = subprocess.run(

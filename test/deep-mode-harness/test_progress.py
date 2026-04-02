@@ -1,8 +1,8 @@
 import json
 from unittest.mock import patch
 
+from impl.findings import generate_finding_id
 from impl.progress import (
-    generate_finding_id,
     make_initial_progress,
     read_progress,
     record_test_result,
@@ -18,13 +18,14 @@ class TestGenerateFindingId:
         sample_progress["findings"] = [{"id": "f-001"}, {"id": "f-002"}]
         assert generate_finding_id(sample_progress) == "f-003"
 
-    def test_gap_in_ids(self, sample_progress):
+    def test_counts_by_list_length(self, sample_progress):
+        """ID is based on list length, not on max existing ID."""
         sample_progress["findings"] = [{"id": "f-001"}, {"id": "f-005"}]
-        assert generate_finding_id(sample_progress) == "f-006"
+        assert generate_finding_id(sample_progress) == "f-003"
 
-    def test_missing_id_field(self, sample_progress):
+    def test_findings_without_id_field(self, sample_progress):
         sample_progress["findings"] = [{"file": "a.js"}]
-        assert generate_finding_id(sample_progress) == "f-001"
+        assert generate_finding_id(sample_progress) == "f-002"
 
 
 class TestRecordTestResult:

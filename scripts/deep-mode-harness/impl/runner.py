@@ -3,7 +3,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from .constants import DEFAULT_TEST_TIMEOUT, PREFIX
+from .constants import DEFAULT_TEST_TIMEOUT, PREFIX, normalize_path
 
 
 def _find_bash():
@@ -90,7 +90,7 @@ def run_skill_session(progress, args, resolved_progress_path):
     iteration = progress["iteration"]["current"]
     max_iter = progress["config"]["max_iterations"]
     # Use forward slashes for cross-platform compatibility in system prompt
-    progress_path = str(resolved_progress_path).replace("\\", "/")
+    progress_path = normalize_path(str(resolved_progress_path))
 
     # Build the skill invocation prompt (skill is validated by argparse choices)
     if skill == "code-review":

@@ -7,6 +7,13 @@ PROGRESS_FILE_NAME = ".claude/deep-mode-progress.json"
 BACKUP_SUFFIX = ".bak"
 
 PREFIX = "[deep-mode]"
+PERSISTENT_STATUS = "persistent — fix failed"
+
+
+def normalize_path(p):
+    """Normalize path separators for cross-platform compatibility."""
+    return p.replace("\\", "/")
+
 
 # Status grouping constants — single source of truth for status classification
 FIXED_STATUSES = frozenset({"fixed", "retained — revert failed"})

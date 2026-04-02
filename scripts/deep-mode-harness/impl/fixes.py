@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from .constants import PREFIX
+from .constants import PREFIX, normalize_path
 from .findings import mark_finding_status
 from .runner import run_tests
 
@@ -17,7 +17,7 @@ def _is_path_within(filepath, root):
 def _swap_content(fix, cwd, source_field, target_field):
     """Swap one content string for another in a file."""
     # Normalize path separators for cross-platform compatibility
-    fix_file = fix["file"].replace("\\", "/")
+    fix_file = normalize_path(fix["file"])
     filepath = (Path(cwd) / fix_file).resolve()
     cwd_resolved = Path(cwd).resolve()
     if not _is_path_within(filepath, cwd_resolved):
@@ -86,10 +86,10 @@ def bisect_fixes(fixes, test_command, cwd, progress):
     """
     print(f"{PREFIX} Bisecting {len(fixes)} fixes...")
     # Revert all this iteration's fixes mechanically (preserves prior uncommitted work)
-    revert_failures = set()
+    failed_revert_indices = set()
     for fix_index, fix in reversed(list(enumerate(fixes))):
         if not revert_single_fix(fix, cwd):
-            revert_failures.add(fix_index)
+            failed_revert_indices.add(fix_index)
             print(
                 f"{PREFIX} WARNING: Could not mechanically revert fix for {fix.get('file')}"
             )
@@ -102,7 +102,7 @@ def bisect_fixes(fixes, test_command, cwd, progress):
 
     # First pass: apply incrementally, keeping passing fixes
     for i, fix in enumerate(fixes):
-        if i in revert_failures:
+        if i in failed_revert_indices:
             mark_finding_status(
                 progress,
                 fix,

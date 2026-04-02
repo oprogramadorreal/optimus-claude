@@ -47,6 +47,7 @@ from impl.constants import (
     DEFAULT_MAX_TURNS,
     DEFAULT_SESSION_TIMEOUT,
     MAX_ITERATIONS_HARD_CAP,
+    PERSISTENT_STATUS,
     PREFIX,
     PROGRESS_FILE_NAME,
 )
@@ -498,7 +499,7 @@ def _record_iteration_history(
     persistent_count = sum(
         1
         for f in progress["findings"]
-        if f["status"] == "persistent — fix failed"
+        if f["status"] == PERSISTENT_STATUS
         and f.get("iteration_last_attempted") == iteration
     )
     progress["iteration_history"].append(
@@ -585,24 +586,7 @@ def _run_iteration_loop(
         )
 
         # Check early-exit conditions (convergence or no actionable fixes)
-        early_exit = None
         if result.get("no_new_findings", False):
-            early_exit = {
-                "reason": "convergence",
-                "message": f"Zero new findings on iteration {iteration}",
-                "log_message": "Convergence",
-                "new_count": 0,
-                "print_msg": "Converged: no new findings.",
-            }
-        elif result.get("no_actionable_fixes", False):
-            early_exit = {
-                "reason": "no-actionable",
-                "message": "Findings exist but none had actionable code edits",
-                "log_message": "No actionable fixes",
-                "new_count": new_count,
-                "print_msg": "No actionable fixes — remaining findings need manual review.",
-            }
-        if early_exit:
             _register_iteration_findings(progress, result, fixes=[])
             _handle_safe_exit(
                 progress,
@@ -612,12 +596,31 @@ def _run_iteration_loop(
                 project_root,
                 pre_stash,
                 pre_head,
-                reason=early_exit["reason"],
-                message=early_exit["message"],
-                log_message=early_exit["log_message"],
-                new_count=early_exit["new_count"],
+                reason="convergence",
+                message=f"Zero new findings on iteration {iteration}",
+                log_message="Convergence",
+                new_count=0,
             )
-            print(f"{PREFIX} {early_exit['print_msg']}")
+            print(f"{PREFIX} Converged: no new findings.")
+            break
+        elif result.get("no_actionable_fixes", False):
+            _register_iteration_findings(progress, result, fixes=[])
+            _handle_safe_exit(
+                progress,
+                progress_path,
+                args,
+                test_command,
+                project_root,
+                pre_stash,
+                pre_head,
+                reason="no-actionable",
+                message="Findings exist but none had actionable code edits",
+                log_message="No actionable fixes",
+                new_count=new_count,
+            )
+            print(
+                f"{PREFIX} No actionable fixes — remaining findings need manual review."
+            )
             break
 
         # Merge new findings into progress

@@ -186,6 +186,51 @@ class TestTryApplyFix:
         assert sample_progress["findings"][0]["status"] == "fixed"
 
 
+class TestSwapContentEdgeCases:
+    def test_unicode_decode_error(self, tmp_path):
+        """Binary file triggers UnicodeDecodeError and returns False."""
+        f = tmp_path / "binary.bin"
+        f.write_bytes(b"\xff\xfe\x00\x01\x80\x81")
+        fix = {
+            "file": "binary.bin",
+            "pre_edit_content": "x",
+            "post_edit_content": "y",
+        }
+        assert (
+            _swap_content(fix, str(tmp_path), "pre_edit_content", "post_edit_content")
+            is False
+        )
+
+    def test_backslash_path_normalization(self, tmp_path):
+        """Windows-style backslashes in fix['file'] are normalized."""
+        sub = tmp_path / "src"
+        sub.mkdir()
+        f = sub / "app.js"
+        f.write_text("hello", encoding="utf-8")
+        fix = {
+            "file": "src\\app.js",
+            "pre_edit_content": "hello",
+            "post_edit_content": "goodbye",
+        }
+        result = _swap_content(
+            fix, str(tmp_path), "pre_edit_content", "post_edit_content"
+        )
+        assert result is True
+        assert f.read_text(encoding="utf-8") == "goodbye"
+
+    def test_path_traversal_blocked(self, tmp_path):
+        """Path traversal outside cwd is blocked."""
+        fix = {
+            "file": "../etc/passwd",
+            "pre_edit_content": "x",
+            "post_edit_content": "y",
+        }
+        assert (
+            _swap_content(fix, str(tmp_path), "pre_edit_content", "post_edit_content")
+            is False
+        )
+
+
 class TestBisectFixes:
     def _setup_files(self, tmp_path, filenames):
         """Create source files with unique content for each fix."""
@@ -268,3 +313,63 @@ class TestBisectFixes:
         )
         assert fixed == 0
         assert reverted == 2
+
+    @patch("impl.fixes.run_tests")
+    def test_revert_failure_marks_retained(
+        self, mock_run_tests, tmp_path, sample_progress
+    ):
+        """When mechanical revert fails, fix is marked 'retained — revert failed'."""
+        fixes = self._setup_files(tmp_path, ["a.js"])
+        apply_single_fix(fixes[0], str(tmp_path))
+        # Tamper with file so revert can't find the post_edit_content
+        f = tmp_path / "a.js"
+        f.write_text("completely different content", encoding="utf-8")
+
+        fixed, reverted, skipped = bisect_fixes(
+            fixes, "npm test", str(tmp_path), sample_progress
+        )
+        assert fixed == 1  # counted as applied (couldn't revert)
+        assert reverted == 0
+        # Finding should be marked retained
+        status = sample_progress["findings"][0]["status"]
+        assert "retained" in status
+
+    @patch("impl.fixes.run_tests")
+    @patch("impl.fixes.revert_single_fix", return_value=True)
+    @patch("impl.fixes.apply_single_fix")
+    def test_skip_in_first_pass(
+        self, mock_apply, mock_revert, mock_run_tests, tmp_path, sample_progress
+    ):
+        """Fix that can't be re-applied during bisection is marked skipped."""
+        fixes = self._setup_files(tmp_path, ["a.js", "b.js"])
+        # First fix apply fails (skip), second succeeds
+        mock_apply.side_effect = [False, True]
+        mock_run_tests.return_value = (True, "pass")
+        fixed, reverted, skipped = bisect_fixes(
+            fixes, "npm test", str(tmp_path), sample_progress
+        )
+        assert skipped == 1
+        assert fixed == 1
+        assert reverted == 0
+
+    @patch("impl.fixes.run_tests")
+    @patch("impl.fixes.revert_single_fix", return_value=True)
+    @patch("impl.fixes.apply_single_fix")
+    def test_retry_skip_path(
+        self, mock_apply, mock_revert, mock_run_tests, tmp_path, sample_progress
+    ):
+        """Fix that fails first pass and can't re-apply on retry is marked skipped."""
+        fixes = self._setup_files(tmp_path, ["a.js", "b.js"])
+        # First pass: fix 0 applies+passes, fix 1 applies+fails test
+        # Retry: fix 1 apply returns False (skipped)
+        mock_apply.side_effect = [True, True, False]
+        mock_run_tests.side_effect = [
+            (True, "pass"),  # fix 0 first pass
+            (False, "fail"),  # fix 1 first pass
+        ]
+        fixed, reverted, skipped = bisect_fixes(
+            fixes, "npm test", str(tmp_path), sample_progress
+        )
+        assert fixed == 1
+        assert skipped == 1
+        assert reverted == 0

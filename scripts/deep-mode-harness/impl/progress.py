@@ -1,10 +1,9 @@
 import datetime
 import json
-import re
 import shutil
 from pathlib import Path
 
-from .constants import BACKUP_SUFFIX
+from .constants import BACKUP_SUFFIX, normalize_path
 from .git import git_rev_parse_head
 
 
@@ -36,7 +35,7 @@ def make_initial_progress(
                 "paths": [scope] if scope else [],
                 "base_ref": None,
             },
-            "project_root": str(project_root).replace("\\", "/"),
+            "project_root": normalize_path(str(project_root)),
             "base_commit": base_commit,
         },
         "iteration": {"current": 1, "completed": 0},
@@ -46,17 +45,6 @@ def make_initial_progress(
         "iteration_history": [],
         "termination": {"reason": None, "message": None},
     }
-
-
-def generate_finding_id(progress):
-    """Generate the next finding ID (f-001, f-002, ...)."""
-    existing_ids = [f["id"] for f in progress["findings"] if "id" in f]
-    max_num = 0
-    for fid in existing_ids:
-        match = re.match(r"f-(\d+)", fid)
-        if match:
-            max_num = max(max_num, int(match.group(1)))
-    return f"f-{max_num + 1:03d}"
 
 
 def record_test_result(progress, passed, summary):

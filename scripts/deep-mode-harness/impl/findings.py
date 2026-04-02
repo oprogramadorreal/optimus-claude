@@ -1,5 +1,9 @@
-from .constants import FAILURE_STATUSES
-from .progress import generate_finding_id
+from .constants import FAILURE_STATUSES, PERSISTENT_STATUS, normalize_path
+
+
+def generate_finding_id(progress):
+    """Generate the next finding ID (f-001, f-002, ...)."""
+    return f"f-{len(progress['findings']) + 1:03d}"
 
 
 def finding_key(item):
@@ -28,7 +32,7 @@ def _new_finding_from_fix(fix, progress, status, detail):
     line = fix.get("line", 0)
     return {
         "id": generate_finding_id(progress),
-        "file": fix.get("file", "").replace("\\", "/"),
+        "file": normalize_path(fix.get("file", "")),
         "line": line,
         "end_line": fix.get("end_line", line),
         "category": fix.get("category", ""),
@@ -53,13 +57,13 @@ def _new_finding_from_fix(fix, progress, status, detail):
     }
 
 
-def _promote_status(new_status, old_status):
-    """Promote repeated revert statuses through the escalation chain."""
+def _escalate_revert_status(new_status, old_status):
+    """Escalate repeated test-failure reverts: failure → attempt 2 → persistent."""
     if new_status == "reverted — test failure":
         if old_status == "reverted — test failure":
             return "reverted — attempt 2"
         if old_status == "reverted — attempt 2":
-            return "persistent — fix failed"
+            return PERSISTENT_STATUS
     return new_status
 
 
@@ -68,21 +72,21 @@ def mark_finding_status(progress, fix, status, detail):
     # Try to find existing finding by file+line+category match
     for existing in progress["findings"]:
         if finding_matches(existing, fix):
-            status = _promote_status(status, existing["status"])
+            effective_status = _escalate_revert_status(status, existing["status"])
 
-            existing["status"] = status
+            existing["status"] = effective_status
             existing["iteration_last_attempted"] = progress["iteration"]["current"]
             existing.setdefault("status_history", []).append(
                 {
                     "iteration": progress["iteration"]["current"],
-                    "status": status,
+                    "status": effective_status,
                     "detail": detail,
                 }
             )
             # Store compact failure context for the next iteration's prompt
-            if status in FAILURE_STATUSES:
+            if effective_status in FAILURE_STATUSES:
                 existing["last_failure_hint"] = _truncate_failure_hint(detail)
-            elif status == "fixed":
+            elif effective_status == "fixed":
                 existing.pop("last_failure_hint", None)
             return
 
@@ -109,7 +113,7 @@ def update_scope(progress, result):
     # code-review: narrow scope
     finding_files = set()
     for finding in progress["findings"]:
-        if finding["status"] != "persistent — fix failed":
+        if finding["status"] != PERSISTENT_STATUS:
             finding_files.add(finding["file"])
     for fix in result.get("fixes_applied", []):
         finding_files.add(fix["file"])
