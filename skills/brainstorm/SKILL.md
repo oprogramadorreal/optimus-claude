@@ -10,7 +10,7 @@ disable-model-invocation: true
 
 # Brainstorm
 
-Guide the user through a structured design conversation that produces a written, approved design document before any implementation begins. The output is a persistent file in the project that can feed into Claude Code plan mode (via `/optimus:prompt`) and then into `/optimus:tdd` for test-first implementation.
+Guide the user through a structured design conversation that produces a written, approved design document before any implementation begins. The output is a persistent file in the project that feeds into Claude Code plan mode and then into `/optimus:tdd` for test-first implementation.
 
 ### The Hard Gate
 
@@ -38,6 +38,25 @@ Load these documents:
 Explore the project's directory structure, key modules, and existing patterns. This grounds the design conversation in what actually exists — not assumptions.
 
 ## Step 2: Gather Intent
+
+### JIRA context detection
+
+Before asking the user for input, check for pre-existing JIRA context:
+
+1. If the user's inline input matches a JIRA key pattern (`[A-Z][A-Z0-9]+-\d+`), check for `docs/jira/<key>.md`. If found, read it and use its Goal and Acceptance Criteria as the brainstorm input.
+
+2. If no inline input (or no JIRA key match), check whether `docs/jira/` exists and contains `.md` files. If so, read the most recent one (by file modification time). Extract the `issue` field from YAML frontmatter and the Goal section. Present to the user via `AskUserQuestion` — header "JIRA context", question "Found JIRA context: [ISSUE-KEY] — [Goal]. Use this as the basis for design?":
+   - **Use it** — "Design around this JIRA task"
+   - **Ignore** — "Describe a different task"
+
+   If the file's `date` frontmatter field is older than 7 days, add a note: "(This context is [N] days old — you may want to re-run `/optimus:jira` for fresh data.)"
+
+   If **Use it**: use the file's Goal and Acceptance Criteria as the brainstorm input. Proceed to clarifying questions (skip the intent-gathering prompts below).
+   If **Ignore**: proceed with normal intent gathering below.
+
+3. If no `docs/jira/` directory or no files in it, proceed with normal intent gathering below.
+
+### Gather from user
 
 If the user provided a description inline (e.g., `/optimus:brainstorm "add authentication system"`), use it. Otherwise, use `AskUserQuestion` — header "Design scope", question "What do you want to build or change?":
 - **New feature** — "Build something new (e.g., 'Add user authentication')"
@@ -146,15 +165,52 @@ Present the result:
 
 ## Step 7: Next Step
 
-Recommend the next step based on what was designed:
-
-- **Implementation task (most common):**
-  Tell the user: "For the best workflow: (1) run `/optimus:prompt` referencing this design doc to generate a plan-mode prompt, (2) start a new conversation in plan mode and paste it, (3) once you have a plan, run `/optimus:tdd` to implement test-first."
-
-  If the task is small enough that plan mode would be overkill (single component, <3 behaviors), recommend going directly to `/optimus:tdd`:
-  Tell the user: "This is small enough to implement directly — run `/optimus:tdd` and reference the design doc."
-
+Handle non-implementation tasks first:
 - **Refactoring task** → recommend `/optimus:refactor`
 - **Test-only task** → recommend `/optimus:unit-test`
+
+For implementation tasks, assess complexity from the Components table in the design doc:
+
+### Small (1–2 components, <5 behaviors implied)
+
+Tell the user: "This is small enough to implement directly — run `/optimus:tdd` in a new conversation. It will auto-detect the design doc at `<file-path>`."
+
+### Medium-to-large (3+ components or complex interfaces)
+
+Generate a plan-mode prompt inline, pre-filled from the design doc. Present it as a single copyable block:
+
+````
+```
+## Goal
+[Goal from the design doc]
+
+## Context
+[Synthesize from the design doc's Context and Approach sections.
+Include key decisions, constraints, and the chosen approach rationale.]
+
+## Starting Hints
+- Design doc: <file-path>
+- [Key files/modules identified during codebase exploration in Step 3]
+
+## What to Figure Out
+1. Which existing files and modules need to be modified or extended?
+2. What's the right implementation sequence given the component dependencies?
+3. Are there existing patterns in the codebase to follow or reuse?
+4. What are the risks or edge cases not covered in the design?
+
+## Plan Deliverable
+The plan should include:
+- Proposed approach with rationale
+- Files to create or modify, with what changes
+- Implementation sequence and dependencies
+- Test strategy mapped to each component
+
+## Scope
+- Focus on: [components from the design doc]
+- Out of scope: [from the design doc's Out of Scope section]
+```
+````
+
+Tell the user: "Start a new Claude Code conversation in **plan mode** and paste the prompt above. Once the plan is approved, run `/optimus:tdd` to build it test-first — it will auto-detect the design doc."
 
 Tell the user: **Tip:** for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch.

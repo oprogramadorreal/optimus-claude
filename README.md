@@ -96,7 +96,16 @@ The result: consistent patterns, meaningful names, and lean context across every
 3. **Test coverage** — `/optimus:unit-test` to write tests and improve coverage
 4. **Code quality** — `/optimus:refactor` for full codebase refactoring against your coding guidelines and testability (if unit-test flagged untestable code, use `/optimus:refactor testability` then re-run `/optimus:unit-test` after refactoring)
 
-**During development** — `/optimus:jira` to fetch and structure JIRA issue context (saves to `docs/jira/` for downstream skills to auto-detect), `/optimus:brainstorm` to think through design decisions before coding, `/optimus:branch` to move work to a properly named branch, `/optimus:tdd` to build features test-first, `/optimus:worktree` for parallel isolated workspaces, `/optimus:prompt` to craft optimized prompts for any AI tool in your workflow, `/optimus:commit` for conventional commits (or `/optimus:commit-message` to preview the message without committing).
+**During development:**
+
+| Task complexity | Workflow | Skills used |
+|----------------|----------|-------------|
+| Simple bug or small feature | `/optimus:tdd "description"` | 1 skill |
+| JIRA-tracked work, clear requirements | `/optimus:jira PROJ-123` → `/optimus:tdd` | 2 skills |
+| Complex feature, design decisions needed | `/optimus:jira` → `/optimus:brainstorm` → plan mode → `/optimus:tdd` | 3 skills + plan mode |
+| Idea without JIRA | `/optimus:brainstorm` → plan mode → `/optimus:tdd` | 2 skills + plan mode |
+
+Each skill recommends the next step based on task complexity — you don't need to memorize these paths. Also available: `/optimus:branch` to move work to a properly named branch, `/optimus:worktree` for parallel isolated workspaces, `/optimus:prompt` to craft optimized prompts for any AI tool, `/optimus:commit` for conventional commits (or `/optimus:commit-message` to preview).
 
 **Before merging** — `/optimus:pr` to create or update pull requests, `/optimus:verify` to prove the feature branch works in an isolated sandbox, `/optimus:code-review` for pre-merge code quality review.
 

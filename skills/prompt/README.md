@@ -70,6 +70,7 @@ Works with any language — describe what you need in Portuguese, Spanish, or an
 | `/optimus:init` | Init creates project-level context (CLAUDE.md, guidelines). Prompt creates task-level context (individual prompts for AI tools). |
 | `/optimus:commit` | After crafting a prompt that produces code changes, use commit to save the work. |
 | `/optimus:tdd` | For code generation prompts, TDD ensures the generated code is correct via tests. |
+| `/optimus:brainstorm` | Brainstorm generates plan-mode prompts inline for the brainstorm→plan→tdd chain. Use `/optimus:prompt` directly when you need prompts for other AI tools or non-brainstorm workflows. |
 | `/optimus:code-review` | Review code that was generated from a crafted prompt. |
 
 ## Skill Structure

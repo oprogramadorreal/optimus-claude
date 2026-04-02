@@ -2,12 +2,19 @@
 
 Guides structured design brainstorming — explores the codebase, asks clarifying questions, proposes multiple approaches with trade-offs, and writes an approved design doc to the project.
 
-## When to use
+## When to Use
 
 Before implementing a new feature or significant change. Especially valuable when:
 - The feature touches multiple components or has unclear boundaries
 - Multiple valid approaches exist and you want to compare trade-offs
 - You want a persistent design artifact that survives conversation resets
+- A JIRA ticket is too vague for direct implementation — brainstorm auto-detects JIRA context from `docs/jira/`
+
+## When NOT to Use
+
+- Simple, well-understood task — skip to `/optimus:tdd` directly
+- Pure refactoring with no design decisions — use `/optimus:refactor`
+- Quick prototyping — just code directly, plan mode is sufficient
 
 ## What it does
 
@@ -28,16 +35,22 @@ A markdown design document written to `docs/design/` covering goal, approach, co
 
 ## Recommended workflow
 
-```
-/optimus:brainstorm → /optimus:prompt (plan-mode prompt) → plan mode → /optimus:tdd
-```
+| Task complexity | Workflow |
+|----------------|----------|
+| Small (1–2 components) | `/optimus:brainstorm` → `/optimus:tdd` (auto-detects design doc) |
+| Medium-to-large (3+ components) | `/optimus:brainstorm` → plan mode (brainstorm generates prompt) → `/optimus:tdd` |
+| From JIRA | `/optimus:jira` → `/optimus:brainstorm` (auto-detects JIRA context) → plan mode → `/optimus:tdd` |
 
-1. **Brainstorm** produces a design doc
-2. **Prompt** generates a plan-mode prompt referencing the design doc
-3. **Plan mode** (Claude Code built-in) explores the codebase and creates an implementation plan
-4. **TDD** implements the plan test-first with Red-Green-Refactor cycles
+Brainstorm generates the plan-mode prompt inline — no need to run `/optimus:prompt` as a separate step. Each skill recommends the right next step based on design complexity.
 
-For small tasks (single component, few behaviors), skip plan mode and go directly to `/optimus:tdd`.
+## Relationship to Other Skills
+
+| Skill | Relationship |
+|-------|-------------|
+| `/optimus:jira` | Brainstorm auto-detects JIRA context files in `docs/jira/`. Run jira first for JIRA-tracked work. |
+| `/optimus:tdd` | TDD auto-detects design docs in `docs/design/`. Run brainstorm before TDD for complex features. |
+| `/optimus:prompt` | Brainstorm generates plan-mode prompts inline for the brainstorm→plan→tdd chain. Use `/optimus:prompt` directly for other AI tools or non-brainstorm workflows. |
+| `/optimus:refactor` | For refactoring tasks (restructuring without new behavior), use refactor instead of brainstorm. |
 
 ## Prerequisites
 
