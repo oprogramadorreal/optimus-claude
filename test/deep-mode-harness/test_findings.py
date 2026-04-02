@@ -1,9 +1,34 @@
 from impl.findings import (
+    _truncate_failure_hint,
     finding_matches,
     mark_all_fixed,
     mark_finding_status,
     update_scope,
 )
+
+
+class TestTruncateFailureHint:
+    def test_none_detail(self):
+        assert _truncate_failure_hint(None) is None
+
+    def test_empty_string(self):
+        assert _truncate_failure_hint("") is None
+
+    def test_short_string(self):
+        assert _truncate_failure_hint("short error") == "short error"
+
+    def test_whitespace_stripped(self):
+        assert _truncate_failure_hint("  error  ") == "error"
+
+    def test_long_string_truncated(self):
+        long_detail = "x" * 250
+        result = _truncate_failure_hint(long_detail)
+        assert len(result) == 203  # 200 + "..."
+        assert result.endswith("...")
+
+    def test_custom_max_len(self):
+        result = _truncate_failure_hint("abcdefghij", max_len=5)
+        assert result == "abcde..."
 
 
 class TestFindingMatches:
