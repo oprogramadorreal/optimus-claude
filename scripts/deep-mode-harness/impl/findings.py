@@ -106,8 +106,8 @@ def mark_all_fixed(progress, fixes):
 def update_scope(progress, result):
     """
     Update scope_files for the next iteration.
-    code-review: narrow to files with findings + newly modified files.
-    refactor: keep the same scope (no narrowing).
+    code-review: widen scope to include files with active findings + newly modified files.
+    refactor: keep the same scope (no widening).
     """
     if progress["skill"] == "refactor":
         return  # refactor keeps constant scope
@@ -118,7 +118,9 @@ def update_scope(progress, result):
         if finding["status"] != PERSISTENT_STATUS:
             finding_files.add(finding["file"])
     for fix in result.get("fixes_applied", []):
-        finding_files.add(fix.get("file", ""))
+        fix_file = fix.get("file", "")
+        if fix_file:
+            finding_files.add(fix_file)
 
     # Merge with existing scope
     current = set(progress["scope_files"]["current"])
