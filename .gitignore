@@ -5,6 +5,7 @@ evals/
 test/fixtures/
 .worktrees/
 __pycache__/
+.pytest_cache/
 .venv/
 htmlcov/
 .coverage
