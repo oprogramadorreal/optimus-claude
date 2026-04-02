@@ -158,8 +158,8 @@ def restore_working_tree(stash_sha, head_commit, cwd):
 def git_commit_checkpoint(progress, iteration, cwd):
     """Create a checkpoint commit for this iteration. Returns True on success."""
     skill = progress["skill"]
-    hist = progress["iteration_history"]
-    latest = hist[-1] if hist else {}
+    history = progress["iteration_history"]
+    latest = history[-1] if history else {}
     fixed = latest.get("fixed", 0)
     reverted = latest.get("reverted", 0)
 
@@ -171,7 +171,7 @@ def git_commit_checkpoint(progress, iteration, cwd):
     from .reporting import build_commit_body
 
     body = build_commit_body(progress, iteration)
-    msg = f"{title}\n\n{body}" if body else title
+    commit_message = f"{title}\n\n{body}" if body else title
 
     add_result = subprocess.run(
         ["git", "add", "-A"], cwd=str(cwd), capture_output=True, text=True
@@ -188,7 +188,7 @@ def git_commit_checkpoint(progress, iteration, cwd):
             text=True,
         )
     result = subprocess.run(
-        ["git", "commit", "-m", msg],
+        ["git", "commit", "-m", commit_message],
         cwd=str(cwd),
         capture_output=True,
         text=True,

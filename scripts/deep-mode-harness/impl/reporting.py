@@ -116,10 +116,14 @@ def build_commit_body(progress, iteration, max_entries=10):
 
     fixed = [f for f in iter_findings if f.get("status") in FIXED_STATUSES]
     reverted = [f for f in iter_findings if f.get("status") in REVERTED_STATUSES]
+    persistent = [f for f in iter_findings if f.get("status") == PERSISTENT_STATUS]
 
     lines = ["Harness checkpoint — automated fixes applied and tested.", ""]
     lines.extend(_format_section("Fixed:", fixed, max_entries))
     lines.extend(_format_section("Reverted (test failure):", reverted, max_entries))
+    lines.extend(
+        _format_section("Persistent (all attempts failed):", persistent, max_entries)
+    )
 
     return "\n".join(lines)
 
