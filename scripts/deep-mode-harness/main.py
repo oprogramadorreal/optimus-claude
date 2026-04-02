@@ -117,7 +117,7 @@ Examples:
         "--focus",
         choices=["testability", "guidelines"],
         default="",
-        help="Finding-cap priority: testability or guidelines (default: balanced)",
+        help="Finding-cap priority: testability or guidelines (refactor only; default: balanced)",
     )
     parser.add_argument(
         "--progress-file",

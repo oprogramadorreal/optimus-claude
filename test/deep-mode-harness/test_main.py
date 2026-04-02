@@ -29,46 +29,7 @@ from main import (
     _validate_environment,
 )
 
-# ---------------------------------------------------------------------------
-# Fixtures
-# ---------------------------------------------------------------------------
-
-
-@pytest.fixture
-def sample_progress():
-    """Minimal valid progress dict matching make_initial_progress shape."""
-    return {
-        "schema_version": 1,
-        "skill": "code-review",
-        "started_at": "2025-01-01T00:00:00Z",
-        "config": {
-            "max_iterations": 8,
-            "test_command": "npm test",
-            "scope": {"mode": "local-changes", "paths": [], "base_ref": None},
-            "project_root": "/tmp/project",
-            "base_commit": "abc1234567890",
-            "focus": "",
-        },
-        "iteration": {"current": 1, "completed": 0},
-        "findings": [],
-        "scope_files": {"current": []},
-        "test_results": {"last_full_run": None, "last_run_output_summary": None},
-        "iteration_history": [],
-        "termination": {"reason": None, "message": None},
-    }
-
-
-@pytest.fixture
-def sample_fix():
-    return {
-        "file": "src/app.js",
-        "line": 42,
-        "category": "bug",
-        "summary": "Fix null check",
-        "pre_edit_content": "obj.value",
-        "post_edit_content": "obj?.value",
-    }
-
+# Fixtures are provided by conftest.py (sample_progress, sample_fix)
 
 # ---------------------------------------------------------------------------
 # _record_iteration_history
@@ -422,16 +383,12 @@ class TestBuildArgumentParser:
 
     def test_focus_testability(self):
         parser = _build_argument_parser()
-        args = parser.parse_args(
-            ["--skill", "refactor", "--focus", "testability"]
-        )
+        args = parser.parse_args(["--skill", "refactor", "--focus", "testability"])
         assert args.focus == "testability"
 
     def test_focus_guidelines(self):
         parser = _build_argument_parser()
-        args = parser.parse_args(
-            ["--skill", "refactor", "--focus", "guidelines"]
-        )
+        args = parser.parse_args(["--skill", "refactor", "--focus", "guidelines"])
         assert args.focus == "guidelines"
 
     def test_focus_default_empty(self):

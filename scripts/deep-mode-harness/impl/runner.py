@@ -88,6 +88,7 @@ def _build_prompt(skill, max_iterations, scope_paths, focus=""):
         if skill == "code-review"
         else f"/optimus:refactor deep {max_iterations}"
     )
+    # Focus modes only apply to refactor — code-review has no finding-cap priority
     if focus and skill != "code-review":
         prompt += f" {focus}"
     if scope_paths:
