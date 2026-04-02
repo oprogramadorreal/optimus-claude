@@ -8,7 +8,11 @@ def generate_finding_id(progress):
 
 def finding_key(item):
     """Extract the (file, line, category) key used to match findings and fixes."""
-    return (item.get("file", ""), item.get("line"), item.get("category"))
+    return (
+        normalize_path(item.get("file", "")),
+        item.get("line"),
+        item.get("category"),
+    )
 
 
 def finding_matches(finding, fix):
@@ -118,7 +122,7 @@ def update_scope(progress, result):
         if finding["status"] != PERSISTENT_STATUS:
             finding_files.add(finding["file"])
     for fix in result.get("fixes_applied", []):
-        fix_file = fix.get("file", "")
+        fix_file = normalize_path(fix.get("file", ""))
         if fix_file:
             finding_files.add(fix_file)
 

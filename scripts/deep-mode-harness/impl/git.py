@@ -18,9 +18,11 @@ def git_rev_parse_head(cwd):
 
 def _clean_working_tree(cwd):
     """Reset tracked files and remove untracked files/dirs."""
-    subprocess.run(
+    checkout = subprocess.run(
         ["git", "checkout", "."], cwd=str(cwd), capture_output=True, text=True
     )
+    if checkout.returncode != 0:
+        print(f"{PREFIX} WARNING: git checkout . failed: {checkout.stderr[:200]}")
     clean = subprocess.run(
         ["git", "clean", "-fd"], cwd=str(cwd), capture_output=True, text=True
     )
