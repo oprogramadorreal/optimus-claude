@@ -307,9 +307,9 @@ The skill saves structured task context to `docs/jira/<ISSUE-KEY>.md` — downst
 
 | Task complexity | Workflow |
 |----------------|----------|
-| Simple (1–3 criteria) | `/optimus:jira PROJ-123` → `/optimus:tdd` (auto-detects task file) |
-| Medium (4–6 criteria) | `/optimus:jira PROJ-123` → plan mode (jira generates prompt) → `/optimus:tdd` |
-| Complex (7+ criteria) | `/optimus:jira PROJ-123` → `/optimus:brainstorm` (auto-detects task file) → plan mode → `/optimus:tdd` |
+| Simple | `/optimus:jira PROJ-123` → `/optimus:tdd` (auto-detects task file) |
+| Medium | `/optimus:jira PROJ-123` → plan mode (jira generates prompt) → `/optimus:tdd` |
+| Complex | `/optimus:jira PROJ-123` → `/optimus:brainstorm` (auto-detects task file) → plan mode → `/optimus:tdd` |
 | Tech debt | `/optimus:jira PROJ-123` → `/optimus:refactor` |
 
 The skill recommends the right path based on codebase-assessed complexity (not just criteria count) — you don't need to memorize these.

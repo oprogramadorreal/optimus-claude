@@ -128,7 +128,7 @@ Use `AskUserQuestion` — header "Improve issue", question "Would you like to im
 - **Improve description** — "Update the JIRA issue with the structured content above"
 - **Skip** — "Keep the JIRA issue as-is"
 
-If **Skip** → proceed to Step 7.
+If **Skip** → if Step 5 queued suggested criteria for JIRA inclusion, warn: "Note: the codebase-suggested criteria from Step 5 will not be added to JIRA. They are still saved in your local task file." Then proceed to Step 7.
 
 If **Improve description**:
 
