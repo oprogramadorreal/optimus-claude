@@ -5,7 +5,7 @@ disable-model-invocation: true
 
 # JIRA Context
 
-Fetch a JIRA issue, distill it into an optimized task description for Claude Code, analyze the codebase to identify gaps and realistic scope, and optionally improve the issue's description in JIRA. The skill works with any JIRA MCP server (Atlassian Rovo or community servers like sooperset/mcp-atlassian) and guides first-time setup when no server is configured.
+Fetch a JIRA issue, distill it into an optimized task description for Claude Code, analyze the codebase to surface missing criteria, scope, and risks, and optionally improve the issue's description in JIRA. The skill works with any JIRA MCP server (Atlassian Rovo or community servers like sooperset/mcp-atlassian) and guides first-time setup when no server is configured.
 
 ## Step 1: Detect JIRA MCP Server
 

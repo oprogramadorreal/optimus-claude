@@ -1,6 +1,6 @@
 # JIRA Codebase Impact Analysis
 
-Procedure for comparing a JIRA issue's requirements against the actual codebase to surface gaps, missing criteria, and realistic scope. Called by the jira skill after the structured task has been confirmed (Step 4) and saved to `docs/jira/<KEY>.md`.
+Procedure for comparing a JIRA issue's requirements against the actual codebase to surface missing criteria, scope, and risks. Called by the jira skill after the structured task has been confirmed (Step 4) and saved to `docs/jira/<KEY>.md`.
 
 ## Contents
 
@@ -16,7 +16,7 @@ Using the Goal and Acceptance Criteria from the confirmed structured task, explo
 
 1. **What code does each criterion touch?** — For each acceptance criterion, identify the files and modules that need to change. Use targeted searches (Grep, Glob, Read) driven by keywords from the criterion (function names, endpoint paths, component names, domain terms).
 
-2. **What does the code require that the JIRA item doesn't mention?** — Look for:
+2. **What does the code require that the JIRA issue doesn't mention?** — Look for:
    - Components that must change to satisfy a criterion but aren't named in the issue (e.g., a cache layer that needs invalidation, a database migration required by a schema change)
    - Cross-cutting concerns the criteria don't cover (error handling contracts, logging, permissions checks already enforced by middleware)
    - Integration points with other modules that will need updates (imports, shared types, API contracts)
@@ -61,7 +61,7 @@ good test coverage"]
 - [Risk] — [which files/modules, and why it matters]
 ```
 
-Omit any section that has nothing to report (e.g., no suggested criteria means the JIRA item is well-specified).
+Omit any section that has nothing to report (e.g., no suggested criteria means the JIRA issue is well-specified).
 
 ## Scope Assessment
 
@@ -91,7 +91,7 @@ Only suggest additional criteria when the code makes them genuinely necessary. D
 - A dependency or integration point needs coordinated changes
 
 **Do NOT suggest a criterion when:**
-- It's a nice-to-have that goes beyond the JIRA item's stated goal
+- It's a nice-to-have that goes beyond the JIRA issue's stated goal
 - It's an implementation detail (e.g., "use a factory pattern") rather than an observable behavior
 - It duplicates an existing criterion in different words
 - It's covered by the codebase's existing infrastructure (e.g., "add logging" when logging middleware is automatic)
