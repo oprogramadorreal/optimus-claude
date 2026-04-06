@@ -608,23 +608,31 @@ class TestRecoverFromMissingOutput:
         assert result is not None
         assert result["no_new_findings"] is True
 
+    @patch("main.restore_working_tree")
     @patch("main.record_test_result")
     @patch("main.run_tests", return_value=(True, "pass"))
     @patch("main.git_diff_has_changes", return_value=True)
-    def test_changes_passing_tests_returns_no_actionable(
-        self, mock_diff, mock_tests, mock_record, sample_progress, tmp_path
+    def test_changes_passing_tests_reverts_and_returns_no_actionable(
+        self,
+        mock_diff,
+        mock_tests,
+        mock_record,
+        mock_restore,
+        sample_progress,
+        tmp_path,
     ):
         result = _recover_from_missing_output(
             "some output",
             "npm test",
             tmp_path,
-            None,
+            "stash-ref",
             "abc",
             sample_progress,
             tmp_path / "p.json",
         )
         assert result is not None
         assert result["no_actionable_fixes"] is True
+        mock_restore.assert_called_once_with("stash-ref", "abc", tmp_path)
 
     @patch("main.write_progress")
     @patch("main.restore_working_tree")
@@ -654,11 +662,19 @@ class TestRecoverFromMissingOutput:
         assert sample_progress["termination"]["reason"] == "parse-failure"
         mock_restore.assert_called_once()
 
+    @patch("main.restore_working_tree")
     @patch("main.record_test_result")
     @patch("main.run_tests", return_value=(True, "pass"))
     @patch("main.git_diff_has_changes", return_value=True)
     def test_short_output_prints_hint(
-        self, mock_diff, mock_tests, mock_record, sample_progress, tmp_path, capsys
+        self,
+        mock_diff,
+        mock_tests,
+        mock_record,
+        mock_restore,
+        sample_progress,
+        tmp_path,
+        capsys,
     ):
         _recover_from_missing_output(
             "hi",
@@ -671,11 +687,19 @@ class TestRecoverFromMissingOutput:
         )
         assert "very short" in capsys.readouterr().out
 
+    @patch("main.restore_working_tree")
     @patch("main.record_test_result")
     @patch("main.run_tests", return_value=(True, "pass"))
     @patch("main.git_diff_has_changes", return_value=True)
     def test_empty_output_prints_hint(
-        self, mock_diff, mock_tests, mock_record, sample_progress, tmp_path, capsys
+        self,
+        mock_diff,
+        mock_tests,
+        mock_record,
+        mock_restore,
+        sample_progress,
+        tmp_path,
+        capsys,
     ):
         _recover_from_missing_output(
             "",

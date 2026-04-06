@@ -398,7 +398,12 @@ def _recover_from_missing_output(
     test_passed, test_summary = run_tests(test_command, project_root)
     record_test_result(progress, test_passed, test_summary)
     if test_passed:
-        # Changes passed tests but are untracked — stop to avoid silent drift
+        # Tests pass but we can't track what changed — revert to prevent
+        # silent drift (untracked changes would get committed downstream).
+        print(
+            f"{PREFIX} Tests pass but changes are untracked — reverting to stay clean"
+        )
+        restore_working_tree(pre_stash, pre_head, project_root)
         return {
             "no_new_findings": False,
             "no_actionable_fixes": True,
