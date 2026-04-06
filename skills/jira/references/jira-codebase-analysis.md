@@ -108,8 +108,8 @@ When the user chooses to update the local context file:
 ### Codebase Impact
 [Files Affected section from the impact summary]
 
-### Additional Criteria (from codebase analysis)
-[Numbered list of suggested criteria, if any]
+### Suggested Criteria (from codebase analysis)
+[Numbered list of suggested criteria — omit this section if there are none]
 
 ### Scope Assessment
 [Simple/Medium/Complex with explanation]

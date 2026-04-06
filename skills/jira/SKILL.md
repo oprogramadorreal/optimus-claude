@@ -1,5 +1,5 @@
 ---
-description: Fetches and optimizes context from a JIRA issue for AI-assisted development. Searches assigned issues or fetches by key. Distills title, description, acceptance criteria, sprint context, and comments into a structured task description. Analyzes the codebase to surface missing criteria, scope, and risks. Optionally improves the JIRA issue itself. Use before /optimus:tdd or /optimus:branch to pull task context from JIRA.
+description: Fetches and optimizes context from a JIRA issue for AI-assisted development. Searches assigned issues or fetches by key. Distills title, description, acceptance criteria, sprint context, and comments into a structured task description. Analyzes the codebase to surface missing criteria, scope, and risks. Optionally improves the JIRA issue itself. Use before /optimus:tdd, /optimus:brainstorm, or /optimus:branch to pull task context from JIRA.
 disable-model-invocation: true
 ---
 
@@ -170,9 +170,10 @@ If **Improve description**:
 First, handle tech debt and refactoring tickets separately — they have a fixed route:
 
 - **Refactoring / Tech debt** → "Recommend running `/optimus:refactor` to restructure the code. **Tip:** for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch."
-- **Any task** → also mention `/optimus:branch` if the user hasn't created a feature branch yet
 
-For stories, features, and bugs, use the **Scope Assessment** from Step 5 as the primary complexity signal (Step 5 always runs, so this is always available). When the scope assessment is inconclusive, supplement with the structured task's acceptance criteria count and context.
+For stories, features, and bugs, use the **Scope Assessment** from Step 5 as the primary complexity signal. When the scope assessment is inconclusive, supplement with the structured task's acceptance criteria count and context.
+
+After giving the recommendation for any path above (including refactoring), also mention `/optimus:branch` if the user hasn't created a feature branch yet.
 
 ### Simple (codebase assessment: simple, or 1–3 acceptance criteria with single component)
 
