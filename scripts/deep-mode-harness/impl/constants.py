@@ -1,6 +1,6 @@
 DEFAULT_MAX_ITERATIONS = 8
 MAX_ITERATIONS_HARD_CAP = 20
-DEFAULT_MAX_TURNS = 30
+DEFAULT_MAX_TURNS = 50
 DEFAULT_SESSION_TIMEOUT = 900  # 15 minutes per iteration
 DEFAULT_TEST_TIMEOUT = 300  # 5 minutes for test runs
 PROGRESS_FILE_NAME = ".claude/deep-mode-progress.json"

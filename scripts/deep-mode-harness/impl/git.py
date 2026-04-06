@@ -119,6 +119,100 @@ def git_current_branch(cwd):
     return result.stdout.strip() if result.returncode == 0 else ""
 
 
+def _detect_base_branch(cwd):
+    """Detect the base branch for the current feature branch.
+
+    Tries (in order):
+    1. Open PR target branch via gh CLI
+    2. git symbolic-ref refs/remotes/origin/HEAD
+    3. origin/main
+    4. origin/master
+
+    Returns a branch ref like 'origin/main', or None if detection fails.
+    """
+    cwd_str = str(cwd)
+
+    # 1. Try gh pr view for open PR target branch
+    try:
+        result = subprocess.run(
+            ["gh", "pr", "view", "--json", "baseRefName,state"],
+            capture_output=True,
+            text=True,
+            cwd=cwd_str,
+            timeout=10,
+        )
+        if result.returncode == 0:
+            import json
+
+            pr_info = json.loads(result.stdout)
+            if pr_info.get("state") == "OPEN" and pr_info.get("baseRefName"):
+                return f"origin/{pr_info['baseRefName']}"
+    except (subprocess.TimeoutExpired, FileNotFoundError, ValueError):
+        pass
+
+    # 2. git symbolic-ref refs/remotes/origin/HEAD
+    result = subprocess.run(
+        ["git", "symbolic-ref", "refs/remotes/origin/HEAD"],
+        capture_output=True,
+        text=True,
+        cwd=cwd_str,
+    )
+    if result.returncode == 0:
+        # Output is like "refs/remotes/origin/main" — strip to "origin/main"
+        ref = result.stdout.strip()
+        if ref.startswith("refs/remotes/"):
+            return ref[len("refs/remotes/") :]
+        return ref
+
+    # 3. Try origin/main
+    result = subprocess.run(
+        ["git", "rev-parse", "--verify", "origin/main"],
+        capture_output=True,
+        text=True,
+        cwd=cwd_str,
+    )
+    if result.returncode == 0:
+        return "origin/main"
+
+    # 4. Try origin/master
+    result = subprocess.run(
+        ["git", "rev-parse", "--verify", "origin/master"],
+        capture_output=True,
+        text=True,
+        cwd=cwd_str,
+    )
+    if result.returncode == 0:
+        return "origin/master"
+
+    return None
+
+
+def discover_branch_files(cwd):
+    """Discover all files changed in the current feature branch vs. the base branch.
+
+    Returns a list of file paths (relative to repo root), or an empty list
+    if detection fails. Also returns the base ref used for scope tracking.
+    """
+    cwd_str = str(cwd)
+    base = _detect_base_branch(cwd_str)
+    if not base:
+        print(f"{PREFIX} WARNING: Could not detect base branch for scope discovery")
+        return [], None
+
+    result = subprocess.run(
+        ["git", "diff", "--name-only", f"{base}...HEAD"],
+        capture_output=True,
+        text=True,
+        cwd=cwd_str,
+    )
+    if result.returncode != 0:
+        print(f"{PREFIX} WARNING: git diff --name-only failed: {result.stderr[:200]}")
+        return [], base
+
+    files = [f for f in result.stdout.strip().splitlines() if f]
+    return files, base
+
+
 def git_diff_has_changes(cwd):
     """Check if there are any uncommitted changes (staged, unstaged, or untracked)."""
     cwd_str = str(cwd)

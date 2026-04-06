@@ -64,6 +64,7 @@ from impl.findings import (
 )
 from impl.fixes import bisect_fixes
 from impl.git import (
+    discover_branch_files,
     git_commit_checkpoint,
     git_diff_has_changes,
     git_rev_parse_head,
@@ -749,6 +750,22 @@ def main(argv=None):
             project_root,
             focus=args.focus,
         )
+
+    # Pre-discover feature branch files if scope is empty (no --scope given).
+    # This mirrors the skill's Step 3 "no local changes → branch diff" path and
+    # ensures agents have a file list on iteration 1.
+    if not progress["scope_files"]["current"]:
+        branch_files, base_ref = discover_branch_files(project_root)
+        if branch_files:
+            progress["scope_files"]["current"] = branch_files
+            if base_ref:
+                progress["config"]["scope"]["base_ref"] = base_ref
+                progress["config"]["scope"]["mode"] = "branch-diff"
+            print(f"{PREFIX} Scope: {len(branch_files)} files changed vs {base_ref}")
+        else:
+            print(
+                f"{PREFIX} WARNING: No changed files detected — agents may have limited scope"
+            )
 
     # Validate focus mode (progress file may contain hand-edited values on --resume)
     focus = progress["config"].get("focus", "")

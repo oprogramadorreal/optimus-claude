@@ -1,7 +1,11 @@
+import json
+import subprocess
 from unittest.mock import MagicMock, call, patch
 
 from impl.git import (
     _clean_working_tree,
+    _detect_base_branch,
+    discover_branch_files,
     git_commit_checkpoint,
     git_current_branch,
     git_diff_has_changes,
@@ -269,6 +273,139 @@ class TestGitRestoreSnapshot:
         # Verify stash drop was called with the correct ref
         drop_call = mock_run.call_args_list[2]
         assert drop_call[0][0] == ["git", "stash", "drop", "stash@{0}"]
+
+
+class TestDetectBaseBranch:
+    @patch("impl.git.subprocess.run")
+    def test_open_pr_returns_pr_base(self, mock_run):
+        pr_json = json.dumps({"state": "OPEN", "baseRefName": "develop"})
+        mock_run.return_value = MagicMock(returncode=0, stdout=pr_json)
+        assert _detect_base_branch("/tmp") == "origin/develop"
+
+    @patch("impl.git.subprocess.run")
+    def test_closed_pr_falls_through_to_symbolic_ref(self, mock_run):
+        pr_json = json.dumps({"state": "CLOSED", "baseRefName": "main"})
+        mock_run.side_effect = [
+            MagicMock(returncode=0, stdout=pr_json),  # gh pr view (closed)
+            MagicMock(
+                returncode=0, stdout="refs/remotes/origin/main\n"
+            ),  # symbolic-ref
+        ]
+        assert _detect_base_branch("/tmp") == "origin/main"
+
+    @patch("impl.git.subprocess.run")
+    def test_gh_not_found_falls_through(self, mock_run):
+        def side_effect(cmd, **kwargs):
+            if cmd[0] == "gh":
+                raise FileNotFoundError("gh not found")
+            if "symbolic-ref" in cmd:
+                return MagicMock(returncode=0, stdout="refs/remotes/origin/main\n")
+            return MagicMock(returncode=1)
+
+        mock_run.side_effect = side_effect
+        assert _detect_base_branch("/tmp") == "origin/main"
+
+    @patch("impl.git.subprocess.run")
+    def test_symbolic_ref_strips_prefix(self, mock_run):
+        mock_run.side_effect = [
+            MagicMock(returncode=1),  # gh pr view fails
+            MagicMock(
+                returncode=0, stdout="refs/remotes/origin/develop\n"
+            ),  # symbolic-ref
+        ]
+        assert _detect_base_branch("/tmp") == "origin/develop"
+
+    @patch("impl.git.subprocess.run")
+    def test_fallback_to_origin_main(self, mock_run):
+        mock_run.side_effect = [
+            MagicMock(returncode=1),  # gh fails
+            MagicMock(returncode=1),  # symbolic-ref fails
+            MagicMock(returncode=0, stdout="abc123\n"),  # origin/main exists
+        ]
+        assert _detect_base_branch("/tmp") == "origin/main"
+
+    @patch("impl.git.subprocess.run")
+    def test_fallback_to_origin_master(self, mock_run):
+        mock_run.side_effect = [
+            MagicMock(returncode=1),  # gh fails
+            MagicMock(returncode=1),  # symbolic-ref fails
+            MagicMock(returncode=1),  # origin/main doesn't exist
+            MagicMock(returncode=0, stdout="abc123\n"),  # origin/master exists
+        ]
+        assert _detect_base_branch("/tmp") == "origin/master"
+
+    @patch("impl.git.subprocess.run")
+    def test_all_detection_fails_returns_none(self, mock_run):
+        mock_run.side_effect = [
+            MagicMock(returncode=1),  # gh fails
+            MagicMock(returncode=1),  # symbolic-ref fails
+            MagicMock(returncode=1),  # origin/main doesn't exist
+            MagicMock(returncode=1),  # origin/master doesn't exist
+        ]
+        assert _detect_base_branch("/tmp") is None
+
+    @patch("impl.git.subprocess.run")
+    def test_gh_timeout_falls_through(self, mock_run):
+        def side_effect(cmd, **kwargs):
+            if cmd[0] == "gh":
+                raise subprocess.TimeoutExpired(cmd, 10)
+            if "symbolic-ref" in cmd:
+                return MagicMock(returncode=0, stdout="refs/remotes/origin/main\n")
+            return MagicMock(returncode=1)
+
+        mock_run.side_effect = side_effect
+        assert _detect_base_branch("/tmp") == "origin/main"
+
+
+class TestDiscoverBranchFiles:
+    @patch("impl.git._detect_base_branch", return_value="origin/main")
+    @patch("impl.git.subprocess.run")
+    def test_returns_file_list_and_base(self, mock_run, mock_detect):
+        mock_run.return_value = MagicMock(
+            returncode=0, stdout="src/app.js\nsrc/utils.js\n"
+        )
+        files, base = discover_branch_files("/tmp")
+        assert files == ["src/app.js", "src/utils.js"]
+        assert base == "origin/main"
+        mock_run.assert_called_once_with(
+            ["git", "diff", "--name-only", "origin/main...HEAD"],
+            capture_output=True,
+            text=True,
+            cwd="/tmp",
+        )
+
+    @patch("impl.git._detect_base_branch", return_value=None)
+    def test_no_base_branch_returns_empty(self, mock_detect, capsys):
+        files, base = discover_branch_files("/tmp")
+        assert files == []
+        assert base is None
+        assert "WARNING" in capsys.readouterr().out
+
+    @patch("impl.git._detect_base_branch", return_value="origin/main")
+    @patch("impl.git.subprocess.run")
+    def test_diff_failure_returns_empty_with_base(self, mock_run, mock_detect, capsys):
+        mock_run.return_value = MagicMock(returncode=1, stderr="fatal: bad revision")
+        files, base = discover_branch_files("/tmp")
+        assert files == []
+        assert base == "origin/main"
+        assert "WARNING" in capsys.readouterr().out
+
+    @patch("impl.git._detect_base_branch", return_value="origin/main")
+    @patch("impl.git.subprocess.run")
+    def test_empty_diff_returns_empty_list(self, mock_run, mock_detect):
+        mock_run.return_value = MagicMock(returncode=0, stdout="\n")
+        files, base = discover_branch_files("/tmp")
+        assert files == []
+        assert base == "origin/main"
+
+    @patch("impl.git._detect_base_branch", return_value="origin/main")
+    @patch("impl.git.subprocess.run")
+    def test_filters_blank_lines(self, mock_run, mock_detect):
+        mock_run.return_value = MagicMock(
+            returncode=0, stdout="src/a.js\n\nsrc/b.js\n\n"
+        )
+        files, base = discover_branch_files("/tmp")
+        assert files == ["src/a.js", "src/b.js"]
 
 
 class TestGitCommitCheckpoint:

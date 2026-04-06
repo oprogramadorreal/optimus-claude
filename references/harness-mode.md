@@ -92,8 +92,9 @@ Initialize from the progress file:
 - `deep-mode` = true
 - `iteration-count` = `iteration.current`
 - `accumulated-findings` = `findings` array (restoring cross-session state from disk)
-- File list for agents = `scope_files.current`
 - `focus` = `config.focus` (apply to finding-cap logic if the skill supports focus modes)
+
+If `scope_files.current` is non-empty, use it as the file list for agents — this overrides the skill's Step 3 file discovery (the harness pre-populated the scope). If `scope_files.current` is empty (should not happen in normal operation), the skill's Step 3 will discover files via git.
 
 ### 2. Build iteration context (iterations 2+)
 
