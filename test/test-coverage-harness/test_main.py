@@ -416,15 +416,19 @@ class TestProcessRefactorOutput:
         assert len(progress["refactor_findings"]) == 1
         assert progress["refactor_findings"][0]["cycle"] == 1
 
-    def test_marks_untestable_as_addressed(
+    def test_does_not_mark_untestable_items(
         self, sample_coverage_progress, sample_refactor_output
     ):
+        """_process_refactor_output no longer marks items — marking is deferred
+        to _run_refactor_phase after bisection confirms which fixes survived."""
         progress = sample_coverage_progress
         progress["untestable_code"] = [
             {"file": "src/db.py", "status": "pending", "refactor_attempt_cycle": None}
         ]
         _process_refactor_output(progress, sample_refactor_output, 2)
-        assert progress["untestable_code"][0]["refactor_attempt_cycle"] == 2
+        # Items should remain pending — marking happens later
+        assert progress["untestable_code"][0]["status"] == "pending"
+        assert progress["untestable_code"][0]["refactor_attempt_cycle"] is None
 
     def test_empty_result(self, sample_coverage_progress):
         progress = sample_coverage_progress
@@ -432,17 +436,6 @@ class TestProcessRefactorOutput:
         summary = _process_refactor_output(progress, result, 1)
         assert summary["findings_count"] == 0
         assert summary["fixed"] == 0
-
-    def test_skips_non_pending_untestable(
-        self, sample_coverage_progress, sample_refactor_output
-    ):
-        progress = sample_coverage_progress
-        progress["untestable_code"] = [
-            {"file": "src/db.py", "status": "addressed", "refactor_attempt_cycle": 1}
-        ]
-        _process_refactor_output(progress, sample_refactor_output, 2)
-        # Non-pending items should not be updated
-        assert progress["untestable_code"][0]["refactor_attempt_cycle"] == 1
 
 
 # ---------------------------------------------------------------------------

@@ -315,12 +315,6 @@ def _process_refactor_output(progress, result, cycle):
         finding["cycle"] = cycle
         progress["refactor_findings"].append(finding)
 
-    # Mark untestable code items as attempted
-    for item in progress.get("untestable_code", []):
-        if item.get("status") == "pending":
-            item["refactor_attempt_cycle"] = cycle
-            item["status"] = "attempted"
-
     return {
         "findings_count": len(new_findings),
         "fixed": len(fixes_applied),
@@ -608,6 +602,13 @@ def _run_refactor_phase(
                     refactor_summary["test_passed"] = False
                     refactor_summary["fixed"] = 0
                     refactor_summary["reverted"] = len(fixes)
+
+    # Mark untestable code items as attempted only when fixes actually survived
+    if refactor_summary.get("fixed", 0) > 0:
+        for item in progress.get("untestable_code", []):
+            if item.get("status") == "pending":
+                item["refactor_attempt_cycle"] = cycle
+                item["status"] = "attempted"
 
     # Checkpoint commit
     if not skip_commits and git_diff_has_changes(project_root):

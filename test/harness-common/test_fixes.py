@@ -293,3 +293,42 @@ class TestBisectFixes:
         assert fixed == 2  # a.txt passed + gone.txt unrevertable
         assert reverted == 1  # b.txt failed
         assert skipped == 0
+
+    def test_second_pass_recovers_order_dependent_fix(self, tmp_path):
+        """Fix that fails in first pass due to ordering succeeds on retry."""
+        fixes = [
+            _make_fix(tmp_path, "a.txt", "old_a", "new_a"),  # depends on b
+            _make_fix(tmp_path, "b.txt", "old_b", "new_b"),  # independent
+        ]
+        call_count = 0
+
+        def run_tests(cmd, cwd):
+            nonlocal call_count
+            call_count += 1
+            # First pass: a fails (call 1), b passes (call 2)
+            # Second pass (retry a): a passes (call 3) because b is now applied
+            if call_count == 1:
+                return (False, "fail — missing import from b")
+            return (True, "ok")
+
+        fixed, reverted, skipped = bisect_fixes(fixes, "test", str(tmp_path), run_tests)
+        assert call_count == 3  # first-pass(A fail, B pass) + second-pass(A pass)
+        assert fixed == 2  # both recovered
+        assert reverted == 0
+        assert skipped == 0
+        assert (tmp_path / "a.txt").read_text(encoding="utf-8") == "new_a"
+        assert (tmp_path / "b.txt").read_text(encoding="utf-8") == "new_b"
+
+    def test_no_retry_when_all_reverted(self, tmp_path):
+        """When no fixes passed first pass, skip second pass entirely."""
+        fixes = [
+            _make_fix(tmp_path, "a.txt", "old_a", "new_a"),
+            _make_fix(tmp_path, "b.txt", "old_b", "new_b"),
+        ]
+        run_tests = lambda cmd, cwd: (False, "fail")
+        fixed, reverted, skipped = bisect_fixes(fixes, "test", str(tmp_path), run_tests)
+        assert fixed == 0
+        assert reverted == 2
+        assert skipped == 0
+        assert (tmp_path / "a.txt").read_text(encoding="utf-8") == "old_a"
+        assert (tmp_path / "b.txt").read_text(encoding="utf-8") == "old_b"

@@ -81,7 +81,9 @@ def bisect_fixes(fixes, test_command, cwd, run_tests_fn=None):
     fixed_count = 0
     reverted_count = 0
     skipped_count = 0
+    reverted_indices = []
 
+    # First pass: apply fixes one at a time
     for idx, fix in enumerate(fixes):
         if idx in failed_revert_indices:
             fixed_count += 1  # could not revert, so fix remains applied
@@ -94,6 +96,24 @@ def bisect_fixes(fixes, test_command, cwd, run_tests_fn=None):
             fixed_count += 1
         else:
             revert_single_fix(fix, cwd)
-            reverted_count += 1
+            reverted_indices.append(idx)
+
+    # Second pass: retry reverted fixes — they may depend on fixes that
+    # were applied later in the first pass (e.g., fix A uses an import
+    # that fix B added, but B had a higher index)
+    if reverted_indices and fixed_count > 0:
+        for idx in reverted_indices:
+            fix = fixes[idx]
+            if not apply_single_fix(fix, cwd):
+                reverted_count += 1  # fix remains reverted — count it correctly
+                continue
+            passed, _ = run_tests_fn(test_command, cwd)
+            if passed:
+                fixed_count += 1
+            else:
+                revert_single_fix(fix, cwd)
+                reverted_count += 1
+    else:
+        reverted_count += len(reverted_indices)
 
     return fixed_count, reverted_count, skipped_count
