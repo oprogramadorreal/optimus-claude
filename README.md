@@ -81,7 +81,7 @@ The result: consistent patterns, meaningful names, and lean context across every
 | [`/optimus:branch`](skills/branch/README.md) | Switches local changes to a new conventionally named branch derived from conversation context and git diffs. Never commits or pushes. |
 | [`/optimus:worktree`](skills/worktree/README.md) | Creates an isolated git worktree for parallel development on a separate branch. Runs project setup and test baseline automatically. |
 | [`/optimus:dev-setup`](skills/dev-setup/README.md) | Ensures the project README has accurate, step-by-step development setup instructions by auditing against actual project state. |
-| [`/optimus:jira`](skills/jira/README.md) | Fetches and optimizes context from a JIRA issue — distills into a structured task saved to `docs/jira/` for downstream skills to auto-detect. Recommends next skill based on task complexity. Optionally improves the JIRA issue itself. |
+| [`/optimus:jira`](skills/jira/README.md) | Fetches and optimizes context from a JIRA issue — distills into a structured task saved to `docs/jira/` for downstream skills to auto-detect. Analyzes the codebase to surface gaps and realistic scope. Recommends next skill based on codebase-assessed complexity. Optionally improves the JIRA issue itself. |
 | [`/optimus:pr`](skills/pr/README.md) | Creates or updates a PR/MR with structured summary, changes, rationale, and test plan. Supports GitHub and GitLab. |
 | [`/optimus:permissions`](skills/permissions/README.md) | Configures branch protection, precious file safety, and auto-approved routine tool calls via allow/deny rules and a PreToolUse hook. |
 | [`/optimus:commit`](skills/commit/README.md) | Stages, commits, and optionally pushes with a conventional commit message. Offers feature branch creation on protected branches. |
@@ -102,6 +102,7 @@ The result: consistent patterns, meaningful names, and lean context across every
 |----------------|----------|-------------|
 | Simple bug or small feature | `/optimus:tdd "description"` | 1 skill |
 | JIRA-tracked work, clear requirements | `/optimus:jira PROJ-123` → `/optimus:tdd` | 2 skills |
+| JIRA-tracked, moderate complexity | `/optimus:jira PROJ-123` → plan mode (jira generates prompt) → `/optimus:tdd` | 1 skill + plan mode |
 | Complex feature, design decisions needed | `/optimus:jira` → `/optimus:brainstorm` → plan mode → `/optimus:tdd` | 3 skills + plan mode |
 | Idea without JIRA | `/optimus:brainstorm` → plan mode → `/optimus:tdd` | 2 skills + plan mode |
 

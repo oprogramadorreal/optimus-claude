@@ -172,11 +172,11 @@ First, handle tech debt and refactoring tickets separately — they have a fixed
 - **Refactoring / Tech debt** → "Recommend running `/optimus:refactor` to restructure the code."
 - **Any task** → also mention `/optimus:branch` if the user hasn't created a feature branch yet
 
-For stories, features, and bugs, use the **Scope Assessment** from Step 5 as the primary complexity signal. If Step 5 was skipped, fall back to assessing complexity from the structured task's acceptance criteria count and context.
+For stories, features, and bugs, use the **Scope Assessment** from Step 5 as the primary complexity signal (Step 5 always runs, so this is always available). When the scope assessment is inconclusive, supplement with the structured task's acceptance criteria count and context.
 
 ### Simple (codebase assessment: simple, or 1–3 acceptance criteria with single component)
 
-> Recommend running `/optimus:tdd` to implement this test-first. It will auto-detect the task file at `docs/jira/<ISSUE-KEY>.md`.
+> Recommend running `/optimus:tdd` to implement this test-first. It will auto-detect the task file at `docs/jira/<ISSUE-KEY>.md`. **Tip:** for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch.
 
 ### Medium (codebase assessment: medium, or 4–6 acceptance criteria across 2–3 components)
 
@@ -221,7 +221,7 @@ The plan should include:
 ```
 ````
 
-Present with: "Paste this as the first message in a new Claude Code conversation started in **plan mode**. Once the plan is approved, run `/optimus:tdd` to build it test-first."
+Present with: "Paste this as the first message in a new Claude Code conversation started in **plan mode**. Once the plan is approved, run `/optimus:tdd` to build it test-first. **Tip:** for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch."
 
 If **Skip to TDD**: recommend `/optimus:tdd` as in the simple path.
 

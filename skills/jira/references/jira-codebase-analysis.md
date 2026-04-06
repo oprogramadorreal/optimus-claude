@@ -115,7 +115,7 @@ When the user chooses to update the local context file:
 [Simple/Medium/Complex with explanation]
 ```
 
-3. Update the YAML frontmatter `date` field to today's date (the context was enriched)
+3. Add an `enriched-date: [YYYY-MM-DD]` field to the YAML frontmatter (preserve the original `date` field unchanged — downstream skills use it for recency ordering)
 4. Write the updated file
 
 When the user also chooses to update JIRA, merge the suggested criteria into the improved JIRA description (Step 6 of the skill handles the JIRA write).
