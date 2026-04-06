@@ -1,3 +1,4 @@
+import json
 import subprocess
 
 from .constants import BACKUP_SUFFIX, PREFIX, PROGRESS_FILE_NAME, SKILL_COMMIT_TYPE
@@ -142,10 +143,12 @@ def _detect_base_branch(cwd):
             timeout=10,
         )
         if result.returncode == 0:
-            import json
-
             pr_info = json.loads(result.stdout)
-            if pr_info.get("state") == "OPEN" and pr_info.get("baseRefName"):
+            if (
+                isinstance(pr_info, dict)
+                and pr_info.get("state") == "OPEN"
+                and pr_info.get("baseRefName")
+            ):
                 return f"origin/{pr_info['baseRefName']}"
     except (subprocess.TimeoutExpired, FileNotFoundError, ValueError):
         pass
