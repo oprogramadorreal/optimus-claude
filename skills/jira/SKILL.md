@@ -1,5 +1,5 @@
 ---
-description: Fetches and optimizes context from a JIRA issue for AI-assisted development. Searches assigned issues or fetches by key. Distills title, description, acceptance criteria, sprint context, and comments into a structured task description. Analyzes the codebase to surface gaps, missing criteria, and realistic scope. Optionally improves the JIRA issue itself. Use before /optimus:tdd or /optimus:branch to pull task context from JIRA.
+description: Fetches and optimizes context from a JIRA issue for AI-assisted development. Searches assigned issues or fetches by key. Distills title, description, acceptance criteria, sprint context, and comments into a structured task description. Analyzes the codebase to surface missing criteria, scope, and risks. Optionally improves the JIRA issue itself. Use before /optimus:tdd or /optimus:branch to pull task context from JIRA.
 disable-model-invocation: true
 ---
 

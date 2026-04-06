@@ -1,6 +1,6 @@
 # optimus:jira
 
-A [Claude Code](https://docs.anthropic.com/en/docs/claude-code) skill that fetches and optimizes context from a JIRA issue for AI-assisted development. Distills title, description, acceptance criteria, sprint context, and comments into a structured task description ready for other optimus skills. Analyzes the codebase to surface missing criteria, realistic scope, and risks. Optionally improves the JIRA issue itself.
+A [Claude Code](https://docs.anthropic.com/en/docs/claude-code) skill that fetches and optimizes context from a JIRA issue for AI-assisted development. Distills title, description, acceptance criteria, sprint context, and comments into a structured task description ready for other optimus skills. Analyzes the codebase to surface missing criteria, scope, and risks. Optionally improves the JIRA issue itself.
 
 JIRA issues are context — and like all context, their quality directly affects how well Claude Code performs. A vague ticket with no acceptance criteria produces vague implementations. This skill extracts the signal from JIRA, compares it against the actual codebase to find gaps, and structures it for optimal AI consumption.
 
@@ -11,7 +11,7 @@ JIRA issues are context — and like all context, their quality directly affects
 - **Search or fetch** — find issues by key (`PROJ-123`), search your assigned issues, or browse by project
 - **Structured distillation** — transforms raw JIRA data into a goal, acceptance criteria, and context summary
 - **Sprint awareness** — includes current sprint name, goal, and sibling issues for broader context
-- **Codebase impact analysis** — compares JIRA requirements against actual code to surface missing criteria, implicit dependencies, and realistic scope assessment
+- **Codebase impact analysis** — compares JIRA requirements against actual code to surface missing criteria, scope, and risks
 - **Improve JIRA issues** — optionally writes back structured acceptance criteria (including codebase-informed gaps) and better formatting to JIRA (double-confirmed before writing)
 - **Cross-skill flow** — recommends the next optimus skill based on codebase-assessed complexity (TDD for simple, plan mode for medium, brainstorm for complex, refactor for tech debt)
 
