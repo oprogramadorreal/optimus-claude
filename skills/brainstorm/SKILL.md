@@ -45,7 +45,7 @@ Before asking the user for input, check for pre-existing JIRA context:
 
 1. If the user's inline input matches a JIRA key pattern (`[A-Z][A-Z0-9]+-\d+`), check for `docs/jira/<key>.md`. If found, read it and use its Goal and Acceptance Criteria as the brainstorm input. If the file is not found, inform the user ("No task file found for [KEY] — run `/optimus:jira [KEY]` first to fetch it") and proceed with normal intent gathering below.
 
-2. If no inline input (or no JIRA key match, or matched key but file not found), check whether `docs/jira/` exists and contains `.md` files. If so, read each file's YAML frontmatter and select the one with the most recent `date` field. Extract the `issue` field and the Goal section. Present to the user via `AskUserQuestion` — header "JIRA context", question "Found JIRA context: [ISSUE-KEY] — [Goal]. Use this as the basis for design?":
+2. If no inline input (or no JIRA key match), check whether `docs/jira/` exists and contains `.md` files. If so, read each file's YAML frontmatter and select the one with the most recent `date` field. Extract the `issue` field and the Goal section. Present to the user via `AskUserQuestion` — header "JIRA context", question "Found JIRA context: [ISSUE-KEY] — [Goal]. Use this as the basis for design?":
    - **Use it** — "Design around this JIRA task"
    - **Ignore** — "Describe a different task"
 
