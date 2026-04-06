@@ -43,7 +43,7 @@ Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/prerequisite-check.md` and appl
 
 ### Harness mode detection
 
-If the system prompt contains `HARNESS_MODE_ACTIVE`, read `$CLAUDE_PLUGIN_ROOT/references/harness-mode.md` and follow its single-iteration execution protocol. The reference covers progress file reading, state initialization, and step overrides (including the Step 9 apply/output protocol). Then proceed to Step 3, Step 4, and Step 5 in order — skip only the Step 2 user confirmation. In Step 3, the harness requires a clean working tree, so local changes will be empty — use the "no local changes" branch-diff path automatically (skip interactive offers, scope summary presentation, and large diff warning). If the progress file's `scope_files.current` is non-empty, use it as the file list instead of running Step 3's git discovery.
+If the system prompt contains `HARNESS_MODE_ACTIVE`, read `$CLAUDE_PLUGIN_ROOT/references/harness-mode.md` and follow its single-iteration execution protocol. The reference covers progress file reading, state initialization, scope and file-list rules, and step overrides (including the Step 9 apply/output protocol). Then proceed to Step 3, Step 4, and Step 5 in order — skip only the Step 2 user confirmation. In Step 3, the harness requires a clean working tree, so local changes will be empty — use the "no local changes" branch-diff path automatically (skip interactive offers, scope summary presentation, and large diff warning).
 
 If `HARNESS_MODE_ACTIVE` is NOT in the system prompt, continue with the standard interactive flow below.
 

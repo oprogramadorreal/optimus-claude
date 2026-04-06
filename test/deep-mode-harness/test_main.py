@@ -885,7 +885,7 @@ class TestMain:
         ), patch("main.make_initial_progress") as mock_init, patch(
             "main.git_diff_has_changes", return_value=False
         ), patch(
-            "main.discover_branch_files", return_value=([], None)
+            "main.git_discover_branch_files", return_value=([], None)
         ):
             mock_init.return_value = {
                 "skill": "code-review",
@@ -922,7 +922,7 @@ class TestMain:
         ), patch("main.make_initial_progress") as mock_init, patch(
             "main.git_diff_has_changes", return_value=False
         ), patch(
-            "main.discover_branch_files", return_value=([], None)
+            "main.git_discover_branch_files", return_value=([], None)
         ):
             mock_init.return_value = {
                 "skill": "code-review",

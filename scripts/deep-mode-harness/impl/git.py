@@ -165,39 +165,30 @@ def _detect_base_branch(cwd):
         ref = result.stdout.strip()
         if ref.startswith("refs/remotes/"):
             return ref[len("refs/remotes/") :]
-        return ref
+        # Unexpected format — fall through to origin/main detection
 
-    # 3. Try origin/main
-    result = subprocess.run(
-        ["git", "rev-parse", "--verify", "origin/main"],
-        capture_output=True,
-        text=True,
-        cwd=cwd_str,
-    )
-    if result.returncode == 0:
-        return "origin/main"
-
-    # 4. Try origin/master
-    result = subprocess.run(
-        ["git", "rev-parse", "--verify", "origin/master"],
-        capture_output=True,
-        text=True,
-        cwd=cwd_str,
-    )
-    if result.returncode == 0:
-        return "origin/master"
+    # 3–4. Try common default branches
+    for fallback in ("origin/main", "origin/master"):
+        result = subprocess.run(
+            ["git", "rev-parse", "--verify", fallback],
+            capture_output=True,
+            text=True,
+            cwd=cwd_str,
+        )
+        if result.returncode == 0:
+            return fallback
 
     return None
 
 
-def discover_branch_files(cwd):
+def git_discover_branch_files(cwd):
     """Discover all files changed in the current feature branch vs. the base branch.
 
     Returns a list of file paths (relative to repo root), or an empty list
     if detection fails. Also returns the base ref used for scope tracking.
     """
     cwd_str = str(cwd)
-    base = _detect_base_branch(cwd_str)
+    base = _detect_base_branch(cwd)
     if not base:
         print(f"{PREFIX} WARNING: Could not detect base branch for scope discovery")
         return [], None

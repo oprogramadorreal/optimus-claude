@@ -5,10 +5,10 @@ from unittest.mock import MagicMock, call, patch
 from impl.git import (
     _clean_working_tree,
     _detect_base_branch,
-    discover_branch_files,
     git_commit_checkpoint,
     git_current_branch,
     git_diff_has_changes,
+    git_discover_branch_files,
     git_restore_snapshot,
     git_restore_to,
     git_rev_parse_head,
@@ -357,14 +357,14 @@ class TestDetectBaseBranch:
         assert _detect_base_branch("/tmp") == "origin/main"
 
 
-class TestDiscoverBranchFiles:
+class TestGitDiscoverBranchFiles:
     @patch("impl.git._detect_base_branch", return_value="origin/main")
     @patch("impl.git.subprocess.run")
     def test_returns_file_list_and_base(self, mock_run, mock_detect):
         mock_run.return_value = MagicMock(
             returncode=0, stdout="src/app.js\nsrc/utils.js\n"
         )
-        files, base = discover_branch_files("/tmp")
+        files, base = git_discover_branch_files("/tmp")
         assert files == ["src/app.js", "src/utils.js"]
         assert base == "origin/main"
         mock_run.assert_called_once_with(
@@ -376,7 +376,7 @@ class TestDiscoverBranchFiles:
 
     @patch("impl.git._detect_base_branch", return_value=None)
     def test_no_base_branch_returns_empty(self, mock_detect, capsys):
-        files, base = discover_branch_files("/tmp")
+        files, base = git_discover_branch_files("/tmp")
         assert files == []
         assert base is None
         assert "WARNING" in capsys.readouterr().out
@@ -385,7 +385,7 @@ class TestDiscoverBranchFiles:
     @patch("impl.git.subprocess.run")
     def test_diff_failure_returns_empty_with_base(self, mock_run, mock_detect, capsys):
         mock_run.return_value = MagicMock(returncode=1, stderr="fatal: bad revision")
-        files, base = discover_branch_files("/tmp")
+        files, base = git_discover_branch_files("/tmp")
         assert files == []
         assert base == "origin/main"
         assert "WARNING" in capsys.readouterr().out
@@ -394,7 +394,7 @@ class TestDiscoverBranchFiles:
     @patch("impl.git.subprocess.run")
     def test_empty_diff_returns_empty_list(self, mock_run, mock_detect):
         mock_run.return_value = MagicMock(returncode=0, stdout="\n")
-        files, base = discover_branch_files("/tmp")
+        files, base = git_discover_branch_files("/tmp")
         assert files == []
         assert base == "origin/main"
 
@@ -404,7 +404,7 @@ class TestDiscoverBranchFiles:
         mock_run.return_value = MagicMock(
             returncode=0, stdout="src/a.js\n\nsrc/b.js\n\n"
         )
-        files, base = discover_branch_files("/tmp")
+        files, base = git_discover_branch_files("/tmp")
         assert files == ["src/a.js", "src/b.js"]
 
 

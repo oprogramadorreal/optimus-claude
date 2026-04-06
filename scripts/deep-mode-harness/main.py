@@ -64,9 +64,9 @@ from impl.findings import (
 )
 from impl.fixes import bisect_fixes
 from impl.git import (
-    discover_branch_files,
     git_commit_checkpoint,
     git_diff_has_changes,
+    git_discover_branch_files,
     git_rev_parse_head,
     git_stash_snapshot,
     restore_working_tree,
@@ -755,7 +755,7 @@ def main(argv=None):
     # This mirrors the skill's Step 3 "no local changes → branch diff" path and
     # ensures agents have a file list on iteration 1.
     if not progress["scope_files"]["current"]:
-        branch_files, base_ref = discover_branch_files(project_root)
+        branch_files, base_ref = git_discover_branch_files(project_root)
         if branch_files:
             progress["scope_files"]["current"] = branch_files
             if base_ref:
