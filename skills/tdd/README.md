@@ -43,7 +43,15 @@ This skill is part of the [optimus](https://github.com/oprogramadorreal/optimus-
 3. **`/optimus:permissions`** — recommended. Enables branch-aware git protection so TDD can commit and push to feature branches while protecting main/master
 4. **`gh` or `glab` CLI** — optional. Needed for automatic PR/MR creation (GitHub CLI or GitLab CLI)
 
-**Workflow**: `/optimus:init` → `/optimus:unit-test` → `/optimus:permissions` → `/optimus:tdd`
+**Setup workflow**: `/optimus:init` → `/optimus:unit-test` → `/optimus:permissions` → `/optimus:tdd`
+
+**Development workflow** — TDD auto-detects context from upstream skills:
+
+| Path | When to use |
+|------|-------------|
+| `/optimus:tdd "description"` | Simple task, well-understood scope |
+| `/optimus:jira PROJ-123` → `/optimus:tdd` | JIRA-tracked work (TDD auto-detects `docs/jira/`) |
+| `/optimus:brainstorm` → plan mode → `/optimus:tdd` | Complex feature (TDD auto-detects `docs/design/`) |
 
 ## Usage
 
@@ -53,7 +61,7 @@ In Claude Code, use any of these:
 - `/optimus:tdd` "Add user authentication endpoint"
 - `/optimus:tdd` "Fix: login fails when email has uppercase letters"
 
-Provide a **brief description** (1-2 sentences). The skill analyzes the codebase and decomposes the task into specific testable behaviors — you don't need to specify every detail upfront. For lengthy specs (e.g., a pasted Jira ticket or acceptance criteria), the skill will distill the core goal and confirm before proceeding.
+Provide a **brief description** (1-2 sentences). The skill analyzes the codebase and decomposes the task into specific testable behaviors — you don't need to specify every detail upfront. For lengthy specs (e.g., a pasted JIRA ticket or acceptance criteria), the skill will distill the core goal and confirm before proceeding.
 
 ### Interactive Example
 
@@ -272,7 +280,18 @@ The user's original branch is never modified. All code review happens through th
 | Update support | No | Yes — regenerate existing PR description |
 | Format | Both use the shared Conventional PR template |
 
-**Full workflow**: `/optimus:init` (set up everything including test infrastructure) → `/optimus:unit-test` (retroactive tests to increase coverage) → `/optimus:permissions` (branch-aware git protection) → `/optimus:tdd` (build new features test-first — creates branch, commits, pushes, creates PR/MR) → `/optimus:code-review` (review the PR/MR). Use `/optimus:pr` to update the PR description later or to create PRs for non-TDD work.
+| | `/optimus:tdd` | `/optimus:jira` |
+|---|---|---|
+| Purpose | Implement behavior test-first | Extract structured task from JIRA |
+| Context flow | TDD auto-detects JIRA context files in `docs/jira/` | JIRA skill writes task context that TDD consumes |
+
+| | `/optimus:tdd` | `/optimus:brainstorm` |
+|---|---|---|
+| Purpose | Implement behavior test-first | Explore design approaches before coding |
+| Context flow | TDD auto-detects design docs in `docs/design/` | Brainstorm writes design docs that TDD consumes |
+| When to combine | Complex features — brainstorm first, then TDD implements the design |
+
+**Full workflow**: `/optimus:init` (set up everything including test infrastructure) → `/optimus:unit-test` (retroactive tests to increase coverage) → `/optimus:permissions` (branch-aware git protection) → `/optimus:tdd` (build new features test-first — creates branch, commits, pushes, creates PR/MR) → `/optimus:code-review` (review the PR/MR). For JIRA-tracked work, add `/optimus:jira` before TDD. For complex features, add `/optimus:brainstorm` → plan mode before TDD. Use `/optimus:pr` to update the PR description later or to create PRs for non-TDD work.
 
 ## Skill Structure
 

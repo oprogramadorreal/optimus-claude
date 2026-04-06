@@ -220,6 +220,10 @@ class TestBuildPrompt:
         result = _build_prompt("code-review", 8, [], focus="testability")
         assert "testability" not in result
 
+    def test_invalid_focus_raises_value_error(self):
+        with pytest.raises(ValueError, match="Invalid focus mode"):
+            _build_prompt("refactor", 8, [], focus="invalid-mode")
+
 
 class TestBuildHarnessSystem:
     def test_contains_required_fields(self):

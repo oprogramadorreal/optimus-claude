@@ -17,6 +17,7 @@ sys.path.insert(
 from main import (
     _archive_progress,
     _build_argument_parser,
+    _handle_interrupt,
     _handle_safe_exit,
     _load_resumed_progress,
     _mark_combined_regression,
@@ -27,6 +28,7 @@ from main import (
     _run_session_with_retry,
     _test_and_reconcile_fixes,
     _validate_environment,
+    main,
 )
 
 # Fixtures are provided by conftest.py (sample_progress, sample_fix)
@@ -606,23 +608,31 @@ class TestRecoverFromMissingOutput:
         assert result is not None
         assert result["no_new_findings"] is True
 
+    @patch("main.restore_working_tree")
     @patch("main.record_test_result")
     @patch("main.run_tests", return_value=(True, "pass"))
     @patch("main.git_diff_has_changes", return_value=True)
-    def test_changes_passing_tests_returns_no_actionable(
-        self, mock_diff, mock_tests, mock_record, sample_progress, tmp_path
+    def test_changes_passing_tests_reverts_and_returns_no_actionable(
+        self,
+        mock_diff,
+        mock_tests,
+        mock_record,
+        mock_restore,
+        sample_progress,
+        tmp_path,
     ):
         result = _recover_from_missing_output(
             "some output",
             "npm test",
             tmp_path,
-            None,
+            "stash-ref",
             "abc",
             sample_progress,
             tmp_path / "p.json",
         )
         assert result is not None
         assert result["no_actionable_fixes"] is True
+        mock_restore.assert_called_once_with("stash-ref", "abc", tmp_path)
 
     @patch("main.write_progress")
     @patch("main.restore_working_tree")
@@ -652,11 +662,19 @@ class TestRecoverFromMissingOutput:
         assert sample_progress["termination"]["reason"] == "parse-failure"
         mock_restore.assert_called_once()
 
+    @patch("main.restore_working_tree")
     @patch("main.record_test_result")
     @patch("main.run_tests", return_value=(True, "pass"))
     @patch("main.git_diff_has_changes", return_value=True)
     def test_short_output_prints_hint(
-        self, mock_diff, mock_tests, mock_record, sample_progress, tmp_path, capsys
+        self,
+        mock_diff,
+        mock_tests,
+        mock_record,
+        mock_restore,
+        sample_progress,
+        tmp_path,
+        capsys,
     ):
         _recover_from_missing_output(
             "hi",
@@ -669,11 +687,19 @@ class TestRecoverFromMissingOutput:
         )
         assert "very short" in capsys.readouterr().out
 
+    @patch("main.restore_working_tree")
     @patch("main.record_test_result")
     @patch("main.run_tests", return_value=(True, "pass"))
     @patch("main.git_diff_has_changes", return_value=True)
     def test_empty_output_prints_hint(
-        self, mock_diff, mock_tests, mock_record, sample_progress, tmp_path, capsys
+        self,
+        mock_diff,
+        mock_tests,
+        mock_record,
+        mock_restore,
+        sample_progress,
+        tmp_path,
+        capsys,
     ):
         _recover_from_missing_output(
             "",
@@ -770,3 +796,354 @@ class TestTestAndReconcileFixes:
         )
         assert all_rev is True
         assert fixed == 0
+
+
+# ---------------------------------------------------------------------------
+# _handle_interrupt
+# ---------------------------------------------------------------------------
+
+
+class TestHandleInterrupt:
+    @patch("main.print_report")
+    @patch("main.write_progress")
+    @patch("main.git_commit_checkpoint")
+    @patch("main.git_diff_has_changes", return_value=True)
+    def test_commits_and_saves_on_interrupt(
+        self, mock_diff, mock_commit, mock_write, mock_report, sample_progress, tmp_path
+    ):
+        args = SimpleNamespace(no_commit=False)
+        progress_path = tmp_path / "progress.json"
+        _handle_interrupt(args, sample_progress, progress_path, tmp_path)
+        mock_commit.assert_called_once()
+        mock_write.assert_called_once()
+        assert sample_progress["termination"]["reason"] == "interrupted"
+        mock_report.assert_called_once_with(sample_progress)
+
+    @patch("main.print_report")
+    @patch("main.write_progress")
+    @patch("main.git_diff_has_changes", return_value=False)
+    def test_skips_commit_when_no_changes(
+        self, mock_diff, mock_write, mock_report, sample_progress, tmp_path
+    ):
+        args = SimpleNamespace(no_commit=False)
+        _handle_interrupt(args, sample_progress, tmp_path / "p.json", tmp_path)
+        assert sample_progress["termination"]["reason"] == "interrupted"
+
+    @patch("main.print_report")
+    @patch("main.write_progress")
+    @patch("main.git_diff_has_changes", return_value=True)
+    def test_skips_commit_when_no_commit_flag(
+        self, mock_diff, mock_write, mock_report, sample_progress, tmp_path
+    ):
+        args = SimpleNamespace(no_commit=True)
+        _handle_interrupt(args, sample_progress, tmp_path / "p.json", tmp_path)
+        assert sample_progress["termination"]["reason"] == "interrupted"
+
+    @patch("main.print_report")
+    @patch("main.write_progress")
+    @patch("main.git_commit_checkpoint")
+    @patch("main.git_diff_has_changes", return_value=True)
+    def test_records_history_when_missing(
+        self, mock_diff, mock_commit, mock_write, mock_report, sample_progress, tmp_path
+    ):
+        """If interrupted before _record_iteration_history ran, it records a stub."""
+        args = SimpleNamespace(no_commit=False)
+        sample_progress["iteration"]["current"] = 3
+        _handle_interrupt(args, sample_progress, tmp_path / "p.json", tmp_path)
+        assert len(sample_progress["iteration_history"]) == 1
+        assert sample_progress["iteration_history"][0]["iteration"] == 3
+
+    @patch("main.print_report")
+    @patch("main.write_progress")
+    @patch("main.git_commit_checkpoint")
+    @patch("main.git_diff_has_changes", return_value=True)
+    def test_skips_history_when_already_recorded(
+        self, mock_diff, mock_commit, mock_write, mock_report, sample_progress, tmp_path
+    ):
+        """If history was already recorded for this iteration, don't duplicate."""
+        args = SimpleNamespace(no_commit=False)
+        sample_progress["iteration"]["current"] = 2
+        sample_progress["iteration_history"] = [{"iteration": 2}]
+        _handle_interrupt(args, sample_progress, tmp_path / "p.json", tmp_path)
+        # Should still have exactly 1 entry, not 2
+        assert len(sample_progress["iteration_history"]) == 1
+
+
+# ---------------------------------------------------------------------------
+# main()
+# ---------------------------------------------------------------------------
+
+
+class TestMain:
+    @patch("main._validate_environment", return_value=("npm test", None))
+    @patch("main.subprocess.run")
+    def test_clamps_high_iterations(self, mock_run, mock_validate, capsys):
+        """Iterations above hard cap are clamped."""
+        mock_run.return_value = MagicMock(returncode=0)
+        with patch("main._run_iteration_loop"), patch("main.print_report"), patch(
+            "main._archive_progress"
+        ), patch("main.make_initial_progress") as mock_init, patch(
+            "main.git_diff_has_changes", return_value=False
+        ):
+            mock_init.return_value = {
+                "skill": "code-review",
+                "config": {
+                    "max_iterations": 20,
+                    "test_command": "npm test",
+                    "base_commit": "abc123",
+                    "focus": "",
+                    "project_root": "/tmp",
+                    "scope": {"mode": "local-changes", "paths": [], "base_ref": None},
+                },
+                "iteration": {"current": 1, "completed": 0},
+                "findings": [],
+                "scope_files": {"current": []},
+                "test_results": {
+                    "last_full_run": None,
+                    "last_run_output_summary": None,
+                },
+                "iteration_history": [],
+                "termination": {"reason": None, "message": None},
+            }
+            result = main(["--skill", "code-review", "--max-iterations", "50"])
+        assert result == 0
+        output = capsys.readouterr().out
+        assert "clamped to 20" in output
+
+    @patch("main._validate_environment", return_value=("npm test", None))
+    @patch("main.subprocess.run")
+    def test_clamps_low_iterations(self, mock_run, mock_validate, capsys):
+        """Iterations below 1 are clamped."""
+        mock_run.return_value = MagicMock(returncode=0)
+        with patch("main._run_iteration_loop"), patch("main.print_report"), patch(
+            "main._archive_progress"
+        ), patch("main.make_initial_progress") as mock_init, patch(
+            "main.git_diff_has_changes", return_value=False
+        ):
+            mock_init.return_value = {
+                "skill": "code-review",
+                "config": {
+                    "max_iterations": 1,
+                    "test_command": "npm test",
+                    "base_commit": "abc123",
+                    "focus": "",
+                    "project_root": "/tmp",
+                    "scope": {"mode": "local-changes", "paths": [], "base_ref": None},
+                },
+                "iteration": {"current": 1, "completed": 0},
+                "findings": [],
+                "scope_files": {"current": []},
+                "test_results": {
+                    "last_full_run": None,
+                    "last_run_output_summary": None,
+                },
+                "iteration_history": [],
+                "termination": {"reason": None, "message": None},
+            }
+            result = main(["--skill", "code-review", "--max-iterations", "0"])
+        assert result == 0
+        output = capsys.readouterr().out
+        assert "clamped to 1" in output
+
+    def test_focus_with_non_refactor_returns_error(self, capsys):
+        """--focus with code-review returns error code 1."""
+        result = main(["--skill", "code-review", "--focus", "testability"])
+        assert result == 1
+        assert "--focus is only supported" in capsys.readouterr().out
+
+    @patch("main._validate_environment", return_value=(None, "claude CLI not found"))
+    def test_env_validation_error(self, mock_validate, capsys):
+        result = main(["--skill", "code-review"])
+        assert result == 1
+        assert "claude CLI not found" in capsys.readouterr().out
+
+    @patch("main.git_diff_has_changes", return_value=True)
+    @patch("main._validate_environment", return_value=("npm test", None))
+    def test_uncommitted_changes_guard(self, mock_validate, mock_diff, capsys):
+        """Fresh run with uncommitted changes returns error."""
+        result = main(["--skill", "code-review"])
+        assert result == 1
+        assert "Uncommitted changes detected" in capsys.readouterr().out
+
+    @patch("main.git_diff_has_changes", return_value=True)
+    @patch("main._validate_environment", return_value=("npm test", None))
+    def test_uncommitted_changes_allowed_with_no_commit(
+        self, mock_validate, mock_diff, capsys
+    ):
+        """--no-commit bypasses uncommitted changes check."""
+        with patch("main._run_iteration_loop"), patch("main.print_report"), patch(
+            "main._archive_progress"
+        ), patch("main.make_initial_progress") as mock_init:
+            mock_init.return_value = {
+                "skill": "code-review",
+                "config": {
+                    "max_iterations": 8,
+                    "test_command": "npm test",
+                    "base_commit": "abc123",
+                    "focus": "",
+                    "project_root": "/tmp",
+                    "scope": {"mode": "local-changes", "paths": [], "base_ref": None},
+                },
+                "iteration": {"current": 1, "completed": 0},
+                "findings": [],
+                "scope_files": {"current": []},
+                "test_results": {
+                    "last_full_run": None,
+                    "last_run_output_summary": None,
+                },
+                "iteration_history": [],
+                "termination": {"reason": None, "message": None},
+            }
+            result = main(["--skill", "code-review", "--no-commit"])
+        assert result == 0
+
+    @patch("main._validate_environment", return_value=("npm test", None))
+    def test_missing_base_commit_returns_error(self, mock_validate, capsys):
+        with patch("main.make_initial_progress") as mock_init, patch(
+            "main.git_diff_has_changes", return_value=False
+        ):
+            mock_init.return_value = {
+                "skill": "code-review",
+                "config": {
+                    "max_iterations": 8,
+                    "test_command": "npm test",
+                    "base_commit": "",
+                    "focus": "",
+                    "project_root": "/tmp",
+                    "scope": {"mode": "local-changes", "paths": [], "base_ref": None},
+                },
+                "iteration": {"current": 1, "completed": 0},
+                "findings": [],
+                "scope_files": {"current": []},
+                "test_results": {
+                    "last_full_run": None,
+                    "last_run_output_summary": None,
+                },
+                "iteration_history": [],
+                "termination": {"reason": None, "message": None},
+            }
+            result = main(["--skill", "code-review"])
+        assert result == 1
+        assert "Cannot determine HEAD commit" in capsys.readouterr().out
+
+    @patch("main._validate_environment", return_value=("npm test", None))
+    def test_invalid_focus_in_progress_on_resume(self, mock_validate, capsys, tmp_path):
+        import json
+
+        progress_path = tmp_path / "progress.json"
+        progress = {
+            "skill": "refactor",
+            "config": {
+                "max_iterations": 8,
+                "test_command": "npm test",
+                "base_commit": "abc123",
+                "focus": "bogus-mode",
+                "project_root": str(tmp_path),
+                "scope": {"mode": "local-changes", "paths": [], "base_ref": None},
+            },
+            "iteration": {"current": 1, "completed": 0},
+            "findings": [],
+            "scope_files": {"current": []},
+            "test_results": {"last_full_run": None, "last_run_output_summary": None},
+            "iteration_history": [],
+            "termination": {"reason": None, "message": None},
+        }
+        progress_path.write_text(json.dumps(progress), encoding="utf-8")
+        result = main(
+            [
+                "--skill",
+                "refactor",
+                "--resume",
+                "--progress-file",
+                str(progress_path),
+                "--project-dir",
+                str(tmp_path),
+            ]
+        )
+        assert result == 1
+        assert "Invalid focus mode" in capsys.readouterr().out
+
+    @patch("main._archive_progress")
+    @patch("main.print_report")
+    @patch("main._run_iteration_loop")
+    @patch("main.git_diff_has_changes", return_value=False)
+    @patch("main._validate_environment", return_value=("npm test", None))
+    def test_happy_path_fresh_run(
+        self, mock_validate, mock_diff, mock_loop, mock_report, mock_archive
+    ):
+        """Fresh run calls loop, report, and archive."""
+        with patch("main.make_initial_progress") as mock_init:
+            mock_init.return_value = {
+                "skill": "code-review",
+                "config": {
+                    "max_iterations": 8,
+                    "test_command": "npm test",
+                    "base_commit": "abc123",
+                    "focus": "",
+                    "project_root": "/tmp",
+                    "scope": {"mode": "local-changes", "paths": [], "base_ref": None},
+                },
+                "iteration": {"current": 1, "completed": 0},
+                "findings": [],
+                "scope_files": {"current": []},
+                "test_results": {
+                    "last_full_run": None,
+                    "last_run_output_summary": None,
+                },
+                "iteration_history": [],
+                "termination": {"reason": None, "message": None},
+            }
+            result = main(["--skill", "code-review"])
+        assert result == 0
+        mock_loop.assert_called_once()
+        mock_report.assert_called_once()
+        mock_archive.assert_called_once()
+
+    @patch("main._archive_progress")
+    @patch("main.print_report")
+    @patch("main._run_iteration_loop")
+    @patch("main._validate_environment", return_value=("pytest", None))
+    def test_resume_syncs_test_command_and_focus(
+        self, mock_validate, mock_loop, mock_report, mock_archive, tmp_path
+    ):
+        """Resume syncs freshly detected test_command and explicit focus."""
+        import json
+
+        progress_path = tmp_path / "progress.json"
+        progress = {
+            "skill": "refactor",
+            "config": {
+                "max_iterations": 8,
+                "test_command": "old-cmd",
+                "base_commit": "abc123",
+                "focus": "",
+                "project_root": str(tmp_path),
+                "scope": {"mode": "local-changes", "paths": [], "base_ref": None},
+            },
+            "iteration": {"current": 2, "completed": 1},
+            "findings": [],
+            "scope_files": {"current": []},
+            "test_results": {"last_full_run": None, "last_run_output_summary": None},
+            "iteration_history": [],
+            "termination": {"reason": None, "message": None},
+        }
+        progress_path.write_text(json.dumps(progress), encoding="utf-8")
+        result = main(
+            [
+                "--skill",
+                "refactor",
+                "--resume",
+                "--focus",
+                "testability",
+                "--progress-file",
+                str(progress_path),
+                "--project-dir",
+                str(tmp_path),
+            ]
+        )
+        assert result == 0
+        # Verify synced values by inspecting what _run_iteration_loop received
+        call_args = mock_loop.call_args
+        synced_progress = call_args[0][1]
+        assert synced_progress["config"]["test_command"] == "pytest"
+        assert synced_progress["config"]["focus"] == "testability"
