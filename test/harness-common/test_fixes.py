@@ -1,9 +1,11 @@
 from pathlib import Path
+from unittest.mock import patch
 
 from harness_common.fixes import (
     _is_path_within,
     _swap_content,
     apply_single_fix,
+    bisect_fixes,
     revert_single_fix,
 )
 
@@ -173,3 +175,121 @@ class TestRevertSingleFix:
         }
         assert revert_single_fix(fix, str(tmp_path)) is True
         assert f.read_text(encoding="utf-8") == "obj.value"
+
+
+def _make_fix(tmp_path, filename, pre, post):
+    """Helper: create a file with post content (applied state) and return fix dict."""
+    f = tmp_path / filename
+    f.write_text(post, encoding="utf-8")
+    return {"file": filename, "pre_edit_content": pre, "post_edit_content": post}
+
+
+class TestBisectFixes:
+    def test_all_fixes_pass(self, tmp_path):
+        """All fixes re-applied successfully and tests pass → all counted as fixed."""
+        fixes = [
+            _make_fix(tmp_path, "a.txt", "old_a", "new_a"),
+            _make_fix(tmp_path, "b.txt", "old_b", "new_b"),
+        ]
+        run_tests = lambda cmd, cwd: (True, "ok")
+        fixed, reverted, skipped = bisect_fixes(fixes, "test", str(tmp_path), run_tests)
+        assert fixed == 2
+        assert reverted == 0
+        assert skipped == 0
+        assert (tmp_path / "a.txt").read_text(encoding="utf-8") == "new_a"
+        assert (tmp_path / "b.txt").read_text(encoding="utf-8") == "new_b"
+
+    def test_one_fix_breaks_tests(self, tmp_path):
+        """Second fix causes test failure → it stays reverted."""
+        fixes = [
+            _make_fix(tmp_path, "a.txt", "old_a", "new_a"),
+            _make_fix(tmp_path, "b.txt", "old_b", "new_b"),
+        ]
+        call_count = 0
+
+        def run_tests(cmd, cwd):
+            nonlocal call_count
+            call_count += 1
+            return (True, "ok") if call_count == 1 else (False, "fail")
+
+        fixed, reverted, skipped = bisect_fixes(fixes, "test", str(tmp_path), run_tests)
+        assert fixed == 1
+        assert reverted == 1
+        assert skipped == 0
+        assert (tmp_path / "a.txt").read_text(encoding="utf-8") == "new_a"
+        assert (tmp_path / "b.txt").read_text(encoding="utf-8") == "old_b"
+
+    def test_failed_revert_counted_as_fixed(self, tmp_path):
+        """Fix that can't be reverted stays applied and counts as fixed."""
+        fix = {
+            "file": "missing.txt",
+            "pre_edit_content": "old",
+            "post_edit_content": "new",
+        }
+        run_tests = lambda cmd, cwd: (True, "ok")
+        fixed, reverted, skipped = bisect_fixes([fix], "test", str(tmp_path), run_tests)
+        assert fixed == 1
+        assert reverted == 0
+        assert skipped == 0
+
+    def test_failed_apply_counted_as_skipped(self, tmp_path):
+        """Fix that reverts but can't be re-applied counts as skipped."""
+        f = tmp_path / "a.txt"
+        f.write_text("new_a", encoding="utf-8")
+        fix = {
+            "file": "a.txt",
+            "pre_edit_content": "old_a",
+            "post_edit_content": "new_a",
+        }
+        # After revert, file has "old_a". Now make re-apply impossible by
+        # writing ambiguous content before apply step runs.
+        original_apply = (
+            apply_single_fix.__wrapped__
+            if hasattr(apply_single_fix, "__wrapped__")
+            else None
+        )
+
+        def run_tests(cmd, cwd):
+            return (True, "ok")
+
+        # Patch apply_single_fix to return False (simulating apply failure)
+        with patch("harness_common.fixes.apply_single_fix", return_value=False):
+            fixed, reverted, skipped = bisect_fixes(
+                [fix], "test", str(tmp_path), run_tests
+            )
+        assert fixed == 0
+        assert reverted == 0
+        assert skipped == 1
+
+    def test_default_run_tests_fn(self, tmp_path):
+        """When run_tests_fn is None, falls back to harness_common.runner.run_tests."""
+        fixes = [_make_fix(tmp_path, "a.txt", "old_a", "new_a")]
+        with patch(
+            "harness_common.runner.run_tests", return_value=(True, "ok")
+        ) as mock_rt:
+            fixed, reverted, skipped = bisect_fixes(fixes, "test", str(tmp_path))
+        assert fixed == 1
+        mock_rt.assert_called_once_with("test", str(tmp_path))
+
+    def test_mixed_scenario(self, tmp_path):
+        """Mix of pass, fail, and unrevertable fixes."""
+        fixes = [
+            _make_fix(tmp_path, "a.txt", "old_a", "new_a"),  # will pass
+            _make_fix(tmp_path, "b.txt", "old_b", "new_b"),  # will fail
+            {
+                "file": "gone.txt",
+                "pre_edit_content": "x",
+                "post_edit_content": "y",
+            },  # unrevertable
+        ]
+        call_count = 0
+
+        def run_tests(cmd, cwd):
+            nonlocal call_count
+            call_count += 1
+            return (True, "ok") if call_count == 1 else (False, "fail")
+
+        fixed, reverted, skipped = bisect_fixes(fixes, "test", str(tmp_path), run_tests)
+        assert fixed == 2  # a.txt passed + gone.txt unrevertable
+        assert reverted == 1  # b.txt failed
+        assert skipped == 0

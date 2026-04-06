@@ -389,6 +389,16 @@ class TestRevertTestFiles:
         for name in ["test_a.py", "test_b.py", "test_c.py"]:
             assert not (tmp_path / name).exists()
 
+    def test_path_traversal_skipped(self, tmp_path):
+        """File path escaping cwd is silently skipped via ValueError guard."""
+        outside = tmp_path / ".." / "outside_project" / "test_evil.py"
+        outside.parent.mkdir(parents=True, exist_ok=True)
+        outside.write_text("# evil", encoding="utf-8")
+        tests = [{"file": "../outside_project/test_evil.py"}]
+        _revert_test_files(tests, str(tmp_path))
+        # File outside cwd must NOT be deleted
+        assert outside.exists()
+
 
 # ---------------------------------------------------------------------------
 # _process_refactor_output
@@ -894,6 +904,77 @@ class TestRunCycleLoop:
 
         mock_bisect.assert_called_once()
         assert progress["termination"]["reason"] == "cap"
+
+    @patch("main.check_coverage_plateau", return_value=(False, ""))
+    @patch("main.check_refactor_convergence", return_value=(False, ""))
+    @patch("main.check_unit_test_convergence", return_value=(False, ""))
+    @patch("main.restore_working_tree")
+    @patch("main.bisect_fixes")
+    @patch("main.run_tests")
+    @patch("main.record_test_result")
+    @patch("main.record_cycle_history")
+    @patch("main.parse_harness_output")
+    @patch("main.run_coverage_session", return_value="raw output")
+    @patch("main.git_rev_parse_head", return_value="abc123")
+    @patch("main.write_progress")
+    def test_combo_test_failure_after_bisect_restores_tree(
+        self,
+        mock_wp,
+        mock_head,
+        mock_session,
+        mock_parse,
+        mock_record_cycle,
+        mock_record_test,
+        mock_run_tests,
+        mock_bisect,
+        mock_restore,
+        mock_ut_conv,
+        mock_rf_conv,
+        mock_plateau,
+        sample_coverage_progress,
+        tmp_path,
+    ):
+        """When bisect keeps some fixes but the combo re-test fails,
+        restore_working_tree is called and the summary reflects full revert."""
+        ut_result = {
+            "tests_written": [],
+            "coverage": {"before": 40, "after": 50, "delta": 10},
+            "untestable_code": [{"file": "src/a.py", "barrier": "hardcoded-dep"}],
+            "bugs_discovered": [],
+        }
+        rf_result = {
+            "fixes_applied": [
+                {"file": "src/a.py", "line": 1},
+                {"file": "src/b.py", "line": 2},
+            ],
+            "new_findings": [],
+        }
+        mock_parse.side_effect = [ut_result, rf_result]
+        # 1st run_tests (unit-test verify) passes,
+        # 2nd (refactor verify) fails → triggers bisect,
+        # 3rd (combo verify after bisect) fails → triggers restore
+        mock_run_tests.side_effect = [
+            (True, "ok"),
+            (False, "FAIL"),
+            (False, "COMBO FAIL"),
+        ]
+        mock_bisect.return_value = (1, 1, 0)  # 1 fixed, 1 reverted → combo check runs
+
+        args = self._make_args()
+        progress = sample_coverage_progress
+        progress["config"]["max_cycles"] = 1
+        progress_path = tmp_path / "progress.json"
+
+        _run_cycle_loop(args, progress, progress_path, tmp_path, "pytest", 1)
+
+        mock_restore.assert_called_once()
+        # record_cycle_history is called with (progress, cycle, ut_summary, refactor_summary)
+        # The last call's 4th positional arg is the refactor summary
+        record_call_args = mock_record_cycle.call_args
+        refactor_summary = record_call_args[0][3]
+        assert refactor_summary["test_passed"] is False
+        assert refactor_summary["fixed"] == 0
+        assert refactor_summary["reverted"] == 2
 
     @patch("main.check_coverage_plateau", return_value=(False, ""))
     @patch("main.check_refactor_convergence", return_value=(False, ""))
