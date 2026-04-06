@@ -6,13 +6,15 @@ from pathlib import Path
 from .constants import DEFAULT_TEST_TIMEOUT
 
 
-def _find_bash():
+def _find_bash(platform=None, which_fn=None, run_fn=None):
     """Return the path to a usable bash executable, preferring Git Bash on Windows."""
-    if sys.platform != "win32":
+    which_fn = which_fn or shutil.which
+    run_fn = run_fn or subprocess.run
+    if (platform or sys.platform) != "win32":
         return "bash"
 
     # shutil.which respects PATH order — check if it resolves to WSL's bash
-    candidate = shutil.which("bash")
+    candidate = which_fn("bash")
     if candidate:
         normalized = candidate.replace("\\", "/").lower()
         if "system32" not in normalized:
@@ -21,7 +23,7 @@ def _find_bash():
     # WSL bash or no bash on PATH — look for Git Bash explicitly
     # Method 1: use git --exec-path to find Git's installation
     try:
-        result = subprocess.run(
+        result = run_fn(
             ["git", "--exec-path"],
             capture_output=True,
             text=True,
@@ -59,12 +61,14 @@ def run_tests(test_command, cwd, timeout=DEFAULT_TEST_TIMEOUT, prefix="[harness]
         # (&&, ||), subshells ($(...)), env vars ($VAR), and redirections (2>).
         # Always route through bash for consistent behavior.
         effective_command = [_find_bash(), "-c", test_command]
+        use_shell = False
     else:
         effective_command = test_command
+        use_shell = True
     try:
         result = subprocess.run(
             effective_command,
-            shell=isinstance(effective_command, str),
+            shell=use_shell,
             capture_output=True,
             text=True,
             cwd=str(cwd),

@@ -16,16 +16,15 @@ def git_rev_parse_head(cwd):
     return result.stdout.strip()
 
 
-def _clean_working_tree(cwd):
+def _clean_working_tree(cwd, _run=None):
     """Reset tracked files and remove untracked files/dirs."""
-    checkout = subprocess.run(
+    _run = _run or subprocess.run
+    checkout = _run(
         ["git", "checkout", "."], cwd=str(cwd), capture_output=True, text=True
     )
     if checkout.returncode != 0:
         print(f"{_PREFIX} WARNING: git checkout . failed: {checkout.stderr[:200]}")
-    clean = subprocess.run(
-        ["git", "clean", "-fd"], cwd=str(cwd), capture_output=True, text=True
-    )
+    clean = _run(["git", "clean", "-fd"], cwd=str(cwd), capture_output=True, text=True)
     if clean.returncode != 0:
         print(f"{_PREFIX} WARNING: git clean -fd failed: {clean.stderr[:200]}")
 
@@ -43,7 +42,7 @@ def git_restore_to(commit, cwd):
     _clean_working_tree(cwd)
 
 
-def git_stash_snapshot(cwd):
+def git_stash_snapshot(cwd, _run=None):
     """Create a stash snapshot of current working tree without modifying it.
 
     Returns a stash commit SHA that can be restored later, or None if no changes.
@@ -51,7 +50,8 @@ def git_stash_snapshot(cwd):
     working tree, index, or stash reflog. The commit is then registered in the
     stash reflog so that 'git stash apply' processes the untracked-files tree.
     """
-    result = subprocess.run(
+    _run = _run or subprocess.run
+    result = _run(
         ["git", "stash", "create", "--include-untracked"],
         capture_output=True,
         text=True,
@@ -61,7 +61,7 @@ def git_stash_snapshot(cwd):
     if not sha:
         return None
     # Register in stash reflog so 'git stash apply' handles untracked files
-    store = subprocess.run(
+    store = _run(
         ["git", "stash", "store", "-m", "harness snapshot", sha],
         capture_output=True,
         text=True,
@@ -73,12 +73,13 @@ def git_stash_snapshot(cwd):
     return sha
 
 
-def git_restore_snapshot(snapshot_sha, cwd):
+def git_restore_snapshot(snapshot_sha, cwd, _run=None):
     """Restore working tree from a stash snapshot created by git_stash_snapshot."""
+    _run = _run or subprocess.run
     # Clean working tree so stash apply can recreate files cleanly
-    _clean_working_tree(cwd)
+    _clean_working_tree(cwd, _run=_run)
     # Then apply the snapshot (includes untracked files if --include-untracked was used)
-    result = subprocess.run(
+    result = _run(
         ["git", "stash", "apply", snapshot_sha],
         cwd=str(cwd),
         capture_output=True,
@@ -89,7 +90,7 @@ def git_restore_snapshot(snapshot_sha, cwd):
         return False
     # Drop the stash entry to avoid accumulating orphaned snapshots.
     # git stash drop requires a stash ref (stash@{N}), not a raw SHA.
-    list_result = subprocess.run(
+    list_result = _run(
         ["git", "stash", "list", "--format=%gd %H"],
         cwd=str(cwd),
         capture_output=True,
@@ -98,7 +99,7 @@ def git_restore_snapshot(snapshot_sha, cwd):
     for entry in list_result.stdout.strip().splitlines():
         parts = entry.split(" ", 1)
         if len(parts) == 2 and parts[1] == snapshot_sha:
-            subprocess.run(
+            _run(
                 ["git", "stash", "drop", parts[0]],
                 cwd=str(cwd),
                 capture_output=True,

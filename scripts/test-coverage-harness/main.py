@@ -160,15 +160,14 @@ Examples:
 # ---------------------------------------------------------------------------
 
 
-def _validate_environment(project_root, args):
+def _validate_environment(project_root, args, _run=None):
     """Validate that claude CLI is available and a test command exists.
 
     Returns (test_command, None) on success, or (None, error_message) on failure.
     """
+    _run = _run or subprocess.run
     try:
-        claude_check = subprocess.run(
-            ["claude", "--version"], capture_output=True, text=True
-        )
+        claude_check = _run(["claude", "--version"], capture_output=True, text=True)
     except FileNotFoundError:
         claude_check = None
     if claude_check is None or claude_check.returncode != 0:
@@ -399,6 +398,252 @@ def _archive_progress(progress_path):
 
 
 # ---------------------------------------------------------------------------
+# Phase runners (extracted from _run_cycle_loop for testability and SRP)
+# ---------------------------------------------------------------------------
+
+
+def _run_unit_test_phase(
+    args,
+    progress,
+    progress_path,
+    project_root,
+    test_command,
+    cycle,
+    pre_stash,
+    pre_head,
+    *,
+    skip_commits,
+):
+    """Run the unit-test phase of a cycle.
+
+    Returns (action, ut_summary, pre_head, skip_commits) where action is:
+    - "break": fatal error or parse failure (termination already recorded)
+    - "continue": tests failed, caller should skip to next cycle
+    - "converged": convergence reached (termination already recorded)
+    - "proceed": success, continue to refactor phase
+    """
+    progress["phase"] = "unit-test"
+    write_progress(progress_path, progress)
+    print(f"{PREFIX} --- Phase: unit-test ---")
+
+    ut_start = time.time()
+    try:
+        ut_output = run_coverage_session(progress, args, progress_path, "unit-test")
+    except (RuntimeError, subprocess.TimeoutExpired) as exc:
+        print(f"{PREFIX} ERROR: Unit-test session failed: {exc}")
+        restore_working_tree(pre_stash, pre_head, project_root)
+        progress["termination"] = {
+            "reason": "crash",
+            "message": f"Unit-test session failed on cycle {cycle}: {exc}",
+        }
+        write_progress(progress_path, progress)
+        return "break", None, pre_head, skip_commits
+
+    ut_result = parse_harness_output(ut_output)
+    ut_elapsed = int(time.time() - ut_start)
+
+    if ut_result is None:
+        print(
+            f"{PREFIX} WARNING: No parseable output from unit-test session ({ut_elapsed}s)"
+        )
+        test_passed, test_summary = run_tests(test_command, project_root)
+        record_test_result(progress, test_passed, test_summary)
+        if not test_passed:
+            restore_working_tree(pre_stash, pre_head, project_root)
+        progress["termination"] = {
+            "reason": "parse-failure",
+            "message": f"Unit-test session produced no parseable JSON output on cycle {cycle}",
+        }
+        write_progress(progress_path, progress)
+        return "break", None, pre_head, skip_commits
+
+    ut_tests = ut_result.get("tests_written", [])
+    print(
+        f"{PREFIX} Unit-test session complete — "
+        f"{len(ut_tests)} tests written ({ut_elapsed}s)"
+    )
+
+    # Verify new test files pass
+    test_passed, test_summary = run_tests(test_command, project_root)
+    record_test_result(progress, test_passed, test_summary)
+    ut_summary = _process_unit_test_output(progress, ut_result, cycle)
+
+    if not test_passed:
+        print(f"{PREFIX} Tests failed after unit-test phase — reverting new test files")
+        _revert_test_files(ut_tests, project_root)
+        reverted_files = {t.get("file") for t in ut_tests}
+        progress["tests_created"] = [
+            t for t in progress["tests_created"] if t.get("file") not in reverted_files
+        ]
+        ut_summary["test_passed"] = False
+        record_cycle_history(progress, cycle, ut_summary)
+        write_progress(progress_path, progress)
+        return "continue", ut_summary, pre_head, skip_commits
+
+    ut_summary["test_passed"] = True
+
+    # Checkpoint commit
+    if not skip_commits and git_diff_has_changes(project_root):
+        if git_commit_checkpoint(
+            progress,
+            cycle,
+            "unit-test",
+            project_root,
+            ut_summary,
+            progress_file=str(progress_path),
+        ):
+            print(f"{PREFIX} Checkpoint: test(coverage-harness): cycle {cycle}")
+            pre_head = git_rev_parse_head(project_root) or pre_head
+        else:
+            print(
+                f"{PREFIX} WARNING: Checkpoint failed — skipping commits for remaining cycles"
+            )
+            skip_commits = True
+
+    # Check convergence
+    converged, reason = check_unit_test_convergence(ut_result)
+    if converged:
+        record_cycle_history(progress, cycle, ut_summary)
+        progress["termination"] = {"reason": "convergence", "message": reason}
+        write_progress(progress_path, progress)
+        print(f"{PREFIX} Converged: {reason}")
+        return "converged", ut_summary, pre_head, skip_commits
+
+    return "proceed", ut_summary, pre_head, skip_commits
+
+
+def _run_refactor_phase(
+    args,
+    progress,
+    progress_path,
+    project_root,
+    test_command,
+    cycle,
+    pre_stash,
+    pre_head,
+    ut_summary,
+    *,
+    skip_commits,
+):
+    """Run the refactor phase of a cycle (conditional on pending untestable items).
+
+    Returns (action, refactor_summary, skip_commits) where action is:
+    - "break": fatal error or parse failure (termination already recorded)
+    - "skip": no pending untestable items — phase skipped
+    - "converged": convergence reached (termination already recorded)
+    - "proceed": success
+    """
+    pending_untestable = [
+        i for i in progress.get("untestable_code", []) if i.get("status") == "pending"
+    ]
+    if not pending_untestable:
+        return "skip", None, skip_commits
+
+    progress["phase"] = "refactor"
+    write_progress(progress_path, progress)
+    print(
+        f"{PREFIX} --- Phase: refactor (testability) — {len(pending_untestable)} items ---"
+    )
+
+    rf_start = time.time()
+    try:
+        rf_output = run_coverage_session(progress, args, progress_path, "refactor")
+    except (RuntimeError, subprocess.TimeoutExpired) as exc:
+        print(f"{PREFIX} ERROR: Refactor session failed: {exc}")
+        restore_working_tree(pre_stash, pre_head, project_root)
+        record_cycle_history(progress, cycle, ut_summary)
+        progress["termination"] = {
+            "reason": "crash",
+            "message": f"Refactor session failed on cycle {cycle}: {exc}",
+        }
+        write_progress(progress_path, progress)
+        return "break", None, skip_commits
+
+    rf_result = parse_harness_output(rf_output)
+    rf_elapsed = int(time.time() - rf_start)
+
+    if rf_result is None:
+        print(
+            f"{PREFIX} WARNING: No parseable output from refactor session ({rf_elapsed}s)"
+        )
+        record_cycle_history(progress, cycle, ut_summary)
+        progress["termination"] = {
+            "reason": "parse-failure",
+            "message": f"Refactor session produced no parseable JSON output on cycle {cycle}",
+        }
+        write_progress(progress_path, progress)
+        return "break", None, skip_commits
+
+    fixes = rf_result.get("fixes_applied", [])
+    print(
+        f"{PREFIX} Refactor session complete — "
+        f"{len(fixes)} fixes applied ({rf_elapsed}s)"
+    )
+
+    refactor_summary = _process_refactor_output(progress, rf_result, cycle)
+
+    # Test and bisect fixes
+    if fixes:
+        test_passed, test_summary = run_tests(test_command, project_root)
+        record_test_result(progress, test_passed, test_summary)
+
+        if not test_passed:
+            print(f"{PREFIX} Tests failed after refactor — bisecting fixes")
+            fixed_count, reverted_count, skipped_count = bisect_fixes(
+                fixes, test_command, str(project_root)
+            )
+            refactor_summary["fixed"] = fixed_count
+            refactor_summary["reverted"] = reverted_count
+            refactor_summary["test_passed"] = reverted_count == 0
+
+            if reverted_count == len(fixes):
+                print(f"{PREFIX} All refactor fixes reverted.")
+                refactor_summary["test_passed"] = False
+            elif fixed_count > 0:
+                combo_passed, combo_summary = run_tests(test_command, project_root)
+                record_test_result(progress, combo_passed, combo_summary)
+                if not combo_passed:
+                    print(f"{PREFIX} Combined test failed — restoring working tree")
+                    restore_working_tree(pre_stash, pre_head, project_root)
+                    refactor_summary["test_passed"] = False
+                    refactor_summary["fixed"] = 0
+                    refactor_summary["reverted"] = len(fixes)
+
+    # Checkpoint commit
+    if not skip_commits and git_diff_has_changes(project_root):
+        if git_commit_checkpoint(
+            progress,
+            cycle,
+            "refactor",
+            project_root,
+            refactor_summary,
+            progress_file=str(progress_path),
+        ):
+            print(f"{PREFIX} Checkpoint: refactor(coverage-harness): cycle {cycle}")
+        else:
+            print(
+                f"{PREFIX} WARNING: Checkpoint failed — skipping commits for remaining cycles"
+            )
+            skip_commits = True
+
+    # Check convergence
+    converged, reason = check_refactor_convergence(rf_result)
+    if converged:
+        record_cycle_history(progress, cycle, ut_summary, refactor_summary)
+        coverage_plateau, plateau_reason = check_coverage_plateau(
+            progress["coverage"]["history"]
+        )
+        if coverage_plateau:
+            reason = plateau_reason
+        progress["termination"] = {"reason": "convergence", "message": reason}
+        write_progress(progress_path, progress)
+        print(f"{PREFIX} Converged: {reason}")
+        return "converged", refactor_summary, skip_commits
+
+    return "proceed", refactor_summary, skip_commits
+
+
+# ---------------------------------------------------------------------------
 # Main cycle loop
 # ---------------------------------------------------------------------------
 
@@ -426,70 +671,20 @@ def _run_cycle_loop(
         pre_stash = git_stash_snapshot(project_root) if args.no_commit else None
 
         # ---- Unit-test phase ----
-        progress["phase"] = "unit-test"
-        write_progress(progress_path, progress)
-        print(f"{PREFIX} --- Phase: unit-test ---")
-
-        ut_start = time.time()
-        try:
-            ut_output = run_coverage_session(progress, args, progress_path, "unit-test")
-        except (RuntimeError, subprocess.TimeoutExpired) as exc:
-            print(f"{PREFIX} ERROR: Unit-test session failed: {exc}")
-            restore_working_tree(pre_stash, pre_head, project_root)
-            progress["termination"] = {
-                "reason": "crash",
-                "message": f"Unit-test session failed on cycle {cycle}: {exc}",
-            }
-            write_progress(progress_path, progress)
-            break
-
-        ut_result = parse_harness_output(ut_output)
-        ut_elapsed = int(time.time() - ut_start)
-
-        if ut_result is None:
-            print(
-                f"{PREFIX} WARNING: No parseable output from unit-test session ({ut_elapsed}s)"
-            )
-            # Try running tests — if they pass, the session may have done useful work
-            test_passed, test_summary = run_tests(test_command, project_root)
-            record_test_result(progress, test_passed, test_summary)
-            if not test_passed:
-                restore_working_tree(pre_stash, pre_head, project_root)
-            progress["termination"] = {
-                "reason": "parse-failure",
-                "message": f"Unit-test session produced no parseable JSON output on cycle {cycle}",
-            }
-            write_progress(progress_path, progress)
-            break
-
-        ut_tests = ut_result.get("tests_written", [])
-        print(
-            f"{PREFIX} Unit-test session complete — "
-            f"{len(ut_tests)} tests written ({ut_elapsed}s)"
+        action, ut_summary, pre_head, skip_commits = _run_unit_test_phase(
+            args,
+            progress,
+            progress_path,
+            project_root,
+            test_command,
+            cycle,
+            pre_stash,
+            pre_head,
+            skip_commits=skip_commits,
         )
-
-        # Run tests to verify new test files pass
-        test_passed, test_summary = run_tests(test_command, project_root)
-        record_test_result(progress, test_passed, test_summary)
-
-        ut_summary = _process_unit_test_output(progress, ut_result, cycle)
-
-        if not test_passed:
-            print(
-                f"{PREFIX} Tests failed after unit-test phase — reverting new test files"
-            )
-            _revert_test_files(ut_tests, project_root)
-            # Purge reverted entries so the report doesn't inflate test counts
-            reverted_files = {t.get("file") for t in ut_tests}
-            progress["tests_created"] = [
-                t
-                for t in progress["tests_created"]
-                if t.get("file") not in reverted_files
-            ]
-            ut_summary["test_passed"] = False
-            record_cycle_history(progress, cycle, ut_summary)
-            write_progress(progress_path, progress)
-            # Don't break — continue to next cycle if not at cap
+        if action in ("break", "converged"):
+            break
+        if action == "continue":
             if cycle >= max_cycles:
                 progress["termination"] = {
                     "reason": "cap",
@@ -500,154 +695,21 @@ def _run_cycle_loop(
             progress["cycle"]["current"] += 1
             continue
 
-        ut_summary["test_passed"] = True
-
-        # Checkpoint commit for unit-test phase
-        if not skip_commits and git_diff_has_changes(project_root):
-            if git_commit_checkpoint(
-                progress,
-                cycle,
-                "unit-test",
-                project_root,
-                ut_summary,
-                progress_file=str(progress_path),
-            ):
-                print(f"{PREFIX} Checkpoint: test(coverage-harness): cycle {cycle}")
-                pre_head = git_rev_parse_head(project_root) or pre_head
-            else:
-                print(
-                    f"{PREFIX} WARNING: Checkpoint failed — skipping commits for remaining cycles"
-                )
-                skip_commits = True
-
-        # Check unit-test convergence
-        converged, reason = check_unit_test_convergence(ut_result)
-        if converged:
-            record_cycle_history(progress, cycle, ut_summary)
-            progress["termination"] = {"reason": "convergence", "message": reason}
-            write_progress(progress_path, progress)
-            print(f"{PREFIX} Converged: {reason}")
+        # ---- Refactor phase ----
+        action, refactor_summary, skip_commits = _run_refactor_phase(
+            args,
+            progress,
+            progress_path,
+            project_root,
+            test_command,
+            cycle,
+            pre_stash,
+            pre_head,
+            ut_summary,
+            skip_commits=skip_commits,
+        )
+        if action in ("break", "converged"):
             break
-
-        # ---- Refactor phase (conditional — only pending items) ----
-        pending_untestable = [
-            i
-            for i in progress.get("untestable_code", [])
-            if i.get("status") == "pending"
-        ]
-        refactor_summary = None
-
-        if pending_untestable:
-            progress["phase"] = "refactor"
-            write_progress(progress_path, progress)
-            print(
-                f"{PREFIX} --- Phase: refactor (testability) — {len(pending_untestable)} items ---"
-            )
-
-            rf_start = time.time()
-            try:
-                rf_output = run_coverage_session(
-                    progress, args, progress_path, "refactor"
-                )
-            except (RuntimeError, subprocess.TimeoutExpired) as exc:
-                print(f"{PREFIX} ERROR: Refactor session failed: {exc}")
-                restore_working_tree(pre_stash, pre_head, project_root)
-                record_cycle_history(progress, cycle, ut_summary)
-                progress["termination"] = {
-                    "reason": "crash",
-                    "message": f"Refactor session failed on cycle {cycle}: {exc}",
-                }
-                write_progress(progress_path, progress)
-                break
-
-            rf_result = parse_harness_output(rf_output)
-            rf_elapsed = int(time.time() - rf_start)
-
-            if rf_result is None:
-                print(
-                    f"{PREFIX} WARNING: No parseable output from refactor session ({rf_elapsed}s)"
-                )
-                record_cycle_history(progress, cycle, ut_summary)
-                progress["termination"] = {
-                    "reason": "parse-failure",
-                    "message": f"Refactor session produced no parseable JSON output on cycle {cycle}",
-                }
-                write_progress(progress_path, progress)
-                break
-
-            fixes = rf_result.get("fixes_applied", [])
-            print(
-                f"{PREFIX} Refactor session complete — "
-                f"{len(fixes)} fixes applied ({rf_elapsed}s)"
-            )
-
-            refactor_summary = _process_refactor_output(progress, rf_result, cycle)
-
-            # Run tests to verify refactoring didn't break anything
-            if fixes:
-                test_passed, test_summary = run_tests(test_command, project_root)
-                record_test_result(progress, test_passed, test_summary)
-
-                if not test_passed:
-                    print(f"{PREFIX} Tests failed after refactor — bisecting fixes")
-                    fixed_count, reverted_count, skipped_count = bisect_fixes(
-                        fixes, test_command, str(project_root)
-                    )
-                    refactor_summary["fixed"] = fixed_count
-                    refactor_summary["reverted"] = reverted_count
-                    refactor_summary["test_passed"] = reverted_count == 0
-
-                    if reverted_count == len(fixes):
-                        print(f"{PREFIX} All refactor fixes reverted.")
-                        refactor_summary["test_passed"] = False
-                    elif fixed_count > 0:
-                        # Verify surviving fixes don't interact badly
-                        combo_passed, combo_summary = run_tests(
-                            test_command, project_root
-                        )
-                        record_test_result(progress, combo_passed, combo_summary)
-                        if not combo_passed:
-                            print(
-                                f"{PREFIX} Combined test failed — restoring working tree"
-                            )
-                            restore_working_tree(pre_stash, pre_head, project_root)
-                            refactor_summary["test_passed"] = False
-                            refactor_summary["fixed"] = 0
-                            refactor_summary["reverted"] = len(fixes)
-
-            # Checkpoint commit for refactor phase
-            if not skip_commits and git_diff_has_changes(project_root):
-                if git_commit_checkpoint(
-                    progress,
-                    cycle,
-                    "refactor",
-                    project_root,
-                    refactor_summary,
-                    progress_file=str(progress_path),
-                ):
-                    print(
-                        f"{PREFIX} Checkpoint: refactor(coverage-harness): cycle {cycle}"
-                    )
-                else:
-                    print(
-                        f"{PREFIX} WARNING: Checkpoint failed — skipping commits for remaining cycles"
-                    )
-                    skip_commits = True
-
-            # Check refactor convergence
-            converged, reason = check_refactor_convergence(rf_result)
-            if converged:
-                record_cycle_history(progress, cycle, ut_summary, refactor_summary)
-                # Also check coverage plateau
-                coverage_plateau, plateau_reason = check_coverage_plateau(
-                    progress["coverage"]["history"]
-                )
-                if coverage_plateau:
-                    reason = plateau_reason
-                progress["termination"] = {"reason": "convergence", "message": reason}
-                write_progress(progress_path, progress)
-                print(f"{PREFIX} Converged: {reason}")
-                break
 
         # Record cycle history
         record_cycle_history(progress, cycle, ut_summary, refactor_summary)

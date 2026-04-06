@@ -17,10 +17,11 @@ def make_initial_progress(
     base_commit=None,
     started_at=None,
     focus="",
+    _rev_parse=None,
 ):
     """Create the initial progress file structure."""
     if base_commit is None:
-        base_commit = git_rev_parse_head(project_root)
+        base_commit = (_rev_parse or git_rev_parse_head)(project_root)
     if started_at is None:
         started_at = datetime.datetime.now(datetime.timezone.utc).strftime(
             "%Y-%m-%dT%H:%M:%SZ"

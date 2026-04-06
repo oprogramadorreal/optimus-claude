@@ -203,8 +203,9 @@ def git_fetch_open_pr_description(cwd):
     }
 
 
-def git_commit_checkpoint(progress, iteration, cwd, progress_file=None):
+def git_commit_checkpoint(progress, iteration, cwd, progress_file=None, _run=None):
     """Create a checkpoint commit for this iteration. Returns True on success."""
+    _run = _run or subprocess.run
     skill = progress["skill"]
     history = progress["iteration_history"]
     latest = history[-1] if history else {}
@@ -218,7 +219,7 @@ def git_commit_checkpoint(progress, iteration, cwd, progress_file=None):
     body = build_commit_body(progress, iteration)
     commit_message = f"{title}\n\n{body}" if body else title
 
-    add_result = subprocess.run(
+    add_result = _run(
         ["git", "add", "-A"], cwd=str(cwd), capture_output=True, text=True
     )
     if add_result.returncode != 0:
@@ -227,13 +228,13 @@ def git_commit_checkpoint(progress, iteration, cwd, progress_file=None):
     # Un-stage harness state files from checkpoint commits
     pf = progress_file or PROGRESS_FILE_NAME
     for pattern in [pf, pf + BACKUP_SUFFIX]:
-        subprocess.run(
+        _run(
             ["git", "reset", "HEAD", "--", pattern],
             cwd=str(cwd),
             capture_output=True,
             text=True,
         )
-    result = subprocess.run(
+    result = _run(
         ["git", "commit", "-m", commit_message],
         cwd=str(cwd),
         capture_output=True,

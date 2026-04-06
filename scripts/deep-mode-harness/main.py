@@ -189,15 +189,14 @@ Examples:
 # ---------------------------------------------------------------------------
 
 
-def _validate_environment(project_root, args):
+def _validate_environment(project_root, args, _run=None):
     """Validate that claude CLI is available and a test command exists.
 
     Returns (test_command, None) on success, or (None, error_message) on failure.
     """
+    _run = _run or subprocess.run
     try:
-        claude_check = subprocess.run(
-            ["claude", "--version"], capture_output=True, text=True
-        )
+        claude_check = _run(["claude", "--version"], capture_output=True, text=True)
     except FileNotFoundError:
         claude_check = None
     if claude_check is None or claude_check.returncode != 0:

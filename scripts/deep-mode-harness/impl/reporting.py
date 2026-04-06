@@ -6,7 +6,7 @@ from harness_common.reporting import detect_test_command  # noqa: F401
 from .constants import FIXED_STATUSES, PERSISTENT_STATUS, PREFIX, REVERTED_STATUSES
 
 
-def print_report(progress, current_branch=None):
+def print_report(progress, current_branch=None, _get_branch=None):
     """Print the consolidated cumulative report."""
     findings = progress["findings"]
     total_fixed = sum(1 for f in findings if f["status"] in FIXED_STATUSES)
@@ -59,10 +59,11 @@ def print_report(progress, current_branch=None):
         print(f"{PREFIX} To squash checkpoint commits: git rebase -i {base[:8]}")
         print(f"{PREFIX} To rollback everything:       git reset --hard {base[:8]}")
         # Suggest push if on a feature branch (not main/master)
+        get_branch = _get_branch or git_current_branch
         branch = (
             current_branch
             if current_branch is not None
-            else git_current_branch(progress["config"]["project_root"])
+            else get_branch(progress["config"]["project_root"])
         )
         if branch and branch not in ("main", "master"):
             print(f"{PREFIX} To push checkpoint branch:    git push -u origin {branch}")
