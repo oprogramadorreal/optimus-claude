@@ -9,6 +9,8 @@
 
 When a user invokes a skill with `deep harness` (e.g., `/optimus:code-review deep harness` or `/optimus:refactor deep harness 8 "focus on backend"`), the skill delegates here for an early-exit fast path. The user already opted in by typing `harness`, so no confirmation is needed. Follow these steps in order and stop at the end — do not return to the calling skill.
 
+**Note:** `/optimus:unit-test deep harness` uses a different harness — see `references/coverage-harness-mode.md`. The protocol below applies to `/optimus:code-review` and `/optimus:refactor` only.
+
 ### 1. Resolve plugin root
 
 Run `echo $CLAUDE_PLUGIN_ROOT` via Bash. Store the result as `plugin_root`. If the output is empty, stop with: "Cannot resolve plugin root — ensure optimus-claude is installed via the Claude Code plugin system."

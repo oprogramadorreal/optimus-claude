@@ -1,60 +1,14 @@
-from pathlib import Path
+# Re-export shared fix functions for backward compatibility
+from harness_common.fixes import (  # noqa: F401
+    _is_path_within,
+    _swap_content,
+    apply_single_fix,
+    revert_single_fix,
+)
 
-from .constants import PREFIX, normalize_path
+from .constants import PREFIX
 from .findings import mark_finding_status
 from .runner import run_tests
-
-
-def _is_path_within(filepath, root):
-    """Check if filepath is within root (Python 3.8 compatible)."""
-    try:
-        filepath.relative_to(root)
-        return True
-    except ValueError:
-        return False
-
-
-def _swap_content(fix, cwd, source_field, target_field):
-    """Swap one content string for another in a file."""
-    # Normalize path separators for cross-platform compatibility
-    fix_file = normalize_path(fix["file"])
-    filepath = (Path(cwd) / fix_file).resolve()
-    cwd_resolved = Path(cwd).resolve()
-    if not _is_path_within(filepath, cwd_resolved):
-        return False
-    # Block writes to sensitive paths
-    rel = filepath.relative_to(cwd_resolved)
-    if any(part == ".git" for part in rel.parts):
-        return False
-    if not filepath.exists():
-        return False
-    try:
-        content = filepath.read_text(encoding="utf-8")
-    except (UnicodeDecodeError, OSError):
-        return False
-    find = fix.get(source_field, "")
-    replace = fix.get(target_field, "")
-    if not find:
-        # Empty find string — cannot locate target in file content.
-        # This happens when reverting a deletion fix (empty post_edit_content):
-        # the revert needs to re-insert pre_edit_content but has no position info.
-        return False
-    if find not in content:
-        return False
-    if content.count(find) != 1:
-        return False  # Ambiguous match — refuse to apply/revert
-    filepath.write_text(content.replace(find, replace, 1), encoding="utf-8")
-    return True
-
-
-def apply_single_fix(fix, cwd):
-    """Apply a single fix by replacing pre_edit_content with post_edit_content."""
-    return _swap_content(fix, cwd, "pre_edit_content", "post_edit_content")
-
-
-def revert_single_fix(fix, cwd):
-    """Revert a single fix by replacing post_edit_content with pre_edit_content."""
-    return _swap_content(fix, cwd, "post_edit_content", "pre_edit_content")
 
 
 def _try_apply_fix(fix, test_command, cwd, progress, pass_detail=None):
@@ -160,7 +114,10 @@ def bisect_fixes(fixes, test_command, cwd, progress):
         # No retry needed — mark remaining reverted fixes
         for i in reverted_indices:
             mark_finding_status(
-                progress, fixes[i], "reverted — test failure", reverted_summaries.get(i)
+                progress,
+                fixes[i],
+                "reverted — test failure",
+                reverted_summaries.get(i),
             )
             reverted_count += 1
 

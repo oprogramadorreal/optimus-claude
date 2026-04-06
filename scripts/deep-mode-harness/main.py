@@ -43,6 +43,7 @@ from pathlib import Path
 
 # Allow direct execution: python scripts/deep-mode-harness/main.py
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from impl.constants import (
     BACKUP_SUFFIX,

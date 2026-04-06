@@ -16,16 +16,20 @@ Read the root README.md to understand the plugin's full capabilities — skills,
 - `references/` — shared reference docs consumed across skills (agent-architecture, shared-agent-constraints, context-injection-blocks, harness-mode)
 - `skills/<name>/` — one directory per skill (SKILL.md + README.md + optional agents/, templates/, and references/)
 - `scripts/` — validation and test scripts (CI and local)
+- `scripts/harness_common/` — shared modules used by both harnesses
+- `scripts/test-coverage-harness/` — test-coverage harness orchestrator
 - `test/` — expected outputs and generated fixtures for skill tests
+- `test/harness-common/` — tests for shared harness modules
+- `test/test-coverage-harness/` — tests for the test-coverage harness
 - `.claude/` — project-level Claude Code settings and hooks
 
 ## Commands
 
 ```bash
-bash scripts/validate.sh && bash scripts/test-hooks.sh && python -m pytest test/deep-mode-harness/   # Run tests
+bash scripts/validate.sh && bash scripts/test-hooks.sh && python -m pytest test/harness-common/ test/deep-mode-harness/ test/test-coverage-harness/   # Run tests
 ```
 
-For coverage: `python -m pytest test/deep-mode-harness/ --cov scripts/deep-mode-harness/impl --cov-report=term-missing`
+For coverage: `python -m pytest test/harness-common/ test/deep-mode-harness/ test/test-coverage-harness/ --cov scripts/harness_common --cov scripts/deep-mode-harness/impl --cov scripts/test-coverage-harness --cov-report=term-missing`
 
 Or use the batch scripts: `test.cmd` (tests), `test-coverage.cmd` (coverage + HTML report in htmlcov/).
 First-time setup: `install.cmd` (creates `.venv` and installs dev dependencies).

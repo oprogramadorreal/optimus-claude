@@ -1,0 +1,722 @@
+#!/usr/bin/env python3
+"""
+Test-coverage harness — external orchestrator for iterative unit-test + refactor.
+
+Alternates between /optimus:unit-test and /optimus:refactor testability in paired
+cycles. Each cycle writes tests for already-testable code, then refactors
+untestable code for better coverage. Fresh claude -p sessions per phase keep
+context windows clean.
+
+Requirements:
+  - claude CLI installed and authenticated (Max subscription or API key)
+  - Python 3.8+ (stdlib only — no pip dependencies)
+
+Usage:
+  /optimus:unit-test deep harness              # invoke from within a conversation
+  /optimus:unit-test deep harness 5 "src/api"  # with cycle cap and scope
+
+  python scripts/test-coverage-harness/main.py
+  python scripts/test-coverage-harness/main.py --scope "src/api" --max-cycles 5
+  python scripts/test-coverage-harness/main.py --resume
+
+Security: By default, each claude -p session runs with --dangerously-skip-permissions
+because the harness is headless — there is no terminal to approve tool prompts. For
+a safer alternative, use --allowed-tools to restrict sessions to a specific tool
+whitelist via --allowedTools.
+"""
+
+import argparse
+import os
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+# Allow direct execution: python scripts/test-coverage-harness/main.py
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from harness_common.fixes import apply_single_fix, bisect_fixes, revert_single_fix
+from harness_common.git import (
+    git_diff_has_changes,
+    git_rev_parse_head,
+    git_stash_snapshot,
+    restore_working_tree,
+)
+from harness_common.parser import parse_harness_output
+from harness_common.reporting import detect_test_command
+from impl.constants import (
+    DEFAULT_MAX_CYCLES,
+    DEFAULT_MAX_TURNS,
+    DEFAULT_SESSION_TIMEOUT,
+    MAX_CYCLES_HARD_CAP,
+    PREFIX,
+    PROGRESS_FILE_NAME,
+)
+from impl.convergence import (
+    check_coverage_plateau,
+    check_refactor_convergence,
+    check_unit_test_convergence,
+)
+from impl.git import git_commit_checkpoint
+from impl.progress import (
+    make_initial_progress,
+    read_progress,
+    record_cycle_history,
+    record_test_result,
+    write_progress,
+)
+from impl.reporting import print_report
+from impl.runner import run_coverage_session, run_tests
+
+# ---------------------------------------------------------------------------
+# Argument parsing
+# ---------------------------------------------------------------------------
+
+
+def _build_argument_parser():
+    """Build and return the CLI argument parser."""
+    parser = argparse.ArgumentParser(
+        description="Test-coverage harness — iterative unit-test + refactor testability with fresh context per phase",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  python scripts/test-coverage-harness/main.py
+  python scripts/test-coverage-harness/main.py --scope "src/api" --max-cycles 5
+  python scripts/test-coverage-harness/main.py --resume
+        """,
+    )
+    parser.add_argument(
+        "--max-cycles",
+        type=int,
+        default=DEFAULT_MAX_CYCLES,
+        help=f"Cycle cap (default: {DEFAULT_MAX_CYCLES}, max: {MAX_CYCLES_HARD_CAP}). Each cycle = unit-test + refactor.",
+    )
+    parser.add_argument(
+        "--scope",
+        default="",
+        help="Path filter or scope hint (e.g., 'src/auth')",
+    )
+    parser.add_argument(
+        "--progress-file",
+        default=PROGRESS_FILE_NAME,
+        help=f"Path to progress file (default: {PROGRESS_FILE_NAME})",
+    )
+    parser.add_argument(
+        "--max-turns",
+        type=int,
+        default=DEFAULT_MAX_TURNS,
+        help=f"Per-session turn limit for claude -p (default: {DEFAULT_MAX_TURNS})",
+    )
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="Resume from existing progress file",
+    )
+    parser.add_argument(
+        "--no-commit",
+        action="store_true",
+        help="Skip checkpoint commits after each phase",
+    )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Show detailed skill session output",
+    )
+    parser.add_argument(
+        "--test-command",
+        default="",
+        help="Override the test command (default: auto-detect from .claude/CLAUDE.md)",
+    )
+    parser.add_argument(
+        "--project-dir",
+        default=".",
+        help="Target project directory (default: current directory)",
+    )
+    parser.add_argument(
+        "--allowed-tools",
+        default="",
+        help=(
+            "Use --allowedTools instead of --dangerously-skip-permissions. "
+            "Comma-separated list of tools to allow "
+            "(default when flag is given without value: "
+            "Read,Edit,Write,MultiEdit,Glob,Grep,Bash,Agent)"
+        ),
+        nargs="?",
+        const="Read,Edit,Write,MultiEdit,Glob,Grep,Bash,Agent",
+    )
+    parser.add_argument(
+        "--timeout",
+        type=int,
+        default=DEFAULT_SESSION_TIMEOUT,
+        help=f"Per-session timeout in seconds (default: {DEFAULT_SESSION_TIMEOUT})",
+    )
+    return parser
+
+
+# ---------------------------------------------------------------------------
+# Environment and progress validation
+# ---------------------------------------------------------------------------
+
+
+def _validate_environment(project_root, args):
+    """Validate that claude CLI is available and a test command exists.
+
+    Returns (test_command, None) on success, or (None, error_message) on failure.
+    """
+    try:
+        claude_check = subprocess.run(
+            ["claude", "--version"], capture_output=True, text=True
+        )
+    except FileNotFoundError:
+        claude_check = None
+    if claude_check is None or claude_check.returncode != 0:
+        return None, "claude CLI not found. Install and authenticate first."
+
+    test_command = args.test_command or detect_test_command(project_root)
+    if not test_command:
+        return None, (
+            "No test command found. Add one to .claude/CLAUDE.md or use --test-command."
+        )
+    return test_command, None
+
+
+def _load_resumed_progress(progress_path, args, project_root):
+    """Load and validate an existing progress file for resume.
+
+    Returns (progress, None) on success, or (None, error_message) on failure.
+    """
+    from harness_common.constants import BACKUP_SUFFIX
+
+    path = progress_path
+    if not path.exists():
+        backup = Path(str(path) + BACKUP_SUFFIX)
+        if backup.exists():
+            print(f"{PREFIX} Progress file missing, restoring from backup.")
+            import shutil
+
+            shutil.copy2(str(backup), str(path))
+        else:
+            return None, f"No progress file found at {path}"
+
+    try:
+        progress = read_progress(path)
+    except (ValueError, OSError) as exc:
+        return None, f"Cannot read progress file: {exc}"
+
+    if progress.get("harness") != "test-coverage":
+        return None, (
+            f"Progress file is for harness '{progress.get('harness')}', "
+            f"not 'test-coverage'. Delete it or use a different --progress-file."
+        )
+
+    stored_root = progress.get("config", {}).get("project_root", "")
+    from harness_common.constants import normalize_path
+
+    if stored_root and normalize_path(str(project_root)) != stored_root:
+        return None, (
+            f"Progress file project_root '{stored_root}' does not match "
+            f"current project '{normalize_path(str(project_root))}'"
+        )
+
+    # Allow extending cycle cap on resume
+    if args.max_cycles > progress["config"]["max_cycles"]:
+        progress["config"]["max_cycles"] = args.max_cycles
+
+    return progress, None
+
+
+# ---------------------------------------------------------------------------
+# Unit-test phase helpers
+# ---------------------------------------------------------------------------
+
+
+def _process_unit_test_output(progress, result, cycle):
+    """Process unit-test phase output, updating progress. Returns unit_test summary dict."""
+    tests_written = result.get("tests_written", [])
+    coverage = result.get("coverage", {})
+    untestable = result.get("untestable_code", [])
+    bugs = result.get("bugs_discovered", [])
+
+    # Record tests created
+    for test in tests_written:
+        test["cycle"] = cycle
+        progress["tests_created"].append(test)
+
+    # Update coverage
+    if coverage:
+        if (
+            progress["coverage"]["baseline"] is None
+            and coverage.get("before") is not None
+        ):
+            progress["coverage"]["baseline"] = coverage["before"]
+        if coverage.get("tool"):
+            progress["coverage"]["tool"] = coverage["tool"]
+        if coverage.get("after") is not None:
+            progress["coverage"]["current"] = coverage["after"]
+        progress["coverage"]["history"].append(
+            {
+                "cycle": cycle,
+                "before": coverage.get("before"),
+                "after": coverage.get("after"),
+                "delta": coverage.get("delta", 0),
+            }
+        )
+
+    # Update untestable code
+    progress["untestable_code"] = [
+        {
+            **item,
+            "cycle_reported": cycle,
+            "status": "pending",
+            "refactor_attempt_cycle": None,
+        }
+        for item in untestable
+    ]
+
+    # Record bugs
+    for bug in bugs:
+        bug["cycle_discovered"] = cycle
+        progress["bugs_discovered"].append(bug)
+
+    tests_passed_count = sum(1 for t in tests_written if t.get("status") == "pass")
+    return {
+        "tests_written": len(tests_written),
+        "tests_passed": tests_passed_count,
+        "coverage_delta": coverage.get("delta", 0),
+        "untestable_items_reported": len(untestable),
+    }
+
+
+def _revert_test_files(tests_written, cwd):
+    """Delete test files created by the unit-test phase on test failure."""
+    for test in tests_written:
+        filepath = Path(cwd) / test.get("file", "")
+        if filepath.exists():
+            try:
+                filepath.unlink()
+                print(f"{PREFIX} Reverted: {test.get('file')}")
+            except OSError as exc:
+                print(f"{PREFIX} WARNING: Could not delete {test.get('file')}: {exc}")
+
+
+# ---------------------------------------------------------------------------
+# Refactor phase helpers
+# ---------------------------------------------------------------------------
+
+
+def _process_refactor_output(progress, result, cycle):
+    """Process refactor phase output, updating progress. Returns refactor summary dict."""
+    fixes_applied = result.get("fixes_applied", [])
+    new_findings = result.get("new_findings", [])
+
+    for finding in new_findings:
+        finding["cycle"] = cycle
+        progress["refactor_findings"].append(finding)
+
+    # Mark untestable code items as addressed
+    for item in progress.get("untestable_code", []):
+        if item.get("status") == "pending":
+            item["refactor_attempt_cycle"] = cycle
+
+    return {
+        "findings_count": len(new_findings),
+        "fixed": len(fixes_applied),
+        "reverted": 0,
+        "test_passed": True,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Startup info
+# ---------------------------------------------------------------------------
+
+
+def _print_startup_info(args, progress):
+    """Print startup banner with configuration summary."""
+    max_cycles = progress["config"]["max_cycles"]
+    test_command = progress["config"]["test_command"]
+    scope = progress["config"]["scope"]
+    cycle = progress["cycle"]["current"]
+    estimated_sessions = (max_cycles - cycle + 1) * 2
+
+    print(f"{PREFIX} Test-Coverage Harness")
+    print(f"{PREFIX} {'=' * 40}")
+    print(f"{PREFIX}   Max cycles:    {max_cycles}")
+    print(f"{PREFIX}   Starting at:   cycle {cycle}")
+    print(f"{PREFIX}   Test command:  {test_command}")
+    if scope:
+        print(f"{PREFIX}   Scope:         {scope}")
+    print(f"{PREFIX}   Est. sessions: ~{estimated_sessions}")
+    print(f"{PREFIX} {'=' * 40}")
+
+
+# ---------------------------------------------------------------------------
+# Interrupt handling
+# ---------------------------------------------------------------------------
+
+
+def _handle_interrupt(args, progress, progress_path, project_root):
+    """Handle Ctrl+C gracefully — commit completed work and save progress."""
+    print(f"\n{PREFIX} Interrupted — saving progress...")
+    progress["termination"] = {
+        "reason": "interrupted",
+        "message": "User interrupted with Ctrl+C",
+    }
+    write_progress(progress_path, progress)
+
+    if not args.no_commit and git_diff_has_changes(project_root):
+        cycle = progress["cycle"]["current"]
+        phase = progress.get("phase", "unit-test")
+        if git_commit_checkpoint(progress, cycle, phase, project_root):
+            print(f"{PREFIX} Checkpoint: committed completed work before exit")
+
+    print_report(progress)
+
+
+# ---------------------------------------------------------------------------
+# Archive progress
+# ---------------------------------------------------------------------------
+
+
+def _archive_progress(progress_path):
+    """Rename the progress file to indicate completion."""
+    done_path = Path(str(progress_path).replace(".json", "-done.json"))
+    try:
+        Path(progress_path).rename(done_path)
+    except OSError:
+        pass  # Not critical — the file stays as-is
+
+
+# ---------------------------------------------------------------------------
+# Main cycle loop
+# ---------------------------------------------------------------------------
+
+
+def _run_cycle_loop(
+    args, progress, progress_path, project_root, test_command, max_cycles
+):
+    """Run the paired unit-test + refactor cycle loop until convergence or cap."""
+    skip_commits = args.no_commit
+
+    while True:
+        cycle = progress["cycle"]["current"]
+        print(f"\n{PREFIX} === Cycle {cycle}/{max_cycles} ===")
+
+        pre_head = git_rev_parse_head(project_root)
+        if not pre_head:
+            print(f"{PREFIX} ERROR: Cannot determine HEAD commit before cycle {cycle}.")
+            progress["termination"] = {
+                "reason": "error",
+                "message": f"Cannot determine HEAD commit before cycle {cycle}",
+            }
+            write_progress(progress_path, progress)
+            break
+
+        pre_stash = git_stash_snapshot(project_root) if args.no_commit else None
+
+        # ---- Unit-test phase ----
+        progress["phase"] = "unit-test"
+        write_progress(progress_path, progress)
+        print(f"{PREFIX} --- Phase: unit-test ---")
+
+        ut_start = time.time()
+        try:
+            ut_output = run_coverage_session(progress, args, progress_path, "unit-test")
+        except (RuntimeError, subprocess.TimeoutExpired) as exc:
+            print(f"{PREFIX} ERROR: Unit-test session failed: {exc}")
+            restore_working_tree(pre_stash, pre_head, project_root)
+            progress["termination"] = {
+                "reason": "crash",
+                "message": f"Unit-test session failed on cycle {cycle}: {exc}",
+            }
+            write_progress(progress_path, progress)
+            break
+
+        ut_result = parse_harness_output(ut_output)
+        ut_elapsed = int(time.time() - ut_start)
+
+        if ut_result is None:
+            print(
+                f"{PREFIX} WARNING: No parseable output from unit-test session ({ut_elapsed}s)"
+            )
+            # Try running tests — if they pass, the session may have done useful work
+            test_passed, test_summary = run_tests(test_command, project_root)
+            record_test_result(progress, test_passed, test_summary)
+            if not test_passed:
+                restore_working_tree(pre_stash, pre_head, project_root)
+            progress["termination"] = {
+                "reason": "parse-failure",
+                "message": f"Unit-test session produced no parseable JSON output on cycle {cycle}",
+            }
+            write_progress(progress_path, progress)
+            break
+
+        ut_tests = ut_result.get("tests_written", [])
+        print(
+            f"{PREFIX} Unit-test session complete — "
+            f"{len(ut_tests)} tests written ({ut_elapsed}s)"
+        )
+
+        # Run tests to verify new test files pass
+        test_passed, test_summary = run_tests(test_command, project_root)
+        record_test_result(progress, test_passed, test_summary)
+
+        ut_summary = _process_unit_test_output(progress, ut_result, cycle)
+
+        if not test_passed:
+            print(
+                f"{PREFIX} Tests failed after unit-test phase — reverting new test files"
+            )
+            _revert_test_files(ut_tests, project_root)
+            ut_summary["test_passed"] = False
+            record_cycle_history(progress, cycle, ut_summary)
+            write_progress(progress_path, progress)
+            # Don't break — continue to next cycle if not at cap
+            if cycle >= max_cycles:
+                progress["termination"] = {
+                    "reason": "cap",
+                    "message": f"Reached cycle cap ({max_cycles})",
+                }
+                write_progress(progress_path, progress)
+                break
+            progress["cycle"]["current"] += 1
+            continue
+
+        ut_summary["test_passed"] = True
+
+        # Checkpoint commit for unit-test phase
+        if not skip_commits and git_diff_has_changes(project_root):
+            if git_commit_checkpoint(progress, cycle, "unit-test", project_root):
+                print(f"{PREFIX} Checkpoint: test(coverage-harness): cycle {cycle}")
+            else:
+                print(
+                    f"{PREFIX} WARNING: Checkpoint failed — skipping commits for remaining cycles"
+                )
+                skip_commits = True
+
+        # Check unit-test convergence
+        converged, reason = check_unit_test_convergence(ut_result)
+        if converged:
+            record_cycle_history(progress, cycle, ut_summary)
+            progress["termination"] = {"reason": "convergence", "message": reason}
+            write_progress(progress_path, progress)
+            print(f"{PREFIX} Converged: {reason}")
+            break
+
+        # ---- Refactor phase (conditional) ----
+        untestable = progress.get("untestable_code", [])
+        refactor_summary = None
+
+        if untestable:
+            progress["phase"] = "refactor"
+            write_progress(progress_path, progress)
+            print(
+                f"{PREFIX} --- Phase: refactor (testability) — {len(untestable)} items ---"
+            )
+
+            rf_start = time.time()
+            try:
+                rf_output = run_coverage_session(
+                    progress, args, progress_path, "refactor"
+                )
+            except (RuntimeError, subprocess.TimeoutExpired) as exc:
+                print(f"{PREFIX} ERROR: Refactor session failed: {exc}")
+                restore_working_tree(pre_stash, pre_head, project_root)
+                record_cycle_history(progress, cycle, ut_summary)
+                progress["termination"] = {
+                    "reason": "crash",
+                    "message": f"Refactor session failed on cycle {cycle}: {exc}",
+                }
+                write_progress(progress_path, progress)
+                break
+
+            rf_result = parse_harness_output(rf_output)
+            rf_elapsed = int(time.time() - rf_start)
+
+            if rf_result is None:
+                print(
+                    f"{PREFIX} WARNING: No parseable output from refactor session ({rf_elapsed}s)"
+                )
+                record_cycle_history(progress, cycle, ut_summary)
+                progress["termination"] = {
+                    "reason": "parse-failure",
+                    "message": f"Refactor session produced no parseable JSON output on cycle {cycle}",
+                }
+                write_progress(progress_path, progress)
+                break
+
+            fixes = rf_result.get("fixes_applied", [])
+            print(
+                f"{PREFIX} Refactor session complete — "
+                f"{len(fixes)} fixes applied ({rf_elapsed}s)"
+            )
+
+            refactor_summary = _process_refactor_output(progress, rf_result, cycle)
+
+            # Run tests to verify refactoring didn't break anything
+            if fixes:
+                test_passed, test_summary = run_tests(test_command, project_root)
+                record_test_result(progress, test_passed, test_summary)
+
+                if not test_passed:
+                    print(f"{PREFIX} Tests failed after refactor — bisecting fixes")
+                    fixed_count, reverted_count, skipped_count = bisect_fixes(
+                        fixes, test_command, str(project_root), progress
+                    )
+                    refactor_summary["fixed"] = fixed_count
+                    refactor_summary["reverted"] = reverted_count
+                    refactor_summary["test_passed"] = reverted_count == 0
+
+                    if reverted_count == len(fixes):
+                        print(f"{PREFIX} All refactor fixes reverted.")
+                        refactor_summary["test_passed"] = False
+
+            # Checkpoint commit for refactor phase
+            if not skip_commits and git_diff_has_changes(project_root):
+                if git_commit_checkpoint(progress, cycle, "refactor", project_root):
+                    print(
+                        f"{PREFIX} Checkpoint: refactor(coverage-harness): cycle {cycle}"
+                    )
+                else:
+                    print(
+                        f"{PREFIX} WARNING: Checkpoint failed — skipping commits for remaining cycles"
+                    )
+                    skip_commits = True
+
+            # Check refactor convergence
+            converged, reason = check_refactor_convergence(rf_result)
+            if converged:
+                record_cycle_history(progress, cycle, ut_summary, refactor_summary)
+                # Also check coverage plateau
+                coverage_plateau, plateau_reason = check_coverage_plateau(
+                    progress["coverage"]["history"]
+                )
+                if coverage_plateau:
+                    reason = plateau_reason
+                progress["termination"] = {"reason": "convergence", "message": reason}
+                write_progress(progress_path, progress)
+                print(f"{PREFIX} Converged: {reason}")
+                break
+
+        # Record cycle history
+        record_cycle_history(progress, cycle, ut_summary, refactor_summary)
+
+        # Check coverage plateau
+        coverage_plateau, plateau_reason = check_coverage_plateau(
+            progress["coverage"]["history"]
+        )
+        if coverage_plateau:
+            progress["termination"] = {
+                "reason": "convergence",
+                "message": plateau_reason,
+            }
+            write_progress(progress_path, progress)
+            print(f"{PREFIX} {plateau_reason}")
+            break
+
+        # Check cycle cap
+        if cycle >= max_cycles:
+            progress["termination"] = {
+                "reason": "cap",
+                "message": f"Reached cycle cap ({max_cycles})",
+            }
+            write_progress(progress_path, progress)
+            print(f"{PREFIX} Cycle cap reached ({max_cycles}).")
+            break
+
+        progress["cycle"]["current"] += 1
+        write_progress(progress_path, progress)
+
+
+# ---------------------------------------------------------------------------
+# Entry point
+# ---------------------------------------------------------------------------
+
+
+def main(argv=None):
+    args = _build_argument_parser().parse_args(argv)
+
+    # Clamp cycles
+    if args.max_cycles > MAX_CYCLES_HARD_CAP:
+        print(f"{PREFIX} Cycle cap clamped to {MAX_CYCLES_HARD_CAP} (maximum).")
+        args.max_cycles = MAX_CYCLES_HARD_CAP
+    if args.max_cycles < 1:
+        print(f"{PREFIX} Cycle cap clamped to 1 (minimum).")
+        args.max_cycles = 1
+
+    project_root = Path(args.project_dir).resolve()
+    test_command, env_error = _validate_environment(project_root, args)
+    if env_error:
+        print(f"{PREFIX} ERROR: {env_error}")
+        return 1
+
+    # Initialize or resume
+    progress_path = Path(args.progress_file)
+    if not progress_path.is_absolute():
+        progress_path = project_root / progress_path
+
+    if args.resume:
+        progress, resume_error = _load_resumed_progress(
+            progress_path, args, project_root
+        )
+        if resume_error:
+            print(f"{PREFIX} ERROR: {resume_error}")
+            return 1
+        # Sync freshly detected test command into resumed progress
+        progress["config"]["test_command"] = test_command
+    else:
+        if progress_path.exists():
+            print(
+                f"{PREFIX} WARNING: Overwriting existing progress file: {progress_path}"
+            )
+        progress = make_initial_progress(
+            args.scope,
+            args.max_cycles,
+            test_command,
+            project_root,
+        )
+
+    # Validate base commit
+    if not progress["config"]["base_commit"]:
+        print(
+            f"{PREFIX} ERROR: Cannot determine HEAD commit. Is this a git repository?"
+        )
+        return 1
+
+    # Refuse to start with uncommitted changes (fresh runs only)
+    if not args.resume and not args.no_commit and git_diff_has_changes(project_root):
+        print(f"{PREFIX} ERROR: Uncommitted changes detected.")
+        print(f"{PREFIX} The harness creates checkpoint commits per phase,")
+        print(
+            f"{PREFIX} which would include your existing changes in the first commit."
+        )
+        print(f"{PREFIX}")
+        print(f'{PREFIX} Commit your changes first:  git add -A && git commit -m "wip"')
+        print(f'{PREFIX} Or stash them:              git stash push -m "pre-harness"')
+        return 1
+
+    _print_startup_info(args, progress)
+
+    # Main cycle loop
+    try:
+        _run_cycle_loop(
+            args,
+            progress,
+            progress_path,
+            project_root,
+            test_command,
+            progress["config"]["max_cycles"],
+        )
+    except KeyboardInterrupt:
+        _handle_interrupt(args, progress, progress_path, project_root)
+        return 0
+
+    # Final report and cleanup
+    print_report(progress)
+    _archive_progress(progress_path)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

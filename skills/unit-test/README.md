@@ -28,6 +28,7 @@ In Claude Code, use any of these:
 - `/optimus:unit-test` — full project test coverage improvement
 - `/optimus:unit-test src/api` — scope to a specific directory
 - `/optimus:unit-test packages/auth` — scope to a monorepo subproject
+- `/optimus:unit-test deep harness` — multi-cycle automated test coverage + testability refactoring with fresh context per phase; runs unit-test and refactor testability in alternating cycles, resetting context between phases to avoid degradation
 
 ## When to Run
 
@@ -103,6 +104,8 @@ The test-guardian agent and this skill are complementary — both use `testing.m
 | Coverage analysis | Measures and reports | Does not analyze |
 
 **Workflow**: `/optimus:init` (set up everything including test infrastructure) → `/optimus:unit-test` (write tests to increase coverage) → `/optimus:refactor testability` (restructure untestable code with testability focus) → `/optimus:unit-test` again (test the restructured code).
+
+**Harness mode**: `/optimus:unit-test deep harness` automates this cycle — it runs unit-test and refactor testability in alternating phases, with fresh context per phase, committing progress after each. This is the automated alternative to manually running unit-test then refactor in a loop.
 
 ## Skill Structure
 
