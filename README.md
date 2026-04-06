@@ -102,7 +102,7 @@ The result: consistent patterns, meaningful names, and lean context across every
 |----------------|----------|-------------|
 | Simple bug or small feature | `/optimus:tdd "description"` | 1 skill |
 | JIRA-tracked work, clear requirements | `/optimus:jira PROJ-123` → `/optimus:tdd` | 2 skills |
-| JIRA-tracked, moderate complexity | `/optimus:jira PROJ-123` → plan mode (jira generates prompt) → `/optimus:tdd` | 1 skill + plan mode |
+| JIRA-tracked, moderate complexity | `/optimus:jira PROJ-123` → plan mode (jira generates prompt) → `/optimus:tdd` | 2 skills + plan mode |
 | Complex feature, design decisions needed | `/optimus:jira` → `/optimus:brainstorm` → plan mode → `/optimus:tdd` | 3 skills + plan mode |
 | Idea without JIRA | `/optimus:brainstorm` → plan mode → `/optimus:tdd` | 2 skills + plan mode |
 

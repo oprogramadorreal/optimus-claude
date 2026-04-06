@@ -169,7 +169,7 @@ If **Improve description**:
 
 First, handle tech debt and refactoring tickets separately — they have a fixed route:
 
-- **Refactoring / Tech debt** → "Recommend running `/optimus:refactor` to restructure the code."
+- **Refactoring / Tech debt** → "Recommend running `/optimus:refactor` to restructure the code. **Tip:** for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch."
 - **Any task** → also mention `/optimus:branch` if the user hasn't created a feature branch yet
 
 For stories, features, and bugs, use the **Scope Assessment** from Step 5 as the primary complexity signal (Step 5 always runs, so this is always available). When the scope assessment is inconclusive, supplement with the structured task's acceptance criteria count and context.
