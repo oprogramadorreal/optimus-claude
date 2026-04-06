@@ -1,7 +1,6 @@
 import subprocess
 
 # Import shared run_tests and wrap to inject deep-mode prefix
-from harness_common.runner import _find_bash  # noqa: F401 — re-export
 from harness_common.runner import run_tests as _shared_run_tests
 
 from .constants import DEFAULT_TEST_TIMEOUT, PREFIX, VALID_FOCUS_MODES, normalize_path

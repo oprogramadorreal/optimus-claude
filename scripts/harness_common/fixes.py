@@ -55,7 +55,7 @@ def revert_single_fix(fix, cwd):
     return _swap_content(fix, cwd, "post_edit_content", "pre_edit_content")
 
 
-def bisect_fixes(fixes, test_command, cwd, progress, run_tests_fn=None):
+def bisect_fixes(fixes, test_command, cwd, run_tests_fn=None):
     """Bisect fixes to find which ones break tests.
 
     Reverts all fixes, then re-applies one at a time, running the test suite

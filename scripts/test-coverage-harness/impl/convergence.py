@@ -41,6 +41,6 @@ def check_coverage_plateau(coverage_history, min_consecutive=2):
         return False, None
 
     recent = coverage_history[-min_consecutive:]
-    if all(entry.get("delta", 1) == 0 for entry in recent):
+    if all(entry.get("delta") == 0 for entry in recent):
         return True, (f"Zero coverage gain for {min_consecutive} consecutive cycles")
     return False, None

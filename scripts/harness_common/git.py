@@ -62,7 +62,7 @@ def git_stash_snapshot(cwd):
         return None
     # Register in stash reflog so 'git stash apply' handles untracked files
     store = subprocess.run(
-        ["git", "stash", "store", "-m", "deep-mode snapshot", sha],
+        ["git", "stash", "store", "-m", "harness snapshot", sha],
         capture_output=True,
         text=True,
         cwd=str(cwd),

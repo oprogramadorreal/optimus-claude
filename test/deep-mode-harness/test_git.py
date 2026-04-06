@@ -2,9 +2,9 @@ import json
 import subprocess
 from unittest.mock import MagicMock, call, patch
 
+from harness_common.git import _clean_working_tree
 from impl.git import (  # noqa: F401 — re-exports from harness_common
     _base_from_symbolic_ref,
-    _clean_working_tree,
     _detect_base_branch,
     _verify_ref,
     git_commit_checkpoint,

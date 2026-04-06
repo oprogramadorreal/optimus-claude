@@ -1,9 +1,8 @@
 from pathlib import Path
 from unittest.mock import patch
 
+from harness_common.fixes import _is_path_within, _swap_content
 from impl.fixes import (
-    _is_path_within,
-    _swap_content,
     _try_apply_fix,
     apply_single_fix,
     bisect_fixes,

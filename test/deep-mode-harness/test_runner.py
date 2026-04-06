@@ -3,11 +3,11 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
+from harness_common.runner import _find_bash
 from impl.runner import (
     _build_cmd,
     _build_harness_system,
     _build_prompt,
-    _find_bash,
     run_skill_session,
     run_tests,
 )

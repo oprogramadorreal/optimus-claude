@@ -14,7 +14,10 @@ class TestGitCommitCheckpoint:
             "tests_created": [],
             "refactor_findings": [],
         }
-        assert git_commit_checkpoint(progress, 1, "unit-test", "/tmp") is True
+        ut_summary = {"tests_written": 3, "coverage_delta": 10.0}
+        assert (
+            git_commit_checkpoint(progress, 1, "unit-test", "/tmp", ut_summary) is True
+        )
         # Should call: git add -A, git reset (x2), git commit
         assert mock_run.call_count == 4
         commit_call = mock_run.call_args_list[3]
@@ -30,7 +33,10 @@ class TestGitCommitCheckpoint:
             "tests_created": [],
             "refactor_findings": [],
         }
-        assert git_commit_checkpoint(progress, 1, "refactor", "/tmp") is True
+        rf_summary = {"fixed": 2, "reverted": 0}
+        assert (
+            git_commit_checkpoint(progress, 1, "refactor", "/tmp", rf_summary) is True
+        )
         commit_call = mock_run.call_args_list[3]
         msg = commit_call[0][0][3]
         assert "refactor(coverage-harness)" in msg

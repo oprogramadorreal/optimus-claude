@@ -3,7 +3,6 @@ import subprocess
 
 # Re-export shared git functions for backward compatibility
 from harness_common.git import (  # noqa: F401
-    _clean_working_tree,
     git_current_branch,
     git_diff_has_changes,
     git_restore_snapshot,
@@ -204,7 +203,7 @@ def git_fetch_open_pr_description(cwd):
     }
 
 
-def git_commit_checkpoint(progress, iteration, cwd):
+def git_commit_checkpoint(progress, iteration, cwd, progress_file=None):
     """Create a checkpoint commit for this iteration. Returns True on success."""
     skill = progress["skill"]
     history = progress["iteration_history"]
@@ -226,7 +225,8 @@ def git_commit_checkpoint(progress, iteration, cwd):
         print(f"{PREFIX} WARNING: git add -A failed: {add_result.stderr[:200]}")
         return False
     # Un-stage harness state files from checkpoint commits
-    for pattern in [PROGRESS_FILE_NAME, PROGRESS_FILE_NAME + BACKUP_SUFFIX]:
+    pf = progress_file or PROGRESS_FILE_NAME
+    for pattern in [pf, pf + BACKUP_SUFFIX]:
         subprocess.run(
             ["git", "reset", "HEAD", "--", pattern],
             cwd=str(cwd),

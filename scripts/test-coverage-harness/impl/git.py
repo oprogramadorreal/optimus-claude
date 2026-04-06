@@ -5,18 +5,18 @@ from harness_common.constants import BACKUP_SUFFIX
 from .constants import PHASE_COMMIT_TYPE, PREFIX, PROGRESS_FILE_NAME
 
 
-def git_commit_checkpoint(progress, cycle, phase, cwd):
+def git_commit_checkpoint(
+    progress, cycle, phase, cwd, phase_summary=None, progress_file=None
+):
     """Create a checkpoint commit for a coverage harness phase. Returns True on success."""
-    cycle_history = progress["cycle_history"]
-    latest = cycle_history[-1] if cycle_history else {}
+    if phase_summary is None:
+        phase_summary = {}
 
     if phase == "unit-test":
-        phase_data = latest.get("unit_test", {})
-        count = phase_data.get("tests_written", 0)
+        count = phase_summary.get("tests_written", 0)
         detail = f"{count} tests written"
     else:
-        phase_data = latest.get("refactor", {})
-        count = phase_data.get("fixed", 0)
+        count = phase_summary.get("fixed", 0)
         detail = f"{count} fixed"
 
     commit_type = PHASE_COMMIT_TYPE.get(phase, "chore")
@@ -34,7 +34,8 @@ def git_commit_checkpoint(progress, cycle, phase, cwd):
         print(f"{PREFIX} WARNING: git add -A failed: {add_result.stderr[:200]}")
         return False
     # Un-stage harness state files from checkpoint commits
-    for pattern in [PROGRESS_FILE_NAME, PROGRESS_FILE_NAME + BACKUP_SUFFIX]:
+    pf = progress_file or PROGRESS_FILE_NAME
+    for pattern in [pf, pf + BACKUP_SUFFIX]:
         subprocess.run(
             ["git", "reset", "HEAD", "--", pattern],
             cwd=str(cwd),

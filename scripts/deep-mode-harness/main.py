@@ -283,7 +283,10 @@ def _load_resumed_progress(progress_path, args, project_root):
         else:
             return None, f"No progress file to resume from: {progress_path}"
 
-    progress = read_progress(progress_path)
+    try:
+        progress = read_progress(progress_path)
+    except (ValueError, OSError) as exc:
+        return None, f"Cannot read progress file: {exc}"
     migrate_progress(progress)
 
     for key in ("skill", "iteration", "config", "findings"):
@@ -371,7 +374,9 @@ def _handle_interrupt(args, progress, progress_path, project_root):
         ):
             fixed, reverted = _count_iteration_findings(progress, iteration)
             _record_iteration_history(progress, iteration, 0, fixed, reverted, False)
-        git_commit_checkpoint(progress, iteration, project_root)
+        git_commit_checkpoint(
+            progress, iteration, project_root, progress_file=str(progress_path)
+        )
     progress["termination"] = {
         "reason": "interrupted",
         "message": "User pressed Ctrl+C",
@@ -424,7 +429,9 @@ def _handle_safe_exit(
     _record_iteration_history(progress, iteration, new_count, 0, 0, test_passed)
     write_progress(progress_path, progress)
     if not args.no_commit and test_passed and git_diff_has_changes(project_root):
-        git_commit_checkpoint(progress, iteration, project_root)
+        git_commit_checkpoint(
+            progress, iteration, project_root, progress_file=str(progress_path)
+        )
 
 
 def _run_session_with_retry(
@@ -760,7 +767,12 @@ def _run_iteration_loop(
             and test_passed
             and (fixed_count > 0 or git_diff_has_changes(project_root))
         ):
-            if git_commit_checkpoint(progress, iteration, project_root):
+            if git_commit_checkpoint(
+                progress,
+                iteration,
+                project_root,
+                progress_file=str(progress_path),
+            ):
                 print(
                     f"{PREFIX} Checkpoint: deep-harness({args.skill}): iteration {iteration}"
                 )

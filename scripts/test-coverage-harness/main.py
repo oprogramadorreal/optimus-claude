@@ -26,7 +26,6 @@ whitelist via --allowedTools.
 """
 
 import argparse
-import os
 import shutil
 import subprocess
 import sys
@@ -38,7 +37,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from harness_common.constants import BACKUP_SUFFIX, normalize_path
-from harness_common.fixes import apply_single_fix, bisect_fixes, revert_single_fix
+from harness_common.fixes import bisect_fixes
 from harness_common.git import (
     git_diff_has_changes,
     git_rev_parse_head,
@@ -255,20 +254,22 @@ def _process_unit_test_output(progress, result, cycle):
                 "cycle": cycle,
                 "before": coverage.get("before"),
                 "after": coverage.get("after"),
-                "delta": coverage.get("delta", 0),
+                "delta": coverage.get("delta"),
             }
         )
 
-    # Update untestable code
-    progress["untestable_code"] = [
-        {
-            **item,
-            "cycle_reported": cycle,
-            "status": "pending",
-            "refactor_attempt_cycle": None,
-        }
-        for item in untestable
-    ]
+    # Merge untestable code — append new items, preserve prior cycles' entries
+    existing_files = {item.get("file") for item in progress["untestable_code"]}
+    for item in untestable:
+        if item.get("file") not in existing_files:
+            progress["untestable_code"].append(
+                {
+                    **item,
+                    "cycle_reported": cycle,
+                    "status": "pending",
+                    "refactor_attempt_cycle": None,
+                }
+            )
 
     # Record bugs
     for bug in bugs:
@@ -286,8 +287,13 @@ def _process_unit_test_output(progress, result, cycle):
 
 def _revert_test_files(tests_written, cwd):
     """Delete test files created by the unit-test phase on test failure."""
+    cwd_resolved = Path(cwd).resolve()
     for test in tests_written:
-        filepath = Path(cwd) / test.get("file", "")
+        filepath = (Path(cwd) / test.get("file", "")).resolve()
+        try:
+            filepath.relative_to(cwd_resolved)
+        except ValueError:
+            continue
         if filepath.exists():
             try:
                 filepath.unlink()
@@ -310,10 +316,11 @@ def _process_refactor_output(progress, result, cycle):
         finding["cycle"] = cycle
         progress["refactor_findings"].append(finding)
 
-    # Mark untestable code items as addressed
+    # Mark untestable code items as attempted
     for item in progress.get("untestable_code", []):
         if item.get("status") == "pending":
             item["refactor_attempt_cycle"] = cycle
+            item["status"] = "attempted"
 
     return {
         "findings_count": len(new_findings),
@@ -334,7 +341,9 @@ def _print_startup_info(args, progress):
     test_command = progress["config"]["test_command"]
     scope = progress["config"]["scope"]
     cycle = progress["cycle"]["current"]
-    estimated_sessions = (max_cycles - cycle + 1) * 2
+    phase = progress.get("phase", "unit-test")
+    remaining_this_cycle = 1 if phase == "refactor" else 2
+    estimated_sessions = remaining_this_cycle + (max_cycles - cycle) * 2
 
     print(f"{PREFIX} Test-Coverage Harness")
     print(f"{PREFIX} {'=' * 40}")
@@ -364,7 +373,9 @@ def _handle_interrupt(args, progress, progress_path, project_root):
     if not args.no_commit and git_diff_has_changes(project_root):
         cycle = progress["cycle"]["current"]
         phase = progress.get("phase", "unit-test")
-        if git_commit_checkpoint(progress, cycle, phase, project_root):
+        if git_commit_checkpoint(
+            progress, cycle, phase, project_root, progress_file=str(progress_path)
+        ):
             print(f"{PREFIX} Checkpoint: committed completed work before exit")
 
     print_report(progress)
@@ -377,11 +388,14 @@ def _handle_interrupt(args, progress, progress_path, project_root):
 
 def _archive_progress(progress_path):
     """Rename the progress file to indicate completion."""
-    done_path = Path(str(progress_path).replace(".json", "-done.json"))
+    p = Path(progress_path)
+    done_path = p.with_name(p.stem + "-done" + p.suffix)
     try:
-        Path(progress_path).rename(done_path)
+        p.rename(done_path)
     except OSError:
         pass  # Not critical — the file stays as-is
+    # Clean up backup file to prevent stale resume
+    Path(str(progress_path) + BACKUP_SUFFIX).unlink(missing_ok=True)
 
 
 # ---------------------------------------------------------------------------
@@ -465,6 +479,13 @@ def _run_cycle_loop(
                 f"{PREFIX} Tests failed after unit-test phase — reverting new test files"
             )
             _revert_test_files(ut_tests, project_root)
+            # Purge reverted entries so the report doesn't inflate test counts
+            reverted_files = {t.get("file") for t in ut_tests}
+            progress["tests_created"] = [
+                t
+                for t in progress["tests_created"]
+                if t.get("file") not in reverted_files
+            ]
             ut_summary["test_passed"] = False
             record_cycle_history(progress, cycle, ut_summary)
             write_progress(progress_path, progress)
@@ -483,8 +504,16 @@ def _run_cycle_loop(
 
         # Checkpoint commit for unit-test phase
         if not skip_commits and git_diff_has_changes(project_root):
-            if git_commit_checkpoint(progress, cycle, "unit-test", project_root):
+            if git_commit_checkpoint(
+                progress,
+                cycle,
+                "unit-test",
+                project_root,
+                ut_summary,
+                progress_file=str(progress_path),
+            ):
                 print(f"{PREFIX} Checkpoint: test(coverage-harness): cycle {cycle}")
+                pre_head = git_rev_parse_head(project_root) or pre_head
             else:
                 print(
                     f"{PREFIX} WARNING: Checkpoint failed — skipping commits for remaining cycles"
@@ -500,15 +529,19 @@ def _run_cycle_loop(
             print(f"{PREFIX} Converged: {reason}")
             break
 
-        # ---- Refactor phase (conditional) ----
-        untestable = progress.get("untestable_code", [])
+        # ---- Refactor phase (conditional — only pending items) ----
+        pending_untestable = [
+            i
+            for i in progress.get("untestable_code", [])
+            if i.get("status") == "pending"
+        ]
         refactor_summary = None
 
-        if untestable:
+        if pending_untestable:
             progress["phase"] = "refactor"
             write_progress(progress_path, progress)
             print(
-                f"{PREFIX} --- Phase: refactor (testability) — {len(untestable)} items ---"
+                f"{PREFIX} --- Phase: refactor (testability) — {len(pending_untestable)} items ---"
             )
 
             rf_start = time.time()
@@ -558,7 +591,7 @@ def _run_cycle_loop(
                 if not test_passed:
                     print(f"{PREFIX} Tests failed after refactor — bisecting fixes")
                     fixed_count, reverted_count, skipped_count = bisect_fixes(
-                        fixes, test_command, str(project_root), progress
+                        fixes, test_command, str(project_root)
                     )
                     refactor_summary["fixed"] = fixed_count
                     refactor_summary["reverted"] = reverted_count
@@ -567,10 +600,31 @@ def _run_cycle_loop(
                     if reverted_count == len(fixes):
                         print(f"{PREFIX} All refactor fixes reverted.")
                         refactor_summary["test_passed"] = False
+                    elif fixed_count > 0:
+                        # Verify surviving fixes don't interact badly
+                        combo_passed, combo_summary = run_tests(
+                            test_command, project_root
+                        )
+                        record_test_result(progress, combo_passed, combo_summary)
+                        if not combo_passed:
+                            print(
+                                f"{PREFIX} Combined test failed — restoring working tree"
+                            )
+                            restore_working_tree(pre_stash, pre_head, project_root)
+                            refactor_summary["test_passed"] = False
+                            refactor_summary["fixed"] = 0
+                            refactor_summary["reverted"] = len(fixes)
 
             # Checkpoint commit for refactor phase
             if not skip_commits and git_diff_has_changes(project_root):
-                if git_commit_checkpoint(progress, cycle, "refactor", project_root):
+                if git_commit_checkpoint(
+                    progress,
+                    cycle,
+                    "refactor",
+                    project_root,
+                    refactor_summary,
+                    progress_file=str(progress_path),
+                ):
                     print(
                         f"{PREFIX} Checkpoint: refactor(coverage-harness): cycle {cycle}"
                     )

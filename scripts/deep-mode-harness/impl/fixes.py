@@ -1,7 +1,5 @@
 # Re-export shared fix functions for backward compatibility
 from harness_common.fixes import (  # noqa: F401
-    _is_path_within,
-    _swap_content,
     apply_single_fix,
     revert_single_fix,
 )
