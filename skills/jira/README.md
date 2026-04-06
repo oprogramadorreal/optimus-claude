@@ -23,8 +23,8 @@ This skill is part of the [optimus](https://github.com/oprogramadorreal/optimus-
 
 A JIRA MCP server must be configured in Claude Code. The skill supports:
 
-- **[Atlassian Rovo MCP Server](https://www.atlassian.com/platform/remote-mcp-server)** (official, recommended) — cloud-hosted, OAuth 2.1, supports Jira Cloud
-- **[sooperset/mcp-atlassian](https://github.com/sooperset/mcp-atlassian)** (community) — open-source, supports Jira Cloud AND Server/Data Center
+- **[Atlassian Rovo MCP Server](https://www.atlassian.com/platform/remote-mcp-server)** (official, recommended) — cloud-hosted, OAuth 2.1, supports JIRA Cloud
+- **[sooperset/mcp-atlassian](https://github.com/sooperset/mcp-atlassian)** (community) — open-source, supports JIRA Cloud AND Server/Data Center
 
 If no server is configured, the skill guides you through setup interactively.
 
@@ -318,7 +318,7 @@ The jira skill fetches, structures, and analyzes context — it never creates br
 
 ## Supported MCP Servers
 
-| Server | Jira Cloud | Jira Server/DC | Setup Complexity |
+| Server | JIRA Cloud | JIRA Server/DC | Setup Complexity |
 |--------|------------|----------------|------------------|
 | [Atlassian Rovo](https://www.atlassian.com/platform/remote-mcp-server) | Yes | No | Low (one command + OAuth) |
 | [sooperset/mcp-atlassian](https://github.com/sooperset/mcp-atlassian) | Yes | Yes | Medium (API token + Docker/uvx) |

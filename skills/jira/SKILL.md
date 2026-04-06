@@ -224,7 +224,7 @@ The plan should include:
 
 Present with: "Paste this as the first message in a new Claude Code conversation started in **plan mode**. Once the plan is approved, run `/optimus:tdd` to build it test-first. **Tip:** for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch."
 
-If **Skip to TDD**: recommend `/optimus:tdd` as in the simple path.
+If **Skip to TDD**: Recommend running `/optimus:tdd` to implement this test-first. It will auto-detect the task file at `docs/jira/<ISSUE-KEY>.md`. **Tip:** for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch.
 
 ### Complex (codebase assessment: complex, or 7+ acceptance criteria, multiple components, architecture/migration mentions, or unclear design direction)
 
