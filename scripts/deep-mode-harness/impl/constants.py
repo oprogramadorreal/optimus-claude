@@ -14,6 +14,7 @@ SKILL_COMMIT_TYPE = {
     "code-review": "fix",
     "refactor": "refactor",
 }
+APPLIED_PENDING_TEST = "applied-pending-test"
 PERSISTENT_STATUS = "persistent — fix failed"
 VALID_FOCUS_MODES = frozenset({"testability", "guidelines"})
 

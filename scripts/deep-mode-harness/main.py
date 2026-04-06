@@ -46,14 +46,17 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from impl.constants import (
+    APPLIED_PENDING_TEST,
     BACKUP_SUFFIX,
     DEFAULT_MAX_ITERATIONS,
     DEFAULT_MAX_TURNS,
     DEFAULT_SESSION_TIMEOUT,
+    FIXED_STATUSES,
     MAX_ITERATIONS_HARD_CAP,
     PERSISTENT_STATUS,
     PREFIX,
     PROGRESS_FILE_NAME,
+    REVERTED_STATUSES,
     VALID_FOCUS_MODES,
 )
 from impl.findings import (
@@ -333,18 +336,41 @@ def _print_startup_info(args, progress):
     print(f"{PREFIX}")
 
 
+def _count_iteration_findings(progress, iteration):
+    """Count fixed/reverted findings for the current iteration from actual statuses.
+
+    Treats ``applied-pending-test`` as optimistic-fixed so that an interrupt
+    between fix-application and test-verification still reports accurate counts
+    instead of zeros.
+    """
+    fixed = 0
+    reverted = 0
+    for f in progress["findings"]:
+        if f.get("iteration_last_attempted") != iteration:
+            continue
+        status = f["status"]
+        if status in FIXED_STATUSES or status == APPLIED_PENDING_TEST:
+            fixed += 1
+        elif status in REVERTED_STATUSES:
+            reverted += 1
+    return fixed, reverted
+
+
 def _handle_interrupt(args, progress, progress_path, project_root):
     """Handle Ctrl+C gracefully: commit work, save progress, print report."""
     print(f"\n{PREFIX} Interrupted.")
     iteration = progress["iteration"]["current"]
     if not args.no_commit and git_diff_has_changes(project_root):
         print(f"{PREFIX} Committing completed work from current iteration...")
-        # Interrupt may occur before _record_iteration_history runs
+        # Interrupt may occur before _record_iteration_history runs.
+        # Count actual finding statuses instead of hardcoding zeros so the
+        # commit message accurately reflects work completed before interrupt.
         if (
             not progress["iteration_history"]
             or progress["iteration_history"][-1].get("iteration") != iteration
         ):
-            _record_iteration_history(progress, iteration, 0, 0, 0, False)
+            fixed, reverted = _count_iteration_findings(progress, iteration)
+            _record_iteration_history(progress, iteration, 0, fixed, reverted, False)
         git_commit_checkpoint(progress, iteration, project_root)
     progress["termination"] = {
         "reason": "interrupted",
@@ -489,7 +515,7 @@ def _register_iteration_findings(progress, result, fixes):
     """Register applied fixes and discovered-but-not-applied findings."""
     applied_keys = {finding_key(f) for f in fixes}
     for fix in fixes:
-        mark_finding_status(progress, fix, "applied-pending-test", None)
+        mark_finding_status(progress, fix, APPLIED_PENDING_TEST, None)
     for new_finding in result.get("new_findings", []):
         if finding_key(new_finding) not in applied_keys:
             mark_finding_status(progress, new_finding, "discovered", None)

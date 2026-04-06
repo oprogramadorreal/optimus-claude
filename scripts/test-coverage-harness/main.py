@@ -27,6 +27,7 @@ whitelist via --allowedTools.
 
 import argparse
 import os
+import shutil
 import subprocess
 import sys
 import time
@@ -36,6 +37,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from harness_common.constants import BACKUP_SUFFIX, normalize_path
 from harness_common.fixes import apply_single_fix, bisect_fixes, revert_single_fix
 from harness_common.git import (
     git_diff_has_changes,
@@ -186,15 +188,11 @@ def _load_resumed_progress(progress_path, args, project_root):
 
     Returns (progress, None) on success, or (None, error_message) on failure.
     """
-    from harness_common.constants import BACKUP_SUFFIX
-
     path = progress_path
     if not path.exists():
         backup = Path(str(path) + BACKUP_SUFFIX)
         if backup.exists():
             print(f"{PREFIX} Progress file missing, restoring from backup.")
-            import shutil
-
             shutil.copy2(str(backup), str(path))
         else:
             return None, f"No progress file found at {path}"
@@ -211,8 +209,6 @@ def _load_resumed_progress(progress_path, args, project_root):
         )
 
     stored_root = progress.get("config", {}).get("project_root", "")
-    from harness_common.constants import normalize_path
-
     if stored_root and normalize_path(str(project_root)) != stored_root:
         return None, (
             f"Progress file project_root '{stored_root}' does not match "

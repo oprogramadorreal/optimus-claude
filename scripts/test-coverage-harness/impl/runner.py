@@ -13,6 +13,8 @@ def run_tests(test_command, cwd, timeout=DEFAULT_SESSION_TIMEOUT):
 
 def _build_unit_test_prompt(max_cycles, scope):
     """Build the unit-test skill invocation prompt."""
+    # Omit "harness" keyword — HARNESS_MODE_ACTIVE is injected via --append-system-prompt,
+    # which triggers the harness code path in the skill's Step 1 detection.
     prompt = f"/optimus:unit-test deep {max_cycles}"
     if scope:
         prompt += f' "{scope}"'

@@ -1,21 +1,4 @@
-import sys
-from pathlib import Path
-
 import pytest
-
-# Add paths so tests can import impl modules and harness_common
-sys.path.insert(
-    0,
-    str(
-        Path(__file__).resolve().parent.parent.parent
-        / "scripts"
-        / "test-coverage-harness"
-    ),
-)
-sys.path.insert(
-    0,
-    str(Path(__file__).resolve().parent.parent.parent / "scripts"),
-)
 
 
 @pytest.fixture
