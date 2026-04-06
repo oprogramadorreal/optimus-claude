@@ -143,7 +143,7 @@ Note: re-running `/optimus:init` always overwrites `coding-guidelines.md` and ho
 | `/optimus:jira` | Independent | Fetches JIRA context, writes to `docs/jira/`. Does not use init docs |
 | `/optimus:brainstorm` | CLAUDE.md, coding-guidelines.md | Design exploration grounded in project context |
 
-commit, commit-message, jira, and permissions are fully independent of init. brainstorm, refactor, and code-review fall back to generic guidelines when project docs are missing. tdd and unit-test require init — both stop if CLAUDE.md is not found.
+commit, commit-message, jira, and permissions are fully independent of init. refactor and code-review fall back to generic guidelines when project docs are missing. brainstorm, tdd, and unit-test require init — all stop if CLAUDE.md is not found.
 
 ## Requirements
 

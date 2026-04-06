@@ -41,6 +41,7 @@ optimus-claude/
 │   ├── branch/               # /optimus:branch
 │   ├── worktree/             # /optimus:worktree
 │   ├── commit/               # /optimus:commit
+│   ├── brainstorm/           # /optimus:brainstorm
 │   ├── commit-message/       # /optimus:commit-message
 │   └── jira/                 # /optimus:jira
 ├── test/

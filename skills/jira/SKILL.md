@@ -34,9 +34,9 @@ If no issue key was provided (e.g., `/optimus:jira` with no argument), use `AskU
 
 **Enter issue key:** Use `AskUserQuestion` — header "Issue key", question "Enter the JIRA issue key:". Validate and proceed to Step 3.
 
-**My open issues:** Read `$CLAUDE_PLUGIN_ROOT/skills/jira/references/jira-context-extraction.md`, section **Search: Assigned Issues**. Execute the JQL search, present results as a numbered list (max 10). Use `AskUserQuestion` — header "Select issue", question "Which issue are you working on?" with each issue as an option (label: `KEY — Summary`, description: `[Type, Priority]`). Proceed to Step 3 with the selected key.
+**My open issues:** Read `$CLAUDE_PLUGIN_ROOT/skills/jira/references/jira-context-extraction.md`, section **Search: Assigned Issues**. Execute the JQL search, present results as a numbered list (max 10). Use `AskUserQuestion` — header "Select issue", question "Which issue are you working on?" with each issue as an option (label: `KEY — Summary`, description: `[Type, Priority]`). Validate the selected issue key matches `[A-Z][A-Z0-9]+-\d+` before proceeding — reject keys that don't match this pattern. Proceed to Step 3 with the selected key.
 
-**Search by project:** Use `AskUserQuestion` — header "Project", question "Enter the JIRA project key (e.g., PROJ):". Execute the project search from the extraction reference. Present results and let the user pick, same as above. Proceed to Step 3 with the selected key.
+**Search by project:** Use `AskUserQuestion` — header "Project", question "Enter the JIRA project key (e.g., PROJ):". Execute the project search from the extraction reference. Present results and let the user pick, same as above. Validate the selected issue key matches `[A-Z][A-Z0-9]+-\d+` before proceeding. Proceed to Step 3 with the selected key.
 
 ## Step 3: Fetch Issue Context
 
@@ -116,9 +116,9 @@ Use `AskUserQuestion` — header "Codebase impact", question "How would you like
 - **Update local context only** — "Add findings to `docs/jira/<ISSUE-KEY>.md` but don't touch JIRA"
 - **Skip** — "Proceed without changes"
 
-If **Update JIRA and local context**: update the `docs/jira/<ISSUE-KEY>.md` file following the **Context File Update** procedure in the reference, then proceed to Step 6 with the suggested criteria queued for inclusion in the JIRA update.
+If **Update JIRA and local context**: update the `docs/jira/<ISSUE-KEY>.md` file following the **Task File Update** procedure in the reference, then proceed to Step 6 — include the suggested criteria from the codebase analysis if the user chooses to improve the JIRA description.
 
-If **Update local context only**: update the `docs/jira/<ISSUE-KEY>.md` file following the **Context File Update** procedure. Proceed to Step 6.
+If **Update local context only**: update the `docs/jira/<ISSUE-KEY>.md` file following the **Task File Update** procedure. Proceed to Step 6.
 
 If **Skip**: proceed to Step 6.
 
@@ -128,14 +128,14 @@ Use `AskUserQuestion` — header "Improve issue", question "Would you like to im
 - **Improve description** — "Update the JIRA issue with the structured content above"
 - **Skip** — "Keep the JIRA issue as-is"
 
-If **Skip** → if Step 5 queued suggested criteria for JIRA inclusion, warn: "Note: the codebase-suggested criteria from Step 5 will not be added to JIRA. They are still saved in your local task file." Then proceed to Step 7.
+If **Skip** → if the user chose "Update JIRA and local context" in Step 5, warn: "Note: the codebase-suggested criteria will not be added to JIRA. They are still saved in your local task file." Then proceed to Step 7.
 
 If **Improve description**:
 
 1. Generate an improved description for the JIRA issue:
    - Preserve the original description's intent and content
    - Add structured acceptance criteria (if not already present)
-   - If Step 5 queued suggested criteria for JIRA inclusion, merge them into the acceptance criteria section
+   - If the user chose "Update JIRA and local context" in Step 5, merge the suggested criteria from the codebase analysis into the acceptance criteria section
    - Improve formatting (headers, lists, clear sections)
    - Do not remove any information from the original
 

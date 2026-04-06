@@ -47,7 +47,7 @@ Brainstorm generates the plan-mode prompt inline — no need to run `/optimus:pr
 
 | Skill | Relationship |
 |-------|-------------|
-| `/optimus:jira` | Brainstorm auto-detects JIRA context files in `docs/jira/`. Run jira first for JIRA-tracked work. |
+| `/optimus:jira` | Brainstorm auto-detects JIRA task files in `docs/jira/`. Run jira first for JIRA-tracked work. |
 | `/optimus:tdd` | TDD auto-detects design docs in `docs/design/`. Run brainstorm before TDD for complex features. |
 | `/optimus:prompt` | Brainstorm generates plan-mode prompts inline for the brainstorm→plan→tdd chain. Use `/optimus:prompt` directly for other AI tools or non-brainstorm workflows. |
 | `/optimus:refactor` | For refactoring tasks (restructuring without new behavior), use refactor instead of brainstorm. |
@@ -55,3 +55,18 @@ Brainstorm generates the plan-mode prompt inline — no need to run `/optimus:pr
 ## Prerequisites
 
 - `/optimus:init` should have been run (CLAUDE.md and coding guidelines inform design decisions)
+
+## Skill Structure
+
+| File | Purpose |
+|------|---------|
+| `SKILL.md` | Skill definition with 7-step brainstorming workflow |
+| `references/design-doc-format.md` | Design document template |
+
+## Requirements
+
+- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) 1.0.33+ (plugin support)
+
+## License
+
+[MIT](../../LICENSE)

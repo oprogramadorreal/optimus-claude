@@ -61,7 +61,7 @@ In Claude Code, use any of these:
 - `/optimus:tdd` "Add user authentication endpoint"
 - `/optimus:tdd` "Fix: login fails when email has uppercase letters"
 
-Provide a **brief description** (1-2 sentences). The skill analyzes the codebase and decomposes the task into specific testable behaviors — you don't need to specify every detail upfront. For lengthy specs (e.g., a pasted Jira ticket or acceptance criteria), the skill will distill the core goal and confirm before proceeding.
+Provide a **brief description** (1-2 sentences). The skill analyzes the codebase and decomposes the task into specific testable behaviors — you don't need to specify every detail upfront. For lengthy specs (e.g., a pasted JIRA ticket or acceptance criteria), the skill will distill the core goal and confirm before proceeding.
 
 ### Interactive Example
 
@@ -283,7 +283,7 @@ The user's original branch is never modified. All code review happens through th
 | | `/optimus:tdd` | `/optimus:jira` |
 |---|---|---|
 | Purpose | Implement behavior test-first | Extract structured task from JIRA |
-| Context flow | TDD auto-detects JIRA context files in `docs/jira/` | Jira writes task context that TDD consumes |
+| Context flow | TDD auto-detects JIRA context files in `docs/jira/` | JIRA skill writes task context that TDD consumes |
 
 | | `/optimus:tdd` | `/optimus:brainstorm` |
 |---|---|---|

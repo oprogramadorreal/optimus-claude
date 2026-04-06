@@ -8,7 +8,7 @@ Procedure for comparing a JIRA issue's requirements against the actual codebase 
 2. [Impact Summary Format](#impact-summary-format) — output template
 3. [Scope Assessment](#scope-assessment) — derive complexity from code, not just criteria count
 4. [Criteria Suggestion Heuristics](#criteria-suggestion-heuristics) — when to suggest additions
-5. [Context File Update](#context-file-update) — enrich the saved task file with findings
+5. [Task File Update](#task-file-update) — enrich the saved task file with findings
 
 ## Analysis Procedure
 
@@ -96,9 +96,9 @@ Only suggest additional criteria when the code makes them genuinely necessary. D
 - It duplicates an existing criterion in different words
 - It's covered by the codebase's existing infrastructure (e.g., "add logging" when logging middleware is automatic)
 
-## Context File Update
+## Task File Update
 
-When the user chooses to update the local context file:
+When the user chooses to update the local task file:
 
 1. Read the existing `docs/jira/<KEY>.md`
 2. Add a new section after the existing content:

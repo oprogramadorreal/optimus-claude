@@ -14,7 +14,7 @@ Shared detection and setup procedure for JIRA MCP integration. Called by the jir
 
 ### 1. Check `.mcp.json`
 
-Read `.mcp.json` at the project root. If it exists, scan top-level keys for JIRA-related server entries:
+Read `.mcp.json` at the project root. If it exists, scan keys under `mcpServers` for JIRA-related server entries:
 
 - `atlassian` — Atlassian Rovo MCP Server (official)
 - `mcp-atlassian` — sooperset/mcp-atlassian (community)
@@ -61,8 +61,8 @@ When no JIRA MCP server is detected, guide the user through setup interactively.
 ### Step A: Choose Server Type
 
 Use `AskUserQuestion` — header "JIRA server", question "No JIRA MCP server detected. Which would you like to set up?":
-- **Atlassian Rovo (Recommended)** — "Official Atlassian MCP server. Cloud-hosted, supports Jira Cloud + Confluence. Requires Atlassian Cloud site (*.atlassian.net)."
-- **mcp-atlassian (Community)** — "Open-source server by sooperset. Supports Jira Cloud AND Server/Data Center. Runs locally via Docker or uvx."
+- **Atlassian Rovo (Recommended)** — "Official Atlassian MCP server. Cloud-hosted, supports JIRA Cloud + Confluence. Requires Atlassian Cloud site (*.atlassian.net)."
+- **mcp-atlassian (Community)** — "Open-source server by sooperset. Supports JIRA Cloud AND Server/Data Center. Runs locally via Docker or uvx."
 - **Skip setup** — "I'll configure a JIRA MCP server later."
 
 If "Skip setup" → stop and inform the user: "Run `/optimus:jira` again after configuring a JIRA MCP server. See the skill's README for setup instructions."
@@ -75,7 +75,7 @@ Present these instructions to the user:
 ## Atlassian Rovo MCP Server Setup
 
 ### Prerequisites
-- Atlassian Cloud site (*.atlassian.net) with Jira and/or Confluence
+- Atlassian Cloud site (*.atlassian.net) with JIRA and/or Confluence
 - Node.js v18+ installed (needed for the local MCP proxy)
 - Your organization admin must have Rovo MCP Server enabled
 
@@ -91,7 +91,7 @@ Ask your Atlassian org admin to:
 
 Note: The first user to complete the OAuth consent flow for your site
 must have access to the Atlassian apps requested by the MCP scopes.
-All actions respect the user's existing Jira/Confluence permissions.
+All actions respect the user's existing JIRA/Confluence permissions.
 
 ### 2. Register with Claude Code
 
@@ -99,8 +99,8 @@ Run this command in your terminal:
 
     claude mcp add --transport sse atlassian https://mcp.atlassian.com/v1/mcp
 
-> Important: The older /v1/sse endpoint is deprecated and will stop
-> working after June 30, 2026. Always use the /v1/mcp endpoint.
+> Important: The older /v1/sse endpoint is deprecated. Always use
+> the /v1/mcp endpoint.
 
 ### 3. Authenticate
 1. Restart Claude Code (or start a new session)
@@ -114,8 +114,8 @@ If your admin enabled API token auth:
 2. Click "Create API token", name it (e.g., "Claude Code MCP")
 3. Set expiration (1–365 days)
 4. Copy the token immediately — you can't retrieve it later
-5. Encode credentials:
-       echo -n "your-email@company.com:your-api-token" | base64
+5. Encode credentials (avoid shell history exposure — do not use `echo`):
+       read -s -p "email:token> " CREDS && echo -n "$CREDS" | base64 && unset CREDS
 6. Use the encoded token in your MCP configuration
 
 ### 4. Verify
@@ -138,17 +138,17 @@ After presenting instructions, use `AskUserQuestion` — header "Setup status", 
 
 Troubleshooting guidance:
 - **Server not listed**: Verify the command was `claude mcp add --transport sse atlassian https://mcp.atlassian.com/v1/mcp`. Check for typos. Try `claude mcp remove atlassian` then re-add.
-- **Auth failed**: Ensure Node.js v18+ is installed (`node --version`). Try a different browser. Clear browser cookies for `atlassian.com`. Ensure your Atlassian account has access to the site's Jira/Confluence.
-- **Permission denied**: Your Atlassian account may lack project-level access. Check with your Jira admin that you have the necessary project roles.
+- **Auth failed**: Ensure Node.js v18+ is installed (`node --version`). Try a different browser. Clear browser cookies for `atlassian.com`. Ensure your Atlassian account has access to the site's JIRA/Confluence.
+- **Permission denied**: Your Atlassian account may lack project-level access. Check with your JIRA admin that you have the necessary project roles.
 - **Admin hasn't enabled it**: The user needs their org admin to enable the MCP server at `admin.atlassian.com → Apps → AI settings → Rovo MCP server`. Suggest the user share the setup instructions above with their admin.
 
 **If "Skip for now":** Stop and inform: "Run `/optimus:jira` again after setup is complete."
 
 ### Step B (Community): sooperset/mcp-atlassian Setup
 
-First, determine the deployment type. Use `AskUserQuestion` — header "Deployment", question "Is your Jira instance Cloud or Server/Data Center?":
-- **Jira Cloud** — "Hosted at *.atlassian.net"
-- **Server / Data Center** — "Self-hosted Jira instance"
+First, determine the deployment type. Use `AskUserQuestion` — header "Deployment", question "Is your JIRA instance Cloud or Server/Data Center?":
+- **JIRA Cloud** — "Hosted at *.atlassian.net"
+- **Server / Data Center** — "Self-hosted JIRA instance"
 
 Then present instructions (adapt token creation and args based on the user's choice):
 
@@ -157,25 +157,31 @@ Then present instructions (adapt token creation and args based on the user's cho
 
 ### Prerequisites
 - Docker installed (recommended), OR Python 3.10+ with uv/pip
-- Your Jira instance URL
+- Your JIRA instance URL
 - API token (Cloud) or Personal Access Token (Server/Data Center)
 
 ### 1. Create API Token
 
-**For Jira Cloud:**
+**For JIRA Cloud:**
 1. Go to https://id.atlassian.com/manage-profile/security/api-tokens
 2. Click "Create API token"
 3. Name it (e.g., "mcp-atlassian"), set expiration (max 365 days)
 4. Copy the token immediately — you can't retrieve it later
 5. Save it in a password manager
 
-**For Jira Server/Data Center:**
-1. Log in to your Jira instance
+**For JIRA Server/Data Center:**
+1. Log in to your JIRA instance
 2. Go to Profile → Personal Access Tokens
 3. Create a new token with appropriate permissions
 4. Copy and save it securely
 
 ### 2. Register with Claude Code
+
+> **Security note:** The commands below include placeholder tokens for clarity.
+> Replace `YOUR_API_TOKEN` / `YOUR_PERSONAL_ACCESS_TOKEN` with your actual token.
+> These commands will appear in shell history — clear the entry afterward
+> (`history -d $(history 1 | awk '{print $1}')`) or use the project-scoped
+> `.mcp.json` approach at the bottom with environment variables for a safer setup.
 
 **Option A — Using uvx (quickest):**
 

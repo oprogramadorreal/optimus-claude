@@ -49,9 +49,9 @@ Before starting TDD cycles, analyze whether the user's task is a good fit for te
 
 1. **Explicit reference** — if the user's input references a file path ending in `.md` inside `docs/design/` or `docs/jira/`, read that file and use its Goal section as the task description. Proceed to distillation below if the goal is longer than 2-3 sentences.
 
-2. **Design doc auto-discovery** — if no explicit reference but `docs/design/` exists with `.md` files, check the most recent one (by filename date prefix). If it was created recently, mention it: "Found design doc `<path>` — use it as the basis for TDD?" via `AskUserQuestion` — header "Design doc", options "Use it" / "Ignore — describe a different task". Design docs contain full approach details from `/optimus:brainstorm` — use Goal, Components, and Interfaces sections as the task description.
+2. **Design doc auto-discovery** — if no explicit reference but `docs/design/` exists with `.md` files, check the most recent one (by filename date prefix). If its date is within the last 7 days, mention it: "Found design doc `<path>` — use it as the basis for TDD?" via `AskUserQuestion` — header "Design doc", options "Use it" / "Ignore — describe a different task". If its date is older than 7 days, add a note: "(This design doc is [N] days old — you may want to re-run `/optimus:brainstorm` for a fresh design.)" Design docs contain full approach details from `/optimus:brainstorm` — use Goal, Components, and Interfaces sections as the task description.
 
-3. **JIRA context auto-discovery** — if no design doc found (or user ignored it) but `docs/jira/` exists with `.md` files, read each file's YAML frontmatter and select the one with the most recent `date` field. If it was created recently, mention it: "Found JIRA context `<path>` — use it as the basis for TDD?" via `AskUserQuestion` — header "JIRA context", options "Use it" / "Ignore — describe a different task". JIRA context provides Goal and Acceptance Criteria as the task description.
+3. **JIRA context auto-discovery** — if no design doc found (or user ignored it) but `docs/jira/` exists with `.md` files, read each file's YAML frontmatter and select the one with the most recent `date` field. If its date is within the last 7 days, mention it: "Found JIRA context `<path>` — use it as the basis for TDD?" via `AskUserQuestion` — header "JIRA context", options "Use it" / "Ignore — describe a different task". If its date is older than 7 days, add a note: "(This context is [N] days old — you may want to re-run `/optimus:jira` for fresh data.)" JIRA context provides Goal and Acceptance Criteria as the task description.
 
 4. **No context found** — proceed with normal task gathering below.
 
@@ -61,7 +61,7 @@ If context detection above resolved a task description (user accepted a design d
 - **New feature** — "Implement a new capability (e.g., 'Add user authentication endpoint')"
 - **Bug fix** — "Fix a bug by reproducing it with a test first (e.g., 'Login fails when email has uppercase')"
 
-If the task description is longer than ~2-3 sentences (e.g., a pasted spec, Jira ticket, or acceptance criteria list), distill it into a **single-sentence goal** and confirm with `AskUserQuestion` — header "Distilled goal", question "I've distilled your spec to: '[single-sentence summary]'. Is this accurate?":
+If the task description is longer than ~2-3 sentences (e.g., a pasted spec, JIRA ticket, or acceptance criteria list), distill it into a **single-sentence goal** and confirm with `AskUserQuestion` — header "Distilled goal", question "I've distilled your spec to: '[single-sentence summary]'. Is this accurate?":
 - **Looks good** — "Proceed with this goal"
 - **Adjust** — "Let me refine the focus"
 

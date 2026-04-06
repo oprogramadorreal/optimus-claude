@@ -47,13 +47,13 @@ Present results as a numbered list (max 10):
 
 ### Search: By Project
 
-Ask the user for the project key, then use JQL: `project = {KEY} AND resolution = Unresolved ORDER BY updated DESC`
+Ask the user for the project key. Validate it matches `[A-Z][A-Z0-9]+` (1-10 uppercase alphanumeric characters, starting with a letter) — reject inputs containing spaces, operators, or special characters. Then use JQL: `project = {KEY} AND resolution = Unresolved ORDER BY updated DESC`
 
 Present results in the same numbered list format (max 10).
 
 ### Search: Sprint Siblings
 
-JQL: `sprint in openSprints() AND project = {KEY} ORDER BY rank ASC`
+JQL: `sprint in openSprints() AND project = {PROJECT_KEY} ORDER BY rank ASC`
 
 Used internally during context extraction (Step 3 of the skill) to provide sprint awareness. Not exposed as a user-facing search mode.
 
@@ -158,7 +158,7 @@ this section entirely.]
 | Error | User-facing message |
 |-------|---------------------|
 | 401 Unauthorized | "Your JIRA authentication has expired. For Rovo: restart Claude Code to re-authenticate via OAuth. For mcp-atlassian: verify your API token has not expired at id.atlassian.com/manage-profile/security/api-tokens and update your MCP configuration." |
-| 403 Forbidden | "You don't have permission to view {KEY}. Check your JIRA project access with your Jira admin." |
+| 403 Forbidden | "You don't have permission to view {KEY}. Check your JIRA project access with your JIRA admin." |
 | 404 Not Found | "Issue {KEY} not found. Verify the key is correct (format: PROJECT-NUMBER) and that you have access to the project." |
 | 429 Rate Limited | Retry once after 2 seconds. If still rate limited: "JIRA rate limit reached. Wait a moment and try `/optimus:jira {KEY}` again." |
 | MCP tool error | "The JIRA MCP tool returned an error: {error message}. This may be a server configuration issue — verify the MCP server is running with `claude mcp list`." |

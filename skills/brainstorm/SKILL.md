@@ -43,9 +43,9 @@ Explore the project's directory structure, key modules, and existing patterns. T
 
 Before asking the user for input, check for pre-existing JIRA context:
 
-1. If the user's inline input matches a JIRA key pattern (`[A-Z][A-Z0-9]+-\d+`), check for `docs/jira/<key>.md`. If found, read it and use its Goal and Acceptance Criteria as the brainstorm input.
+1. If the user's inline input matches a JIRA key pattern (`[A-Z][A-Z0-9]+-\d+`), check for `docs/jira/<key>.md`. If found, read it and use its Goal and Acceptance Criteria as the brainstorm input. If the file is not found, inform the user ("No task file found for [KEY] — run `/optimus:jira [KEY]` first to fetch it") and proceed with normal intent gathering below.
 
-2. If no inline input (or no JIRA key match), check whether `docs/jira/` exists and contains `.md` files. If so, read each file's YAML frontmatter and select the one with the most recent `date` field. Extract the `issue` field and the Goal section. Present to the user via `AskUserQuestion` — header "JIRA context", question "Found JIRA context: [ISSUE-KEY] — [Goal]. Use this as the basis for design?":
+2. If no inline input (or no JIRA key match, or matched key but file not found), check whether `docs/jira/` exists and contains `.md` files. If so, read each file's YAML frontmatter and select the one with the most recent `date` field. Extract the `issue` field and the Goal section. Present to the user via `AskUserQuestion` — header "JIRA context", question "Found JIRA context: [ISSUE-KEY] — [Goal]. Use this as the basis for design?":
    - **Use it** — "Design around this JIRA task"
    - **Ignore** — "Describe a different task"
 
@@ -135,7 +135,7 @@ Read `$CLAUDE_PLUGIN_ROOT/skills/brainstorm/references/design-doc-format.md` for
 
 ### Write the file
 
-- **Path:** `docs/design/YYYY-MM-DD-<topic-slug>.md` — derive the slug from the goal (lowercase, hyphens, max 5 words)
+- **Path:** `docs/design/YYYY-MM-DD-<topic-slug>.md` — derive the slug from the goal (lowercase, replace non-alphanumeric characters with hyphens, collapse consecutive hyphens, strip leading/trailing hyphens, max 5 words). The slug must match `[a-z0-9]+(-[a-z0-9]+)*` — reject any slug that does not match this pattern
 - Create the `docs/design/` directory if it doesn't exist
 - Fill the template with the approved design content
 - Set **Status** to `Approved`
@@ -166,14 +166,14 @@ Present the result:
 ## Step 7: Next Step
 
 Handle non-implementation tasks first:
-- **Refactoring task** → recommend `/optimus:refactor`
-- **Test-only task** → recommend `/optimus:unit-test`
+- **Refactoring task** → tell the user: "Recommend running `/optimus:refactor` to restructure the code. **Tip:** for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch."
+- **Test-only task** → tell the user: "Recommend running `/optimus:unit-test` to write tests for existing code. **Tip:** for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch."
 
 For implementation tasks, assess complexity from the Components table in the design doc:
 
 ### Small (1–2 components, <5 behaviors implied)
 
-Tell the user: "This is small enough to implement directly — run `/optimus:tdd` in a new conversation. It will auto-detect the design doc at `<file-path>`."
+Tell the user: "This is small enough to implement directly — run `/optimus:tdd` to build it test-first. It will auto-detect the design doc at `<file-path>`. **Tip:** for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch."
 
 ### Medium-to-large (3+ components or complex interfaces)
 
