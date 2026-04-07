@@ -140,11 +140,16 @@ def _verify_ref(cwd_str, ref):
     return result.returncode == 0
 
 
-def _base_from_open_pr(cwd_str):
-    """Return the open PR's base ref (e.g. ``origin/main``) if it exists locally."""
+def _fetch_open_pr_data(cwd_str):
+    """Return the parsed open-PR metadata dict, or ``None``.
+
+    Returns ``None`` for every failure mode (no PR, closed PR, ``gh`` missing,
+    timeout, malformed JSON, non-UTF-8 output) so callers can treat a ``None``
+    result as "no PR context available" without branching on the failure reason.
+    """
     try:
         result = subprocess.run(
-            ["gh", "pr", "view", "--json", "baseRefName,state"],
+            ["gh", "pr", "view", "--json", "title,body,baseRefName,state"],
             capture_output=True,
             text=True,
             cwd=cwd_str,
@@ -153,14 +158,23 @@ def _base_from_open_pr(cwd_str):
         if result.returncode != 0:
             return None
         pr_info = json.loads(result.stdout)
-    except (subprocess.TimeoutExpired, FileNotFoundError, ValueError):
+    except (
+        subprocess.TimeoutExpired,
+        FileNotFoundError,
+        ValueError,
+        UnicodeDecodeError,
+    ):
         return None
 
-    if not (
-        isinstance(pr_info, dict)
-        and pr_info.get("state") == "OPEN"
-        and pr_info.get("baseRefName")
-    ):
+    if not (isinstance(pr_info, dict) and pr_info.get("state") == "OPEN"):
+        return None
+    return pr_info
+
+
+def _base_from_open_pr(cwd_str):
+    """Return the open PR's base ref (e.g. ``origin/main``) if it exists locally."""
+    pr_info = _fetch_open_pr_data(cwd_str)
+    if not (pr_info and pr_info.get("baseRefName")):
         return None
 
     pr_base = f"origin/{pr_info['baseRefName']}"
@@ -219,8 +233,13 @@ def _detect_base_branch(cwd):
     )
 
 
-def git_discover_branch_files(cwd):
+def git_discover_branch_files(cwd, path_filter=None):
     """Discover all files changed in the current feature branch vs. the base branch.
+
+    When ``path_filter`` is provided, the underlying ``git diff --name-only``
+    is scoped to that path via a pathspec — this turns ``--scope src/auth``
+    into "only the files under src/auth that the feature branch touched"
+    instead of the raw directory string the user typed.
 
     Returns a tuple ``(files, base_ref)``:
 
@@ -235,8 +254,11 @@ def git_discover_branch_files(cwd):
         print(f"{PREFIX} WARNING: Could not detect base branch for scope discovery")
         return [], None
 
+    cmd = ["git", "diff", "--name-only", f"{base}...HEAD"]
+    if path_filter:
+        cmd.extend(["--", path_filter])
     result = subprocess.run(
-        ["git", "diff", "--name-only", f"{base}...HEAD"],
+        cmd,
         capture_output=True,
         text=True,
         cwd=cwd_str,
@@ -248,6 +270,41 @@ def git_discover_branch_files(cwd):
 
     files = [f for f in result.stdout.strip().splitlines() if f]
     return files, base
+
+
+# Caps for PR metadata stored in the progress file. The body mirrors the
+# Step 5 PR/MR context-injection truncation ceiling; the title cap is a
+# defence against an adversarially-large API response (GitHub's own limit
+# is 256, but the field is not validated on our side).
+_PR_BODY_TRUNCATE_LIMIT = 4000
+_PR_TITLE_TRUNCATE_LIMIT = 500
+
+
+def git_fetch_open_pr_description(cwd):
+    """Return metadata for the current branch's open PR, or ``None``.
+
+    Returns ``{"title": str, "body": str, "base_ref": str | None}`` when an
+    open PR exists. Returns ``None`` for any failure mode (closed PR, no PR,
+    ``gh`` missing, timeout, malformed or non-UTF-8 output) — the skill
+    treats this as "no PR context available" and falls back to the same
+    behavior as interactive mode without an open PR.
+    """
+    cwd_str = str(cwd)
+    pr_info = _fetch_open_pr_data(cwd_str)
+    if not pr_info:
+        return None
+
+    title = (pr_info.get("title") or "")[:_PR_TITLE_TRUNCATE_LIMIT]
+    body = pr_info.get("body") or ""
+    if len(body) > _PR_BODY_TRUNCATE_LIMIT:
+        body = body[:_PR_BODY_TRUNCATE_LIMIT] + "\n\n[...truncated...]"
+
+    base_ref_name = pr_info.get("baseRefName")
+    return {
+        "title": title,
+        "body": body,
+        "base_ref": f"origin/{base_ref_name}" if base_ref_name else None,
+    }
 
 
 def git_diff_has_changes(cwd):

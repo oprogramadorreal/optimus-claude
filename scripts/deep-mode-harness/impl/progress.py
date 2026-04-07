@@ -39,10 +39,16 @@ def make_initial_progress(
             "project_root": normalize_path(str(project_root)),
             "base_commit": base_commit,
             "focus": focus,
+            "pr_description": None,
         },
         "iteration": {"current": 1, "completed": 0},
         "findings": [],
-        "scope_files": {"current": [scope] if scope else []},
+        # scope_files.current is intentionally empty here — _populate_branch_scope
+        # fills it by running `git diff --name-only <base>...HEAD` (with an
+        # optional path filter from config.scope.paths when --scope was given),
+        # so the list always contains real repo-relative file paths rather than
+        # the raw directory string the user typed.
+        "scope_files": {"current": []},
         "test_results": {"last_full_run": None, "last_run_output_summary": None},
         "iteration_history": [],
         "termination": {"reason": None, "message": None},
@@ -91,6 +97,24 @@ def migrate_progress(progress):
     scope.setdefault("mode", "local-changes")
     scope.setdefault("paths", [])
     scope.setdefault("base_ref", None)
+    config.setdefault("pr_description", None)
     if not isinstance(progress.get("scope_files"), dict):
         progress["scope_files"] = {}
     progress["scope_files"].setdefault("current", [])
+
+    # Old shape: raw --scope directory string stored as a file list. Clear
+    # so _populate_branch_scope can rediscover real files via branch-diff.
+    # Both signals must agree to avoid false positives on extension-less
+    # real files (Makefile, Dockerfile, LICENSE, .env, etc.):
+    #   - single entry with no filename suffix (pre-FU5 always stored one
+    #     raw directory string); AND
+    #   - either the entry mirrors config.scope.paths (current schema) or
+    #     the paths key was missing and got defaulted (older schema).
+    current = progress["scope_files"]["current"]
+    scope_paths = scope["paths"]  # guaranteed by setdefault above
+    if (
+        len(current) == 1
+        and not Path(current[0]).suffix
+        and (current == scope_paths or not scope_paths)
+    ):
+        progress["scope_files"]["current"] = []

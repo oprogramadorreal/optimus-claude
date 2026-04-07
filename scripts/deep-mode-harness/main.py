@@ -67,6 +67,7 @@ from impl.git import (
     git_commit_checkpoint,
     git_diff_has_changes,
     git_discover_branch_files,
+    git_fetch_open_pr_description,
     git_rev_parse_head,
     git_stash_snapshot,
     restore_working_tree,
@@ -213,28 +214,56 @@ def _populate_branch_scope(progress, project_root):
     """Pre-populate ``scope_files.current`` from the current branch's diff vs.
     its base, mutating ``progress`` in place.
 
-    Skips when scope is already populated (e.g., a resumed run with a prior
-    file list, or a fresh run with an explicit ``--scope``). Resumed progress
-    files are normalised by ``migrate_progress`` in ``_load_resumed_progress``,
-    so the keys read below are guaranteed to exist for both fresh and resumed
-    runs.
+    Skips when ``scope_files.current`` is already populated. A ``--scope``
+    directory hint lives in ``config.scope.paths`` and is used as a pathspec
+    filter for the underlying branch diff, so the stored list always contains
+    real repo-relative file paths.
     """
     if progress["scope_files"]["current"]:
         return
 
-    branch_files, base_ref = git_discover_branch_files(project_root)
+    scope_paths = progress["config"]["scope"].get("paths", [])
+    path_filter = scope_paths[0] if scope_paths else None
+
+    branch_files, base_ref = git_discover_branch_files(
+        project_root, path_filter=path_filter
+    )
     if not branch_files:
         print(
             f"{PREFIX} WARNING: No changed files detected — agents may have limited scope"
         )
         return
 
-    # git_discover_branch_files only returns a non-empty file list when a base
-    # ref was successfully detected, so base_ref is guaranteed truthy here.
     progress["scope_files"]["current"] = branch_files
     progress["config"]["scope"]["base_ref"] = base_ref
-    progress["config"]["scope"]["mode"] = "branch-diff"
-    print(f"{PREFIX} Scope: {len(branch_files)} files changed vs {base_ref}")
+    progress["config"]["scope"]["mode"] = "directory" if path_filter else "branch-diff"
+    filter_note = f" (filtered by {path_filter})" if path_filter else ""
+    print(
+        f"{PREFIX} Scope: {len(branch_files)} files changed vs {base_ref}{filter_note}"
+    )
+
+
+# Preview length for the PR-description capture log line — fits on a single
+# terminal line after the [deep-mode] prefix without wrapping on 80-col shells.
+_PR_TITLE_PREVIEW_CHARS = 60
+
+
+def _capture_pr_description(progress, project_root):
+    """Capture the current branch's open PR metadata into ``progress``.
+
+    Mirrors the interactive skill's Step 3 PR/MR metadata capture so harness
+    mode gets the same PR-context injection and Step 6 intent-signal
+    soft-confidence adjustment. Skips when already captured (resume path) or
+    when there is no open PR / ``gh`` is unavailable.
+    """
+    if progress["config"].get("pr_description"):
+        return
+    pr_info = git_fetch_open_pr_description(project_root)
+    if not pr_info:
+        return
+    progress["config"]["pr_description"] = pr_info
+    title_preview = pr_info["title"][:_PR_TITLE_PREVIEW_CHARS]
+    print(f"{PREFIX} Captured PR description: {title_preview}")
 
 
 def _load_resumed_progress(progress_path, args, project_root):
@@ -782,8 +811,10 @@ def main(argv=None):
         )
 
     # Mirrors the skill's Step 3 "no local changes → branch diff" path so
-    # iteration 1 agents have a file list when no scope was supplied.
+    # iteration 1 agents have a file list when no scope was supplied, and
+    # captures PR metadata for Step 5/6 context injection.
     _populate_branch_scope(progress, project_root)
+    _capture_pr_description(progress, project_root)
 
     # Validate focus mode (progress file may contain hand-edited values on --resume)
     focus = progress["config"].get("focus", "")
