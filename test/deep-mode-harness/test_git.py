@@ -208,19 +208,19 @@ class TestRestoreWorkingTree:
     @patch("harness_common.git.git_restore_snapshot", return_value=True)
     def test_stash_path(self, mock_snapshot, mock_restore_to):
         restore_working_tree("stash123", "head123", "/tmp")
-        mock_snapshot.assert_called_once_with("stash123", "/tmp")
+        mock_snapshot.assert_called_once_with("stash123", "/tmp", _run=None)
         mock_restore_to.assert_not_called()
 
     @patch("harness_common.git.git_restore_to")
     @patch("harness_common.git.git_restore_snapshot", return_value=False)
     def test_stash_fails_falls_back_to_head(self, mock_snapshot, mock_restore_to):
         restore_working_tree("stash123", "head123", "/tmp")
-        mock_restore_to.assert_called_once_with("head123", "/tmp")
+        mock_restore_to.assert_called_once_with("head123", "/tmp", _run=None)
 
     @patch("harness_common.git.git_restore_to")
     def test_no_stash_uses_head(self, mock_restore_to):
         restore_working_tree(None, "head123", "/tmp")
-        mock_restore_to.assert_called_once_with("head123", "/tmp")
+        mock_restore_to.assert_called_once_with("head123", "/tmp", _run=None)
 
 
 class TestGitStashSnapshot:
@@ -599,7 +599,7 @@ class TestGitFetchOpenPrDescription:
 
 
 class TestGitCommitCheckpoint:
-    @patch("impl.git.subprocess.run")
+    @patch("harness_common.git.subprocess.run")
     def test_success(self, mock_run):
         mock_run.return_value = MagicMock(returncode=0)
         progress = {
@@ -611,7 +611,7 @@ class TestGitCommitCheckpoint:
         # Should call: git add -A, git reset (x2), git commit
         assert mock_run.call_count == 4
 
-    @patch("impl.git.subprocess.run")
+    @patch("harness_common.git.subprocess.run")
     def test_add_failure(self, mock_run, capsys):
         mock_run.return_value = MagicMock(returncode=1, stderr="add failed")
         progress = {
@@ -622,7 +622,7 @@ class TestGitCommitCheckpoint:
         assert git_commit_checkpoint(progress, 1, "/tmp") is False
         assert "WARNING" in capsys.readouterr().out
 
-    @patch("impl.git.subprocess.run")
+    @patch("harness_common.git.subprocess.run")
     def test_commit_failure(self, mock_run, capsys):
         # add succeeds, reset calls succeed, commit fails with real error
         mock_run.side_effect = [
@@ -639,7 +639,7 @@ class TestGitCommitCheckpoint:
         assert git_commit_checkpoint(progress, 1, "/tmp") is False
         assert "WARNING" in capsys.readouterr().out
 
-    @patch("impl.git.subprocess.run")
+    @patch("harness_common.git.subprocess.run")
     def test_nothing_to_commit_returns_true(self, mock_run):
         # add succeeds, reset calls succeed, commit says nothing to commit
         mock_run.side_effect = [

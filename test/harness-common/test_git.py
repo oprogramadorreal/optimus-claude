@@ -119,19 +119,19 @@ class TestRestoreWorkingTree:
     @patch("harness_common.git.git_restore_snapshot", return_value=True)
     def test_stash_path(self, mock_snapshot, mock_restore_to):
         restore_working_tree("stash123", "head123", "/tmp")
-        mock_snapshot.assert_called_once_with("stash123", "/tmp")
+        mock_snapshot.assert_called_once_with("stash123", "/tmp", _run=None)
         mock_restore_to.assert_not_called()
 
     @patch("harness_common.git.git_restore_to")
     @patch("harness_common.git.git_restore_snapshot", return_value=False)
     def test_stash_fails_falls_back_to_head(self, mock_snapshot, mock_restore_to):
         restore_working_tree("stash123", "head123", "/tmp")
-        mock_restore_to.assert_called_once_with("head123", "/tmp")
+        mock_restore_to.assert_called_once_with("head123", "/tmp", _run=None)
 
     @patch("harness_common.git.git_restore_to")
     def test_no_stash_uses_head(self, mock_restore_to):
         restore_working_tree(None, "head123", "/tmp")
-        mock_restore_to.assert_called_once_with("head123", "/tmp")
+        mock_restore_to.assert_called_once_with("head123", "/tmp", _run=None)
 
 
 class TestGitStashSnapshot:

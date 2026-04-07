@@ -358,17 +358,17 @@ def _make_bisect_outcome_callback(progress, cycle):
         f for f in progress.get("refactor_findings", []) if f.get("cycle") == cycle
     ]
 
-    def _callback(idx, fix, outcome):
+    def _callback(idx, fix, outcome, detail=None):
         new_status = _OUTCOME_TO_STATUS.get(outcome)
         if new_status is None:
             return
-        # Update only the FIRST matching finding — multiple findings sharing
-        # the same (file, pre_edit_content) key would otherwise all receive
-        # the same status, even though only one corresponds to this fix.
+        # Update every finding that matches this fix's (file, pre_edit_content)
+        # key. _process_refactor_output already marks every such finding as
+        # "fixed" via any(), so the rewrite must be symmetric — otherwise a
+        # reverted fix leaves a stale "fixed" ghost in refactor_findings.
         for finding in findings:
             if _finding_matches_fix(finding, fix):
                 finding["status"] = new_status
-                break
 
     return _callback
 
@@ -462,7 +462,10 @@ def _archive_progress(progress_path):
     try:
         p.rename(done_path)
     except OSError:
-        pass  # Not critical — the file stays as-is
+        # Target -done file already exists from a prior completed run.
+        # Leave the backup in place so a subsequent --resume can recover the
+        # terminated state instead of running against a half-archived file.
+        return
     # Clean up backup file to prevent stale resume
     Path(str(progress_path) + BACKUP_SUFFIX).unlink(missing_ok=True)
 

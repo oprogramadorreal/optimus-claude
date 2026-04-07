@@ -334,7 +334,7 @@ class TestBisectFixes:
         assert (tmp_path / "b.txt").read_text(encoding="utf-8") == "old_b"
 
     def test_on_outcome_callback_invoked_per_fix(self, tmp_path):
-        """on_outcome receives (idx, fix, outcome) for every processed fix."""
+        """on_outcome receives (idx, fix, outcome, detail) for every processed fix."""
         fixes = [
             _make_fix(tmp_path, "a.txt", "old_a", "new_a"),  # will pass → "fixed"
             _make_fix(tmp_path, "b.txt", "old_b", "new_b"),  # will fail → "reverted"
@@ -353,8 +353,8 @@ class TestBisectFixes:
 
         outcomes = []
 
-        def on_outcome(idx, fix, outcome):
-            outcomes.append((idx, fix["file"], outcome))
+        def on_outcome(idx, fix, outcome, detail=None):
+            outcomes.append((idx, fix["file"], outcome, detail))
 
         fixed, reverted, skipped = bisect_fixes(
             fixes,
@@ -369,10 +369,14 @@ class TestBisectFixes:
         assert skipped == 0
         # All three fixes should have produced exactly one outcome event
         assert len(outcomes) == 3
-        outcomes_by_file = {file: outcome for _, file, outcome in outcomes}
-        assert outcomes_by_file["a.txt"] == "fixed"
-        assert outcomes_by_file["b.txt"] == "reverted"
-        assert outcomes_by_file["gone.txt"] == "retained"
+        outcomes_by_file = {
+            file: (outcome, detail) for _, file, outcome, detail in outcomes
+        }
+        assert outcomes_by_file["a.txt"] == ("fixed", None)
+        # b.txt is reverted with the failure summary as detail
+        assert outcomes_by_file["b.txt"][0] == "reverted"
+        assert outcomes_by_file["b.txt"][1] == "fail"
+        assert outcomes_by_file["gone.txt"] == ("retained", None)
 
     def test_second_pass_apply_failure_counted_as_skipped(self, tmp_path):
         """If a reverted fix can't be re-applied on retry, it counts as skipped."""
@@ -389,7 +393,7 @@ class TestBisectFixes:
 
         outcomes = []
 
-        def on_outcome(idx, fix, outcome):
+        def on_outcome(idx, fix, outcome, detail=None):
             outcomes.append((fix["file"], outcome))
 
         # apply_single_fix call sequence:

@@ -4,8 +4,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from harness_common.runner import _find_bash
+from harness_common.runner import build_claude_session_cmd as _build_cmd
 from impl.runner import (
-    _build_cmd,
     _build_harness_system,
     _build_prompt,
     run_skill_session,

@@ -1,6 +1,6 @@
 import json
 
-from impl.parser import parse_harness_output
+from harness_common.parser import parse_harness_output
 
 
 class TestParseHarnessOutput:

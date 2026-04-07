@@ -1,6 +1,9 @@
 # Re-export shared fix functions for backward compatibility
 from harness_common.fixes import (  # noqa: F401
     apply_single_fix,
+)
+from harness_common.fixes import bisect_fixes as _shared_bisect_fixes
+from harness_common.fixes import (  # noqa: F401
     revert_single_fix,
 )
 
@@ -8,24 +11,37 @@ from .constants import PREFIX
 from .findings import mark_finding_status
 from .runner import run_tests
 
+# Map shared bisect outcome strings to deep-mode finding statuses + default
+# detail messages for the static (non-test-failure) outcomes. The dynamic
+# "reverted" detail is the per-fix test failure summary supplied by the
+# shared bisector via the on_outcome callback.
+_OUTCOME_TO_STATUS = {
+    "fixed": "fixed",
+    "reverted": "reverted — test failure",
+    "retained": "retained — revert failed",
+    "skipped": "skipped — apply failed",
+}
+_OUTCOME_DEFAULT_DETAIL = {
+    "retained": "Could not mechanically revert during bisection — fix retained untested",
+    "skipped": "Could not mechanically apply fix during bisection",
+}
 
-def _try_apply_fix(fix, test_command, cwd, progress, pass_detail=None):
-    """Apply a single fix, test, revert on failure. Returns 'fixed'|'reverted'|'skipped'."""
-    if not apply_single_fix(fix, cwd):
-        return "skipped", None
-    test_passed, test_summary = run_tests(test_command, cwd)
-    if test_passed:
-        mark_finding_status(progress, fix, "fixed", pass_detail)
-        return "fixed", None
-    if not revert_single_fix(fix, cwd):
-        print(
-            f"{PREFIX} WARNING: Could not revert failing fix for {fix.get('file')} — retaining fix"
-        )
-        mark_finding_status(
-            progress, fix, "fixed", "Revert failed after test failure — fix retained"
-        )
-        return "fixed", None
-    return "reverted", test_summary
+
+def _make_bisect_outcome_callback(progress):
+    """Build the on_outcome callback that updates deep-mode finding statuses."""
+
+    def _callback(idx, fix, outcome, detail=None):
+        status = _OUTCOME_TO_STATUS.get(outcome)
+        if status is None:
+            return
+        # For "fixed"/"reverted", the shared bisector supplies the dynamic
+        # detail (retry note or test-failure summary). For "retained"/
+        # "skipped" the shared bisector passes detail=None, so fall back
+        # to the deep-mode default explanation.
+        effective_detail = detail or _OUTCOME_DEFAULT_DETAIL.get(outcome)
+        mark_finding_status(progress, fix, status, effective_detail)
+
+    return _callback
 
 
 def bisect_fixes(fixes, test_command, cwd, progress):
@@ -37,86 +53,10 @@ def bisect_fixes(fixes, test_command, cwd, progress):
     Returns (fixed_count, reverted_count, skipped_count).
     """
     print(f"{PREFIX} Bisecting {len(fixes)} fixes...")
-    # Revert all this iteration's fixes mechanically (preserves prior uncommitted work)
-    failed_revert_indices = set()
-    for fix_index, fix in reversed(list(enumerate(fixes))):
-        if not revert_single_fix(fix, cwd):
-            failed_revert_indices.add(fix_index)
-            print(
-                f"{PREFIX} WARNING: Could not mechanically revert fix for {fix.get('file')}"
-            )
-
-    fixed_count = 0
-    reverted_count = 0
-    skipped_count = 0
-    reverted_indices = []
-    reverted_summaries = {}  # index -> test failure summary for reverted fixes
-
-    # First pass: apply incrementally, keeping passing fixes
-    for i, fix in enumerate(fixes):
-        if i in failed_revert_indices:
-            mark_finding_status(
-                progress,
-                fix,
-                "retained — revert failed",
-                "Could not mechanically revert during bisection — fix retained untested",
-            )
-            fixed_count += 1  # counts toward applied (fix is in codebase)
-            continue
-        outcome, fail_summary = _try_apply_fix(fix, test_command, cwd, progress)
-        if outcome == "fixed":
-            fixed_count += 1
-        elif outcome == "skipped":
-            # Fix could not be applied (file changed, content not found) — no retry needed
-            mark_finding_status(
-                progress,
-                fix,
-                "skipped — apply failed",
-                "Could not mechanically apply fix during bisection",
-            )
-            skipped_count += 1
-        else:
-            reverted_indices.append(i)
-            reverted_summaries[i] = fail_summary
-
-    # Second pass: retry reverted fixes — they may depend on fixes that
-    # were applied later in the first pass (e.g., fix A uses an import
-    # that fix B added, but B had a higher index)
-    if reverted_indices and fixed_count > 0:
-        print(f"{PREFIX} Retrying {len(reverted_indices)} reverted fixes...")
-        for i in reverted_indices:
-            fix = fixes[i]
-            outcome, fail_summary = _try_apply_fix(
-                fix,
-                test_command,
-                cwd,
-                progress,
-                pass_detail="Passed on retry (dependency resolved)",
-            )
-            if outcome == "fixed":
-                fixed_count += 1
-            elif outcome == "skipped":
-                mark_finding_status(
-                    progress,
-                    fix,
-                    "skipped — apply failed",
-                    "Could not mechanically re-apply fix on retry",
-                )
-                skipped_count += 1
-            else:
-                # Use the latest failure summary (retry may differ from first attempt)
-                summary = fail_summary or reverted_summaries.get(i)
-                mark_finding_status(progress, fix, "reverted — test failure", summary)
-                reverted_count += 1
-    else:
-        # No retry needed — mark remaining reverted fixes
-        for i in reverted_indices:
-            mark_finding_status(
-                progress,
-                fixes[i],
-                "reverted — test failure",
-                reverted_summaries.get(i),
-            )
-            reverted_count += 1
-
-    return fixed_count, reverted_count, skipped_count
+    return _shared_bisect_fixes(
+        fixes,
+        test_command,
+        cwd,
+        run_tests_fn=run_tests,
+        on_outcome=_make_bisect_outcome_callback(progress),
+    )

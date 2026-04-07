@@ -1,6 +1,7 @@
 import subprocess
 
 # Import shared run_tests and wrap to inject deep-mode prefix
+from harness_common.runner import build_claude_session_cmd
 from harness_common.runner import run_tests as _shared_run_tests
 
 from .constants import DEFAULT_TEST_TIMEOUT, PREFIX, VALID_FOCUS_MODES, normalize_path
@@ -42,30 +43,6 @@ def _build_harness_system(progress_path, iteration, max_iterations):
     )
 
 
-def _build_cmd(prompt, harness_system, allowed_tools, max_turns):
-    """Assemble the claude CLI argument list."""
-    cmd = [
-        "claude",
-        "-p",
-        prompt,
-        "--append-system-prompt",
-        harness_system,
-    ]
-    if allowed_tools:
-        cmd.extend(["--allowedTools", allowed_tools])
-    else:
-        cmd.append("--dangerously-skip-permissions")
-    cmd.extend(
-        [
-            "--max-turns",
-            str(max_turns),
-            "--output-format",
-            "json",
-        ]
-    )
-    return cmd
-
-
 def run_skill_session(progress, args, resolved_progress_path, _run=subprocess.run):
     """
     Launch a fresh claude -p session for one iteration.
@@ -83,7 +60,9 @@ def run_skill_session(progress, args, resolved_progress_path, _run=subprocess.ru
         focus=progress["config"].get("focus", ""),
     )
     harness_system = _build_harness_system(progress_path, iteration, max_iterations)
-    cmd = _build_cmd(prompt, harness_system, args.allowed_tools, args.max_turns)
+    cmd = build_claude_session_cmd(
+        prompt, harness_system, args.allowed_tools, args.max_turns
+    )
 
     if args.verbose:
         print(f"{PREFIX} Command: {' '.join(cmd[:6])}...")

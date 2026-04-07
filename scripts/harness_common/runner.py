@@ -53,6 +53,35 @@ def _find_bash(platform=None, which_fn=None, run_fn=None):
     return "bash"
 
 
+def build_claude_session_cmd(prompt, harness_system, allowed_tools, max_turns):
+    """Assemble the claude CLI argument list for a harness session.
+
+    Both harnesses launch ``claude -p`` the same way; this is the single
+    source of truth for the option ordering, the allowed-tools/skip-permissions
+    fork, and the JSON output format.
+    """
+    cmd = [
+        "claude",
+        "-p",
+        prompt,
+        "--append-system-prompt",
+        harness_system,
+    ]
+    if allowed_tools:
+        cmd.extend(["--allowedTools", allowed_tools])
+    else:
+        cmd.append("--dangerously-skip-permissions")
+    cmd.extend(
+        [
+            "--max-turns",
+            str(max_turns),
+            "--output-format",
+            "json",
+        ]
+    )
+    return cmd
+
+
 def run_tests(test_command, cwd, timeout=DEFAULT_TEST_TIMEOUT, prefix="[harness]"):
     """Run the project's test command. Returns (passed: bool, output: str)."""
     print(f"{prefix} Running tests: {test_command}")

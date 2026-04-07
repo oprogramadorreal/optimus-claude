@@ -66,9 +66,12 @@ def bisect_fixes(fixes, test_command, cwd, run_tests_fn=None, on_outcome=None):
     the function falls back to :func:`harness_common.runner.run_tests`.
 
     *on_outcome*, when provided, is invoked once per fix with
-    ``(idx, fix, outcome)`` where outcome is one of ``"fixed"``,
+    ``(idx, fix, outcome, detail)`` where outcome is one of ``"fixed"``,
     ``"reverted"``, ``"skipped"``, or ``"retained"`` (revert failed → fix
-    remains applied untested). Lets callers update per-finding status.
+    remains applied untested). ``detail`` is a contextual hint string —
+    the test-failure summary on ``"reverted"``, the retry-pass note on
+    ``"fixed"`` after a successful retry, and ``None`` otherwise. Lets
+    callers update per-finding status with provenance.
 
     Returns ``(fixed_count, reverted_count, skipped_count)``.
     """
@@ -77,9 +80,9 @@ def bisect_fixes(fixes, test_command, cwd, run_tests_fn=None, on_outcome=None):
 
         run_tests_fn = _default_run_tests
 
-    def _emit(idx, fix, outcome):
+    def _emit(idx, fix, outcome, detail=None):
         if on_outcome is not None:
-            on_outcome(idx, fix, outcome)
+            on_outcome(idx, fix, outcome, detail)
 
     # Revert all fixes first
     failed_revert_indices = set()
@@ -91,6 +94,7 @@ def bisect_fixes(fixes, test_command, cwd, run_tests_fn=None, on_outcome=None):
     reverted_count = 0
     skipped_count = 0
     reverted_indices = []
+    failure_summaries = {}  # idx → first-pass test failure summary
 
     # First pass: apply fixes one at a time
     for idx, fix in enumerate(fixes):
@@ -102,13 +106,14 @@ def bisect_fixes(fixes, test_command, cwd, run_tests_fn=None, on_outcome=None):
             skipped_count += 1
             _emit(idx, fix, "skipped")
             continue
-        passed, _ = run_tests_fn(test_command, cwd)
+        passed, summary = run_tests_fn(test_command, cwd)
         if passed:
             fixed_count += 1
             _emit(idx, fix, "fixed")
         else:
             revert_single_fix(fix, cwd)
             reverted_indices.append(idx)
+            failure_summaries[idx] = summary
 
     # Second pass: retry reverted fixes — they may depend on fixes that
     # were applied later in the first pass (e.g., fix A uses an import
@@ -124,17 +129,18 @@ def bisect_fixes(fixes, test_command, cwd, run_tests_fn=None, on_outcome=None):
                 skipped_count += 1
                 _emit(idx, fix, "skipped")
                 continue
-            passed, _ = run_tests_fn(test_command, cwd)
+            passed, summary = run_tests_fn(test_command, cwd)
             if passed:
                 fixed_count += 1
-                _emit(idx, fix, "fixed")
+                _emit(idx, fix, "fixed", "Passed on retry (dependency resolved)")
             else:
                 revert_single_fix(fix, cwd)
                 reverted_count += 1
-                _emit(idx, fix, "reverted")
+                # Prefer the retry's failure summary; fall back to first-pass.
+                _emit(idx, fix, "reverted", summary or failure_summaries.get(idx))
     else:
         reverted_count += len(reverted_indices)
         for idx in reverted_indices:
-            _emit(idx, fixes[idx], "reverted")
+            _emit(idx, fixes[idx], "reverted", failure_summaries.get(idx))
 
     return fixed_count, reverted_count, skipped_count

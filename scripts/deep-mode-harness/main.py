@@ -45,6 +45,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from harness_common.parser import parse_harness_output
 from impl.constants import (
     APPLIED_PENDING_TEST,
     BACKUP_SUFFIX,
@@ -76,7 +77,6 @@ from impl.git import (
     git_stash_snapshot,
     restore_working_tree,
 )
-from impl.parser import parse_harness_output
 from impl.progress import (
     make_initial_progress,
     migrate_progress,

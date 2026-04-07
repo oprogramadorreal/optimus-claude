@@ -553,8 +553,13 @@ class TestMakeBisectOutcomeCallback:
         # Status unchanged
         assert progress["refactor_findings"][0]["status"] == "fixed"
 
-    def test_only_first_matching_finding_is_updated(self, sample_coverage_progress):
-        """Duplicate (file, pre_edit_content) findings: only the first is touched."""
+    def test_all_matching_findings_are_updated(self, sample_coverage_progress):
+        """Duplicate (file, pre_edit_content) findings update symmetrically.
+
+        _process_refactor_output marks every finding matching a fix's
+        (file, pre_edit_content) key as "fixed" via any(); the rewrite must
+        be symmetric or a reverted fix would leave a stale "fixed" ghost.
+        """
         progress = self._progress_with_findings(
             sample_coverage_progress,
             [
@@ -575,8 +580,7 @@ class TestMakeBisectOutcomeCallback:
         cb = _make_bisect_outcome_callback(progress, 1)
         cb(0, {"file": "src/a.py", "pre_edit_content": "old_a"}, "reverted")
         assert progress["refactor_findings"][0]["status"] == "reverted — test failure"
-        # Second duplicate is left alone
-        assert progress["refactor_findings"][1]["status"] == "fixed"
+        assert progress["refactor_findings"][1]["status"] == "reverted — test failure"
 
     def test_other_cycles_findings_ignored(self, sample_coverage_progress):
         """Findings from a different cycle are not candidates for matching."""

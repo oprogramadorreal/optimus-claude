@@ -4,7 +4,7 @@ from impl.git import git_commit_checkpoint
 
 
 class TestGitCommitCheckpoint:
-    @patch("impl.git.subprocess.run")
+    @patch("harness_common.git.subprocess.run")
     def test_unit_test_phase(self, mock_run):
         mock_run.return_value = MagicMock(returncode=0)
         progress = {
@@ -25,7 +25,7 @@ class TestGitCommitCheckpoint:
         assert "test(coverage-harness)" in msg
         assert "3 tests written" in msg
 
-    @patch("impl.git.subprocess.run")
+    @patch("harness_common.git.subprocess.run")
     def test_refactor_phase(self, mock_run):
         mock_run.return_value = MagicMock(returncode=0)
         progress = {
@@ -42,14 +42,14 @@ class TestGitCommitCheckpoint:
         assert "refactor(coverage-harness)" in msg
         assert "2 fixed" in msg
 
-    @patch("impl.git.subprocess.run")
+    @patch("harness_common.git.subprocess.run")
     def test_add_failure(self, mock_run, capsys):
         mock_run.return_value = MagicMock(returncode=1, stderr="add failed")
         progress = {"cycle_history": [], "tests_created": [], "refactor_findings": []}
         assert git_commit_checkpoint(progress, 1, "unit-test", "/tmp") is False
         assert "WARNING" in capsys.readouterr().out
 
-    @patch("impl.git.subprocess.run")
+    @patch("harness_common.git.subprocess.run")
     def test_nothing_to_commit(self, mock_run):
         mock_run.side_effect = [
             MagicMock(returncode=0),  # git add
@@ -64,7 +64,7 @@ class TestGitCommitCheckpoint:
         progress = {"cycle_history": [], "tests_created": [], "refactor_findings": []}
         assert git_commit_checkpoint(progress, 1, "unit-test", "/tmp") is True
 
-    @patch("impl.git.subprocess.run")
+    @patch("harness_common.git.subprocess.run")
     def test_commit_failure(self, mock_run, capsys):
         mock_run.side_effect = [
             MagicMock(returncode=0),  # git add
@@ -80,7 +80,7 @@ class TestGitCommitCheckpoint:
         assert git_commit_checkpoint(progress, 1, "unit-test", "/tmp") is False
         assert "WARNING" in capsys.readouterr().out
 
-    @patch("impl.git.subprocess.run")
+    @patch("harness_common.git.subprocess.run")
     def test_empty_history(self, mock_run):
         mock_run.return_value = MagicMock(returncode=0)
         progress = {"cycle_history": [], "tests_created": [], "refactor_findings": []}

@@ -1,6 +1,43 @@
 import subprocess
 
+from .constants import BACKUP_SUFFIX
+
 _PREFIX = "[harness]"
+
+
+def commit_checkpoint(commit_message, cwd, progress_file, _run=None):
+    """Stage all changes, un-stage harness state files, and commit.
+
+    Returns True on success or when there is nothing to commit (the
+    "nothing to commit" exit is treated as a no-op success because it
+    means the un-stage step removed every staged path).
+    """
+    _run = _run or subprocess.run
+    add_result = _run(
+        ["git", "add", "-A"], cwd=str(cwd), capture_output=True, text=True
+    )
+    if add_result.returncode != 0:
+        print(f"{_PREFIX} WARNING: git add -A failed: {add_result.stderr[:200]}")
+        return False
+    for pattern in [progress_file, progress_file + BACKUP_SUFFIX]:
+        _run(
+            ["git", "reset", "HEAD", "--", pattern],
+            cwd=str(cwd),
+            capture_output=True,
+            text=True,
+        )
+    result = _run(
+        ["git", "commit", "-m", commit_message],
+        cwd=str(cwd),
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        if "nothing to commit" in (result.stdout + result.stderr):
+            return True
+        print(f"{_PREFIX} WARNING: checkpoint commit failed: {result.stderr[:200]}")
+        return False
+    return True
 
 
 def git_rev_parse_head(cwd):
@@ -29,9 +66,10 @@ def _clean_working_tree(cwd, _run=None):
         print(f"{_PREFIX} WARNING: git clean -fd failed: {clean.stderr[:200]}")
 
 
-def git_restore_to(commit, cwd):
+def git_restore_to(commit, cwd, _run=None):
     """Restore working tree to match a commit (tracked + untracked files)."""
-    result = subprocess.run(
+    _run = _run or subprocess.run
+    result = _run(
         ["git", "checkout", commit, "--", "."],
         cwd=str(cwd),
         capture_output=True,
@@ -39,7 +77,7 @@ def git_restore_to(commit, cwd):
     )
     if result.returncode != 0:
         raise RuntimeError(f"git checkout {commit} failed: {result.stderr}")
-    _clean_working_tree(cwd)
+    _clean_working_tree(cwd, _run=_run)
 
 
 def git_stash_snapshot(cwd, _run=None):
@@ -146,13 +184,13 @@ def git_diff_has_changes(cwd):
     return bool(untracked.stdout.strip())
 
 
-def restore_working_tree(stash_sha, head_commit, cwd):
+def restore_working_tree(stash_sha, head_commit, cwd, _run=None):
     """Restore working tree to its pre-iteration state.
 
     Tries the stash snapshot first (preserves uncommitted work from prior
     --no-commit iterations), falls back to git checkout of the HEAD commit.
     """
     if stash_sha:
-        if git_restore_snapshot(stash_sha, cwd):
+        if git_restore_snapshot(stash_sha, cwd, _run=_run):
             return
-    git_restore_to(head_commit, cwd)
+    git_restore_to(head_commit, cwd, _run=_run)
