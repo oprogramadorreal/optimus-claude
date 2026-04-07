@@ -55,7 +55,7 @@ def revert_single_fix(fix, cwd):
     return _swap_content(fix, cwd, "post_edit_content", "pre_edit_content")
 
 
-def bisect_fixes(fixes, test_command, cwd, run_tests_fn=None):
+def bisect_fixes(fixes, test_command, cwd, run_tests_fn=None, on_outcome=None):
     """Bisect fixes to find which ones break tests.
 
     Reverts all fixes, then re-applies one at a time, running the test suite
@@ -65,12 +65,21 @@ def bisect_fixes(fixes, test_command, cwd, run_tests_fn=None):
     ``(test_command, cwd) -> (passed: bool, summary: str)``.  When ``None``
     the function falls back to :func:`harness_common.runner.run_tests`.
 
+    *on_outcome*, when provided, is invoked once per fix with
+    ``(idx, fix, outcome)`` where outcome is one of ``"fixed"``,
+    ``"reverted"``, ``"skipped"``, or ``"retained"`` (revert failed → fix
+    remains applied untested). Lets callers update per-finding status.
+
     Returns ``(fixed_count, reverted_count, skipped_count)``.
     """
     if run_tests_fn is None:
         from .runner import run_tests as _default_run_tests
 
         run_tests_fn = _default_run_tests
+
+    def _emit(idx, fix, outcome):
+        if on_outcome is not None:
+            on_outcome(idx, fix, outcome)
 
     # Revert all fixes first
     failed_revert_indices = set()
@@ -87,13 +96,16 @@ def bisect_fixes(fixes, test_command, cwd, run_tests_fn=None):
     for idx, fix in enumerate(fixes):
         if idx in failed_revert_indices:
             fixed_count += 1  # could not revert, so fix remains applied
+            _emit(idx, fix, "retained")
             continue
         if not apply_single_fix(fix, cwd):
             skipped_count += 1
+            _emit(idx, fix, "skipped")
             continue
         passed, _ = run_tests_fn(test_command, cwd)
         if passed:
             fixed_count += 1
+            _emit(idx, fix, "fixed")
         else:
             revert_single_fix(fix, cwd)
             reverted_indices.append(idx)
@@ -110,14 +122,19 @@ def bisect_fixes(fixes, test_command, cwd, run_tests_fn=None):
                 # first-pass apply failure, so count it as skipped (matches
                 # deep-mode-harness/impl/fixes.py behavior).
                 skipped_count += 1
+                _emit(idx, fix, "skipped")
                 continue
             passed, _ = run_tests_fn(test_command, cwd)
             if passed:
                 fixed_count += 1
+                _emit(idx, fix, "fixed")
             else:
                 revert_single_fix(fix, cwd)
                 reverted_count += 1
+                _emit(idx, fix, "reverted")
     else:
         reverted_count += len(reverted_indices)
+        for idx in reverted_indices:
+            _emit(idx, fixes[idx], "reverted")
 
     return fixed_count, reverted_count, skipped_count

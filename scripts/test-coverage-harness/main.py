@@ -259,18 +259,31 @@ def _process_unit_test_output(progress, result, cycle):
             }
         )
 
-    # Merge untestable code — append new items, preserve prior cycles' entries
-    existing_files = {item.get("file") for item in progress["untestable_code"]}
+    # Merge untestable code — append new items, preserve prior cycles' entries.
+    # Dedup key is (file, line, function) so multiple untestable functions in
+    # the same file are all recorded; items missing a file are skipped.
+    def _untestable_key(item):
+        return (item.get("file"), item.get("line"), item.get("function"))
+
+    existing_keys = {
+        _untestable_key(item)
+        for item in progress["untestable_code"]
+        if item.get("file")
+    }
     for item in untestable:
-        if item.get("file") not in existing_files:
-            progress["untestable_code"].append(
-                {
-                    **item,
-                    "cycle_reported": cycle,
-                    "status": "pending",
-                    "refactor_attempt_cycle": None,
-                }
-            )
+        if not item.get("file"):
+            continue
+        if _untestable_key(item) in existing_keys:
+            continue
+        existing_keys.add(_untestable_key(item))
+        progress["untestable_code"].append(
+            {
+                **item,
+                "cycle_reported": cycle,
+                "status": "pending",
+                "refactor_attempt_cycle": None,
+            }
+        )
 
     # Record bugs
     for bug in bugs:
@@ -312,13 +325,31 @@ def _revert_test_files(tests_written, cwd):
 # ---------------------------------------------------------------------------
 
 
+def _finding_matches_fix(finding, fix):
+    """Match a finding to a fix by file + pre_edit_content (the unique apply key)."""
+    return finding.get("file") == fix.get("file") and finding.get(
+        "pre_edit_content"
+    ) == fix.get("pre_edit_content")
+
+
 def _process_refactor_output(progress, result, cycle):
-    """Process refactor phase output, updating progress. Returns refactor summary dict."""
+    """Process refactor phase output, updating progress. Returns refactor summary dict.
+
+    Each new finding is stamped with an initial status: ``"fixed"`` if the
+    finding appears in ``fixes_applied`` (Claude actually edited the code),
+    otherwise ``"skipped — not applied"``. Bisection may later downgrade
+    ``"fixed"`` entries to ``"reverted — test failure"`` via the
+    ``bisect_fixes`` ``on_outcome`` callback.
+    """
     fixes_applied = result.get("fixes_applied", [])
     new_findings = result.get("new_findings", [])
 
     for finding in new_findings:
         finding["cycle"] = cycle
+        if any(_finding_matches_fix(finding, fix) for fix in fixes_applied):
+            finding["status"] = "fixed"
+        else:
+            finding["status"] = "skipped — not applied"
         progress["refactor_findings"].append(finding)
 
     return {
@@ -327,6 +358,33 @@ def _process_refactor_output(progress, result, cycle):
         "reverted": 0,
         "test_passed": True,
     }
+
+
+_OUTCOME_TO_STATUS = {
+    "fixed": "fixed",
+    "reverted": "reverted — test failure",
+    "retained": "fixed — revert failed",
+    "skipped": "skipped — apply failed",
+}
+
+
+def _make_bisect_outcome_callback(progress, cycle):
+    """Build an ``on_outcome`` callback that updates refactor_findings statuses
+    based on per-fix bisection results. Matches by file + pre_edit_content."""
+    findings = [
+        f for f in progress.get("refactor_findings", []) if f.get("cycle") == cycle
+    ]
+
+    def _callback(idx, fix, outcome):
+        new_status = _OUTCOME_TO_STATUS.get(outcome)
+        if new_status is None:
+            return
+        for finding in findings:
+            if _finding_matches_fix(finding, fix):
+                finding["status"] = new_status
+                break
+
+    return _callback
 
 
 # ---------------------------------------------------------------------------
@@ -596,8 +654,9 @@ def _run_refactor_phase(
 
         if not test_passed:
             print(f"{PREFIX} Tests failed after refactor — bisecting fixes")
+            on_outcome = _make_bisect_outcome_callback(progress, cycle)
             fixed_count, reverted_count, skipped_count = bisect_fixes(
-                fixes, test_command, str(project_root)
+                fixes, test_command, str(project_root), on_outcome=on_outcome
             )
             refactor_summary["fixed"] = fixed_count
             refactor_summary["reverted"] = reverted_count
@@ -614,7 +673,7 @@ def _run_refactor_phase(
                     f"{PREFIX} No refactor fixes survived bisection "
                     f"(reverted={reverted_count}, skipped={skipped_count})."
                 )
-            elif fixed_count > 0:
+            else:
                 combo_passed, combo_summary = run_tests(test_command, project_root)
                 record_test_result(progress, combo_passed, combo_summary)
                 if not combo_passed:
@@ -622,10 +681,22 @@ def _run_refactor_phase(
                     restore_working_tree(pre_stash, pre_head, project_root)
                     refactor_summary["test_passed"] = False
                     refactor_summary["fixed"] = 0
-                    refactor_summary["reverted"] = len(fixes)
+                    # Subtract already-classified skipped count so the totals
+                    # (fixed + reverted + skipped) still equal len(fixes).
+                    refactor_summary["reverted"] = len(fixes) - skipped_count
+                    # Roll back per-finding statuses to match the restored tree.
+                    # restore_working_tree resets to pre_head, so even retained
+                    # fixes (status "fixed — revert failed") are gone now.
+                    rollback_statuses = {"fixed", "fixed — revert failed"}
+                    for finding in progress.get("refactor_findings", []):
+                        if (
+                            finding.get("cycle") == cycle
+                            and finding.get("status") in rollback_statuses
+                        ):
+                            finding["status"] = "reverted — combined regression"
 
     # Mark untestable code items as attempted only when fixes actually survived
-    if refactor_summary.get("fixed", 0) > 0:
+    if refactor_summary["fixed"] > 0:
         for item in progress.get("untestable_code", []):
             if item.get("status") == "pending":
                 item["refactor_attempt_cycle"] = cycle
