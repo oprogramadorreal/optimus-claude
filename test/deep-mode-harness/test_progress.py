@@ -12,6 +12,15 @@ from impl.progress import (
 
 
 class TestMigrateProgress:
+    def test_non_dict_input_returns_without_mutation(self):
+        # A corrupted JSON file may deserialize to a list at the top level.
+        # migrate_progress must early-return so the downstream "missing
+        # required field" check in _load_resumed_progress can produce a
+        # friendly error rather than crashing on attribute access here.
+        progress = ["not", "a", "dict"]
+        migrate_progress(progress)
+        assert progress == ["not", "a", "dict"]
+
     def test_fills_missing_scope_files(self):
         progress = {"config": {"scope": {}}}
         migrate_progress(progress)

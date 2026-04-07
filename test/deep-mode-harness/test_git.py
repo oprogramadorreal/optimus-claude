@@ -3,8 +3,10 @@ import subprocess
 from unittest.mock import MagicMock, call, patch
 
 from impl.git import (
+    _base_from_symbolic_ref,
     _clean_working_tree,
     _detect_base_branch,
+    _verify_ref,
     git_commit_checkpoint,
     git_current_branch,
     git_diff_has_changes,
@@ -276,6 +278,42 @@ class TestGitRestoreSnapshot:
         assert drop_call[0][0] == ["git", "stash", "drop", "stash@{0}"]
 
 
+class TestVerifyRef:
+    @patch("impl.git.subprocess.run")
+    def test_timeout_returns_false(self, mock_run):
+        mock_run.side_effect = subprocess.TimeoutExpired(
+            ["git", "rev-parse", "--verify", "origin/main"], 10
+        )
+        assert _verify_ref("/tmp", "origin/main") is False
+
+    @patch("impl.git.subprocess.run")
+    def test_file_not_found_returns_false(self, mock_run):
+        mock_run.side_effect = FileNotFoundError("git binary missing")
+        assert _verify_ref("/tmp", "origin/main") is False
+
+
+class TestBaseFromSymbolicRef:
+    @patch("impl.git.subprocess.run")
+    def test_timeout_returns_none(self, mock_run):
+        mock_run.side_effect = subprocess.TimeoutExpired(
+            ["git", "symbolic-ref", "refs/remotes/origin/HEAD"], 10
+        )
+        assert _base_from_symbolic_ref("/tmp") is None
+
+    @patch("impl.git.subprocess.run")
+    def test_file_not_found_returns_none(self, mock_run):
+        mock_run.side_effect = FileNotFoundError("git binary missing")
+        assert _base_from_symbolic_ref("/tmp") is None
+
+    @patch("impl.git.subprocess.run")
+    def test_malformed_ref_without_remotes_prefix_returns_none(self, mock_run):
+        # symbolic-ref can return a non-standard value (e.g., the ref name was
+        # somehow set to a local-only ref). The parser should refuse rather
+        # than return a garbled "origin/" string.
+        mock_run.return_value = MagicMock(returncode=0, stdout="refs/heads/main\n")
+        assert _base_from_symbolic_ref("/tmp") is None
+
+
 class TestDetectBaseBranch:
     @patch("impl.git.subprocess.run")
     def test_open_pr_returns_pr_base(self, mock_run):
@@ -442,6 +480,22 @@ class TestGitDiscoverBranchFiles:
             cwd="/tmp",
             timeout=30,
         )
+
+    @patch("impl.git._detect_base_branch", return_value="origin/main")
+    @patch("impl.git.subprocess.run")
+    def test_diff_subprocess_exception_returns_empty_with_base(
+        self, mock_run, mock_detect, capsys
+    ):
+        # Cover the FileNotFoundError/TimeoutExpired branch in
+        # git_discover_branch_files: base detection succeeds but the
+        # subsequent `git diff --name-only` invocation itself raises.
+        mock_run.side_effect = subprocess.TimeoutExpired(
+            ["git", "diff", "--name-only", "origin/main...HEAD"], 30
+        )
+        files, base = git_discover_branch_files("/tmp")
+        assert files == []
+        assert base == "origin/main"
+        assert "WARNING" in capsys.readouterr().out
 
     @patch("impl.git._detect_base_branch", return_value="origin/main")
     @patch("impl.git.subprocess.run")
