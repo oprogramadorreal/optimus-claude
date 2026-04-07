@@ -33,7 +33,7 @@ optimus-claude/
 │       └── impl/             # Internal modules (constants, convergence, git, runner, etc.)
 ├── skills/
 │   ├── init/                 # /optimus:init
-│   ├── dev-setup/            # /optimus:dev-setup
+│   ├── how-to-run/           # /optimus:how-to-run
 │   ├── unit-test/            # /optimus:unit-test
 │   ├── refactor/             # /optimus:refactor
 │   ├── code-review/          # /optimus:code-review

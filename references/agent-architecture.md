@@ -35,7 +35,7 @@ Each skill-level agent directory typically contains:
 | tdd | code-simplifier, test-guardian | Quality gate after each TDD cycle |
 | verify | behavior-tracer, integration-verifier, mock-project-verifier, test-writer | Sandbox-only verification agents |
 | init | project-analyzer, documentation-auditor | Project analysis during setup |
-| dev-setup | dev-environment-detector, dev-setup-auditor | Dev environment analysis |
+| how-to-run | project-environment-detector, how-to-run-auditor | Project environment analysis |
 | unit-test | test-infrastructure-analyzer | Test infrastructure analysis |
 
 ## The specialization pattern
