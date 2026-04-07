@@ -42,7 +42,7 @@ while [[ $# -gt 0 ]]; do
     --help|-h)
       echo "Usage: bash scripts/test-skills.sh [options]"
       echo "Options:"
-      echo "  --skill <name>     Test specific skill (init, permissions, commit-message, dev-setup, prompt, branch)"
+      echo "  --skill <name>     Test specific skill (init, permissions, commit-message, how-to-run, prompt, branch)"
       echo "  --fixture <name>   Test against specific fixture (node, python, go, rust, csharp, monorepo, empty, multi-repo)"
       echo "  --all              Test all skill/fixture combinations"
       echo "  --fresh            Remove and regenerate all fixtures before testing"
@@ -120,8 +120,8 @@ if $ALL_MODE; then
     "init:empty-project"
     "permissions:node-project"
     "commit-message:node-project"
-    "dev-setup:node-project"
-    "dev-setup:python-project"
+    "how-to-run:node-project"
+    "how-to-run:python-project"
     "prompt:node-project"
     "branch:node-project"
   )
@@ -143,10 +143,10 @@ elif [ -n "$SKILL_FILTER" ]; then
     ) ;;
     permissions)    TEST_MATRIX=("permissions:node-project") ;;
     commit-message) TEST_MATRIX=("commit-message:node-project") ;;
-    dev-setup)      TEST_MATRIX=("dev-setup:node-project" "dev-setup:python-project") ;;
+    how-to-run)     TEST_MATRIX=("how-to-run:node-project" "how-to-run:python-project") ;;
     prompt)         TEST_MATRIX=("prompt:node-project") ;;
     branch)         TEST_MATRIX=("branch:node-project") ;;
-    *) echo "Unknown skill: $SKILL_FILTER. Supported: init, permissions, commit-message, dev-setup, prompt, branch"; exit 1 ;;
+    *) echo "Unknown skill: $SKILL_FILTER. Supported: init, permissions, commit-message, how-to-run, prompt, branch"; exit 1 ;;
   esac
 else
   # Default: quick smoke test
@@ -206,8 +206,8 @@ run_skill_test() {
       fi
       prompt="Run /optimus:commit-message to suggest a conventional commit message for the current changes."
       ;;
-    dev-setup)
-      prompt="Run /optimus:dev-setup to ensure this project has comprehensive development setup instructions in the README."
+    how-to-run)
+      prompt="Run /optimus:how-to-run to generate a HOW-TO-RUN.md teaching a new developer how to set up their environment and run this project locally."
       ;;
     prompt)
       prompt="Run /optimus:prompt to craft an optimized prompt for the following idea: Write a Python function that parses CSV files and returns summary statistics."

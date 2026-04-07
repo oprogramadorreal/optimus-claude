@@ -329,7 +329,7 @@ If the user declined test infrastructure in Step 5b, include:
 
 > ⚠ **Note:** Test infrastructure was not installed — `/optimus:tdd` will not work, and `/optimus:code-review`, `/optimus:refactor`, and `/optimus:verify` will have reduced functionality. Re-run `/optimus:init` to install test infrastructure later.
 
-**Next step:** If the project's root `README.md` lacks a development setup section (no heading matching the patterns defined in `$CLAUDE_PLUGIN_ROOT/skills/init/references/readme-section-detection.md`), recommend running `/optimus:dev-setup` first to ensure the project has comprehensive human-readable setup instructions, then `/optimus:unit-test` to write tests. Otherwise, recommend `/optimus:unit-test` directly.
+**Next step:** If the project root has no `HOW-TO-RUN.md` (or the existing one looks stale compared to the current project state), recommend running `/optimus:how-to-run` first to generate a developer-facing onboarding doc, then `/optimus:unit-test` to write tests. Otherwise, recommend `/optimus:unit-test` directly.
 
 Tell the user: **Tip:** for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch.
 
