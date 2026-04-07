@@ -26,6 +26,7 @@ def sample_progress():
             "project_root": "/tmp/project",
             "base_commit": "abc1234567890",
             "focus": "",
+            "pr_description": None,
         },
         "iteration": {"current": 1, "completed": 0},
         "findings": [],

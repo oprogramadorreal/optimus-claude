@@ -87,13 +87,21 @@ Read the JSON progress file at the path specified in the system prompt. Extract:
 - `config.test_command` — the test command (for reference only — do NOT run it)
 - `config.max_iterations` — the iteration cap (for reference only — do NOT check it)
 - `config.focus` — finding-cap priority mode (empty string = balanced; used by `refactor` for finding-cap allocation)
+- `config.pr_description` — optional `{"title", "body", "base_ref"}` dict captured by the harness when an open PR exists for the current branch (null when no PR or `gh` unavailable)
 
 Initialize from the progress file:
 - `deep-mode` = true
 - `iteration-count` = `iteration.current`
 - `accumulated-findings` = `findings` array (restoring cross-session state from disk)
-- File list for agents = `scope_files.current`
 - `focus` = `config.focus` (apply to finding-cap logic if the skill supports focus modes)
+
+If `scope_files.current` is non-empty, use it as the file list for agents — this overrides the skill's Step 3 file discovery (the harness pre-populated the scope). If `scope_files.current` is empty, fall back to the skill's Step 3 file discovery via git.
+
+### Steps 3, 4, 5 execution under harness mode
+
+After reading the progress file, proceed through the skill's Step 3, Step 4, and Step 5 in order. Skip only the Step 2 user confirmation. Under harness mode, Step 3 must use the "no local changes → branch-diff" path automatically: the harness requires a clean working tree, so local changes will always be empty. Skip the interactive scope offers, the scope summary presentation, and the large-diff warning.
+
+If `config.pr_description` is non-null, treat it as equivalent to the `pr-description` that interactive Step 3 captures from `gh pr view`: inject it into agent prompts per Step 5 "PR/MR context injection" and apply the Step 6 "PR/MR description as intent signal" soft-confidence adjustment during validation. Do not re-fetch via `gh pr view` — the harness already captured it, and skipping the extra fetch keeps the Claude session turn budget lean.
 
 ### 2. Build iteration context (iterations 2+)
 

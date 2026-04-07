@@ -17,10 +17,12 @@ sys.path.insert(
 from main import (
     _archive_progress,
     _build_argument_parser,
+    _capture_pr_description,
     _handle_interrupt,
     _handle_safe_exit,
     _load_resumed_progress,
     _mark_combined_regression,
+    _populate_branch_scope,
     _print_startup_info,
     _record_iteration_history,
     _recover_from_missing_output,
@@ -870,6 +872,157 @@ class TestHandleInterrupt:
 
 
 # ---------------------------------------------------------------------------
+# _populate_branch_scope
+# ---------------------------------------------------------------------------
+
+
+def _empty_scope_progress():
+    return {
+        "scope_files": {"current": []},
+        "config": {
+            "scope": {"mode": "local-changes", "paths": [], "base_ref": None},
+            "pr_description": None,
+        },
+    }
+
+
+class TestPopulateBranchScope:
+    @patch("main.git_discover_branch_files")
+    def test_populates_files_base_and_mode(self, mock_discover, capsys):
+        mock_discover.return_value = (["src/a.py", "src/b.py"], "origin/main")
+        progress = _empty_scope_progress()
+
+        _populate_branch_scope(progress, "/tmp")
+
+        assert progress["scope_files"]["current"] == ["src/a.py", "src/b.py"]
+        assert progress["config"]["scope"]["base_ref"] == "origin/main"
+        assert progress["config"]["scope"]["mode"] == "branch-diff"
+        assert "Scope: 2 files changed vs origin/main" in capsys.readouterr().out
+
+    @patch("main.git_discover_branch_files")
+    def test_skips_when_scope_already_populated(self, mock_discover):
+        progress = _empty_scope_progress()
+        progress["scope_files"]["current"] = ["existing.py"]
+
+        _populate_branch_scope(progress, "/tmp")
+
+        mock_discover.assert_not_called()
+        assert progress["scope_files"]["current"] == ["existing.py"]
+        assert progress["config"]["scope"]["mode"] == "local-changes"
+
+    @patch("main.git_discover_branch_files", return_value=([], None))
+    def test_no_files_warns_and_leaves_scope_empty(self, mock_discover, capsys):
+        progress = _empty_scope_progress()
+
+        _populate_branch_scope(progress, "/tmp")
+
+        assert progress["scope_files"]["current"] == []
+        assert progress["config"]["scope"]["mode"] == "local-changes"
+        assert "WARNING: No changed files detected" in capsys.readouterr().out
+
+    @patch("main.git_discover_branch_files")
+    def test_forwards_scope_path_as_filter(self, mock_discover, capsys):
+        """--scope src/auth is forwarded to git_discover_branch_files as
+        path_filter, and mode is set to 'directory' rather than 'branch-diff'."""
+        mock_discover.return_value = (
+            ["src/auth/login.py", "src/auth/session.py"],
+            "origin/main",
+        )
+        progress = _empty_scope_progress()
+        progress["config"]["scope"]["paths"] = ["src/auth"]
+        progress["config"]["scope"]["mode"] = "directory"
+
+        _populate_branch_scope(progress, "/tmp")
+
+        mock_discover.assert_called_once_with("/tmp", path_filter="src/auth")
+        assert progress["scope_files"]["current"] == [
+            "src/auth/login.py",
+            "src/auth/session.py",
+        ]
+        assert progress["config"]["scope"]["mode"] == "directory"
+        assert "filtered by src/auth" in capsys.readouterr().out
+
+    @patch("main.git_discover_branch_files")
+    def test_no_scope_path_uses_branch_diff_mode(self, mock_discover):
+        mock_discover.return_value = (["src/a.py"], "origin/main")
+        progress = _empty_scope_progress()
+
+        _populate_branch_scope(progress, "/tmp")
+
+        mock_discover.assert_called_once_with("/tmp", path_filter=None)
+        assert progress["config"]["scope"]["mode"] == "branch-diff"
+
+
+# ---------------------------------------------------------------------------
+# _capture_pr_description
+# ---------------------------------------------------------------------------
+
+
+class TestCapturePrDescription:
+    @patch("main.git_fetch_open_pr_description")
+    def test_stores_pr_info_when_available(self, mock_pr, capsys):
+        mock_pr.return_value = {
+            "title": "Fix auth bug",
+            "body": "Adds null check.",
+            "base_ref": "origin/main",
+        }
+        progress = _empty_scope_progress()
+
+        _capture_pr_description(progress, "/tmp")
+
+        assert progress["config"]["pr_description"] == {
+            "title": "Fix auth bug",
+            "body": "Adds null check.",
+            "base_ref": "origin/main",
+        }
+        assert "Captured PR description: Fix auth bug" in capsys.readouterr().out
+
+    @patch("main.git_fetch_open_pr_description", return_value=None)
+    def test_no_pr_leaves_pr_description_null(self, mock_pr):
+        progress = _empty_scope_progress()
+
+        _capture_pr_description(progress, "/tmp")
+
+        assert progress["config"]["pr_description"] is None
+
+    @patch("main.git_fetch_open_pr_description")
+    def test_skips_when_already_captured(self, mock_pr):
+        """Resumed runs must not re-fetch or overwrite an existing PR
+        description — protects against races where the PR was edited mid-run."""
+        progress = _empty_scope_progress()
+        progress["config"]["pr_description"] = {
+            "title": "Original title",
+            "body": "Original body",
+            "base_ref": "origin/main",
+        }
+
+        _capture_pr_description(progress, "/tmp")
+
+        mock_pr.assert_not_called()
+        assert progress["config"]["pr_description"]["title"] == "Original title"
+
+    @patch("main.git_fetch_open_pr_description")
+    def test_long_title_stored_in_full(self, mock_pr, capsys):
+        """Title is sliced only for the console preview, never for storage."""
+        long_title = "A" * 90
+        mock_pr.return_value = {
+            "title": long_title,
+            "body": "",
+            "base_ref": "origin/main",
+        }
+        progress = _empty_scope_progress()
+
+        _capture_pr_description(progress, "/tmp")
+
+        assert progress["config"]["pr_description"]["title"] == long_title
+        # Console preview must be truncated to the configured cap
+        from main import _PR_TITLE_PREVIEW_CHARS
+
+        out = capsys.readouterr().out
+        assert f"Captured PR description: {long_title[:_PR_TITLE_PREVIEW_CHARS]}" in out
+
+
+# ---------------------------------------------------------------------------
 # main()
 # ---------------------------------------------------------------------------
 
@@ -884,6 +1037,10 @@ class TestMain:
             "main._archive_progress"
         ), patch("main.make_initial_progress") as mock_init, patch(
             "main.git_diff_has_changes", return_value=False
+        ), patch(
+            "main.git_discover_branch_files", return_value=([], None)
+        ), patch(
+            "main.git_fetch_open_pr_description", return_value=None
         ):
             mock_init.return_value = {
                 "skill": "code-review",
@@ -919,6 +1076,10 @@ class TestMain:
             "main._archive_progress"
         ), patch("main.make_initial_progress") as mock_init, patch(
             "main.git_diff_has_changes", return_value=False
+        ), patch(
+            "main.git_discover_branch_files", return_value=([], None)
+        ), patch(
+            "main.git_fetch_open_pr_description", return_value=None
         ):
             mock_init.return_value = {
                 "skill": "code-review",
@@ -944,6 +1105,97 @@ class TestMain:
         assert result == 0
         output = capsys.readouterr().out
         assert "clamped to 1" in output
+
+    @patch("main._validate_environment", return_value=("npm test", None))
+    @patch("main.subprocess.run")
+    def test_populates_branch_scope_when_empty(self, mock_run, mock_validate):
+        """main() wires git_discover_branch_files output into the progress dict.
+
+        Regression guard for the iteration-1 quality gap fix — without this
+        positive-path assertion, unpatching _populate_branch_scope would still
+        leave every existing TestMain test passing.
+        """
+        mock_run.return_value = MagicMock(returncode=0)
+        progress = {
+            "skill": "code-review",
+            "config": {
+                "max_iterations": 8,
+                "test_command": "npm test",
+                "base_commit": "abc123",
+                "focus": "",
+                "project_root": "/tmp",
+                "scope": {"mode": "local-changes", "paths": [], "base_ref": None},
+            },
+            "iteration": {"current": 1, "completed": 0},
+            "findings": [],
+            "scope_files": {"current": []},
+            "test_results": {
+                "last_full_run": None,
+                "last_run_output_summary": None,
+            },
+            "iteration_history": [],
+            "termination": {"reason": None, "message": None},
+        }
+        with patch("main._run_iteration_loop"), patch("main.print_report"), patch(
+            "main._archive_progress"
+        ), patch("main.make_initial_progress", return_value=progress), patch(
+            "main.git_diff_has_changes", return_value=False
+        ), patch(
+            "main.git_discover_branch_files",
+            return_value=(["src/a.py", "src/b.py"], "origin/main"),
+        ), patch(
+            "main.git_fetch_open_pr_description", return_value=None
+        ):
+            result = main(["--skill", "code-review"])
+        assert result == 0
+        assert progress["scope_files"]["current"] == ["src/a.py", "src/b.py"]
+        assert progress["config"]["scope"]["base_ref"] == "origin/main"
+        assert progress["config"]["scope"]["mode"] == "branch-diff"
+
+    @patch("main._validate_environment", return_value=("npm test", None))
+    @patch("main.subprocess.run")
+    def test_captures_pr_description_end_to_end(self, mock_run, mock_validate):
+        """main() wires git_fetch_open_pr_description output into progress."""
+        mock_run.return_value = MagicMock(returncode=0)
+        progress = {
+            "skill": "code-review",
+            "config": {
+                "max_iterations": 8,
+                "test_command": "npm test",
+                "base_commit": "abc123",
+                "focus": "",
+                "project_root": "/tmp",
+                "scope": {"mode": "local-changes", "paths": [], "base_ref": None},
+                "pr_description": None,
+            },
+            "iteration": {"current": 1, "completed": 0},
+            "findings": [],
+            "scope_files": {"current": []},
+            "test_results": {
+                "last_full_run": None,
+                "last_run_output_summary": None,
+            },
+            "iteration_history": [],
+            "termination": {"reason": None, "message": None},
+        }
+        pr_info = {
+            "title": "Fix auth bug",
+            "body": "Adds null check.",
+            "base_ref": "origin/main",
+        }
+        with patch("main._run_iteration_loop"), patch("main.print_report"), patch(
+            "main._archive_progress"
+        ), patch("main.make_initial_progress", return_value=progress), patch(
+            "main.git_diff_has_changes", return_value=False
+        ), patch(
+            "main.git_discover_branch_files",
+            return_value=(["src/a.py"], "origin/main"),
+        ), patch(
+            "main.git_fetch_open_pr_description", return_value=pr_info
+        ):
+            result = main(["--skill", "code-review"])
+        assert result == 0
+        assert progress["config"]["pr_description"] == pr_info
 
     def test_focus_with_non_refactor_returns_error(self, capsys):
         """--focus with code-review returns error code 1."""
@@ -973,7 +1225,11 @@ class TestMain:
         """--no-commit bypasses uncommitted changes check."""
         with patch("main._run_iteration_loop"), patch("main.print_report"), patch(
             "main._archive_progress"
-        ), patch("main.make_initial_progress") as mock_init:
+        ), patch("main.make_initial_progress") as mock_init, patch(
+            "main.git_discover_branch_files", return_value=([], None)
+        ), patch(
+            "main.git_fetch_open_pr_description", return_value=None
+        ):
             mock_init.return_value = {
                 "skill": "code-review",
                 "config": {
@@ -1001,6 +1257,8 @@ class TestMain:
     def test_missing_base_commit_returns_error(self, mock_validate, capsys):
         with patch("main.make_initial_progress") as mock_init, patch(
             "main.git_diff_has_changes", return_value=False
+        ), patch("main.git_discover_branch_files", return_value=([], None)), patch(
+            "main.git_fetch_open_pr_description", return_value=None
         ):
             mock_init.return_value = {
                 "skill": "code-review",
