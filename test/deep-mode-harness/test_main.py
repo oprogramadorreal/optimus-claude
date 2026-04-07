@@ -24,6 +24,7 @@ from main import (
     _mark_combined_regression,
     _populate_branch_scope,
     _print_startup_info,
+    _promote_actionable_fixes,
     _record_iteration_history,
     _recover_from_missing_output,
     _register_iteration_findings,
@@ -118,6 +119,162 @@ class TestRegisterIterationFindings:
         # Should have exactly 1 finding (the fix), not 2
         assert len(sample_progress["findings"]) == 1
         assert sample_progress["findings"][0]["status"] == "applied-pending-test"
+
+
+# ---------------------------------------------------------------------------
+# _promote_actionable_fixes
+# ---------------------------------------------------------------------------
+
+
+def _make_finding(file, line, category, pre, post):
+    return {
+        "file": file,
+        "line": line,
+        "category": category,
+        "summary": "x",
+        "pre_edit_content": pre,
+        "post_edit_content": post,
+    }
+
+
+class TestPromoteActionableFixes:
+    def test_noop_when_flag_false(self):
+        finding = _make_finding("a.md", 1, "doc", "old", "new")
+        result = {
+            "new_findings": [finding],
+            "fixes_applied": [],
+            "no_actionable_fixes": False,
+        }
+        assert _promote_actionable_fixes(result) == 0
+        assert result["fixes_applied"] == []
+        assert result["no_actionable_fixes"] is False
+
+    def test_noop_when_no_findings_have_swap_pairs(self):
+        # All findings are advisories with empty pre/post — typical
+        # legitimate "no actionable" case on a real coding project.
+        advisory = _make_finding("a.py", 1, "test-gap", "", "")
+        result = {
+            "new_findings": [advisory],
+            "fixes_applied": [],
+            "no_actionable_fixes": True,
+        }
+        assert _promote_actionable_fixes(result) == 0
+        assert result["fixes_applied"] == []
+        assert result["no_actionable_fixes"] is True
+
+    def test_promotes_finding_with_valid_swap_pair(self):
+        finding = _make_finding("a.md", 1, "doc", "old line", "new line")
+        result = {
+            "new_findings": [finding],
+            "fixes_applied": [],
+            "no_actionable_fixes": True,
+        }
+        assert _promote_actionable_fixes(result) == 1
+        assert result["fixes_applied"] == [finding]
+        assert result["no_actionable_fixes"] is False
+
+    def test_promotes_only_actionable_in_mixed_set(self):
+        actionable = _make_finding("a.md", 1, "doc", "old", "new")
+        advisory = _make_finding("b.py", 2, "test-gap", "", "")
+        result = {
+            "new_findings": [actionable, advisory],
+            "fixes_applied": [],
+            "no_actionable_fixes": True,
+        }
+        assert _promote_actionable_fixes(result) == 1
+        assert result["fixes_applied"] == [actionable]
+        assert result["no_actionable_fixes"] is False
+
+    def test_promotes_deletion_fix_with_empty_post(self):
+        # Empty post_edit_content is valid per harness-mode.md — represents
+        # a deletion fix (remove the matched code).
+        deletion = _make_finding("a.py", 1, "dead-code", "dead_call()", "")
+        result = {
+            "new_findings": [deletion],
+            "fixes_applied": [],
+            "no_actionable_fixes": True,
+        }
+        assert _promote_actionable_fixes(result) == 1
+        assert result["fixes_applied"] == [deletion]
+        assert result["no_actionable_fixes"] is False
+
+    def test_skips_finding_with_empty_pre(self):
+        # Empty pre_edit_content cannot be applied — apply_single_fix
+        # refuses empty find strings.
+        no_pre = _make_finding("a.py", 1, "x", "", "new")
+        result = {
+            "new_findings": [no_pre],
+            "fixes_applied": [],
+            "no_actionable_fixes": True,
+        }
+        assert _promote_actionable_fixes(result) == 0
+        assert result["fixes_applied"] == []
+        assert result["no_actionable_fixes"] is True
+
+    def test_skips_finding_with_none_post(self):
+        no_post = _make_finding("a.py", 1, "x", "old", None)
+        result = {
+            "new_findings": [no_post],
+            "fixes_applied": [],
+            "no_actionable_fixes": True,
+        }
+        assert _promote_actionable_fixes(result) == 0
+        assert result["fixes_applied"] == []
+        assert result["no_actionable_fixes"] is True
+
+    def test_skips_noop_swap(self):
+        # pre == post is not a real edit.
+        noop = _make_finding("a.py", 1, "x", "same", "same")
+        result = {
+            "new_findings": [noop],
+            "fixes_applied": [],
+            "no_actionable_fixes": True,
+        }
+        assert _promote_actionable_fixes(result) == 0
+        assert result["fixes_applied"] == []
+        assert result["no_actionable_fixes"] is True
+
+    def test_does_not_double_register_already_applied(self):
+        # If the finding somehow appears in both new_findings and
+        # fixes_applied (model duplicated), don't re-add it.
+        finding = _make_finding("a.md", 1, "doc", "old", "new")
+        result = {
+            "new_findings": [finding],
+            "fixes_applied": [finding],
+            "no_actionable_fixes": True,
+        }
+        assert _promote_actionable_fixes(result) == 0
+        assert result["fixes_applied"] == [finding]
+        # Flag stays True because we promoted nothing — but the regression
+        # this guards against (silent drop of actionable fixes) doesn't
+        # apply when fixes_applied already has the finding. Caller will
+        # still hit the no_actionable_fixes branch with applied_count=1.
+
+    def test_handles_missing_new_findings(self):
+        result = {"no_actionable_fixes": True}
+        assert _promote_actionable_fixes(result) == 0
+
+    def test_handles_missing_fixes_applied_key(self):
+        finding = _make_finding("a.md", 1, "doc", "old", "new")
+        result = {
+            "new_findings": [finding],
+            "no_actionable_fixes": True,
+        }
+        assert _promote_actionable_fixes(result) == 1
+        assert result["fixes_applied"] == [finding]
+        assert result["no_actionable_fixes"] is False
+
+    def test_logs_promotion_message(self, capsys):
+        finding = _make_finding("a.md", 1, "doc", "old", "new")
+        result = {
+            "new_findings": [finding],
+            "fixes_applied": [],
+            "no_actionable_fixes": True,
+        }
+        _promote_actionable_fixes(result)
+        out = capsys.readouterr().out
+        assert "no_actionable_fixes=true" in out
+        assert "1 finding" in out
 
 
 # ---------------------------------------------------------------------------

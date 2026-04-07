@@ -187,7 +187,7 @@ At the end of the response, output the iteration results in this exact format:
   ],
   "fixes_skipped_persistent": ["<id of findings skipped due to persistent status>"],
   "no_new_findings": <true if zero new findings discovered>,
-  "no_actionable_fixes": <true if findings exist but none had actionable code edits>
+  "no_actionable_fixes": <true ONLY if every finding has empty pre_edit_content (i.e., no swap pair was captured); any finding with a non-empty pre_edit_content + a different post_edit_content counts as actionable, regardless of file type — markdown, JSON, config, and code edits all qualify>
 }
 ```
 ````

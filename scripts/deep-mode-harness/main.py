@@ -517,6 +517,65 @@ def _recover_from_missing_output(
     return None
 
 
+def _promote_actionable_fixes(result):
+    """Promote findings with valid edit pairs into fixes_applied.
+
+    Defensive guard for a contract gap in the harness JSON output: the skill
+    session decides `no_actionable_fixes` itself, and may incorrectly emit
+    `true` even when individual findings carry mechanically-applicable
+    `pre_edit_content` / `post_edit_content` pairs (observed when the only
+    fixable finding was a markdown doc edit and the model classified it as
+    "not a code edit"). The harness can verify actionability mechanically:
+    if a swap pair exists, the fix can be applied via `apply_single_fix`.
+
+    Mutates `result` in place when promotion occurs:
+      - Adds qualifying findings to `result["fixes_applied"]` (skipping any
+        already present, matched by finding_key).
+      - Forces `result["no_actionable_fixes"] = False` so the normal apply
+        + test + bisect path runs.
+
+    Returns the count of promoted findings (0 if none).
+
+    A finding qualifies when:
+      - `pre_edit_content` is non-empty (apply_single_fix returns False on
+        empty find strings, so empty pre is non-actionable by definition)
+      - `post_edit_content` is a string (not None) — empty string is valid
+        and represents a deletion fix per references/harness-mode.md
+      - `pre_edit_content` differs from `post_edit_content` (a no-op edit
+        is not actionable)
+    """
+    if not result.get("no_actionable_fixes", False):
+        return 0
+
+    new_findings = result.get("new_findings", [])
+    if not new_findings:
+        return 0
+
+    existing_fixes = result.get("fixes_applied", []) or []
+    existing_keys = {finding_key(f) for f in existing_fixes}
+
+    promoted = []
+    for finding in new_findings:
+        pre = finding.get("pre_edit_content")
+        post = finding.get("post_edit_content")
+        if not pre or not isinstance(post, str) or pre == post:
+            continue
+        if finding_key(finding) in existing_keys:
+            continue
+        promoted.append(finding)
+
+    if not promoted:
+        return 0
+
+    print(
+        f"{PREFIX} Skill reported no_actionable_fixes=true but "
+        f"{len(promoted)} finding(s) carry valid edit pairs — applying anyway"
+    )
+    result["fixes_applied"] = existing_fixes + promoted
+    result["no_actionable_fixes"] = False
+    return len(promoted)
+
+
 def _register_iteration_findings(progress, result, fixes):
     """Register applied fixes and discovered-but-not-applied findings."""
     applied_keys = {finding_key(f) for f in fixes}
@@ -688,6 +747,8 @@ def _run_iteration_loop(
             )
             if result is None:
                 break
+
+        _promote_actionable_fixes(result)
 
         new_count = len(result.get("new_findings", []))
         applied_count = len(result.get("fixes_applied", []))
