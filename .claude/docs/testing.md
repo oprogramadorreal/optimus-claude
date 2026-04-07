@@ -2,7 +2,7 @@
 
 This is a markdown-based plugin project — most "source code" is SKILL.md files validated via `bash scripts/validate.sh` and `bash scripts/test-hooks.sh`. The sections below cover the Python code under `scripts/` (`harness_common/`, `deep-mode-harness/`, `test-coverage-harness/`) and its pytest suites under `test/`.
 
-For general testing principles (workflow, when to add tests, bug-fix-first-test discipline), follow the [testing.md template](../../skills/init/templates/docs/testing.md). For skill-file changes, see [skill-writing-guidelines.md](skill-writing-guidelines.md) instead.
+For general testing principles, see [skills/tdd/SKILL.md](../../skills/tdd/SKILL.md) for test-first / bug-reproduce-first discipline, and [skills/tdd/references/testing-anti-patterns.md](../../skills/tdd/references/testing-anti-patterns.md) for mocking discipline (especially relevant here — these harnesses are I/O-heavy and over-mocking has masked real bugs before). For skill-file changes, see [skill-writing-guidelines.md](skill-writing-guidelines.md) instead.
 
 ## Test Runner
 
