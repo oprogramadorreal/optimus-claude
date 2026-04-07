@@ -178,10 +178,7 @@ def _base_from_open_pr(cwd_str):
         return None
 
     pr_base = f"origin/{pr_info['baseRefName']}"
-    # Verify the PR base ref exists locally — gh returns the remote name from
-    # GitHub, but the corresponding origin/<ref> may not be fetched. Kept
-    # outside the gh try/except so a missing `git` binary surfaces loudly
-    # instead of masquerading as "no PR".
+    # gh returns the remote branch name; the local origin/<ref> may not be fetched.
     return pr_base if _verify_ref(cwd_str, pr_base) else None
 
 
@@ -257,13 +254,17 @@ def git_discover_branch_files(cwd, path_filter=None):
     cmd = ["git", "diff", "--name-only", f"{base}...HEAD"]
     if path_filter:
         cmd.extend(["--", path_filter])
-    result = subprocess.run(
-        cmd,
-        capture_output=True,
-        text=True,
-        cwd=cwd_str,
-        timeout=30,
-    )
+    try:
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            cwd=cwd_str,
+            timeout=30,
+        )
+    except (subprocess.TimeoutExpired, FileNotFoundError) as exc:
+        print(f"{PREFIX} WARNING: git diff --name-only failed: {exc}")
+        return [], base
     if result.returncode != 0:
         print(f"{PREFIX} WARNING: git diff --name-only failed: {result.stderr[:200]}")
         return [], base

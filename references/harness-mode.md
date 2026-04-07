@@ -95,7 +95,7 @@ Initialize from the progress file:
 - `accumulated-findings` = `findings` array (restoring cross-session state from disk)
 - `focus` = `config.focus` (apply to finding-cap logic if the skill supports focus modes)
 
-If `scope_files.current` is non-empty, use it as the file list for agents — this overrides the skill's Step 3 file discovery (the harness pre-populated the scope). If `scope_files.current` is empty (should not happen in normal operation), the skill's Step 3 will discover files via git.
+If `scope_files.current` is non-empty, use it as the file list for agents — this overrides the skill's Step 3 file discovery (the harness pre-populated the scope). If `scope_files.current` is empty, fall back to the skill's Step 3 file discovery via git.
 
 ### Steps 3, 4, 5 execution under harness mode
 
