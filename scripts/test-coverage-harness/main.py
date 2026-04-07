@@ -418,6 +418,26 @@ def _print_startup_info(args, progress):
 # ---------------------------------------------------------------------------
 
 
+def _count_phase_summary(progress, cycle, phase):
+    """Derive a phase_summary for the interrupt checkpoint from stored progress.
+
+    Without this, git_commit_checkpoint defaults phase_summary to {} and the
+    commit title always reports "0 tests written" / "0 fixed" even when the
+    interrupted phase had completed real work.
+    """
+    if phase == "unit-test":
+        tests_written = sum(
+            1 for t in progress.get("tests_created", []) if t.get("cycle") == cycle
+        )
+        return {"tests_written": tests_written}
+    fixed = sum(
+        1
+        for f in progress.get("refactor_findings", [])
+        if f.get("cycle") == cycle and f.get("status") == "fixed"
+    )
+    return {"fixed": fixed}
+
+
 def _handle_interrupt(args, progress, progress_path, project_root):
     """Handle Ctrl+C gracefully — commit completed work and save progress."""
     print(f"\n{PREFIX} Interrupted — saving progress...")
@@ -430,8 +450,14 @@ def _handle_interrupt(args, progress, progress_path, project_root):
     if not args.no_commit and git_diff_has_changes(project_root):
         cycle = progress["cycle"]["current"]
         phase = progress.get("phase", "unit-test")
+        phase_summary = _count_phase_summary(progress, cycle, phase)
         if git_commit_checkpoint(
-            progress, cycle, phase, project_root, progress_file=str(progress_path)
+            progress,
+            cycle,
+            phase,
+            project_root,
+            phase_summary,
+            progress_file=str(progress_path),
         ):
             print(f"{PREFIX} Checkpoint: committed completed work before exit")
 
@@ -537,8 +563,13 @@ def _run_unit_test_phase(
         # trust the session to honour that — defensively restore everything.
         restore_working_tree(pre_stash, pre_head, project_root)
         reverted_files = {t.get("file") for t in ut_tests}
+        # Scope the revert to current-cycle entries: a later cycle may legitimately
+        # rewrite a test file that a prior cycle created, and we must not drop the
+        # prior cycle's record just because its file path matches.
         progress["tests_created"] = [
-            t for t in progress["tests_created"] if t.get("file") not in reverted_files
+            t
+            for t in progress["tests_created"]
+            if not (t.get("cycle") == cycle and t.get("file") in reverted_files)
         ]
         ut_summary["test_passed"] = False
         record_cycle_history(progress, cycle, ut_summary)
@@ -787,6 +818,15 @@ def _run_cycle_loop(
                 break
             progress["cycle"]["current"] += 1
             continue
+
+        # Refresh snapshot after a successful unit-test phase so that a
+        # refactor-phase rollback only undoes refactor changes. Without this,
+        # --no-commit mode would restore to the pre-unit-test state on combo
+        # failure and silently discard the tests the unit-test phase just
+        # wrote and verified.
+        if args.no_commit:
+            pre_stash = git_stash_snapshot(project_root)
+            pre_head = git_rev_parse_head(project_root) or pre_head
 
         # ---- Refactor phase ----
         action, refactor_summary, skip_commits = _run_refactor_phase(

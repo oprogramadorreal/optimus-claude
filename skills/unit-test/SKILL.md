@@ -1,5 +1,5 @@
 ---
-description: Improves unit test coverage on demand — discovers testing gaps and generates tests that follow project conventions. Requires /optimus:init to have set up test infrastructure first. Conservative — only adds new test files, never refactors existing source code. Use when test coverage is low or after adding new code that lacks tests.
+description: Improves unit test coverage on demand — discovers testing gaps and generates tests that follow project conventions. Requires /optimus:init to have set up test infrastructure first. Conservative — only adds new test files, never refactors existing source code. Supports `deep harness` mode for an automated multi-cycle unit-test + testability-refactor loop with fresh context per phase. Use when test coverage is low, after adding new code that lacks tests, or when you want an automated coverage-improvement harness.
 disable-model-invocation: true
 ---
 

@@ -3,6 +3,7 @@ import subprocess
 from harness_common.constants import BACKUP_SUFFIX
 
 from .constants import PHASE_COMMIT_TYPE, PREFIX, PROGRESS_FILE_NAME
+from .reporting import build_commit_body
 
 
 def git_commit_checkpoint(
@@ -28,8 +29,6 @@ def git_commit_checkpoint(
 
     commit_type = PHASE_COMMIT_TYPE.get(phase, "chore")
     title = f"{commit_type}(coverage-harness): cycle {cycle} — {detail}"
-
-    from .reporting import build_commit_body
 
     body = build_commit_body(progress, cycle, phase)
     commit_message = f"{title}\n\n{body}" if body else title
