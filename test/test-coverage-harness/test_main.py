@@ -759,7 +759,7 @@ class TestRunCycleLoop:
 
     @patch("main.check_coverage_plateau", return_value=(False, ""))
     @patch("main.check_unit_test_convergence", return_value=(False, ""))
-    @patch("main._revert_test_files")
+    @patch("main.restore_working_tree")
     @patch("main.run_tests", return_value=(False, "FAIL"))
     @patch("main.record_test_result")
     @patch("main.record_cycle_history")
@@ -778,7 +778,7 @@ class TestRunCycleLoop:
         mock_record_cycle,
         mock_record_test,
         mock_run_tests,
-        mock_revert,
+        mock_restore,
         mock_ut_conv,
         mock_plateau,
         sample_coverage_progress,
@@ -797,12 +797,12 @@ class TestRunCycleLoop:
 
         _run_cycle_loop(args, progress, progress_path, tmp_path, "pytest", 1)
 
-        mock_revert.assert_called_once()
+        mock_restore.assert_called()
         assert progress["termination"]["reason"] == "cap"
 
     @patch("main.check_coverage_plateau", return_value=(False, ""))
     @patch("main.check_unit_test_convergence", return_value=(False, ""))
-    @patch("main._revert_test_files")
+    @patch("main.restore_working_tree")
     @patch("main.run_tests", return_value=(False, "FAIL"))
     @patch("main.record_test_result")
     @patch("main.record_cycle_history")
@@ -821,7 +821,7 @@ class TestRunCycleLoop:
         mock_record_cycle,
         mock_record_test,
         mock_run_tests,
-        mock_revert,
+        mock_restore,
         mock_ut_conv,
         mock_plateau,
         sample_coverage_progress,
@@ -844,7 +844,7 @@ class TestRunCycleLoop:
 
         # Should have incremented and then capped
         assert progress["termination"]["reason"] == "cap"
-        assert mock_revert.call_count == 2
+        assert mock_restore.call_count == 2
 
     @patch("main.check_coverage_plateau", return_value=(False, ""))
     @patch("main.check_refactor_convergence", return_value=(False, ""))

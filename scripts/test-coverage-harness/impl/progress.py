@@ -2,7 +2,11 @@ import datetime
 
 from harness_common.constants import normalize_path
 from harness_common.git import git_rev_parse_head
-from harness_common.progress import read_progress, write_progress  # noqa: F401
+from harness_common.progress import (  # noqa: F401
+    read_progress,
+    record_test_result,
+    write_progress,
+)
 
 
 def make_initial_progress(
@@ -47,12 +51,6 @@ def make_initial_progress(
         "test_results": {"last_full_run": None, "last_run_output_summary": None},
         "termination": {"reason": None, "message": None},
     }
-
-
-def record_test_result(progress, passed, summary):
-    """Store test outcome in the progress structure."""
-    progress["test_results"]["last_full_run"] = "pass" if passed else "fail"
-    progress["test_results"]["last_run_output_summary"] = summary
 
 
 def record_cycle_history(progress, cycle, unit_test_result, refactor_result=None):

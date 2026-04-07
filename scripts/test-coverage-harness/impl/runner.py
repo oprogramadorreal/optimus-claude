@@ -1,13 +1,18 @@
 import subprocess
 
-from harness_common.constants import normalize_path
+from harness_common.constants import DEFAULT_TEST_TIMEOUT, normalize_path
 from harness_common.runner import run_tests as _shared_run_tests
 
 from .constants import DEFAULT_SESSION_TIMEOUT, PREFIX
 
 
-def run_tests(test_command, cwd, timeout=DEFAULT_SESSION_TIMEOUT):
-    """Run the project's test command. Returns (passed: bool, output: str)."""
+def run_tests(test_command, cwd, timeout=DEFAULT_TEST_TIMEOUT):
+    """Run the project's test command. Returns (passed: bool, output: str).
+
+    Defaults to the per-test-run timeout (DEFAULT_TEST_TIMEOUT), not the
+    much-longer per-session timeout. The session timeout governs the
+    claude -p call, not pytest invocations.
+    """
     return _shared_run_tests(test_command, cwd, timeout=timeout, prefix=PREFIX)
 
 

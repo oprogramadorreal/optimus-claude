@@ -5,7 +5,11 @@ from harness_common.constants import normalize_path
 from harness_common.git import git_rev_parse_head
 
 # Re-export shared functions for backward compatibility
-from harness_common.progress import read_progress, write_progress
+from harness_common.progress import (  # noqa: F401
+    read_progress,
+    record_test_result,
+    write_progress,
+)
 
 
 def make_initial_progress(
@@ -55,12 +59,6 @@ def make_initial_progress(
         "iteration_history": [],
         "termination": {"reason": None, "message": None},
     }
-
-
-def record_test_result(progress, passed, summary):
-    """Store test outcome in the progress structure."""
-    progress["test_results"]["last_full_run"] = "pass" if passed else "fail"
-    progress["test_results"]["last_run_output_summary"] = summary
 
 
 def migrate_progress(progress):

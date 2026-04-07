@@ -214,6 +214,8 @@ def _load_resumed_progress(progress_path, args, project_root):
         )
 
     # Allow extending cycle cap on resume
+    if "config" not in progress or "max_cycles" not in progress.get("config", {}):
+        return None, "Progress file is missing required 'config.max_cycles' field"
     if args.max_cycles > progress["config"]["max_cycles"]:
         progress["config"]["max_cycles"] = args.max_cycles
 
@@ -290,8 +292,12 @@ def _revert_test_files(tests_written, cwd):
     for test in tests_written:
         filepath = (Path(cwd) / test.get("file", "")).resolve()
         try:
-            filepath.relative_to(cwd_resolved)
+            rel = filepath.relative_to(cwd_resolved)
         except ValueError:
+            continue
+        # Refuse to delete anything inside .git/ — model-supplied paths must
+        # never be able to unlink repo internals (mirrors fixes.py guard).
+        if any(part == ".git" for part in rel.parts):
             continue
         if filepath.exists():
             try:
@@ -463,8 +469,15 @@ def _run_unit_test_phase(
     ut_summary = _process_unit_test_output(progress, ut_result, cycle)
 
     if not test_passed:
-        print(f"{PREFIX} Tests failed after unit-test phase — reverting new test files")
-        _revert_test_files(ut_tests, project_root)
+        print(
+            f"{PREFIX} Tests failed after unit-test phase — restoring pre-cycle state"
+        )
+        # Use restore_working_tree (not just _revert_test_files) so that any
+        # production-source edits the unit-test session may have left behind
+        # are also rolled back, not only the declared test files. The
+        # unit-test phase is supposed to write tests only, but we cannot
+        # trust the session to honour that — defensively restore everything.
+        restore_working_tree(pre_stash, pre_head, project_root)
         reverted_files = {t.get("file") for t in ut_tests}
         progress["tests_created"] = [
             t for t in progress["tests_created"] if t.get("file") not in reverted_files
@@ -588,11 +601,19 @@ def _run_refactor_phase(
             )
             refactor_summary["fixed"] = fixed_count
             refactor_summary["reverted"] = reverted_count
-            refactor_summary["test_passed"] = reverted_count == 0
+            refactor_summary["skipped"] = skipped_count
+            # "test_passed" only when at least one fix survived bisection.
+            # When fixed_count == 0 the working tree is in the all-reverted
+            # state — pre-fix code that was already passing — so reporting
+            # test_passed=True would mislead callers into treating a no-op
+            # cycle as a successful refactor.
+            refactor_summary["test_passed"] = fixed_count > 0
 
-            if reverted_count == len(fixes):
-                print(f"{PREFIX} All refactor fixes reverted.")
-                refactor_summary["test_passed"] = False
+            if fixed_count == 0:
+                print(
+                    f"{PREFIX} No refactor fixes survived bisection "
+                    f"(reverted={reverted_count}, skipped={skipped_count})."
+                )
             elif fixed_count > 0:
                 combo_passed, combo_summary = run_tests(test_command, project_root)
                 record_test_result(progress, combo_passed, combo_summary)

@@ -105,7 +105,11 @@ def bisect_fixes(fixes, test_command, cwd, run_tests_fn=None):
         for idx in reverted_indices:
             fix = fixes[idx]
             if not apply_single_fix(fix, cwd):
-                reverted_count += 1  # fix remains reverted — count it correctly
+                # File content drifted between first revert and retry — fix
+                # could not be re-applied. This is the same condition as a
+                # first-pass apply failure, so count it as skipped (matches
+                # deep-mode-harness/impl/fixes.py behavior).
+                skipped_count += 1
                 continue
             passed, _ = run_tests_fn(test_command, cwd)
             if passed:

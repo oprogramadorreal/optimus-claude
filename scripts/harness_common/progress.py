@@ -17,3 +17,12 @@ def write_progress(path, progress):
 def read_progress(path):
     """Read the progress file."""
     return json.loads(Path(path).read_text(encoding="utf-8"))
+
+
+def record_test_result(progress, passed, summary):
+    """Store test outcome in the progress structure.
+
+    Used by both harnesses; the test_results shape is shared.
+    """
+    progress["test_results"]["last_full_run"] = "pass" if passed else "fail"
+    progress["test_results"]["last_run_output_summary"] = summary
