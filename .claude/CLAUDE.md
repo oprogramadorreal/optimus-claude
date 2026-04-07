@@ -36,7 +36,7 @@ First-time setup: `install.cmd` (creates `.venv` and installs dev dependencies).
 
 ## Skill-writing guidelines
 
-See `.claude/docs/skill-writing-guidelines.md` for skill structure, design principles, and quality standards. A `.claude/docs/coding-guidelines.md` bridge file also exists so that code-review agents can discover these guidelines through the standard doc-loading path.
+See `.claude/docs/skill-writing-guidelines.md` for skill structure, design principles, and quality standards. A `.claude/docs/coding-guidelines.md` bridge file also exists so that code-review agents can discover these guidelines through the standard doc-loading path. A `.claude/docs/testing.md` bridge file also exists so that `/optimus:unit-test`, the code-review test-guardian agent, and the SessionStart hook can discover this repo's pytest conventions through the standard doc-loading path — without requiring `/optimus:init` (which must never be run on this repo).
 
 ## Testing changes
 
