@@ -96,6 +96,10 @@ Initialize from the progress file:
 
 If `scope_files.current` is non-empty, use it as the file list for agents — this overrides the skill's Step 3 file discovery (the harness pre-populated the scope). If `scope_files.current` is empty (should not happen in normal operation), the skill's Step 3 will discover files via git.
 
+### Step 3 / Step 4 execution under harness mode
+
+After reading the progress file, proceed through the skill's Step 3, Step 4, and Step 5 in order. Skip only the Step 2 user confirmation. Under harness mode, Step 3 must use the "no local changes → branch-diff" path automatically: the harness requires a clean working tree, so local changes will always be empty. Skip the interactive scope offers, the scope summary presentation, and the large-diff warning.
+
 ### 2. Build iteration context (iterations 2+)
 
 If `iteration-count` > 1, construct the Iteration Context Block from the accumulated findings using the same template as `$CLAUDE_PLUGIN_ROOT/references/context-injection-blocks.md`:

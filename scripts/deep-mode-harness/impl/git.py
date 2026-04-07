@@ -120,6 +120,86 @@ def git_current_branch(cwd):
     return result.stdout.strip() if result.returncode == 0 else ""
 
 
+def _verify_ref(cwd_str, ref):
+    """Return True if ``ref`` resolves locally via ``git rev-parse --verify``.
+
+    Returns False on subprocess failure (timeout, missing ``git`` binary) so
+    the base-branch fallback chain in ``_detect_base_branch`` degrades cleanly
+    instead of crashing mid-chain.
+    """
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--verify", ref],
+            capture_output=True,
+            text=True,
+            cwd=cwd_str,
+            timeout=10,
+        )
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        return False
+    return result.returncode == 0
+
+
+def _base_from_open_pr(cwd_str):
+    """Return the open PR's base ref (e.g. ``origin/main``) if it exists locally."""
+    try:
+        result = subprocess.run(
+            ["gh", "pr", "view", "--json", "baseRefName,state"],
+            capture_output=True,
+            text=True,
+            cwd=cwd_str,
+            timeout=10,
+        )
+        if result.returncode != 0:
+            return None
+        pr_info = json.loads(result.stdout)
+    except (subprocess.TimeoutExpired, FileNotFoundError, ValueError):
+        return None
+
+    if not (
+        isinstance(pr_info, dict)
+        and pr_info.get("state") == "OPEN"
+        and pr_info.get("baseRefName")
+    ):
+        return None
+
+    pr_base = f"origin/{pr_info['baseRefName']}"
+    # Verify the PR base ref exists locally — gh returns the remote name from
+    # GitHub, but the corresponding origin/<ref> may not be fetched. Kept
+    # outside the gh try/except so a missing `git` binary surfaces loudly
+    # instead of masquerading as "no PR".
+    return pr_base if _verify_ref(cwd_str, pr_base) else None
+
+
+def _base_from_symbolic_ref(cwd_str):
+    """Return the base ref from ``git symbolic-ref refs/remotes/origin/HEAD``."""
+    try:
+        result = subprocess.run(
+            ["git", "symbolic-ref", "refs/remotes/origin/HEAD"],
+            capture_output=True,
+            text=True,
+            cwd=cwd_str,
+            timeout=10,
+        )
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        return None
+    if result.returncode != 0:
+        return None
+    # Output is like "refs/remotes/origin/main" — strip to "origin/main"
+    ref = result.stdout.strip()
+    if ref.startswith("refs/remotes/"):
+        return ref[len("refs/remotes/") :]
+    return None
+
+
+def _base_from_default_branches(cwd_str):
+    """Return the first of ``origin/main`` / ``origin/master`` that exists."""
+    for fallback in ("origin/main", "origin/master"):
+        if _verify_ref(cwd_str, fallback):
+            return fallback
+    return None
+
+
 def _detect_base_branch(cwd):
     """Detect the base branch for the current feature branch.
 
@@ -132,76 +212,22 @@ def _detect_base_branch(cwd):
     Returns a branch ref like 'origin/main', or None if detection fails.
     """
     cwd_str = str(cwd)
-
-    # 1. Try gh pr view for open PR target branch
-    pr_base = None
-    try:
-        result = subprocess.run(
-            ["gh", "pr", "view", "--json", "baseRefName,state"],
-            capture_output=True,
-            text=True,
-            cwd=cwd_str,
-            timeout=10,
-        )
-        if result.returncode == 0:
-            pr_info = json.loads(result.stdout)
-            if (
-                isinstance(pr_info, dict)
-                and pr_info.get("state") == "OPEN"
-                and pr_info.get("baseRefName")
-            ):
-                pr_base = f"origin/{pr_info['baseRefName']}"
-    except (subprocess.TimeoutExpired, FileNotFoundError, ValueError):
-        pass
-
-    # Verify the PR base ref exists locally — gh returns the remote name from
-    # GitHub, but the corresponding origin/<ref> may not be fetched. Without
-    # this check, downstream `git diff <base>...HEAD` fails silently and we
-    # report no changed files. Kept outside the gh try/except so a missing
-    # `git` binary surfaces loudly instead of masquerading as "no PR".
-    if pr_base:
-        verify = subprocess.run(
-            ["git", "rev-parse", "--verify", pr_base],
-            capture_output=True,
-            text=True,
-            cwd=cwd_str,
-            timeout=10,
-        )
-        if verify.returncode == 0:
-            return pr_base
-
-    # 2. git symbolic-ref refs/remotes/origin/HEAD
-    result = subprocess.run(
-        ["git", "symbolic-ref", "refs/remotes/origin/HEAD"],
-        capture_output=True,
-        text=True,
-        cwd=cwd_str,
+    return (
+        _base_from_open_pr(cwd_str)
+        or _base_from_symbolic_ref(cwd_str)
+        or _base_from_default_branches(cwd_str)
     )
-    if result.returncode == 0:
-        # Output is like "refs/remotes/origin/main" — strip to "origin/main"
-        ref = result.stdout.strip()
-        if ref.startswith("refs/remotes/"):
-            return ref[len("refs/remotes/") :]
-
-    # 3–4. Try common default branches
-    for fallback in ("origin/main", "origin/master"):
-        result = subprocess.run(
-            ["git", "rev-parse", "--verify", fallback],
-            capture_output=True,
-            text=True,
-            cwd=cwd_str,
-        )
-        if result.returncode == 0:
-            return fallback
-
-    return None
 
 
 def git_discover_branch_files(cwd):
     """Discover all files changed in the current feature branch vs. the base branch.
 
-    Returns a list of file paths (relative to repo root), or an empty list
-    if detection fails. Also returns the base ref used for scope tracking.
+    Returns a tuple ``(files, base_ref)``:
+
+    - ``(files, base_ref)`` on success — ``files`` is a list of repo-relative
+      paths, ``base_ref`` is the detected base (e.g. ``"origin/main"``).
+    - ``([], base_ref)`` if the base was detected but ``git diff`` failed.
+    - ``([], None)`` if no base branch could be detected.
     """
     cwd_str = str(cwd)
     base = _detect_base_branch(cwd)
@@ -214,6 +240,7 @@ def git_discover_branch_files(cwd):
         capture_output=True,
         text=True,
         cwd=cwd_str,
+        timeout=30,
     )
     if result.returncode != 0:
         print(f"{PREFIX} WARNING: git diff --name-only failed: {result.stderr[:200]}")

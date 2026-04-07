@@ -209,6 +209,34 @@ def _validate_environment(project_root, args):
     return test_command, None
 
 
+def _populate_branch_scope(progress, project_root):
+    """Pre-populate ``scope_files.current`` from the current branch's diff vs.
+    its base, mutating ``progress`` in place.
+
+    Skips when scope is already populated (e.g., a resumed run with a prior
+    file list, or a fresh run with an explicit ``--scope``). Resumed progress
+    files are normalised by ``migrate_progress`` in ``_load_resumed_progress``,
+    so the keys read below are guaranteed to exist for both fresh and resumed
+    runs.
+    """
+    if progress["scope_files"]["current"]:
+        return
+
+    branch_files, base_ref = git_discover_branch_files(project_root)
+    if not branch_files:
+        print(
+            f"{PREFIX} WARNING: No changed files detected — agents may have limited scope"
+        )
+        return
+
+    # git_discover_branch_files only returns a non-empty file list when a base
+    # ref was successfully detected, so base_ref is guaranteed truthy here.
+    progress["scope_files"]["current"] = branch_files
+    progress["config"]["scope"]["base_ref"] = base_ref
+    progress["config"]["scope"]["mode"] = "branch-diff"
+    print(f"{PREFIX} Scope: {len(branch_files)} files changed vs {base_ref}")
+
+
 def _load_resumed_progress(progress_path, args, project_root):
     """Load and validate a progress file for --resume.
 
@@ -753,23 +781,9 @@ def main(argv=None):
             focus=args.focus,
         )
 
-    # Pre-discover feature branch files when no scope was supplied — mirrors
-    # the skill's Step 3 "no local changes → branch diff" path so iteration 1
-    # agents have a file list. (Resumed progress files are normalised by
-    # migrate_progress in _load_resumed_progress, so the keys read below are
-    # guaranteed to exist for both fresh and resumed runs.)
-    if not progress["scope_files"]["current"]:
-        branch_files, base_ref = git_discover_branch_files(project_root)
-        if branch_files:
-            progress["scope_files"]["current"] = branch_files
-            if base_ref:
-                progress["config"]["scope"]["base_ref"] = base_ref
-                progress["config"]["scope"]["mode"] = "branch-diff"
-            print(f"{PREFIX} Scope: {len(branch_files)} files changed vs {base_ref}")
-        else:
-            print(
-                f"{PREFIX} WARNING: No changed files detected — agents may have limited scope"
-            )
+    # Mirrors the skill's Step 3 "no local changes → branch diff" path so
+    # iteration 1 agents have a file list when no scope was supplied.
+    _populate_branch_scope(progress, project_root)
 
     # Validate focus mode (progress file may contain hand-edited values on --resume)
     focus = progress["config"].get("focus", "")

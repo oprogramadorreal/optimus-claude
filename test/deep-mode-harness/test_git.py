@@ -390,6 +390,7 @@ class TestGitDiscoverBranchFiles:
             capture_output=True,
             text=True,
             cwd="/tmp",
+            timeout=30,
         )
 
     @patch("impl.git._detect_base_branch", return_value=None)

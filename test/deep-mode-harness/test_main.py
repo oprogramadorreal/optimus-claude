@@ -21,6 +21,7 @@ from main import (
     _handle_safe_exit,
     _load_resumed_progress,
     _mark_combined_regression,
+    _populate_branch_scope,
     _print_startup_info,
     _record_iteration_history,
     _recover_from_missing_output,
@@ -867,6 +868,53 @@ class TestHandleInterrupt:
         _handle_interrupt(args, sample_progress, tmp_path / "p.json", tmp_path)
         # Should still have exactly 1 entry, not 2
         assert len(sample_progress["iteration_history"]) == 1
+
+
+# ---------------------------------------------------------------------------
+# _populate_branch_scope
+# ---------------------------------------------------------------------------
+
+
+def _empty_scope_progress():
+    return {
+        "scope_files": {"current": []},
+        "config": {"scope": {"mode": "local-changes", "paths": [], "base_ref": None}},
+    }
+
+
+class TestPopulateBranchScope:
+    @patch("main.git_discover_branch_files")
+    def test_populates_files_base_and_mode(self, mock_discover, capsys):
+        mock_discover.return_value = (["src/a.py", "src/b.py"], "origin/main")
+        progress = _empty_scope_progress()
+
+        _populate_branch_scope(progress, "/tmp")
+
+        assert progress["scope_files"]["current"] == ["src/a.py", "src/b.py"]
+        assert progress["config"]["scope"]["base_ref"] == "origin/main"
+        assert progress["config"]["scope"]["mode"] == "branch-diff"
+        assert "Scope: 2 files changed vs origin/main" in capsys.readouterr().out
+
+    @patch("main.git_discover_branch_files")
+    def test_skips_when_scope_already_populated(self, mock_discover):
+        progress = _empty_scope_progress()
+        progress["scope_files"]["current"] = ["existing.py"]
+
+        _populate_branch_scope(progress, "/tmp")
+
+        mock_discover.assert_not_called()
+        assert progress["scope_files"]["current"] == ["existing.py"]
+        assert progress["config"]["scope"]["mode"] == "local-changes"
+
+    @patch("main.git_discover_branch_files", return_value=([], None))
+    def test_no_files_warns_and_leaves_scope_empty(self, mock_discover, capsys):
+        progress = _empty_scope_progress()
+
+        _populate_branch_scope(progress, "/tmp")
+
+        assert progress["scope_files"]["current"] == []
+        assert progress["config"]["scope"]["mode"] == "local-changes"
+        assert "WARNING: No changed files detected" in capsys.readouterr().out
 
 
 # ---------------------------------------------------------------------------

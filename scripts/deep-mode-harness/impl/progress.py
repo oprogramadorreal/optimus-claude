@@ -75,11 +75,22 @@ def migrate_progress(progress):
     downstream code can rely on the canonical shape from make_initial_progress.
 
     Handles both fully-missing keys and partial shapes (e.g., a `scope_files`
-    dict that exists but lacks the `current` subkey).
+    dict that exists but lacks the `current` subkey). If ``progress`` itself
+    is not a dict (e.g., a corrupted JSON file with a top-level list), returns
+    early so the downstream "missing required field" check in
+    ``_load_resumed_progress`` can produce a friendly error.
     """
-    config = progress.setdefault("config", {})
-    scope = config.setdefault("scope", {})
+    if not isinstance(progress, dict):
+        return
+    if not isinstance(progress.get("config"), dict):
+        progress["config"] = {}
+    config = progress["config"]
+    if not isinstance(config.get("scope"), dict):
+        config["scope"] = {}
+    scope = config["scope"]
     scope.setdefault("mode", "local-changes")
     scope.setdefault("paths", [])
     scope.setdefault("base_ref", None)
-    progress.setdefault("scope_files", {}).setdefault("current", [])
+    if not isinstance(progress.get("scope_files"), dict):
+        progress["scope_files"] = {}
+    progress["scope_files"].setdefault("current", [])
