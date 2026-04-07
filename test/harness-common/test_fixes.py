@@ -332,3 +332,84 @@ class TestBisectFixes:
         assert skipped == 0
         assert (tmp_path / "a.txt").read_text(encoding="utf-8") == "old_a"
         assert (tmp_path / "b.txt").read_text(encoding="utf-8") == "old_b"
+
+    def test_on_outcome_callback_invoked_per_fix(self, tmp_path):
+        """on_outcome receives (idx, fix, outcome) for every processed fix."""
+        fixes = [
+            _make_fix(tmp_path, "a.txt", "old_a", "new_a"),  # will pass → "fixed"
+            _make_fix(tmp_path, "b.txt", "old_b", "new_b"),  # will fail → "reverted"
+            {
+                "file": "gone.txt",  # unrevertable → "retained"
+                "pre_edit_content": "x",
+                "post_edit_content": "y",
+            },
+        ]
+        call_count = 0
+
+        def run_tests(cmd, cwd):
+            nonlocal call_count
+            call_count += 1
+            return (True, "ok") if call_count == 1 else (False, "fail")
+
+        outcomes = []
+
+        def on_outcome(idx, fix, outcome):
+            outcomes.append((idx, fix["file"], outcome))
+
+        fixed, reverted, skipped = bisect_fixes(
+            fixes,
+            "test",
+            str(tmp_path),
+            run_tests,
+            on_outcome=on_outcome,
+        )
+        # gone.txt is "retained" (counted as fixed), a.txt is "fixed", b.txt "reverted"
+        assert fixed == 2
+        assert reverted == 1
+        assert skipped == 0
+        # All three fixes should have produced exactly one outcome event
+        assert len(outcomes) == 3
+        outcomes_by_file = {file: outcome for _, file, outcome in outcomes}
+        assert outcomes_by_file["a.txt"] == "fixed"
+        assert outcomes_by_file["b.txt"] == "reverted"
+        assert outcomes_by_file["gone.txt"] == "retained"
+
+    def test_second_pass_apply_failure_counted_as_skipped(self, tmp_path):
+        """If a reverted fix can't be re-applied on retry, it counts as skipped."""
+        fixes = [
+            _make_fix(tmp_path, "a.txt", "old_a", "new_a"),  # passes
+            _make_fix(tmp_path, "b.txt", "old_b", "new_b"),  # fails first pass
+        ]
+        call_count = 0
+
+        def run_tests(cmd, cwd):
+            nonlocal call_count
+            call_count += 1
+            return (True, "ok") if call_count == 1 else (False, "fail")
+
+        outcomes = []
+
+        def on_outcome(idx, fix, outcome):
+            outcomes.append((fix["file"], outcome))
+
+        # apply_single_fix call sequence:
+        #   1) first-pass apply A → True
+        #   2) first-pass apply B → True
+        #   3) second-pass retry apply B → False  (drift simulated)
+        with patch(
+            "harness_common.fixes.apply_single_fix",
+            side_effect=[True, True, False],
+        ):
+            fixed, reverted, skipped = bisect_fixes(
+                fixes,
+                "test",
+                str(tmp_path),
+                run_tests,
+                on_outcome=on_outcome,
+            )
+        assert fixed == 1  # only A
+        assert reverted == 0
+        assert skipped == 1  # B's retry could not re-apply
+        # B should have been marked "skipped" via the second-pass branch
+        assert ("b.txt", "skipped") in outcomes
+        assert ("a.txt", "fixed") in outcomes

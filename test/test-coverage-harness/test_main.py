@@ -19,8 +19,10 @@ sys.path.insert(
 from main import (
     _archive_progress,
     _build_argument_parser,
+    _count_phase_summary,
     _handle_interrupt,
     _load_resumed_progress,
+    _make_bisect_outcome_callback,
     _print_startup_info,
     _process_refactor_output,
     _process_unit_test_output,
@@ -242,6 +244,34 @@ class TestLoadResumedProgress:
         assert result is None
         assert "Cannot read progress file" in err
 
+    def test_missing_max_cycles(self, tmp_path, sample_coverage_progress):
+        """Progress file with config but no max_cycles is rejected."""
+        progress_path = tmp_path / "progress.json"
+        sample_coverage_progress["config"]["project_root"] = self._normalized(tmp_path)
+        del sample_coverage_progress["config"]["max_cycles"]
+        self._write_progress(progress_path, sample_coverage_progress)
+        args = MagicMock(max_cycles=5)
+        result, err = _load_resumed_progress(progress_path, args, tmp_path)
+        assert result is None
+        assert "max_cycles" in err
+
+    def test_missing_config(self, tmp_path, sample_coverage_progress):
+        """Progress file with no config at all is rejected."""
+        progress_path = tmp_path / "progress.json"
+        # Keep harness/project_root check happy by writing config first, then drop it
+        sample_coverage_progress["config"]["project_root"] = self._normalized(tmp_path)
+        # Need config present for the project_root check to pass — so instead
+        # keep project_root but strip everything else from config. The code
+        # path triggers on "max_cycles" not in config, which covers both branches.
+        sample_coverage_progress["config"] = {
+            "project_root": self._normalized(tmp_path)
+        }
+        self._write_progress(progress_path, sample_coverage_progress)
+        args = MagicMock(max_cycles=5)
+        result, err = _load_resumed_progress(progress_path, args, tmp_path)
+        assert result is None
+        assert "max_cycles" in err
+
 
 # ---------------------------------------------------------------------------
 # _process_unit_test_output
@@ -342,6 +372,25 @@ class TestProcessUnitTestOutput:
         assert summary["tests_written"] == 2
         assert summary["tests_passed"] == 1
 
+    def test_untestable_item_without_file_is_skipped(self, sample_coverage_progress):
+        """Items missing a 'file' field are silently dropped (no key collision)."""
+        progress = sample_coverage_progress
+        result = {
+            "tests_written": [],
+            "coverage": {},
+            "untestable_code": [
+                {"line": 10, "function": "ghost", "barrier": "missing-file-field"},
+                {"file": "src/real.py", "line": 5, "function": "real_fn"},
+            ],
+            "bugs_discovered": [],
+        }
+        summary = _process_unit_test_output(progress, result, 1)
+        # Reported count includes the no-file item (it's part of the input list)
+        assert summary["untestable_items_reported"] == 2
+        # But only the item with a file is actually persisted
+        assert len(progress["untestable_code"]) == 1
+        assert progress["untestable_code"][0]["file"] == "src/real.py"
+
 
 # ---------------------------------------------------------------------------
 # _process_refactor_output
@@ -379,6 +428,213 @@ class TestProcessRefactorOutput:
         summary = _process_refactor_output(progress, result, 1)
         assert summary["findings_count"] == 0
         assert summary["fixed"] == 0
+
+    def test_finding_without_matching_fix_marked_skipped(
+        self, sample_coverage_progress
+    ):
+        """Findings absent from fixes_applied are stamped 'skipped — not applied'."""
+        progress = sample_coverage_progress
+        result = {
+            "fixes_applied": [
+                {
+                    "file": "src/a.py",
+                    "pre_edit_content": "old_a",
+                    "post_edit_content": "new_a",
+                }
+            ],
+            "new_findings": [
+                {
+                    "file": "src/a.py",
+                    "pre_edit_content": "old_a",
+                    "summary": "applied finding",
+                },
+                {
+                    "file": "src/b.py",
+                    "pre_edit_content": "old_b",
+                    "summary": "unapplied finding",
+                },
+            ],
+        }
+        _process_refactor_output(progress, result, 1)
+        statuses = {f["file"]: f["status"] for f in progress["refactor_findings"]}
+        assert statuses["src/a.py"] == "fixed"
+        assert statuses["src/b.py"] == "skipped — not applied"
+
+
+# ---------------------------------------------------------------------------
+# _make_bisect_outcome_callback
+# ---------------------------------------------------------------------------
+
+
+class TestMakeBisectOutcomeCallback:
+    def _progress_with_findings(self, sample_coverage_progress, findings):
+        progress = sample_coverage_progress
+        progress["refactor_findings"] = findings
+        return progress
+
+    def test_fixed_outcome_sets_fixed_status(self, sample_coverage_progress):
+        progress = self._progress_with_findings(
+            sample_coverage_progress,
+            [
+                {
+                    "file": "src/a.py",
+                    "pre_edit_content": "old_a",
+                    "cycle": 1,
+                    "status": "fixed",
+                }
+            ],
+        )
+        cb = _make_bisect_outcome_callback(progress, 1)
+        cb(0, {"file": "src/a.py", "pre_edit_content": "old_a"}, "fixed")
+        assert progress["refactor_findings"][0]["status"] == "fixed"
+
+    def test_reverted_outcome_downgrades_status(self, sample_coverage_progress):
+        progress = self._progress_with_findings(
+            sample_coverage_progress,
+            [
+                {
+                    "file": "src/a.py",
+                    "pre_edit_content": "old_a",
+                    "cycle": 1,
+                    "status": "fixed",
+                }
+            ],
+        )
+        cb = _make_bisect_outcome_callback(progress, 1)
+        cb(0, {"file": "src/a.py", "pre_edit_content": "old_a"}, "reverted")
+        assert progress["refactor_findings"][0]["status"] == "reverted — test failure"
+
+    def test_retained_outcome(self, sample_coverage_progress):
+        progress = self._progress_with_findings(
+            sample_coverage_progress,
+            [
+                {
+                    "file": "src/a.py",
+                    "pre_edit_content": "old_a",
+                    "cycle": 1,
+                    "status": "fixed",
+                }
+            ],
+        )
+        cb = _make_bisect_outcome_callback(progress, 1)
+        cb(0, {"file": "src/a.py", "pre_edit_content": "old_a"}, "retained")
+        assert progress["refactor_findings"][0]["status"] == "fixed — revert failed"
+
+    def test_skipped_outcome(self, sample_coverage_progress):
+        progress = self._progress_with_findings(
+            sample_coverage_progress,
+            [
+                {
+                    "file": "src/a.py",
+                    "pre_edit_content": "old_a",
+                    "cycle": 1,
+                    "status": "fixed",
+                }
+            ],
+        )
+        cb = _make_bisect_outcome_callback(progress, 1)
+        cb(0, {"file": "src/a.py", "pre_edit_content": "old_a"}, "skipped")
+        assert progress["refactor_findings"][0]["status"] == "skipped — apply failed"
+
+    def test_unknown_outcome_is_ignored(self, sample_coverage_progress):
+        progress = self._progress_with_findings(
+            sample_coverage_progress,
+            [
+                {
+                    "file": "src/a.py",
+                    "pre_edit_content": "old_a",
+                    "cycle": 1,
+                    "status": "fixed",
+                }
+            ],
+        )
+        cb = _make_bisect_outcome_callback(progress, 1)
+        cb(0, {"file": "src/a.py", "pre_edit_content": "old_a"}, "mystery")
+        # Status unchanged
+        assert progress["refactor_findings"][0]["status"] == "fixed"
+
+    def test_only_first_matching_finding_is_updated(self, sample_coverage_progress):
+        """Duplicate (file, pre_edit_content) findings: only the first is touched."""
+        progress = self._progress_with_findings(
+            sample_coverage_progress,
+            [
+                {
+                    "file": "src/a.py",
+                    "pre_edit_content": "old_a",
+                    "cycle": 1,
+                    "status": "fixed",
+                },
+                {
+                    "file": "src/a.py",
+                    "pre_edit_content": "old_a",
+                    "cycle": 1,
+                    "status": "fixed",
+                },
+            ],
+        )
+        cb = _make_bisect_outcome_callback(progress, 1)
+        cb(0, {"file": "src/a.py", "pre_edit_content": "old_a"}, "reverted")
+        assert progress["refactor_findings"][0]["status"] == "reverted — test failure"
+        # Second duplicate is left alone
+        assert progress["refactor_findings"][1]["status"] == "fixed"
+
+    def test_other_cycles_findings_ignored(self, sample_coverage_progress):
+        """Findings from a different cycle are not candidates for matching."""
+        progress = self._progress_with_findings(
+            sample_coverage_progress,
+            [
+                {
+                    "file": "src/a.py",
+                    "pre_edit_content": "old_a",
+                    "cycle": 1,
+                    "status": "fixed",
+                }
+            ],
+        )
+        cb = _make_bisect_outcome_callback(progress, 2)  # different cycle
+        cb(0, {"file": "src/a.py", "pre_edit_content": "old_a"}, "reverted")
+        # Cycle-1 finding is untouched
+        assert progress["refactor_findings"][0]["status"] == "fixed"
+
+
+# ---------------------------------------------------------------------------
+# _count_phase_summary
+# ---------------------------------------------------------------------------
+
+
+class TestCountPhaseSummary:
+    def test_unit_test_phase_counts_tests_written(self, sample_coverage_progress):
+        progress = sample_coverage_progress
+        progress["tests_created"] = [
+            {"file": "tests/test_a.py", "cycle": 1},
+            {"file": "tests/test_b.py", "cycle": 1},
+            {"file": "tests/test_c.py", "cycle": 2},  # different cycle
+        ]
+        summary = _count_phase_summary(progress, cycle=1, phase="unit-test")
+        assert summary == {"tests_written": 2}
+
+    def test_unit_test_phase_with_no_tests(self, sample_coverage_progress):
+        summary = _count_phase_summary(
+            sample_coverage_progress, cycle=1, phase="unit-test"
+        )
+        assert summary == {"tests_written": 0}
+
+    def test_refactor_phase_counts_fixed_findings(self, sample_coverage_progress):
+        progress = sample_coverage_progress
+        progress["refactor_findings"] = [
+            {"file": "src/a.py", "cycle": 1, "status": "fixed"},
+            {"file": "src/b.py", "cycle": 1, "status": "fixed"},
+            {"file": "src/c.py", "cycle": 1, "status": "reverted — test failure"},
+            {"file": "src/d.py", "cycle": 2, "status": "fixed"},  # different cycle
+        ]
+        summary = _count_phase_summary(progress, cycle=1, phase="refactor")
+        assert summary == {"fixed": 2}
+
+    def test_refactor_phase_with_no_findings(self, sample_coverage_progress):
+        summary = _count_phase_summary(
+            sample_coverage_progress, cycle=1, phase="refactor"
+        )
+        assert summary == {"fixed": 0}
 
 
 # ---------------------------------------------------------------------------

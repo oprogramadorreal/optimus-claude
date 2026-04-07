@@ -63,6 +63,63 @@ class TestRunTests:
         assert passed is False
         assert "timed out" in summary
 
+    @patch("harness_common.runner.sys")
+    @patch("harness_common.runner.subprocess.run")
+    def test_timeout_includes_partial_output_tail(self, mock_run, mock_sys):
+        """Bytes stdout/stderr from TimeoutExpired are decoded and tail appended."""
+        mock_sys.platform = "linux"
+        mock_run.side_effect = subprocess.TimeoutExpired(
+            "npm test",
+            300,
+            output=b"line1\nline2\nlast\n",
+            stderr=b"err-tail\n",
+        )
+        passed, summary = run_tests("npm test", "/tmp/project")
+        assert passed is False
+        assert "timed out after 300s" in summary
+        # Tail of decoded output should appear in summary (line 99 path)
+        assert "last" in summary
+        assert "err-tail" in summary
+
+    @patch("harness_common.runner.sys")
+    @patch("harness_common.runner.subprocess.run")
+    def test_command_not_found_unix(self, mock_run, mock_sys, capsys):
+        """FileNotFoundError surfaces an actionable error instead of crashing."""
+        mock_sys.platform = "linux"
+        mock_run.side_effect = FileNotFoundError(2, "No such file", "missing-bin")
+        passed, summary = run_tests("missing-bin", "/tmp/project")
+        assert passed is False
+        assert "Command not found" in summary
+        assert "missing-bin" in summary
+        # The Git Bash hint is Windows-only
+        assert "Git Bash" not in summary
+        out = capsys.readouterr().out
+        assert "Command not found" in out
+
+    @patch("harness_common.runner._find_bash", return_value="bash")
+    @patch("harness_common.runner.sys")
+    @patch("harness_common.runner.subprocess.run")
+    def test_command_not_found_windows_includes_git_bash_hint(
+        self, mock_run, mock_sys, mock_find_bash
+    ):
+        """On Windows, missing bash mentions the Git Bash install hint."""
+        mock_sys.platform = "win32"
+        mock_run.side_effect = FileNotFoundError(2, "No such file", "bash")
+        passed, summary = run_tests("npm test", "/tmp/project")
+        assert passed is False
+        assert "Command not found" in summary
+        assert "Git Bash" in summary
+
+    @patch("harness_common.runner.sys")
+    @patch("harness_common.runner.subprocess.run")
+    def test_command_not_found_no_filename(self, mock_run, mock_sys):
+        """FileNotFoundError without a filename falls back to 'bash' label."""
+        mock_sys.platform = "linux"
+        mock_run.side_effect = FileNotFoundError()
+        passed, summary = run_tests("npm test", "/tmp/project")
+        assert passed is False
+        assert "bash" in summary
+
     @patch("harness_common.runner._find_bash", return_value="C:\\Git\\bin\\bash.exe")
     @patch("harness_common.runner.sys")
     @patch("harness_common.runner.subprocess.run")
