@@ -530,7 +530,7 @@ def _run_unit_test_phase(
         write_progress(progress_path, progress)
         return "break", None, pre_head, skip_commits
 
-    ut_tests = ut_result.get("tests_written", [])
+    ut_tests = ut_result.get("tests_written") or []
     print(
         f"{PREFIX} Unit-test session complete — "
         f"{len(ut_tests)} tests written ({ut_elapsed}s)"
@@ -554,7 +554,7 @@ def _run_unit_test_phase(
             "tests_written": len(ut_tests),
             "tests_passed": 0,
             "coverage_delta": 0,
-            "untestable_items_reported": len(ut_result.get("untestable_code", [])),
+            "untestable_items_reported": len(ut_result.get("untestable_code") or []),
             "test_passed": False,
         }
         record_cycle_history(progress, cycle, ut_summary)
@@ -656,7 +656,7 @@ def _run_refactor_phase(
         write_progress(progress_path, progress)
         return "break", None, skip_commits
 
-    fixes = rf_result.get("fixes_applied", [])
+    fixes = rf_result.get("fixes_applied") or []
     print(
         f"{PREFIX} Refactor session complete — "
         f"{len(fixes)} fixes applied ({rf_elapsed}s)"
@@ -673,7 +673,11 @@ def _run_refactor_phase(
             print(f"{PREFIX} Tests failed after refactor — bisecting fixes")
             on_outcome = _make_bisect_outcome_callback(progress, cycle)
             fixed_count, reverted_count, skipped_count = bisect_fixes(
-                fixes, test_command, str(project_root), on_outcome=on_outcome
+                fixes,
+                test_command,
+                str(project_root),
+                run_tests_fn=run_tests,
+                on_outcome=on_outcome,
             )
             refactor_summary["fixed"] = fixed_count
             refactor_summary["reverted"] = reverted_count
@@ -807,10 +811,10 @@ def _run_cycle_loop(
 
         # Refresh snapshot after a successful unit-test phase so that a
         # refactor-phase rollback only undoes refactor changes. Without this,
-        # --no-commit mode would restore to the pre-unit-test state on combo
-        # failure and silently discard the tests the unit-test phase just
-        # wrote and verified.
-        if args.no_commit:
+        # uncommitted unit-test work (from --no-commit mode or a failed
+        # checkpoint commit) would be silently discarded by a combo-failure
+        # restore_working_tree(pre_head) call.
+        if args.no_commit or git_diff_has_changes(project_root):
             pre_stash = git_stash_snapshot(project_root)
             pre_head = git_rev_parse_head(project_root) or pre_head
 
