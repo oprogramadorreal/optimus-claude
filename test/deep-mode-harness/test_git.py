@@ -279,8 +279,26 @@ class TestDetectBaseBranch:
     @patch("impl.git.subprocess.run")
     def test_open_pr_returns_pr_base(self, mock_run):
         pr_json = json.dumps({"state": "OPEN", "baseRefName": "develop"})
-        mock_run.return_value = MagicMock(returncode=0, stdout=pr_json)
+        mock_run.side_effect = [
+            MagicMock(returncode=0, stdout=pr_json),  # gh pr view
+            MagicMock(returncode=0, stdout="abc123\n"),  # rev-parse verify
+        ]
         assert _detect_base_branch("/tmp") == "origin/develop"
+        # Verify the rev-parse call was actually issued
+        verify_call = mock_run.call_args_list[1]
+        assert verify_call[0][0] == ["git", "rev-parse", "--verify", "origin/develop"]
+
+    @patch("impl.git.subprocess.run")
+    def test_open_pr_unfetched_base_falls_through(self, mock_run):
+        pr_json = json.dumps({"state": "OPEN", "baseRefName": "develop"})
+        mock_run.side_effect = [
+            MagicMock(returncode=0, stdout=pr_json),  # gh pr view
+            MagicMock(returncode=1, stdout=""),  # rev-parse verify fails
+            MagicMock(
+                returncode=0, stdout="refs/remotes/origin/main\n"
+            ),  # symbolic-ref
+        ]
+        assert _detect_base_branch("/tmp") == "origin/main"
 
     @patch("impl.git.subprocess.run")
     def test_closed_pr_falls_through_to_symbolic_ref(self, mock_run):

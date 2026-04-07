@@ -4,10 +4,54 @@ from unittest.mock import patch
 from impl.findings import generate_finding_id
 from impl.progress import (
     make_initial_progress,
+    migrate_progress,
     read_progress,
     record_test_result,
     write_progress,
 )
+
+
+class TestMigrateProgress:
+    def test_fills_missing_scope_files(self):
+        progress = {"config": {"scope": {}}}
+        migrate_progress(progress)
+        assert progress["scope_files"] == {"current": []}
+
+    def test_fills_missing_config_scope(self):
+        progress = {"config": {}}
+        migrate_progress(progress)
+        assert progress["config"]["scope"]["mode"] == "local-changes"
+        assert progress["config"]["scope"]["base_ref"] is None
+
+    def test_fills_missing_config(self):
+        progress = {}
+        migrate_progress(progress)
+        assert "config" in progress
+        assert "scope" in progress["config"]
+        assert progress["scope_files"] == {"current": []}
+
+    def test_preserves_existing_values(self):
+        progress = {
+            "config": {"scope": {"mode": "branch-diff", "base_ref": "origin/dev"}},
+            "scope_files": {"current": ["a.py", "b.py"]},
+        }
+        migrate_progress(progress)
+        assert progress["config"]["scope"]["mode"] == "branch-diff"
+        assert progress["scope_files"]["current"] == ["a.py", "b.py"]
+
+    def test_partial_scope_files_dict(self):
+        progress = {"scope_files": {}}
+        migrate_progress(progress)
+        assert progress["scope_files"]["current"] == []
+
+    def test_partial_config_scope_dict(self):
+        progress = {"config": {"scope": {"mode": "branch-diff"}}}
+        migrate_progress(progress)
+        # Existing key preserved
+        assert progress["config"]["scope"]["mode"] == "branch-diff"
+        # Missing subkeys filled in
+        assert progress["config"]["scope"]["paths"] == []
+        assert progress["config"]["scope"]["base_ref"] is None
 
 
 class TestGenerateFindingId:

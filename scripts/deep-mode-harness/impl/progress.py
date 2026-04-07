@@ -67,3 +67,19 @@ def write_progress(path, progress):
 def read_progress(path):
     """Read the progress file."""
     return json.loads(Path(path).read_text(encoding="utf-8"))
+
+
+def migrate_progress(progress):
+    """Fill in missing top-level/nested keys for progress files written by older
+    schemas. Mutates the progress dict in place. Use on the resume path so
+    downstream code can rely on the canonical shape from make_initial_progress.
+
+    Handles both fully-missing keys and partial shapes (e.g., a `scope_files`
+    dict that exists but lacks the `current` subkey).
+    """
+    config = progress.setdefault("config", {})
+    scope = config.setdefault("scope", {})
+    scope.setdefault("mode", "local-changes")
+    scope.setdefault("paths", [])
+    scope.setdefault("base_ref", None)
+    progress.setdefault("scope_files", {}).setdefault("current", [])

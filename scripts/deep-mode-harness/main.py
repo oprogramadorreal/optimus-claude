@@ -74,6 +74,7 @@ from impl.git import (
 from impl.parser import parse_harness_output
 from impl.progress import (
     make_initial_progress,
+    migrate_progress,
     read_progress,
     record_test_result,
     write_progress,
@@ -222,6 +223,7 @@ def _load_resumed_progress(progress_path, args, project_root):
             return None, f"No progress file to resume from: {progress_path}"
 
     progress = read_progress(progress_path)
+    migrate_progress(progress)
 
     for key in ("skill", "iteration", "config", "findings"):
         if key not in progress:
@@ -751,9 +753,11 @@ def main(argv=None):
             focus=args.focus,
         )
 
-    # Pre-discover feature branch files if scope is empty (no --scope given).
-    # This mirrors the skill's Step 3 "no local changes → branch diff" path and
-    # ensures agents have a file list on iteration 1.
+    # Pre-discover feature branch files when no scope was supplied — mirrors
+    # the skill's Step 3 "no local changes → branch diff" path so iteration 1
+    # agents have a file list. (Resumed progress files are normalised by
+    # migrate_progress in _load_resumed_progress, so the keys read below are
+    # guaranteed to exist for both fresh and resumed runs.)
     if not progress["scope_files"]["current"]:
         branch_files, base_ref = git_discover_branch_files(project_root)
         if branch_files:

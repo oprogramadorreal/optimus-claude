@@ -134,6 +134,7 @@ def _detect_base_branch(cwd):
     cwd_str = str(cwd)
 
     # 1. Try gh pr view for open PR target branch
+    pr_base = None
     try:
         result = subprocess.run(
             ["gh", "pr", "view", "--json", "baseRefName,state"],
@@ -149,9 +150,25 @@ def _detect_base_branch(cwd):
                 and pr_info.get("state") == "OPEN"
                 and pr_info.get("baseRefName")
             ):
-                return f"origin/{pr_info['baseRefName']}"
+                pr_base = f"origin/{pr_info['baseRefName']}"
     except (subprocess.TimeoutExpired, FileNotFoundError, ValueError):
         pass
+
+    # Verify the PR base ref exists locally — gh returns the remote name from
+    # GitHub, but the corresponding origin/<ref> may not be fetched. Without
+    # this check, downstream `git diff <base>...HEAD` fails silently and we
+    # report no changed files. Kept outside the gh try/except so a missing
+    # `git` binary surfaces loudly instead of masquerading as "no PR".
+    if pr_base:
+        verify = subprocess.run(
+            ["git", "rev-parse", "--verify", pr_base],
+            capture_output=True,
+            text=True,
+            cwd=cwd_str,
+            timeout=10,
+        )
+        if verify.returncode == 0:
+            return pr_base
 
     # 2. git symbolic-ref refs/remotes/origin/HEAD
     result = subprocess.run(
@@ -165,7 +182,6 @@ def _detect_base_branch(cwd):
         ref = result.stdout.strip()
         if ref.startswith("refs/remotes/"):
             return ref[len("refs/remotes/") :]
-        # Unexpected format — fall through to origin/main detection
 
     # 3–4. Try common default branches
     for fallback in ("origin/main", "origin/master"):
