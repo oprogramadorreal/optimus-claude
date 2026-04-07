@@ -5,8 +5,8 @@ Protocol for the test-coverage harness — an automated loop that alternates `/o
 ## Contents
 
 1. [Skill-Triggered Invocation](#skill-triggered-invocation) — early-exit fast path: resolve environment, build command, present and stop (steps 1–6)
-2. [Unit-Test Phase Execution](#unit-test-phase-execution) — single iteration under harness control (steps 1–6)
-3. [Refactor Phase Execution](#refactor-phase-execution) — single iteration under harness control (steps 1–6)
+2. [Unit-Test Phase Execution](#unit-test-phase-execution) — single pass under harness control (steps 1–6)
+3. [Refactor Phase Execution](#refactor-phase-execution) — single pass under harness control (steps 1–6)
 
 ## Skill-Triggered Invocation
 

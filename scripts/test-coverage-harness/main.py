@@ -229,10 +229,13 @@ def _load_resumed_progress(progress_path, args, project_root):
 
 def _process_unit_test_output(progress, result, cycle):
     """Process unit-test phase output, updating progress. Returns unit_test summary dict."""
-    tests_written = result.get("tests_written", [])
-    coverage = result.get("coverage", {})
-    untestable = result.get("untestable_code", [])
-    bugs = result.get("bugs_discovered", [])
+    # Use `or default` (not `dict.get(k, default)`) so explicit JSON nulls
+    # from the skill output are coerced to empty containers — `dict.get` only
+    # falls back to the default when the key is *missing*, not when it is None.
+    tests_written = result.get("tests_written") or []
+    coverage = result.get("coverage") or {}
+    untestable = result.get("untestable_code") or []
+    bugs = result.get("bugs_discovered") or []
 
     # Record tests created
     for test in tests_written:
@@ -320,8 +323,9 @@ def _process_refactor_output(progress, result, cycle):
     ``"fixed"`` entries to ``"reverted — test failure"`` via the
     ``bisect_fixes`` ``on_outcome`` callback.
     """
-    fixes_applied = result.get("fixes_applied", [])
-    new_findings = result.get("new_findings", [])
+    # Coerce JSON nulls to empty lists — see _process_unit_test_output for rationale.
+    fixes_applied = result.get("fixes_applied") or []
+    new_findings = result.get("new_findings") or []
 
     for finding in new_findings:
         finding["cycle"] = cycle
@@ -358,9 +362,13 @@ def _make_bisect_outcome_callback(progress, cycle):
         new_status = _OUTCOME_TO_STATUS.get(outcome)
         if new_status is None:
             return
+        # Update only the FIRST matching finding — multiple findings sharing
+        # the same (file, pre_edit_content) key would otherwise all receive
+        # the same status, even though only one corresponds to this fix.
         for finding in findings:
             if _finding_matches_fix(finding, fix):
                 finding["status"] = new_status
+                break
 
     return _callback
 

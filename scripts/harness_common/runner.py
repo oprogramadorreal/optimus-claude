@@ -74,6 +74,14 @@ def run_tests(test_command, cwd, timeout=DEFAULT_TEST_TIMEOUT, prefix="[harness]
             cwd=str(cwd),
             timeout=timeout,
         )
+    except FileNotFoundError as exc:
+        # Most commonly: bash not on PATH on Windows when Git Bash is missing.
+        # Surface a clear, actionable message instead of letting the harness crash.
+        msg = f"Command not found: {exc.filename or 'bash'}"
+        if sys.platform == "win32":
+            msg += " (install Git Bash and ensure 'bash' is on PATH)"
+        print(f"{prefix} {msg}")
+        return False, msg
     except subprocess.TimeoutExpired as exc:
         print(f"{prefix} Tests timed out after {timeout}s")
 

@@ -29,7 +29,7 @@ Examples:
 
 **If system prompt contains `HARNESS_MODE_ACTIVE`:**
 → Read `$CLAUDE_PLUGIN_ROOT/references/coverage-harness-mode.md`
-→ Follow Unit-Test Phase Single-Iteration Execution protocol
+→ Follow the "Unit-Test Phase Execution" section
 → Skip user confirmation (no `AskUserQuestion`)
 → Skip loops — run Steps 2–4 exactly once, then output structured JSON and stop
 
