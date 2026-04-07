@@ -74,9 +74,22 @@ def run_tests(test_command, cwd, timeout=DEFAULT_TEST_TIMEOUT, prefix="[harness]
             cwd=str(cwd),
             timeout=timeout,
         )
-    except subprocess.TimeoutExpired:
+    except subprocess.TimeoutExpired as exc:
         print(f"{prefix} Tests timed out after {timeout}s")
-        return False, f"Test command timed out after {timeout}s"
+
+        def _decode(blob):
+            if blob is None:
+                return ""
+            return blob.decode(errors="replace") if isinstance(blob, bytes) else blob
+
+        partial = "\n".join(
+            filter(None, [_decode(exc.stdout), _decode(exc.stderr)])
+        ).strip()
+        tail = "\n".join(partial.split("\n")[-5:]) if partial else ""
+        summary = f"Test command timed out after {timeout}s"
+        if tail:
+            summary = f"{summary}\n{tail}"
+        return False, summary
     passed = result.returncode == 0
     combined = "\n".join(filter(None, [result.stdout, result.stderr])).strip()
     summary = "\n".join(combined.split("\n")[-5:])

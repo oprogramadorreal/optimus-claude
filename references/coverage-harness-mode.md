@@ -108,7 +108,7 @@ Stop immediately. Do not loop, present reports, or use `AskUserQuestion`.
 
 ## Refactor Phase Execution
 
-When running under the test-coverage harness with `phase: refactor`, the `/optimus:refactor` skill executes using the existing harness-mode protocol from `references/harness-mode.md` (Single-Iteration Execution, steps 1–9). The key difference is that the harness passes `focus=testability` and scopes the refactor to the `untestable_code` items reported by the preceding unit-test phase.
+When running under the test-coverage harness with `phase: refactor`, the `/optimus:refactor` skill executes using the existing harness-mode protocol from `references/harness-mode.md` (Single-Iteration Execution, steps 1–9). The key difference is that the harness invokes the skill as `/optimus:refactor deep N testability` — the `testability` positional focus keyword scopes the refactor to the `untestable_code` items reported by the preceding unit-test phase. The refactor skill detects `HARNESS_MODE_ACTIVE` from the system prompt and follows `references/harness-mode.md` as usual.
 
 The refactor skill already supports `HARNESS_MODE_ACTIVE` and outputs `json:harness-output` — no changes needed to its behavior. The test-coverage harness handles:
 - Feeding untestable code items as the scope for the refactor session

@@ -299,27 +299,6 @@ def _process_unit_test_output(progress, result, cycle):
     }
 
 
-def _revert_test_files(tests_written, cwd):
-    """Delete test files created by the unit-test phase on test failure."""
-    cwd_resolved = Path(cwd).resolve()
-    for test in tests_written:
-        filepath = (Path(cwd) / test.get("file", "")).resolve()
-        try:
-            rel = filepath.relative_to(cwd_resolved)
-        except ValueError:
-            continue
-        # Refuse to delete anything inside .git/ — model-supplied paths must
-        # never be able to unlink repo internals (mirrors fixes.py guard).
-        if any(part == ".git" for part in rel.parts):
-            continue
-        if filepath.exists():
-            try:
-                filepath.unlink()
-                print(f"{PREFIX} Reverted: {test.get('file')}")
-            except OSError as exc:
-                print(f"{PREFIX} WARNING: Could not delete {test.get('file')}: {exc}")
-
-
 # ---------------------------------------------------------------------------
 # Refactor phase helpers
 # ---------------------------------------------------------------------------
@@ -382,7 +361,6 @@ def _make_bisect_outcome_callback(progress, cycle):
         for finding in findings:
             if _finding_matches_fix(finding, fix):
                 finding["status"] = new_status
-                break
 
     return _callback
 
@@ -550,32 +528,29 @@ def _run_unit_test_phase(
     # Verify new test files pass
     test_passed, test_summary = run_tests(test_command, project_root)
     record_test_result(progress, test_passed, test_summary)
-    ut_summary = _process_unit_test_output(progress, ut_result, cycle)
 
     if not test_passed:
         print(
             f"{PREFIX} Tests failed after unit-test phase — restoring pre-cycle state"
         )
-        # Use restore_working_tree (not just _revert_test_files) so that any
-        # production-source edits the unit-test session may have left behind
-        # are also rolled back, not only the declared test files. The
-        # unit-test phase is supposed to write tests only, but we cannot
-        # trust the session to honour that — defensively restore everything.
+        # Restore the working tree first so any production-source edits the
+        # unit-test session may have left behind are rolled back. Do NOT merge
+        # the session output into progress — the code it described is gone, so
+        # coverage numbers, untestable items, and bugs from this session must
+        # not leak into later cycles.
         restore_working_tree(pre_stash, pre_head, project_root)
-        reverted_files = {t.get("file") for t in ut_tests}
-        # Scope the revert to current-cycle entries: a later cycle may legitimately
-        # rewrite a test file that a prior cycle created, and we must not drop the
-        # prior cycle's record just because its file path matches.
-        progress["tests_created"] = [
-            t
-            for t in progress["tests_created"]
-            if not (t.get("cycle") == cycle and t.get("file") in reverted_files)
-        ]
-        ut_summary["test_passed"] = False
+        ut_summary = {
+            "tests_written": len(ut_tests),
+            "tests_passed": 0,
+            "coverage_delta": 0,
+            "untestable_items_reported": len(ut_result.get("untestable_code", [])),
+            "test_passed": False,
+        }
         record_cycle_history(progress, cycle, ut_summary)
         write_progress(progress_path, progress)
         return "continue", ut_summary, pre_head, skip_commits
 
+    ut_summary = _process_unit_test_output(progress, ut_result, cycle)
     ut_summary["test_passed"] = True
 
     # Checkpoint commit

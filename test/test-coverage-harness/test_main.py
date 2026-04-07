@@ -24,7 +24,6 @@ from main import (
     _print_startup_info,
     _process_refactor_output,
     _process_unit_test_output,
-    _revert_test_files,
     _run_cycle_loop,
     _validate_environment,
     main,
@@ -342,62 +341,6 @@ class TestProcessUnitTestOutput:
         summary = _process_unit_test_output(progress, result, 1)
         assert summary["tests_written"] == 2
         assert summary["tests_passed"] == 1
-
-
-# ---------------------------------------------------------------------------
-# _revert_test_files
-# ---------------------------------------------------------------------------
-
-
-class TestRevertTestFiles:
-    def test_deletes_existing_file(self, tmp_path):
-        test_file = tmp_path / "tests" / "test_foo.py"
-        test_file.parent.mkdir(parents=True)
-        test_file.write_text("# test", encoding="utf-8")
-        tests = [{"file": "tests/test_foo.py"}]
-        _revert_test_files(tests, str(tmp_path))
-        assert not test_file.exists()
-
-    def test_missing_file_no_error(self, tmp_path, capsys):
-        tests = [{"file": "tests/nonexistent.py"}]
-        _revert_test_files(tests, str(tmp_path))
-        # Should not raise; file just doesn't exist
-
-    def test_oserror_prints_warning(self, tmp_path, capsys):
-        test_file = tmp_path / "tests" / "test_locked.py"
-        test_file.parent.mkdir(parents=True)
-        test_file.write_text("# test", encoding="utf-8")
-        tests = [{"file": "tests/test_locked.py"}]
-
-        with patch.object(Path, "unlink", side_effect=OSError("Permission denied")):
-            _revert_test_files(tests, str(tmp_path))
-        output = capsys.readouterr().out
-        assert "WARNING" in output
-        assert "Permission denied" in output
-
-    def test_empty_tests_list(self, tmp_path):
-        _revert_test_files([], str(tmp_path))
-        # No error, nothing to do
-
-    def test_multiple_files(self, tmp_path):
-        files = []
-        for name in ["test_a.py", "test_b.py", "test_c.py"]:
-            f = tmp_path / name
-            f.write_text("# test", encoding="utf-8")
-            files.append({"file": name})
-        _revert_test_files(files, str(tmp_path))
-        for name in ["test_a.py", "test_b.py", "test_c.py"]:
-            assert not (tmp_path / name).exists()
-
-    def test_path_traversal_skipped(self, tmp_path):
-        """File path escaping cwd is silently skipped via ValueError guard."""
-        outside = tmp_path / ".." / "outside_project" / "test_evil.py"
-        outside.parent.mkdir(parents=True, exist_ok=True)
-        outside.write_text("# evil", encoding="utf-8")
-        tests = [{"file": "../outside_project/test_evil.py"}]
-        _revert_test_files(tests, str(tmp_path))
-        # File outside cwd must NOT be deleted
-        assert outside.exists()
 
 
 # ---------------------------------------------------------------------------

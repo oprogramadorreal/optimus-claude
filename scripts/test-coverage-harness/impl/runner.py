@@ -3,7 +3,7 @@ import subprocess
 from harness_common.constants import DEFAULT_TEST_TIMEOUT, normalize_path
 from harness_common.runner import run_tests as _shared_run_tests
 
-from .constants import DEFAULT_SESSION_TIMEOUT, PREFIX
+from .constants import PREFIX
 
 
 def run_tests(test_command, cwd, timeout=DEFAULT_TEST_TIMEOUT):
