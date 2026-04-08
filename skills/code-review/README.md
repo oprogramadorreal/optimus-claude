@@ -59,7 +59,7 @@ Deep mode addresses a fundamental limitation of single-pass LLM review: attentio
 3. Auto-applies all validated fixes (no per-change approval)
 4. Runs tests — if failures occur, reverts all fixes and re-applies one at a time, keeping those that pass
 5. Presents an **iteration report** — a table showing each finding attempted, what changed, why, and its status (fixed/reverted/persistent)
-6. Checks termination: converged (zero findings), all reverted, diminishing returns (yield plateaus at ≤1 finding/iter for 2 consecutive iterations after iter 3), cap reached, or continues
+6. Checks termination: converged (zero findings), all reverted, cap reached, or continues
 7. Repeats from step 2 with awareness of prior findings
 8. After all iterations, presents a **cumulative report** summarizing every change across all iterations in a single table, followed by the full detailed findings with code snippets
 

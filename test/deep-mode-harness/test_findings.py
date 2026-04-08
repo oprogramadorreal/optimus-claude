@@ -143,15 +143,13 @@ class TestUpdateScope:
             {"file": "src/a.js", "status": "fixed"},
             {"file": "src/sibling.js", "status": "discovered"},
         ]
-        update_scope(
-            sample_progress, {"fixes_applied": [{"file": "src/neighbor.js"}]}
-        )
+        update_scope(sample_progress, {"fixes_applied": [{"file": "src/neighbor.js"}]})
         scope = sample_progress["scope_files"]["current"]
         assert "src/a.js" in scope
         assert "src/sibling.js" in scope
         assert "src/neighbor.js" in scope
 
-    def test_code_review_narrows(self, sample_progress):
+    def test_excludes_persistent_findings_from_scope(self, sample_progress):
         sample_progress["findings"] = [
             {"file": "src/a.js", "status": "fixed"},
             {"file": "src/b.js", "status": "persistent — fix failed"},

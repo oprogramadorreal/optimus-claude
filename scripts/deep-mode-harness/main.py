@@ -695,17 +695,17 @@ def _should_soft_exit(progress, iteration, new_count, reverted_count):
     """Diminishing-returns soft-exit gate.
 
     Return True when yield has plateaued at ≤1 new finding for two consecutive
-    iterations, we are past iteration 3, and no reverted/persistent retry work
-    is in flight in either window iteration. Caps wasted iterations once the
+    iterations, we are past iteration 3, and no reverted fixes exist in either
+    window iteration. Caps wasted iterations once the
     harness has drained most of the backlog; defers remaining issues to a
     fresh-conversation re-run (via `--resume`) rather than dropping them.
 
     Guards:
     - Never fires before iteration `SOFT_EXIT_MIN_ITERATION` (lets early
       front-loaded iterations run).
-    - Active retry work (reverted fixes in either window iteration) blocks the
-      exit — we keep iterating while the harness is still trying to recover
-      from a failed fix.
+    - Reverted fixes in either window iteration block the exit — we keep
+      iterating while the harness is still trying to recover from a failed
+      fix. Persistent findings do not block exit (they are terminal).
     - Requires at least one prior iteration in `iteration_history` to compare
       against. The caller is expected to invoke this *after*
       `_record_iteration_history`, so the current iteration is already the
