@@ -15,7 +15,7 @@ optimus-claude/
 ├── agents/                    # Plugin-level agents — user-invokable, also extended by skill-level agents
 │   ├── code-simplifier.md     # Code simplification agent (extended by code-review, refactor, tdd)
 │   ├── test-guardian.md       # Test coverage monitoring agent (extended by code-review, tdd)
-├── references/                # Shared reference docs (agent-architecture, shared-agent-constraints, context-injection-blocks, harness-mode)
+├── references/                # Shared reference docs (agent-architecture, shared-agent-constraints, context-injection-blocks, harness-mode, coverage-harness-mode)
 ├── hooks/
 │   ├── hooks.json            # Plugin-level hooks (SessionStart for skill awareness)
 │   └── session-start         # Outputs dynamic project state on session start/resume/clear/compact
