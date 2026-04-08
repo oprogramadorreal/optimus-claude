@@ -1,6 +1,6 @@
 from harness_common.git import git_current_branch
 
-from .constants import PREFIX
+from .constants import FIXED_STATUSES, PREFIX
 
 
 def print_report(progress, current_branch=None):
@@ -14,7 +14,7 @@ def print_report(progress, current_branch=None):
     total_files = len(tests_created)
     untestable = progress.get("untestable_code", [])
     refactor_findings = progress.get("refactor_findings", [])
-    fixed = sum(1 for f in refactor_findings if f.get("status") == "fixed")
+    fixed = sum(1 for f in refactor_findings if f.get("status") in FIXED_STATUSES)
     bugs = progress.get("bugs_discovered", [])
 
     last_test = progress["test_results"]["last_full_run"] or "not available"
@@ -101,7 +101,7 @@ def build_commit_body(progress, cycle, phase, max_entries=10):
         findings = [
             f for f in progress.get("refactor_findings", []) if f.get("cycle") == cycle
         ]
-        fixed = [f for f in findings if f.get("status") == "fixed"]
+        fixed = [f for f in findings if f.get("status") in FIXED_STATUSES]
         reverted = [f for f in findings if "reverted" in f.get("status", "")]
         if fixed:
             lines.append("Testability fixes applied:")

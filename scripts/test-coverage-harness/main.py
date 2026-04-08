@@ -50,6 +50,7 @@ from impl.constants import (
     DEFAULT_MAX_CYCLES,
     DEFAULT_MAX_TURNS,
     DEFAULT_SESSION_TIMEOUT,
+    FIXED_STATUSES,
     MAX_CYCLES_HARD_CAP,
     PREFIX,
     PROGRESS_FILE_NAME,
@@ -419,7 +420,7 @@ def _count_phase_summary(progress, cycle, phase):
     fixed = sum(
         1
         for f in progress.get("refactor_findings", [])
-        if f.get("cycle") == cycle and f.get("status") == "fixed"
+        if f.get("cycle") == cycle and f.get("status") in FIXED_STATUSES
     )
     return {"fixed": fixed}
 
