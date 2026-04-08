@@ -2,7 +2,7 @@
 name: how-to-run-auditor
 description: Audits an existing HOW-TO-RUN.md against detected project state, and harvests setup info from README.md, CONTRIBUTING.md, BUILDING.md, INSTALL.md, and docs/* as hypotheses for the how-to-run skill to verify. Classifies every finding as accurate, outdated, partial, missing, or documented-but-unverifiable. Does not modify any file.
 model: opus
-tools: Read, Bash, Glob, Grep
+tools: Read, Glob, Grep
 ---
 
 # How-to-Run Auditor
@@ -41,7 +41,7 @@ You will receive two pieces of context before this prompt:
    - **External Services** — databases, queues, caches, how to start them
    - **Environment Config** — `.env` setup, required variables
    - **Build** — explicit compile/link command
-   - **Running in Dev Mode** — start command, produced-binary launcher, or engine launcher
+   - **Running in Development** — start command, produced-binary launcher, or engine launcher
    - **Testing** — test command, coverage
    - **Hardware / OS Requirements** — GPU, USB/serial, target MCU, OS version constraints
 
@@ -97,7 +97,7 @@ Return your findings in this exact structure:
 | External Services | [...] | [...] | [...] |
 | Environment Config | [...] | [...] | [...] |
 | Build | [...] | [...] | [...] |
-| Running in Dev Mode | [...] | [...] | [...] |
+| Running in Development | [...] | [...] | [...] |
 | Testing | [...] | [...] | [...] |
 | Hardware / OS Requirements | [...] | [...] | [...] |
 
