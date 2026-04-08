@@ -29,7 +29,7 @@ optimus-claude/
 │   │   ├── main.py           # Entry point — invoked via `deep harness` or directly
 │   │   └── impl/             # Internal modules (constants, git, progress, runner, etc.)
 │   └── test-coverage-harness/ # Test-coverage harness orchestrator (Python package)
-│       ├── main.py           # Entry point — invoked via `deep harness` or directly
+│       ├── main.py           # Entry point — invoked via `unit-test deep harness` or directly
 │       └── impl/             # Internal modules (constants, convergence, git, runner, etc.)
 ├── skills/
 │   ├── init/                 # /optimus:init

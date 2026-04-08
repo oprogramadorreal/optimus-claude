@@ -310,9 +310,12 @@ def _process_unit_test_output(progress, result, cycle):
 
 def _finding_matches_fix(finding, fix):
     """Match a finding to a fix by file + pre_edit_content (the unique apply key)."""
-    return finding.get("file") == fix.get("file") and finding.get(
-        "pre_edit_content"
-    ) == fix.get("pre_edit_content")
+    pre = finding.get("pre_edit_content")
+    return (
+        pre is not None
+        and finding.get("file") == fix.get("file")
+        and pre == fix.get("pre_edit_content")
+    )
 
 
 def _process_refactor_output(progress, result, cycle):
@@ -713,11 +716,10 @@ def _run_refactor_phase(
                     # Roll back per-finding statuses to match the restored tree.
                     # restore_working_tree resets to pre_head, so even retained
                     # fixes (status "fixed — revert failed") are gone now.
-                    rollback_statuses = {"fixed", "fixed — revert failed"}
                     for finding in progress.get("refactor_findings", []):
                         if (
                             finding.get("cycle") == cycle
-                            and finding.get("status") in rollback_statuses
+                            and finding.get("status") in FIXED_STATUSES
                         ):
                             finding["status"] = "reverted — combined regression"
 
