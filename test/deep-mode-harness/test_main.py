@@ -147,9 +147,9 @@ class TestShouldSoftExit:
 
     def test_requires_window_of_history(self, sample_progress):
         # Only one iteration recorded — can't plateau without a prior entry
-        _record_iteration_history(sample_progress, 3, 1, 1, 0, True)
+        _record_iteration_history(sample_progress, 4, 1, 1, 0, True)
         assert not _should_soft_exit(
-            sample_progress, iteration=3, new_count=1, reverted_count=0
+            sample_progress, iteration=4, new_count=1, reverted_count=0
         )
 
     def test_zero_yield_also_qualifies_as_plateau(self, sample_progress):
