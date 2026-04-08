@@ -2,7 +2,7 @@
 name: project-environment-detector
 description: Analyzes project build system, toolchain, source dependencies (git submodules, sibling repos), SDKs, services, and runtime environment to produce a structured context detection summary for generating HOW-TO-RUN.md.
 model: sonnet
-tools: Read, Bash, Glob, Grep
+tools: Read, Glob, Grep
 ---
 
 # Project Environment Detector
