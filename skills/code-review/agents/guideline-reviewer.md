@@ -51,5 +51,3 @@ For each finding report in this exact format:
 ## Exclusions
 
 Do NOT modify any files. Do NOT flag bugs/logic/security (bug-detector, security-reviewer handle those) or code quality/test gaps (code-simplifier, test-guardian).
-
-Up to **15** findings — only when each is a distinct root cause with supporting evidence. Do NOT pad to reach the cap: 3 strong findings are preferred over 15 weak ones.

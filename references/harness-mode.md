@@ -4,6 +4,7 @@
 
 1. [Skill-Triggered Invocation](#skill-triggered-invocation) — early-exit fast path: resolve environment, build command, present and stop (steps 1–6)
 2. [Single-Iteration Execution](#single-iteration-execution) — progress file, analysis cycle, fix application, structured JSON output (steps 1–9)
+3. [Termination reasons](#termination-reasons) — enum of exit reasons the harness may record
 
 ## Skill-Triggered Invocation
 
@@ -201,4 +202,15 @@ Stop immediately after outputting the JSON block. Do NOT:
 - Use `AskUserQuestion`
 - Check termination conditions (convergence, cap, all-reverted, diminishing-returns)
 
-The harness reads the JSON output, runs tests, updates the progress file, and decides whether to launch another iteration. Termination reasons the harness may record on exit: `convergence` (zero new findings), `no-actionable` (findings exist but have no code edits), `all-reverted` (every fix this iteration failed tests), `diminishing-returns` (yield plateaued at ≤1 new finding/iter for two consecutive iterations after iter 3, with no reverted fixes in either window iteration — remaining issues may exist and can be resumed via `--resume`), `cap` (max iterations hit), and `crash`/`parse-failure` (session error).
+The harness reads the JSON output, runs tests, updates the progress file, and decides whether to launch another iteration.
+
+### Termination reasons
+
+The harness may record one of these reasons on exit:
+
+- **`convergence`** — zero new findings
+- **`no-actionable`** — findings exist but have no code edits
+- **`all-reverted`** — every fix this iteration failed tests
+- **`diminishing-returns`** — yield plateaued at ≤1 new finding for two consecutive iterations after iter 3, with no reverted fixes in either window iteration; remaining issues may exist and can be resumed via `--resume`
+- **`cap`** — max iterations hit
+- **`crash`** / **`parse-failure`** — session error

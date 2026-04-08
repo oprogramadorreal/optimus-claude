@@ -59,5 +59,3 @@ For each finding report in this exact format:
 ## Exclusions
 
 Do NOT modify any files. Do NOT flag guideline violations (guideline-reviewer), duplication/consistency (consistency-analyzer), or code quality (code-simplifier). Do NOT flag code that is inherently untestable (thin wrappers, pure I/O adapters, configuration files).
-
-Up to **15** findings — only when each is a distinct root cause with supporting evidence. Do NOT pad to reach the cap: 3 strong findings are preferred over 15 weak ones.

@@ -18,7 +18,7 @@ Well-maintained code has [30%+ fewer AI-introduced defects](https://arxiv.org/ab
 - **Test verification** — runs the test suite after applying changes with evidence-based verification; reverts any change that causes failures
 - **Conservative by default** — only suggests changes justified by the project's own guidelines
 - **Prioritized findings** — Critical/Warning/Suggestion severity with concrete before/after sketches, capped at 15 per run for focused, manageable output
-- **Deep mode** — iterative refactoring that loops analysis-apply cycles until zero findings remain (default 8 iterations, configurable up to 10), with explicit user consent and risk warnings. Each sub-agent surfaces up to 15 findings per pass, and structural-neighbor expansion lets agents catch consistency gaps in sibling files
+- **Deep mode** — iterative refactoring that loops analysis-apply cycles until zero findings remain (default 8 iterations, configurable up to 10), with explicit user consent and risk warnings. Each sub-agent surfaces up to 15 distinct findings per pass, and structural-neighbor expansion lets agents catch consistency gaps in sibling files before they leak into later iterations
 - **Deep harness** — `/optimus:refactor deep harness` launches an external orchestrator with fresh `claude -p` sessions per iteration, eliminating context bloat for large codebases
 - **Works without `/optimus:init`** — falls back to generic coding guidelines when project-specific docs aren't available
 - **Multi-repo workspace support** — resolves per-repo documentation when opened from a workspace root containing multiple git repos
@@ -152,7 +152,15 @@ Each iteration:
 4. Presents an **iteration report** — a table showing each finding attempted, what changed, why, and its status (fixed/reverted/persistent)
 5. Loops back for the next pass, or stops when clean
 
-Deep mode stops when: no findings remain, no actionable fixes (findings exist but lack concrete code edits), diminishing returns *(harness mode)* — yield plateaus at ≤1 finding/iter for 2 consecutive iterations after iter 3, with no reverted fixes in either window iteration (resumable via `--resume`), the iteration cap is reached, or all changes in an iteration fail tests. From iteration 3 onward, a context-accumulation warning appears; if the cap is reached, all continuation options are framed under starting a fresh conversation. All changes remain as local modifications — review the full diff and commit when satisfied. After all iterations complete, a **cumulative report** summarizes every change across all iterations in a single table.
+Deep mode stops when any of the following conditions is met:
+
+- **Convergence** — zero new findings (code is clean)
+- **All reverted** — every fix in an iteration caused test failures
+- **No actionable fixes** — findings exist but lack concrete code edits
+- **Diminishing returns** *(harness mode)* — yield has plateaued at ≤1 new finding for two consecutive iterations after iter 3, with no reverted fixes in either window iteration; remaining issues may exist and can be resumed in a fresh conversation via `--resume`
+- **Cap reached** — the iteration cap is reached (continue in a fresh conversation)
+
+From iteration 3 onward, a context-accumulation warning appears; if the cap is reached, all continuation options are framed under starting a fresh conversation. All changes remain as local modifications — review the full diff and commit when satisfied. After all iterations complete, a **cumulative report** summarizes every change across all iterations in a single table.
 
 Iterative LLM feedback loops with automated verification consistently improve output quality, with the largest gains in early iterations and diminishing returns in later stages ([LLMLOOP, ICSME 2025](https://valerio-terragni.github.io/assets/pdf/ravi-icsme-2025.pdf)).
 

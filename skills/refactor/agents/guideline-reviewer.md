@@ -51,5 +51,3 @@ For each finding report in this exact format:
 ## Exclusions
 
 Do NOT modify any files. Do NOT flag testability barriers (testability-analyzer), duplication/consistency (consistency-analyzer), or code simplification (code-simplifier).
-
-Up to **15** findings — only when each is a distinct root cause with supporting evidence. Do NOT pad to reach the cap: 3 strong findings are preferred over 15 weak ones.

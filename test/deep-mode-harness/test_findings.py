@@ -162,3 +162,18 @@ class TestUpdateScope:
         assert "src/c.js" in scope
         # persistent findings are excluded
         assert "src/b.js" not in scope
+
+    def test_refactor_widens_scope_like_code_review(self, sample_progress):
+        """Regression guard for the PR that removed the refactor early-return
+        in update_scope: refactor must widen scope identically to code-review."""
+        sample_progress["skill"] = "refactor"
+        sample_progress["scope_files"]["current"] = ["src/a.js"]
+        sample_progress["findings"] = [
+            {"file": "src/a.js", "status": "fixed"},
+            {"file": "src/sibling.js", "status": "discovered"},
+        ]
+        update_scope(sample_progress, {"fixes_applied": [{"file": "src/neighbor.js"}]})
+        scope = sample_progress["scope_files"]["current"]
+        assert "src/a.js" in scope
+        assert "src/sibling.js" in scope
+        assert "src/neighbor.js" in scope
