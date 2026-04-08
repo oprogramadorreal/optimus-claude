@@ -56,6 +56,7 @@ optimus-claude/
 ├── install.cmd               # Create .venv and install dev dependencies
 ├── test.cmd                  # Run Python unit tests
 ├── test-coverage.cmd         # Run Python tests with coverage report
+├── pyproject.toml            # pytest configuration (importlib import mode)
 ├── README.md
 ├── CONTRIBUTING.md
 └── LICENSE
