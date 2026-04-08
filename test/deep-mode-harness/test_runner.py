@@ -3,38 +3,38 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
+from harness_common.runner import _find_bash
+from harness_common.runner import build_claude_session_cmd as _build_cmd
 from impl.runner import (
-    _build_cmd,
     _build_harness_system,
     _build_prompt,
-    _find_bash,
     run_skill_session,
     run_tests,
 )
 
 
 class TestFindBash:
-    @patch("impl.runner.sys")
+    @patch("harness_common.runner.sys")
     def test_non_windows(self, mock_sys):
         mock_sys.platform = "linux"
         assert _find_bash() == "bash"
 
-    @patch("impl.runner.sys")
-    @patch("impl.runner.shutil.which")
+    @patch("harness_common.runner.sys")
+    @patch("harness_common.runner.shutil.which")
     def test_windows_git_bash_on_path(self, mock_which, mock_sys):
         mock_sys.platform = "win32"
         mock_which.return_value = "C:\\Program Files\\Git\\bin\\bash.exe"
         assert _find_bash() == "C:\\Program Files\\Git\\bin\\bash.exe"
 
-    @patch("impl.runner.sys")
-    @patch("impl.runner.shutil.which")
+    @patch("harness_common.runner.sys")
+    @patch("harness_common.runner.shutil.which")
     def test_windows_wsl_fallback(self, mock_which, mock_sys):
         mock_sys.platform = "win32"
         mock_which.return_value = "C:\\Windows\\System32\\bash.exe"
         # Should try git --exec-path fallback
-        with patch("impl.runner.subprocess.run") as mock_run:
+        with patch("harness_common.runner.subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(returncode=1)
-            with patch("impl.runner.Path") as mock_path_cls:
+            with patch("harness_common.runner.Path") as mock_path_cls:
                 # Make common paths not exist
                 mock_path_instance = MagicMock()
                 mock_path_instance.exists.return_value = False
@@ -44,8 +44,8 @@ class TestFindBash:
 
 
 class TestRunTests:
-    @patch("impl.runner.sys")
-    @patch("impl.runner.subprocess.run")
+    @patch("harness_common.runner.sys")
+    @patch("harness_common.runner.subprocess.run")
     def test_passing_tests_unix(self, mock_run, mock_sys):
         mock_sys.platform = "linux"
         mock_run.return_value = MagicMock(
@@ -55,8 +55,8 @@ class TestRunTests:
         assert passed is True
         assert "All tests passed" in summary
 
-    @patch("impl.runner.sys")
-    @patch("impl.runner.subprocess.run")
+    @patch("harness_common.runner.sys")
+    @patch("harness_common.runner.subprocess.run")
     def test_failing_tests(self, mock_run, mock_sys):
         mock_sys.platform = "linux"
         mock_run.return_value = MagicMock(
@@ -65,8 +65,8 @@ class TestRunTests:
         passed, summary = run_tests("npm test", "/tmp/project")
         assert passed is False
 
-    @patch("impl.runner.sys")
-    @patch("impl.runner.subprocess.run")
+    @patch("harness_common.runner.sys")
+    @patch("harness_common.runner.subprocess.run")
     def test_timeout(self, mock_run, mock_sys):
         import subprocess
 
@@ -76,9 +76,9 @@ class TestRunTests:
         assert passed is False
         assert "timed out" in summary
 
-    @patch("impl.runner._find_bash", return_value="C:\\Git\\bin\\bash.exe")
-    @patch("impl.runner.sys")
-    @patch("impl.runner.subprocess.run")
+    @patch("harness_common.runner._find_bash", return_value="C:\\Git\\bin\\bash.exe")
+    @patch("harness_common.runner.sys")
+    @patch("harness_common.runner.subprocess.run")
     def test_windows_routes_through_bash(self, mock_run, mock_sys, mock_find_bash):
         mock_sys.platform = "win32"
         mock_run.return_value = MagicMock(returncode=0, stdout="pass\n", stderr="")
@@ -95,9 +95,9 @@ class TestRunTests:
 
 
 class TestFindBashGitExecPath:
-    @patch("impl.runner.sys")
-    @patch("impl.runner.shutil.which")
-    @patch("impl.runner.subprocess.run")
+    @patch("harness_common.runner.sys")
+    @patch("harness_common.runner.shutil.which")
+    @patch("harness_common.runner.subprocess.run")
     def test_git_exec_path_success(self, mock_run, mock_which, mock_sys, tmp_path):
         mock_sys.platform = "win32"
         mock_which.return_value = "C:\\Windows\\System32\\bash.exe"  # WSL
@@ -111,9 +111,9 @@ class TestFindBashGitExecPath:
         result = _find_bash()
         assert result == str(git_bash)
 
-    @patch("impl.runner.sys")
-    @patch("impl.runner.shutil.which")
-    @patch("impl.runner.subprocess.run")
+    @patch("harness_common.runner.sys")
+    @patch("harness_common.runner.shutil.which")
+    @patch("harness_common.runner.subprocess.run")
     def test_git_exec_path_timeout(self, mock_run, mock_which, mock_sys, tmp_path):
         """TimeoutExpired on git --exec-path falls through to common paths."""
         import subprocess
@@ -121,31 +121,31 @@ class TestFindBashGitExecPath:
         mock_sys.platform = "win32"
         mock_which.return_value = "C:\\Windows\\System32\\bash.exe"
         mock_run.side_effect = subprocess.TimeoutExpired("git", 5)
-        with patch("impl.runner.Path") as mock_path_cls:
+        with patch("harness_common.runner.Path") as mock_path_cls:
             mock_instance = MagicMock()
             mock_instance.exists.return_value = False
             mock_path_cls.return_value = mock_instance
             result = _find_bash()
         assert result == "bash"  # ultimate fallback
 
-    @patch("impl.runner.sys")
-    @patch("impl.runner.shutil.which")
-    @patch("impl.runner.subprocess.run")
+    @patch("harness_common.runner.sys")
+    @patch("harness_common.runner.shutil.which")
+    @patch("harness_common.runner.subprocess.run")
     def test_git_exec_path_not_found(self, mock_run, mock_which, mock_sys, tmp_path):
         """FileNotFoundError on git --exec-path falls through to common paths."""
         mock_sys.platform = "win32"
         mock_which.return_value = "C:\\Windows\\System32\\bash.exe"
         mock_run.side_effect = FileNotFoundError("git not installed")
-        with patch("impl.runner.Path") as mock_path_cls:
+        with patch("harness_common.runner.Path") as mock_path_cls:
             mock_instance = MagicMock()
             mock_instance.exists.return_value = False
             mock_path_cls.return_value = mock_instance
             result = _find_bash()
         assert result == "bash"
 
-    @patch("impl.runner.sys")
-    @patch("impl.runner.shutil.which")
-    @patch("impl.runner.subprocess.run")
+    @patch("harness_common.runner.sys")
+    @patch("harness_common.runner.shutil.which")
+    @patch("harness_common.runner.subprocess.run")
     def test_common_path_found(self, mock_run, mock_which, mock_sys, tmp_path):
         """Falls through to common installation paths when git --exec-path fails."""
         mock_sys.platform = "win32"
@@ -155,7 +155,7 @@ class TestFindBashGitExecPath:
         git_bash = tmp_path / "Git" / "bin" / "bash.exe"
         git_bash.parent.mkdir(parents=True)
         git_bash.write_text("fake", encoding="utf-8")
-        with patch("impl.runner.Path") as mock_path_cls:
+        with patch("harness_common.runner.Path") as mock_path_cls:
             mock_instance = MagicMock()
             # First common path exists
             mock_instance.exists.side_effect = [True]
@@ -163,15 +163,15 @@ class TestFindBashGitExecPath:
             result = _find_bash()
         assert result == str(mock_instance)
 
-    @patch("impl.runner.sys")
-    @patch("impl.runner.shutil.which")
+    @patch("harness_common.runner.sys")
+    @patch("harness_common.runner.shutil.which")
     def test_windows_no_bash_on_path(self, mock_which, mock_sys):
         """When shutil.which returns None, falls through to git --exec-path."""
         mock_sys.platform = "win32"
         mock_which.return_value = None
-        with patch("impl.runner.subprocess.run") as mock_run:
+        with patch("harness_common.runner.subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(returncode=1)
-            with patch("impl.runner.Path") as mock_path_cls:
+            with patch("harness_common.runner.Path") as mock_path_cls:
                 mock_instance = MagicMock()
                 mock_instance.exists.return_value = False
                 mock_path_cls.return_value = mock_instance

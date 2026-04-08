@@ -43,16 +43,21 @@ from pathlib import Path
 
 # Allow direct execution: python scripts/deep-mode-harness/main.py
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from harness_common.parser import parse_harness_output
 from impl.constants import (
+    APPLIED_PENDING_TEST,
     BACKUP_SUFFIX,
     DEFAULT_MAX_ITERATIONS,
     DEFAULT_MAX_TURNS,
     DEFAULT_SESSION_TIMEOUT,
+    FIXED_STATUSES,
     MAX_ITERATIONS_HARD_CAP,
     PERSISTENT_STATUS,
     PREFIX,
     PROGRESS_FILE_NAME,
+    REVERTED_STATUSES,
     VALID_FOCUS_MODES,
 )
 from impl.findings import (
@@ -72,7 +77,6 @@ from impl.git import (
     git_stash_snapshot,
     restore_working_tree,
 )
-from impl.parser import parse_harness_output
 from impl.progress import (
     make_initial_progress,
     migrate_progress,
@@ -185,15 +189,14 @@ Examples:
 # ---------------------------------------------------------------------------
 
 
-def _validate_environment(project_root, args):
+def _validate_environment(project_root, args, _run=None):
     """Validate that claude CLI is available and a test command exists.
 
     Returns (test_command, None) on success, or (None, error_message) on failure.
     """
+    _run = _run or subprocess.run
     try:
-        claude_check = subprocess.run(
-            ["claude", "--version"], capture_output=True, text=True
-        )
+        claude_check = _run(["claude", "--version"], capture_output=True, text=True)
     except FileNotFoundError:
         claude_check = None
     if claude_check is None or claude_check.returncode != 0:
@@ -279,7 +282,10 @@ def _load_resumed_progress(progress_path, args, project_root):
         else:
             return None, f"No progress file to resume from: {progress_path}"
 
-    progress = read_progress(progress_path)
+    try:
+        progress = read_progress(progress_path)
+    except (ValueError, OSError) as exc:
+        return None, f"Cannot read progress file: {exc}"
     migrate_progress(progress)
 
     for key in ("skill", "iteration", "config", "findings"):
@@ -332,19 +338,44 @@ def _print_startup_info(args, progress):
     print(f"{PREFIX}")
 
 
+def _count_iteration_findings(progress, iteration):
+    """Count fixed/reverted findings for the current iteration from actual statuses.
+
+    Treats ``applied-pending-test`` as optimistic-fixed so that an interrupt
+    between fix-application and test-verification still reports accurate counts
+    instead of zeros.
+    """
+    fixed = 0
+    reverted = 0
+    for f in progress["findings"]:
+        if f.get("iteration_last_attempted") != iteration:
+            continue
+        status = f["status"]
+        if status in FIXED_STATUSES or status == APPLIED_PENDING_TEST:
+            fixed += 1
+        elif status in REVERTED_STATUSES:
+            reverted += 1
+    return fixed, reverted
+
+
 def _handle_interrupt(args, progress, progress_path, project_root):
     """Handle Ctrl+C gracefully: commit work, save progress, print report."""
     print(f"\n{PREFIX} Interrupted.")
     iteration = progress["iteration"]["current"]
     if not args.no_commit and git_diff_has_changes(project_root):
         print(f"{PREFIX} Committing completed work from current iteration...")
-        # Interrupt may occur before _record_iteration_history runs
+        # Interrupt may occur before _record_iteration_history runs.
+        # Count actual finding statuses instead of hardcoding zeros so the
+        # commit message accurately reflects work completed before interrupt.
         if (
             not progress["iteration_history"]
             or progress["iteration_history"][-1].get("iteration") != iteration
         ):
-            _record_iteration_history(progress, iteration, 0, 0, 0, False)
-        git_commit_checkpoint(progress, iteration, project_root)
+            fixed, reverted = _count_iteration_findings(progress, iteration)
+            _record_iteration_history(progress, iteration, 0, fixed, reverted, False)
+        git_commit_checkpoint(
+            progress, iteration, project_root, progress_file=str(progress_path)
+        )
     progress["termination"] = {
         "reason": "interrupted",
         "message": "User pressed Ctrl+C",
@@ -397,7 +428,9 @@ def _handle_safe_exit(
     _record_iteration_history(progress, iteration, new_count, 0, 0, test_passed)
     write_progress(progress_path, progress)
     if not args.no_commit and test_passed and git_diff_has_changes(project_root):
-        git_commit_checkpoint(progress, iteration, project_root)
+        git_commit_checkpoint(
+            progress, iteration, project_root, progress_file=str(progress_path)
+        )
 
 
 def _run_session_with_retry(
@@ -484,11 +517,70 @@ def _recover_from_missing_output(
     return None
 
 
+def _promote_actionable_fixes(result):
+    """Promote findings with valid edit pairs into fixes_applied.
+
+    Defensive guard for a contract gap in the harness JSON output: the skill
+    session decides `no_actionable_fixes` itself, and may incorrectly emit
+    `true` even when individual findings carry mechanically-applicable
+    `pre_edit_content` / `post_edit_content` pairs (observed when the only
+    fixable finding was a markdown doc edit and the model classified it as
+    "not a code edit"). The harness can verify actionability mechanically:
+    if a swap pair exists, the fix can be applied via `apply_single_fix`.
+
+    Mutates `result` in place when promotion occurs:
+      - Adds qualifying findings to `result["fixes_applied"]` (skipping any
+        already present, matched by finding_key).
+      - Forces `result["no_actionable_fixes"] = False` so the normal apply
+        + test + bisect path runs.
+
+    Returns the count of promoted findings (0 if none).
+
+    A finding qualifies when:
+      - `pre_edit_content` is non-empty (apply_single_fix returns False on
+        empty find strings, so empty pre is non-actionable by definition)
+      - `post_edit_content` is a string (not None) — empty string is valid
+        and represents a deletion fix per references/harness-mode.md
+      - `pre_edit_content` differs from `post_edit_content` (a no-op edit
+        is not actionable)
+    """
+    if not result.get("no_actionable_fixes", False):
+        return 0
+
+    new_findings = result.get("new_findings", [])
+    if not new_findings:
+        return 0
+
+    existing_fixes = result.get("fixes_applied", []) or []
+    existing_keys = {finding_key(f) for f in existing_fixes}
+
+    promoted = []
+    for finding in new_findings:
+        pre = finding.get("pre_edit_content")
+        post = finding.get("post_edit_content")
+        if not pre or not isinstance(post, str) or pre == post:
+            continue
+        if finding_key(finding) in existing_keys:
+            continue
+        promoted.append(finding)
+
+    if not promoted:
+        return 0
+
+    print(
+        f"{PREFIX} Skill reported no_actionable_fixes=true but "
+        f"{len(promoted)} finding(s) carry valid edit pairs — applying anyway"
+    )
+    result["fixes_applied"] = existing_fixes + promoted
+    result["no_actionable_fixes"] = False
+    return len(promoted)
+
+
 def _register_iteration_findings(progress, result, fixes):
     """Register applied fixes and discovered-but-not-applied findings."""
     applied_keys = {finding_key(f) for f in fixes}
     for fix in fixes:
-        mark_finding_status(progress, fix, "applied-pending-test", None)
+        mark_finding_status(progress, fix, APPLIED_PENDING_TEST, None)
     for new_finding in result.get("new_findings", []):
         if finding_key(new_finding) not in applied_keys:
             mark_finding_status(progress, new_finding, "discovered", None)
@@ -656,6 +748,8 @@ def _run_iteration_loop(
             if result is None:
                 break
 
+        _promote_actionable_fixes(result)
+
         new_count = len(result.get("new_findings", []))
         applied_count = len(result.get("fixes_applied", []))
         print(
@@ -733,7 +827,12 @@ def _run_iteration_loop(
             and test_passed
             and (fixed_count > 0 or git_diff_has_changes(project_root))
         ):
-            if git_commit_checkpoint(progress, iteration, project_root):
+            if git_commit_checkpoint(
+                progress,
+                iteration,
+                project_root,
+                progress_file=str(progress_path),
+            ):
                 print(
                     f"{PREFIX} Checkpoint: deep-harness({args.skill}): iteration {iteration}"
                 )

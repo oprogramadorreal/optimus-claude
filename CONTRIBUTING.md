@@ -15,7 +15,7 @@ optimus-claude/
 ├── agents/                    # Plugin-level agents — user-invokable, also extended by skill-level agents
 │   ├── code-simplifier.md     # Code simplification agent (extended by code-review, refactor, tdd)
 │   ├── test-guardian.md       # Test coverage monitoring agent (extended by code-review, tdd)
-├── references/                # Shared reference docs (agent-architecture, shared-agent-constraints, context-injection-blocks, harness-mode)
+├── references/                # Shared reference docs (agent-architecture, shared-agent-constraints, context-injection-blocks, harness-mode, coverage-harness-mode)
 ├── hooks/
 │   ├── hooks.json            # Plugin-level hooks (SessionStart for skill awareness)
 │   └── session-start         # Outputs dynamic project state on session start/resume/clear/compact
@@ -24,9 +24,13 @@ optimus-claude/
 │   ├── test-hooks.sh         # Hook execution tests (CI)
 │   ├── generate-fixtures.sh  # Generates minimal project fixtures for testing (local)
 │   ├── test-skills.sh        # Automated skill execution tests via claude -p (local)
-│   └── deep-mode-harness/    # Deep harness orchestrator (Python package)
-│       ├── main.py           # Entry point — invoked via `deep harness` or directly
-│       └── impl/             # Internal modules (constants, git, progress, runner, etc.)
+│   ├── harness_common/        # Shared modules used by both harnesses
+│   ├── deep-mode-harness/    # Deep harness orchestrator (Python package)
+│   │   ├── main.py           # Entry point — invoked via `deep harness` or directly
+│   │   └── impl/             # Internal modules (constants, git, progress, runner, etc.)
+│   └── test-coverage-harness/ # Test-coverage harness orchestrator (Python package)
+│       ├── main.py           # Entry point — invoked via `unit-test deep harness` or directly
+│       └── impl/             # Internal modules (constants, convergence, git, runner, etc.)
 ├── skills/
 │   ├── init/                 # /optimus:init
 │   ├── dev-setup/            # /optimus:dev-setup
@@ -46,12 +50,15 @@ optimus-claude/
 │   └── jira/                 # /optimus:jira
 ├── test/
 │   ├── expected-outputs.yaml # Expected outputs for skill tests
+│   ├── harness-common/        # Python unit tests for shared harness modules
 │   ├── deep-mode-harness/    # Python unit tests for the deep harness
+│   ├── test-coverage-harness/ # Python unit tests for the test-coverage harness
 │   └── fixtures/             # Generated project fixtures (gitignored)
 ├── requirements-dev.txt      # Python dev dependencies (pytest, pytest-cov, black, isort)
 ├── install.cmd               # Create .venv and install dev dependencies
 ├── test.cmd                  # Run Python unit tests
 ├── test-coverage.cmd         # Run Python tests with coverage report
+├── pyproject.toml            # pytest configuration (importlib import mode)
 ├── README.md
 ├── CONTRIBUTING.md
 └── LICENSE
@@ -197,9 +204,9 @@ Tests all state combinations (uninitialized, partial, fully configured, dirty tr
 - Zero-output guarantee for fully configured projects
 - Formatter hooks parse JSON input and filter by file extension correctly
 
-### Python unit tests (deep-mode-harness)
+### Python unit tests (harness packages)
 
-Unit tests for the deep-mode harness Python modules — the only Python code in the plugin.
+Unit tests for the harness Python modules — the only Python code in the plugin.
 
 **First-time setup:**
 
@@ -218,8 +225,10 @@ Or manually via pytest:
 
 ```shell
 .venv\Scripts\activate
-python -m pytest test/deep-mode-harness/ -v
+python -m pytest test/harness-common/ test/deep-mode-harness/ test/test-coverage-harness/ -v
 ```
+
+**Note:** The project uses `pyproject.toml` with `--import-mode=importlib` so that test directories with overlapping package names resolve correctly.
 
 ### Fixture generator (local)
 

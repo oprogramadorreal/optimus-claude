@@ -1,10 +1,15 @@
 import datetime
-import json
-import shutil
 from pathlib import Path
 
-from .constants import BACKUP_SUFFIX, normalize_path
-from .git import git_rev_parse_head
+from harness_common.constants import normalize_path
+from harness_common.git import git_rev_parse_head
+
+# Re-export shared functions for backward compatibility
+from harness_common.progress import (  # noqa: F401
+    read_progress,
+    record_test_result,
+    write_progress,
+)
 
 
 def make_initial_progress(
@@ -16,10 +21,11 @@ def make_initial_progress(
     base_commit=None,
     started_at=None,
     focus="",
+    _rev_parse=None,
 ):
     """Create the initial progress file structure."""
     if base_commit is None:
-        base_commit = git_rev_parse_head(project_root)
+        base_commit = (_rev_parse or git_rev_parse_head)(project_root)
     if started_at is None:
         started_at = datetime.datetime.now(datetime.timezone.utc).strftime(
             "%Y-%m-%dT%H:%M:%SZ"
@@ -53,26 +59,6 @@ def make_initial_progress(
         "iteration_history": [],
         "termination": {"reason": None, "message": None},
     }
-
-
-def record_test_result(progress, passed, summary):
-    """Store test outcome in the progress structure."""
-    progress["test_results"]["last_full_run"] = "pass" if passed else "fail"
-    progress["test_results"]["last_run_output_summary"] = summary
-
-
-def write_progress(path, progress):
-    """Write the progress file with a backup."""
-    path = Path(path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    if path.exists():
-        shutil.copy2(str(path), str(path) + BACKUP_SUFFIX)
-    path.write_text(json.dumps(progress, indent=2) + "\n", encoding="utf-8")
-
-
-def read_progress(path):
-    """Read the progress file."""
-    return json.loads(Path(path).read_text(encoding="utf-8"))
 
 
 def migrate_progress(progress):

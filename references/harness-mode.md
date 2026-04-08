@@ -9,6 +9,8 @@
 
 When a user invokes a skill with `deep harness` (e.g., `/optimus:code-review deep harness` or `/optimus:refactor deep harness 8 "focus on backend"`), the skill delegates here for an early-exit fast path. The user already opted in by typing `harness`, so no confirmation is needed. Follow these steps in order and stop at the end — do not return to the calling skill.
 
+**Note:** `/optimus:unit-test deep harness` uses a different harness — see `references/coverage-harness-mode.md`. The protocol below applies to `/optimus:code-review` and `/optimus:refactor` only.
+
 ### 1. Resolve plugin root
 
 Run `echo $CLAUDE_PLUGIN_ROOT` via Bash. Store the result as `plugin_root`. If the output is empty, stop with: "Cannot resolve plugin root — ensure optimus-claude is installed via the Claude Code plugin system."
@@ -185,7 +187,7 @@ At the end of the response, output the iteration results in this exact format:
   ],
   "fixes_skipped_persistent": ["<id of findings skipped due to persistent status>"],
   "no_new_findings": <true if zero new findings discovered>,
-  "no_actionable_fixes": <true if findings exist but none had actionable code edits>
+  "no_actionable_fixes": <true ONLY if every finding has empty pre_edit_content (i.e., no swap pair was captured); any finding with a non-empty pre_edit_content + a different post_edit_content counts as actionable, regardless of file type — markdown, JSON, config, and code edits all qualify>
 }
 ```
 ````

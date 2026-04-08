@@ -1,11 +1,12 @@
-import re
-from pathlib import Path
+from harness_common.git import git_current_branch
+
+# Re-export shared function for backward compatibility
+from harness_common.reporting import detect_test_command  # noqa: F401
 
 from .constants import FIXED_STATUSES, PERSISTENT_STATUS, PREFIX, REVERTED_STATUSES
-from .git import git_current_branch
 
 
-def print_report(progress, current_branch=None):
+def print_report(progress, current_branch=None, _get_branch=None):
     """Print the consolidated cumulative report."""
     findings = progress["findings"]
     total_fixed = sum(1 for f in findings if f["status"] in FIXED_STATUSES)
@@ -58,10 +59,11 @@ def print_report(progress, current_branch=None):
         print(f"{PREFIX} To squash checkpoint commits: git rebase -i {base[:8]}")
         print(f"{PREFIX} To rollback everything:       git reset --hard {base[:8]}")
         # Suggest push if on a feature branch (not main/master)
+        get_branch = _get_branch or git_current_branch
         branch = (
             current_branch
             if current_branch is not None
-            else git_current_branch(progress["config"]["project_root"])
+            else get_branch(progress["config"]["project_root"])
         )
         if branch and branch not in ("main", "master"):
             print(f"{PREFIX} To push checkpoint branch:    git push -u origin {branch}")
@@ -126,43 +128,3 @@ def build_commit_body(progress, iteration, max_entries=10):
     )
 
     return "\n".join(lines)
-
-
-def detect_test_command(project_root, content=None):
-    """
-    Try to extract the test command from .claude/CLAUDE.md.
-    Looks for common patterns like 'test command: ...' or code blocks with test commands.
-    Pass content directly to skip filesystem access (useful for testing).
-    """
-    if content is None:
-        claude_md = Path(project_root) / ".claude" / "CLAUDE.md"
-        if not claude_md.exists():
-            return None
-        content = claude_md.read_text(encoding="utf-8")
-
-    # Look for explicit test command patterns (inline backtick style)
-    inline_patterns = [
-        r"(?:test|tests)\s*(?:command|cmd)\s*[:=]\s*`([^`]+)`",
-        r"(?:run\s+tests?|testing)\s*[:]\s*`([^`]+)`",
-    ]
-    for pattern in inline_patterns:
-        match = re.search(pattern, content, re.IGNORECASE | re.MULTILINE)
-        if match:
-            cmd = match.group(1).strip()
-            cmd = re.sub(r"\s+#\s.*$", "", cmd)
-            return cmd
-
-    # Search within bash/sh code blocks for lines containing test commands
-    block_pattern = r"```\s*(?:bash|sh)\s*\n([\s\S]*?)\n\s*```"
-    test_command_pattern = r"(?:test|spec|jest|pytest|cargo test|go test|dotnet test)"
-    for block_match in re.finditer(block_pattern, content):
-        for line in block_match.group(1).strip().splitlines():
-            line = line.strip()
-            if (
-                line
-                and not line.startswith("#")
-                and re.search(test_command_pattern, line, re.IGNORECASE)
-            ):
-                return re.sub(r"\s+#\s.*$", "", line)
-
-    return None

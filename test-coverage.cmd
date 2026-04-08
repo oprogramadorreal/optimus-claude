@@ -3,12 +3,12 @@ SETLOCAL
 set FAILED=0
 
 echo ========================================
-echo  Python coverage (deep-mode-harness)
+echo  Python coverage (harness packages)
 echo ========================================
 echo  HTML report: htmlcov/
 echo ========================================
 call .venv\Scripts\activate
-python -m pytest test/deep-mode-harness/ --cov=scripts/deep-mode-harness/impl --cov-report=term-missing --cov-report=html
+python -m pytest test/harness-common/ test/deep-mode-harness/ test/test-coverage-harness/ --cov=scripts/harness_common --cov=scripts/deep-mode-harness/impl --cov=scripts/test-coverage-harness --cov-report=term-missing --cov-report=html
 IF ERRORLEVEL 1 set FAILED=1
 
 echo.

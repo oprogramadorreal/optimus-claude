@@ -1,10 +1,9 @@
 from pathlib import Path
 from unittest.mock import patch
 
+from harness_common.fixes import _is_path_within, _swap_content
 from impl.fixes import (
-    _is_path_within,
-    _swap_content,
-    _try_apply_fix,
+    _make_bisect_outcome_callback,
     apply_single_fix,
     bisect_fixes,
     revert_single_fix,
@@ -127,63 +126,6 @@ class TestApplyRevertRoundTrip:
 
         assert revert_single_fix(fix, str(tmp_path)) is True
         assert f.read_text(encoding="utf-8") == original
-
-
-class TestTryApplyFix:
-    def _make_file_and_fix(self, tmp_path):
-        f = tmp_path / "src" / "app.js"
-        f.parent.mkdir(parents=True)
-        f.write_text("const x = obj.value;", encoding="utf-8")
-        fix = {
-            "file": "src/app.js",
-            "line": 1,
-            "category": "bug",
-            "pre_edit_content": "obj.value",
-            "post_edit_content": "obj?.value",
-        }
-        return f, fix
-
-    @patch("impl.fixes.run_tests")
-    def test_fixed_when_tests_pass(self, mock_run_tests, tmp_path, sample_progress):
-        mock_run_tests.return_value = (True, "All tests passed")
-        f, fix = self._make_file_and_fix(tmp_path)
-        outcome, _ = _try_apply_fix(fix, "npm test", str(tmp_path), sample_progress)
-        assert outcome == "fixed"
-        assert "obj?.value" in f.read_text(encoding="utf-8")
-        assert sample_progress["findings"][0]["status"] == "fixed"
-
-    @patch("impl.fixes.run_tests")
-    def test_reverted_when_tests_fail(self, mock_run_tests, tmp_path, sample_progress):
-        mock_run_tests.return_value = (False, "1 test failed")
-        f, fix = self._make_file_and_fix(tmp_path)
-        outcome, summary = _try_apply_fix(
-            fix, "npm test", str(tmp_path), sample_progress
-        )
-        assert outcome == "reverted"
-        assert summary == "1 test failed"
-        # File should be reverted to original
-        assert "obj.value" in f.read_text(encoding="utf-8")
-        assert "obj?.value" not in f.read_text(encoding="utf-8")
-
-    def test_skipped_when_apply_fails(self, tmp_path, sample_progress):
-        fix = {
-            "file": "nonexistent.js",
-            "pre_edit_content": "x",
-            "post_edit_content": "y",
-        }
-        outcome, _ = _try_apply_fix(fix, "npm test", str(tmp_path), sample_progress)
-        assert outcome == "skipped"
-
-    @patch("impl.fixes.run_tests")
-    @patch("impl.fixes.revert_single_fix", return_value=False)
-    def test_fixed_when_revert_fails(
-        self, mock_revert, mock_run_tests, tmp_path, sample_progress
-    ):
-        mock_run_tests.return_value = (False, "test failed")
-        f, fix = self._make_file_and_fix(tmp_path)
-        outcome, _ = _try_apply_fix(fix, "npm test", str(tmp_path), sample_progress)
-        assert outcome == "fixed"  # retained because revert failed
-        assert sample_progress["findings"][0]["status"] == "fixed"
 
 
 class TestSwapContentEdgeCases:
@@ -335,8 +277,8 @@ class TestBisectFixes:
         assert "retained" in status
 
     @patch("impl.fixes.run_tests")
-    @patch("impl.fixes.revert_single_fix", return_value=True)
-    @patch("impl.fixes.apply_single_fix")
+    @patch("harness_common.fixes.revert_single_fix", return_value=True)
+    @patch("harness_common.fixes.apply_single_fix")
     def test_skip_in_first_pass(
         self, mock_apply, mock_revert, mock_run_tests, tmp_path, sample_progress
     ):
@@ -352,9 +294,23 @@ class TestBisectFixes:
         assert fixed == 1
         assert reverted == 0
 
+    def test_unknown_outcome_is_ignored(self, sample_progress):
+        """Callback ignores outcome strings outside the known set, leaving
+        the finding untouched — a defensive guard against future shared
+        bisector outcomes that deep-mode hasn't mapped yet."""
+        sample_progress["findings"] = [
+            {"file": "a.js", "line": 1, "category": "bug", "status": "pending"}
+        ]
+        fix = {"file": "a.js", "line": 1, "category": "bug"}
+        callback = _make_bisect_outcome_callback(sample_progress)
+
+        callback(0, fix, "some-future-outcome", detail="ignored")
+
+        assert sample_progress["findings"][0]["status"] == "pending"
+
     @patch("impl.fixes.run_tests")
-    @patch("impl.fixes.revert_single_fix", return_value=True)
-    @patch("impl.fixes.apply_single_fix")
+    @patch("harness_common.fixes.revert_single_fix", return_value=True)
+    @patch("harness_common.fixes.apply_single_fix")
     def test_retry_skip_path(
         self, mock_apply, mock_revert, mock_run_tests, tmp_path, sample_progress
     ):

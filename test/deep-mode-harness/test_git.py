@@ -2,9 +2,9 @@ import json
 import subprocess
 from unittest.mock import MagicMock, call, patch
 
-from impl.git import (
+from harness_common.git import _clean_working_tree
+from impl.git import (  # noqa: F401 — re-exports from harness_common
     _base_from_symbolic_ref,
-    _clean_working_tree,
     _detect_base_branch,
     _verify_ref,
     git_commit_checkpoint,
@@ -99,25 +99,25 @@ class TestBuildCommitBody:
 
 
 class TestGitRevParseHead:
-    @patch("impl.git.subprocess.run")
+    @patch("harness_common.git.subprocess.run")
     def test_success(self, mock_run):
         mock_run.return_value = MagicMock(returncode=0, stdout="abc123\n")
         assert git_rev_parse_head("/tmp") == "abc123"
 
-    @patch("impl.git.subprocess.run")
+    @patch("harness_common.git.subprocess.run")
     def test_failure(self, mock_run):
         mock_run.return_value = MagicMock(returncode=1, stdout="")
         assert git_rev_parse_head("/tmp") is None
 
 
 class TestCleanWorkingTree:
-    @patch("impl.git.subprocess.run")
+    @patch("harness_common.git.subprocess.run")
     def test_success(self, mock_run):
         mock_run.return_value = MagicMock(returncode=0, stderr="")
         _clean_working_tree("/tmp/project")
         assert mock_run.call_count == 2
 
-    @patch("impl.git.subprocess.run")
+    @patch("harness_common.git.subprocess.run")
     def test_clean_failure_prints_warning(self, mock_run, capsys):
         # checkout succeeds, clean fails
         mock_run.side_effect = [
@@ -127,7 +127,7 @@ class TestCleanWorkingTree:
         _clean_working_tree("/tmp/project")
         assert "WARNING" in capsys.readouterr().out
 
-    @patch("impl.git.subprocess.run")
+    @patch("harness_common.git.subprocess.run")
     def test_checkout_failure_prints_warning(self, mock_run, capsys):
         # checkout fails, clean succeeds
         mock_run.side_effect = [
@@ -141,14 +141,14 @@ class TestCleanWorkingTree:
 
 
 class TestGitRestoreTo:
-    @patch("impl.git._clean_working_tree")
-    @patch("impl.git.subprocess.run")
+    @patch("harness_common.git._clean_working_tree")
+    @patch("harness_common.git.subprocess.run")
     def test_success(self, mock_run, mock_clean):
         mock_run.return_value = MagicMock(returncode=0)
         git_restore_to("abc123", "/tmp")
         mock_clean.assert_called_once()
 
-    @patch("impl.git.subprocess.run")
+    @patch("harness_common.git.subprocess.run")
     def test_failure_raises(self, mock_run):
         mock_run.return_value = MagicMock(returncode=1, stderr="error: pathspec")
         import pytest
@@ -158,24 +158,24 @@ class TestGitRestoreTo:
 
 
 class TestGitCurrentBranch:
-    @patch("impl.git.subprocess.run")
+    @patch("harness_common.git.subprocess.run")
     def test_success(self, mock_run):
         mock_run.return_value = MagicMock(returncode=0, stdout="feature/foo\n")
         assert git_current_branch("/tmp") == "feature/foo"
 
-    @patch("impl.git.subprocess.run")
+    @patch("harness_common.git.subprocess.run")
     def test_failure_returns_empty(self, mock_run):
         mock_run.return_value = MagicMock(returncode=1, stdout="")
         assert git_current_branch("/tmp") == ""
 
 
 class TestGitDiffHasChanges:
-    @patch("impl.git.subprocess.run")
+    @patch("harness_common.git.subprocess.run")
     def test_unstaged_changes(self, mock_run):
         mock_run.return_value = MagicMock(returncode=1)
         assert git_diff_has_changes("/tmp") is True
 
-    @patch("impl.git.subprocess.run")
+    @patch("harness_common.git.subprocess.run")
     def test_staged_changes(self, mock_run):
         # diff --quiet passes, diff --cached --quiet fails
         mock_run.side_effect = [
@@ -184,7 +184,7 @@ class TestGitDiffHasChanges:
         ]
         assert git_diff_has_changes("/tmp") is True
 
-    @patch("impl.git.subprocess.run")
+    @patch("harness_common.git.subprocess.run")
     def test_untracked_files(self, mock_run):
         mock_run.side_effect = [
             MagicMock(returncode=0),  # diff --quiet
@@ -193,7 +193,7 @@ class TestGitDiffHasChanges:
         ]
         assert git_diff_has_changes("/tmp") is True
 
-    @patch("impl.git.subprocess.run")
+    @patch("harness_common.git.subprocess.run")
     def test_no_changes(self, mock_run):
         mock_run.side_effect = [
             MagicMock(returncode=0),
@@ -204,27 +204,27 @@ class TestGitDiffHasChanges:
 
 
 class TestRestoreWorkingTree:
-    @patch("impl.git.git_restore_to")
-    @patch("impl.git.git_restore_snapshot", return_value=True)
+    @patch("harness_common.git.git_restore_to")
+    @patch("harness_common.git.git_restore_snapshot", return_value=True)
     def test_stash_path(self, mock_snapshot, mock_restore_to):
         restore_working_tree("stash123", "head123", "/tmp")
-        mock_snapshot.assert_called_once_with("stash123", "/tmp")
+        mock_snapshot.assert_called_once_with("stash123", "/tmp", _run=None)
         mock_restore_to.assert_not_called()
 
-    @patch("impl.git.git_restore_to")
-    @patch("impl.git.git_restore_snapshot", return_value=False)
+    @patch("harness_common.git.git_restore_to")
+    @patch("harness_common.git.git_restore_snapshot", return_value=False)
     def test_stash_fails_falls_back_to_head(self, mock_snapshot, mock_restore_to):
         restore_working_tree("stash123", "head123", "/tmp")
-        mock_restore_to.assert_called_once_with("head123", "/tmp")
+        mock_restore_to.assert_called_once_with("head123", "/tmp", _run=None)
 
-    @patch("impl.git.git_restore_to")
+    @patch("harness_common.git.git_restore_to")
     def test_no_stash_uses_head(self, mock_restore_to):
         restore_working_tree(None, "head123", "/tmp")
-        mock_restore_to.assert_called_once_with("head123", "/tmp")
+        mock_restore_to.assert_called_once_with("head123", "/tmp", _run=None)
 
 
 class TestGitStashSnapshot:
-    @patch("impl.git.subprocess.run")
+    @patch("harness_common.git.subprocess.run")
     def test_success(self, mock_run):
         mock_run.side_effect = [
             MagicMock(returncode=0, stdout="abc123\n"),  # stash create
@@ -232,12 +232,12 @@ class TestGitStashSnapshot:
         ]
         assert git_stash_snapshot("/tmp") == "abc123"
 
-    @patch("impl.git.subprocess.run")
+    @patch("harness_common.git.subprocess.run")
     def test_no_changes(self, mock_run):
         mock_run.return_value = MagicMock(returncode=0, stdout="")
         assert git_stash_snapshot("/tmp") is None
 
-    @patch("impl.git.subprocess.run")
+    @patch("harness_common.git.subprocess.run")
     def test_store_failure_returns_none(self, mock_run, capsys):
         mock_run.side_effect = [
             MagicMock(returncode=0, stdout="abc123\n"),
@@ -248,22 +248,22 @@ class TestGitStashSnapshot:
 
 
 class TestGitRestoreSnapshot:
-    @patch("impl.git.subprocess.run")
-    @patch("impl.git._clean_working_tree")
+    @patch("harness_common.git.subprocess.run")
+    @patch("harness_common.git._clean_working_tree")
     def test_success(self, mock_clean, mock_run):
         mock_run.return_value = MagicMock(returncode=0)
         assert git_restore_snapshot("abc123", "/tmp") is True
         mock_clean.assert_called_once()
 
-    @patch("impl.git.subprocess.run")
-    @patch("impl.git._clean_working_tree")
+    @patch("harness_common.git.subprocess.run")
+    @patch("harness_common.git._clean_working_tree")
     def test_failure(self, mock_clean, mock_run, capsys):
         mock_run.return_value = MagicMock(returncode=1, stderr="conflict")
         assert git_restore_snapshot("abc123", "/tmp") is False
         assert "WARNING" in capsys.readouterr().out
 
-    @patch("impl.git.subprocess.run")
-    @patch("impl.git._clean_working_tree")
+    @patch("harness_common.git.subprocess.run")
+    @patch("harness_common.git._clean_working_tree")
     def test_success_drops_matching_stash(self, mock_clean, mock_run):
         mock_run.side_effect = [
             MagicMock(returncode=0),  # stash apply
@@ -599,7 +599,7 @@ class TestGitFetchOpenPrDescription:
 
 
 class TestGitCommitCheckpoint:
-    @patch("impl.git.subprocess.run")
+    @patch("harness_common.git.subprocess.run")
     def test_success(self, mock_run):
         mock_run.return_value = MagicMock(returncode=0)
         progress = {
@@ -611,7 +611,7 @@ class TestGitCommitCheckpoint:
         # Should call: git add -A, git reset (x2), git commit
         assert mock_run.call_count == 4
 
-    @patch("impl.git.subprocess.run")
+    @patch("harness_common.git.subprocess.run")
     def test_add_failure(self, mock_run, capsys):
         mock_run.return_value = MagicMock(returncode=1, stderr="add failed")
         progress = {
@@ -622,7 +622,7 @@ class TestGitCommitCheckpoint:
         assert git_commit_checkpoint(progress, 1, "/tmp") is False
         assert "WARNING" in capsys.readouterr().out
 
-    @patch("impl.git.subprocess.run")
+    @patch("harness_common.git.subprocess.run")
     def test_commit_failure(self, mock_run, capsys):
         # add succeeds, reset calls succeed, commit fails with real error
         mock_run.side_effect = [
@@ -639,7 +639,7 @@ class TestGitCommitCheckpoint:
         assert git_commit_checkpoint(progress, 1, "/tmp") is False
         assert "WARNING" in capsys.readouterr().out
 
-    @patch("impl.git.subprocess.run")
+    @patch("harness_common.git.subprocess.run")
     def test_nothing_to_commit_returns_true(self, mock_run):
         # add succeeds, reset calls succeed, commit says nothing to commit
         mock_run.side_effect = [

@@ -13,26 +13,32 @@ Read the root README.md to understand the plugin's full capabilities — skills,
 - `.claude-plugin/` — plugin manifests (plugin.json, marketplace.json)
 - `agents/` — plugin-level agent definitions (code-simplifier, test-guardian)
 - `hooks/` — plugin-level hooks (SessionStart for project state awareness)
-- `references/` — shared reference docs consumed across skills (agent-architecture, shared-agent-constraints, context-injection-blocks, harness-mode)
+- `references/` — shared reference docs consumed across skills (agent-architecture, shared-agent-constraints, context-injection-blocks, harness-mode, coverage-harness-mode)
 - `skills/<name>/` — one directory per skill (SKILL.md + README.md + optional agents/, templates/, and references/)
 - `scripts/` — validation and test scripts (CI and local)
+- `scripts/harness_common/` — shared modules used by both harnesses
+- `scripts/deep-mode-harness/` — deep-mode harness orchestrator
+- `scripts/test-coverage-harness/` — test-coverage harness orchestrator
 - `test/` — expected outputs and generated fixtures for skill tests
+- `test/harness-common/` — tests for shared harness modules
+- `test/deep-mode-harness/` — tests for the deep-mode harness
+- `test/test-coverage-harness/` — tests for the test-coverage harness
 - `.claude/` — project-level Claude Code settings and hooks
 
 ## Commands
 
 ```bash
-bash scripts/validate.sh && bash scripts/test-hooks.sh && python -m pytest test/deep-mode-harness/   # Run tests
+bash scripts/validate.sh && bash scripts/test-hooks.sh && python -m pytest test/harness-common/ test/deep-mode-harness/ test/test-coverage-harness/   # Run tests
 ```
 
-For coverage: `python -m pytest test/deep-mode-harness/ --cov scripts/deep-mode-harness/impl --cov-report=term-missing`
+For coverage: `python -m pytest test/harness-common/ test/deep-mode-harness/ test/test-coverage-harness/ --cov scripts/harness_common --cov scripts/deep-mode-harness/impl --cov scripts/test-coverage-harness --cov-report=term-missing`
 
 Or use the batch scripts: `test.cmd` (tests), `test-coverage.cmd` (coverage + HTML report in htmlcov/).
 First-time setup: `install.cmd` (creates `.venv` and installs dev dependencies).
 
 ## Skill-writing guidelines
 
-See `.claude/docs/skill-writing-guidelines.md` for skill structure, design principles, and quality standards. A `.claude/docs/coding-guidelines.md` bridge file also exists so that code-review agents can discover these guidelines through the standard doc-loading path.
+See `.claude/docs/skill-writing-guidelines.md` for skill structure, design principles, and quality standards. A `.claude/docs/coding-guidelines.md` bridge file also exists so that code-review agents can discover these guidelines through the standard doc-loading path. A `.claude/docs/testing.md` bridge file also exists so that `/optimus:unit-test`, the code-review test-guardian agent, and the SessionStart hook can discover this repo's pytest conventions through the standard doc-loading path — without requiring `/optimus:init` (which must never be run on this repo).
 
 ## Testing changes
 
