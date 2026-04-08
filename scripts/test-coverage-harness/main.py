@@ -460,18 +460,14 @@ def _handle_interrupt(args, progress, progress_path, project_root):
 
 
 def _archive_progress(progress_path):
-    """Rename the progress file to indicate completion."""
+    """Move progress file to .done.json and clean up backup."""
     p = Path(progress_path)
-    done_path = p.with_name(p.stem + "-done" + p.suffix)
-    try:
-        p.rename(done_path)
-    except OSError:
-        # Target -done file already exists from a prior completed run.
-        # Leave the backup in place so a subsequent --resume can recover the
-        # terminated state instead of running against a half-archived file.
-        return
-    # Clean up backup file to prevent stale resume
+    done_path = p.with_suffix(".done.json")
+    if done_path.exists():
+        done_path.unlink()
+    shutil.move(str(p), str(done_path))
     Path(str(progress_path) + BACKUP_SUFFIX).unlink(missing_ok=True)
+    print(f"{PREFIX} Progress archived to {done_path.name}")
 
 
 # ---------------------------------------------------------------------------

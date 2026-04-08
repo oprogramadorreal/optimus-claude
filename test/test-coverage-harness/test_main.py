@@ -745,20 +745,25 @@ class TestArchiveProgress:
         progress_path = tmp_path / "test-coverage-progress.json"
         progress_path.write_text('{"done": true}', encoding="utf-8")
         _archive_progress(progress_path)
-        done_path = tmp_path / "test-coverage-progress-done.json"
+        done_path = tmp_path / "test-coverage-progress.done.json"
         assert done_path.exists()
         assert not progress_path.exists()
 
-    def test_oserror_ignored(self, tmp_path):
-        progress_path = tmp_path / "nonexistent.json"
-        # Should not raise even if file doesn't exist
+    def test_overwrites_existing_done(self, tmp_path):
+        progress_path = tmp_path / "test-coverage-progress.json"
+        progress_path.write_text('{"new": true}', encoding="utf-8")
+        done_path = tmp_path / "test-coverage-progress.done.json"
+        done_path.write_text('{"old": true}', encoding="utf-8")
         _archive_progress(progress_path)
+        assert done_path.exists()
+        assert not progress_path.exists()
+        assert '"new": true' in done_path.read_text(encoding="utf-8")
 
     def test_path_object(self, tmp_path):
         progress_path = tmp_path / "progress.json"
         progress_path.write_text("{}", encoding="utf-8")
         _archive_progress(Path(progress_path))
-        done_path = tmp_path / "progress-done.json"
+        done_path = tmp_path / "progress.done.json"
         assert done_path.exists()
 
 
