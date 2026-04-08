@@ -31,36 +31,56 @@ _saved_modules = {}  # harness_name -> {module_name: module_object}
 _current_harness = None
 
 
+def _detect_harness(node_path):
+    """Return the harness name for a collector/item path, or None.
+
+    Match on path *segments* rather than raw substrings — a parent
+    directory name (e.g. a worktree called ``feat-deep-mode-harness-2``)
+    must not be mistaken for the harness directory itself. We look for
+    ``test/<harness>`` in the path parts, which is where the harness
+    test suites actually live.
+    """
+    try:
+        parts = Path(node_path).parts
+    except (TypeError, ValueError):
+        return None
+    for i, part in enumerate(parts[:-1]):
+        if part == "test" and parts[i + 1] in _HARNESS_MAP:
+            return parts[i + 1]
+    return None
+
+
 def _activate_harness(node_path):
     """Ensure the correct harness's impl/main modules are active in sys.modules."""
     global _current_harness
-    for harness_name, harness_path in _HARNESS_MAP.items():
-        if harness_name in node_path:
-            if harness_name == _current_harness:
-                return
-            # Save the outgoing harness's module objects
-            if _current_harness is not None:
-                _saved_modules[_current_harness] = {
-                    k: v
-                    for k, v in sys.modules.items()
-                    if any(k == s or k.startswith(s + ".") for s in _SWAPPABLE)
-                }
-            # Remove swappable modules from sys.modules
-            for key in [
-                k
-                for k in sys.modules
-                if any(k == s or k.startswith(s + ".") for s in _SWAPPABLE)
-            ]:
-                del sys.modules[key]
-            # Restore saved modules for the incoming harness (if seen before)
-            if harness_name in _saved_modules:
-                sys.modules.update(_saved_modules[harness_name])
-            # Ensure the correct harness path is at the front of sys.path
-            if harness_path in sys.path:
-                sys.path.remove(harness_path)
-            sys.path.insert(0, harness_path)
-            _current_harness = harness_name
-            break
+    harness_name = _detect_harness(node_path)
+    if harness_name is None:
+        return
+    if harness_name == _current_harness:
+        return
+    harness_path = _HARNESS_MAP[harness_name]
+    # Save the outgoing harness's module objects
+    if _current_harness is not None:
+        _saved_modules[_current_harness] = {
+            k: v
+            for k, v in sys.modules.items()
+            if any(k == s or k.startswith(s + ".") for s in _SWAPPABLE)
+        }
+    # Remove swappable modules from sys.modules
+    for key in [
+        k
+        for k in sys.modules
+        if any(k == s or k.startswith(s + ".") for s in _SWAPPABLE)
+    ]:
+        del sys.modules[key]
+    # Restore saved modules for the incoming harness (if seen before)
+    if harness_name in _saved_modules:
+        sys.modules.update(_saved_modules[harness_name])
+    # Ensure the correct harness path is at the front of sys.path
+    if harness_path in sys.path:
+        sys.path.remove(harness_path)
+    sys.path.insert(0, harness_path)
+    _current_harness = harness_name
 
 
 def pytest_collectstart(collector):
