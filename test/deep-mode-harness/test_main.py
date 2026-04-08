@@ -29,6 +29,7 @@ from main import (
     _recover_from_missing_output,
     _register_iteration_findings,
     _run_session_with_retry,
+    _should_soft_exit,
     _test_and_reconcile_fixes,
     _validate_environment,
     main,
@@ -85,6 +86,63 @@ class TestRecordIterationHistory:
         _record_iteration_history(sample_progress, 2, 2, 1, 0, True)
         assert len(sample_progress["iteration_history"]) == 2
         assert sample_progress["iteration"]["completed"] == 2
+
+
+# ---------------------------------------------------------------------------
+# _should_soft_exit
+# ---------------------------------------------------------------------------
+
+
+class TestShouldSoftExit:
+    """Diminishing-returns soft-exit gate: stops the harness when yield
+    plateaus at ≤1 new finding for two consecutive iterations after iter 3,
+    with no active retry work in flight."""
+
+    def test_fires_on_low_yield_plateau(self, sample_progress):
+        # Iter 3 has 1 new finding, iter 4 has 1 new finding, no reverts
+        _record_iteration_history(sample_progress, 3, 1, 1, 0, True)
+        _record_iteration_history(sample_progress, 4, 1, 1, 0, True)
+        assert _should_soft_exit(sample_progress, iteration=4, new_count=1, reverted_count=0)
+
+    def test_does_not_fire_before_min_iteration(self, sample_progress):
+        # Iter 1 + iter 2 low yield — still too early to soft-exit
+        _record_iteration_history(sample_progress, 1, 1, 1, 0, True)
+        _record_iteration_history(sample_progress, 2, 1, 1, 0, True)
+        assert not _should_soft_exit(sample_progress, iteration=2, new_count=1, reverted_count=0)
+
+    def test_does_not_fire_when_current_yield_exceeds_threshold(self, sample_progress):
+        _record_iteration_history(sample_progress, 3, 1, 1, 0, True)
+        _record_iteration_history(sample_progress, 4, 5, 5, 0, True)
+        assert not _should_soft_exit(sample_progress, iteration=4, new_count=5, reverted_count=0)
+
+    def test_does_not_fire_when_prior_yield_exceeds_threshold(self, sample_progress):
+        # Prior iter had 3 findings — not a plateau yet
+        _record_iteration_history(sample_progress, 3, 3, 3, 0, True)
+        _record_iteration_history(sample_progress, 4, 1, 1, 0, True)
+        assert not _should_soft_exit(sample_progress, iteration=4, new_count=1, reverted_count=0)
+
+    def test_blocked_by_current_iter_reverts(self, sample_progress):
+        # Even with low yield, active retry work must block the exit
+        _record_iteration_history(sample_progress, 3, 1, 0, 1, False)
+        _record_iteration_history(sample_progress, 4, 1, 0, 1, False)
+        assert not _should_soft_exit(sample_progress, iteration=4, new_count=1, reverted_count=1)
+
+    def test_blocked_by_prior_iter_reverts(self, sample_progress):
+        # Prior iter had a reverted fix — harness is still recovering, don't exit
+        _record_iteration_history(sample_progress, 3, 1, 0, 1, False)
+        _record_iteration_history(sample_progress, 4, 1, 1, 0, True)
+        assert not _should_soft_exit(sample_progress, iteration=4, new_count=1, reverted_count=0)
+
+    def test_requires_window_of_history(self, sample_progress):
+        # Only one iteration recorded — can't plateau without a prior entry
+        _record_iteration_history(sample_progress, 3, 1, 1, 0, True)
+        assert not _should_soft_exit(sample_progress, iteration=3, new_count=1, reverted_count=0)
+
+    def test_zero_yield_also_qualifies_as_plateau(self, sample_progress):
+        # 0 ≤ threshold — 0/0 across two iters still counts as plateau
+        _record_iteration_history(sample_progress, 3, 0, 0, 0, True)
+        _record_iteration_history(sample_progress, 4, 0, 0, 0, True)
+        assert _should_soft_exit(sample_progress, iteration=4, new_count=0, reverted_count=0)
 
 
 # ---------------------------------------------------------------------------

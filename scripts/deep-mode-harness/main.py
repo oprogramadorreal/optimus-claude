@@ -685,6 +685,50 @@ def _record_iteration_history(
     progress["iteration"]["completed"] = iteration
 
 
+# Diminishing-returns soft-exit thresholds
+SOFT_EXIT_MIN_ITERATION = 3
+SOFT_EXIT_MAX_YIELD = 1  # ≤ this many new findings counts as "low yield"
+SOFT_EXIT_WINDOW = 2  # consecutive low-yield iterations required
+
+
+def _should_soft_exit(progress, iteration, new_count, reverted_count):
+    """Diminishing-returns soft-exit gate.
+
+    Return True when yield has plateaued at ≤1 new finding for two consecutive
+    iterations, we are past iteration 3, and no reverted/persistent retry work
+    is in flight in either window iteration. Caps wasted iterations once the
+    harness has drained most of the backlog; defers remaining issues to a
+    fresh-conversation re-run (via `--resume`) rather than dropping them.
+
+    Guards:
+    - Never fires before iteration `SOFT_EXIT_MIN_ITERATION` (lets early
+      front-loaded iterations run).
+    - Active retry work (reverted fixes in either window iteration) blocks the
+      exit — we keep iterating while the harness is still trying to recover
+      from a failed fix.
+    - Requires at least one prior iteration in `iteration_history` to compare
+      against. The caller is expected to invoke this *after*
+      `_record_iteration_history`, so the current iteration is already the
+      last entry.
+    """
+    if iteration < SOFT_EXIT_MIN_ITERATION:
+        return False
+    if new_count > SOFT_EXIT_MAX_YIELD:
+        return False
+    if reverted_count > 0:
+        return False  # Active retry work in current iter — keep iterating
+
+    history = progress.get("iteration_history", [])
+    if len(history) < SOFT_EXIT_WINDOW:
+        return False
+    prev = history[-2]  # Current iteration is history[-1]
+    if prev.get("new_findings", 0) > SOFT_EXIT_MAX_YIELD:
+        return False
+    if prev.get("reverted", 0) > 0:
+        return False  # Active retry work in prior iter — keep iterating
+    return True
+
+
 # ---------------------------------------------------------------------------
 # Main loop
 # ---------------------------------------------------------------------------
@@ -841,6 +885,28 @@ def _run_iteration_loop(
                     f"{PREFIX} WARNING: Checkpoint failed — skipping commits for remaining iterations"
                 )
                 skip_commits = True
+
+        # Check diminishing-returns soft-exit.
+        # Stops the loop when yield has plateaued at ≤1 new finding for two
+        # consecutive iterations after iter 3, and no reverted/persistent retry
+        # work is in flight. Does not drop findings — any remaining issues can
+        # be resumed in a fresh conversation via `--resume`.
+        if _should_soft_exit(progress, iteration, new_count, reverted_count):
+            progress["termination"] = {
+                "reason": "diminishing-returns",
+                "message": (
+                    f"Yield plateaued at ≤{SOFT_EXIT_MAX_YIELD} new finding/iter "
+                    f"for {SOFT_EXIT_WINDOW} iterations ending at iter {iteration}. "
+                    "Remaining issues may exist but require fresh context — "
+                    "re-run with --resume to continue."
+                ),
+            }
+            write_progress(progress_path, progress)
+            print(
+                f"{PREFIX} Diminishing returns — stopping "
+                "(re-run with --resume for fresh context)."
+            )
+            break
 
         # Check iteration cap
         if iteration >= max_iter:

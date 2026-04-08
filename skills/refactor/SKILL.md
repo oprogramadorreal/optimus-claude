@@ -188,7 +188,7 @@ If deep mode is active and `iteration-count` > 1, prepend the iteration context 
 | 3 — Consistency Analyzer | Cross-file duplication, pattern inconsistency, missing abstractions, architectural drift | Always |
 | 4 — Code Simplifier | Unnecessary complexity, naming, dead code, pattern violations | Always |
 
-Each agent: max 8 findings, structured list format. The Guideline Compliance agent (Agent 1) is constructed dynamically based on Step 3's doc loading results (single project vs monorepo paths).
+Each agent: up to **15** findings in structured list format — only when each is a distinct root cause with supporting evidence. Do NOT pad to reach the cap: 3 strong findings are preferred over 15 weak ones. The Guideline Compliance agent (Agent 1) is constructed dynamically based on Step 3's doc loading results (single project vs monorepo paths).
 
 ### Execution
 
@@ -239,13 +239,13 @@ After deduplication, check for **cross-agent contradictions** — findings that 
 
 ### Finding caps
 
-Maximum **8 findings** per run.
+Maximum **15 findings** per run — only include findings that represent distinct root causes with supporting evidence. Do NOT pad to reach the cap: a focused plan of 3 strong findings is preferred over 15 weak ones.
 
 **When focus is active** (testability or guidelines):
-- Reserve **6 slots** for the focused category, **2 slots** for other categories
+- Reserve **12 slots** for the focused category, **3 slots** for other categories
 - Within each slot group, prioritize by severity then confidence
-- If the focused category has fewer than 6 findings, redistribute unused slots to other categories
-- If other categories have fewer than 2 findings, redistribute unused slots to the focused category
+- If the focused category has fewer than 12 findings, redistribute unused slots to other categories
+- If other categories have fewer than 3 findings, redistribute unused slots to the focused category
 - Category mapping:
   - `testability` focus: Testability Barrier findings + any finding with a "Testability impact" line → reserved slots. All others → other slots.
   - `guidelines` focus: Guideline Violation, Inconsistency, Duplication, Missing Abstraction, Architectural Drift, Code Quality findings → reserved slots. Testability Barrier findings → other slots.
@@ -253,7 +253,7 @@ Maximum **8 findings** per run.
 **When no focus is active** (default balanced mode):
 - Prioritize by severity then confidence across all categories (current behavior)
 
-If more issues exist, note the count (e.g., "8 of ~18 findings shown") and suggest re-running with a narrower scope or `/optimus:refactor deep`.
+If more issues exist, note the count (e.g., "15 of ~24 findings shown") and suggest re-running with a narrower scope or `/optimus:refactor deep`.
 
 ### Deep mode accumulation
 

@@ -199,6 +199,6 @@ Stop immediately after outputting the JSON block. Do NOT:
 - Present a cumulative or per-iteration markdown report
 - Recommend next steps
 - Use `AskUserQuestion`
-- Check termination conditions (convergence, cap, all-reverted)
+- Check termination conditions (convergence, cap, all-reverted, diminishing-returns)
 
-The harness reads the JSON output, runs tests, updates the progress file, and decides whether to launch another iteration.
+The harness reads the JSON output, runs tests, updates the progress file, and decides whether to launch another iteration. Termination reasons the harness may record on exit: `convergence` (zero new findings), `no-actionable` (findings exist but have no code edits), `all-reverted` (every fix this iteration failed tests), `diminishing-returns` (yield plateaued at ≤1 new finding/iter for two consecutive iterations after iter 3, with no active retry work — remaining issues may exist and can be resumed via `--resume`), `cap` (max iterations hit), and `crash`/`parse-failure` (session error).

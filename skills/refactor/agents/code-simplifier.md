@@ -34,4 +34,4 @@ For each finding report in this exact format:
 
 Do NOT modify any files. Do NOT flag guideline violations (guideline-reviewer), testability barriers (testability-analyzer), or duplication/consistency (consistency-analyzer).
 
-Maximum 8 findings.
+Up to **15** findings — only when each is a distinct root cause with supporting evidence. Do NOT pad to reach the cap: 3 strong findings are preferred over 15 weak ones.

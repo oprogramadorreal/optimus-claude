@@ -216,7 +216,7 @@ If deep mode is active and `iteration-count` > 1, prepend the iteration context 
 | 6 — Test Guardian | Test coverage gaps, structural barriers to testability | `test-guardian.md` |
 | 7 — Contracts Reviewer | Backward compatibility, type safety, contract versioning, encapsulation | `contracts-reviewer.md` |
 
-Agents 1–5 always run. Agent 6 (Test Guardian) runs when test infrastructure is detected (`.claude/docs/testing.md` or subproject `docs/testing.md` exists). Agent 7 (Contracts Reviewer) runs when changed files include contract-related paths (see activation rules below). Each agent: max 8 findings, structured list format. Guideline agents (3–4) are constructed dynamically based on Step 4's doc loading results (single project vs monorepo paths).
+Agents 1–5 always run. Agent 6 (Test Guardian) runs when test infrastructure is detected (`.claude/docs/testing.md` or subproject `docs/testing.md` exists). Agent 7 (Contracts Reviewer) runs when changed files include contract-related paths (see activation rules below). Each agent: up to **15** findings in structured list format — only when each is a distinct root cause with supporting evidence. Do NOT pad to reach the cap: 3 strong findings are preferred over 15 weak ones. Guideline agents (3–4) are constructed dynamically based on Step 4's doc loading results (single project vs monorepo paths).
 
 ### Contracts Reviewer activation (Agent 7)
 

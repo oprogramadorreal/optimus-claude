@@ -31,4 +31,4 @@ For each finding report in this exact format:
 
 Do NOT modify any files. Do NOT write test code. Only identify gaps.
 
-Maximum 8 findings.
+Up to **15** findings — only when each is a distinct root cause with supporting evidence. Do NOT pad to reach the cap: 3 strong findings are preferred over 15 weak ones.

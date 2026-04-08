@@ -17,7 +17,7 @@ Well-maintained code has [30%+ fewer AI-introduced defects](https://arxiv.org/ab
 - **Two-phase workflow** — presents a refactoring plan first, then applies only what you approve
 - **Test verification** — runs the test suite after applying changes with evidence-based verification; reverts any change that causes failures
 - **Conservative by default** — only suggests changes justified by the project's own guidelines
-- **Prioritized findings** — Critical/Warning/Suggestion severity with concrete before/after sketches, capped at 8 per run for focused, manageable output
+- **Prioritized findings** — Critical/Warning/Suggestion severity with concrete before/after sketches, capped at 15 per run for focused, manageable output
 - **Deep mode** — iterative refactoring that loops analysis-apply cycles until zero findings remain (default 8 iterations, configurable up to 10), with explicit user consent and risk warnings
 - **Deep harness** — `/optimus:refactor deep harness` launches an external orchestrator with fresh `claude -p` sessions per iteration, eliminating context bloat for large codebases
 - **Works without `/optimus:init`** — falls back to generic coding guidelines when project-specific docs aren't available
@@ -50,10 +50,10 @@ In Claude Code, use any of these:
 
 ## Focus Mode
 
-By default, refactor balances all analysis categories equally within its 8-finding cap. Use a focus keyword to prioritize:
+By default, refactor balances all analysis categories equally within its 15-finding cap. Use a focus keyword to prioritize:
 
-- `/optimus:refactor testability` — reserve 6 of 8 finding slots for testability barriers
-- `/optimus:refactor guidelines` — reserve 6 of 8 finding slots for guideline compliance
+- `/optimus:refactor testability` — reserve 12 of 15 finding slots for testability barriers
+- `/optimus:refactor guidelines` — reserve 12 of 15 finding slots for guideline compliance
 - `/optimus:refactor` — balanced across all categories (default)
 
 Combine with scope, deep mode, and harness:
@@ -62,7 +62,7 @@ Combine with scope, deep mode, and harness:
 - `/optimus:refactor deep harness testability`
 - `/optimus:refactor deep harness guidelines`
 
-Focus does NOT skip other categories — high-severity findings from non-focused categories still surface in the remaining 2 slots.
+Focus does NOT skip other categories — high-severity findings from non-focused categories still surface in the remaining 3 slots.
 
 **When to use focus:**
 - After `/optimus:unit-test` flags "Not Testable Without Refactoring" → use `testability`
@@ -126,12 +126,12 @@ You then choose: **Apply all**, **Selective** (pick by number), or **Skip**.
 4. Loads all constraint docs and maps source directories, prioritized by git activity
 5. **Launches up to 4 parallel agents** — guideline compliance, testability, duplication/consistency, and code simplification (conditional)
 6. Validates findings independently with evidence-based verification
-7. Presents findings as a prioritized plan (capped at 8 per run)
+7. Presents findings as a prioritized plan (capped at 15 per run)
 8. Applies only user-approved changes, runs tests, reverts any that cause failures
 
 ## Deep Mode
 
-By default, the skill caps findings at 8 per run. For exhaustive refactoring, use `deep` to loop automatically:
+By default, the skill caps findings at 15 per run. For exhaustive refactoring, use `deep` to loop automatically:
 
 ```
 /optimus:refactor deep
@@ -146,7 +146,7 @@ Deep mode runs the same multi-agent analysis-apply cycle repeatedly (default 8, 
 **Iteration memory:** On iterations 2+, all agents receive a table of prior findings with their status (fixed/reverted/persistent). This prevents circular fixes — agents focus on NEW issues only and do not undo work from previous iterations.
 
 Each iteration:
-1. Launches up to 4 parallel agents with iteration context (same cap: 8 findings per run)
+1. Launches up to 4 parallel agents with iteration context (same cap: 15 findings per run)
 2. Auto-applies all findings (test suite validates; failures trigger per-change bisect)
 3. Runs the test suite — reverts any change that causes failures
 4. Presents an **iteration report** — a table showing each finding attempted, what changed, why, and its status (fixed/reverted/persistent)
@@ -178,7 +178,7 @@ The harness handles test execution, fix bisection, checkpoint commits (with deta
 
 ## Agent Architecture
 
-4 specialized agents run in parallel, each with max 8 findings:
+4 specialized agents run in parallel, each with up to 15 findings:
 
 | Agent | Role | Runs when |
 |-------|------|-----------|
@@ -210,7 +210,7 @@ Claude Code includes a builtin `/simplify` command. `/optimus:refactor` is the e
 | Analysis | Single-pass | 4 parallel agents with cross-validation |
 | Focus | Per-file simplification | Cross-file patterns, guideline compliance, testability |
 | Verification | — | Runs test suite, reverts failures |
-| Finding cap | — | 8 per run, prioritized by impact |
+| Finding cap | — | 15 per run, prioritized by impact |
 
 ## Skill Structure
 
