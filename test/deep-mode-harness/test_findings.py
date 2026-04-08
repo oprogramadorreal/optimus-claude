@@ -1,3 +1,4 @@
+import pytest
 from impl.findings import (
     _escalate_revert_status,
     _truncate_failure_hint,
@@ -134,13 +135,28 @@ class TestMarkAllFixed:
 
 
 class TestUpdateScope:
-    def test_refactor_no_change(self, sample_progress):
-        sample_progress["skill"] = "refactor"
-        sample_progress["scope_files"]["current"] = ["src/"]
-        update_scope(sample_progress, {"fixes_applied": [{"file": "src/a.js"}]})
-        assert sample_progress["scope_files"]["current"] == ["src/"]
+    @pytest.mark.parametrize("skill", ["code-review", "refactor"])
+    def test_widens_scope_with_active_findings_and_modified_files(
+        self, sample_progress, skill
+    ):
+        """Structural-neighbor expansion discovered by agents persists into
+        the next iteration via scope widening. Parametrized over both skills
+        as a regression guard for the PR that removed the refactor
+        early-return in update_scope — refactor must widen scope identically
+        to code-review."""
+        sample_progress["skill"] = skill
+        sample_progress["scope_files"]["current"] = ["src/a.js"]
+        sample_progress["findings"] = [
+            {"file": "src/a.js", "status": "fixed"},
+            {"file": "src/sibling.js", "status": "discovered"},
+        ]
+        update_scope(sample_progress, {"fixes_applied": [{"file": "src/neighbor.js"}]})
+        scope = sample_progress["scope_files"]["current"]
+        assert "src/a.js" in scope
+        assert "src/sibling.js" in scope
+        assert "src/neighbor.js" in scope
 
-    def test_code_review_narrows(self, sample_progress):
+    def test_excludes_persistent_findings_from_scope(self, sample_progress):
         sample_progress["findings"] = [
             {"file": "src/a.js", "status": "fixed"},
             {"file": "src/b.js", "status": "persistent — fix failed"},

@@ -42,5 +42,3 @@ For each finding report in this exact format:
 ## Exclusions
 
 Do NOT modify any files. Do NOT flag guideline violations (guideline-reviewer), testability barriers (testability-analyzer), or code simplification (code-simplifier). Do NOT flag duplication that exists for good reason (e.g., deliberate copy to avoid coupling between modules).
-
-Maximum 8 findings.

@@ -685,6 +685,40 @@ def _record_iteration_history(
     progress["iteration"]["completed"] = iteration
 
 
+# Diminishing-returns soft-exit thresholds
+SOFT_EXIT_MIN_ITERATION = 4
+SOFT_EXIT_LOW_YIELD_THRESHOLD = 1
+SOFT_EXIT_WINDOW = 2
+
+
+def _should_soft_exit(progress, iteration):
+    """Return True when yield has plateaued: every iteration in the last
+    `SOFT_EXIT_WINDOW` has ≤`SOFT_EXIT_LOW_YIELD_THRESHOLD` new findings and
+    zero reverted fixes, starting from iteration `SOFT_EXIT_MIN_ITERATION`.
+    Reverted fixes block the exit — keep iterating while the harness is still
+    recovering from a failed fix.
+
+    Must be called after `_record_iteration_history` has appended the current
+    iteration so that the last `SOFT_EXIT_WINDOW` entries include it. It must
+    also run AFTER the iteration-cap check in the main loop: the cap is the hard
+    limit and must win when both fire in the same iteration, because
+    `--resume` from a cap-terminated run cannot progress unless the user
+    raises the cap, whereas diminishing-returns tells the user to `--resume`
+    — which would otherwise loop straight back into the same cap.
+    """
+    if iteration < SOFT_EXIT_MIN_ITERATION:
+        return False
+    history = progress.get("iteration_history", [])
+    if len(history) < SOFT_EXIT_WINDOW:
+        return False
+    for entry in history[-SOFT_EXIT_WINDOW:]:
+        if entry.get("new_findings", 0) > SOFT_EXIT_LOW_YIELD_THRESHOLD:
+            return False
+        if entry.get("reverted", 0) > 0:
+            return False
+    return True
+
+
 # ---------------------------------------------------------------------------
 # Main loop
 # ---------------------------------------------------------------------------
@@ -842,7 +876,8 @@ def _run_iteration_loop(
                 )
                 skip_commits = True
 
-        # Check iteration cap
+        # Iteration cap is the hard limit and must win over soft-exit when
+        # both fire in the same iteration (see `_should_soft_exit` docstring).
         if iteration >= max_iter:
             progress["termination"] = {
                 "reason": "cap",
@@ -850,6 +885,22 @@ def _run_iteration_loop(
             }
             write_progress(progress_path, progress)
             print(f"{PREFIX} Iteration cap reached ({max_iter}).")
+            break
+
+        if _should_soft_exit(progress, iteration):
+            progress["termination"] = {
+                "reason": "diminishing-returns",
+                "message": (
+                    f"Yield plateaued at ≤{SOFT_EXIT_LOW_YIELD_THRESHOLD}/iter for "
+                    f"{SOFT_EXIT_WINDOW} iterations ending at iter {iteration}. "
+                    "Re-run with --resume to continue."
+                ),
+            }
+            write_progress(progress_path, progress)
+            print(
+                f"{PREFIX} Diminishing returns — stopping "
+                "(re-run with --resume for fresh context)."
+            )
             break
 
         progress["iteration"]["current"] += 1

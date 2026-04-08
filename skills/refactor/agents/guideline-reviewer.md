@@ -51,5 +51,3 @@ For each finding report in this exact format:
 ## Exclusions
 
 Do NOT modify any files. Do NOT flag testability barriers (testability-analyzer), duplication/consistency (consistency-analyzer), or code simplification (code-simplifier).
-
-Maximum 8 findings.

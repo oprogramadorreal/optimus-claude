@@ -13,7 +13,7 @@ Read the root README.md to understand the plugin's full capabilities — skills,
 - `.claude-plugin/` — plugin manifests (plugin.json, marketplace.json)
 - `agents/` — plugin-level agent definitions (code-simplifier, test-guardian)
 - `hooks/` — plugin-level hooks (SessionStart for project state awareness)
-- `references/` — shared reference docs consumed across skills (agent-architecture, shared-agent-constraints, context-injection-blocks, harness-mode, coverage-harness-mode)
+- `references/` — shared reference docs consumed across skills (agent-architecture, shared-agent-constraints, context-injection-blocks, harness-mode, coverage-harness-mode, scope-expansion-rule)
 - `skills/<name>/` — one directory per skill (SKILL.md + README.md + optional agents/, templates/, and references/)
 - `scripts/` — validation and test scripts (CI and local)
 - `scripts/harness_common/` — shared modules used by both harnesses

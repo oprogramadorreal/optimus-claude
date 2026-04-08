@@ -14,7 +14,7 @@ Well-maintained code has [30%+ fewer AI-introduced defects](https://arxiv.org/ab
 - **PR/MR context awareness** — in PR/MR mode, agents receive the author's description as an intent signal (with explicit guardrails against bias) so they understand the "why" behind changes without suppressing genuine findings
 - **Validation step** — each finding is independently verified (context check, intent check, pre-existing check, cross-agent consensus, runtime assumption check) using an evidence-based verification protocol before reporting
 - **Contradiction resolution** — cross-agent contradictions (e.g., "add more validation" vs. "simplify this validation") are detected and resolved by severity to prevent circular fix loops
-- **Deep mode** — iterative review-fix loop (max 8 iterations) with automatic fix application and test verification; catches issues that single-pass review misses due to LLM attention limitations
+- **Deep mode** — iterative review-fix loop (max 8 iterations) with automatic fix application and test verification; catches issues that single-pass review misses due to LLM attention limitations. Each sub-agent surfaces up to 15 distinct findings per pass, and structural-neighbor expansion lets agents catch consistency gaps in sibling files before they leak into later iterations
 - **Deep harness** — `/optimus:code-review deep harness` launches an external orchestrator with fresh `claude -p` sessions per iteration, eliminating context bloat for large codebases
 - **Actionable output** — findings include file:line references, confidence level (High/Medium), before/after code sketches, guideline citations, and severity levels
 - **Works without `/optimus:init`** — falls back to generic coding guidelines when project-specific docs are not available
@@ -59,7 +59,7 @@ Deep mode addresses a fundamental limitation of single-pass LLM review: attentio
 3. Auto-applies all validated fixes (no per-change approval)
 4. Runs tests — if failures occur, reverts all fixes and re-applies one at a time, keeping those that pass
 5. Presents an **iteration report** — a table showing each finding attempted, what changed, why, and its status (fixed/reverted/persistent)
-6. Checks termination: converged (zero findings), all reverted, cap reached (5), or continues
+6. Checks termination: converged, all reverted, no actionable fixes, cap reached, or continues
 7. Repeats from step 2 with awareness of prior findings
 8. After all iterations, presents a **cumulative report** summarizing every change across all iterations in a single table, followed by the full detailed findings with code snippets
 
@@ -83,6 +83,7 @@ On iterations 2+, each agent receives a table of prior findings with their statu
 - **Convergence** — zero new findings (code is clean)
 - **All reverted** — every fix in an iteration caused test failures
 - **No actionable fixes** — findings exist but lack concrete code edits
+- **Diminishing returns** *(harness mode)* — yield has plateaued at ≤1 new finding for two consecutive iterations after iter 3, with no reverted fixes in either window iteration; remaining issues may exist and can be resumed in a fresh conversation via `--resume`
 - **Cap reached** — 8 iterations completed (continue in a fresh conversation)
 
 On iterations 3+, a context-accumulation warning notes that output quality may degrade and suggests finishing remaining findings in a fresh conversation.

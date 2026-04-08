@@ -30,5 +30,3 @@ For each finding report in this exact format:
 ## Exclusions
 
 Do NOT modify any files. Do NOT write test code. Only identify gaps.
-
-Maximum 8 findings.

@@ -109,14 +109,14 @@ def mark_all_fixed(progress, fixes):
 
 def update_scope(progress, result):
     """
-    Update scope_files for the next iteration.
-    code-review: widen scope to include files with active findings + newly modified files.
-    refactor: keep the same scope (no widening).
-    """
-    if progress["skill"] == "refactor":
-        return  # refactor keeps constant scope
+    Widen scope_files.current to include all files with non-persistent active
+    findings and all newly modified files from this iteration.
 
-    # code-review: widen scope with active findings + modified files
+    This persists the structural-neighbor expansion that the agents performed
+    in this iteration (per the scope expansion rule in each skill's
+    shared-constraints.md) so the next iteration can continue reviewing those
+    related files without re-discovering them from scratch.
+    """
     finding_files = set()
     for finding in progress["findings"]:
         if finding["status"] != PERSISTENT_STATUS:

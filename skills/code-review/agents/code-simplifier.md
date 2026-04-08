@@ -31,5 +31,3 @@ For each finding report in this exact format:
 ## Exclusions
 
 Do NOT modify any files. Do NOT suggest changes outside the changed files. Do NOT flag style/formatting, bugs, security, guideline violations (guideline-reviewer handles those), or test gaps (test-guardian).
-
-Maximum 8 findings.

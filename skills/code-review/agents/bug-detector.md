@@ -58,5 +58,3 @@ For each finding report in this exact format:
 ## Exclusions
 
 Do NOT modify any files. Do NOT flag style, guidelines, security, or test coverage — other agents handle those.
-
-Maximum 8 findings.

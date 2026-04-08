@@ -22,6 +22,10 @@ Common constraints, quality bar, exclusion rules, and false-positive guidance fo
 - Issues explicitly silenced in code (e.g., `// eslint-disable`, `# noqa`)
 - **Generated source files** — skip `*.g.dart`, `*.freezed.dart`, `*.mocks.dart` (Dart/Flutter build_runner output), `*.Designer.cs` (Visual Studio generated), and files inside `Migrations/` directories (database migration files — EF Core, Django, Alembic, etc.). Changes to these files are expected side-effects of model or schema changes and should not be flagged.
 
+## Finding Cap
+
+Up to **15** findings — only when each is a distinct root cause with supporting evidence. Do NOT pad to reach the cap: 3 strong findings are preferred over 15 weak ones.
+
 ## False Positives to Avoid
 
 - Apparently incorrect but actually correct code (intentional deviations)
