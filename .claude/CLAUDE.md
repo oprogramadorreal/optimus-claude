@@ -13,13 +13,15 @@ Read the root README.md to understand the plugin's full capabilities — skills,
 - `.claude-plugin/` — plugin manifests (plugin.json, marketplace.json)
 - `agents/` — plugin-level agent definitions (code-simplifier, test-guardian)
 - `hooks/` — plugin-level hooks (SessionStart for project state awareness)
-- `references/` — shared reference docs consumed across skills (agent-architecture, shared-agent-constraints, context-injection-blocks, harness-mode)
+- `references/` — shared reference docs consumed across skills (agent-architecture, shared-agent-constraints, context-injection-blocks, harness-mode, coverage-harness-mode)
 - `skills/<name>/` — one directory per skill (SKILL.md + README.md + optional agents/, templates/, and references/)
 - `scripts/` — validation and test scripts (CI and local)
 - `scripts/harness_common/` — shared modules used by both harnesses
+- `scripts/deep-mode-harness/` — deep-mode harness orchestrator
 - `scripts/test-coverage-harness/` — test-coverage harness orchestrator
 - `test/` — expected outputs and generated fixtures for skill tests
 - `test/harness-common/` — tests for shared harness modules
+- `test/deep-mode-harness/` — tests for the deep-mode harness
 - `test/test-coverage-harness/` — tests for the test-coverage harness
 - `.claude/` — project-level Claude Code settings and hooks
 
