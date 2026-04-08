@@ -888,9 +888,9 @@ def _run_iteration_loop(
 
         # Check diminishing-returns soft-exit.
         # Stops the loop when yield has plateaued at ≤1 new finding for two
-        # consecutive iterations after iter 3, and no reverted/persistent retry
-        # work is in flight. Does not drop findings — any remaining issues can
-        # be resumed in a fresh conversation via `--resume`.
+        # consecutive iterations after iter 3, and no reverted fixes exist in
+        # either window iteration. Does not drop findings — any remaining
+        # issues can be resumed in a fresh conversation via `--resume`.
         if _should_soft_exit(progress, iteration, new_count, reverted_count):
             progress["termination"] = {
                 "reason": "diminishing-returns",

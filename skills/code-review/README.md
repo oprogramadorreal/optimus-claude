@@ -83,7 +83,7 @@ On iterations 2+, each agent receives a table of prior findings with their statu
 - **Convergence** — zero new findings (code is clean)
 - **All reverted** — every fix in an iteration caused test failures
 - **No actionable fixes** — findings exist but lack concrete code edits
-- **Diminishing returns** *(harness mode)* — yield has plateaued at ≤1 new finding for two consecutive iterations after iter 3, with no active retry work in flight; remaining issues may exist and can be resumed in a fresh conversation via `--resume`
+- **Diminishing returns** *(harness mode)* — yield has plateaued at ≤1 new finding for two consecutive iterations after iter 3, with no reverted fixes in either window iteration; remaining issues may exist and can be resumed in a fresh conversation via `--resume`
 - **Cap reached** — 8 iterations completed (continue in a fresh conversation)
 
 On iterations 3+, a context-accumulation warning notes that output quality may degrade and suggests finishing remaining findings in a fresh conversation.

@@ -130,7 +130,7 @@ class TestShouldSoftExit:
         )
 
     def test_blocked_by_current_iter_reverts(self, sample_progress):
-        # Even with low yield, active retry work must block the exit
+        # Even with low yield, reverted fixes must block the exit
         _record_iteration_history(sample_progress, 3, 1, 0, 1, False)
         _record_iteration_history(sample_progress, 4, 1, 0, 1, False)
         assert not _should_soft_exit(
