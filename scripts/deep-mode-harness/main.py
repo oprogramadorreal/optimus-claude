@@ -716,7 +716,7 @@ def _should_soft_exit(progress, iteration, new_count, reverted_count):
     if new_count > SOFT_EXIT_MAX_YIELD:
         return False
     if reverted_count > 0:
-        return False  # Active retry work in current iter — keep iterating
+        return False  # Reverted fixes in current iter — keep iterating
 
     history = progress.get("iteration_history", [])
     if len(history) < SOFT_EXIT_WINDOW:
@@ -725,7 +725,7 @@ def _should_soft_exit(progress, iteration, new_count, reverted_count):
     if prev.get("new_findings", 0) > SOFT_EXIT_MAX_YIELD:
         return False
     if prev.get("reverted", 0) > 0:
-        return False  # Active retry work in prior iter — keep iterating
+        return False  # Reverted fixes in prior iter — keep iterating
     return True
 
 
