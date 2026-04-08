@@ -36,7 +36,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from harness_common.constants import BACKUP_SUFFIX, normalize_path
+from harness_common.constants import BACKUP_SUFFIX
 from harness_common.fixes import bisect_fixes
 from harness_common.git import (
     git_diff_has_changes,
@@ -208,10 +208,10 @@ def _load_resumed_progress(progress_path, args, project_root):
         )
 
     stored_root = progress.get("config", {}).get("project_root", "")
-    if stored_root and normalize_path(str(project_root)) != stored_root:
+    if stored_root and Path(stored_root).resolve() != project_root:
         return None, (
             f"Progress file project_root '{stored_root}' does not match "
-            f"current project '{normalize_path(str(project_root))}'"
+            f"current project '{project_root}'"
         )
 
     # Allow extending cycle cap on resume
@@ -298,7 +298,7 @@ def _process_unit_test_output(progress, result, cycle):
     return {
         "tests_written": len(tests_written),
         "tests_passed": tests_passed_count,
-        "coverage_delta": coverage.get("delta", 0),
+        "coverage_delta": coverage.get("delta") or 0,
         "untestable_items_reported": len(untestable),
     }
 
