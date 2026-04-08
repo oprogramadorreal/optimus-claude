@@ -874,6 +874,19 @@ def _run_iteration_loop(
                 )
                 skip_commits = True
 
+        # Check iteration cap before soft-exit — cap takes priority because
+        # `--resume` from a cap-terminated run cannot progress without the
+        # user also raising the cap, whereas `diminishing-returns` tells the
+        # user to `--resume`, which would just immediately hit the cap again.
+        if iteration >= max_iter:
+            progress["termination"] = {
+                "reason": "cap",
+                "message": f"Reached iteration cap ({max_iter})",
+            }
+            write_progress(progress_path, progress)
+            print(f"{PREFIX} Iteration cap reached ({max_iter}).")
+            break
+
         if _should_soft_exit(progress, iteration, new_count, reverted_count):
             progress["termination"] = {
                 "reason": "diminishing-returns",
@@ -888,16 +901,6 @@ def _run_iteration_loop(
                 f"{PREFIX} Diminishing returns — stopping "
                 "(re-run with --resume for fresh context)."
             )
-            break
-
-        # Check iteration cap
-        if iteration >= max_iter:
-            progress["termination"] = {
-                "reason": "cap",
-                "message": f"Reached iteration cap ({max_iter})",
-            }
-            write_progress(progress_path, progress)
-            print(f"{PREFIX} Iteration cap reached ({max_iter}).")
             break
 
         progress["iteration"]["current"] += 1

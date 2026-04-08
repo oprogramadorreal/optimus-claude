@@ -188,7 +188,7 @@ If deep mode is active and `iteration-count` > 1, prepend the iteration context 
 | 3 — Consistency Analyzer | Cross-file duplication, pattern inconsistency, missing abstractions, architectural drift | Always |
 | 4 — Code Simplifier | Unnecessary complexity, naming, dead code, pattern violations | Always |
 
-Each agent: up to **15** findings in structured list format — only when each is a distinct root cause with supporting evidence. Do NOT pad to reach the cap: 3 strong findings are preferred over 15 weak ones. The Guideline Compliance agent (Agent 1) is constructed dynamically based on Step 3's doc loading results (single project vs monorepo paths).
+Each agent returns a structured list of findings, bounded by the Finding Cap rule in `$CLAUDE_PLUGIN_ROOT/references/shared-agent-constraints.md`. The Guideline Compliance agent (Agent 1) is constructed dynamically based on Step 3's doc loading results (single project vs monorepo paths).
 
 ### Execution
 
