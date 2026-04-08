@@ -1403,6 +1403,54 @@ class TestRunCycleLoop:
         assert progress["termination"]["reason"] == "parse-failure"
         assert "Refactor session" in progress["termination"]["message"]
 
+    @patch("main.restore_working_tree")
+    @patch("main.check_unit_test_convergence", return_value=(False, ""))
+    @patch("main.run_tests")
+    @patch("main.record_test_result")
+    @patch("main.record_cycle_history")
+    @patch("main.parse_harness_output")
+    @patch("main.run_coverage_session")
+    @patch("main.git_rev_parse_head", return_value="abc123")
+    @patch("main.write_progress")
+    def test_refactor_parse_failure_tests_fail_restores_tree(
+        self,
+        mock_wp,
+        mock_head,
+        mock_session,
+        mock_parse,
+        mock_record_cycle,
+        mock_record_test,
+        mock_run_tests,
+        mock_ut_conv,
+        mock_restore,
+        sample_coverage_progress,
+        tmp_path,
+    ):
+        """When refactor output is unparseable AND the post-refactor test run
+        fails, the working tree must be restored to its pre-cycle state before
+        recording the parse-failure termination.
+        """
+        ut_result = {
+            "tests_written": [],
+            "coverage": {},
+            "untestable_code": [{"file": "src/db.py", "barrier": "x"}],
+            "bugs_discovered": [],
+        }
+        mock_parse.side_effect = [ut_result, None]
+        mock_session.side_effect = ["ut output", "rf output"]
+        # Unit-test phase run_tests passes; refactor parse-failure run_tests fails.
+        mock_run_tests.side_effect = [(True, "ok"), (False, "fail")]
+
+        args = self._make_args()
+        progress = sample_coverage_progress
+        progress_path = tmp_path / "progress.json"
+
+        _run_cycle_loop(args, progress, progress_path, tmp_path, "pytest", 5)
+
+        assert progress["termination"]["reason"] == "parse-failure"
+        assert "Refactor session" in progress["termination"]["message"]
+        mock_restore.assert_called_once()
+
     @patch("main.check_coverage_plateau", return_value=(True, "Coverage plateau"))
     @patch("main.check_refactor_convergence", return_value=(True, "Refactor converged"))
     @patch("main.check_unit_test_convergence", return_value=(False, ""))
