@@ -3,6 +3,7 @@ from unittest.mock import patch
 
 from harness_common.fixes import _is_path_within, _swap_content
 from impl.fixes import (
+    _make_bisect_outcome_callback,
     apply_single_fix,
     bisect_fixes,
     revert_single_fix,
@@ -292,6 +293,20 @@ class TestBisectFixes:
         assert skipped == 1
         assert fixed == 1
         assert reverted == 0
+
+    def test_unknown_outcome_is_ignored(self, sample_progress):
+        """Callback ignores outcome strings outside the known set, leaving
+        the finding untouched — a defensive guard against future shared
+        bisector outcomes that deep-mode hasn't mapped yet."""
+        sample_progress["findings"] = [
+            {"file": "a.js", "line": 1, "category": "bug", "status": "pending"}
+        ]
+        fix = {"file": "a.js", "line": 1, "category": "bug"}
+        callback = _make_bisect_outcome_callback(sample_progress)
+
+        callback(0, fix, "some-future-outcome", detail="ignored")
+
+        assert sample_progress["findings"][0]["status"] == "pending"
 
     @patch("impl.fixes.run_tests")
     @patch("harness_common.fixes.revert_single_fix", return_value=True)
