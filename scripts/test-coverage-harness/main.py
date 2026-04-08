@@ -648,6 +648,10 @@ def _run_refactor_phase(
         print(
             f"{PREFIX} WARNING: No parseable output from refactor session ({rf_elapsed}s)"
         )
+        test_passed, test_summary = run_tests(test_command, project_root)
+        record_test_result(progress, test_passed, test_summary)
+        if not test_passed:
+            restore_working_tree(pre_stash, pre_head, project_root)
         record_cycle_history(progress, cycle, ut_summary)
         progress["termination"] = {
             "reason": "parse-failure",
