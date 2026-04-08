@@ -518,7 +518,7 @@ class TestMakeBisectOutcomeCallback:
         )
         cb = _make_bisect_outcome_callback(progress, 1)
         cb(0, {"file": "src/a.py", "pre_edit_content": "old_a"}, "retained")
-        assert progress["refactor_findings"][0]["status"] == "fixed — revert failed"
+        assert progress["refactor_findings"][0]["status"] == "retained — revert failed"
 
     def test_skipped_outcome(self, sample_coverage_progress):
         progress = self._progress_with_findings(
@@ -1207,7 +1207,7 @@ class TestRunCycleLoop:
         tmp_path,
     ):
         """When the combo re-test fails after bisection, any per-finding entries
-        whose status is still ``"fixed"`` (or ``"fixed — revert failed"``) for
+        whose status is still ``"fixed"`` (or ``"retained — revert failed"``) for
         the current cycle must be downgraded to
         ``"reverted — combined regression"`` to match the restored tree."""
         ut_result = {

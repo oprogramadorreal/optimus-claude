@@ -350,7 +350,7 @@ def _process_refactor_output(progress, result, cycle):
 _OUTCOME_TO_STATUS = {
     "fixed": "fixed",
     "reverted": "reverted — test failure",
-    "retained": "fixed — revert failed",
+    "retained": "retained — revert failed",
     "skipped": "skipped — apply failed",
 }
 
@@ -711,7 +711,7 @@ def _run_refactor_phase(
                     refactor_summary["reverted"] = len(fixes) - skipped_count
                     # Roll back per-finding statuses to match the restored tree.
                     # restore_working_tree resets to pre_head, so even retained
-                    # fixes (status "fixed — revert failed") are gone now.
+                    # fixes (status "retained — revert failed") are gone now.
                     for finding in progress.get("refactor_findings", []):
                         if (
                             finding.get("cycle") == cycle

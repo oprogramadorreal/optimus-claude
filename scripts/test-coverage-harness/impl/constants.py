@@ -7,7 +7,7 @@ PROGRESS_FILE_NAME = ".claude/test-coverage-progress.json"
 PREFIX = "[coverage]"
 
 # Status grouping constants — single source of truth for status classification
-FIXED_STATUSES = frozenset({"fixed", "fixed — revert failed"})
+FIXED_STATUSES = frozenset({"fixed", "retained — revert failed"})
 
 # Commit type mapping for coverage harness phases
 PHASE_COMMIT_TYPE = {
