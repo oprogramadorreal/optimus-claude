@@ -17,7 +17,7 @@ The following addendums are specific to code-review agents:
 
 When you flag an issue in file `X`, before returning your findings also open and inspect these related files for the **same pattern** (or the same pattern being **missing** where it should mirror `X`):
 
-1. **Sibling files** in `X`'s directory (or a parallel directory one level up) whose filename shares a **≥50% prefix** with `X` — e.g., `scripts/deep-mode-harness/main.py` ↔ `scripts/test-coverage-harness/main.py`, or `root/CONTRIBUTING.md` ↔ `.claude/CLAUDE.md` as a known bridge pair.
+1. **Sibling files** in `X`'s directory (or a parallel directory one level up) whose filename shares a **≥50% prefix** with `X` — e.g., `scripts/deep-mode-harness/main.py` ↔ `scripts/test-coverage-harness/main.py`.
 2. **Files that import or re-export** any symbol named in your finding.
 
 If the same pattern appears (or is **missing**) in a related file, report it as a **new consistency finding** — reference the original finding as its trigger. Cross-file consistency findings are allowed **even when the related file is outside the original scope** (this is an explicit carve-out from the "pre-existing issues in unchanged code" exclusion above — consistency gaps that span files are a valid finding category).

@@ -686,7 +686,7 @@ def _record_iteration_history(
 
 
 # Diminishing-returns soft-exit thresholds
-SOFT_EXIT_MIN_ITERATION = 3
+SOFT_EXIT_MIN_ITERATION = 4
 SOFT_EXIT_MAX_YIELD = 1  # ≤ this many new findings counts as "low yield"
 SOFT_EXIT_WINDOW = 2  # consecutive low-yield iterations required
 
