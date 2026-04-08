@@ -134,10 +134,11 @@ class TestMarkAllFixed:
 
 
 class TestUpdateScope:
-    def test_refactor_widens_like_code_review(self, sample_progress):
-        """Refactor widens scope just like code-review so structural-neighbor
-        expansion discovered by agents persists into the next iteration."""
-        sample_progress["skill"] = "refactor"
+    def test_widens_scope_with_active_findings_and_modified_files(
+        self, sample_progress
+    ):
+        """Structural-neighbor expansion discovered by agents persists into
+        the next iteration via scope widening."""
         sample_progress["scope_files"]["current"] = ["src/a.js"]
         sample_progress["findings"] = [
             {"file": "src/a.js", "status": "fixed"},
