@@ -49,15 +49,23 @@ class TestConstraintDocLoadingSkillAuthoring:
 
     def test_single_project_section_lists_skill_writing_guidelines(self):
         text = _read("skills/init/references/constraint-doc-loading.md")
-        # skill-writing-guidelines.md must appear in the numbered single-project list
-        assert "skill-writing-guidelines.md" in text
+        # skill-writing-guidelines.md must appear inside the Single Project section,
+        # not just anywhere in the file.
+        single_project_section = text.split("## Single Project", 1)[1].split(
+            "## Monorepo", 1
+        )[0]
+        assert "skill-writing-guidelines.md" in single_project_section
 
     def test_monorepo_section_lists_skill_writing_guidelines_as_shared(self):
         text = _read("skills/init/references/constraint-doc-loading.md")
         # In monorepos, skill-writing-guidelines.md must be listed as shared at root
-        # alongside coding-guidelines.md — lock both the filename and the "shared at root" phrase.
-        assert "skill-writing-guidelines.md" in text
-        assert "shared at root" in text
+        # alongside coding-guidelines.md — scope the check to the Monorepo section
+        # so the co-occurrence is meaningful, not just two independent matches anywhere.
+        monorepo_section = text.split("## Monorepo", 1)[1].split(
+            "## Skill authoring lens", 1
+        )[0]
+        assert "skill-writing-guidelines.md" in monorepo_section
+        assert "shared at root" in monorepo_section
 
 
 class TestInitSkillAuthoringDetection:
@@ -73,7 +81,7 @@ class TestInitSkillAuthoringDetection:
 
     def test_init_detection_signal_documented(self):
         text = _read("skills/init/SKILL.md")
-        # Detection signal must enumerate the structural check
+        # Detection signal must enumerate the structural check — instruction file names
         for marker in (
             "SKILL.md",
             "AGENT.md",
@@ -84,6 +92,14 @@ class TestInitSkillAuthoringDetection:
             assert (
                 marker in text
             ), f"expected instruction file name {marker} in init SKILL.md detection"
+        # Load-bearing invariants of the detection algorithm: the container must hold
+        # ≥2 subdirectories, every subdirectory must contain an instruction file, and
+        # the check must be case-insensitive. Without these, loosening the algorithm
+        # to "any directory with a SKILL.md" would pass this test but cause false
+        # positives on unrelated user projects.
+        assert "2 subdirectories" in text, "detection must require ≥2 subdirectories"
+        assert "every" in text, "detection must require every subdirectory to match"
+        assert "case-insensitive" in text, "detection must be case-insensitive"
 
     def test_init_install_semantics_is_merge_not_silent_overwrite(self):
         text = _read("skills/init/SKILL.md")
@@ -142,6 +158,43 @@ class TestDocumentationAuditorRecognizesSkillWriting:
         assert "preserve user-added sections" in text
 
 
+class TestCLAUDEMdTemplatesHaveSkillAuthoringPlaceholder:
+    """The dual-lens feature only works end-to-end if init can inject the
+    skill-writing-guidelines pointer into the generated CLAUDE.md. That
+    requires an HTML comment placeholder in every CLAUDE.md template that
+    init will use as a substitution anchor. A template edit that drops the
+    placeholder would silently break skill-authoring projects on re-init.
+    """
+
+    def test_single_project_template_has_skill_authoring_placeholder(self):
+        text = _read("skills/init/templates/single-project-claude.md")
+        assert "skill authoring was detected" in text.lower()
+        assert "skill-writing-guidelines.md" in text
+        # The anchor must be an HTML comment so init can detect and replace it
+        assert "<!--" in text and "-->" in text
+
+    def test_monorepo_template_has_skill_authoring_placeholder(self):
+        text = _read("skills/init/templates/monorepo-claude.md")
+        assert "skill authoring was detected" in text.lower()
+        assert "skill-writing-guidelines.md" in text
+        assert "<!--" in text and "-->" in text
+
+    def test_subproject_template_has_skill_authoring_placeholder(self):
+        text = _read("skills/init/templates/subproject-claude.md")
+        assert "skill authoring was detected" in text.lower()
+        assert "skill-writing-guidelines.md" in text
+        assert "<!--" in text and "-->" in text
+
+    def test_init_documents_both_branches_of_html_comment_replacement(self):
+        text = _read("skills/init/SKILL.md")
+        # Both branches must be spelled out: materialize when detected,
+        # remove the HTML comment when not detected. If either branch is lost,
+        # the template placeholder would leak into generated CLAUDE.md files
+        # or the dual-lens pointer would never be injected.
+        assert "replace the HTML comment placeholder" in text
+        assert "remove the HTML comment entirely" in text
+
+
 class TestPluginLevelCodeSimplifier:
     def test_code_simplifier_mentions_skill_writing_guidelines(self):
         # The plugin-level code-simplifier agent must be dual-lens aware.
@@ -152,5 +205,22 @@ class TestPluginLevelCodeSimplifier:
 
     def test_code_simplifier_has_dual_lens_routing(self):
         text = _read("agents/code-simplifier.md")
-        # Must have the skill-authoring routing explanation inlined
-        assert "Dual-lens routing" in text or "skill-authoring" in text.lower()
+        # Must have the dual-lens routing section heading, not just any mention
+        # of "skill-authoring" (which would match a passing reference).
+        assert "Dual-lens routing" in text
+
+    def test_code_simplifier_forbids_cross_contamination(self):
+        # The mutual-exclusion rule is the entire point of dual-lens routing.
+        # A future cleanup pass could remove this sentence while leaving the
+        # section headings in place, reintroducing the bug the routing prevents.
+        text = _read("agents/code-simplifier.md")
+        assert (
+            "Never judge a SKILL.md by" in text or "never judge a SKILL.md by" in text
+        )
+        assert "`.py` file" in text and "skill-writing-guidelines.md" in text
+
+    def test_constraint_doc_loading_forbids_cross_contamination(self):
+        text = _read("skills/init/references/constraint-doc-loading.md")
+        # Same mutual-exclusion guard in the canonical lens definition.
+        assert "never judge a SKILL.md by" in text
+        assert "never judge a `.py` file by" in text
