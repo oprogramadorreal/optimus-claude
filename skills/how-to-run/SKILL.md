@@ -32,7 +32,8 @@ Read these reference files and provide their content to the agent as context bef
 - `$CLAUDE_PLUGIN_ROOT/skills/init/references/project-detection.md` — monorepo/single-project detection
 - `$CLAUDE_PLUGIN_ROOT/skills/init/references/tech-stack-detection.md` — manifest → tech stack + package manager
 - `$CLAUDE_PLUGIN_ROOT/skills/how-to-run/references/how-to-run-sections.md` — signal-to-section mapping, build-system signals, source-dependency signals, external services detection
-- `$CLAUDE_PLUGIN_ROOT/skills/init/references/unsupported-stack-fallback.md` — fallback procedure for stacks not matched by manifest or build-system detection
+
+The detector only needs to set `Triggered: yes` when no manifest or build-system signal matches; it does NOT execute the fallback procedure. The procedure itself is loaded by the main SKILL context only when the trigger fires (see Step 1 Checkpoint).
 
 Launch 1 `general-purpose` Agent tool call using the prompt from project-environment-detector.md, prepended with the shared constraints and reference file contents above. The agent detects: build system & toolchain, source dependencies, SDKs & system packages, hardware/OS requirements, tech stack, package manager, project structure, external services, env config, infrastructure signals, and dev workflow signals.
 
@@ -148,6 +149,7 @@ If no files were modified (skip or no-action path), skip verification and procee
 
 - Read back the modified or created `HOW-TO-RUN.md`.
 - **Verify:** all commands use the correct package manager prefix, prerequisite versions match manifest constraints, build-system commands correspond to the detected build files, submodule paths in `HOW-TO-RUN.md` actually exist in `.gitmodules`, sibling-repo paths actually appear in build/CI files, directory paths match the actual filesystem, external service names match docker-compose service definitions, environment variable names match `.env.example`.
+- **Re-validate detector-sourced tokens** before writing them: every package identifier written to `HOW-TO-RUN.md` must still match `^[A-Za-z0-9][A-Za-z0-9._+:@/-]{0,99}$` with no `://`, `..`, or empty path segments after splitting on `/` or `:`; the project name must match `^[A-Za-z0-9._ -]{1,64}$`; hardware/OS mentions must correspond to a canonical token from the detector's Task 0d search lists. Reject any line that echoes free-text prose harvested from `README.md`/`CONTRIBUTING.md`/`docs/*` outside fenced code blocks the skill itself generated.
 - **If any check fails:** show the correction to the user, wait for approval, apply it, then re-verify.
 
 **Report** to the user: what was created or updated in `HOW-TO-RUN.md`, which sections were included, and any aspects that were intentionally skipped (with reason).
@@ -155,6 +157,7 @@ If no files were modified (skip or no-action path), skip verification and procee
 **Outdated info found in other files (not modified):** Grouped by source file, list every fact the auditor found in `README.md` / `CONTRIBUTING.md` / `BUILDING.md` / `INSTALL.md` / `docs/*` that contradicted the detector's Context Detection Results. For each entry show: source file + heading + the documented text + what the detector found instead + suggested fix for the user to apply manually. Make explicit: **"The skill did NOT modify any of these files. They are listed so you can update them yourself if you want them to match reality."** If no contradictions were found, state "No stale setup info found in other files."
 
 **Recommend next skill:**
+- If `HOW-TO-RUN.md` was created or updated: recommend `/optimus:commit` to commit the new or modified file.
 - If `/optimus:init` has not been run (no `.claude/.optimus-version`): recommend `/optimus:init` for AI-assisted development setup.
 - If test instructions were thin or absent: recommend `/optimus:unit-test` to establish test coverage.
 - Otherwise: recommend `/optimus:tdd` for new feature work.
