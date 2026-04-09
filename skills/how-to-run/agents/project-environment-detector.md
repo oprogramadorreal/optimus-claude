@@ -34,20 +34,12 @@ Run the "non-manifest" tasks (0a–0d) in parallel with the manifest tasks (1–
 
 #### Task 0a — Build system & toolchain detection
 
-Glob for these build files and record which were found:
+Apply the *Build System Detection* table from `how-to-run-sections.md` (provided as context): glob for each listed file, record which were found, and extract the metadata noted in the table's "Extract" column.
 
-- `CMakeLists.txt` — CMake. Read `cmake_minimum_required(VERSION ...)` to get min version. Grep for `find_package(...)` calls — each matched name is an SDK requirement (Vulkan, CUDA, Qt, OpenCV, Boost, Protobuf, OpenGL, OpenSSL, etc.).
-- `meson.build` — Meson. Extract `meson_version` and `project(...)` language list.
-- `BUILD.bazel`, `WORKSPACE` — Bazel.
-- `*.sln`, `*.vcxproj` — MSBuild / Visual Studio. Extract `<PlatformToolset>`, `<WindowsTargetPlatformVersion>`.
-- `*.xcodeproj`, `*.xcworkspace`, `Podfile`, `Package.swift` — Xcode / Swift. Extract deployment target, `swift-tools-version`.
-- `build.gradle`, `settings.gradle`, `AndroidManifest.xml` — Gradle / Android. Extract `sourceCompatibility`, `compileSdkVersion`, `minSdkVersion`.
-- `*.uproject` — Unreal Engine. Extract `EngineAssociation`.
-- `ProjectSettings/ProjectVersion.txt` — Unity. Extract `m_EditorVersion`.
-- `project.godot` — Godot. Extract version from `config/features`.
-- `platformio.ini` — PlatformIO. Extract `platform`, `board`, `framework`.
-- `*.ino` — Arduino sketch. Look for board comments or `arduino-cli.yaml`.
-- `vcpkg.json`, `conanfile.txt`, `conanfile.py` — C++ dep manager bootstrap required.
+Additionally:
+
+- For CMake projects, grep `CMakeLists.txt` for `find_package(...)` calls — each well-known match (see *Extended Stacks Covered* in `how-to-run-sections.md`) is a domain SDK requirement.
+- Check for `vcpkg.json`, `conanfile.txt`, `conanfile.py` — C++ dep manager bootstrap required.
 
 Record build system, minimum toolchain version, and any SDK requirements discovered.
 
@@ -80,9 +72,13 @@ Grep existing docs and build files for:
 
 Record evidence with source file and line.
 
-#### Task 0e — Unknown-stack fallback
+#### Task 0e — Unsupported-Stack Fallback detection
 
-If Tasks 0a–0d AND the manifest scan (Tasks 1–7) all come up empty or classify the project as unknown, apply the procedure from `unsupported-stack-fallback.md` (notify → web-search → validate → approve → graceful skip) to find setup/run commands for the detected language. Record the fallback's output under the `### Unsupported-Stack Fallback` subsection of the return format.
+For unsupported stacks, detect and gather evidence only — do NOT propose install/build/test commands. The parent SKILL runs the fallback procedure.
+
+1. If Tasks 0a–0d AND the manifest scan (Tasks 1–7) all come up empty or classify the project as unknown, set `Triggered: yes` in the `### Unsupported-Stack Fallback` subsection of the return format.
+2. Detect the programming language(s) from source file extensions, any unrecognized manifest-like files you found, and shebang lines. Record the detected language name(s).
+3. List the evidence that led to the unknown classification: what manifests/build files were found but not matched, what source-file extensions dominate the tree, and any language hints from READMEs you already read.
 
 #### Manifest-driven detection (existing behavior)
 
@@ -209,10 +205,9 @@ Mark sibling-repo findings as `(candidate)` when derived only from a path grep w
 [one row per repo]
 
 ### Unsupported-Stack Fallback
-- **Triggered:** [yes/no]
-- **Detected language:** [e.g., Zig / Erlang / Nix / ...]
-- **Proposed commands:** [install / build / test commands from fallback, or "none"]
-- **Notes:** [any constraints from the fallback procedure]
+- **Triggered:** [yes/no — yes only when no manifest, build system, or signal was recognized]
+- **Detected language(s):** [e.g., Zig / Erlang / Nix / Nim — best guess from source extensions, shebangs, and unrecognized manifests]
+- **Evidence:** [what files or extensions led to the classification, e.g., "15 `.zig` files under src/, `build.zig` present but not in manifest table, no match in tech-stack-detection.md"]
 
 [If not triggered, state "Not triggered — stack was identified by manifest or build-system detection."]
 

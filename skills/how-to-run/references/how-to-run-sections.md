@@ -7,6 +7,7 @@ Section templates and signal-to-content mapping for generating `HOW-TO-RUN.md`. 
 - [Signal → Section Mapping](#signal--section-mapping)
 - [Section Skeletons](#section-skeletons) (Prerequisites, Toolchain & SDKs, Source Dependencies, Installation, External Services, Environment Setup, Build, Running in Development, Running Tests, Common Issues)
 - [Package Manager Command Forms](#package-manager-command-forms)
+- [Extended Stacks Covered](#extended-stacks-covered)
 - [Build System Detection](#build-system-detection)
 - [Source Dependencies Detection](#source-dependencies-detection)
 - [External Services Detection](#external-services-detection)
@@ -354,6 +355,16 @@ Use the detected PM from `tech-stack-detection.md`. Common mappings:
 
 Use the actual script names from the project's manifest (e.g., `pnpm run start:dev` not `pnpm run dev` if the script is named `start:dev`).
 
+## Extended Stacks Covered
+
+Beyond init's manifest-driven baseline (`tech-stack-detection.md`: Node.js, Python, Rust, Go, C#/.NET, Java, C/C++, Ruby, Dart/Flutter), how-to-run covers the following. Build-system detection rules live in the *Build System Detection* table below; the additions listed here are detected by the detector agent Task 0a:
+
+- **C/C++ dependency managers:** vcpkg, Conan
+- **Toolchain SDKs:** JDK (from `sourceCompatibility` in the Gradle row), MSVC Build Tools (from `<PlatformToolset>` in the MSBuild row). For `.NET SDK`, see init's `tech-stack-detection.md` (`*.csproj`, `*.sln`) — the baseline detection handles it.
+- **CMake `find_package` libraries:** Vulkan, CUDA, Qt, OpenCV, Boost, Protobuf, OpenGL, OpenSSL
+
+Stacks not listed here and not in `tech-stack-detection.md` fall through to `unsupported-stack-fallback.md`.
+
 ## Build System Detection
 
 Common build-system signals and what to extract:
@@ -365,7 +376,7 @@ Common build-system signals and what to extract:
 | `BUILD.bazel`, `WORKSPACE` | Bazel | Root `WORKSPACE` dependencies |
 | `*.sln`, `*.vcxproj` | MSBuild / Visual Studio | `<PlatformToolset>`, `<WindowsTargetPlatformVersion>` |
 | `*.xcodeproj`, `*.xcworkspace` | Xcode | Scheme names, deployment target |
-| `build.gradle`, `settings.gradle` | Gradle | `sourceCompatibility`, Android SDK versions |
+| `build.gradle`, `settings.gradle`, `AndroidManifest.xml` | Gradle / Android | `sourceCompatibility` (JDK), `compileSdkVersion`, `minSdkVersion` |
 | `*.uproject` | Unreal Engine | `EngineAssociation` field (engine version) |
 | `ProjectSettings/ProjectVersion.txt` | Unity | `m_EditorVersion` field |
 | `project.godot` | Godot | `config/features=PackedStringArray("4.2", ...)` |
@@ -375,7 +386,7 @@ Common build-system signals and what to extract:
 | `Podfile` | CocoaPods | `platform :ios, 'X.Y'` |
 | `Makefile` (as build system, not task runner) | make | Default target, compiler inference |
 
-When a CMake `find_package(<NAME>)` is seen for a well-known library (Vulkan, CUDA, Qt, OpenCV, Boost, Protobuf, OpenGL), include it under Toolchain & SDKs with the install URL.
+When a CMake `find_package(<NAME>)` is seen for a well-known library, include it under Toolchain & SDKs with the install URL. See *Extended Stacks Covered* above for the recognized library names.
 
 ## Source Dependencies Detection
 

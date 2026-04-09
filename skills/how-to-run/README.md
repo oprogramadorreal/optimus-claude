@@ -6,7 +6,7 @@ Many projects lack step-by-step "how to get this running on my machine" instruct
 
 ## Features
 
-- **Stack-agnostic.** Works for web apps (Node, Python, Go, Rust, .NET, Ruby), C++ desktop apps (CMake/Meson/Bazel/MSBuild + vcpkg/Conan), native mobile (Xcode, Android Studio), game engines (Unreal, Unity, Godot), embedded/firmware (PlatformIO, Arduino), and backend services with external infra.
+- **Stack-agnostic.** Covers web apps, C/C++ desktop apps, native mobile, JVM/Android, game engines, embedded/firmware, and backend services with external infra. See [`references/how-to-run-sections.md`](references/how-to-run-sections.md) §*Extended Stacks Covered* for the full catalog.
 - Detects build system, toolchain, SDKs, runtime version constraints, and dev commands from manifests and build files
 - Discovers source dependencies — git submodules from `.gitmodules`, sibling repos from CMake `FetchContent`/`ExternalProject`/hardcoded `../sibling` paths in build & CI files
 - Discovers external services from docker-compose (databases, queues, caches) and generates startup instructions

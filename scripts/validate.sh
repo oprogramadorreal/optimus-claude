@@ -357,6 +357,67 @@ if [ -n "$deep_refs" ]; then
   printf "       Deep reference chains (3+ levels):\n%b" "$deep_refs"
 fi
 
+# --- 16. Load-bearing wiring assertions ---
+# Textual section references and cross-skill reference-file wiring that the
+# generic cross-reference check (check 7) does not cover. A failure here means
+# a silent regression in how a skill reaches a capability it depends on.
+echo "[Load-bearing wiring]"
+wiring_errors=""
+
+sections_file="skills/how-to-run/references/how-to-run-sections.md"
+
+# how-to-run must wire to the unsupported-stack fallback procedure from the main
+# SKILL context — the detector agent is read-only and cannot run it. Dropping
+# this reference silently loses unknown-stack support.
+if ! grep -q 'unsupported-stack-fallback.md' skills/how-to-run/SKILL.md 2>/dev/null; then
+  wiring_errors+="  skills/how-to-run/SKILL.md no longer references unsupported-stack-fallback.md\n"
+fi
+
+# Trigger-key contract: SKILL.md checks the literal string
+# "Unsupported-Stack Fallback → Triggered: yes" to decide whether to run the
+# 5-step fallback, and the detector agent emits that key under a matching
+# heading in its return format. If either side drifts, the fallback silently
+# never fires.
+if ! grep -q 'Unsupported-Stack Fallback → Triggered: yes' skills/how-to-run/SKILL.md 2>/dev/null; then
+  wiring_errors+="  skills/how-to-run/SKILL.md no longer checks 'Unsupported-Stack Fallback → Triggered: yes' trigger key\n"
+fi
+if ! grep -q '^### Unsupported-Stack Fallback' skills/how-to-run/agents/project-environment-detector.md 2>/dev/null; then
+  wiring_errors+="  skills/how-to-run/agents/project-environment-detector.md missing '### Unsupported-Stack Fallback' return-format heading\n"
+fi
+
+# The 'Extended Stacks Covered' heading in how-to-run-sections.md is referenced
+# by name from SKILL.md, README.md, and the detector agent. A rename would
+# silently break all three without the generic cross-ref check catching it.
+if ! grep -q '^## Extended Stacks Covered' "$sections_file" 2>/dev/null; then
+  wiring_errors+="  $sections_file missing '## Extended Stacks Covered' heading\n"
+fi
+# The 'Build System Detection' heading is load-bearing for Task 0a of the
+# detector agent, which delegates its entire build-file enumeration to the table.
+if ! grep -q '^## Build System Detection' "$sections_file" 2>/dev/null; then
+  wiring_errors+="  $sections_file missing '## Build System Detection' heading\n"
+fi
+
+# Build System Detection table rows that the detector agent depends on. Before
+# the consolidation the agent had these signals inlined in its own Task 0a list.
+# Now Task 0a delegates entirely to this table, so a silent row deletion during
+# a table cleanup would drop a detection signal the agent used to guarantee.
+# Scope the grep to the "## Build System Detection" section body so incidental
+# mentions elsewhere in the file (Signal → Section Mapping, Toolchain & SDKs)
+# cannot satisfy the check. Each token must appear in the table body.
+if [ -f "$sections_file" ]; then
+  bsd_body=$(awk '/^## Build System Detection/{f=1;next}/^## /{f=0}f' "$sections_file" 2>/dev/null)
+  for token in 'CMakeLists.txt' 'meson.build' 'BUILD.bazel' 'WORKSPACE' '\*.sln' '\*.vcxproj' '\*.xcodeproj' '\*.xcworkspace' 'build.gradle' 'settings.gradle' 'AndroidManifest.xml' 'compileSdkVersion' '\*.uproject' 'ProjectVersion.txt' 'project.godot' 'platformio.ini' '\*.ino' 'Package.swift' 'Podfile' 'Makefile'; do
+    if ! printf '%s' "$bsd_body" | grep -q "$token" 2>/dev/null; then
+      wiring_errors+="  Build System Detection table body missing row for: $token\n"
+    fi
+  done
+fi
+
+check "Load-bearing wiring intact" test -z "$wiring_errors"
+if [ -n "$wiring_errors" ]; then
+  printf "       Wiring issues:\n%b" "$wiring_errors"
+fi
+
 # --- Summary ---
 echo
 echo "=== Results: $pass passed, $errors failed ==="
