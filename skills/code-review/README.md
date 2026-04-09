@@ -8,7 +8,7 @@ Well-maintained code has [30%+ fewer AI-introduced defects](https://arxiv.org/ab
 
 - **Local-first** — reviews uncommitted changes by default (staged + unstaged + untracked); PR/MR and branch-diff modes available on request
 - **Up to 7 parallel agents** — bug detection, security/logic, guideline compliance (x2 for cross-validation), code-simplifier, test-guardian (when test infrastructure is detected), and contracts-reviewer (when API/contract files are changed)
-- **Project-aware** — evaluates against your coding-guidelines.md, testing.md, architecture.md, and styling.md
+- **Project-aware** — evaluates against your coding-guidelines.md, testing.md, architecture.md, and styling.md. For projects with a skill-authoring stack, markdown instruction files under `skills/`, `agents/`, `prompts/`, `commands/`, or `instructions/` are evaluated against `skill-writing-guidelines.md` instead of `coding-guidelines.md` — both lenses apply side-by-side on mixed changes, each to its own files.
 - **High signal only** — bugs, security issues, logic errors, explicit guideline violations; excludes style concerns and subjective suggestions
 - **Change-intent awareness** — checks recent git history and PR/MR descriptions to avoid flagging code that was deliberately introduced (e.g., a null check added for a bug fix), reducing false positives
 - **PR/MR context awareness** — in PR/MR mode, agents receive the author's description as an intent signal (with explicit guardrails against bias) so they understand the "why" behind changes without suppressing genuine findings
@@ -124,7 +124,7 @@ The skill presents a structured review report:
 - Files reviewed: 5
 - Lines changed: +142 / -28
 - Findings: 3 (Critical: 1, Warning: 1, Suggestion: 1)
-- Docs used: CLAUDE.md, coding-guidelines.md, testing.md
+- Docs used: CLAUDE.md, coding-guidelines.md, testing.md (plus skill-writing-guidelines.md in skill-authoring projects)
 - Agents: bug-detector, security-reviewer, guideline-A, guideline-B, code-simplifier, test-guardian
 - Verdict: ISSUES FOUND
 
@@ -203,7 +203,7 @@ This is followed by the full detailed findings with code snippets (same format a
 ## How It Works
 
 1. Gathers local changes (or PR diff) via git commands; in PR/MR mode, captures the author's description for intent context
-2. Loads project docs (CLAUDE.md, coding-guidelines.md, testing.md, etc.) with fallbacks for missing docs
+2. Loads project docs (CLAUDE.md, coding-guidelines.md, skill-writing-guidelines.md (if present), testing.md, etc.) with fallbacks for missing docs. In skill-authoring projects, the shared `constraint-doc-loading.md` reference automatically routes markdown instruction files through the skill-writing lens.
 3. Activates deep mode if requested (requires test command, confirms with user)
 4. Launches up to 7 parallel review agents (bug detection, security/logic, guideline compliance x2, code-simplifier, test-guardian, contracts-reviewer)
 5. Validates each finding using the verification protocol (context check, intent check, change-intent awareness, PR/MR context, pre-existing check, cross-agent consensus, runtime assumption check)
@@ -218,7 +218,7 @@ Anthropic's official [code-review](https://github.com/anthropics/claude-code/tre
 | | Official `/code-review:code-review` | `/optimus:code-review` |
 |---|---|---|
 | Default target | Pull requests | Local uncommitted changes |
-| Guidelines | CLAUDE.md only | coding-guidelines.md, testing.md, styling.md, architecture.md |
+| Guidelines | CLAUDE.md only | coding-guidelines.md, skill-writing-guidelines.md (for instruction projects), testing.md, styling.md, architecture.md |
 | Agents | 4 (parallel review agents) | Up to 7 (parallel review agents) |
 | Agent types | 2 CLAUDE.md compliance + 1 bug + 1 security | 2 guideline compliance + 1 bug + 1 security + code-simplifier + test-guardian (conditional) + contracts-reviewer (conditional) |
 | Validation | Sub-agent validation + confidence scoring | Inline validation (context, intent, change-intent, PR/MR context, pre-existing, consensus, runtime assumption check) |

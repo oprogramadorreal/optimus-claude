@@ -25,3 +25,5 @@ Read the relevant doc before making changes:
 - `docs/architecture.md` - For understanding subproject structure, data flow
 
 Root `.claude/docs/coding-guidelines.md` applies to all packages in this monorepo.
+
+<!-- If skill authoring was detected at the repo level, init adds: "Root `.claude/docs/skill-writing-guidelines.md` applies to markdown instruction files in any subproject (skills/, agents/, prompts/, commands/, instructions/)." -->

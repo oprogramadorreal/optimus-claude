@@ -23,9 +23,11 @@
 
 ## Before Writing Code
 
-ALWAYS read `.claude/docs/coding-guidelines.md` before planning or implementing any changes. All code must follow these principles.
+ALWAYS read `.claude/docs/coding-guidelines.md` before planning or implementing any changes to code files. All code must follow these principles.
+
+<!-- If skill authoring was detected, init adds a second sentence here: "For changes to markdown instruction files (under skills/, agents/, prompts/, commands/, or instructions/), ALWAYS read `.claude/docs/skill-writing-guidelines.md` instead — those files follow different quality rules than code." -->
 
 ## Documentation
 
-<!-- Only list docs that were actually created; coding-guidelines is covered above -->
+<!-- Only list docs that were actually created; coding-guidelines and skill-writing-guidelines are covered above -->
 

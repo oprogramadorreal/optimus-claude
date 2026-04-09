@@ -19,7 +19,7 @@ The [2025 DORA report](https://cloud.google.com/discover/how-test-driven-develop
 - **Suitability analysis** — analyzes the task against the codebase before starting; redirects unsuitable tasks (refactoring, docs, styling) to the right skill
 - **Behavior decomposition** — breaks features or bug fixes into small, independently testable behaviors before writing any code
 - **Red-Green-Refactor cycles** — enforces the classic TDD discipline: failing test → minimal pass → clean up
-- **Guideline-aware refactoring** — applies your project's `coding-guidelines.md` during the Refactor step
+- **Guideline-aware refactoring** — applies your project's `coding-guidelines.md` during the Refactor step. In skill-authoring projects, markdown instruction files are refactored against `skill-writing-guidelines.md` instead.
 - **Convention-aware tests** — follows your `testing.md` for framework, file location, naming, and mocking patterns
 - **Test verification at every step** — runs the full test suite after Red, Green, and Refactor to catch regressions instantly
 - **Lint/type-check verification** — runs lint or type-check commands (if configured) during the Green and Refactor steps to catch type errors that passing tests might miss
@@ -225,7 +225,7 @@ The skill produces a structured summary after completing:
 
 ## How It Works
 
-1. Verifies project context (`CLAUDE.md`, `coding-guidelines.md`) and test infrastructure exist
+1. Verifies project context (`CLAUDE.md`, `coding-guidelines.md`, and `skill-writing-guidelines.md` when present) and test infrastructure exist
 2. Distills lengthy specs into a single-sentence goal for confirmation, then analyzes task suitability — redirects unsuitable tasks (refactoring, docs, styling) to the right skill
 3. Creates a feature branch from the current branch (e.g., `feat/add-password-reset`), with optional git worktree isolation
 4. Decomposes the feature or bug fix into small, testable behaviors for user approval
@@ -313,7 +313,7 @@ The user's original branch is never modified. All code review happens through th
 
 - [Claude Code](https://docs.anthropic.com/en/docs/claude-code) 1.0.33+ (plugin support)
 - Git
-- Project initialized with `/optimus:init` (required — provides `coding-guidelines.md` for Refactor step)
+- Project initialized with `/optimus:init` (required — provides `coding-guidelines.md` for Refactor step, plus `skill-writing-guidelines.md` when a skill-authoring stack is detected)
 - Working test infrastructure (framework, runner) — run `/optimus:init` first if missing
 
 ## License
