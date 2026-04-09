@@ -34,11 +34,7 @@ Read these reference files and provide their content to the agent as context bef
 - `$CLAUDE_PLUGIN_ROOT/skills/how-to-run/references/how-to-run-sections.md` — signal-to-section mapping, build-system signals, source-dependency signals, external services detection
 - `$CLAUDE_PLUGIN_ROOT/skills/init/references/unsupported-stack-fallback.md` — fallback procedure for stacks not matched by manifest or build-system detection
 
-Launch 1 `general-purpose` Agent tool call using the prompt from project-environment-detector.md, prepended with the shared constraints and reference file contents above.
-
-| Agent | Role | Runs when |
-|-------|------|-----------|
-| 1 — Project Environment Detection | Build system & toolchain, source dependencies, SDKs & system packages, hardware/OS requirements, tech stack, PM, project structure, external services, env config, infrastructure signals, dev workflow signals | Always |
+Launch 1 `general-purpose` Agent tool call using the prompt from project-environment-detector.md, prepended with the shared constraints and reference file contents above. The agent detects: build system & toolchain, source dependencies, SDKs & system packages, hardware/OS requirements, tech stack, package manager, project structure, external services, env config, infrastructure signals, and dev workflow signals.
 
 Wait for the agent to complete. Use the agent's **Context Detection Results** to populate the Step 1 Checkpoint below.
 
@@ -72,11 +68,7 @@ Read `$CLAUDE_PLUGIN_ROOT/skills/how-to-run/agents/how-to-run-auditor.md` for th
 Read this reference file and provide its content to the agent as context before the agent prompt:
 - `$CLAUDE_PLUGIN_ROOT/skills/init/references/readme-section-detection.md` — heading patterns, section boundary detection, classification rules
 
-Launch 1 `general-purpose` Agent tool call using the prompt from how-to-run-auditor.md. **Provide the Context Detection Results from Step 1 as context** at the start of the agent prompt (before the readme-section-detection.md content and agent template).
-
-| Agent | Role | Runs when |
-|-------|------|-----------|
-| 2 — How-to-Run Audit | Read existing docs in priority order, apply heading detection, classify each aspect, cross-check against detected state, identify outdated-elsewhere and unverifiable claims | Always |
+Launch 1 `general-purpose` Agent tool call using the prompt from how-to-run-auditor.md. **Provide the Context Detection Results from Step 1 as context** at the start of the agent prompt (before the readme-section-detection.md content and agent template). The agent reads existing docs in priority order, applies heading detection, classifies each aspect against the detected state, and identifies outdated-elsewhere and unverifiable claims.
 
 Wait for the agent to complete. Use the agent's **How-to-Run Audit Results** for the Step 3 assessment.
 

@@ -381,8 +381,8 @@ fi
 # cannot satisfy the check. Each token must appear in the table body.
 if [ -f "$sections_file" ]; then
   bsd_body=$(awk '/^## Build System Detection/{f=1;next}/^## /{f=0}f' "$sections_file" 2>/dev/null)
-  for token in 'CMakeLists.txt' 'meson.build' 'BUILD.bazel' 'WORKSPACE' '\*.sln' '\*.vcxproj' '\*.xcodeproj' '\*.xcworkspace' 'build.gradle' 'settings.gradle' 'AndroidManifest.xml' 'compileSdkVersion' '\*.uproject' 'ProjectVersion.txt' 'project.godot' 'platformio.ini' '\*.ino' 'Package.swift' 'Podfile' 'Makefile'; do
-    if ! printf '%s' "$bsd_body" | grep -q "$token" 2>/dev/null; then
+  for token in 'CMakeLists.txt' 'meson.build' 'BUILD.bazel' 'WORKSPACE' '*.sln' '*.vcxproj' '*.xcodeproj' '*.xcworkspace' 'build.gradle' 'settings.gradle' 'AndroidManifest.xml' 'compileSdkVersion' '*.uproject' 'ProjectVersion.txt' 'project.godot' 'platformio.ini' '*.ino' 'Package.swift' 'Podfile' 'Makefile'; do
+    if ! printf '%s' "$bsd_body" | grep -qF "$token" 2>/dev/null; then
       wiring_errors+="  Build System Detection table body missing row for: $token\n"
     fi
   done
