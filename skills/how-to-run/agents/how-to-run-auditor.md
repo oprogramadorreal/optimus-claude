@@ -34,16 +34,16 @@ You will receive two pieces of context before this prompt:
 3. **Extract setup-related sections** using the section boundary detection rules: from each matching heading to the next heading of the same or higher level.
 
 4. **Classify each of the 10 aspects** against the Context Detection Results:
-   - **Prerequisites** — OS version, hardware, system tools
+   - **Prerequisites** — OS version constraints, hardware (GPU, USB/serial, target MCU), system tools
    - **Toolchain & SDKs** — compiler, build tool versions, language SDKs, domain SDKs
    - **Source Dependencies** — git submodules, sibling repos, CMake FetchContent
    - **Installation** — dependency install commands, vendored-dep bootstrap (vcpkg/Conan)
    - **External Services** — databases, queues, caches, how to start them
-   - **Environment Config** — `.env` setup, required variables
+   - **Environment Setup** — `.env` setup, required variables
    - **Build** — explicit compile/link command
    - **Running in Development** — start command, produced-binary launcher, or engine launcher
-   - **Testing** — test command, coverage
-   - **Hardware / OS Requirements** — GPU, USB/serial, target MCU, OS version constraints
+   - **Running Tests** — test command, coverage
+   - **Common Issues** — stack-specific gotchas (e.g., `nvm use`, `docker compose up -d`, `git submodule update --init --recursive`, private registry auth)
 
    Classification levels:
    - **Found & accurate** — documents this aspect AND details match current project state
@@ -91,11 +91,11 @@ Return your findings in this exact structure:
 | Source Dependencies | [...] | [...] | [...] |
 | Installation | [...] | [...] | [...] |
 | External Services | [...] | [...] | [...] |
-| Environment Config | [...] | [...] | [...] |
+| Environment Setup | [...] | [...] | [...] |
 | Build | [...] | [...] | [...] |
 | Running in Development | [...] | [...] | [...] |
-| Testing | [...] | [...] | [...] |
-| Hardware / OS Requirements | [...] | [...] | [...] |
+| Running Tests | [...] | [...] | [...] |
+| Common Issues | [...] | [...] | [...] |
 
 ### Outdated Details (grouped by source file)
 
