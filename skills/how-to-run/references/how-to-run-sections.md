@@ -403,7 +403,7 @@ Patterns to detect source dependencies that must be cloned or initialized before
 | `west.yml` (Zephyr) | `manifest: projects:` blocks | West workspace — document `west init` / `west update` |
 | `repo` tool / `default.xml` (Android AOSP-style) | Any content | Document `repo sync` flow |
 
-**Precision rule:** Sibling-repo detection from `../[a-z-]+` path grep WILL produce false positives (e.g., `../node_modules/...`, `../dist/`). Report findings as *candidates* in the detector's Source Dependencies table with their source line and let the user confirm via Step 3's assessment — do not treat them as facts without cross-file corroboration.
+**Precision rule:** Sibling-repo detection from a `../[A-Za-z0-9_][A-Za-z0-9._-]*` path grep WILL produce false positives (e.g., `../node_modules/...`, `../dist/`). Report findings as *candidates* in the detector's Source Dependencies table with their source line and let the user confirm via Step 3's assessment — do not treat them as facts without cross-file corroboration.
 
 ## External Services Detection
 

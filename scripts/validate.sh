@@ -359,6 +359,17 @@ fi
 if ! grep -q '^### Unsupported-Stack Fallback' skills/how-to-run/agents/project-environment-detector.md 2>/dev/null; then
   wiring_errors+="  skills/how-to-run/agents/project-environment-detector.md missing '### Unsupported-Stack Fallback' return-format heading\n"
 fi
+# Trigger-key contract (continued): the 'Triggered:' key must literally appear
+# inside the detector's Unsupported-Stack Fallback return-format section. SKILL.md
+# greps for "Unsupported-Stack Fallback → Triggered: yes" — if a future edit renames
+# Triggered: to Fired: or similar, the heading check above would still pass while
+# the fallback silently never fires. Scope the search to the section body.
+if [ -f skills/how-to-run/agents/project-environment-detector.md ]; then
+  usf_body=$(awk '/^### Unsupported-Stack Fallback/{f=1;next}/^### /{f=0}f' skills/how-to-run/agents/project-environment-detector.md 2>/dev/null)
+  if ! printf '%s' "$usf_body" | grep -qF 'Triggered:' 2>/dev/null; then
+    wiring_errors+="  skills/how-to-run/agents/project-environment-detector.md Unsupported-Stack Fallback section missing 'Triggered:' key\n"
+  fi
+fi
 
 # The 'Extended Stacks Covered' heading in how-to-run-sections.md is referenced
 # by name from SKILL.md, README.md, and the detector agent. A rename would
