@@ -92,14 +92,16 @@ how-to-run:
       - HOW-TO-RUN.md
     files_contain:
       HOW-TO-RUN.md:
-        - "npm"
+        - "npm install"
+        - "Prerequisites"
 
   python-project:
     files_exist:
       - HOW-TO-RUN.md
     files_contain:
       HOW-TO-RUN.md:
-        - "pip"
+        - "pip install"
+        - "Prerequisites"
 
 prompt:
   node-project:
