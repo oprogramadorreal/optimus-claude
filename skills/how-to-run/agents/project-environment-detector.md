@@ -180,7 +180,7 @@ Mark sibling-repo findings as `(candidate)` when derived only from a path grep w
 
 [If no services found, state "No external services detected."]
 
-### Environment Config
+### Environment Setup
 | File | Variable count | Key variables |
 |------|---------------|---------------|
 | [e.g., .env.example] | [N] | [list up to 10 variable names] |
