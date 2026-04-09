@@ -43,8 +43,9 @@ class TestConstraintDocLoadingSkillAuthoring:
 
     def test_skill_authoring_lens_preserves_default_for_code(self):
         text = _read("skills/init/references/constraint-doc-loading.md")
-        # The default loading procedure must still cover non-skill-authoring projects
-        assert "does not apply" in text or "does not exist" in text
+        # The default loading procedure must still cover non-skill-authoring projects:
+        # the gating sentence must say the section does not apply when the file is absent.
+        assert "this section does not apply" in text
 
     def test_single_project_section_lists_skill_writing_guidelines(self):
         text = _read("skills/init/references/constraint-doc-loading.md")
@@ -53,8 +54,10 @@ class TestConstraintDocLoadingSkillAuthoring:
 
     def test_monorepo_section_lists_skill_writing_guidelines_as_shared(self):
         text = _read("skills/init/references/constraint-doc-loading.md")
-        # In monorepos, skill-writing-guidelines.md is shared at root alongside coding-guidelines.md
-        assert "shared" in text.lower()
+        # In monorepos, skill-writing-guidelines.md must be listed as shared at root
+        # alongside coding-guidelines.md — lock both the filename and the "shared at root" phrase.
+        assert "skill-writing-guidelines.md" in text
+        assert "shared at root" in text
 
 
 class TestInitSkillAuthoringDetection:
@@ -134,8 +137,9 @@ class TestDocumentationAuditorRecognizesSkillWriting:
 
     def test_auditor_handles_skill_writing_as_project_customizable(self):
         text = _read("skills/init/agents/documentation-auditor.md")
-        # Must be audited like testing.md (preserve user-added sections)
-        assert "testing.md" in text  # establishes the comparison
+        # Must be audited as a project-customizable lens, with user-added sections preserved.
+        assert "skill-writing-guidelines.md" in text
+        assert "preserve user-added sections" in text
 
 
 class TestPluginLevelCodeSimplifier:
