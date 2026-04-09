@@ -62,11 +62,7 @@ You will receive two pieces of context before this prompt:
    - Version constraints: do documented versions match the Runtime Version Constraints table?
    - Script names: do documented commands match the Commands table?
 
-6. **Scope by topology:**
-   - Single project & monorepo: primary target is root `HOW-TO-RUN.md`. Root `README.md` and friends are input-only.
-   - Multi-repo workspace: primary target is workspace-root `HOW-TO-RUN.md`. Individual repo READMEs are input-only.
-
-7. **Fallback:** If no matching headings are found but a README or other doc exists, search paragraph text for keywords: `install`, `run`, `start`, `setup`, `build`, `docker`, `prerequisites`, `dependencies`, `submodule`, `vcpkg`, `cmake`, `gradle`. Report matches as "possible setup instructions without a clear section heading."
+6. **Fallback:** If no matching headings are found but a README or other doc exists, search paragraph text for keywords: `install`, `run`, `start`, `setup`, `build`, `docker`, `prerequisites`, `dependencies`, `submodule`, `vcpkg`, `cmake`, `gradle`. Report matches as "possible setup instructions without a clear section heading."
 
 ### Return format
 

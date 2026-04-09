@@ -90,10 +90,16 @@ how-to-run:
   node-project:
     files_exist:
       - HOW-TO-RUN.md
+    files_contain:
+      HOW-TO-RUN.md:
+        - "npm"
 
   python-project:
     files_exist:
       - HOW-TO-RUN.md
+    files_contain:
+      HOW-TO-RUN.md:
+        - "pip"
 
 prompt:
   node-project:

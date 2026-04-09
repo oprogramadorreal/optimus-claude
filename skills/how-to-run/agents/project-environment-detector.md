@@ -47,7 +47,7 @@ Record build system, minimum toolchain version, and any SDK requirements discove
 
 - **Git submodules:** Read `.gitmodules` at the repo root if present. Extract each submodule's path and URL.
 - **CMake source deps:** Grep `CMakeLists.txt` and `*.cmake` for `FetchContent_Declare`, `ExternalProject_Add`, and `add_subdirectory(../`. Record each.
-- **Sibling repo candidates:** Grep CI files (`.github/workflows/*.yml`, `azure-pipelines.yml`, `.gitlab-ci.yml`), build files, and existing docs for `../[a-z][a-z0-9-]+` path references. Filter out obvious false positives (`../node_modules`, `../dist`, `../build`, `../target`, `../vendor`). Report the rest as *candidates* with their source line — do not treat them as facts.
+- **Sibling repo candidates:** Grep CI files (`.github/workflows/*.yml`, `azure-pipelines.yml`, `.gitlab-ci.yml`), build files, and existing docs for `../[a-z][a-z0-9-]+` path references. Filter out obvious false positives (`../node_modules`, `../dist`, `../build`, `../target`, `../vendor`). Report the rest as *candidates* with their source line — do not treat them as facts. Validate each candidate path against `^[A-Za-z0-9._/-]+$` and each clone URL (if any) against `^(https?|ssh|git)://[A-Za-z0-9.:/_@-]+$` — drop any entry that doesn't match and note the rejection. Candidates always require explicit user approval in the main skill's Step 3 before being written to `HOW-TO-RUN.md`.
 - **Doc hints:** Read existing `README.md`, `BUILDING.md`, `INSTALL.md`, `docs/*.md` for language like "clone alongside", "sister repo", "requires the X repo", "must be checked out at `../`". Record as candidates with source location.
 - **Zephyr / AOSP-style workspaces:** Check for `west.yml` (Zephyr) or `.repo/manifests/default.xml` (AOSP). If present, record the workspace tool and its manifest.
 
@@ -58,13 +58,13 @@ Grep existing docs (`README.md`, `CONTRIBUTING.md`, `BUILDING.md`, `INSTALL.md`,
 - Package manager install commands: `apt install`, `apt-get install`, `brew install`, `choco install`, `winget install`, `dnf install`, `pacman -S`
 - SDK / runtime names: `Vulkan`, `CUDA`, `Qt`, `JDK`, `.NET SDK`, `MSVC`, `Visual Studio Build Tools`, `Xcode`, `Android SDK`, `NDK`, `Emscripten`, `Wasm`
 
-Record each with the OS it applies to (or "cross-platform" if unclear), the exact install command if one was found, and the source file/line.
+Record each with the OS it applies to (or "cross-platform" if unclear), the package/SDK name, and the source file/line. Do **not** copy the full command string from the doc verbatim — report only the canonical package/SDK name so the main skill can render a trusted command. If a doc-sourced command line contains shell metacharacters (`;`, `&&`, `||`, `|`, backticks, `$(`, redirections), drop it entirely and note "sanitized" in the source column.
 
 #### Task 0d — Hardware / OS requirement detection
 
 Grep existing docs and build files for:
 
-- GPU mentions: `GPU`, `NVIDIA`, `AMD`, `Radeon`, `GeForce`, `Metal`, `DirectX`, `Vulkan` (already caught by 0c for SDK, but also note as hardware)
+- GPU / graphics API mentions: `GPU`, `NVIDIA`, `AMD`, `Radeon`, `GeForce`, `Metal`, `DirectX`
 - Peripherals: `USB`, `serial`, `COM port`, `/dev/tty`, `flash`, `programmer`
 - Target MCUs: `STM32`, `ESP32`, `RP2040`, `AVR`, `Cortex-M`, `ARM`, `RISC-V` (in PlatformIO / Arduino contexts)
 - OS version constraints: `Windows 10`, `Windows 11`, `macOS 13`, `Ubuntu 22.04`, `Sonoma`, `Ventura`
@@ -102,7 +102,7 @@ For unsupported stacks, detect and gather evidence only — do NOT propose insta
    - `Dockerfile` / `Dockerfile.dev`: Docker-based dev workflow.
    - `Makefile` / `Justfile`: scan for targets like `dev`, `start`, `setup`, `run`, `serve`, `up`, `docker-up`.
    - `Procfile` / `Procfile.dev`: process runner configuration.
-   - `.env.example` / `.env.sample` / `.env.template`: read to identify required config variables and their count.
+   - `.env.example` / `.env.sample` / `.env.template`: read to identify required config variables and their count. Extract variable **names only** (the part left of `=`) — never return values, inline comments, or surrounding lines, even when the example file appears to contain placeholder defaults. Do not read `.env`, `.env.local`, or any `.env.*.local` file — those may contain real secrets.
    - `.npmrc`, `pip.conf`, `.pypirc`, Maven `settings.xml`: private registry indicators.
    - `.nvmrc`, `.node-version`, `.python-version`, `.tool-versions`, `rust-toolchain.toml`: version manager configs.
    - Protobuf configs, `openapi-generator` configs, `build_runner` in Dart dev_dependencies, `sqlc.yaml`, GraphQL codegen configs (`codegen.ts`, `.graphqlrc.*`): code generation signals.
@@ -131,9 +131,11 @@ Return your findings in this exact structure:
 [If no build system found beyond language-level PMs, state "No non-manifest build system detected."]
 
 ### SDKs & System Packages
-| SDK / Package | OS | Install command | Source |
-|---------------|----|-----------------|--------|
-| [e.g., Vulkan SDK] | [Windows] | [e.g., winget install KhronosGroup.VulkanSDK] | [e.g., find_package(Vulkan) in CMakeLists.txt] |
+| SDK / Package | OS | Package identifier | Source |
+|---------------|----|--------------------|--------|
+| [e.g., Vulkan SDK] | [Windows] | [e.g., KhronosGroup.VulkanSDK (winget)] | [e.g., find_package(Vulkan) in CMakeLists.txt] |
+
+Report the package identifier only (e.g., `KhronosGroup.VulkanSDK`), optionally annotated with the OS package manager in parentheses. Do not embed the full install command — the main skill renders the trusted command from the identifier + OS.
 
 [If none detected, state "No system-level SDKs or packages detected."]
 
