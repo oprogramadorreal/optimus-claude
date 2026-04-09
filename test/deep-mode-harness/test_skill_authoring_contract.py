@@ -76,8 +76,12 @@ class TestInitSkillAuthoringDetection:
 
     def test_init_step_6_has_skill_writing_guidelines_row(self):
         text = _read("skills/init/SKILL.md")
-        # The Step 6 conditional-install table must reference the new template
-        assert "templates/docs/skill-writing-guidelines.md" in text
+        # The Step 6 conditional-install table must reference the new template.
+        # Scope to Step 6 so an occurrence in Step 7's validation checklist or
+        # elsewhere can't mask a missing Step 6 row.
+        step_6 = text.split("## Step 6: Create Documentation Files", 1)[1]
+        step_6 = step_6.split("## Step 6b", 1)[0]
+        assert "templates/docs/skill-writing-guidelines.md" in step_6
 
     def test_init_detection_signal_documented(self):
         text = _read("skills/init/SKILL.md")
@@ -103,8 +107,30 @@ class TestInitSkillAuthoringDetection:
 
     def test_init_install_semantics_is_merge_not_silent_overwrite(self):
         text = _read("skills/init/SKILL.md")
-        # skill-writing-guidelines.md must use review-and-propose, NOT silent overwrite
-        assert "review-and-propose" in text
+        # The install-semantics paragraph must guarantee both branches:
+        # (a) new-file: write from template with [PROJECT NAME] substitution
+        # (b) existing-file: review-and-propose, preserve user-added sections,
+        #     never silently overwrite. Scope to the install-semantics paragraph
+        #     so a weak match elsewhere in SKILL.md can't mask a regression.
+        paragraph = text.split("`skill-writing-guidelines.md` install semantics:", 1)[1]
+        paragraph = paragraph.split("**Placement rules:**", 1)[0]
+        assert "review-and-propose" in paragraph
+        assert "already exists" in paragraph
+        assert "preserve user-added sections" in paragraph
+        assert "Never silently overwrite" in paragraph
+        assert "[PROJECT NAME]" in paragraph
+
+    def test_init_monorepo_installs_skill_writing_guidelines_once_at_root(self):
+        text = _read("skills/init/SKILL.md")
+        # Monorepo placement rule: detection is repo-level, install once at root.
+        # Scope to the Placement rules block so the assertion can't pass on a
+        # stray phrase elsewhere. A regression that re-scoped the file
+        # per-subproject would drop one of these markers.
+        placement = text.split("**Placement rules:**", 1)[1]
+        placement = placement.split("## Step 6b", 1)[0]
+        assert "shared at root" in placement
+        assert "once at root" in placement
+        assert "at the repo level" in placement
 
 
 class TestSkillWritingGuidelinesTemplate:
@@ -145,6 +171,30 @@ class TestProjectAnalyzerDetection:
         # Detection Results output must include the skill-authoring field
         assert "Skill authoring detected" in text
 
+    def test_project_analyzer_detection_signal_matches_init_spec(self):
+        # project-analyzer.md now owns the canonical detection algorithm — the
+        # SKILL.md Step 1 checkpoint points to it. Lock the same load-bearing
+        # invariants (≥2 subdirectories, every subdirectory, case-insensitive,
+        # all five instruction file names) so the two specs cannot drift apart.
+        text = _read("skills/init/agents/project-analyzer.md")
+        for marker in (
+            "SKILL.md",
+            "AGENT.md",
+            "PROMPT.md",
+            "COMMAND.md",
+            "INSTRUCTION.md",
+        ):
+            assert (
+                marker in text
+            ), f"expected instruction file name {marker} in project-analyzer.md"
+        assert (
+            "2 subdirectories" in text
+        ), "project-analyzer must require ≥2 subdirectories"
+        assert (
+            "every" in text.lower()
+        ), "project-analyzer must require every subdirectory to match"
+        assert "case-insensitive" in text, "project-analyzer must be case-insensitive"
+
 
 class TestDocumentationAuditorRecognizesSkillWriting:
     def test_auditor_knows_about_skill_writing_guidelines(self):
@@ -156,6 +206,16 @@ class TestDocumentationAuditorRecognizesSkillWriting:
         # Must be audited as a project-customizable lens, with user-added sections preserved.
         assert "skill-writing-guidelines.md" in text
         assert "preserve user-added sections" in text
+
+    def test_auditor_leaves_existing_skill_writing_guidelines_alone_without_stack(self):
+        text = _read("skills/init/agents/documentation-auditor.md")
+        # Asymmetric negative branch: if the project has no skill-authoring stack
+        # but skill-writing-guidelines.md already exists, the auditor must NOT
+        # flag it for removal — it may be an intentional user install. Losing
+        # this clause would cause re-init on non-skill-authoring repos to
+        # propose deleting user-installed guidelines.
+        assert "leave it alone" in text
+        assert "no skill-authoring stack" in text
 
 
 class TestCLAUDEMdTemplatesHaveSkillAuthoringPlaceholder:

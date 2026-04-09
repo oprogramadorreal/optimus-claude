@@ -19,7 +19,7 @@ The core quality principles apply to instruction authoring just as they apply to
 
 - The AI agent is already very smart — only add context it doesn't already have. Challenge each instruction: "Does the agent really need this?" Omit explanations of concepts the agent already knows; include behavioral rules, safety constraints, and domain procedures it can't infer.
 - Imperative step-by-step instructions, not conversational prose.
-- Keep instruction file bodies short — move detailed reference material to separate files. If a file grows past a few hundred lines, split it.
+- Keep instruction file bodies under 500 lines — move detailed reference material to separate files.
 - No time-sensitive information. Consistent terminology throughout — pick one term per concept and use it everywhere (e.g., always "field" not a mix of "field", "box", "element").
 
 ## Degrees of Freedom

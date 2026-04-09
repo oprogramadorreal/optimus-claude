@@ -13,16 +13,17 @@ Read the project's quality standards from `.claude/docs/coding-guidelines.md`, `
 
 **Dual-lens routing (skill-authoring projects):** If `.claude/docs/skill-writing-guidelines.md` exists in the project, the project has a skill-authoring stack — it contains markdown instruction files (under conventional directories like `skills/`, `agents/`, `prompts/`, `commands/`, or `instructions/`) authored for an AI agent. Route each analyzed file to the correct lens:
 
-- **Markdown instruction files** (`.md` files under `skills/`, `agents/`, `prompts/`, `commands/`, `instructions/`, or `references/` in a skill-authoring project): apply `skill-writing-guidelines.md` as the primary lens. Instruction prose follows different rules than code — progressive disclosure, orchestration exceptions, writing style, reference-depth limits. Do NOT apply `coding-guidelines.md` function-length, variable-naming, or class-decomposition rules to instruction prose.
+- **Markdown instruction files** (`.md` files under `skills/`, `agents/`, `prompts/`, `commands/`, or `instructions/` in a skill-authoring project, including any nested `references/` or similar sibling folders inside those subtrees): apply `skill-writing-guidelines.md` as the primary lens. Instruction prose follows different rules than code — progressive disclosure, orchestration exceptions, writing style, reference-depth limits. Do NOT apply `coding-guidelines.md` function-length, variable-naming, or class-decomposition rules to instruction prose.
 - **Code files** (everything else, including shell scripts under `hooks/` and JSON manifests under `.claude-plugin/`): apply `coding-guidelines.md` as the primary lens, exactly as on a normal coding project.
 - **Mixed changes**: apply both lenses, each to its own files. Never judge a SKILL.md by `coding-guidelines.md` criteria, and never judge a `.py` file by `skill-writing-guidelines.md` criteria.
 
 If the project does not have `skill-writing-guidelines.md`, skill-authoring routing does not apply — use `coding-guidelines.md` for every file as normal.
 
-If a required file is missing, use these fallbacks so the agent can still operate:
+If `CLAUDE.md` or `coding-guidelines.md` is missing, use these fallbacks so the agent can still operate:
 - `CLAUDE.md` missing → detect tech stack from manifest files (`package.json`, `Cargo.toml`, `pyproject.toml`, etc.) for basic context
 - `coding-guidelines.md` missing → apply general best practices for the detected tech stack; note in your output that findings are based on generic guidelines, not project-specific ones
 - Both missing → apply both fallbacks, recommend the user run `/optimus:init`
+- `skill-writing-guidelines.md` not present → dual-lens routing does not apply (stated in the Dual-lens routing paragraph above); use `coding-guidelines.md` for every file as normal.
 
 ## Operational Principles
 

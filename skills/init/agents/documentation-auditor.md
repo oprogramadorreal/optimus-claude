@@ -23,7 +23,9 @@ Read `$CLAUDE_PLUGIN_ROOT/.claude-plugin/plugin.json` to get the current plugin 
 
 ### Audit tasks
 
-1. **Read all existing doc files** from the inventory: CLAUDE.md, settings.json, all `.claude/docs/*.md` except `coding-guidelines.md`, and for monorepos each subproject's CLAUDE.md and `docs/*.md`. Note: `.claude/docs/skill-writing-guidelines.md` (when present) is a project-customizable lens for reviewing markdown instruction files — audit it the same way you audit `testing.md`: preserve user-added sections, classify outdated rules only when they contradict current conventions, and flag missing content against the template at `$CLAUDE_PLUGIN_ROOT/skills/init/templates/docs/skill-writing-guidelines.md`.
+1. **Read all existing doc files** from the inventory: CLAUDE.md, settings.json, all `.claude/docs/*.md` except `coding-guidelines.md`, and for monorepos each subproject's CLAUDE.md and `docs/*.md`.
+
+   **Project-customizable lenses** (`testing.md` and, when present, `skill-writing-guidelines.md`): audit these with the same policy — preserve user-added sections, classify outdated rules only when they contradict current conventions, and flag missing content against the corresponding template (for `skill-writing-guidelines.md`, the template at `$CLAUDE_PLUGIN_ROOT/skills/init/templates/docs/skill-writing-guidelines.md`). Never silently overwrite user content in either file.
 
 2. **Compare documented state vs detected state:**
 
