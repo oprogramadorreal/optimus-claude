@@ -31,8 +31,8 @@ When `.claude/docs/skill-writing-guidelines.md` exists, the project has a skill-
 
 Apply this lens when reviewing, refactoring, or analyzing files:
 
-- **Markdown instruction files** — files under these conventional skill-authoring directories when present: `skills/`, `agents/`, `prompts/`, `commands/`, `instructions/`, `references/`, `hooks/`, `.claude-plugin/`. Primary lens: `skill-writing-guidelines.md`. Do not apply `coding-guidelines.md` function-length, variable-naming, or class-decomposition rules to instruction prose — those rules are for code, not for markdown instructions.
-- **Code files** — everything else (`scripts/`, `src/`, `lib/`, `test/`, etc.). `coding-guidelines.md` remains the primary lens, plus `testing.md` for test files. No change from the default loading procedure.
+- **Markdown instruction files** — `.md` files under these conventional skill-authoring directories when present: `skills/`, `agents/`, `prompts/`, `commands/`, `instructions/`, `references/`. Primary lens: `skill-writing-guidelines.md`. Do not apply `coding-guidelines.md` function-length, variable-naming, or class-decomposition rules to instruction prose — those rules are for code, not for markdown instructions.
+- **Code files** — everything else (`scripts/`, `src/`, `lib/`, `test/`, shell scripts under `hooks/`, JSON manifests under `.claude-plugin/`, etc.). `coding-guidelines.md` remains the primary lens, plus `testing.md` for test files. No change from the default loading procedure.
 - **Changes that touch both** — apply both lenses, each to its own files. Do not cross-contaminate: never judge a SKILL.md by `coding-guidelines.md` criteria, never judge a `.py` file by `skill-writing-guidelines.md` criteria.
 - **Monorepo** — the skill-authoring lens applies wherever skill-authoring directories are present in the repo. The shared `skill-writing-guidelines.md` at `.claude/docs/` applies across the whole repo, the same way the shared `coding-guidelines.md` does.
 
