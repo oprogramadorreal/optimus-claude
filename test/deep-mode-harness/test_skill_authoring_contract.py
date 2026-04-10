@@ -202,8 +202,8 @@ class TestProjectAnalyzerDetection:
         assert "Skill authoring detected" in text
 
     def test_project_analyzer_detection_signal_matches_init_spec(self):
-        # project-analyzer.md now owns the canonical detection algorithm — the
-        # SKILL.md Step 1 checkpoint points to it. Lock the same load-bearing
+        # project-analyzer.md is the canonical detection algorithm; SKILL.md's
+        # Step 1 checkpoint delegates to it. Lock the same load-bearing
         # invariants (≥2 subdirectories, every subdirectory, case-insensitive,
         # all five instruction file names) so the two specs cannot drift apart.
         text = _read("skills/init/agents/project-analyzer.md")
@@ -463,3 +463,44 @@ class TestDirectoryParityIncludesProjectAnalyzer:
         dirs = {"skills/", "agents/", "prompts/", "commands/", "instructions/"}
         for d in dirs:
             assert d in analyzer, f"{d} missing from project-analyzer.md"
+
+
+class TestTemplateFirstLineFingerprint:
+    def test_template_first_line_matches_reset_fingerprint(self):
+        # Reset SKILL.md requires first line `# Skill-writing guidelines for`
+        # as the heuristic fingerprint. If the template heading changes, reset
+        # would misclassify all skill-writing-guidelines.md files as MODIFIED.
+        template = _read("skills/init/templates/docs/skill-writing-guidelines.md")
+        first_line = template.splitlines()[0]
+        assert first_line.startswith(
+            "# Skill-writing guidelines for"
+        ), f"template first line must start with reset fingerprint, got: {first_line}"
+
+
+class TestCodeSimplifierFallbackBranch:
+    def test_code_simplifier_has_fallback_when_skill_writing_absent(self):
+        # When skill-writing-guidelines.md is absent, the code-simplifier must
+        # fall back to coding-guidelines.md for all files. Without this explicit
+        # fallback instruction, the agent has no guidance for the absent-file case.
+        text = _read("agents/code-simplifier.md")
+        assert "does not apply" in text or "routing does not apply" in text
+
+
+class TestTestGuardianDirectoryScope:
+    def test_test_guardian_skip_scoped_to_conventional_directories(self):
+        # The test-guardian skip rule must be scoped to the five conventional
+        # skill-authoring directories — not all .md files unconditionally.
+        # Without directory scoping, the agent would skip legitimate .md test
+        # fixtures or documentation files that should be flagged.
+        text = _read("agents/test-guardian.md")
+        skip_lines = [
+            line
+            for line in text.splitlines()
+            if "instruction" in line.lower()
+            and "skip" in line.lower()
+            or "instruction prose" in line.lower()
+        ]
+        assert skip_lines, "test-guardian must have an instruction-skip rule"
+        skip_text = " ".join(skip_lines)
+        for d in ("skills/", "agents/", "prompts/", "commands/", "instructions/"):
+            assert d in skip_text, f"skip rule must be scoped to {d}"
