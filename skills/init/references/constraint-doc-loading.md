@@ -38,7 +38,7 @@ Apply this lens when reviewing, refactoring, or analyzing files:
 
 ## Monorepo Scoping Rule
 
-When operating on a subproject's code, apply its own constraint docs — not another subproject's. The shared `coding-guidelines.md` applies everywhere, but `testing.md`, `styling.md`, and `architecture.md` are subproject-scoped — don't apply backend conventions to frontend code or vice versa.
+When operating on a subproject's code, apply its own constraint docs — not another subproject's. The shared `coding-guidelines.md` (and `skill-writing-guidelines.md` when it exists) applies everywhere, but `testing.md`, `styling.md`, and `architecture.md` are subproject-scoped — don't apply backend conventions to frontend code or vice versa.
 
 **Compact form for skills that load only a subset of docs:** `coding-guidelines.md` and `skill-writing-guidelines.md` (when it exists) are shared at root (`.claude/docs/`). Scoped docs (`testing.md`, `styling.md`, `architecture.md`) are per subproject (`<subproject>/docs/<doc>.md`). For root-as-project, scoped docs are in `.claude/docs/` alongside the shared guidelines.
 

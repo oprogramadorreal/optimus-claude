@@ -129,8 +129,6 @@ Follow the conventions visible in existing skills — study `skills/commit-messa
 
 `/optimus:init` detects **skill authoring** as a first-class stack alongside Python, Node, Rust, Go, UI frameworks, and so on. The detection signal is structural: a directory named `skills/`, `agents/`, `prompts/`, `commands/`, or `instructions/` at the repo root — and for monorepos, also at each detected subproject root — containing ≥2 subdirectories, every such subdirectory holding a file named `SKILL.md`, `AGENT.md`, `PROMPT.md`, `COMMAND.md`, or `INSTRUCTION.md` (case-insensitive). When detected, init installs `.claude/docs/skill-writing-guidelines.md` from its framework-agnostic template, and the shared `skills/init/references/constraint-doc-loading.md` reference automatically routes review/refactor skills to use that lens for markdown instruction files while keeping `coding-guidelines.md` as the lens for code files.
 
-This means optimus now supports Claude Code plugins (including optimus-claude itself), Codex skill repos, prompt libraries, custom agent frameworks, and any other project whose "source code" is markdown instructions authored for an AI agent. Both code and markdown files are first-class review and refactor targets, each routed through the appropriate quality lens — dual-lens behavior is handled entirely by `constraint-doc-loading.md`, so no per-skill changes are needed when adding new instruction projects.
-
 For the full routing rules, see the "Skill authoring lens" section of `skills/init/references/constraint-doc-loading.md`. For the template content installed into skill-authoring projects, see `skills/init/templates/docs/skill-writing-guidelines.md`.
 
 ## Plugin manifests
