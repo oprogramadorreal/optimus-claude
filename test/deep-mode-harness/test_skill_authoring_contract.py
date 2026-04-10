@@ -138,6 +138,30 @@ class TestInitSkillAuthoringDetection:
         assert "once at root" in placement
         assert "at the repo level" in placement
 
+    def test_init_step_7_verifies_skill_writing_guidelines(self):
+        text = _read("skills/init/SKILL.md")
+        # Step 7 content-check must verify skill-writing-guidelines.md has
+        # [PROJECT NAME] replaced and user-added sections preserved. Without
+        # this, init could skip post-generation verification of the file.
+        step_7 = text.split("## Step 7: Verify and Report", 1)[1]
+        assert "skill-writing-guidelines.md" in step_7
+        assert "[PROJECT NAME]" in step_7
+        assert "user-added sections" in step_7
+
+    def test_init_step_4b_documents_both_html_comment_branches(self):
+        text = _read("skills/init/SKILL.md")
+        # Step 4b (subproject CLAUDE.md) must document both branches of the
+        # HTML comment replacement: materialize when detected, remove when not.
+        # The existing test_init_documents_both_branches_of_html_comment_replacement
+        # checks the full file, so a removal of the Step 4b instruction could
+        # be masked by the Step 4 match. Scope to Step 4b specifically.
+        step_4b = text.split("## Step 4b:", 1)[1]
+        step_4b = step_4b.split("## Step 5:", 1)[0]
+        assert "skill-writing-guidelines.md" in step_4b
+        assert (
+            "remove the HTML comment entirely" in step_4b
+        ), "Step 4b must document the remove-when-not-detected branch"
+
 
 class TestSkillWritingGuidelinesTemplate:
     def test_template_file_exists(self):
@@ -324,9 +348,7 @@ class TestPluginLevelTestGuardian:
         # "exists" elsewhere in the file can't mask a regression.
         text = _read("agents/test-guardian.md")
         skip_rule = [
-            line
-            for line in text.splitlines()
-            if "skill-writing-guidelines.md" in line
+            line for line in text.splitlines() if "skill-writing-guidelines.md" in line
         ]
         assert skip_rule, "test-guardian must mention skill-writing-guidelines.md"
         assert any(
@@ -351,9 +373,9 @@ class TestResetSkillAuthoringAwareness:
         # It must appear in the "Generated docs (heuristic)" table, not the
         # "Near-exact template" section.
         text = _read("skills/reset/SKILL.md")
-        heuristic_section = text.split(
-            "**Generated docs (heuristic", 1
-        )[1].split("For CLAUDE.md:", 1)[0]
+        heuristic_section = text.split("**Generated docs (heuristic", 1)[1].split(
+            "For CLAUDE.md:", 1
+        )[0]
         assert "skill-writing-guidelines.md" in heuristic_section
 
     def test_reset_heuristic_headings_match_template(self):

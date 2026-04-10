@@ -47,6 +47,7 @@ The skill **always** asks before removing anything. After presenting the categor
 | `.claude/.optimus-version` | Always unmodified (pure tracking file) |
 | `.claude/docs/coding-guidelines.md` | Near-exact (template body comparison, line 2+) |
 | `.claude/docs/testing.md` | Heuristic (section headings) |
+| `.claude/docs/skill-writing-guidelines.md` | Heuristic (section headings) |
 | `.claude/docs/styling.md` | Heuristic (section headings) |
 | `.claude/docs/architecture.md` | Heuristic (section headings) |
 | `.claude/agents/code-simplifier.md` | Exact match *(legacy)* |
