@@ -87,7 +87,7 @@ Both agents reference your project's `.claude/CLAUDE.md` and `.claude/docs/` fil
 | `.claude/docs/skill-writing-guidelines.md` | Skill-writing standards (when skill authoring detected — applies to markdown instruction files under `skills/`, `agents/`, `prompts/`, `commands/`, `instructions/`) |
 | `.claude/docs/testing.md` | Testing conventions (when test framework detected) |
 | `.claude/docs/styling.md` | UI/CSS guidelines (when frontend detected) |
-| `.claude/docs/architecture.md` | Project structure (when complex structure detected) |
+| `.claude/docs/architecture.md` | Project architecture (when complex structure or skill authoring detected — template variant adapts to code-only, skill-authoring, or hybrid projects) |
 | `.claude/hooks/` | Auto-format hooks per detected stack |
 | `.claude/.optimus-version` | Plugin version that last generated these files |
 
@@ -121,6 +121,7 @@ To understand or modify how the skill works, start with `SKILL.md`. Key customiz
 - **CLAUDE.md templates**: `templates/single-project-claude.md`, `templates/monorepo-claude.md`, `templates/subproject-claude.md`, `templates/multi-repo-claude.md`
 - **Coding guidelines**: `templates/docs/coding-guidelines.md`
 - **Skill-writing guidelines**: `templates/docs/skill-writing-guidelines.md` (framework-agnostic template for markdown instruction projects)
+- **Architecture templates**: `templates/docs/architecture.md` (code-only), `templates/docs/architecture-skill-authoring.md` (skill-authoring), `templates/docs/architecture-hybrid.md` (combined)
 - **Formatter hooks**: `templates/hooks/` (Python, Node.js, Rust, Go, C#, Java, C/C++, Dart/Flutter)
 - **Agents**: `agents/` at plugin root (code-simplifier, test-guardian — now bundled with the plugin, not installed per-project)
 

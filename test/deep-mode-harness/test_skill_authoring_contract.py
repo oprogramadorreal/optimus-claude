@@ -535,6 +535,11 @@ class TestArchitectureSkillAuthoringTemplate:
         ):
             assert section in text, f"template must cover {section}"
 
+    def test_template_has_shared_headings_for_reset_fingerprint(self):
+        text = _read("skills/init/templates/docs/architecture-skill-authoring.md")
+        assert "## Overview" in text, "template must have Overview heading for reset fingerprinting"
+        assert "## Directory Map" in text, "template must have Directory Map heading for reset fingerprinting"
+
     def test_template_has_placeholder_pattern(self):
         text = _read("skills/init/templates/docs/architecture-skill-authoring.md")
         assert "[" in text, "template must contain placeholder brackets"
@@ -556,10 +561,24 @@ class TestArchitectureHybridTemplate:
             f"template first line must be '# Architecture' for reset fingerprinting, got: {first_line}"
         )
 
+    def test_template_has_shared_headings_for_reset_fingerprint(self):
+        text = _read("skills/init/templates/docs/architecture-hybrid.md")
+        assert "## Overview" in text, "hybrid template must have Overview heading for reset fingerprinting"
+        assert "## Directory Map" in text, "hybrid template must have Directory Map heading for reset fingerprinting"
+
     def test_template_has_both_architecture_sections(self):
         text = _read("skills/init/templates/docs/architecture-hybrid.md")
         assert "## Code Architecture" in text, "hybrid template must have Code Architecture section"
         assert "## Skill Architecture" in text, "hybrid template must have Skill Architecture section"
+
+    def test_skill_subsections_use_h3_not_h2(self):
+        text = _read("skills/init/templates/docs/architecture-hybrid.md")
+        skill_section = text.split("## Skill Architecture", 1)[1]
+        for heading in ("Skill Organization", "Agent Boundaries", "Reference Hierarchy", "Orchestration Patterns"):
+            assert f"### {heading}" in skill_section, (
+                f"hybrid template must use ### (not ##) for {heading} — "
+                "## would collide with skill-authoring template's fingerprint headings"
+            )
 
     def test_template_code_section_covers_code_patterns(self):
         text = _read("skills/init/templates/docs/architecture-hybrid.md")
@@ -606,9 +625,28 @@ class TestInitArchitectureDetectionIncludesSkillAuthoring:
         text = _read("skills/init/SKILL.md")
         selection = text.split("architecture.md` template selection:", 1)[1]
         selection = selection.split("Use each template as a skeleton", 1)[0]
-        assert "architecture.md" in selection, "must reference code-focused template"
+        assert "templates/docs/architecture.md" in selection, "must reference code-focused template"
         assert "architecture-hybrid.md" in selection, "must reference hybrid template"
         assert "architecture-skill-authoring.md" in selection, "must reference skill-authoring template"
+
+    def test_template_selection_maps_conditions_to_correct_variants(self):
+        text = _read("skills/init/SKILL.md")
+        selection = text.split("architecture.md` template selection:", 1)[1]
+        selection = selection.split("Use each template as a skeleton", 1)[0]
+        lines = [l.strip() for l in selection.splitlines() if l.strip().startswith("- ")]
+        assert len(lines) == 3, f"expected 3 template-selection branches, got {len(lines)}"
+        # Branch 1: no skill authoring → code-only template
+        assert "not detected" in lines[0].lower() and "architecture.md" in lines[0], (
+            "first branch must route non-skill-authoring to code-only template"
+        )
+        # Branch 2: skill authoring + code → hybrid
+        assert "code components" in lines[1].lower() and "architecture-hybrid.md" in lines[1], (
+            "second branch must route skill-authoring + code to hybrid template"
+        )
+        # Branch 3: skill authoring only → skill-authoring template
+        assert "no code components" in lines[2].lower() and "architecture-skill-authoring.md" in lines[2], (
+            "third branch must route pure skill-authoring to skill-authoring template"
+        )
 
     def test_architecture_install_semantics_exists(self):
         text = _read("skills/init/SKILL.md")
@@ -617,6 +655,14 @@ class TestInitArchitectureDetectionIncludesSkillAuthoring:
         semantics = semantics.split("**`skill-writing-guidelines.md`", 1)[0]
         assert "review-and-propose" in semantics
         assert "preserve" in semantics
+
+    def test_architecture_install_semantics_has_variant_switch(self):
+        text = _read("skills/init/SKILL.md")
+        semantics = text.split("architecture.md` install semantics:", 1)[1]
+        semantics = semantics.split("**`skill-writing-guidelines.md`", 1)[0]
+        assert "different template variant" in semantics, (
+            "install semantics must handle variant-switch when project type changes"
+        )
 
 
 class TestResetRecognizesAllArchitectureVariants:
