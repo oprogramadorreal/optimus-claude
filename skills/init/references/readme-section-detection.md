@@ -1,6 +1,6 @@
 # README Section Detection
 
-Algorithm for finding existing development setup instructions in project documentation. Referenced by init (Step 7) and dev-setup (Step 2).
+Algorithm for finding existing development setup instructions in project documentation. Referenced by how-to-run (Step 2).
 
 ## Heading Patterns
 
@@ -21,7 +21,7 @@ Once a matching heading is found, the section extends from that heading to the n
 
 ## Classification Rules
 
-For each aspect (Prerequisites, Installation, External Services, Environment Config, Running in Dev, Building, Testing), classify as:
+For each aspect (Prerequisites, Installation, External Services, Environment Setup, Running in Development, Build, Running Tests), classify as:
 
 **Found & accurate** — the section documents this aspect AND the documented commands/versions/tools match the current project state (manifests, lock files, docker-compose, `.env.example`).
 

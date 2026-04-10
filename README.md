@@ -3,7 +3,7 @@
 </div>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-1.58.1-blue" alt="Version">
+  <img src="https://img.shields.io/badge/version-1.59.0-blue" alt="Version">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
   <img src="https://img.shields.io/badge/Claude_Code-1.0.33+-blueviolet" alt="Claude Code">
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey" alt="Platform">
@@ -80,7 +80,7 @@ The result: consistent patterns, meaningful names, and lean context across every
 |-------|-------------|
 | [`/optimus:branch`](skills/branch/README.md) | Switches local changes to a new conventionally named branch derived from conversation context and git diffs. Never commits or pushes. |
 | [`/optimus:worktree`](skills/worktree/README.md) | Creates an isolated git worktree for parallel development on a separate branch. Runs project setup and test baseline automatically. |
-| [`/optimus:dev-setup`](skills/dev-setup/README.md) | Ensures the project README has accurate, step-by-step development setup instructions by auditing against actual project state. |
+| [`/optimus:how-to-run`](skills/how-to-run/README.md) | Generates a `HOW-TO-RUN.md` that teaches a new developer how to set up their environment and run the project locally — works for web, C/C++, native mobile, JVM/Android, game engines, embedded/firmware, and backend stacks. Writes only `HOW-TO-RUN.md`; reports outdated info found elsewhere. |
 | [`/optimus:jira`](skills/jira/README.md) | Fetches and optimizes context from a JIRA issue — distills into a structured task saved to `docs/jira/` for downstream skills to auto-detect. Analyzes the codebase to surface missing criteria, scope, and risks. Recommends next skill based on codebase-assessed complexity. Optionally improves the JIRA issue itself. |
 | [`/optimus:pr`](skills/pr/README.md) | Creates or updates a PR/MR with structured summary, changes, rationale, and test plan. Supports GitHub and GitLab. |
 | [`/optimus:permissions`](skills/permissions/README.md) | Configures branch protection, precious file safety, and auto-approved routine tool calls via allow/deny rules and a PreToolUse hook. |
@@ -112,7 +112,7 @@ Each skill recommends the next step based on task complexity — you don't need 
 
 **After major changes** — re-run `/optimus:init` to audit and refresh guidelines.
 
-**New to a codebase?** — `/optimus:dev-setup` ensures the README has accurate development setup instructions for onboarding.
+**New to a codebase?** — `/optimus:how-to-run` generates a `HOW-TO-RUN.md` that teaches a new developer how to set up their environment and run the project locally.
 
 **Removing optimus** — `/optimus:reset` to remove optimus-generated files from the project (for clean reinstall or to stop using optimus).
 
