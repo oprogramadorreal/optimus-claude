@@ -399,6 +399,16 @@ if [ -f "$sections_file" ]; then
   done
 fi
 
+# Return-format heading contracts: SKILL.md consumes the detector's
+# "## Context Detection Results" and the auditor's "## How-to-Run Audit Results"
+# headings by name. A rename silently drops all findings from the context summary.
+if ! grep -q '^## Context Detection Results' skills/how-to-run/agents/project-environment-detector.md 2>/dev/null; then
+  wiring_errors+="  skills/how-to-run/agents/project-environment-detector.md missing '## Context Detection Results' return-format heading\n"
+fi
+if ! grep -q '^## How-to-Run Audit Results' skills/how-to-run/agents/how-to-run-auditor.md 2>/dev/null; then
+  wiring_errors+="  skills/how-to-run/agents/how-to-run-auditor.md missing '## How-to-Run Audit Results' return-format heading\n"
+fi
+
 check "Load-bearing wiring intact" test -z "$wiring_errors"
 if [ -n "$wiring_errors" ]; then
   printf "       Wiring issues:\n%b" "$wiring_errors"

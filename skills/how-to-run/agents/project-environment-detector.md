@@ -60,7 +60,7 @@ Record build system, minimum toolchain version, and any SDK requirements discove
 
 #### Task 0b — Source dependency detection
 
-- **Git submodules:** Read `.gitmodules` at the repo root if present. Extract each submodule's path and URL.
+- **Git submodules:** Read `.gitmodules` at the repo root if present. Extract each submodule's path and URL. Validate each submodule path against `^[A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)*$` (no leading `../`, no `..` segments, no absolute paths). Validate each submodule URL against the same clone URL validation regex defined below for sibling repo candidates. Reject any entry that fails validation and note "sanitized" in the Source column.
 - **CMake source deps:** Grep `CMakeLists.txt` and `*.cmake` for `FetchContent_Declare`, `ExternalProject_Add`, and `add_subdirectory(../`. Record each.
 - **Sibling repo candidates:** Grep CI files (`.github/workflows/*.yml`, `azure-pipelines.yml`, `.gitlab-ci.yml`), build files, and existing docs for `../[A-Za-z0-9_][A-Za-z0-9._-]*` path references. Filter out obvious false positives (`../node_modules`, `../dist`, `../build`, `../target`, `../vendor`). Report the rest as *candidates* with their source line — do not treat them as facts. Validate each candidate using the rules below; drop any entry that fails and note the rejection. Candidates always require explicit user approval in the main skill's Step 3 before being written to `HOW-TO-RUN.md`.
   - **Path validation:** Match against `^\.\./[A-Za-z0-9_][A-Za-z0-9._-]*(/[A-Za-z0-9._-]+)*$`. Then split the matched path on `/` and reject if any segment after the leading `..` is empty, `.`, or `..`.
@@ -172,9 +172,9 @@ Report the package identifier only (e.g., `KhronosGroup.VulkanSDK`), optionally 
 ### Source Dependencies
 | Type | Path / URL | Source |
 |------|-----------|--------|
-| [e.g., git submodule] | [e.g., third_party/glfw — https://github.com/glfw/glfw] | [e.g., .gitmodules] |
-| [e.g., sibling repo (candidate)] | [e.g., ../shared-lib] | [e.g., CMakeLists.txt:42 — <untrusted>add_subdirectory(../shared-lib)</untrusted>] |
-| [e.g., CMake FetchContent] | [e.g., fmt v10.0.0] | [e.g., cmake/deps.cmake line 15] |
+| [e.g., git submodule] | <untrusted>[e.g., third_party/glfw — https://github.com/glfw/glfw]</untrusted> | [e.g., .gitmodules] |
+| [e.g., sibling repo (candidate)] | <untrusted>[e.g., ../shared-lib]</untrusted> | [e.g., CMakeLists.txt:42 — <untrusted>add_subdirectory(../shared-lib)</untrusted>] |
+| [e.g., CMake FetchContent] | <untrusted>[e.g., fmt v10.0.0]</untrusted> | [e.g., cmake/deps.cmake line 15] |
 
 Mark sibling-repo findings as `(candidate)` when derived only from a path grep without corroborating doc language. Mark as confirmed only when both a build/CI signal AND a doc hint agree.
 

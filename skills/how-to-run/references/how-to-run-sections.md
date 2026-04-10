@@ -102,7 +102,7 @@ Clone with all submodules:
 
 \`\`\`bash
 git clone --recursive <repo-url>
-cd <project-name>
+cd "<project-name>"
 \`\`\`
 
 If you already cloned without `--recursive`:
@@ -124,7 +124,7 @@ Clone them before building:
 \`\`\`bash
 cd ..
 git clone <url> [dir]
-cd <project-name>
+cd "<project-name>"
 \`\`\`
 
 [If CMake FetchContent/ExternalProject detected — note that deps are fetched automatically at configure time:]
@@ -141,7 +141,7 @@ Clone the repository:
 
 \`\`\`bash
 git clone <repo-url>
-cd <project-name>
+cd "<project-name>"
 \`\`\`
 
 [For projects with language-level package managers:]
