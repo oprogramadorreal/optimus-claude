@@ -138,7 +138,7 @@ For unsupported stacks, detect and gather evidence only — do NOT propose insta
 
 ### Quoting rule
 
-Apply the quoting rule from `shared-constraints.md` to every Source, Evidence, and Details cell that echoes content from a scanned file. Cells whose content came verbatim from a grepped line must pass through the rule; cells containing only fixed canonical tokens or `<file>:<line>` references are exempt.
+Apply the quoting rule from `shared-constraints.md` to every table cell or free-text field that echoes content from a scanned file. Cells containing only fixed canonical tokens or `<file>:<line>` references are exempt.
 
 ### Return format
 
