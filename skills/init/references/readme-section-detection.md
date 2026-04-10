@@ -1,6 +1,6 @@
 # README Section Detection
 
-Algorithm for finding existing development setup instructions in project documentation. Referenced by init (Step 7) and how-to-run (Step 2).
+Algorithm for finding existing development setup instructions in project documentation. Referenced by how-to-run (Step 2).
 
 ## Heading Patterns
 
