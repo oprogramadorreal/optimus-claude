@@ -58,6 +58,8 @@ Give the user a chance to correct misdetections before proceeding.
 
 **Unsupported-Stack Fallback.** If the agent reported `Unsupported-Stack Fallback → Triggered: yes`, read `$CLAUDE_PLUGIN_ROOT/skills/init/references/unsupported-stack-fallback.md` and run its 5-step procedure here, using the agent's reported **Detected language(s)** and **Evidence** as input. Use `WebSearch` for step 2 (research); enforce the step 3 validation rules before presenting any command; use `AskUserQuestion` for step 4 (approval). Commands approved here feed Step 4 content generation as if from a recognized stack; commands skipped (search failed or user declined) render as `"not found"` in the affected sections.
 
+**LLM-knowledge fallback (how-to-run only).** If WebSearch is unavailable or returns no results for the detected language, use general knowledge to propose standard install/build/run/test commands for that language. Mark these commands as "inferred (not web-verified)" when presenting them for user approval in step 4. This is safe because how-to-run generates prose documentation (not executable code), the user approves before anything is written, and Step 6 verification catches errors. If the user declines, treat as a graceful skip.
+
 ## Step 2: Scan Existing Instructions (agent-assisted)
 
 Delegate documentation scanning to an audit agent that cross-checks existing docs against the detected project state.
@@ -98,7 +100,7 @@ Read `$CLAUDE_PLUGIN_ROOT/skills/how-to-run/references/how-to-run-sections.md` f
 Generate only sections with at least one detected signal. Order is fixed; only inclusion varies. Full catalog:
 
 1. **Prerequisites** — OS version constraints, hardware requirements (GPU, USB, serial), system tools (docker, make, etc.), version managers (nvm, pyenv, rustup) if config files detected
-2. **Toolchain & SDKs** — compiler, build-tool, language SDK, and domain SDK requirements. See *Extended Stacks Covered* in `how-to-run-sections.md` for the recognized stack list and the *Build System Detection* table below it for per-file extraction rules. Group per-OS install commands (Windows / macOS / Linux) when multiple OSes are plausible.
+2. **Toolchain & SDKs** — compiler, build-tool, language SDK, and domain SDK requirements. See *Additional Detection Hints* in `how-to-run-sections.md` for additional detection signals and the *Build System Detection* table below it for per-file extraction rules. Group per-OS install commands (Windows / macOS / Linux) when multiple OSes are plausible.
 3. **Source Dependencies** — git submodules (`git clone --recursive` or `git submodule update --init --recursive`), sibling repos that must be cloned alongside this one (list paths + clone URLs), CMake `FetchContent`/`ExternalProject` notes.
 4. **Installation** — clone command, language-level package install (correct PM and prefix), post-install steps (code generation, database migrations, asset compilation), vendored-dependency bootstrap (vcpkg, Conan).
 5. **External Services** — how to start required infrastructure. When `docker-compose.yml` / `compose.yml` exists, use `docker compose up -d` as the recommended approach. Otherwise describe manual setup. Include: what services are needed, how to start them, how to verify they're running, default ports from compose config. For credentials, note that the service uses defaults from docker-compose — never copy actual password values into the file.
@@ -113,8 +115,9 @@ Generate only sections with at least one detected signal. Order is fixed; only i
 - Exact commands with detected package manager and build system (from `tech-stack-detection.md` prefix rules and `how-to-run-sections.md` build-system rows)
 - Version numbers from manifest / build-file constraints only — never guess versions
 - Commands ordered as a new developer would run them (prerequisites → toolchain → source deps → install → services → env → build → run)
-- For monorepos: workspace-level install first, then per-subproject run instructions
+- For monorepos: workspace-level install first, then per-subproject run instructions. When more than 5 subprojects, use a quick-reference table (columns: Subproject, Dev command, URL/port) instead of inline per-subproject listings — see *Scaling Guidance* in `how-to-run-sections.md`.
 - For docker-only dev setups: Docker-based instructions as primary path, bare-metal as secondary if discernible
+- **Table of contents:** if generating more than 4 sections, include a linked markdown TOC immediately after the H1 heading
 - **Verify before including:** any content sourced from existing docs (README.md, CONTRIBUTING.md, etc.) must match the detector's Context Detection Results. Contradictions go to the Step 6 "Outdated info elsewhere" report and are NOT copied into `HOW-TO-RUN.md`.
 
 ## Step 5: Place Content
