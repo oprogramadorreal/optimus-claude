@@ -228,7 +228,7 @@ If the user chooses **No**: skip all test infrastructure provisioning. In Step 7
 
 Use each template as a skeleton — fill in all placeholders with actual project details (framework names, commands, directory paths, conventions). Don't leave any `[placeholder]` text in the final output.
 
-**`skill-writing-guidelines.md` install semantics:** Unlike `coding-guidelines.md` (verbatim template, silent overwrite), `skill-writing-guidelines.md` is an instruction project's project-specific lens for reviewing markdown skill files and is expected to be customized by maintainers. When the file does not exist, write it from the template, replacing `[PROJECT NAME]`. When it **already exists**, use review-and-propose behavior (same semantics as `testing.md`): read the existing content, compare against the template, propose any additions or corrections via the normal audit flow, and preserve user-added sections. Never silently overwrite.
+**`skill-writing-guidelines.md` install semantics:** Unlike `coding-guidelines.md` (verbatim template, silent overwrite), `skill-writing-guidelines.md` is a skill-authoring project's project-specific lens for reviewing markdown instruction files and is expected to be customized by maintainers. When the file does not exist, write it from the template, replacing `[PROJECT NAME]`. When it **already exists**, use review-and-propose behavior (same semantics as `testing.md`): read the existing content, compare against the template, propose any additions or corrections via the normal audit flow, and preserve user-added sections. Never silently overwrite.
 
 **Placement rules:**
 - **Single project:** All files go in `.claude/docs/`.

@@ -23,7 +23,6 @@ If `CLAUDE.md` or `coding-guidelines.md` is missing, use these fallbacks so the 
 - `CLAUDE.md` missing → detect tech stack from manifest files (`package.json`, `Cargo.toml`, `pyproject.toml`, etc.) for basic context
 - `coding-guidelines.md` missing → apply general best practices for the detected tech stack; note in your output that findings are based on generic guidelines, not project-specific ones
 - Both missing → apply both fallbacks, recommend the user run `/optimus:init`
-- `skill-writing-guidelines.md` not present → dual-lens routing does not apply (stated in the Dual-lens routing paragraph above); use `coding-guidelines.md` for every file as normal.
 
 ## Operational Principles
 

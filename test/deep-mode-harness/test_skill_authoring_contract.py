@@ -400,3 +400,40 @@ class TestResetSkillAuthoringAwareness:
         ]
         assert for_docs_lines, "reset must have a 'For docs (...)' instruction line"
         assert "skill-writing-guidelines.md" in for_docs_lines[0]
+
+
+class TestMonorepoScopingRuleSkillWriting:
+    def test_monorepo_scoping_rule_includes_skill_writing_guidelines(self):
+        # The Monorepo Scoping Rule section must list skill-writing-guidelines.md
+        # alongside coding-guidelines.md as a shared guideline. Without this,
+        # monorepo subprojects would silently stop inheriting the skill-writing lens.
+        text = _read("skills/init/references/constraint-doc-loading.md")
+        scoping_section = text.split("## Monorepo Scoping Rule", 1)[1].split("##", 1)[0]
+        assert "skill-writing-guidelines.md" in scoping_section
+
+
+class TestStep4HTMLCommentBranches:
+    def test_single_project_step4_documents_both_html_comment_branches(self):
+        # Step 4 single-project flow must document both branches of the
+        # HTML comment replacement: materialize when detected, remove when not.
+        # Step 4b has its own scoped test; this covers the single-project flow.
+        text = _read("skills/init/SKILL.md")
+        single_section = text.split("### Single project", 1)[1].split(
+            "### Monorepo", 1
+        )[0]
+        assert (
+            "replace the HTML comment placeholder" in single_section
+            or "replace the HTML comment" in single_section
+        )
+        assert "remove the HTML comment entirely" in single_section
+
+    def test_monorepo_step4_references_skill_authoring_replacement(self):
+        # Step 4 monorepo flow must reference the skill-authoring replacement rule.
+        # Without this, the monorepo root CLAUDE.md would never get the dual-lens
+        # pointer materialized.
+        text = _read("skills/init/SKILL.md")
+        monorepo_section = text.split("### Monorepo", 1)[1].split(
+            "### Multi-repo workspace", 1
+        )[0]
+        assert "skill-authoring" in monorepo_section.lower()
+        assert "HTML comment" in monorepo_section

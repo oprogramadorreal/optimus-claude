@@ -197,7 +197,7 @@ The harness handles test execution, fix bisection, checkpoint commits (with deta
 
 ## Relationship to Code-Simplifier Agent
 
-The code-simplifier agent and this skill are complementary — both route each file to the correct quality lens (`coding-guidelines.md` for code files, `skill-writing-guidelines.md` for markdown instruction files in skill-authoring projects) via the shared `constraint-doc-loading.md` reference, but operate independently:
+The code-simplifier agent and this skill are complementary — both route each file to the correct quality lens (`coding-guidelines.md` for code files, `skill-writing-guidelines.md` for markdown instruction files in skill-authoring projects), but operate independently. This skill references the shared `constraint-doc-loading.md`; the code-simplifier inlines the same routing rules to stay within reference-depth limits.
 
 | | Code-simplifier agent | `/optimus:refactor` |
 |---|---|---|

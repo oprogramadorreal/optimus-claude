@@ -218,7 +218,7 @@ Anthropic's official [code-review](https://github.com/anthropics/claude-code/tre
 | | Official `/code-review:code-review` | `/optimus:code-review` |
 |---|---|---|
 | Default target | Pull requests | Local uncommitted changes |
-| Guidelines | CLAUDE.md only | coding-guidelines.md, skill-writing-guidelines.md (for instruction projects), testing.md, styling.md, architecture.md |
+| Guidelines | CLAUDE.md only | coding-guidelines.md, skill-writing-guidelines.md (for skill-authoring projects), testing.md, styling.md, architecture.md |
 | Agents | 4 (parallel review agents) | Up to 7 (parallel review agents) |
 | Agent types | 2 CLAUDE.md compliance + 1 bug + 1 security | 2 guideline compliance + 1 bug + 1 security + code-simplifier + test-guardian (conditional) + contracts-reviewer (conditional) |
 | Validation | Sub-agent validation + confidence scoring | Inline validation (context, intent, change-intent, PR/MR context, pre-existing, consensus, runtime assumption check) |
