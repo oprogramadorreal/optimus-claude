@@ -38,6 +38,7 @@ If either file is missing, use these fallbacks so the agent can still operate:
 - **Do not install test frameworks or dependencies.**
 - **Do not modify existing tests.**
 - **Do not flag inherently untestable code** (configuration files, type definitions, constants, simple re-exports).
+- **Do not flag markdown instruction files** — if `.claude/docs/skill-writing-guidelines.md` exists, the project has a skill-authoring stack. `.md` files under `skills/`, `agents/`, `prompts/`, `commands/`, or `instructions/` are instruction prose, not testable code — skip them entirely.
 
 ## Lightweight Trigger
 

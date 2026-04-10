@@ -50,6 +50,7 @@ Scan for all files that optimus skills may have created. Only list files that ac
 - `.claude/docs/testing.md`
 - `.claude/docs/styling.md`
 - `.claude/docs/architecture.md`
+- `.claude/docs/skill-writing-guidelines.md`
 - `.claude/agents/code-simplifier.md` *(legacy — from previous optimus versions)*
 - `.claude/agents/test-guardian.md` *(legacy — from previous optimus versions)*
 - `.claude/hooks/format-python.py`
@@ -99,11 +100,14 @@ For these files, read both the project file and the corresponding template from 
 | `.claude/hooks/format-dart.sh` | `$CLAUDE_PLUGIN_ROOT/skills/init/templates/hooks/format-dart.sh` |
 | `.claude/hooks/restrict-paths.sh` | `$CLAUDE_PLUGIN_ROOT/skills/permissions/templates/hooks/restrict-paths.sh` |
 
-**Near-exact template (coding-guidelines.md):**
+**Near-exact templates (coding-guidelines.md, skill-writing-guidelines.md):**
 
 The template body (everything after line 1) is verbatim — only line 1 has `[PROJECT NAME]` substituted by init. Compare the project file's content from line 2 onward against the template's content from line 2 onward. If identical → `UNMODIFIED`. If different → `MODIFIED`.
 
-Template: `$CLAUDE_PLUGIN_ROOT/skills/init/templates/docs/coding-guidelines.md`
+| Project file | Template source |
+|---|---|
+| `.claude/docs/coding-guidelines.md` | `$CLAUDE_PLUGIN_ROOT/skills/init/templates/docs/coding-guidelines.md` |
+| `.claude/docs/skill-writing-guidelines.md` | `$CLAUDE_PLUGIN_ROOT/skills/init/templates/docs/skill-writing-guidelines.md` |
 
 **Generated docs (heuristic — content filled in by init):**
 

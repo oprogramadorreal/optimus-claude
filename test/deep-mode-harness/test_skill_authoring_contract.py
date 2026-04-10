@@ -284,3 +284,18 @@ class TestPluginLevelCodeSimplifier:
         # Same mutual-exclusion guard in the canonical lens definition.
         assert "never judge a SKILL.md by" in text
         assert "never judge a `.py` file by" in text
+
+    def test_code_simplifier_and_constraint_doc_loading_list_same_directories(self):
+        # The inlined routing in code-simplifier.md must list the same
+        # conventional skill-authoring directories as constraint-doc-loading.md.
+        # Without this parity check, adding a new directory to one file but
+        # forgetting the other would silently break routing for that directory.
+        import re
+
+        canonical = _read("skills/init/references/constraint-doc-loading.md")
+        inlined = _read("agents/code-simplifier.md")
+
+        dirs = {"skills/", "agents/", "prompts/", "commands/", "instructions/"}
+        for d in dirs:
+            assert d in canonical, f"{d} missing from constraint-doc-loading.md"
+            assert d in inlined, f"{d} missing from code-simplifier.md"
