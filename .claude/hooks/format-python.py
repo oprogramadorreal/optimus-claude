@@ -10,7 +10,10 @@ file_path = data.get("tool_input", {}).get("file_path", "")
 if not file_path or not file_path.endswith(".py"):
     sys.exit(0)
 
-for cmd in [["black", "--quiet", file_path], ["isort", "--quiet", "--profile", "black", file_path]]:
+for cmd in [
+    ["black", "--quiet", file_path],
+    ["isort", "--quiet", "--profile", "black", file_path],
+]:
     try:
         result = subprocess.run(cmd, capture_output=True, text=True)
         if result.returncode != 0:

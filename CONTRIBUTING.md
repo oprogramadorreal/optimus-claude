@@ -8,6 +8,7 @@ optimus-claude/
 │   ├── CLAUDE.md
 │   ├── settings.json
 │   └── hooks/
+│       ├── format-python.py
 │       └── restrict-paths.sh
 ├── .claude-plugin/
 │   ├── plugin.json           # Plugin metadata (name, version, author)
@@ -15,7 +16,7 @@ optimus-claude/
 ├── agents/                    # Plugin-level agents — user-invokable, also extended by skill-level agents
 │   ├── code-simplifier.md     # Code simplification agent (extended by code-review, refactor, tdd)
 │   ├── test-guardian.md       # Test coverage monitoring agent (extended by code-review, tdd)
-├── references/                # Shared reference docs (agent-architecture, shared-agent-constraints, context-injection-blocks, harness-mode, coverage-harness-mode)
+├── references/                # Shared reference docs (agent-architecture, shared-agent-constraints, context-injection-blocks, harness-mode, coverage-harness-mode, scope-expansion-rule)
 ├── hooks/
 │   ├── hooks.json            # Plugin-level hooks (SessionStart for skill awareness)
 │   └── session-start         # Outputs dynamic project state on session start/resume/clear/compact
@@ -40,6 +41,7 @@ optimus-claude/
 │   ├── tdd/                  # /optimus:tdd
 │   ├── verify/               # /optimus:verify
 │   ├── pr/                   # /optimus:pr
+│   ├── prompt/               # /optimus:prompt
 │   ├── permissions/          # /optimus:permissions
 │   ├── reset/                # /optimus:reset
 │   ├── branch/               # /optimus:branch

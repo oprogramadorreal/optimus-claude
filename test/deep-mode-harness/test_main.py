@@ -18,6 +18,7 @@ from main import (
     _archive_progress,
     _build_argument_parser,
     _capture_pr_description,
+    _count_iteration_findings,
     _handle_interrupt,
     _handle_safe_exit,
     _load_resumed_progress,
@@ -405,6 +406,37 @@ class TestMarkCombinedRegression:
         reverted = _mark_combined_regression([fix], sample_progress)
         assert reverted == 0
 
+    def test_skips_non_matching_findings_in_list(self, sample_progress):
+        """When findings list has non-matching entries before the match, they are skipped."""
+        fix = {
+            "file": "src/app.js",
+            "line": 42,
+            "category": "bug",
+            "summary": "Fix null check",
+        }
+        sample_progress["findings"] = [
+            {
+                "file": "src/other.js",
+                "line": 10,
+                "category": "style",
+                "summary": "Unrelated finding",
+                "status": "fixed",
+            },
+            {
+                "file": "src/app.js",
+                "line": 42,
+                "category": "bug",
+                "summary": "Fix null check",
+                "status": "fixed",
+            },
+        ]
+        reverted = _mark_combined_regression([fix], sample_progress)
+        assert reverted == 1
+        # First (non-matching) finding unchanged
+        assert sample_progress["findings"][0]["status"] == "fixed"
+        # Second (matching) finding reverted
+        assert sample_progress["findings"][1]["status"] == "reverted — test failure"
+
 
 # ---------------------------------------------------------------------------
 # _validate_environment
@@ -525,6 +557,23 @@ class TestLoadResumedProgress:
         result, err = _load_resumed_progress(progress_path, args, tmp_path)
         assert err is None
         assert result["config"]["max_iterations"] == 20
+
+    def test_corrupt_json_returns_error(self, tmp_path):
+        progress_path = tmp_path / "progress.json"
+        progress_path.write_text("not valid json {{{", encoding="utf-8")
+        args = MagicMock(skill="code-review")
+        result, err = _load_resumed_progress(progress_path, args, tmp_path)
+        assert result is None
+        assert "Cannot read progress file" in err
+
+    def test_missing_project_root_in_config(self, tmp_path, sample_progress):
+        progress_path = tmp_path / "progress.json"
+        sample_progress["config"]["project_root"] = ""
+        self._write_progress(progress_path, sample_progress)
+        args = MagicMock(skill="code-review", max_iterations=5)
+        result, err = _load_resumed_progress(progress_path, args, tmp_path)
+        assert result is None
+        assert "missing project_root" in err
 
 
 # ---------------------------------------------------------------------------
@@ -1620,3 +1669,78 @@ class TestMain:
         synced_progress = call_args[0][1]
         assert synced_progress["config"]["test_command"] == "pytest"
         assert synced_progress["config"]["focus"] == "testability"
+
+
+# ---------------------------------------------------------------------------
+# _count_iteration_findings
+# ---------------------------------------------------------------------------
+
+
+class TestCountIterationFindings:
+    def test_counts_fixed_findings(self, sample_progress):
+        sample_progress["findings"] = [
+            {"status": "fixed", "iteration_last_attempted": 1},
+            {"status": "fixed", "iteration_last_attempted": 1},
+        ]
+        fixed, reverted = _count_iteration_findings(sample_progress, 1)
+        assert fixed == 2
+        assert reverted == 0
+
+    def test_counts_reverted_findings(self, sample_progress):
+        sample_progress["findings"] = [
+            {"status": "reverted — test failure", "iteration_last_attempted": 1},
+            {"status": "reverted — attempt 2", "iteration_last_attempted": 1},
+        ]
+        fixed, reverted = _count_iteration_findings(sample_progress, 1)
+        assert fixed == 0
+        assert reverted == 2
+
+    def test_counts_applied_pending_test_as_fixed(self, sample_progress):
+        sample_progress["findings"] = [
+            {"status": "applied-pending-test", "iteration_last_attempted": 1},
+        ]
+        fixed, reverted = _count_iteration_findings(sample_progress, 1)
+        assert fixed == 1
+        assert reverted == 0
+
+    def test_counts_retained_revert_failed_as_fixed(self, sample_progress):
+        sample_progress["findings"] = [
+            {"status": "retained — revert failed", "iteration_last_attempted": 1},
+        ]
+        fixed, reverted = _count_iteration_findings(sample_progress, 1)
+        assert fixed == 1
+        assert reverted == 0
+
+    def test_skips_findings_from_other_iterations(self, sample_progress):
+        sample_progress["findings"] = [
+            {"status": "fixed", "iteration_last_attempted": 1},
+            {"status": "fixed", "iteration_last_attempted": 2},
+            {"status": "reverted — test failure", "iteration_last_attempted": 2},
+        ]
+        fixed, reverted = _count_iteration_findings(sample_progress, 1)
+        assert fixed == 1
+        assert reverted == 0
+
+    def test_mixed_statuses(self, sample_progress):
+        sample_progress["findings"] = [
+            {"status": "fixed", "iteration_last_attempted": 3},
+            {"status": "reverted — test failure", "iteration_last_attempted": 3},
+            {"status": "applied-pending-test", "iteration_last_attempted": 3},
+            {"status": "discovered", "iteration_last_attempted": 3},
+        ]
+        fixed, reverted = _count_iteration_findings(sample_progress, 3)
+        assert fixed == 2
+        assert reverted == 1
+
+    def test_empty_findings(self, sample_progress):
+        fixed, reverted = _count_iteration_findings(sample_progress, 1)
+        assert fixed == 0
+        assert reverted == 0
+
+    def test_skipped_apply_failed_counted_as_reverted(self, sample_progress):
+        sample_progress["findings"] = [
+            {"status": "skipped — apply failed", "iteration_last_attempted": 1},
+        ]
+        fixed, reverted = _count_iteration_findings(sample_progress, 1)
+        assert fixed == 0
+        assert reverted == 1
