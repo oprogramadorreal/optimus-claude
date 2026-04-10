@@ -34,7 +34,7 @@ Read `$CLAUDE_PLUGIN_ROOT/.claude-plugin/plugin.json` to get the current plugin 
 | **Commands** | Do build/test/lint commands in CLAUDE.md match current manifest scripts? |
 | **Tech stack** | Does the documented stack match current dependencies in manifest files? |
 | **Structure** | Do folder names, entry points, and architecture references in docs match the actual filesystem? |
-| **Doc coverage** | Are there detected project aspects (test framework, UI deps, complex architecture, skill-authoring stack) with no corresponding doc? Are there docs for aspects no longer present? If skill authoring is detected and `.claude/docs/skill-writing-guidelines.md` is missing, flag it as Missing. If the project has no skill-authoring stack but `skill-writing-guidelines.md` exists, leave it alone — it may be intentional. |
+| **Doc coverage** | Are there detected project aspects (test framework, UI deps, complex architecture, skill-authoring stack) with no corresponding doc? Are there docs for aspects no longer present? If skill authoring is detected and `.claude/docs/skill-writing-guidelines.md` is missing, flag it as Missing. If the project has no skill-authoring stack but `skill-writing-guidelines.md` exists, leave it alone — classify it as **User-added** (it may be intentional). |
 | **Monorepo** | Do subproject tables match current workspace members? Any added/removed subprojects? |
 | **Custom content** | Does CLAUDE.md contain sections, bullets, or instructions not matching any template section or detected project aspect? Classify as **User-added**. |
 

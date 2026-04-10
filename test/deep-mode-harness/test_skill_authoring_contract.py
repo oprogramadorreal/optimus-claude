@@ -437,3 +437,29 @@ class TestStep4HTMLCommentBranches:
         )[0]
         assert "skill-authoring" in monorepo_section.lower()
         assert "HTML comment" in monorepo_section
+        # Negative branch: not-detected must remove the placeholder to avoid leaking
+        # it into generated CLAUDE.md files on non-skill-authoring projects.
+        assert "remove the HTML comment entirely" in monorepo_section
+
+
+class TestDocumentationAuditorMissingFileFlag:
+    def test_auditor_flags_missing_skill_writing_guidelines_when_stack_detected(self):
+        # If skill authoring is detected but skill-writing-guidelines.md is absent,
+        # the auditor must flag it as Missing. Removing this requirement would silently
+        # break re-init on skill-authoring projects that are missing the file.
+        text = _read("skills/init/agents/documentation-auditor.md")
+        assert "skill-writing-guidelines.md" in text
+        assert "flag it as Missing" in text
+
+
+class TestDirectoryParityIncludesProjectAnalyzer:
+    def test_project_analyzer_lists_all_conventional_directories(self):
+        # The project-analyzer detection algorithm must list the same conventional
+        # skill-authoring directories as constraint-doc-loading.md. Without this,
+        # adding a new directory to the routing reference but forgetting the
+        # detection algorithm would silently prevent the new directory from ever
+        # triggering detection.
+        analyzer = _read("skills/init/agents/project-analyzer.md")
+        dirs = {"skills/", "agents/", "prompts/", "commands/", "instructions/"}
+        for d in dirs:
+            assert d in analyzer, f"{d} missing from project-analyzer.md"

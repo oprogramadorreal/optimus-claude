@@ -179,7 +179,7 @@ For each detected subproject (except root-as-project/root-as-member — the root
 - Include only commands specific to this subproject (run from its directory)
 - Reference its local `docs/` folder for detailed documentation
 - Mention parent monorepo name in the opening line
-- If skill authoring was detected at the repo level, materialize the HTML comment placeholder at the bottom of the template into the concrete sentence: "Root `.claude/docs/skill-writing-guidelines.md` applies to markdown instruction files in any subproject (skills/, agents/, prompts/, commands/, instructions/)." If not detected, remove the HTML comment entirely.
+- If skill authoring was detected at the repo level, replace the HTML comment placeholder at the bottom of the template with the concrete sentence: "Root `.claude/docs/skill-writing-guidelines.md` applies to markdown instruction files in any subproject (skills/, agents/, prompts/, commands/, instructions/)." If not detected, remove the HTML comment entirely.
 - Keep under 60 lines (same user-content preservation rule as single-project applies)
 
 ## Step 5: Install Formatter Hooks
