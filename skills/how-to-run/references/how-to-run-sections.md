@@ -399,7 +399,7 @@ Use the actual script names from the project's manifest (e.g., `pnpm run start:d
 
 These are additional detection signals beyond `tech-stack-detection.md`. The detector should also identify any other build system, SDK, or tooling it recognizes from the project structure — **the reference tables are not exhaustive**. For any unrecognized manifest or build file, identify the stack from general knowledge and report it in the same structured format.
 
-Build-system detection rules live in the *Build System Detection* table below; the additions listed here are detected by the detector agent Task 0a:
+Build-system detection rules are in the *Build System Detection* table below. The additions listed here supplement that table with signals not covered by manifest-driven detection:
 
 - **C/C++ dependency managers:** vcpkg, Conan
 - **Toolchain SDKs:** JDK (from `sourceCompatibility` in the Gradle row), MSVC Build Tools (from `<PlatformToolset>` in the MSBuild row). For `.NET SDK`, see init's `tech-stack-detection.md` (`*.csproj`, `*.sln`) — the baseline detection handles it.
@@ -425,8 +425,6 @@ Common build-system signals and what to extract:
 | `Package.swift` | Swift Package Manager | `swift-tools-version` |
 | `Podfile` | CocoaPods | `platform :ios, 'X.Y'` |
 | `Makefile` (as build system, not task runner) | make | Default target, compiler inference |
-
-When a CMake `find_package(<NAME>)` call is found, report it as a potential SDK/library dependency. See *Additional Detection Hints* above — the detector should report any `find_package` target, not only those explicitly listed.
 
 ## Source Dependencies Detection
 
