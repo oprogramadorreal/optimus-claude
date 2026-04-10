@@ -371,11 +371,11 @@ if [ -f skills/how-to-run/agents/project-environment-detector.md ]; then
   fi
 fi
 
-# The 'Extended Stacks Covered' heading in how-to-run-sections.md is referenced
+# The 'Additional Detection Hints' heading in how-to-run-sections.md is referenced
 # by name from SKILL.md, README.md, and the detector agent. A rename would
 # silently break all three without the generic cross-ref check catching it.
-if ! grep -q '^## Extended Stacks Covered' "$sections_file" 2>/dev/null; then
-  wiring_errors+="  $sections_file missing '## Extended Stacks Covered' heading\n"
+if ! grep -q '^## Additional Detection Hints' "$sections_file" 2>/dev/null; then
+  wiring_errors+="  $sections_file missing '## Additional Detection Hints' heading\n"
 fi
 # The 'Build System Detection' heading is load-bearing for Task 0a of the
 # detector agent, which delegates its entire build-file enumeration to the table.

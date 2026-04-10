@@ -6,8 +6,9 @@ Section templates and signal-to-content mapping for generating `HOW-TO-RUN.md`. 
 
 - [Signal → Section Mapping](#signal--section-mapping)
 - [Section Skeletons](#section-skeletons) (Prerequisites, Toolchain & SDKs, Source Dependencies, Installation, External Services, Environment Setup, Build, Running in Development, Running Tests, Common Issues)
+- [Scaling Guidance](#scaling-guidance)
 - [Package Manager Command Forms](#package-manager-command-forms)
-- [Extended Stacks Covered](#extended-stacks-covered)
+- [Additional Detection Hints](#additional-detection-hints)
 - [Build System Detection](#build-system-detection)
 - [Source Dependencies Detection](#source-dependencies-detection)
 - [External Services Detection](#external-services-detection)
@@ -37,6 +38,10 @@ Section templates and signal-to-content mapping for generating `HOW-TO-RUN.md`. 
 | `.npmrc`, `pip.conf`, `.pypirc`, Maven `settings.xml` | Prerequisites (private registry auth) |
 | `Makefile` / `Justfile` with `dev`/`start`/`setup` targets | Running in Development (mention make target) |
 | `Procfile` / `Procfile.dev` | Running in Development (process runner) |
+| `.devcontainer/devcontainer.json` | Prerequisites (devcontainer as primary path), Running in Development (devcontainer launch) |
+| `flake.nix` / `shell.nix` / `default.nix` | Prerequisites + Installation (`nix develop` / `nix-shell` replaces manual toolchain setup) |
+| `mise.toml` / `.mise.toml` | Prerequisites (version manager — alongside `.tool-versions`) |
+| `template.yaml` (AWS SAM) / `serverless.yml` / `serverless.ts` | Running in Development (`sam local start-api` / `serverless offline`) |
 | Test framework in dependencies + test script in manifest | Running Tests |
 
 ## Section Skeletons
@@ -230,6 +235,24 @@ cp .env.example .env
 \`\`\`
 ```
 
+For build systems with multiple configurations (CMake, MSBuild, .NET), show both Debug and Release:
+
+```markdown
+### Build
+
+Debug (for development):
+
+\`\`\`bash
+<build command --config Debug>
+\`\`\`
+
+Release (optimized):
+
+\`\`\`bash
+<build command --config Release>
+\`\`\`
+```
+
 Include this section only for compiled stacks where build is distinct from run (C/C++, Rust release builds, Go with explicit compile, .NET publish, Java/Kotlin, Swift, Unreal/Unity cook, PlatformIO). Skip for interpreted stacks (Node, Python, Ruby) unless there is a distinct production build step useful for developers.
 
 ### Running in Development
@@ -325,11 +348,26 @@ With coverage:
 Only include if clear signals exist. Examples:
 
 - `.nvmrc` detected → "Run `nvm use` before installing dependencies to ensure the correct Node.js version."
+- `.mise.toml` / `.tool-versions` detected → "Run `mise install` (or `asdf install`) to activate the correct runtime versions."
 - Docker services required → "Ensure `docker compose up -d` is running before starting the application."
 - Private registry → "Authenticate with the private registry before running install: `<auth command>`."
 - Code generation → "If you see missing file errors after pulling, re-run `<codegen command>`."
 - Git submodules → "After pulling, run `git submodule update --init --recursive` if submodule contents appear stale."
 - Sibling repos → "Build will fail if the expected sibling repo is not cloned at the documented path."
+- Multiple build configurations (C/C++, .NET) → "Use `--config Debug` for development or `--config Release` for optimized builds."
+- Python virtualenv → "Activate the virtual environment before running commands: `source .venv/bin/activate` (Linux/macOS) or `.venv\Scripts\activate` (Windows)."
+
+## Scaling Guidance
+
+**Table of contents:** When the generated `HOW-TO-RUN.md` includes more than 4 sections, include a linked markdown TOC immediately after the H1 heading.
+
+**Monorepo with many subprojects:** When a monorepo has more than 5 subprojects, use a quick-reference table in "Running in Development" instead of inline per-subproject listings:
+
+```markdown
+| Subproject | Dev command | URL / port |
+|------------|-------------|------------|
+| [name] | `<command>` | [URL or port] |
+```
 
 ## Package Manager Command Forms
 
@@ -352,18 +390,20 @@ Use the detected PM from `tech-stack-detection.md`. Common mappings:
 | bundler | `bundle install` | `bundle exec <cmd>` | varies | `bundle exec rspec` | — |
 | cmake | — | — | — | `ctest` | `cmake --build build` |
 | gradle | — | `./gradlew <task>` | `./gradlew run` | `./gradlew test` | `./gradlew build` |
+| nx | — | `npx nx run <project>:<target>` | `npx nx serve <project>` | `npx nx test <project>` | `npx nx build <project>` |
+| turbo | — | `npx turbo run <script>` | `npx turbo dev` | `npx turbo test` | `npx turbo build` |
 
 Use the actual script names from the project's manifest (e.g., `pnpm run start:dev` not `pnpm run dev` if the script is named `start:dev`).
 
-## Extended Stacks Covered
+## Additional Detection Hints
 
-Beyond init's manifest-driven baseline (`tech-stack-detection.md`: Node.js, Python, Rust, Go, C#/.NET, Java, C/C++, Ruby, Dart/Flutter), how-to-run covers the following. Build-system detection rules live in the *Build System Detection* table below; the additions listed here are detected by the detector agent Task 0a:
+These are additional detection signals beyond `tech-stack-detection.md`. The detector should also identify any other build system, SDK, or tooling it recognizes from the project structure — **the reference tables are not exhaustive**. For any unrecognized manifest or build file, identify the stack from general knowledge and report it in the same structured format.
+
+Build-system detection rules live in the *Build System Detection* table below; the additions listed here are detected by the detector agent Task 0a:
 
 - **C/C++ dependency managers:** vcpkg, Conan
 - **Toolchain SDKs:** JDK (from `sourceCompatibility` in the Gradle row), MSVC Build Tools (from `<PlatformToolset>` in the MSBuild row). For `.NET SDK`, see init's `tech-stack-detection.md` (`*.csproj`, `*.sln`) — the baseline detection handles it.
-- **CMake `find_package` libraries:** Vulkan, CUDA, Qt, OpenCV, Boost, Protobuf, OpenGL, OpenSSL
-
-Stacks not listed here and not in `tech-stack-detection.md` fall through to `unsupported-stack-fallback.md`.
+- **CMake `find_package` libraries:** For any `find_package(X)` call in CMakeLists.txt, report X as a potential SDK/library dependency with its source location. The main skill will determine which require explicit install documentation in the Toolchain & SDKs section.
 
 ## Build System Detection
 
@@ -386,7 +426,7 @@ Common build-system signals and what to extract:
 | `Podfile` | CocoaPods | `platform :ios, 'X.Y'` |
 | `Makefile` (as build system, not task runner) | make | Default target, compiler inference |
 
-When a CMake `find_package(<NAME>)` is seen for a well-known library, include it under Toolchain & SDKs with the install URL. See *Extended Stacks Covered* above for the recognized library names.
+When a CMake `find_package(<NAME>)` call is found, report it as a potential SDK/library dependency. See *Additional Detection Hints* above — the detector should report any `find_package` target, not only those explicitly listed.
 
 ## Source Dependencies Detection
 

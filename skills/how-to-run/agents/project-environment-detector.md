@@ -19,7 +19,9 @@ You will receive the contents of four reference files as context before this pro
 - **multi-repo-detection.md** — workspace structure detection for multi-repo setups
 - **how-to-run-sections.md** — signal-to-section mapping, build system detection, source dependencies detection, external services detection
 
-Apply the tables and algorithms from these reference files to the current project. The unsupported-stack fallback procedure is owned by the main SKILL context — you only need to set `Triggered: yes` in the return format when no manifest or build-system signal matches.
+Apply the tables and algorithms from these reference files to the current project. The reference tables are detection hints, not an exhaustive support boundary — if you find a manifest or build file not listed in any reference table, identify the stack from your general knowledge and report it using the same return format tables.
+
+The unsupported-stack fallback procedure is owned by the main SKILL context — you only need to set `Triggered: yes` in the return format when no manifest or build-system signal matches.
 
 ### Init shortcut
 
@@ -37,8 +39,14 @@ Apply the *Build System Detection* table from `how-to-run-sections.md` (provided
 
 Additionally:
 
-- For CMake projects, grep `CMakeLists.txt` for `find_package(...)` calls — each well-known match (see *Extended Stacks Covered* in `how-to-run-sections.md`) is a domain SDK requirement.
+- For CMake projects, grep `CMakeLists.txt` for `find_package(...)` calls — report each as a potential SDK/library dependency (see *Additional Detection Hints* in `how-to-run-sections.md`). The main skill will determine which require explicit install documentation.
 - Check for `vcpkg.json`, `conanfile.txt`, `conanfile.py` — C++ dep manager bootstrap required.
+
+Additionally check for modern dev environment signals:
+
+- `.devcontainer/devcontainer.json` — containerized dev environment (extract image, features, post-create commands).
+- `flake.nix`, `shell.nix`, `default.nix` — Nix-based reproducible environment (`nix develop` / `nix-shell`).
+- `mise.toml`, `.mise.toml` — mise version manager (asdf successor).
 
 Record build system, minimum toolchain version, and any SDK requirements discovered.
 
@@ -112,6 +120,7 @@ For unsupported stacks, detect and gather evidence only — do NOT propose insta
    - `Makefile` / `Justfile`: scan for targets like `dev`, `start`, `setup`, `run`, `serve`, `up`, `docker-up`.
    - `Procfile` / `Procfile.dev`: process runner configuration.
    - `.env.example` / `.env.sample` / `.env.template`: read to identify required config variables and their count. Extract variable **names only**: for each line, skip blank lines and any line whose first non-whitespace character is `#`, strip an optional leading `export ` and surrounding whitespace, take the token to the left of the first `=`, and emit it only if it matches `^[A-Za-z_][A-Za-z0-9_]*$` (POSIX identifier). Never return values, inline comments, or surrounding lines, even when the example file appears to contain placeholder defaults. Do not read `.env`, `.env.local`, or any `.env.*.local` file — those may contain real secrets.
+   - `template.yaml` (AWS SAM), `serverless.yml` / `serverless.ts` (Serverless Framework): serverless local dev signals.
    - `.npmrc`, `pip.conf`, `.pypirc`, Maven `settings.xml`: private registry indicators.
    - `.nvmrc`, `.node-version`, `.python-version`, `.tool-versions`, `rust-toolchain.toml`: version manager configs.
    - Protobuf configs, `openapi-generator` configs, `build_runner` in Dart dev_dependencies, `sqlc.yaml`, GraphQL codegen configs (`codegen.ts`, `.graphqlrc.*`): code generation signals.
@@ -209,9 +218,12 @@ Mark sibling-repo findings as `(candidate)` when derived only from a path grep w
 
 ### Dev Workflow Signals
 - **Docker-based:** [yes/no — Dockerfile detected, docker-compose app services]
+- **Containerized dev env:** [devcontainer.json detected, or "none"]
+- **Nix environment:** [flake.nix / shell.nix / default.nix detected, or "none"]
+- **Serverless:** [template.yaml (SAM) / serverless.yml / serverless.ts detected, or "none"]
 - **Makefile targets:** [list of dev-relevant targets, or "none"]
 - **Process runner:** [Procfile/Procfile.dev detected, or "none"]
-- **Version managers:** [.nvmrc, .python-version, etc., or "none"]
+- **Version managers:** [.nvmrc, .python-version, mise.toml, etc., or "none"]
 - **Code generation:** [protobuf, build_runner, etc., or "none"]
 - **Database migrations:** [prisma, alembic, etc., or "none"]
 - **Private registry:** [.npmrc, pip.conf, etc., or "none"]
