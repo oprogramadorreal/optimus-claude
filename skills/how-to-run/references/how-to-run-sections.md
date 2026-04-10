@@ -359,8 +359,6 @@ Only include if clear signals exist. Examples:
 
 ## Scaling Guidance
 
-**Table of contents:** When the generated `HOW-TO-RUN.md` includes more than 4 sections, include a linked markdown TOC immediately after the H1 heading.
-
 **Monorepo with many subprojects:** When a monorepo has more than 5 subprojects, use a quick-reference table in "Running in Development" instead of inline per-subproject listings:
 
 ```markdown
