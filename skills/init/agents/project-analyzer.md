@@ -78,7 +78,7 @@ Return your findings in this exact structure:
 - **Workspace tool:** [tool name if monorepo, or "none"]
 - **Nested app root:** [path if detected, or "none"]
 - **Test infrastructure detected:** [yes — details | no]
-- **Skill authoring detected:** [yes — list detected directory names (e.g., `skills/`, `agents/`) | no]
+- **Skill authoring detected:** [yes — list detected directory names and root(s) where the match occurred (e.g., `skills/`, `agents/` at repo root) | no]
 
 ### Subprojects (monorepo only)
 | Path | Purpose | Tech stack |

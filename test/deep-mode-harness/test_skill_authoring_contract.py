@@ -194,7 +194,7 @@ class TestSkillWritingGuidelinesTemplate:
 class TestProjectAnalyzerDetection:
     def test_project_analyzer_detects_skill_authoring(self):
         text = _read("skills/init/agents/project-analyzer.md")
-        assert "Skill-authoring detection" in text or "skill-authoring" in text.lower()
+        assert "Skill-authoring detection" in text
 
     def test_project_analyzer_reports_skill_authoring_in_return_format(self):
         text = _read("skills/init/agents/project-analyzer.md")
@@ -496,8 +496,7 @@ class TestTestGuardianDirectoryScope:
         skip_lines = [
             line
             for line in text.splitlines()
-            if "instruction" in line.lower()
-            and "skip" in line.lower()
+            if ("instruction" in line.lower() and "skip" in line.lower())
             or "instruction prose" in line.lower()
         ]
         assert skip_lines, "test-guardian must have an instruction-skip rule"
