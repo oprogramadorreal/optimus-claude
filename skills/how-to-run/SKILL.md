@@ -58,7 +58,7 @@ Give the user a chance to correct misdetections before proceeding.
 
 **Unsupported-Stack Fallback.** If the agent reported `Unsupported-Stack Fallback → Triggered: yes`, read `$CLAUDE_PLUGIN_ROOT/skills/init/references/unsupported-stack-fallback.md` and run its 5-step procedure here, using the agent's reported **Detected language(s)** and **Evidence** as input. Use `WebSearch` for step 2 (research); enforce the step 3 validation rules before presenting any command; use `AskUserQuestion` for step 4 (approval). Commands approved here feed Step 4 content generation as if from a recognized stack; commands skipped (search failed or user declined) render as `"not found"` in the affected sections.
 
-**LLM-knowledge fallback (how-to-run only).** If WebSearch is unavailable or returns no results for the detected language, use general knowledge to propose standard install/build/run/test commands for that language. Mark these commands as "inferred (not web-verified)" when presenting them for user approval in step 4. This is safe because how-to-run generates prose documentation (not executable code), the user approves before anything is written, and Step 6 verification catches errors. If the user declines, treat as a graceful skip.
+**LLM-knowledge fallback (how-to-run only).** If WebSearch is unavailable or returns no results for the detected language, use general knowledge to propose standard install/build/run/test commands for that language. Mark these commands as "inferred (not web-verified)" when presenting them for user approval in step 4. If the user declines, treat as a graceful skip.
 
 ## Step 2: Scan Existing Instructions (agent-assisted)
 
@@ -70,7 +70,6 @@ Read `$CLAUDE_PLUGIN_ROOT/skills/how-to-run/agents/shared-constraints.md` for ag
 Read `$CLAUDE_PLUGIN_ROOT/skills/how-to-run/agents/how-to-run-auditor.md` for the full prompt template, audit tasks, and return format for the How-to-Run Auditor Agent.
 
 Read these reference files and provide their content to the agent as context before the agent prompt:
-- `$CLAUDE_PLUGIN_ROOT/skills/how-to-run/agents/shared-constraints.md` — agent constraints
 - `$CLAUDE_PLUGIN_ROOT/skills/init/references/readme-section-detection.md` — heading patterns, section boundary detection, classification rules
 
 Launch 1 `general-purpose` Agent tool call using the prompt from how-to-run-auditor.md, prepended with the shared constraints and reference file contents above. **Provide the Context Detection Results from Step 1 as context** at the start of the agent prompt (before the shared constraints, readme-section-detection.md content, and agent template). The agent reads existing docs in priority order, applies heading detection, classifies each aspect against the detected state, and identifies outdated-elsewhere and unverifiable claims.
