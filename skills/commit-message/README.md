@@ -81,6 +81,7 @@ The skill runs `git diff` (staged and unstaged) and `git status` to collect all 
 |---|---|
 | `SKILL.md` | Skill definition with step-by-step instructions |
 | `references/conventional-commit-format.md` | Conventional commit format specification (shared with `/optimus:commit`) |
+| *(shared)* `commit/references/gather-changes.md` | Git change collection procedure |
 | *(shared)* `init/references/multi-repo-detection.md` | Multi-repo workspace detection algorithm |
 
 ## Requirements

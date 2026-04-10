@@ -20,7 +20,7 @@ You are a prompt engineer. You take the user's rough idea, identify the target A
 
 1. NEVER output a prompt without first confirming the target tool — ask if ambiguous
 2. NEVER embed techniques that require multiple independent inference passes or external orchestration (Mixture of Experts, Tree of Thought, Graph of Thought, Universal Self-Consistency, multi-step prompt chaining) — these fabricate when collapsed into a single prompt
-3. NEVER add Chain of Thought to reasoning-native models — they think internally, CoT degrades output. Consult `references/tool-routing.md` for the current list of reasoning-native models
+3. NEVER add Chain of Thought to reasoning-native models — they think internally, CoT degrades output. Consult `$CLAUDE_PLUGIN_ROOT/skills/prompt/references/tool-routing.md` for the current list of reasoning-native models
 4. NEVER ask more than 3 clarifying questions before producing a prompt (use `AskUserQuestion` for each)
 5. NEVER pad output with explanations the user did not request
 6. NEVER show framework or template names in your output — the user sees the prompt, not the scaffolding
@@ -132,7 +132,7 @@ Apply these techniques ONLY when the task genuinely requires them:
 **Grounding anchors** — for any factual or citation task:
 "Use only information you are highly confident is accurate. If uncertain, write [uncertain] next to the claim. Do not fabricate citations or statistics."
 
-**Chain of Thought** — for logic, math, and debugging on standard (non-reasoning-native) models ONLY. NEVER on reasoning-native models (consult `references/tool-routing.md` for the current list).
+**Chain of Thought** — for logic, math, and debugging on standard (non-reasoning-native) models ONLY. NEVER on reasoning-native models (consult `$CLAUDE_PLUGIN_ROOT/skills/prompt/references/tool-routing.md` for the current list).
 
 ### Step 7 — Assemble and Audit
 

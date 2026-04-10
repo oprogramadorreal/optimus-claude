@@ -81,6 +81,7 @@ The skill runs `git diff` (staged and unstaged) and `git status` to collect all 
 |---|---|
 | `SKILL.md` | Skill definition with step-by-step workflow |
 | `references/branch-naming.md` | Branch naming convention (shared with TDD) |
+| `references/gather-changes.md` | Git change collection procedure (shared with commit-message) |
 | *(shared)* `commit-message/references/conventional-commit-format.md` | Conventional commit format specification |
 | *(shared)* `init/references/multi-repo-detection.md` | Multi-repo workspace detection algorithm |
 

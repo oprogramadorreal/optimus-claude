@@ -49,8 +49,8 @@ Extract from the user's arguments:
 Examples:
 - `/optimus:refactor` → full project, normal mode
 - `/optimus:refactor "focus on auth module"` → scope to auth, normal mode
-- `/optimus:refactor testability` → full project, focus=testability
-- `/optimus:refactor guidelines` → full project, focus=guidelines
+- `/optimus:refactor testability` → full project, normal mode, focus=testability
+- `/optimus:refactor guidelines` → full project, normal mode, focus=guidelines
 - `/optimus:refactor testability "focus on src/api"` → scope to src/api, focus=testability
 - `/optimus:refactor deep` → full project, deep (8 iterations)
 - `/optimus:refactor deep 10 backend` → scope to backend, deep (10 iterations)
