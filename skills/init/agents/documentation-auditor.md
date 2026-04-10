@@ -25,6 +25,8 @@ Read `$CLAUDE_PLUGIN_ROOT/.claude-plugin/plugin.json` to get the current plugin 
 
 1. **Read all existing doc files** from the inventory: CLAUDE.md, settings.json, all `.claude/docs/*.md` except `coding-guidelines.md`, and for monorepos each subproject's CLAUDE.md and `docs/*.md`.
 
+   **Project-customizable lenses** (`testing.md` and, when present, `skill-writing-guidelines.md`): audit these with the same policy — preserve user-added sections, classify outdated rules only when they contradict current conventions, and flag missing content against the corresponding template (for `skill-writing-guidelines.md`, the template at `$CLAUDE_PLUGIN_ROOT/skills/init/templates/docs/skill-writing-guidelines.md`). Never silently overwrite user content in either file.
+
 2. **Compare documented state vs detected state:**
 
 | Dimension | Check |
@@ -32,7 +34,7 @@ Read `$CLAUDE_PLUGIN_ROOT/.claude-plugin/plugin.json` to get the current plugin 
 | **Commands** | Do build/test/lint commands in CLAUDE.md match current manifest scripts? |
 | **Tech stack** | Does the documented stack match current dependencies in manifest files? |
 | **Structure** | Do folder names, entry points, and architecture references in docs match the actual filesystem? |
-| **Doc coverage** | Are there detected project aspects (test framework, UI deps, complex architecture) with no corresponding doc? Are there docs for aspects no longer present? |
+| **Doc coverage** | Are there detected project aspects (test framework, UI deps, complex architecture, skill-authoring stack) with no corresponding doc? Are there docs for aspects no longer present? If skill authoring is detected and `.claude/docs/skill-writing-guidelines.md` is missing, flag it as Missing. If the project has no skill-authoring stack but `skill-writing-guidelines.md` exists, leave it alone — classify it as **User-added** (it may be intentional). |
 | **Monorepo** | Do subproject tables match current workspace members? Any added/removed subprojects? |
 | **Custom content** | Does CLAUDE.md contain sections, bullets, or instructions not matching any template section or detected project aspect? Classify as **User-added**. |
 

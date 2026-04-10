@@ -3,7 +3,7 @@
 A [Claude Code](https://docs.anthropic.com/en/docs/claude-code) skill that refactors your codebase using up to 4 parallel analysis agents — focusing on guideline compliance and testability. Presents a prioritized refactoring plan, then applies only what you approve. All changes stay local for your review.
 
 Two primary goals:
-1. **Guideline compliance** — align code with your project's coding-guidelines.md, architecture.md, styling.md, and testing.md
+1. **Guideline compliance** — align files with your project's quality docs: `coding-guidelines.md` for code files, `skill-writing-guidelines.md` for markdown instruction files (in skill-authoring projects), plus `architecture.md`, `styling.md`, and `testing.md` where applicable
 2. **Testability** — restructure code so `/optimus:unit-test` can safely increase coverage without risky changes
 
 Well-maintained code has [30%+ fewer AI-introduced defects](https://arxiv.org/abs/2601.02200). `/optimus:init` sets up quality infrastructure with agents that guard new code automatically, but existing code can still accumulate technical debt. `/optimus:refactor` is the on-demand complement: a deliberate, project-wide restructuring you run when you want to actively improve existing code.
@@ -197,7 +197,7 @@ The harness handles test execution, fix bisection, checkpoint commits (with deta
 
 ## Relationship to Code-Simplifier Agent
 
-The code-simplifier agent and this skill are complementary — both use `coding-guidelines.md` as their source of truth but operate independently:
+The code-simplifier agent and this skill are complementary — both route each file to the correct quality lens (`coding-guidelines.md` for code files, `skill-writing-guidelines.md` for markdown instruction files in skill-authoring projects), but operate independently. This skill references the shared `constraint-doc-loading.md`; the code-simplifier inlines the same routing rules to stay within reference-depth limits.
 
 | | Code-simplifier agent | `/optimus:refactor` |
 |---|---|---|
@@ -214,7 +214,7 @@ Claude Code includes a builtin `/simplify` command. `/optimus:refactor` is the e
 | | Builtin `/simplify` | `/optimus:refactor` |
 |---|---|---|
 | Scope | Recently modified code within a session | Full project, directory, or changed files |
-| Guidelines | General best practices | Project-specific `coding-guidelines.md` |
+| Guidelines | General best practices | Project-specific `coding-guidelines.md` (plus `skill-writing-guidelines.md` in skill-authoring projects, routed per file type) |
 | Analysis | Single-pass | 4 parallel agents with cross-validation |
 | Focus | Per-file simplification | Cross-file patterns, guideline compliance, testability |
 | Verification | — | Runs test suite, reverts failures |

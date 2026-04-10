@@ -5,29 +5,42 @@ Load project constraint documents that define the rules for analysis and code ge
 ## Single Project
 
 1. `.claude/CLAUDE.md` — project overview, conventions, tech stack, test commands
-2. `.claude/docs/coding-guidelines.md` — coding standards (primary evaluation criteria)
-3. `.claude/docs/testing.md` (if exists) — testing conventions, so analysis respects test patterns and established test helpers
-4. `.claude/docs/architecture.md` (if exists) — architectural boundaries, so changes respect module structure and intended separation of concerns
-5. `.claude/docs/styling.md` (if exists) — UI/CSS conventions, so frontend work stays consistent
+2. `.claude/docs/coding-guidelines.md` — coding standards (primary evaluation criteria for code files)
+3. `.claude/docs/skill-writing-guidelines.md` (if exists) — skill-writing standards (primary evaluation criteria for markdown instruction files — see "Skill authoring lens" below)
+4. `.claude/docs/testing.md` (if exists) — testing conventions, so analysis respects test patterns and established test helpers
+5. `.claude/docs/architecture.md` (if exists) — architectural boundaries, so changes respect module structure and intended separation of concerns
+6. `.claude/docs/styling.md` (if exists) — UI/CSS conventions, so frontend work stays consistent
 
 ## Monorepo
 
-`/optimus:init` places docs differently in monorepos — `coding-guidelines.md` is shared at root, but `testing.md`, `styling.md`, and `architecture.md` are scoped per subproject:
+`/optimus:init` places docs differently in monorepos — `coding-guidelines.md` and `skill-writing-guidelines.md` are shared at root, but `testing.md`, `styling.md`, and `architecture.md` are scoped per subproject:
 
 1. `.claude/CLAUDE.md` — root overview, subproject table, workspace-level commands
-2. `.claude/docs/coding-guidelines.md` — shared coding standards (applies to ALL subprojects)
-3. For each subproject in scope:
+2. `.claude/docs/coding-guidelines.md` — shared coding standards (applies to code files in ALL subprojects)
+3. `.claude/docs/skill-writing-guidelines.md` (if exists) — shared skill-writing standards (applies to markdown instruction files in ALL subprojects — see "Skill authoring lens" below)
+4. For each subproject in scope:
    - `<subproject>/CLAUDE.md` — subproject-specific overview, commands, tech stack
    - `<subproject>/docs/testing.md` (if exists) — subproject-specific testing conventions
    - `<subproject>/docs/architecture.md` (if exists) — subproject-specific architecture
    - `<subproject>/docs/styling.md` (if exists) — subproject-specific UI/CSS conventions
-4. For root-as-project: its scoped docs are in `.claude/docs/` alongside the shared `coding-guidelines.md`
+5. For root-as-project: its scoped docs are in `.claude/docs/` alongside the shared guidelines
+
+## Skill authoring lens
+
+When `.claude/docs/skill-writing-guidelines.md` exists, the project has a skill-authoring stack — a subtree of markdown instruction files (skills, agents, prompts, commands, instructions) authored for an AI agent. Markdown instruction prose follows different quality rules than code — progressive disclosure, orchestration-skill exceptions, writing style, reference-depth limits — and must be routed to `skill-writing-guidelines.md` as its primary lens, not `coding-guidelines.md`. If the file does not exist, this section does not apply.
+
+Apply this lens when reviewing, refactoring, or analyzing files:
+
+- **Markdown instruction files** — `.md` files under these conventional skill-authoring directories when present: `skills/`, `agents/`, `prompts/`, `commands/`, `instructions/` (including any nested `references/` or similar sibling folders inside those subtrees). Primary lens: `skill-writing-guidelines.md`. Do not apply `coding-guidelines.md` function-length, variable-naming, or class-decomposition rules to instruction prose — those rules are for code, not for markdown instructions.
+- **Code files** — everything else (`scripts/`, `src/`, `lib/`, `test/`, shell scripts under `hooks/`, JSON manifests under `.claude-plugin/`, etc.). `coding-guidelines.md` remains the primary lens, plus `testing.md` for test files. No change from the default loading procedure.
+- **Changes that touch both** — apply both lenses, each to its own files. Do not cross-contaminate: never judge a SKILL.md by `coding-guidelines.md` criteria, never judge a `.py` file by `skill-writing-guidelines.md` criteria.
+- **Monorepo** — the skill-authoring lens applies wherever skill-authoring directories are present in the repo. The shared `skill-writing-guidelines.md` at `.claude/docs/` applies across the whole repo, the same way the shared `coding-guidelines.md` does.
 
 ## Monorepo Scoping Rule
 
-When operating on a subproject's code, apply its own constraint docs — not another subproject's. The shared `coding-guidelines.md` applies everywhere, but `testing.md`, `styling.md`, and `architecture.md` are subproject-scoped — don't apply backend conventions to frontend code or vice versa.
+When operating on a subproject's code, apply its own constraint docs — not another subproject's. The shared `coding-guidelines.md` (and `skill-writing-guidelines.md` when it exists) applies everywhere, but `testing.md`, `styling.md`, and `architecture.md` are subproject-scoped — don't apply backend conventions to frontend code or vice versa.
 
-**Compact form for skills that load only a subset of docs:** `coding-guidelines.md` is shared at root (`.claude/docs/coding-guidelines.md`). Scoped docs (`testing.md`, `styling.md`, `architecture.md`) are per subproject (`<subproject>/docs/<doc>.md`). For root-as-project, scoped docs are in `.claude/docs/` alongside the shared guidelines.
+**Compact form for skills that load only a subset of docs:** `coding-guidelines.md` and `skill-writing-guidelines.md` (when it exists) are shared at root (`.claude/docs/`). Scoped docs (`testing.md`, `styling.md`, `architecture.md`) are per subproject (`<subproject>/docs/<doc>.md`). For root-as-project, scoped docs are in `.claude/docs/` alongside the shared guidelines.
 
 ## Submodule Exclusion
 

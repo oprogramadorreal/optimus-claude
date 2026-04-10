@@ -3,7 +3,7 @@
 </div>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-1.58.1-blue" alt="Version">
+  <img src="https://img.shields.io/badge/version-1.59.0-blue" alt="Version">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
   <img src="https://img.shields.io/badge/Claude_Code-1.0.33+-blueviolet" alt="Claude Code">
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey" alt="Platform">
@@ -44,11 +44,11 @@ Start a new Claude Code session and type `/optimus:init` in any project director
 
 ## How It Works
 
-Every skill operates on the same shared foundation: **your project's coding guidelines** and a **verification protocol** that demands evidence over confidence.
+Every skill operates on the same shared foundation: **your project's quality guidelines** (coding guidelines for code, skill-writing guidelines for markdown instruction projects) and a **verification protocol** that demands evidence over confidence.
 
-`/optimus:init` analyzes your codebase and generates constraint docs — coding guidelines, CLAUDE.md, formatter hooks, and test infrastructure (framework, coverage tooling, testing docs) — into your `.claude/` directory. The plugin bundles quality agents at two levels: **plugin-level agents** (code-simplifier, test-guardian) that define reusable quality concerns, and **skill-level agents** that adapt them for specific workflows within skills like code-review, refactor, and tdd. Skill-level agents often extend the plugin-level definitions with skill-specific scope and output format — see [`references/agent-architecture.md`](references/agent-architecture.md) for the full architecture. From that point on, every optimus skill loads those guidelines, and skills that make completion claims apply the verification protocol as a gate before reporting.
+`/optimus:init` analyzes your codebase and generates constraint docs — coding guidelines, CLAUDE.md, formatter hooks, and test infrastructure (framework, coverage tooling, testing docs) — into your `.claude/` directory. It detects your project's stacks (Python, Node, Rust, UI frameworks, etc.) and installs the matching quality doc for each. This includes **skill authoring** as a recognized stack: if your project is a Claude Code plugin, a Codex skill repo, a prompt library, or any other project whose "source code" includes markdown instructions authored for an AI agent, init installs `skill-writing-guidelines.md` alongside `coding-guidelines.md`, and review/refactor skills route markdown instruction files through the skill-writing lens while routing code files through the coding lens. The plugin bundles quality agents at two levels: **plugin-level agents** (code-simplifier, test-guardian) that define reusable quality concerns, and **skill-level agents** that adapt them for specific workflows within skills like code-review, refactor, and tdd. Skill-level agents often extend the plugin-level definitions with skill-specific scope and output format — see [`references/agent-architecture.md`](references/agent-architecture.md) for the full architecture. From that point on, skills that analyze or modify code load the relevant guidelines, and skills that make completion claims apply the verification protocol as a gate before reporting.
 
-`/optimus:code-review` doesn't run a generic review — its agents check *your* naming conventions, *your* architectural patterns, and *your* DRY principles alongside bugs and security. `/optimus:tdd` applies them during the Refactor step. `/optimus:refactor` uses them as its quality lens. `/optimus:unit-test` follows them for test naming and structure.
+`/optimus:code-review` doesn't run a generic review — its agents check *your* naming conventions, *your* architectural patterns, and *your* DRY principles alongside bugs and security. For projects with a skill-authoring stack, it also reviews markdown instruction files against *your* skill-writing conventions (progressive disclosure, writing style, reference-depth limits). `/optimus:tdd` applies `coding-guidelines.md` during the Refactor step. `/optimus:refactor` uses them as its quality lens. `/optimus:unit-test` follows them for test naming and structure.
 
 Every skill is also conservative by default — `/optimus:unit-test` never refactors source code, `/optimus:verify` runs in an isolated sandbox and never pushes to remote, and `/optimus:commit` warns about secret files before proceeding.
 

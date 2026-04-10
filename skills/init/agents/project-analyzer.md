@@ -59,6 +59,8 @@ Apply the tables and algorithms from these reference files to the current projec
 
 8. **Test infrastructure detection:** Check if test framework is in dependencies, test command is in scripts, or test directory is present.
 
+9. **Skill-authoring detection:** Check whether the project authors markdown instructions for an AI agent as part of its stack (Claude Code plugin, Codex skill repo, prompt library, custom agent framework, etc.). The structural signal is: a directory named `skills/`, `agents/`, `prompts/`, `commands/`, or `instructions/` exists AND contains ≥2 subdirectories AND **every** such subdirectory contains a file named `SKILL.md`, `AGENT.md`, `PROMPT.md`, `COMMAND.md`, or `INSTRUCTION.md` (case-insensitive). This signals that the project's "source code" includes markdown instruction files that require a different review lens than code (progressive disclosure, writing style, orchestration rules). Apply the check at these roots, in order: the repo root (single-project and monorepo); and for monorepos, also at each detected subproject root — if any match, the repo has a skill-authoring stack (Step 6 installs `skill-writing-guidelines.md` once at the repo root). Report `yes` with the detected directory name(s) and the root(s) where the match occurred, or `no`.
+
 ### Return format
 
 Return your findings in this exact structure:
@@ -76,6 +78,7 @@ Return your findings in this exact structure:
 - **Workspace tool:** [tool name if monorepo, or "none"]
 - **Nested app root:** [path if detected, or "none"]
 - **Test infrastructure detected:** [yes — details | no]
+- **Skill authoring detected:** [yes — list detected directory names and root(s) where the match occurred (e.g., `skills/`, `agents/` at repo root) | no]
 
 ### Subprojects (monorepo only)
 | Path | Purpose | Tech stack |
