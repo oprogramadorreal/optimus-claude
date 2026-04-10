@@ -102,7 +102,13 @@ class TestInitSkillAuthoringDetection:
         # to "any directory with a SKILL.md" would pass this test but cause false
         # positives on unrelated user projects.
         assert "2 subdirectories" in text, "detection must require ≥2 subdirectories"
-        assert "every" in text, "detection must require every subdirectory to match"
+        # Scope to Step 6 so the assertion locks the detection algorithm's
+        # "every subdirectory" requirement — the word "every" appears elsewhere
+        # in SKILL.md (Step 5, Step 7) and would mask a regression if checked
+        # against the full file.
+        step_6 = text.split("## Step 6: Create Documentation Files", 1)[1]
+        step_6 = step_6.split("## Step 6b", 1)[0]
+        assert "every" in step_6, "detection must require every subdirectory to match"
         assert "case-insensitive" in text, "detection must be case-insensitive"
 
     def test_init_install_semantics_is_merge_not_silent_overwrite(self):
@@ -285,17 +291,90 @@ class TestPluginLevelCodeSimplifier:
         assert "never judge a SKILL.md by" in text
         assert "never judge a `.py` file by" in text
 
-    def test_code_simplifier_and_constraint_doc_loading_list_same_directories(self):
-        # The inlined routing in code-simplifier.md must list the same
-        # conventional skill-authoring directories as constraint-doc-loading.md.
-        # Without this parity check, adding a new directory to one file but
-        # forgetting the other would silently break routing for that directory.
-        import re
-
+    def test_dual_lens_directories_parity_across_all_sources(self):
+        # The inlined routing in code-simplifier.md and the skip rule in
+        # test-guardian.md must list the same conventional skill-authoring
+        # directories as constraint-doc-loading.md. Without this parity check,
+        # adding a new directory to one file but forgetting the others would
+        # silently break routing for that directory.
         canonical = _read("skills/init/references/constraint-doc-loading.md")
         inlined = _read("agents/code-simplifier.md")
+        guardian = _read("agents/test-guardian.md")
 
         dirs = {"skills/", "agents/", "prompts/", "commands/", "instructions/"}
         for d in dirs:
             assert d in canonical, f"{d} missing from constraint-doc-loading.md"
             assert d in inlined, f"{d} missing from code-simplifier.md"
+            assert d in guardian, f"{d} missing from test-guardian.md"
+
+
+class TestPluginLevelTestGuardian:
+    def test_test_guardian_has_markdown_skip_rule(self):
+        # The test-guardian must skip markdown instruction files in
+        # skill-authoring projects. Without this rule, the agent would
+        # flag instruction prose as untested code.
+        text = _read("agents/test-guardian.md")
+        assert "skill-writing-guidelines.md" in text
+        assert "instruction prose" in text or "instruction files" in text
+
+    def test_test_guardian_gates_skip_on_file_presence(self):
+        # The skip rule must be gated on skill-writing-guidelines.md existence,
+        # not unconditional — projects without skill authoring must not skip
+        # their .md files. Scope to the skip-rule bullet so an unrelated
+        # "exists" elsewhere in the file can't mask a regression.
+        text = _read("agents/test-guardian.md")
+        skip_rule = [
+            line
+            for line in text.splitlines()
+            if "skill-writing-guidelines.md" in line
+        ]
+        assert skip_rule, "test-guardian must mention skill-writing-guidelines.md"
+        assert any(
+            "exists" in line.lower() for line in skip_rule
+        ), "skip rule must be gated on file existence"
+
+
+class TestVerifySkillAuthoringAwareness:
+    def test_verify_environment_summary_includes_skill_writing_guidelines(self):
+        text = _read("skills/verify/SKILL.md")
+        assert "skill-writing-guidelines.md" in text
+
+
+class TestResetSkillAuthoringAwareness:
+    def test_reset_scan_list_includes_skill_writing_guidelines(self):
+        text = _read("skills/reset/SKILL.md")
+        assert ".claude/docs/skill-writing-guidelines.md" in text
+
+    def test_reset_classifies_skill_writing_guidelines_as_heuristic(self):
+        # skill-writing-guidelines.md uses review-and-propose semantics (like
+        # testing.md), not verbatim-template semantics (like coding-guidelines.md).
+        # It must appear in the "Generated docs (heuristic)" table, not the
+        # "Near-exact template" section.
+        text = _read("skills/reset/SKILL.md")
+        heuristic_section = text.split(
+            "**Generated docs (heuristic", 1
+        )[1].split("For CLAUDE.md:", 1)[0]
+        assert "skill-writing-guidelines.md" in heuristic_section
+
+    def test_reset_heuristic_headings_match_template(self):
+        # The fingerprint headings in reset must match the actual template
+        # section headings — drift would cause misclassification.
+        reset = _read("skills/reset/SKILL.md")
+        template = _read("skills/init/templates/docs/skill-writing-guidelines.md")
+        headings = [
+            line.lstrip("# ").strip()
+            for line in template.splitlines()
+            if line.startswith("## ")
+        ]
+        for h in headings:
+            assert h in reset, f"reset fingerprint missing heading: {h}"
+
+    def test_reset_heuristic_check_instruction_includes_skill_writing(self):
+        # The "For docs" instruction paragraph must include
+        # skill-writing-guidelines.md so the heading check is applied to it.
+        text = _read("skills/reset/SKILL.md")
+        for_docs_lines = [
+            line for line in text.splitlines() if line.startswith("For docs (")
+        ]
+        assert for_docs_lines, "reset must have a 'For docs (...)' instruction line"
+        assert "skill-writing-guidelines.md" in for_docs_lines[0]

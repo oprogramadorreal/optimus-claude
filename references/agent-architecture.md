@@ -16,7 +16,7 @@ These are standard Claude Code agent definitions with frontmatter (`name`, `desc
 1. **Base definitions** — define the core approach, quality criteria, and methodology for a reusable concern
 2. **Extended by skill-level agents** — skill-level agents read these files for their core approach, then layer skill-specific behavior on top (see [specialization pattern](#the-specialization-pattern) below)
 
-Both agents read the target project's `.claude/docs/coding-guidelines.md` and `.claude/CLAUDE.md` for project-specific standards. In projects with a skill-authoring stack, they also read `.claude/docs/skill-writing-guidelines.md` and route each analyzed file to the correct lens (coding-guidelines for code files, skill-writing-guidelines for markdown instruction files) via the shared `skills/init/references/constraint-doc-loading.md` reference.
+Both agents read the target project's `.claude/docs/coding-guidelines.md` and `.claude/CLAUDE.md` for project-specific standards. In projects with a skill-authoring stack, they also read `.claude/docs/skill-writing-guidelines.md` and route each analyzed file to the correct lens (coding-guidelines for code files, skill-writing-guidelines for markdown instruction files) — the code-simplifier inlines the routing rules from `skills/init/references/constraint-doc-loading.md` to stay within the reference-depth limit.
 
 ## Skill-level agents (`skills/<name>/agents/`)
 

@@ -100,14 +100,11 @@ For these files, read both the project file and the corresponding template from 
 | `.claude/hooks/format-dart.sh` | `$CLAUDE_PLUGIN_ROOT/skills/init/templates/hooks/format-dart.sh` |
 | `.claude/hooks/restrict-paths.sh` | `$CLAUDE_PLUGIN_ROOT/skills/permissions/templates/hooks/restrict-paths.sh` |
 
-**Near-exact templates (coding-guidelines.md, skill-writing-guidelines.md):**
+**Near-exact template (coding-guidelines.md):**
 
 The template body (everything after line 1) is verbatim — only line 1 has `[PROJECT NAME]` substituted by init. Compare the project file's content from line 2 onward against the template's content from line 2 onward. If identical → `UNMODIFIED`. If different → `MODIFIED`.
 
-| Project file | Template source |
-|---|---|
-| `.claude/docs/coding-guidelines.md` | `$CLAUDE_PLUGIN_ROOT/skills/init/templates/docs/coding-guidelines.md` |
-| `.claude/docs/skill-writing-guidelines.md` | `$CLAUDE_PLUGIN_ROOT/skills/init/templates/docs/skill-writing-guidelines.md` |
+Template: `$CLAUDE_PLUGIN_ROOT/skills/init/templates/docs/coding-guidelines.md`
 
 **Generated docs (heuristic — content filled in by init):**
 
@@ -117,6 +114,7 @@ These files have ALL content filled in by init from project analysis — no temp
 |---|---|---|
 | `.claude/CLAUDE.md` | `<!-- Keep this file and .claude/docs/ updated when project structure, conventions, or tooling changes -->` | `Conventions`, `Commands`, `Project Structure`, `Before Writing Code`, `Documentation` |
 | `.claude/docs/testing.md` | *(no comment — check heading)* First line: `# Testing` | `Test Runner`, `Running Tests`, `Test Structure`, `Writing Tests`, `Workflow`, `Coverage` |
+| `.claude/docs/skill-writing-guidelines.md` | *(no comment — check heading)* First line: `# Skill-writing guidelines for` | `Foundation`, `Writing Style`, `Degrees of Freedom`, `Description Quality (frontmatter)`, `Progressive Disclosure`, `Directory Layout`, `Shared References`, `Workflows and Feedback Loops`, `Common Patterns`, `Evaluation and Iteration`, `Anti-patterns`, `Documentation` |
 | `.claude/docs/styling.md` | *(no comment — check heading)* First line: `# Styling` | `Stack`, `Conventions`, `File Organization`, `Adding New Components` |
 | `.claude/docs/architecture.md` | *(no comment — check heading)* First line: `# Architecture` | `Overview`, `Directory Map`, `Data Flow`, `Key Patterns`, `Dependencies Between Modules` |
 
@@ -126,7 +124,7 @@ For subproject CLAUDE.md files: check for `<!-- Keep this file and docs/ updated
 
 For workspace root CLAUDE.md: check for `<!-- Local workspace file — not version-controlled. Each repo has its own .claude/CLAUDE.md. -->`.
 
-For docs (testing.md, styling.md, architecture.md): check if the `##` section headings match the template's headings in the same order.
+For docs (testing.md, skill-writing-guidelines.md, styling.md, architecture.md): check if the `##` section headings match the template's headings in the same order.
 
 If fingerprints match → classify as `LIKELY_GENERATED`. If fingerprints don't match → classify as `MODIFIED`.
 
