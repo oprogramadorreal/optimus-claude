@@ -38,7 +38,7 @@ First-time setup: `install.cmd` (creates `.venv` and installs dev dependencies).
 
 ## Skill-writing guidelines
 
-See `.claude/docs/skill-writing-guidelines.md` for skill structure, design principles, and quality standards. A `.claude/docs/coding-guidelines.md` bridge file also exists so that code-review agents can discover these guidelines through the standard doc-loading path. A `.claude/docs/testing.md` bridge file also exists so that `/optimus:unit-test`, the code-review test-guardian agent, and the SessionStart hook can discover this repo's pytest conventions through the standard doc-loading path — without requiring `/optimus:init` (which must never be run on this repo).
+See `.claude/docs/skill-writing-guidelines.md` for skill structure, design principles, and quality standards. `.claude/docs/coding-guidelines.md` covers code quality principles for non-markdown files (scripts, hooks, harness code). A `.claude/docs/testing.md` bridge file also exists so that `/optimus:unit-test`, the code-review test-guardian agent, and the SessionStart hook can discover this repo's pytest conventions through the standard doc-loading path.
 
 ## Testing changes
 
@@ -46,7 +46,6 @@ See CONTRIBUTING.md for the full testing workflow (validation, hooks, fixtures, 
 
 ## Key rules
 
-- Do not run `/optimus:init` on this repo — it is the plugin itself, not a target project
 - Never leave a `ref` field in `marketplace.json` on the master branch
 - Bump the version in `.claude-plugin/plugin.json` for meaningful changes, and update the version badge in `README.md` to match
 - Only `/optimus:init` writes `.claude/.optimus-version` in user projects — other skills that install template files must NOT update this file (it tracks init's full template audit, not individual file freshness)
