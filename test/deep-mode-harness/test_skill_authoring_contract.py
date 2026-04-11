@@ -27,6 +27,14 @@ def _read(rel):
     return (REPO_ROOT / rel).read_text(encoding="utf-8")
 
 
+def _extract_h2_headings(markdown_text):
+    return [
+        line.removeprefix("## ").strip()
+        for line in markdown_text.splitlines()
+        if line.startswith("## ")
+    ]
+
+
 class TestConstraintDocLoadingSkillAuthoring:
     def test_skill_authoring_lens_section_exists(self):
         text = _read("skills/init/references/constraint-doc-loading.md")
@@ -390,11 +398,7 @@ class TestResetSkillAuthoringAwareness:
         # section headings — drift would cause misclassification.
         reset = _read("skills/reset/SKILL.md")
         template = _read("skills/init/templates/docs/skill-writing-guidelines.md")
-        headings = [
-            line.lstrip("# ").strip()
-            for line in template.splitlines()
-            if line.startswith("## ")
-        ]
+        headings = _extract_h2_headings(template)
         for h in headings:
             assert h in reset, f"reset fingerprint missing heading: {h}"
 
@@ -675,7 +679,11 @@ class TestInitArchitectureDetectionIncludesSkillAuthoring:
         text = _read("skills/init/SKILL.md")
         selection = text.split("architecture.md` template selection:", 1)[1]
         selection = selection.split("Use each template as a skeleton", 1)[0]
-        return [l.strip() for l in selection.splitlines() if l.strip().startswith("- ")]
+        return [
+            line.strip()
+            for line in selection.splitlines()
+            if line.strip().startswith("- ")
+        ]
 
     def test_template_selection_maps_conditions_to_correct_variants(self):
         lines = self._get_template_selection_lines()
@@ -788,11 +796,7 @@ class TestResetRecognizesAllArchitectureVariants:
 
     def test_reset_fingerprint_matches_code_only_template_headings(self):
         template = _read("skills/init/templates/docs/architecture.md")
-        h2s = [
-            l.replace("## ", "").strip()
-            for l in template.splitlines()
-            if l.startswith("## ")
-        ]
+        h2s = _extract_h2_headings(template)
         row_text = self._get_reset_arch_row()
         for heading in h2s:
             assert (
@@ -801,11 +805,7 @@ class TestResetRecognizesAllArchitectureVariants:
 
     def test_reset_fingerprint_matches_skill_authoring_template_headings(self):
         template = _read("skills/init/templates/docs/architecture-skill-authoring.md")
-        h2s = [
-            l.replace("## ", "").strip()
-            for l in template.splitlines()
-            if l.startswith("## ")
-        ]
+        h2s = _extract_h2_headings(template)
         row_text = self._get_reset_arch_row()
         for heading in h2s:
             assert (
@@ -814,11 +814,7 @@ class TestResetRecognizesAllArchitectureVariants:
 
     def test_reset_fingerprint_matches_hybrid_template_headings(self):
         template = _read("skills/init/templates/docs/architecture-hybrid.md")
-        h2s = [
-            l.replace("## ", "").strip()
-            for l in template.splitlines()
-            if l.startswith("## ")
-        ]
+        h2s = _extract_h2_headings(template)
         row_text = self._get_reset_arch_row()
         for heading in h2s:
             assert (
