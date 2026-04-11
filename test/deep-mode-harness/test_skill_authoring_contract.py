@@ -668,7 +668,7 @@ class TestInitArchitectureDetectionIncludesSkillAuthoring:
         selection = selection.split("Use each template as a skeleton", 1)[0]
         assert (
             "templates/docs/architecture.md" in selection
-        ), "must reference code-focused template"
+        ), "must reference code-only template"
         assert "architecture-hybrid.md" in selection, "must reference hybrid template"
         assert (
             "architecture-skill-authoring.md" in selection
@@ -747,6 +747,9 @@ class TestInitArchitectureDetectionIncludesSkillAuthoring:
         assert (
             "different template variant" in semantics
         ), "install semantics must handle variant-switch when project type changes"
+        assert (
+            "preserving" in semantics and "user-customized content" in semantics
+        ), "variant-switch must guarantee preserving user-customized content"
 
 
 class TestResetRecognizesAllArchitectureVariants:

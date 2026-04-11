@@ -121,7 +121,7 @@ To understand or modify how the skill works, start with `SKILL.md`. Key customiz
 - **CLAUDE.md templates**: `templates/single-project-claude.md`, `templates/monorepo-claude.md`, `templates/subproject-claude.md`, `templates/multi-repo-claude.md`
 - **Coding guidelines**: `templates/docs/coding-guidelines.md`
 - **Skill-writing guidelines**: `templates/docs/skill-writing-guidelines.md` (framework-agnostic template for markdown instruction projects)
-- **Architecture templates**: `templates/docs/architecture.md` (code-only), `templates/docs/architecture-skill-authoring.md` (skill-authoring), `templates/docs/architecture-hybrid.md` (combined)
+- **Architecture templates**: `templates/docs/architecture.md` (code-only), `templates/docs/architecture-skill-authoring.md` (skill-authoring), `templates/docs/architecture-hybrid.md` (hybrid)
 - **Formatter hooks**: `templates/hooks/` (Python, Node.js, Rust, Go, C#, Java, C/C++, Dart/Flutter)
 - **Agents**: `agents/` at plugin root (code-simplifier, test-guardian — now bundled with the plugin, not installed per-project)
 

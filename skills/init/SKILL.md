@@ -227,9 +227,9 @@ If the user chooses **No**: skip all test infrastructure provisioning. In Step 7
 | `skill-writing-guidelines.md` | `$CLAUDE_PLUGIN_ROOT/skills/init/templates/docs/skill-writing-guidelines.md` | **Skill authoring detected** in Step 1: a directory named `skills/`, `agents/`, `prompts/`, `commands/`, or `instructions/` exists (at the repo root or, in monorepos, at any subproject root), contains ≥2 subdirectories, and **every** such subdirectory contains a file named `SKILL.md`, `AGENT.md`, `PROMPT.md`, `COMMAND.md`, or `INSTRUCTION.md` (case-insensitive). This signals the project authors markdown instructions for an AI agent as part of its stack. |
 
 **`architecture.md` template selection:** The output file is always `architecture.md`, but the source template varies based on detection:
-- Skill authoring NOT detected → use `$CLAUDE_PLUGIN_ROOT/skills/init/templates/docs/architecture.md` (code-focused)
-- Skill authoring detected AND project also has code components (recognized pattern directories, `src/`/`lib/` with source files, or non-markdown source files in top-level directories outside the skill-authoring dirs) → use `$CLAUDE_PLUGIN_ROOT/skills/init/templates/docs/architecture-hybrid.md` (combined)
-- Skill authoring detected AND no code components (pure skill-authoring project) → use `$CLAUDE_PLUGIN_ROOT/skills/init/templates/docs/architecture-skill-authoring.md` (skill-focused)
+- Skill authoring NOT detected → use `$CLAUDE_PLUGIN_ROOT/skills/init/templates/docs/architecture.md` (code-only)
+- Skill authoring detected AND project also has code components (recognized pattern directories, `src/`/`lib/` with source files, or non-markdown source files in top-level directories outside the skill-authoring dirs) → use `$CLAUDE_PLUGIN_ROOT/skills/init/templates/docs/architecture-hybrid.md` (hybrid)
+- Skill authoring detected AND no code components (pure skill-authoring project) → use `$CLAUDE_PLUGIN_ROOT/skills/init/templates/docs/architecture-skill-authoring.md` (skill-authoring)
 
 Use each template as a skeleton — fill in all placeholders with actual project details (framework names, commands, directory paths, conventions). Don't leave any `[placeholder]` text in the final output.
 
