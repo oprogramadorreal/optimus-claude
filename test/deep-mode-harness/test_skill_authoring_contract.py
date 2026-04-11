@@ -622,6 +622,12 @@ class TestArchitectureHybridTemplate:
                 subsection in skill_section
             ), f"Skill Architecture must cover {subsection}"
 
+    def test_template_has_placeholder_pattern(self):
+        text = _read("skills/init/templates/docs/architecture-hybrid.md")
+        assert (
+            "[dir]" in text
+        ), "hybrid template must contain placeholder brackets (e.g. [dir])"
+
 
 class TestInitArchitectureDetectionIncludesSkillAuthoring:
     """Guard the expanded architecture.md trigger that includes
@@ -660,13 +666,15 @@ class TestInitArchitectureDetectionIncludesSkillAuthoring:
             "architecture-skill-authoring.md" in selection
         ), "must reference skill-authoring template"
 
-    def test_template_selection_maps_conditions_to_correct_variants(self):
+    @staticmethod
+    def _get_template_selection_lines():
         text = _read("skills/init/SKILL.md")
         selection = text.split("architecture.md` template selection:", 1)[1]
         selection = selection.split("Use each template as a skeleton", 1)[0]
-        lines = [
-            l.strip() for l in selection.splitlines() if l.strip().startswith("- ")
-        ]
+        return [l.strip() for l in selection.splitlines() if l.strip().startswith("- ")]
+
+    def test_template_selection_maps_conditions_to_correct_variants(self):
+        lines = self._get_template_selection_lines()
         assert (
             len(lines) == 3
         ), f"expected 3 template-selection branches, got {len(lines)}"
@@ -686,30 +694,30 @@ class TestInitArchitectureDetectionIncludesSkillAuthoring:
         ), "third branch must route pure skill-authoring to skill-authoring template"
 
     def test_hybrid_branch_specifies_code_component_signals(self):
-        text = _read("skills/init/SKILL.md")
-        selection = text.split("architecture.md` template selection:", 1)[1]
-        selection = selection.split("Use each template as a skeleton", 1)[0]
-        lines = [
-            l.strip() for l in selection.splitlines() if l.strip().startswith("- ")
-        ]
+        lines = self._get_template_selection_lines()
         hybrid_line = lines[1]
         for signal in ("pattern directories", "src/", "lib/"):
             assert (
                 signal in hybrid_line
             ), f"hybrid branch must specify '{signal}' as a code-component signal"
 
-    def test_architecture_install_semantics_exists(self):
+    @staticmethod
+    def _get_arch_install_semantics():
         text = _read("skills/init/SKILL.md")
         assert "architecture.md` install semantics:" in text
         semantics = text.split("architecture.md` install semantics:", 1)[1]
-        semantics = semantics.split("**`skill-writing-guidelines.md`", 1)[0]
+        return semantics.split("**`skill-writing-guidelines.md`", 1)[0]
+
+    def test_architecture_install_semantics_exists(self):
+        semantics = self._get_arch_install_semantics()
         assert "review-and-propose" in semantics
         assert "preserve" in semantics
+        assert (
+            "Never silently overwrite" in semantics
+        ), "architecture.md install semantics must guarantee no silent overwrite"
 
     def test_architecture_install_semantics_has_variant_switch(self):
-        text = _read("skills/init/SKILL.md")
-        semantics = text.split("architecture.md` install semantics:", 1)[1]
-        semantics = semantics.split("**`skill-writing-guidelines.md`", 1)[0]
+        semantics = self._get_arch_install_semantics()
         assert (
             "different template variant" in semantics
         ), "install semantics must handle variant-switch when project type changes"
