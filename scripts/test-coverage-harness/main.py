@@ -38,6 +38,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from harness_common.constants import BACKUP_SUFFIX
 from harness_common.fixes import bisect_fixes
+from harness_common.hooks import run_hook
+from harness_common.runner import retry_on_failure
 from harness_common.git import (
     git_diff_has_changes,
     git_rev_parse_head,
@@ -66,10 +68,17 @@ from impl.progress import (
     read_progress,
     record_cycle_history,
     record_test_result,
+    record_timing,
     write_progress,
 )
 from impl.reporting import print_report
-from impl.runner import run_coverage_session, run_tests
+from impl.runner import (
+    _build_harness_system,
+    _build_unit_test_prompt,
+    run_coverage_session,
+    run_tests,
+)
+from harness_common.reporting import write_json_summary
 
 # ---------------------------------------------------------------------------
 # Argument parsing
@@ -152,6 +161,34 @@ Examples:
         type=int,
         default=DEFAULT_SESSION_TIMEOUT,
         help=f"Per-session timeout in seconds (default: {DEFAULT_SESSION_TIMEOUT})",
+    )
+    parser.add_argument(
+        "--log-dir",
+        default="",
+        help="Directory to save per-phase session logs for debugging (default: disabled)",
+    )
+    parser.add_argument(
+        "--json-summary",
+        default="",
+        nargs="?",
+        const=".claude/test-coverage-summary.json",
+        help="Write a JSON summary report to PATH (default: .claude/test-coverage-summary.json)",
+    )
+    parser.add_argument(
+        "--max-retries",
+        type=int,
+        default=2,
+        help="Max attempts per session on transient failure (default: 2)",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print the claude command and prompt that would be run, then exit (no API calls)",
+    )
+    parser.add_argument(
+        "--hooks-dir",
+        default="",
+        help="Directory with hook scripts (pre-cycle, post-cycle, on-convergence, on-error). Default: disabled.",
     )
     return parser
 
@@ -500,10 +537,27 @@ def _run_unit_test_phase(
     print(f"{PREFIX} --- Phase: unit-test ---")
 
     ut_start = time.time()
+    max_retries = getattr(args, "max_retries", 2)
+
+    def _on_ut_retry(attempt, exc, delay):
+        print(f"{PREFIX} Unit-test session error: {exc}")
+        restore_working_tree(pre_stash, pre_head, project_root)
+        write_progress(progress_path, progress)
+        print(
+            f"{PREFIX} Retrying in {int(delay)}s "
+            f"(attempt {attempt + 2}/{max_retries})..."
+        )
+
     try:
-        ut_output = run_coverage_session(progress, args, progress_path, "unit-test")
+        ut_output = retry_on_failure(
+            lambda: run_coverage_session(progress, args, progress_path, "unit-test"),
+            max_retries=max_retries,
+            on_retry=_on_ut_retry,
+        )
     except (RuntimeError, subprocess.TimeoutExpired) as exc:
-        print(f"{PREFIX} ERROR: Unit-test session failed: {exc}")
+        print(
+            f"{PREFIX} ERROR: Unit-test session failed after {max_retries} attempts: {exc}"
+        )
         restore_working_tree(pre_stash, pre_head, project_root)
         progress["termination"] = {
             "reason": "crash",
@@ -514,6 +568,7 @@ def _run_unit_test_phase(
 
     ut_result = parse_harness_output(ut_output)
     ut_elapsed = int(time.time() - ut_start)
+    record_timing(progress, f"cycle-{cycle}-unit-test", ut_elapsed)
 
     if ut_result is None:
         print(
@@ -628,10 +683,27 @@ def _run_refactor_phase(
     )
 
     rf_start = time.time()
+    max_retries = getattr(args, "max_retries", 2)
+
+    def _on_rf_retry(attempt, exc, delay):
+        print(f"{PREFIX} Refactor session error: {exc}")
+        restore_working_tree(pre_stash, pre_head, project_root)
+        write_progress(progress_path, progress)
+        print(
+            f"{PREFIX} Retrying in {int(delay)}s "
+            f"(attempt {attempt + 2}/{max_retries})..."
+        )
+
     try:
-        rf_output = run_coverage_session(progress, args, progress_path, "refactor")
+        rf_output = retry_on_failure(
+            lambda: run_coverage_session(progress, args, progress_path, "refactor"),
+            max_retries=max_retries,
+            on_retry=_on_rf_retry,
+        )
     except (RuntimeError, subprocess.TimeoutExpired) as exc:
-        print(f"{PREFIX} ERROR: Refactor session failed: {exc}")
+        print(
+            f"{PREFIX} ERROR: Refactor session failed after {max_retries} attempts: {exc}"
+        )
         restore_working_tree(pre_stash, pre_head, project_root)
         record_cycle_history(progress, cycle, ut_summary)
         progress["termination"] = {
@@ -643,6 +715,7 @@ def _run_refactor_phase(
 
     rf_result = parse_harness_output(rf_output)
     rf_elapsed = int(time.time() - rf_start)
+    record_timing(progress, f"cycle-{cycle}-refactor", rf_elapsed)
 
     if rf_result is None:
         print(
@@ -770,10 +843,22 @@ def _run_cycle_loop(
 ):
     """Run the paired unit-test + refactor cycle loop until convergence or cap."""
     skip_commits = args.no_commit
+    hooks_dir = getattr(args, "hooks_dir", "")
 
     while True:
         cycle = progress["cycle"]["current"]
         print(f"\n{PREFIX} === Cycle {cycle}/{max_cycles} ===")
+
+        run_hook(
+            hooks_dir,
+            "pre-cycle",
+            {
+                "HARNESS_CYCLE": cycle,
+                "HARNESS_MAX_CYCLES": max_cycles,
+                "HARNESS_PROJECT_ROOT": str(project_root),
+            },
+            prefix=PREFIX,
+        )
 
         pre_head = git_rev_parse_head(project_root)
         if not pre_head:
@@ -840,6 +925,19 @@ def _run_cycle_loop(
         # Record cycle history
         record_cycle_history(progress, cycle, ut_summary, refactor_summary)
 
+        run_hook(
+            hooks_dir,
+            "post-cycle",
+            {
+                "HARNESS_CYCLE": cycle,
+                "HARNESS_TEST_STATUS": progress["test_results"].get(
+                    "last_full_run", ""
+                ),
+                "HARNESS_PROJECT_ROOT": str(project_root),
+            },
+            prefix=PREFIX,
+        )
+
         # Check coverage plateau
         coverage_plateau, plateau_reason = check_coverage_plateau(
             progress["coverage"]["history"]
@@ -873,7 +971,20 @@ def _run_cycle_loop(
 
 
 def main(argv=None):
-    args = _build_argument_parser().parse_args(argv)
+    parser = _build_argument_parser()
+
+    # Pre-parse to discover --project-dir, then load config defaults
+    from harness_common.config import apply_config_defaults, load_project_config
+
+    pre_args, _ = parser.parse_known_args(argv)
+    config = load_project_config(
+        Path(pre_args.project_dir).resolve(), section="test_coverage"
+    )
+    if config:
+        apply_config_defaults(parser, config)
+        print(f"{PREFIX} Loaded config from .claude/harness.json")
+
+    args = parser.parse_args(argv)
 
     # Clamp cycles
     if args.max_cycles > MAX_CYCLES_HARD_CAP:
@@ -936,6 +1047,25 @@ def main(argv=None):
 
     _print_startup_info(args, progress)
 
+    # Dry-run: print what would be executed and exit
+    if args.dry_run:
+        from harness_common.constants import normalize_path
+        from harness_common.runner import build_claude_session_cmd
+
+        cycle = progress["cycle"]["current"]
+        max_cycles = progress["config"]["max_cycles"]
+        progress_str = normalize_path(str(progress_path))
+        prompt = _build_unit_test_prompt(max_cycles, progress["config"]["scope"])
+        system = _build_harness_system(progress_str, cycle, max_cycles, "unit-test")
+        cmd = build_claude_session_cmd(
+            prompt, system, args.allowed_tools, args.max_turns
+        )
+        print(f"{PREFIX} DRY RUN — would execute:")
+        print(f"{PREFIX}   Command: {' '.join(cmd)}")
+        print(f"{PREFIX}   Prompt:  {prompt}")
+        print(f"{PREFIX}   System:  {system}")
+        return 0
+
     # Main cycle loop
     try:
         _run_cycle_loop(
@@ -952,6 +1082,12 @@ def main(argv=None):
 
     # Final report and cleanup
     print_report(progress)
+    if args.json_summary:
+        summary_path = Path(args.json_summary)
+        if not summary_path.is_absolute():
+            summary_path = project_root / summary_path
+        write_json_summary(progress, "test-coverage", summary_path)
+        print(f"{PREFIX} JSON summary written to {summary_path}")
     _archive_progress(progress_path)
     return 0
 

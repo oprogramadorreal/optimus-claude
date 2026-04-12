@@ -45,7 +45,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from harness_common.hooks import run_hook
 from harness_common.parser import parse_harness_output
+from harness_common.runner import build_claude_session_cmd, retry_on_failure
 from impl.constants import (
     APPLIED_PENDING_TEST,
     BACKUP_SUFFIX,
@@ -82,10 +84,17 @@ from impl.progress import (
     migrate_progress,
     read_progress,
     record_test_result,
+    record_timing,
     write_progress,
 )
 from impl.reporting import detect_test_command, print_report
-from impl.runner import run_skill_session, run_tests
+from impl.runner import (
+    _build_harness_system,
+    _build_prompt,
+    run_skill_session,
+    run_tests,
+)
+from harness_common.reporting import write_json_summary
 
 # ---------------------------------------------------------------------------
 # Argument parsing
@@ -180,6 +189,34 @@ Examples:
         type=int,
         default=DEFAULT_SESSION_TIMEOUT,
         help=f"Per-iteration timeout in seconds (default: {DEFAULT_SESSION_TIMEOUT})",
+    )
+    parser.add_argument(
+        "--log-dir",
+        default="",
+        help="Directory to save per-iteration session logs for debugging (default: disabled)",
+    )
+    parser.add_argument(
+        "--json-summary",
+        default="",
+        nargs="?",
+        const=".claude/deep-mode-summary.json",
+        help="Write a JSON summary report to PATH (default: .claude/deep-mode-summary.json)",
+    )
+    parser.add_argument(
+        "--max-retries",
+        type=int,
+        default=2,
+        help="Max attempts per iteration on transient failure (default: 2)",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print the claude command and prompt that would be run, then exit (no API calls)",
+    )
+    parser.add_argument(
+        "--hooks-dir",
+        default="",
+        help="Directory with hook scripts (pre-iteration, post-iteration, on-convergence, on-error). Default: disabled.",
     )
     return parser
 
@@ -436,31 +473,46 @@ def _handle_safe_exit(
 def _run_session_with_retry(
     args, progress, progress_path, pre_stash, pre_head, project_root, iteration
 ):
-    """Launch a claude session with one retry on failure.
+    """Launch a claude session with retries using exponential backoff.
 
-    Returns raw output on success, or None if both attempts failed.
+    Returns raw output on success, or None if all attempts failed.
     On failure, sets progress termination reason before returning.
     """
-    for attempt in range(2):
-        try:
-            return run_skill_session(progress, args, progress_path)
-        except (RuntimeError, subprocess.TimeoutExpired) as exc:
-            if isinstance(exc, subprocess.TimeoutExpired):
-                print(f"{PREFIX} Session timed out after {args.timeout}s")
-            else:
-                print(f"{PREFIX} Session error: {exc}")
-            restore_working_tree(pre_stash, pre_head, project_root)
-            if attempt == 0:
-                write_progress(progress_path, progress)
-                print(f"{PREFIX} Retrying iteration {iteration}...")
-            else:
-                print(f"{PREFIX} Iteration {iteration} failed after retry. Stopping.")
-                progress["termination"] = {
-                    "reason": "crash",
-                    "message": f"Session failed twice on iteration {iteration}: {exc}",
-                }
-                write_progress(progress_path, progress)
-                return None
+    max_retries = getattr(args, "max_retries", 2)
+
+    def _on_retry(attempt, exc, delay):
+        if isinstance(exc, subprocess.TimeoutExpired):
+            print(f"{PREFIX} Session timed out after {args.timeout}s")
+        else:
+            print(f"{PREFIX} Session error: {exc}")
+        restore_working_tree(pre_stash, pre_head, project_root)
+        write_progress(progress_path, progress)
+        print(
+            f"{PREFIX} Retrying iteration {iteration} in {int(delay)}s "
+            f"(attempt {attempt + 2}/{max_retries})..."
+        )
+
+    try:
+        return retry_on_failure(
+            lambda: run_skill_session(progress, args, progress_path),
+            max_retries=max_retries,
+            on_retry=_on_retry,
+        )
+    except (RuntimeError, subprocess.TimeoutExpired) as exc:
+        if isinstance(exc, subprocess.TimeoutExpired):
+            print(f"{PREFIX} Session timed out after {args.timeout}s")
+        else:
+            print(f"{PREFIX} Session error: {exc}")
+        restore_working_tree(pre_stash, pre_head, project_root)
+        print(
+            f"{PREFIX} Iteration {iteration} failed after {max_retries} attempts. Stopping."
+        )
+        progress["termination"] = {
+            "reason": "crash",
+            "message": f"Session failed {max_retries} times on iteration {iteration}: {exc}",
+        }
+        write_progress(progress_path, progress)
+        return None
 
 
 def _recover_from_missing_output(
@@ -729,10 +781,22 @@ def _run_iteration_loop(
 ):
     """Run the iterative analysis-apply loop until convergence or cap."""
     skip_commits = args.no_commit
+    hooks_dir = getattr(args, "hooks_dir", "")
     while True:
         iteration = progress["iteration"]["current"]
         print(f"{PREFIX} === Iteration {iteration}/{max_iter} ===")
         iteration_start = time.time()
+
+        run_hook(
+            hooks_dir,
+            "pre-iteration",
+            {
+                "HARNESS_ITERATION": iteration,
+                "HARNESS_MAX_ITERATIONS": max_iter,
+                "HARNESS_PROJECT_ROOT": str(project_root),
+            },
+            prefix=PREFIX,
+        )
 
         pre_head = git_rev_parse_head(project_root)
         if not pre_head:
@@ -768,6 +832,7 @@ def _run_iteration_loop(
 
         result = parse_harness_output(output)
         elapsed = int(time.time() - iteration_start)
+        record_timing(progress, f"iteration-{iteration}", elapsed)
 
         if result is None:
             result = _recover_from_missing_output(
@@ -844,6 +909,19 @@ def _run_iteration_loop(
             progress, iteration, new_count, fixed_count, reverted_count, test_passed
         )
 
+        run_hook(
+            hooks_dir,
+            "post-iteration",
+            {
+                "HARNESS_ITERATION": iteration,
+                "HARNESS_FIXED_COUNT": fixed_count,
+                "HARNESS_REVERTED_COUNT": reverted_count,
+                "HARNESS_TEST_STATUS": "pass" if test_passed else "fail",
+                "HARNESS_PROJECT_ROOT": str(project_root),
+            },
+            prefix=PREFIX,
+        )
+
         if all_reverted:
             progress["termination"] = {
                 "reason": "all-reverted",
@@ -908,7 +986,20 @@ def _run_iteration_loop(
 
 
 def main(argv=None):
-    args = _build_argument_parser().parse_args(argv)
+    parser = _build_argument_parser()
+
+    # Pre-parse to discover --project-dir, then load config defaults
+    from harness_common.config import apply_config_defaults, load_project_config
+
+    pre_args, _ = parser.parse_known_args(argv)
+    config = load_project_config(
+        Path(pre_args.project_dir).resolve(), section="deep_mode"
+    )
+    if config:
+        apply_config_defaults(parser, config)
+        print(f"{PREFIX} Loaded config from .claude/harness.json")
+
+    args = parser.parse_args(argv)
 
     # Clamp iterations
     if args.max_iterations > MAX_ITERATIONS_HARD_CAP:
@@ -993,6 +1084,29 @@ def main(argv=None):
 
     _print_startup_info(args, progress)
 
+    # Dry-run: print what would be executed and exit
+    if args.dry_run:
+        from harness_common.constants import normalize_path
+
+        iteration = progress["iteration"]["current"]
+        max_iter = progress["config"]["max_iterations"]
+        progress_str = normalize_path(str(progress_path))
+        prompt = _build_prompt(
+            progress["skill"],
+            max_iter,
+            progress["scope_files"]["current"],
+            focus=progress["config"].get("focus", ""),
+        )
+        system = _build_harness_system(progress_str, iteration, max_iter)
+        cmd = build_claude_session_cmd(
+            prompt, system, args.allowed_tools, args.max_turns
+        )
+        print(f"{PREFIX} DRY RUN — would execute:")
+        print(f"{PREFIX}   Command: {' '.join(cmd)}")
+        print(f"{PREFIX}   Prompt:  {prompt}")
+        print(f"{PREFIX}   System:  {system}")
+        return 0
+
     # Main iteration loop
     try:
         _run_iteration_loop(
@@ -1009,6 +1123,12 @@ def main(argv=None):
 
     # Final report and cleanup
     print_report(progress)
+    if args.json_summary:
+        summary_path = Path(args.json_summary)
+        if not summary_path.is_absolute():
+            summary_path = project_root / summary_path
+        write_json_summary(progress, "deep-mode", summary_path)
+        print(f"{PREFIX} JSON summary written to {summary_path}")
     _archive_progress(progress_path)
     return 0
 

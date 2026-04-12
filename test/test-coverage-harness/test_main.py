@@ -782,6 +782,7 @@ class TestRunCycleLoop:
             timeout=900,
             allowed_tools=None,
             project_dir=".",
+            max_retries=1,
         )
         defaults.update(overrides)
         return SimpleNamespace(**defaults)

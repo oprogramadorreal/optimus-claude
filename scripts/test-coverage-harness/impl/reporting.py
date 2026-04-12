@@ -1,4 +1,5 @@
 from harness_common.git import git_current_branch
+from harness_common.progress import format_elapsed
 
 from .constants import FIXED_STATUSES, PREFIX
 
@@ -35,6 +36,9 @@ def print_report(progress, current_branch=None):
     if bugs:
         print(f"{PREFIX}   Bugs discovered:  {len(bugs)}")
     print(f"{PREFIX}   Final tests:      {last_test}")
+    total_time = progress.get("total_elapsed_seconds", 0)
+    if total_time > 0:
+        print(f"{PREFIX}   Total time:       {format_elapsed(total_time)}")
 
     termination = progress["termination"]
     if termination["reason"]:

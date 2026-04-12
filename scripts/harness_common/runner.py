@@ -1,6 +1,8 @@
+import random
 import shutil
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 from .constants import DEFAULT_TEST_TIMEOUT
@@ -80,6 +82,61 @@ def build_claude_session_cmd(prompt, harness_system, allowed_tools, max_turns):
         ]
     )
     return cmd
+
+
+def save_session_log(log_dir, log_name, stdout, stderr=""):
+    """Write session stdout/stderr to a log directory for post-mortem debugging.
+
+    No-op when ``log_dir`` is falsy. Creates the directory on first write.
+    """
+    if not log_dir:
+        return
+    log_path = Path(log_dir)
+    log_path.mkdir(parents=True, exist_ok=True)
+    if stdout:
+        (log_path / f"{log_name}.log").write_text(stdout, encoding="utf-8")
+    if stderr:
+        (log_path / f"{log_name}.stderr.log").write_text(stderr, encoding="utf-8")
+
+
+def retry_on_failure(
+    fn,
+    *,
+    max_retries=2,
+    base_delay=5.0,
+    jitter_fraction=0.25,
+    retryable_exceptions=(RuntimeError, subprocess.TimeoutExpired),
+    on_retry=None,
+    _sleep=None,
+    _random=None,
+):
+    """Call ``fn()`` with exponential backoff and jitter on retryable failures.
+
+    - ``max_retries``: total attempts = max_retries (so 2 means 1 original + 1 retry)
+    - ``base_delay``: initial delay in seconds before the first retry
+    - ``jitter_fraction``: randomize delay by ±this fraction (0.25 = ±25%)
+    - ``on_retry(attempt, exc, delay)``: optional callback before sleeping
+
+    Returns the result of ``fn()`` on success. Raises the last exception
+    if all attempts fail.
+    """
+    _sleep = _sleep or time.sleep
+    _rng = _random or random
+    last_exc = None
+    for attempt in range(max_retries):
+        try:
+            return fn()
+        except retryable_exceptions as exc:
+            last_exc = exc
+            if attempt + 1 >= max_retries:
+                raise
+            delay = base_delay * (2**attempt)
+            jitter = delay * _rng.uniform(-jitter_fraction, jitter_fraction)
+            delay = max(0, delay + jitter)
+            if on_retry:
+                on_retry(attempt, exc, delay)
+            _sleep(delay)
+    raise last_exc  # pragma: no cover — unreachable but satisfies type checkers
 
 
 def run_tests(test_command, cwd, timeout=DEFAULT_TEST_TIMEOUT, prefix="[harness]"):

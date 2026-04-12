@@ -8,6 +8,7 @@ from harness_common.git import git_rev_parse_head
 from harness_common.progress import (  # noqa: F401
     read_progress,
     record_test_result,
+    record_timing,
     write_progress,
 )
 
@@ -58,6 +59,8 @@ def make_initial_progress(
         "test_results": {"last_full_run": None, "last_run_output_summary": None},
         "iteration_history": [],
         "termination": {"reason": None, "message": None},
+        "timing": [],
+        "total_elapsed_seconds": 0,
     }
 
 
@@ -87,6 +90,9 @@ def migrate_progress(progress):
     if not isinstance(progress.get("scope_files"), dict):
         progress["scope_files"] = {}
     progress["scope_files"].setdefault("current", [])
+
+    progress.setdefault("timing", [])
+    progress.setdefault("total_elapsed_seconds", 0)
 
     # Old shape: raw --scope directory string stored as a file list. Clear
     # so _populate_branch_scope can rediscover real files via branch-diff.

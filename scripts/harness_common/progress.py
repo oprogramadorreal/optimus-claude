@@ -26,3 +26,23 @@ def record_test_result(progress, passed, summary):
     """
     progress["test_results"]["last_full_run"] = "pass" if passed else "fail"
     progress["test_results"]["last_run_output_summary"] = summary
+
+
+def record_timing(progress, label, elapsed_s):
+    """Append a timing entry and update the cumulative total.
+
+    Used by both harnesses to persist wall-clock seconds per
+    iteration/phase into the progress file.
+    """
+    progress.setdefault("timing", []).append({"label": label, "elapsed_s": elapsed_s})
+    progress["total_elapsed_seconds"] = (
+        progress.get("total_elapsed_seconds", 0) + elapsed_s
+    )
+
+
+def format_elapsed(total_seconds):
+    """Format seconds as 'Xm Ys' for human-readable display."""
+    minutes, seconds = divmod(int(total_seconds), 60)
+    if minutes > 0:
+        return f"{minutes}m {seconds}s"
+    return f"{seconds}s"

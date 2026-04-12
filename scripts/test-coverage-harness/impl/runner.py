@@ -1,7 +1,7 @@
 import subprocess
 
 from harness_common.constants import DEFAULT_TEST_TIMEOUT, normalize_path
-from harness_common.runner import build_claude_session_cmd
+from harness_common.runner import build_claude_session_cmd, save_session_log
 from harness_common.runner import run_tests as _shared_run_tests
 
 from .constants import PREFIX
@@ -90,6 +90,14 @@ def run_coverage_session(
         text=True,
         cwd=progress["config"]["project_root"],
         timeout=args.timeout,
+    )
+
+    log_dir = getattr(args, "log_dir", "")
+    save_session_log(
+        log_dir,
+        f"session-cycle{cycle}-{phase}",
+        result.stdout or "",
+        result.stderr or "",
     )
 
     if args.verbose:

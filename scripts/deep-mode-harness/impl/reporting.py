@@ -1,4 +1,5 @@
 from harness_common.git import git_current_branch
+from harness_common.progress import format_elapsed
 
 # Re-export shared function for backward compatibility
 from harness_common.reporting import detect_test_command  # noqa: F401
@@ -26,6 +27,9 @@ def print_report(progress, current_branch=None, _get_branch=None):
     print(f"{PREFIX}   Reverted:      {total_reverted}")
     print(f"{PREFIX}   Persistent:    {total_persistent}")
     print(f"{PREFIX}   Final tests:   {last_test}")
+    total_time = progress.get("total_elapsed_seconds", 0)
+    if total_time > 0:
+        print(f"{PREFIX}   Total time:    {format_elapsed(total_time)}")
 
     termination = progress["termination"]
     if termination["reason"]:

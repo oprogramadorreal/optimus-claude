@@ -1,7 +1,12 @@
 import subprocess
 from unittest.mock import MagicMock, patch
 
-from harness_common.runner import _find_bash, run_tests
+from harness_common.runner import (
+    _find_bash,
+    retry_on_failure,
+    run_tests,
+    save_session_log,
+)
 
 
 class TestFindBash:
@@ -225,3 +230,168 @@ class TestFindBashGitExecPath:
                 mock_path_cls.return_value = mock_instance
                 result = _find_bash()
         assert result == "bash"
+
+
+class TestSaveSessionLog:
+    def test_writes_stdout_log(self, tmp_path):
+        save_session_log(str(tmp_path), "session-iter1", "hello stdout")
+        log = tmp_path / "session-iter1.log"
+        assert log.exists()
+        assert log.read_text(encoding="utf-8") == "hello stdout"
+
+    def test_writes_stderr_log(self, tmp_path):
+        save_session_log(str(tmp_path), "session-iter1", "out", "err content")
+        stderr_log = tmp_path / "session-iter1.stderr.log"
+        assert stderr_log.exists()
+        assert stderr_log.read_text(encoding="utf-8") == "err content"
+
+    def test_no_stderr_file_when_empty(self, tmp_path):
+        save_session_log(str(tmp_path), "session-iter1", "out", "")
+        assert not (tmp_path / "session-iter1.stderr.log").exists()
+
+    def test_no_stdout_file_when_empty(self, tmp_path):
+        save_session_log(str(tmp_path), "session-iter1", "", "err")
+        assert not (tmp_path / "session-iter1.log").exists()
+        assert (tmp_path / "session-iter1.stderr.log").exists()
+
+    def test_noop_when_log_dir_falsy(self, tmp_path):
+        save_session_log("", "session-iter1", "data")
+        save_session_log(None, "session-iter1", "data")
+        # No files should be created anywhere
+
+    def test_creates_nested_dirs(self, tmp_path):
+        nested = tmp_path / "deep" / "nested"
+        save_session_log(str(nested), "test", "content")
+        assert (nested / "test.log").exists()
+
+
+class TestRetryOnFailure:
+    def _mock_rng(self):
+        rng = MagicMock()
+        rng.uniform.return_value = 0.0  # No jitter for deterministic tests
+        return rng
+
+    def test_success_on_first_attempt(self):
+        result = retry_on_failure(lambda: "ok", max_retries=3, _sleep=lambda _: None)
+        assert result == "ok"
+
+    def test_success_after_retry(self):
+        calls = {"count": 0}
+
+        def flaky():
+            calls["count"] += 1
+            if calls["count"] < 2:
+                raise RuntimeError("transient")
+            return "recovered"
+
+        result = retry_on_failure(
+            flaky, max_retries=3, _sleep=lambda _: None, _random=self._mock_rng()
+        )
+        assert result == "recovered"
+        assert calls["count"] == 2
+
+    def test_raises_after_max_retries(self):
+        import pytest
+
+        def always_fail():
+            raise RuntimeError("permanent")
+
+        with pytest.raises(RuntimeError, match="permanent"):
+            retry_on_failure(
+                always_fail,
+                max_retries=2,
+                _sleep=lambda _: None,
+                _random=self._mock_rng(),
+            )
+
+    def test_exponential_backoff_delays(self):
+        delays = []
+
+        def always_fail():
+            raise RuntimeError("fail")
+
+        try:
+            retry_on_failure(
+                always_fail,
+                max_retries=3,
+                base_delay=10.0,
+                jitter_fraction=0.0,
+                _sleep=lambda d: delays.append(d),
+                _random=self._mock_rng(),
+            )
+        except RuntimeError:
+            pass
+        # 2 retries before the final raise: delays for attempt 0 and 1
+        assert len(delays) == 2
+        assert delays[0] == 10.0  # 10 * 2^0
+        assert delays[1] == 20.0  # 10 * 2^1
+
+    def test_on_retry_callback(self):
+        callbacks = []
+
+        def always_fail():
+            raise RuntimeError("fail")
+
+        def on_retry(attempt, exc, delay):
+            callbacks.append((attempt, str(exc), delay))
+
+        try:
+            retry_on_failure(
+                always_fail,
+                max_retries=2,
+                base_delay=5.0,
+                on_retry=on_retry,
+                _sleep=lambda _: None,
+                _random=self._mock_rng(),
+            )
+        except RuntimeError:
+            pass
+        assert len(callbacks) == 1
+        assert callbacks[0][0] == 0
+        assert "fail" in callbacks[0][1]
+
+    def test_non_retryable_exception_propagates(self):
+        import pytest
+
+        def raise_value_error():
+            raise ValueError("not retryable")
+
+        with pytest.raises(ValueError, match="not retryable"):
+            retry_on_failure(
+                raise_value_error,
+                max_retries=3,
+                _sleep=lambda _: None,
+            )
+
+    def test_jitter_applied(self):
+        delays = []
+        rng = MagicMock()
+        rng.uniform.return_value = 0.1  # +10% of delay
+
+        def always_fail():
+            raise RuntimeError("fail")
+
+        try:
+            retry_on_failure(
+                always_fail,
+                max_retries=2,
+                base_delay=10.0,
+                jitter_fraction=0.25,
+                _sleep=lambda d: delays.append(d),
+                _random=rng,
+            )
+        except RuntimeError:
+            pass
+        # delay = 10.0 * 2^0 = 10.0, jitter = 10.0 * 0.1 = 1.0, total = 11.0
+        assert len(delays) == 1
+        assert delays[0] == 11.0
+
+    def test_no_sleep_on_first_attempt_success(self):
+        sleep_calls = []
+        result = retry_on_failure(
+            lambda: "fast",
+            max_retries=3,
+            _sleep=lambda d: sleep_calls.append(d),
+        )
+        assert result == "fast"
+        assert len(sleep_calls) == 0

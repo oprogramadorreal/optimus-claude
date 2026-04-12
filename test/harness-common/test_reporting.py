@@ -1,4 +1,10 @@
-from harness_common.reporting import detect_test_command
+import json
+
+from harness_common.reporting import (
+    build_json_summary,
+    detect_test_command,
+    write_json_summary,
+)
 
 
 class TestDetectTestCommand:
@@ -37,3 +43,86 @@ class TestDetectTestCommand:
         content = "test command: `go test ./...`\n"
         result = detect_test_command("/nonexistent/path", content=content)
         assert result == "go test ./..."
+
+
+class TestBuildJsonSummary:
+    def _deep_mode_progress(self):
+        return {
+            "skill": "code-review",
+            "iteration": {"current": 3, "completed": 3},
+            "findings": [
+                {"status": "fixed"},
+                {"status": "fixed"},
+                {"status": "reverted — test failure"},
+                {"status": "persistent — fix failed"},
+            ],
+            "test_results": {"last_full_run": "pass"},
+            "termination": {"reason": "convergence", "message": "zero findings"},
+            "total_elapsed_seconds": 300,
+        }
+
+    def _coverage_progress(self):
+        return {
+            "cycle": {"current": 2, "completed": 2},
+            "coverage": {"baseline": 40, "current": 65},
+            "tests_created": [
+                {"test_count": 3, "cycle": 1},
+                {"test_count": 5, "cycle": 2},
+            ],
+            "refactor_findings": [
+                {"status": "fixed"},
+                {"status": "reverted — test failure"},
+            ],
+            "test_results": {"last_full_run": "pass"},
+            "termination": {"reason": "cap", "message": "cycle cap"},
+            "total_elapsed_seconds": 600,
+        }
+
+    def test_deep_mode_summary(self):
+        summary = build_json_summary(self._deep_mode_progress(), "deep-mode")
+        assert summary["harness"] == "deep-mode"
+        assert summary["skill"] == "code-review"
+        assert summary["iterations_completed"] == 3
+        assert summary["findings"]["fixed"] == 2
+        assert summary["findings"]["reverted"] == 1
+        assert summary["findings"]["persistent"] == 1
+        assert summary["test_status"] == "pass"
+        assert summary["total_elapsed_seconds"] == 300
+
+    def test_coverage_summary(self):
+        summary = build_json_summary(self._coverage_progress(), "test-coverage")
+        assert summary["harness"] == "test-coverage"
+        assert summary["cycles_completed"] == 2
+        assert summary["coverage"] == {"baseline": 40, "current": 65}
+        assert summary["tests_created"] == 8
+        assert summary["testability_fixes"] == 1
+        assert summary["total_elapsed_seconds"] == 600
+
+    def test_empty_progress(self):
+        summary = build_json_summary({}, "deep-mode")
+        assert summary["harness"] == "deep-mode"
+        assert summary["skill"] == "unknown"
+        assert summary["iterations_completed"] == 0
+        assert summary["findings"]["fixed"] == 0
+
+
+class TestWriteJsonSummary:
+    def test_writes_valid_json(self, tmp_path):
+        progress = {
+            "skill": "refactor",
+            "iteration": {"completed": 1},
+            "findings": [],
+            "test_results": {"last_full_run": "pass"},
+            "termination": {"reason": None, "message": None},
+            "total_elapsed_seconds": 0,
+        }
+        path = tmp_path / "summary.json"
+        write_json_summary(progress, "deep-mode", path)
+        assert path.exists()
+        data = json.loads(path.read_text(encoding="utf-8"))
+        assert data["harness"] == "deep-mode"
+
+    def test_creates_parent_dirs(self, tmp_path):
+        path = tmp_path / "nested" / "dir" / "summary.json"
+        write_json_summary({}, "test-coverage", path)
+        assert path.exists()

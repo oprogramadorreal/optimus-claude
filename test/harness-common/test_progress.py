@@ -1,7 +1,12 @@
 import json
 
 from harness_common.constants import BACKUP_SUFFIX
-from harness_common.progress import read_progress, write_progress
+from harness_common.progress import (
+    format_elapsed,
+    read_progress,
+    record_timing,
+    write_progress,
+)
 
 
 class TestWriteProgress:
@@ -51,3 +56,53 @@ class TestReadProgress:
         path = tmp_path / "progress.json"
         path.write_text('{"key": "value"}', encoding="utf-8")
         assert read_progress(path) == {"key": "value"}
+
+
+class TestRecordTiming:
+    def test_appends_entry(self):
+        progress = {"timing": [], "total_elapsed_seconds": 0}
+        record_timing(progress, "iteration-1", 42)
+        assert progress["timing"] == [{"label": "iteration-1", "elapsed_s": 42}]
+        assert progress["total_elapsed_seconds"] == 42
+
+    def test_accumulates_total(self):
+        progress = {"timing": [], "total_elapsed_seconds": 0}
+        record_timing(progress, "iteration-1", 100)
+        record_timing(progress, "iteration-2", 50)
+        assert len(progress["timing"]) == 2
+        assert progress["total_elapsed_seconds"] == 150
+
+    def test_initializes_missing_keys(self):
+        progress = {}
+        record_timing(progress, "iteration-1", 30)
+        assert progress["timing"] == [{"label": "iteration-1", "elapsed_s": 30}]
+        assert progress["total_elapsed_seconds"] == 30
+
+    def test_handles_existing_total(self):
+        progress = {
+            "timing": [{"label": "old", "elapsed_s": 10}],
+            "total_elapsed_seconds": 10,
+        }
+        record_timing(progress, "new", 20)
+        assert progress["total_elapsed_seconds"] == 30
+        assert len(progress["timing"]) == 2
+
+
+class TestFormatElapsed:
+    def test_seconds_only(self):
+        assert format_elapsed(45) == "45s"
+
+    def test_minutes_and_seconds(self):
+        assert format_elapsed(125) == "2m 5s"
+
+    def test_zero(self):
+        assert format_elapsed(0) == "0s"
+
+    def test_exact_minute(self):
+        assert format_elapsed(60) == "1m 0s"
+
+    def test_large_value(self):
+        assert format_elapsed(3661) == "61m 1s"
+
+    def test_float_truncated(self):
+        assert format_elapsed(45.7) == "45s"

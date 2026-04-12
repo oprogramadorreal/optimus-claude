@@ -1,3 +1,4 @@
+import json
 import re
 from pathlib import Path
 
@@ -40,3 +41,61 @@ def detect_test_command(project_root, content=None):
                 return re.sub(r"\s+#\s.*$", "", line)
 
     return None
+
+
+def build_json_summary(progress, harness_type):
+    """Build a clean JSON-serializable summary dict from a progress structure.
+
+    Provides a stable, documented schema for CI/CD integration. The full
+    progress file (``.done.json``) is an internal format; this summary
+    exposes only the fields external tools should depend on.
+    """
+    summary = {
+        "harness": harness_type,
+        "total_elapsed_seconds": progress.get("total_elapsed_seconds", 0),
+        "test_status": progress.get("test_results", {}).get("last_full_run"),
+        "termination": progress.get("termination", {"reason": None, "message": None}),
+    }
+
+    if harness_type == "deep-mode":
+        summary["skill"] = progress.get("skill", "unknown")
+        summary["iterations_completed"] = progress.get("iteration", {}).get(
+            "completed", 0
+        )
+        findings = progress.get("findings", [])
+        summary["findings"] = {
+            "fixed": sum(
+                1
+                for f in findings
+                if f.get("status") in ("fixed", "retained — revert failed")
+            ),
+            "reverted": sum(1 for f in findings if "reverted" in f.get("status", "")),
+            "persistent": sum(
+                1 for f in findings if f.get("status") == "persistent — fix failed"
+            ),
+        }
+    else:
+        summary["cycles_completed"] = progress.get("cycle", {}).get("completed", 0)
+        coverage = progress.get("coverage", {})
+        summary["coverage"] = {
+            "baseline": coverage.get("baseline"),
+            "current": coverage.get("current"),
+        }
+        tests_created = progress.get("tests_created", [])
+        summary["tests_created"] = sum(t.get("test_count", 0) for t in tests_created)
+        refactor_findings = progress.get("refactor_findings", [])
+        summary["testability_fixes"] = sum(
+            1
+            for f in refactor_findings
+            if f.get("status") in ("fixed", "retained — revert failed")
+        )
+
+    return summary
+
+
+def write_json_summary(progress, harness_type, path):
+    """Write a JSON summary file. Creates parent directories if needed."""
+    summary = build_json_summary(progress, harness_type)
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")

@@ -1,7 +1,7 @@
 import subprocess
 
 # Import shared run_tests and wrap to inject deep-mode prefix
-from harness_common.runner import build_claude_session_cmd
+from harness_common.runner import build_claude_session_cmd, save_session_log
 from harness_common.runner import run_tests as _shared_run_tests
 
 from .constants import DEFAULT_TEST_TIMEOUT, PREFIX, VALID_FOCUS_MODES, normalize_path
@@ -73,6 +73,11 @@ def run_skill_session(progress, args, resolved_progress_path, _run=subprocess.ru
         text=True,
         cwd=progress["config"]["project_root"],
         timeout=args.timeout,
+    )
+
+    log_dir = getattr(args, "log_dir", "")
+    save_session_log(
+        log_dir, f"session-iter{iteration}", result.stdout or "", result.stderr or ""
     )
 
     if args.verbose:
