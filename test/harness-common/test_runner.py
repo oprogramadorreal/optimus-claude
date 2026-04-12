@@ -1,7 +1,7 @@
 import subprocess
 from unittest.mock import MagicMock, patch
 
-from harness_common.runner import _find_bash, run_tests
+from harness_common.runner import _find_bash, extract_test_summary, run_tests
 
 
 class TestFindBash:
@@ -225,3 +225,68 @@ class TestFindBashGitExecPath:
                 mock_path_cls.return_value = mock_instance
                 result = _find_bash()
         assert result == "bash"
+
+
+class TestExtractTestSummary:
+    def test_empty_output(self):
+        assert extract_test_summary("") == ""
+        assert extract_test_summary(None) == ""
+
+    def test_pytest_summary(self):
+        output = (
+            "test_app.py::test_login PASSED\n"
+            "test_app.py::test_logout FAILED\n"
+            "FAILED test_app.py::test_logout - AssertionError: expected 200\n"
+            "======= 1 failed, 1 passed in 0.5s ======="
+        )
+        summary = extract_test_summary(output)
+        assert "1 failed, 1 passed" in summary
+        assert "First failure:" in summary
+        assert "test_logout" in summary
+
+    def test_pytest_all_pass(self):
+        output = "test_app.py::test_login PASSED\n======= 1 passed in 0.1s ======="
+        summary = extract_test_summary(output)
+        assert "1 passed" in summary
+        assert "First failure:" not in summary
+
+    def test_jest_summary(self):
+        output = (
+            "PASS src/app.test.js\n"
+            "FAIL src/auth.test.js\n"
+            "Test Suites: 1 failed, 1 passed, 2 total\n"
+            "Tests:       1 failed, 5 passed, 6 total\n"
+            "Time:        2.3s\n"
+        )
+        summary = extract_test_summary(output)
+        assert "Tests:" in summary
+
+    def test_go_test_failure(self):
+        output = (
+            "--- FAIL: TestLogin (0.01s)\n"
+            "    auth_test.go:15: expected true, got false\n"
+            "FAIL\tgithub.com/user/pkg\t0.02s\n"
+        )
+        summary = extract_test_summary(output)
+        assert "TestLogin" in summary
+        assert "FAIL\t" in summary
+
+    def test_cargo_test_failure(self):
+        output = (
+            "running 3 tests\n"
+            "test tests::test_add ... ok\n"
+            "test tests::test_sub ... FAILED\n"
+            "failures:\n"
+            "    tests::test_sub\n"
+            "test result: FAILED. 1 passed; 1 failed;\n"
+        )
+        summary = extract_test_summary(output)
+        assert "FAILED" in summary
+
+    def test_fallback_uses_last_10_lines(self):
+        lines = [f"line {i}" for i in range(20)]
+        output = "\n".join(lines)
+        summary = extract_test_summary(output)
+        assert "line 10" in summary
+        assert "line 19" in summary
+        assert "line 9" not in summary

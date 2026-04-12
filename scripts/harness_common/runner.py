@@ -1,3 +1,4 @@
+import re
 import shutil
 import subprocess
 import sys
@@ -129,7 +130,88 @@ def run_tests(test_command, cwd, timeout=DEFAULT_TEST_TIMEOUT, prefix="[harness]
         return False, summary
     passed = result.returncode == 0
     combined = "\n".join(filter(None, [result.stdout, result.stderr])).strip()
-    summary = "\n".join(combined.split("\n")[-5:])
+    summary = extract_test_summary(combined)
     status = "PASS" if passed else "FAIL"
     print(f"{prefix} Tests: {status}")
     return passed, summary
+
+
+# ---------------------------------------------------------------------------
+# Framework-aware test output extraction
+# ---------------------------------------------------------------------------
+
+# Patterns for summary lines emitted by common test frameworks.
+_PYTEST_SUMMARY = re.compile(
+    r"^[=]+ .*(passed|failed|error|warnings?).*[=]+\s*$", re.MULTILINE
+)
+_PYTEST_FAILURE = re.compile(r"^FAILED (.+?)(?:\s*-\s*(.+))?$", re.MULTILINE)
+_JEST_SUMMARY = re.compile(
+    r"^Tests?:\s+\d+.*(?:passed|failed)", re.MULTILINE | re.IGNORECASE
+)
+_GO_FAIL = re.compile(r"^--- FAIL:\s+(.+)", re.MULTILINE)
+_CARGO_FAIL = re.compile(r"^test result: FAILED", re.MULTILINE)
+
+_FALLBACK_TAIL_LINES = 10
+
+
+def extract_test_summary(raw_output):
+    """Extract a compact, diagnostic test summary from raw test output.
+
+    Tries framework-specific heuristics (pytest, jest, go test, cargo test)
+    to capture the summary line and first failure assertion.  Falls back to
+    the last 10 lines for unknown frameworks.
+
+    Returns a string suitable for storage in ``last_run_output_summary``.
+    """
+    if not raw_output:
+        return ""
+
+    lines = raw_output.split("\n")
+
+    # --- pytest ---
+    match = _PYTEST_SUMMARY.search(raw_output)
+    if match:
+        parts = [match.group(0).strip()]
+        # Grab the first FAILED line for diagnostic context
+        fail = _PYTEST_FAILURE.search(raw_output)
+        if fail:
+            parts.append(f"First failure: {fail.group(0).strip()}")
+        return "\n".join(parts)
+
+    # --- jest ---
+    match = _JEST_SUMMARY.search(raw_output)
+    if match:
+        # Collect all "Tests:" and "Test Suites:" lines near the summary
+        summary_lines = [
+            line.strip()
+            for line in lines
+            if re.match(r"^\s*(Tests?|Test Suites?):", line, re.IGNORECASE)
+        ]
+        return "\n".join(summary_lines) if summary_lines else match.group(0).strip()
+
+    # --- go test ---
+    match = _GO_FAIL.search(raw_output)
+    if match:
+        parts = [f"First failure: {match.group(0).strip()}"]
+        # Look for FAIL line with package
+        for line in lines:
+            if line.startswith("FAIL\t"):
+                parts.append(line.strip())
+                break
+        return "\n".join(parts)
+
+    # --- cargo test ---
+    match = _CARGO_FAIL.search(raw_output)
+    if match:
+        parts = [match.group(0).strip()]
+        # Look for "failures:" section entries
+        for line in lines:
+            stripped = line.strip()
+            if stripped.startswith("failures:"):
+                parts.append(stripped)
+                break
+        return "\n".join(parts)
+
+    # --- fallback: last N lines ---
+    tail = lines[-_FALLBACK_TAIL_LINES:]
+    return "\n".join(tail).strip()

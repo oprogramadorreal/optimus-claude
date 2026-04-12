@@ -64,8 +64,18 @@ class TestBuildRefactorPrompt:
 
 
 class TestBuildHarnessSystem:
+    def _make_progress(self, untestable=None):
+        return {
+            "coverage": {"baseline": None, "current": None, "history": []},
+            "tests_created": [],
+            "untestable_code": untestable or [],
+            "test_results": {"last_full_run": None, "last_run_output_summary": ""},
+        }
+
     def test_unit_test_phase(self):
-        result = _build_harness_system("/tmp/progress.json", 2, 5, "unit-test")
+        result = _build_harness_system(
+            "/tmp/progress.json", 2, 5, "unit-test", self._make_progress()
+        )
         assert "HARNESS_MODE_ACTIVE" in result
         assert "test-coverage harness" in result
         assert "cycle 2 of 5" in result
@@ -74,11 +84,20 @@ class TestBuildHarnessSystem:
         assert "Do NOT run tests" not in result
 
     def test_refactor_phase(self):
-        result = _build_harness_system("/tmp/progress.json", 1, 3, "refactor")
+        result = _build_harness_system(
+            "/tmp/progress.json", 1, 3, "refactor", self._make_progress()
+        )
         assert "HARNESS_MODE_ACTIVE" in result
         assert "phase: refactor" in result
         assert "Do NOT run tests" in result
         assert "testability barriers" in result
+
+    def test_includes_digest_and_coaching(self):
+        result = _build_harness_system(
+            "/tmp/progress.json", 1, 5, "unit-test", self._make_progress()
+        )
+        assert "Progress Digest" in result
+        assert "Guidance" in result
 
 
 class TestBuildCmd:

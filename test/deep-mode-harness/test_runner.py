@@ -226,13 +226,29 @@ class TestBuildPrompt:
 
 
 class TestBuildHarnessSystem:
+    def _make_progress(self, findings=None):
+        return {
+            "findings": findings or [],
+            "scope_files": {"current": ["src/a.py"]},
+            "test_results": {"last_full_run": None, "last_run_output_summary": ""},
+        }
+
     def test_contains_required_fields(self):
-        result = _build_harness_system("/tmp/progress.json", 3, 8)
+        result = _build_harness_system(
+            "/tmp/progress.json", 3, 8, self._make_progress()
+        )
         assert "HARNESS_MODE_ACTIVE" in result
         assert "/tmp/progress.json" in result
         assert "iteration 3 of 8" in result
         assert "AskUserQuestion" in result
         assert "json:harness-output" in result
+
+    def test_includes_digest_and_coaching(self):
+        result = _build_harness_system(
+            "/tmp/progress.json", 1, 8, self._make_progress()
+        )
+        assert "Progress Digest" in result
+        assert "Guidance" in result
 
 
 class TestBuildCmd:

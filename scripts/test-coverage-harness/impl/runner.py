@@ -1,6 +1,7 @@
 import subprocess
 
 from harness_common.constants import DEFAULT_TEST_TIMEOUT, normalize_path
+from harness_common.digest import build_coverage_coaching, build_coverage_digest
 from harness_common.runner import build_claude_session_cmd
 from harness_common.runner import run_tests as _shared_run_tests
 
@@ -41,9 +42,9 @@ def _build_refactor_prompt(max_cycles, untestable_items):
     return prompt
 
 
-def _build_harness_system(progress_path, cycle, max_cycles, phase):
+def _build_harness_system(progress_path, cycle, max_cycles, phase, progress):
     """Build the harness-mode system prompt for the coverage harness."""
-    return (
+    base = (
         f"HARNESS_MODE_ACTIVE: You are running inside the test-coverage harness. "
         f"Progress file: {progress_path}\n"
         f"This is cycle {cycle} of {max_cycles}, phase: {phase}. "
@@ -57,6 +58,11 @@ def _build_harness_system(progress_path, cycle, max_cycles, phase):
             "Write tests, measure coverage, report untestable code. "
         )
         + "Output structured JSON in a ```json:harness-output block and stop."
+    )
+    digest = build_coverage_digest(progress, cycle, phase)
+    coaching = build_coverage_coaching(progress, cycle, phase)
+    return (
+        f"{base}\n\n--- Progress Digest ---\n{digest}\n\n--- Guidance ---\n{coaching}"
     )
 
 
@@ -76,7 +82,9 @@ def run_coverage_session(
     else:
         prompt = _build_refactor_prompt(max_cycles, progress.get("untestable_code", []))
 
-    harness_system = _build_harness_system(progress_path, cycle, max_cycles, phase)
+    harness_system = _build_harness_system(
+        progress_path, cycle, max_cycles, phase, progress
+    )
     cmd = build_claude_session_cmd(
         prompt, harness_system, args.allowed_tools, args.max_turns
     )

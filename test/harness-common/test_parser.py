@@ -44,3 +44,24 @@ class TestParseHarnessOutput:
     def test_envelope_without_result_key(self):
         envelope = json.dumps({"data": "something"})
         assert parse_harness_output(envelope) is None
+
+    def test_schema_validation_fills_defaults(self):
+        raw = '```json:harness-output\n{"iteration": 1}\n```'
+        result = parse_harness_output(raw, harness_type="deep-mode")
+        # Schema validation should have filled defaults
+        assert result["new_findings"] == []
+        assert result["fixes_applied"] == []
+        assert result["no_new_findings"] is False
+        assert result["no_actionable_fixes"] is False
+
+    def test_schema_validation_skipped_when_no_type(self):
+        raw = '```json:harness-output\n{"iteration": 1}\n```'
+        result = parse_harness_output(raw)
+        # Without harness_type, no defaults are filled
+        assert "new_findings" not in result
+
+    def test_schema_validation_logs_warnings(self, capsys):
+        raw = '```json:harness-output\n{"no_new_findings": true}\n```'
+        parse_harness_output(raw, harness_type="deep-mode")
+        output = capsys.readouterr().out
+        assert "Contract warning" in output
