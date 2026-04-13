@@ -96,7 +96,32 @@ else
   echo "  SKIP  plugin.json checks (jq not installed)"
 fi
 
-# --- 6. No hardcoded /tmp in SKILL.md ---
+# --- 6. Version bump check (PR branches only) ---
+echo "[Version bump]"
+if ! git rev-parse --verify origin/master &>/dev/null; then
+  echo "  SKIP  Version bump check (origin/master not available)"
+elif ! command -v jq &>/dev/null; then
+  echo "  SKIP  Version bump check (jq not installed)"
+else
+  head_commit=$(git rev-parse HEAD 2>/dev/null)
+  master_commit=$(git rev-parse origin/master 2>/dev/null)
+  if [ "$head_commit" = "$master_commit" ]; then
+    echo "  SKIP  Version bump check (on master)"
+  else
+    master_ver=$(MSYS_NO_PATHCONV=1 git show origin/master:.claude-plugin/plugin.json 2>/dev/null | jq -r '.version' 2>/dev/null || echo "")
+    current_ver=$(jq -r '.version' .claude-plugin/plugin.json 2>/dev/null || echo "")
+    if [ -n "$master_ver" ] && [ -n "$current_ver" ]; then
+      check "plugin.json version bumped (master: $master_ver, current: $current_ver)" \
+        test "$current_ver" != "$master_ver"
+      check "README.md version badge matches plugin.json ($current_ver)" \
+        grep -qF "version-${current_ver}-blue" README.md
+    else
+      echo "  SKIP  Version bump check (could not extract versions)"
+    fi
+  fi
+fi
+
+# --- 7. No hardcoded /tmp in SKILL.md ---
 echo "[Portability]"
 tmp_hits=$(grep -rn 'mktemp /tmp/' skills/*/SKILL.md 2>/dev/null || true)
 check "No hardcoded mktemp /tmp/ in skills" test -z "$tmp_hits"
@@ -104,7 +129,7 @@ if [ -n "$tmp_hits" ]; then
   printf "       Hardcoded /tmp:\n%s\n" "$tmp_hits"
 fi
 
-# --- 7. Cross-reference integrity ---
+# --- 8. Cross-reference integrity ---
 # Every $CLAUDE_PLUGIN_ROOT/... path in skill files must point to an existing file.
 echo "[Cross-references]"
 broken_refs=""
@@ -123,7 +148,7 @@ if [ -n "$broken_refs" ]; then
   printf "       Broken references:\n%b" "$broken_refs"
 fi
 
-# --- 8. Orphan detection ---
+# --- 9. Orphan detection ---
 # Every file in references/, templates/, and agents/ should be referenced by at least one skill file.
 echo "[Orphan detection]"
 orphan_files=""
@@ -152,7 +177,7 @@ if [ -n "$orphan_files" ]; then
   printf "       Unreferenced files:\n%b" "$orphan_files"
 fi
 
-# --- 9. Template script syntax ---
+# --- 10. Template script syntax ---
 echo "[Template syntax]"
 syntax_errors=""
 
@@ -204,7 +229,7 @@ if [ -n "$syntax_errors" ]; then
   printf "       Syntax errors:\n%b" "$syntax_errors"
 fi
 
-# --- 10. JSON template validity ---
+# --- 11. JSON template validity ---
 echo "[JSON templates]"
 if command -v jq &>/dev/null; then
   json_errors=""
@@ -225,7 +250,7 @@ else
   echo "  SKIP  JSON template checks (jq not installed)"
 fi
 
-# --- 11. Skill directory completeness ---
+# --- 12. Skill directory completeness ---
 echo "[Skill completeness]"
 missing_files=""
 for skill_dir in ./skills/*/; do
@@ -242,7 +267,7 @@ if [ -n "$missing_files" ]; then
   printf "       Missing files:\n%b" "$missing_files"
 fi
 
-# --- 12. README skill list vs actual skills/ directories ---
+# --- 13. README skill list vs actual skills/ directories ---
 echo "[README consistency]"
 readme_mismatch=""
 # Get actual skill names from directories
@@ -261,7 +286,7 @@ if [ -n "$readme_mismatch" ]; then
   printf "       Missing from README:\n%b" "$readme_mismatch"
 fi
 
-# --- 13. hooks.json validity ---
+# --- 14. hooks.json validity ---
 echo "[Plugin hooks]"
 if command -v jq &>/dev/null; then
   check "hooks.json is valid JSON" jq empty hooks/hooks.json
@@ -282,7 +307,7 @@ else
   echo "  SKIP  hooks.json checks (jq not installed)"
 fi
 
-# --- 14. Plugin-level agents ---
+# --- 15. Plugin-level agents ---
 echo "[Plugin agents]"
 agent_issues=""
 for agent_file in agents/code-simplifier.md agents/test-guardian.md; do
@@ -307,7 +332,7 @@ if [ -n "$agent_issues" ]; then
   printf "       Issues:\n%b" "$agent_issues"
 fi
 
-# --- 15. Reference depth check (max 2 levels from SKILL.md) ---
+# --- 16. Reference depth check (max 2 levels from SKILL.md) ---
 echo "[Reference depth]"
 deep_refs=""
 # For each reference file that is loaded by a SKILL.md, check if it loads further

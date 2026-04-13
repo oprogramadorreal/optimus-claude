@@ -15,9 +15,24 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
+SKILL_AUTHORING_SECTIONS = (
+    "Skill Organization",
+    "Agent Boundaries",
+    "Reference Hierarchy",
+    "Orchestration Patterns",
+)
+
 
 def _read(rel):
     return (REPO_ROOT / rel).read_text(encoding="utf-8")
+
+
+def _extract_h2_headings(markdown_text):
+    return [
+        line.removeprefix("## ").strip()
+        for line in markdown_text.splitlines()
+        if line.startswith("## ")
+    ]
 
 
 class TestConstraintDocLoadingSkillAuthoring:
@@ -383,11 +398,7 @@ class TestResetSkillAuthoringAwareness:
         # section headings — drift would cause misclassification.
         reset = _read("skills/reset/SKILL.md")
         template = _read("skills/init/templates/docs/skill-writing-guidelines.md")
-        headings = [
-            line.lstrip("# ").strip()
-            for line in template.splitlines()
-            if line.startswith("## ")
-        ]
+        headings = _extract_h2_headings(template)
         for h in headings:
             assert h in reset, f"reset fingerprint missing heading: {h}"
 
@@ -503,3 +514,304 @@ class TestTestGuardianDirectoryScope:
         skip_text = " ".join(skip_lines)
         for d in ("skills/", "agents/", "prompts/", "commands/", "instructions/"):
             assert d in skip_text, f"skip rule must be scoped to {d}"
+
+
+class TestArchitectureSkillAuthoringTemplate:
+    """Guard the skill-authoring architecture.md template variant.
+
+    Skill-authoring projects have architecture (skill directories, shared
+    references, agent definitions, hook pipelines) that is structurally
+    different from code architecture (no controllers/services/repositories).
+    The skill-authoring template must cover these dimensions.
+    """
+
+    _TEMPLATE_PATH = "skills/init/templates/docs/architecture-skill-authoring.md"
+
+    def test_template_file_exists(self):
+        path = REPO_ROOT / self._TEMPLATE_PATH
+        assert path.exists(), "architecture-skill-authoring.md template must exist"
+
+    def test_template_first_line_matches_reset_fingerprint(self):
+        text = _read(self._TEMPLATE_PATH)
+        first_line = text.splitlines()[0]
+        assert (
+            first_line == "# Architecture"
+        ), f"template first line must be '# Architecture' for reset fingerprinting, got: {first_line}"
+
+    def test_template_covers_skill_authoring_sections(self):
+        text = _read(self._TEMPLATE_PATH)
+        for section in SKILL_AUTHORING_SECTIONS:
+            assert section in text, f"template must cover {section}"
+
+    def test_template_has_shared_headings_for_reset_fingerprint(self):
+        text = _read(self._TEMPLATE_PATH)
+        assert (
+            "## Overview" in text
+        ), "template must have Overview heading for reset fingerprinting"
+        assert (
+            "## Directory Map" in text
+        ), "template must have Directory Map heading for reset fingerprinting"
+
+    def test_template_has_placeholder_pattern(self):
+        text = _read(self._TEMPLATE_PATH)
+        assert (
+            "[dir]" in text
+        ), "template must contain placeholder brackets (e.g. [dir])"
+
+
+class TestArchitectureHybridTemplate:
+    """Guard the hybrid architecture.md template for projects with both
+    code and skill-authoring components (like optimus-claude itself).
+    """
+
+    _TEMPLATE_PATH = "skills/init/templates/docs/architecture-hybrid.md"
+
+    def test_template_file_exists(self):
+        path = REPO_ROOT / self._TEMPLATE_PATH
+        assert path.exists(), "architecture-hybrid.md template must exist"
+
+    def test_template_first_line_matches_reset_fingerprint(self):
+        text = _read(self._TEMPLATE_PATH)
+        first_line = text.splitlines()[0]
+        assert (
+            first_line == "# Architecture"
+        ), f"template first line must be '# Architecture' for reset fingerprinting, got: {first_line}"
+
+    def test_template_has_shared_headings_for_reset_fingerprint(self):
+        text = _read(self._TEMPLATE_PATH)
+        assert (
+            "## Overview" in text
+        ), "hybrid template must have Overview heading for reset fingerprinting"
+        assert (
+            "## Directory Map" in text
+        ), "hybrid template must have Directory Map heading for reset fingerprinting"
+
+    def test_template_has_both_architecture_sections(self):
+        text = _read(self._TEMPLATE_PATH)
+        assert (
+            "## Code Architecture" in text
+        ), "hybrid template must have Code Architecture section"
+        assert (
+            "## Skill Architecture" in text
+        ), "hybrid template must have Skill Architecture section"
+
+    def test_skill_subsections_use_h3_not_h2(self):
+        text = _read(self._TEMPLATE_PATH)
+        skill_section = text.split("## Skill Architecture", 1)[1]
+        for heading in SKILL_AUTHORING_SECTIONS:
+            assert f"### {heading}" in skill_section, (
+                f"hybrid template must use ### (not ##) for {heading} — "
+                "## would collide with skill-authoring template's fingerprint headings"
+            )
+
+    def test_template_code_section_covers_code_patterns(self):
+        text = _read(self._TEMPLATE_PATH)
+        code_section = text.split("## Code Architecture", 1)[1].split(
+            "## Skill Architecture", 1
+        )[0]
+        for subsection in ("Data Flow", "Key Patterns", "Dependencies Between Modules"):
+            assert (
+                subsection in code_section
+            ), f"Code Architecture must cover {subsection}"
+
+    def test_template_skill_section_covers_skill_patterns(self):
+        text = _read(self._TEMPLATE_PATH)
+        skill_section = text.split("## Skill Architecture", 1)[1]
+        for subsection in SKILL_AUTHORING_SECTIONS:
+            assert (
+                subsection in skill_section
+            ), f"Skill Architecture must cover {subsection}"
+
+    def test_template_has_placeholder_pattern(self):
+        text = _read(self._TEMPLATE_PATH)
+        assert (
+            "[dir]" in text
+        ), "hybrid template must contain placeholder brackets (e.g. [dir])"
+
+
+class TestInitArchitectureDetectionIncludesSkillAuthoring:
+    """Guard the expanded architecture.md trigger that includes
+    skill-authoring detection, and the template selection logic.
+    """
+
+    def test_architecture_trigger_includes_skill_authoring(self):
+        text = _read("skills/init/SKILL.md")
+        # Scope to Step 6 so we're checking the detection table, not a stray match
+        step_6 = text.split("## Step 6: Create Documentation Files", 1)[1]
+        step_6 = step_6.split("## Step 6b", 1)[0]
+        # The architecture.md row must include skill authoring as a trigger
+        arch_row = [
+            line
+            for line in step_6.splitlines()
+            if "architecture.md" in line.lower() and "|" in line
+        ]
+        assert arch_row, "Step 6 table must have an architecture.md row"
+        assert (
+            "skill authoring detected" in arch_row[0].lower()
+        ), "architecture.md trigger must include skill authoring detection"
+
+    def test_template_selection_paragraph_exists(self):
+        text = _read("skills/init/SKILL.md")
+        assert "architecture.md` template selection:" in text
+
+    def test_template_selection_references_all_variants(self):
+        text = _read("skills/init/SKILL.md")
+        selection = text.split("architecture.md` template selection:", 1)[1]
+        selection = selection.split("Use each template as a skeleton", 1)[0]
+        assert (
+            "templates/docs/architecture.md" in selection
+        ), "must reference code-only template"
+        assert "architecture-hybrid.md" in selection, "must reference hybrid template"
+        assert (
+            "architecture-skill-authoring.md" in selection
+        ), "must reference skill-authoring template"
+
+    @staticmethod
+    def _get_template_selection_lines():
+        text = _read("skills/init/SKILL.md")
+        selection = text.split("architecture.md` template selection:", 1)[1]
+        selection = selection.split("Use each template as a skeleton", 1)[0]
+        return [
+            line.strip()
+            for line in selection.splitlines()
+            if line.strip().startswith("- ")
+        ]
+
+    def test_template_selection_maps_conditions_to_correct_variants(self):
+        lines = self._get_template_selection_lines()
+        assert (
+            len(lines) == 3
+        ), f"expected 3 template-selection branches, got {len(lines)}"
+        # Branch 1: no skill authoring → code-only template
+        assert (
+            "not detected" in lines[0].lower() and "architecture.md" in lines[0]
+        ), "first branch must route non-skill-authoring to code-only template"
+        # Branch 2: skill authoring + code → hybrid
+        assert (
+            "code components" in lines[1].lower()
+            and "architecture-hybrid.md" in lines[1]
+        ), "second branch must route skill-authoring + code to hybrid template"
+        # Branch 3: skill authoring only → skill-authoring template
+        assert (
+            "no code components" in lines[2].lower()
+            and "architecture-skill-authoring.md" in lines[2]
+        ), "third branch must route pure skill-authoring to skill-authoring template"
+
+    def test_hybrid_branch_specifies_code_component_signals(self):
+        lines = self._get_template_selection_lines()
+        hybrid_line = lines[1]
+        for signal in (
+            "pattern directories",
+            "src/",
+            "lib/",
+            "non-markdown source files",
+        ):
+            assert (
+                signal in hybrid_line
+            ), f"hybrid branch must specify '{signal}' as a code-component signal"
+
+    @staticmethod
+    def _get_arch_install_semantics():
+        text = _read("skills/init/SKILL.md")
+        assert "architecture.md` install semantics:" in text
+        semantics = text.split("architecture.md` install semantics:", 1)[1]
+        return semantics.split("**`skill-writing-guidelines.md`", 1)[0]
+
+    def test_architecture_install_semantics_exists(self):
+        semantics = self._get_arch_install_semantics()
+        assert "review-and-propose" in semantics
+        assert "preserve" in semantics
+        assert (
+            "Never silently overwrite" in semantics
+        ), "architecture.md install semantics must guarantee no silent overwrite"
+
+    def test_architecture_install_semantics_covers_new_file(self):
+        semantics = self._get_arch_install_semantics()
+        assert (
+            "does not exist" in semantics
+        ), "install semantics must cover new-file creation branch"
+        assert (
+            "selected template variant" in semantics
+        ), "new-file branch must reference selected template variant"
+
+    def test_architecture_install_semantics_has_variant_switch(self):
+        semantics = self._get_arch_install_semantics()
+        assert (
+            "different template variant" in semantics
+        ), "install semantics must handle variant-switch when project type changes"
+        assert (
+            "preserving" in semantics and "user-customized content" in semantics
+        ), "variant-switch must guarantee preserving user-customized content"
+
+
+class TestResetRecognizesAllArchitectureVariants:
+    """Guard that reset's fingerprint table recognizes all three
+    architecture.md template variants for LIKELY_GENERATED classification.
+    """
+
+    @staticmethod
+    def _get_reset_arch_row():
+        text = _read("skills/reset/SKILL.md")
+        arch_row = [
+            line
+            for line in text.splitlines()
+            if "architecture.md" in line and "|" in line
+        ]
+        assert arch_row, "reset must have architecture.md in fingerprint table"
+        return arch_row[0]
+
+    def test_reset_recognizes_skill_authoring_headings(self):
+        row_text = self._get_reset_arch_row()
+        for heading in SKILL_AUTHORING_SECTIONS:
+            assert heading in row_text, f"reset must recognize {heading} heading"
+
+    def test_reset_recognizes_hybrid_headings(self):
+        row_text = self._get_reset_arch_row()
+        assert (
+            "Code Architecture" in row_text
+        ), "reset must recognize Code Architecture heading"
+        assert (
+            "Skill Architecture" in row_text
+        ), "reset must recognize Skill Architecture heading"
+
+    def test_reset_still_recognizes_code_only_headings(self):
+        row_text = self._get_reset_arch_row()
+        assert (
+            "Data Flow" in row_text
+        ), "reset must still recognize code-only Data Flow heading"
+        assert (
+            "Dependencies Between Modules" in row_text
+        ), "reset must still recognize code-only Dependencies heading"
+
+    def test_reset_uses_any_disjunction(self):
+        row_text = self._get_reset_arch_row()
+        assert (
+            "ANY" in row_text
+        ), "reset fingerprint must use ANY disjunction for heading sets"
+
+    def test_reset_fingerprint_matches_code_only_template_headings(self):
+        template = _read("skills/init/templates/docs/architecture.md")
+        h2s = _extract_h2_headings(template)
+        row_text = self._get_reset_arch_row()
+        for heading in h2s:
+            assert (
+                heading in row_text
+            ), f"reset fingerprint must include code-only heading '{heading}'"
+
+    def test_reset_fingerprint_matches_skill_authoring_template_headings(self):
+        template = _read("skills/init/templates/docs/architecture-skill-authoring.md")
+        h2s = _extract_h2_headings(template)
+        row_text = self._get_reset_arch_row()
+        for heading in h2s:
+            assert (
+                heading in row_text
+            ), f"reset fingerprint must include skill-authoring heading '{heading}'"
+
+    def test_reset_fingerprint_matches_hybrid_template_headings(self):
+        template = _read("skills/init/templates/docs/architecture-hybrid.md")
+        h2s = _extract_h2_headings(template)
+        row_text = self._get_reset_arch_row()
+        for heading in h2s:
+            assert (
+                heading in row_text
+            ), f"reset fingerprint must include hybrid heading '{heading}'"
