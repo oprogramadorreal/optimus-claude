@@ -33,7 +33,6 @@ Each skill-level agent directory typically contains:
 | code-review | bug-detector, code-simplifier, contracts-reviewer, guideline-reviewer, security-reviewer, test-guardian | + context-blocks.md for PR/MR and iteration context |
 | refactor | code-simplifier, consistency-analyzer, guideline-reviewer, testability-analyzer | + context-blocks.md for iteration context |
 | tdd | code-simplifier, test-guardian | Quality gate after each TDD cycle |
-| verify | behavior-tracer, integration-verifier, mock-project-verifier, test-writer | Sandbox-only verification agents |
 | init | project-analyzer, documentation-auditor | Project analysis during setup |
 | how-to-run | project-environment-detector, how-to-run-auditor | Project environment analysis |
 | unit-test | test-infrastructure-analyzer | Test infrastructure analysis |
@@ -69,4 +68,4 @@ Base constraints and context templates that apply across all skill-level agents 
 | `shared-agent-constraints.md` | Read-only analysis rules, quality bar (High/Medium only), exclusion rules, false-positive guidance |
 | `context-injection-blocks.md` | PR/MR context and iteration context templates used by code-review and refactor |
 
-Review-oriented skills (code-review, refactor, tdd) have their `shared-constraints.md` read the base constraints and add skill-specific addendums (e.g., TDD limits findings to 5 per agent and scopes to changed files only). Other skills define standalone constraints tailored to their detection or verification roles.
+Review-oriented skills (code-review, refactor, tdd) have their `shared-constraints.md` read the base constraints and add skill-specific addendums (e.g., TDD limits findings to 5 per agent and scopes to changed files only). Other skills define standalone constraints tailored to their detection roles.

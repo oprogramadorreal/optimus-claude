@@ -371,12 +371,6 @@ class TestPluginLevelTestGuardian:
         ), "skip rule must be gated on file existence"
 
 
-class TestVerifySkillAuthoringAwareness:
-    def test_verify_environment_summary_includes_skill_writing_guidelines(self):
-        text = _read("skills/verify/SKILL.md")
-        assert "skill-writing-guidelines.md" in text
-
-
 class TestResetSkillAuthoringAwareness:
     def test_reset_scan_list_includes_skill_writing_guidelines(self):
         text = _read("skills/reset/SKILL.md")

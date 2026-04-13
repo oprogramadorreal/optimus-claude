@@ -2,7 +2,7 @@
 
 ## Overview
 
-A Claude Code plugin that combines markdown-based skill authoring (17 skills invoked via `/optimus:<name>`) with Python harness orchestrators that drive iterative Claude sessions for deep code review, refactoring, and test coverage.
+A Claude Code plugin that combines markdown-based skill authoring (16 skills invoked via `/optimus:<name>`) with Python harness orchestrators that drive iterative Claude sessions for deep code review, refactoring, and test coverage.
 
 ## Directory Map
 
@@ -46,13 +46,13 @@ A Claude Code plugin that combines markdown-based skill authoring (17 skills inv
 
 ### Skill Organization
 
-- 17 skills: brainstorm, branch, code-review, commit, commit-message, how-to-run, init, jira, permissions, pr, prompt, refactor, reset, tdd, unit-test, verify, worktree
+- 16 skills: brainstorm, branch, code-review, commit, commit-message, how-to-run, init, jira, permissions, pr, prompt, refactor, reset, tdd, unit-test, worktree
 - Each directory contains `SKILL.md` (required) + `README.md` (required), with optional `agents/`, `references/`, `templates/` subdirectories
 
 ### Agent Boundaries
 
 - **Plugin-level** (`agents/`): code-simplifier, test-guardian — available across all skills
-- **Skill-level** (`skills/<name>/agents/`): scoped to the owning skill (e.g., code-review has 7 specialized agents, refactor has 4, verify has 4)
+- **Skill-level** (`skills/<name>/agents/`): scoped to the owning skill (e.g., code-review has 7 specialized agents, refactor has 4)
 - Agents receive context via explicit prompt construction in SKILL.md, not implicit sharing
 
 ### Reference Hierarchy

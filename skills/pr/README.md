@@ -87,7 +87,7 @@ Review the PR/MR title and description above. Proceed or adjust?
 - Target: main
 - Status: Ready to merge
 
-Recommend running `/optimus:verify` to prove the feature works, then `/optimus:code-review` for static quality review before merging.
+Recommend running `/optimus:code-review` for quality review before merging.
 ```
 
 ### Update Flow Example
@@ -140,7 +140,7 @@ A PR/MR already exists for this branch. What would you like to do?
 4. Checks if the current branch already has an open PR/MR
 5. **Create flow:** gathers branch changes (commits, diff), generates a Conventional PR (title + structured body), previews, and creates
 6. **Update flow:** shows the existing PR/MR, asks what to regenerate, generates fresh content from diffs, scans the existing PR for manually-added information (issue references, deployment notes, etc.) to preserve, previews, and updates
-7. Reports the PR/MR URL and recommends `/optimus:verify` then `/optimus:code-review`
+7. Reports the PR/MR URL and recommends `/optimus:code-review`
 
 ## Conventional PR Format
 
@@ -184,7 +184,7 @@ The template is shared with `/optimus:tdd` via `references/pr-template.md`.
 | `SKILL.md` | Skill definition with 8-step workflow (pre-flight, platform detection, CLI check, PR check, create/update, per-repo report, final summary) |
 | `references/pr-template.md` | Shared Conventional PR format template (used by this skill and `/optimus:tdd`) |
 | `references/platform-detection.md` | Shared platform detection and CLI management reference (used by this skill, `/optimus:tdd`, and `/optimus:code-review`) |
-| `references/default-branch-detection.md` | Shared default branch detection algorithm (used by this skill and `/optimus:verify`) |
+| `references/default-branch-detection.md` | Shared default branch detection algorithm (used by this skill and `/optimus:code-review`) |
 | *(shared)* `init/references/multi-repo-detection.md` | Multi-repo workspace detection algorithm |
 
 ## Requirements
