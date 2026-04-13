@@ -1,11 +1,16 @@
 import json
 import re
+import sys
 
 
-def parse_harness_output(raw_output):
+def parse_harness_output(raw_output, harness_type=None, phase=None):
     """
     Extract the json:harness-output block from claude's response.
     With --output-format json, the output is a JSON object with a 'result' field.
+
+    When *harness_type* is provided, the parsed JSON is validated and
+    normalised via :func:`~harness_common.schema.validate_harness_output`.
+    Contract warnings are printed to stderr but never cause parse failure.
     """
     if not raw_output:
         return None
@@ -27,8 +32,18 @@ def parse_harness_output(raw_output):
     match = re.search(pattern, text, re.DOTALL)
     if match:
         try:
-            return json.loads(match.group(1))
+            data = json.loads(match.group(1))
         except json.JSONDecodeError:
-            pass
+            return None
+
+        # Schema validation when harness_type is provided
+        if harness_type and isinstance(data, dict):
+            from .schema import validate_harness_output
+
+            data, warnings = validate_harness_output(data, harness_type, phase=phase)
+            for warning in warnings:
+                print(f"[harness] Contract warning: {warning}", file=sys.stderr)
+
+        return data
 
     return None

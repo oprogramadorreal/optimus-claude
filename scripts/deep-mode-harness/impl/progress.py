@@ -48,6 +48,8 @@ def make_initial_progress(
             "pr_description": None,
         },
         "iteration": {"current": 1, "completed": 0},
+        "timing": [],
+        "total_elapsed_seconds": 0,
         "findings": [],
         # scope_files.current is intentionally empty here — _populate_branch_scope
         # fills it by running `git diff --name-only <base>...HEAD` (with an

@@ -36,6 +36,8 @@ def make_initial_progress(
             "base_commit": base_commit,
         },
         "cycle": {"current": 1, "completed": 0},
+        "timing": [],
+        "total_elapsed_seconds": 0,
         "phase": "unit-test",
         "coverage": {
             "baseline": None,
