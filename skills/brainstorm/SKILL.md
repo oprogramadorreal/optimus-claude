@@ -68,7 +68,10 @@ If the description is longer than ~3 sentences (e.g., a pasted spec, ticket, or 
 
 ### Clarifying questions
 
+Before asking questions, identify your key assumptions about scope, constraints, and expected behavior. Present these assumptions alongside your clarifying questions so the user can correct wrong assumptions and confirm correct ones — hidden assumptions cause the most wasted design effort.
+
 Ask up to **3 clarifying questions** to fill critical gaps — one per `AskUserQuestion` call, prefer multiple-choice options. Focus on:
+- Assumptions you're making that would change the design if wrong
 - Constraints the user hasn't mentioned (performance, compatibility, security)
 - Scope boundaries (what's in, what's explicitly out)
 - Integration points with existing code

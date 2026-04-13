@@ -130,6 +130,7 @@ Break the user's description into small, individually testable behaviors. Each b
 - **Observable** — it has a clear expected output or side effect
 - **Independent** — it can be tested and implemented without the other behaviors being done yet
 - **Small** — one test, one assertion focus (a test may have supporting assertions, but tests one thing)
+- **Verifiable** — framed as "When [input/action], then [observable outcome]" so success criteria are unambiguous. Reframe vague descriptions into this form — e.g., "handle errors" becomes "When the API returns 404, then return null and log a warning"
 
 Decomposition strategies by task type:
 - **API endpoints** — one behavior per response scenario (success case, each error code, each validation rule)

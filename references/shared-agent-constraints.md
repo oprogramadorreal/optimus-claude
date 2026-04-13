@@ -33,3 +33,4 @@ Up to **15** findings — only when each is a distinct root cause with supportin
 - Linter-catchable issues
 - General code quality concerns not tied to project guidelines
 - Findings that contradict another agent's domain — e.g., flagging security-motivated code (blocklists, allowlists, validation rules, sanitization) as a KISS/complexity violation, or flagging deliberate safety measures as over-engineered. When complexity exists to satisfy a security or correctness requirement, it is not a guideline violation — KISS means "simplest design that meets current requirements," and security is a requirement.
+- Code that looks unusual but is working as intended — when uncertain whether code is intentional or accidental, assume intentional and do not flag it. The burden of proof is on the finding, not on the code.
