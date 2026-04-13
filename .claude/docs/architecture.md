@@ -46,7 +46,7 @@ A Claude Code plugin that combines markdown-based skill authoring (17 skills inv
 
 ### Skill Organization
 
-- 17 skills: brainstorm, branch, code-review, commit, commit-message, dev-setup, init, jira, permissions, pr, prompt, refactor, reset, tdd, unit-test, verify, worktree
+- 17 skills: brainstorm, branch, code-review, commit, commit-message, how-to-run, init, jira, permissions, pr, prompt, refactor, reset, tdd, unit-test, verify, worktree
 - Each directory contains `SKILL.md` (required) + `README.md` (required), with optional `agents/`, `references/`, `templates/` subdirectories
 
 ### Agent Boundaries

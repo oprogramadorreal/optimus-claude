@@ -86,14 +86,22 @@ commit-message:
     # Read-only skill: suggests a message but changes nothing
     files_not_modified: true
 
-dev-setup:
+how-to-run:
   node-project:
     files_exist:
-      - README.md
+      - HOW-TO-RUN.md
+    files_contain:
+      HOW-TO-RUN.md:
+        - "npm install"
+        - "Prerequisites"
 
   python-project:
     files_exist:
-      - README.md
+      - HOW-TO-RUN.md
+    files_contain:
+      HOW-TO-RUN.md:
+        - "pip install"
+        - "Prerequisites"
 
 prompt:
   node-project:
