@@ -21,7 +21,8 @@ Apply shared constraints from `shared-constraints.md`.
 
 ### Reference files
 
-You will receive the contents of four reference files as context before this prompt:
+You will receive the contents of five reference files as context before this prompt:
+- **shared-constraints.md** — read-only analysis constraints and quoting rules for both agents
 - **tech-stack-detection.md** — manifest-to-type table, package manager detection, command prefix rules
 - **project-detection.md** — full detection algorithm: multi-repo workspace detection (Step 0), workspace configs (Step A), manifest scanning with depth-2 checks (Step B), supporting signals (Step C), subproject enumeration rules
 - **multi-repo-detection.md** — workspace structure detection for multi-repo setups

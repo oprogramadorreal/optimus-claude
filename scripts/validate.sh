@@ -357,9 +357,9 @@ if [ -n "$deep_refs" ]; then
   printf "       Deep reference chains (3+ levels):\n%b" "$deep_refs"
 fi
 
-# --- 16. Load-bearing wiring assertions ---
+# --- 17. Load-bearing wiring assertions ---
 # Textual section references and cross-skill reference-file wiring that the
-# generic cross-reference check (check 7) does not cover. A failure here means
+# generic cross-reference check (check 8) does not cover. A failure here means
 # a silent regression in how a skill reaches a capability it depends on.
 echo "[Load-bearing wiring]"
 wiring_errors=""

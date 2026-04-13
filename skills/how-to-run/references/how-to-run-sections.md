@@ -1,6 +1,6 @@
 # How-to-Run Section Templates
 
-Section templates and signal-to-content mapping for generating `HOW-TO-RUN.md`. Referenced by how-to-run (Agent 1 for signal detection and Step 4 for content generation).
+Section templates and signal-to-content mapping for generating `HOW-TO-RUN.md`. Referenced by the Project Environment Detector agent (for signal detection) and Step 4 (for content generation).
 
 ## Contents
 

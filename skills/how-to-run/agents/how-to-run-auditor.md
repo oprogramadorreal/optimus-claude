@@ -22,8 +22,9 @@ Apply shared constraints from `shared-constraints.md`.
 
 ### Input
 
-You will receive two pieces of context before this prompt:
+You will receive three pieces of context before this prompt:
 - **Context Detection Results** — the detected build system, toolchain, SDKs, source dependencies, commands, services, env config, and dev workflow signals for this project. Use these as the source of truth for what the project currently looks like.
+- **shared-constraints.md** — read-only analysis constraints and quoting rules for both agents.
 - **readme-section-detection.md** — heading patterns, section boundary detection rules, classification rules, and comparison method.
 
 ### Audit tasks
