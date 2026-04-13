@@ -3,7 +3,7 @@
 </div>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-1.59.6-blue" alt="Version">
+  <img src="https://img.shields.io/badge/version-1.60.0-blue" alt="Version">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
   <img src="https://img.shields.io/badge/Claude_Code-1.0.33+-blueviolet" alt="Claude Code">
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey" alt="Platform">
@@ -50,7 +50,7 @@ Every skill operates on the same shared foundation: **your project's quality gui
 
 `/optimus:code-review` doesn't run a generic review — its agents check *your* naming conventions, *your* architectural patterns, and *your* DRY principles alongside bugs and security. For projects with a skill-authoring stack, it also reviews markdown instruction files against *your* skill-writing conventions (progressive disclosure, writing style, reference-depth limits). `/optimus:tdd` applies `coding-guidelines.md` during the Refactor step. `/optimus:refactor` uses them as its quality lens. `/optimus:unit-test` follows them for test naming and structure.
 
-Every skill is also conservative by default — `/optimus:unit-test` never refactors source code, `/optimus:verify` runs in an isolated sandbox and never pushes to remote, and `/optimus:commit` warns about secret files before proceeding.
+Every skill is also conservative by default — `/optimus:unit-test` never refactors source code, and `/optimus:commit` warns about secret files before proceeding.
 
 The result: consistent patterns, meaningful names, and lean context across every operation — exactly the signals that keep Claude Code accurate and productive.
 
@@ -72,7 +72,6 @@ The result: consistent patterns, meaningful names, and lean context across every
 | [`/optimus:tdd`](skills/tdd/README.md) | Guides test-driven development through Red-Green-Refactor cycles with per-behavior commits, parallel quality gate, and PR/MR creation. *Requires init.* |
 | [`/optimus:refactor`](skills/refactor/README.md) | Refactors code for guideline compliance and testability using 4 parallel agents. `testability` or `guidelines` focus mode to prioritize finding categories. `deep` mode for iterative refactoring. `deep harness` for multi-iteration analysis with fresh context per iteration. *Run init first (recommended).* |
 | [`/optimus:code-review`](skills/code-review/README.md) | Reviews changes for bugs, security issues, and guideline compliance using up to 7 parallel agents. `deep` mode for iterative auto-fix. `deep harness` for multi-iteration analysis with fresh context per iteration. *Run init first (recommended).* |
-| [`/optimus:verify`](skills/verify/README.md) | Verifies a feature branch in an isolated sandbox — extracts a test plan from the PR, runs automated checks, and launches parallel agents for functional verification. *Run init first (recommended).* |
 
 ### Utility
 
@@ -108,7 +107,7 @@ The result: consistent patterns, meaningful names, and lean context across every
 
 Each skill recommends the next step based on task complexity — you don't need to memorize these paths. Also available: `/optimus:branch` to move work to a properly named branch, `/optimus:worktree` for parallel isolated workspaces, `/optimus:prompt` to craft optimized prompts for any AI tool, `/optimus:commit` for conventional commits (or `/optimus:commit-message` to preview).
 
-**Before merging** — `/optimus:pr` to create or update pull requests, `/optimus:verify` to prove the feature branch works in an isolated sandbox, `/optimus:code-review` for pre-merge code quality review.
+**Before merging** — `/optimus:pr` to create or update pull requests, `/optimus:code-review` for pre-merge code quality review.
 
 **After major changes** — re-run `/optimus:init` to audit and refresh guidelines.
 

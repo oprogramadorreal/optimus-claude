@@ -39,7 +39,6 @@ optimus-claude/
 │   ├── refactor/             # /optimus:refactor
 │   ├── code-review/          # /optimus:code-review
 │   ├── tdd/                  # /optimus:tdd
-│   ├── verify/               # /optimus:verify
 │   ├── pr/                   # /optimus:pr
 │   ├── prompt/               # /optimus:prompt
 │   ├── permissions/          # /optimus:permissions
@@ -109,7 +108,7 @@ The plugin uses a two-tier agent design. See `references/agent-architecture.md` 
 - Multiple skills will extend its core behavior via the specialization pattern
 
 **Create a skill-level agent** (`skills/<name>/agents/`) when:
-- The agent is specific to one skill's workflow (e.g., bug-detector for code-review, behavior-tracer for verify)
+- The agent is specific to one skill's workflow (e.g., bug-detector for code-review)
 - The agent needs skill-specific scope, output format, or exclusion boundaries
 
 **Extend a plugin-level agent** from a skill-level agent when:
