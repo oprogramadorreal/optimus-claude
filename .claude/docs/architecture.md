@@ -16,6 +16,7 @@ A Claude Code plugin that combines markdown-based skill authoring (17 skills inv
 | `scripts/harness_common/` | Shared Python library used by both harnesses |
 | `scripts/deep-mode-harness/` | Deep-mode harness: iterative code-review/refactor orchestrator |
 | `scripts/test-coverage-harness/` | Test-coverage harness: iterative unit-test + refactor orchestrator |
+| `scripts/test-skills.sh` | Skill execution test runner |
 | `test/` | pytest suites mirroring each harness module |
 
 ## Code Architecture
