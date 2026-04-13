@@ -104,10 +104,10 @@ Both agents reference your project's `.claude/CLAUDE.md` and `.claude/docs/` fil
 | `references/project-detection.md` | Project structure detection algorithm |
 | `references/multi-repo-detection.md` | Shared multi-repo workspace detection (used by 6 skills) |
 | `references/formatter-setup.md` | Formatter hook installation guidance |
-| `references/unsupported-stack-fallback.md` | Shared best-effort fallback for unsupported stacks (used by init, dev-setup) |
+| `references/unsupported-stack-fallback.md` | Shared best-effort fallback for unsupported stacks (used by init, how-to-run) |
 | `references/verification-protocol.md` | Cross-cutting verification discipline for completion claims |
 | `references/prerequisite-check.md` | Shared prerequisite check with fallbacks (used by code-review, refactor) |
-| `references/constraint-doc-loading.md` | Shared constraint doc loading for single project, monorepo, and skill-authoring lens (used by 6 skills) |
+| `references/constraint-doc-loading.md` | Shared constraint doc loading for single project, monorepo, and skill-authoring lens (used by 5 skills) |
 | `references/new-project-scaffolding.md` | New project scaffolding procedure for empty directories |
 | `references/test-infra-provisioning.md` | Test infrastructure provisioning procedure (framework, coverage, health check, docs) |
 | `references/test-framework-recommendations.md` | Stack-specific test framework, coverage tooling, and report tool recommendations |

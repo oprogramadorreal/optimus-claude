@@ -68,4 +68,4 @@ Base constraints and context templates that apply across all skill-level agents 
 | `shared-agent-constraints.md` | Read-only analysis rules, quality bar (High/Medium only), exclusion rules, false-positive guidance |
 | `context-injection-blocks.md` | PR/MR context and iteration context templates used by code-review and refactor |
 
-Review-oriented skills (code-review, refactor, tdd) have their `shared-constraints.md` read the base constraints and add skill-specific addendums (e.g., TDD limits findings to 5 per agent and scopes to changed files only). Other skills define standalone constraints tailored to their detection or verification roles.
+Review-oriented skills (code-review, refactor, tdd) have their `shared-constraints.md` read the base constraints and add skill-specific addendums (e.g., TDD limits findings to 5 per agent and scopes to changed files only). Other skills define standalone constraints tailored to their detection roles.

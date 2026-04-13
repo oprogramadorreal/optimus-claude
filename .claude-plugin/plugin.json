@@ -9,5 +9,5 @@
   "homepage": "https://github.com/oprogramadorreal/optimus-claude",
   "repository": "https://github.com/oprogramadorreal/optimus-claude",
   "license": "MIT",
-  "keywords": ["optimus", "setup", "claude-md", "brainstorm", "tdd", "refactor", "code-review", "unit-test", "pr", "permissions", "reset", "commit", "commit-message", "dev-setup", "branch", "worktree", "prompt", "jira", "formatter", "agents"]
+  "keywords": ["optimus", "setup", "claude-md", "brainstorm", "tdd", "refactor", "code-review", "unit-test", "pr", "permissions", "reset", "commit", "commit-message", "how-to-run", "branch", "worktree", "prompt", "jira", "formatter", "agents"]
 }

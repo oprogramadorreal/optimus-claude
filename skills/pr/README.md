@@ -184,7 +184,7 @@ The template is shared with `/optimus:tdd` via `references/pr-template.md`.
 | `SKILL.md` | Skill definition with 8-step workflow (pre-flight, platform detection, CLI check, PR check, create/update, per-repo report, final summary) |
 | `references/pr-template.md` | Shared Conventional PR format template (used by this skill and `/optimus:tdd`) |
 | `references/platform-detection.md` | Shared platform detection and CLI management reference (used by this skill, `/optimus:tdd`, and `/optimus:code-review`) |
-| `references/default-branch-detection.md` | Shared default branch detection algorithm (used by this skill) |
+| `references/default-branch-detection.md` | Shared default branch detection algorithm (used by this skill and `/optimus:code-review`) |
 | *(shared)* `init/references/multi-repo-detection.md` | Multi-repo workspace detection algorithm |
 
 ## Requirements
