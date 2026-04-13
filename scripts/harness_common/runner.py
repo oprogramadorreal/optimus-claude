@@ -1,6 +1,8 @@
+import random
 import shutil
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 from .constants import DEFAULT_TEST_TIMEOUT
@@ -129,7 +131,132 @@ def run_tests(test_command, cwd, timeout=DEFAULT_TEST_TIMEOUT, prefix="[harness]
         return False, summary
     passed = result.returncode == 0
     combined = "\n".join(filter(None, [result.stdout, result.stderr])).strip()
-    summary = "\n".join(combined.split("\n")[-5:])
+    summary = extract_test_summary(combined)
     status = "PASS" if passed else "FAIL"
     print(f"{prefix} Tests: {status}")
     return passed, summary
+
+
+# ---------------------------------------------------------------------------
+# Framework-aware test output extraction
+# ---------------------------------------------------------------------------
+
+import re as _re  # noqa: E402  (keep imports grouped at top in future refactors)
+
+
+def extract_test_summary(raw_output):
+    """Extract a concise test summary from raw test runner output.
+
+    Recognises pytest, jest, go test, and cargo test.  Falls back to the
+    last 10 lines of output for unknown frameworks.
+    """
+    if not raw_output:
+        return ""
+
+    lines = raw_output.strip().splitlines()
+
+    # --- pytest ---
+    for i, line in enumerate(lines):
+        if _re.search(r"=+ .*(?:passed|failed|error).* in ", line):
+            parts = [line]
+            # Include first FAILED assertion (look backwards)
+            for j in range(i - 1, max(i - 30, -1), -1):
+                if lines[j].startswith("FAILED ") or lines[j].startswith("E "):
+                    parts.insert(0, lines[j])
+                    break
+            return "\n".join(parts)
+
+    # --- jest ---
+    jest_lines = [l for l in lines if _re.match(r"\s*(Tests|Test Suites):\s+", l)]
+    if jest_lines:
+        return "\n".join(jest_lines)
+
+    # --- go test ---
+    go_lines = []
+    for line in lines:
+        if line.startswith("FAIL") or _re.match(r"---\s+FAIL:", line):
+            go_lines.append(line)
+    if go_lines:
+        return "\n".join(go_lines[:5])
+
+    # --- cargo test ---
+    for line in lines:
+        if _re.match(r"test result:", line):
+            return line
+
+    # --- fallback: last 10 lines ---
+    return "\n".join(lines[-10:])
+
+
+# ---------------------------------------------------------------------------
+# Session log capture
+# ---------------------------------------------------------------------------
+
+
+def save_session_log(log_dir, log_name, stdout, stderr=""):
+    """Save raw claude session stdout/stderr to files in log_dir.
+
+    No-op when log_dir is falsy.  Creates the directory if it doesn't exist.
+    """
+    if not log_dir:
+        return
+    log_dir = Path(log_dir)
+    log_dir.mkdir(parents=True, exist_ok=True)
+    (log_dir / f"{log_name}.log").write_text(stdout or "", encoding="utf-8")
+    if stderr:
+        (log_dir / f"{log_name}.stderr.log").write_text(stderr, encoding="utf-8")
+
+
+# ---------------------------------------------------------------------------
+# Exponential backoff with jitter
+# ---------------------------------------------------------------------------
+
+
+def retry_on_failure(
+    fn,
+    max_retries=2,
+    base_delay=5.0,
+    jitter_fraction=0.25,
+    retryable=(RuntimeError, subprocess.TimeoutExpired),
+    on_retry=None,
+    on_exhausted=None,
+):
+    """Call *fn* with exponential backoff on retryable exceptions.
+
+    Parameters
+    ----------
+    fn : callable
+        Zero-argument callable to invoke.
+    max_retries : int
+        Maximum number of retry attempts (total calls = max_retries + 1).
+    base_delay : float
+        Base delay in seconds before the first retry.
+    jitter_fraction : float
+        Randomise delay by ± this fraction (e.g. 0.25 → ±25 %).
+    retryable : tuple[type, ...]
+        Exception types that trigger a retry.
+    on_retry : callable or None
+        ``on_retry(attempt, exc, delay)`` called before sleeping.
+    on_exhausted : callable or None
+        ``on_exhausted(exc)`` called when all retries are used up.
+
+    Returns the result of *fn* on success, or None if all attempts fail.
+    """
+    last_exc = None
+    for attempt in range(max_retries + 1):
+        try:
+            return fn()
+        except tuple(retryable) as exc:
+            last_exc = exc
+            if attempt < max_retries:
+                delay = base_delay * (2**attempt)
+                jitter = delay * jitter_fraction * (2 * random.random() - 1)
+                delay = max(0, delay + jitter)
+                if on_retry:
+                    on_retry(attempt, exc, delay)
+                time.sleep(delay)
+            else:
+                if on_exhausted:
+                    on_exhausted(exc)
+                return None
+    return None  # pragma: no cover — unreachable

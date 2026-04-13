@@ -1,7 +1,13 @@
 import subprocess
 from unittest.mock import MagicMock, patch
 
-from harness_common.runner import _find_bash, run_tests
+from harness_common.runner import (
+    _find_bash,
+    extract_test_summary,
+    retry_on_failure,
+    run_tests,
+    save_session_log,
+)
 
 
 class TestFindBash:
@@ -225,3 +231,153 @@ class TestFindBashGitExecPath:
                 mock_path_cls.return_value = mock_instance
                 result = _find_bash()
         assert result == "bash"
+
+
+class TestExtractTestSummary:
+    def test_pytest_summary(self):
+        output = (
+            "test_foo.py::test_bar PASSED\n"
+            "test_foo.py::test_baz FAILED\n"
+            "E       assert 1 == 2\n"
+            "FAILED test_foo.py::test_baz\n"
+            "======= 1 failed, 1 passed in 0.5s ======="
+        )
+        result = extract_test_summary(output)
+        assert "1 failed, 1 passed" in result
+
+    def test_jest_summary(self):
+        output = (
+            "PASS src/foo.test.js\n"
+            "FAIL src/bar.test.js\n"
+            "Test Suites: 1 failed, 1 passed, 2 total\n"
+            "Tests:       1 failed, 3 passed, 4 total\n"
+        )
+        result = extract_test_summary(output)
+        assert "Test Suites:" in result
+        assert "Tests:" in result
+
+    def test_go_test(self):
+        output = "--- FAIL: TestFoo (0.00s)\nFAIL\tgithub.com/foo/bar\t0.5s\n"
+        result = extract_test_summary(output)
+        assert "FAIL" in result
+
+    def test_cargo_test(self):
+        output = "test result: FAILED. 1 passed; 1 failed; 0 ignored\n"
+        result = extract_test_summary(output)
+        assert "test result:" in result
+
+    def test_fallback_last_10(self):
+        lines = [f"line {i}" for i in range(20)]
+        result = extract_test_summary("\n".join(lines))
+        assert "line 10" in result
+        assert "line 19" in result
+        assert "line 9" not in result
+
+    def test_empty_input(self):
+        assert extract_test_summary("") == ""
+        assert extract_test_summary(None) == ""
+
+
+class TestSaveSessionLog:
+    def test_saves_stdout(self, tmp_path):
+        save_session_log(str(tmp_path), "session-iter1", "hello stdout")
+        assert (tmp_path / "session-iter1.log").read_text(
+            encoding="utf-8"
+        ) == "hello stdout"
+
+    def test_saves_stderr(self, tmp_path):
+        save_session_log(str(tmp_path), "session-iter1", "out", stderr="err")
+        assert (tmp_path / "session-iter1.stderr.log").read_text(
+            encoding="utf-8"
+        ) == "err"
+
+    def test_no_stderr_file_when_empty(self, tmp_path):
+        save_session_log(str(tmp_path), "session-iter1", "out")
+        assert not (tmp_path / "session-iter1.stderr.log").exists()
+
+    def test_noop_when_no_log_dir(self):
+        save_session_log("", "session-iter1", "out")  # Should not crash
+        save_session_log(None, "session-iter1", "out")
+
+    def test_creates_directory(self, tmp_path):
+        log_dir = tmp_path / "nested" / "logs"
+        save_session_log(str(log_dir), "test", "content")
+        assert (log_dir / "test.log").exists()
+
+
+class TestRetryOnFailure:
+    def test_success_no_retry(self):
+        result = retry_on_failure(lambda: 42)
+        assert result == 42
+
+    def test_retries_on_failure(self):
+        calls = []
+
+        def flaky():
+            calls.append(1)
+            if len(calls) < 2:
+                raise RuntimeError("fail")
+            return "ok"
+
+        result = retry_on_failure(flaky, max_retries=2, base_delay=0.01)
+        assert result == "ok"
+        assert len(calls) == 2
+
+    def test_exhausted_returns_none(self):
+        exhausted_called = []
+
+        def always_fail():
+            raise RuntimeError("always")
+
+        result = retry_on_failure(
+            always_fail,
+            max_retries=1,
+            base_delay=0.01,
+            on_exhausted=lambda exc: exhausted_called.append(str(exc)),
+        )
+        assert result is None
+        assert len(exhausted_called) == 1
+
+    def test_on_retry_callback(self):
+        retries = []
+
+        def fail_once():
+            if not retries:
+                retries.append(1)
+                raise RuntimeError("once")
+            return "done"
+
+        retry_on_failure(
+            fail_once,
+            max_retries=1,
+            base_delay=0.01,
+            on_retry=lambda attempt, exc, delay: retries.append(("retry", attempt)),
+        )
+        assert ("retry", 0) in retries
+
+    def test_non_retryable_exception_propagates(self):
+        def raise_value_error():
+            raise ValueError("not retryable")
+
+        try:
+            retry_on_failure(raise_value_error, max_retries=2, base_delay=0.01)
+            assert False, "Should have raised"
+        except ValueError:
+            pass
+
+    def test_custom_retryable(self):
+        calls = []
+
+        def fail_with_value_error():
+            calls.append(1)
+            if len(calls) < 2:
+                raise ValueError("custom")
+            return "ok"
+
+        result = retry_on_failure(
+            fail_with_value_error,
+            max_retries=2,
+            base_delay=0.01,
+            retryable=(ValueError,),
+        )
+        assert result == "ok"
