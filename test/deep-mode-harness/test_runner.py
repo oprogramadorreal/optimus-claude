@@ -234,18 +234,6 @@ class TestBuildHarnessSystem:
         assert "AskUserQuestion" in result
         assert "json:harness-output" in result
 
-    def test_includes_digest_and_coaching(self):
-        progress = {
-            "findings": [{"status": "fixed", "file": "a.py", "line": 1}],
-            "config": {"max_iterations": 5},
-            "scope_files": {"current": ["a.py"]},
-            "test_results": {"last_full_run": "pass"},
-        }
-        result = _build_harness_system("/tmp/p.json", 2, 5, progress=progress)
-        assert "--- Progress Digest ---" in result
-        assert "--- Guidance ---" in result
-        assert "1 fixed" in result
-
 
 class TestBuildCmd:
     def test_with_allowed_tools(self):

@@ -2,12 +2,9 @@ import json
 
 from harness_common.constants import BACKUP_SUFFIX
 from harness_common.progress import (
-    check_progress_size,
     format_elapsed,
-    prune_resolved_findings,
     read_progress,
     record_timing,
-    trim_scope_files,
     write_progress,
 )
 
@@ -106,92 +103,11 @@ class TestFormatElapsed:
         assert format_elapsed(90.7) == "1m 30s"
 
 
-class TestPruneResolvedFindings:
-    def test_archives_old_fixed(self):
-        progress = {
-            "findings": [
-                {"status": "fixed", "iteration_last_attempted": 1},
-                {"status": "discovered", "iteration_last_attempted": 4},
-            ]
-        }
-        prune_resolved_findings(progress, 6, archive_after=3)
-        assert len(progress["findings"]) == 1
-        assert progress["findings"][0]["status"] == "discovered"
-        assert len(progress["archived_findings"]) == 1
+class TestPrintPhase:
+    def test_banner_format(self, capsys):
+        from harness_common.reporting import print_phase
 
-    def test_keeps_recent_fixed(self):
-        progress = {
-            "findings": [
-                {"status": "fixed", "iteration_last_attempted": 4},
-            ]
-        }
-        prune_resolved_findings(progress, 6, archive_after=3)
-        assert len(progress["findings"]) == 1
-        assert (
-            "archived_findings" not in progress
-            or len(progress["archived_findings"]) == 0
-        )
-
-    def test_archives_retained(self):
-        progress = {
-            "findings": [
-                {"status": "retained — revert failed", "iteration_last_attempted": 1},
-            ]
-        }
-        prune_resolved_findings(progress, 6, archive_after=3)
-        assert len(progress["findings"]) == 0
-        assert len(progress["archived_findings"]) == 1
-
-    def test_empty_findings(self):
-        progress = {"findings": []}
-        prune_resolved_findings(progress, 5)
-        assert progress["findings"] == []
-
-
-class TestTrimScopeFiles:
-    def test_no_trim_under_limit(self):
-        progress = {"scope_files": {"current": ["a.py", "b.py"]}}
-        trim_scope_files(progress, max_files=5)
-        assert len(progress["scope_files"]["current"]) == 2
-
-    def test_trims_to_limit(self):
-        progress = {"scope_files": {"current": [f"f{i}.py" for i in range(10)]}}
-        trim_scope_files(progress, max_files=5)
-        assert len(progress["scope_files"]["current"]) == 5
-
-    def test_prioritises_active_findings(self):
-        progress = {
-            "scope_files": {"current": ["a.py", "b.py", "c.py", "d.py"]},
-            "findings": [
-                {"file": "c.py", "status": "discovered"},
-                {"file": "d.py", "status": "fixed"},  # terminal — not prioritised
-            ],
-        }
-        trim_scope_files(progress, max_files=2)
-        result = progress["scope_files"]["current"]
-        assert "c.py" in result
-        assert len(result) == 2
-
-    def test_missing_scope_files(self):
-        progress = {}
-        trim_scope_files(progress, max_files=5)  # Should not crash
-
-
-class TestCheckProgressSize:
-    def test_existing_file(self, tmp_path):
-        path = tmp_path / "progress.json"
-        path.write_text("x" * 200_000, encoding="utf-8")
-        size_kb, over = check_progress_size(path, warn_threshold_kb=100)
-        assert size_kb > 100
-        assert over is True
-
-    def test_small_file(self, tmp_path):
-        path = tmp_path / "progress.json"
-        path.write_text("{}", encoding="utf-8")
-        size_kb, over = check_progress_size(path)
-        assert over is False
-
-    def test_missing_file(self, tmp_path):
-        size_kb, over = check_progress_size(tmp_path / "nope.json")
-        assert size_kb == 0.0
-        assert over is False
+        print_phase("[harness]", "iter", 3, 10, "run")
+        out = capsys.readouterr().out
+        assert "[harness] [iter 3/10" in out
+        assert "run" in out

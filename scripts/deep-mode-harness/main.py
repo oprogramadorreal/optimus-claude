@@ -46,14 +46,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from harness_common.parser import parse_harness_output
-from harness_common.progress import (
-    check_progress_size,
-    prune_resolved_findings,
-    record_timing,
-    trim_scope_files,
-)
+from harness_common.progress import record_timing
 from harness_common.reporting import print_phase
-from harness_common.runner import retry_on_failure, save_session_log
+from harness_common.runner import retry_on_failure
 from impl.constants import (
     APPLIED_PENDING_TEST,
     BACKUP_SUFFIX,
@@ -748,15 +743,6 @@ def _run_iteration_loop(
         print(f"{PREFIX} === Iteration {iteration}/{max_iter} ===")
         iteration_start = time.time()
 
-        # Pre-iteration maintenance
-        prune_resolved_findings(progress, iteration)
-        trim_scope_files(progress)
-        size_kb, oversized = check_progress_size(progress_path)
-        if oversized:
-            print(
-                f"{PREFIX} WARNING: Progress file is {size_kb:.0f}KB — consider pruning"
-            )
-
         pre_head = git_rev_parse_head(project_root)
         if not pre_head:
             print(
@@ -789,12 +775,6 @@ def _run_iteration_loop(
         )
         if output is None:
             break
-
-        save_session_log(
-            str(project_root / ".claude" / "harness-logs"),
-            f"session-iter{iteration}",
-            output,
-        )
 
         print_phase(PREFIX, "iter", iteration, max_iter, "parse")
         result = parse_harness_output(output, harness_type="deep-mode")

@@ -80,20 +80,6 @@ class TestBuildHarnessSystem:
         assert "Do NOT run tests" in result
         assert "testability barriers" in result
 
-    def test_includes_digest_and_coaching(self):
-        progress = {
-            "config": {"max_cycles": 5},
-            "coverage": {"baseline": 40, "current": 50},
-            "tests_created": [{"file": "test_a.py"}],
-            "untestable_code": [],
-        }
-        result = _build_harness_system(
-            "/tmp/p.json", 2, 5, "unit-test", progress=progress
-        )
-        assert "--- Progress Digest ---" in result
-        assert "--- Guidance ---" in result
-        assert "baseline 40%" in result
-
 
 class TestBuildCmd:
     def test_with_allowed_tools(self):

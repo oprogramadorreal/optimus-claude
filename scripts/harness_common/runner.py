@@ -184,18 +184,6 @@ def extract_test_summary(raw_output):
     return "\n".join(lines[-10:])
 
 
-def save_session_log(log_dir, log_name, stdout):
-    """Save raw claude session stdout to a file in log_dir.
-
-    No-op when log_dir is falsy or stdout is empty.
-    """
-    if not log_dir or not stdout:
-        return
-    log_dir = Path(log_dir)
-    log_dir.mkdir(parents=True, exist_ok=True)
-    (log_dir / f"{log_name}.log").write_text(stdout, encoding="utf-8")
-
-
 def retry_on_failure(
     fn,
     max_retries=2,
