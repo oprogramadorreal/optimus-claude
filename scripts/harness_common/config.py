@@ -22,10 +22,10 @@ def load_project_config(project_root, section=None):
     return data
 
 
-# Config keys that must never be set from a project-level harness.json,
-# because they influence which scripts the harness executes or what tools
-# the claude session is allowed to invoke.  A checked-out-but-untrusted
-# repo could otherwise silently widen the attack surface.
+# Config keys that must never be set from a project-level harness.json.
+# These either influence execution security (hooks_dir, allowed_tools,
+# project_dir) or allow writing to arbitrary filesystem paths (log_dir,
+# json_summary).  An untrusted repo could exploit either vector.
 _CONFIG_BLOCKLIST = frozenset(
     {
         "hooks_dir",

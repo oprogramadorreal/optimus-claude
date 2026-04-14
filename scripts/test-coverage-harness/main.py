@@ -974,9 +974,9 @@ def main(argv=None):
     args = parser.parse_args(argv)
 
     # Apply project config defaults (CLI flags always win)
-    project_dir = Path(args.project_dir).resolve()
-    config = load_project_config(project_dir, section="test_coverage")
-    common = load_project_config(project_dir, section="common")
+    project_root = Path(args.project_dir).resolve()
+    config = load_project_config(project_root, section="test_coverage")
+    common = load_project_config(project_root, section="common")
     merged_config = {**common, **config}
     apply_config_defaults(args, merged_config, parser=parser)
 
@@ -987,8 +987,6 @@ def main(argv=None):
     if args.max_cycles < 1:
         print(f"{PREFIX} Cycle cap clamped to 1 (minimum).")
         args.max_cycles = 1
-
-    project_root = Path(args.project_dir).resolve()
     test_command, env_error = _validate_environment(project_root, args)
     if env_error:
         print(f"{PREFIX} ERROR: {env_error}")

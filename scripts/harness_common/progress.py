@@ -6,7 +6,7 @@ from pathlib import Path
 
 from .constants import BACKUP_SUFFIX
 
-_TERMINAL_STATUS_TOKENS = ("fixed", "retained", "persistent", "reverted")
+_TERMINAL_STATUS_TOKENS = ("fixed", "retained", "persistent", "reverted", "skipped")
 
 
 def classify_finding_status(status):
@@ -20,7 +20,7 @@ def classify_finding_status(status):
         return "fixed"
     if "persistent" in status:
         return "persistent"
-    if "reverted" in status:
+    if "reverted" in status or "skipped" in status:
         return "reverted"
     return "pending"
 

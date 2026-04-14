@@ -988,9 +988,9 @@ def main(argv=None):
     args = parser.parse_args(argv)
 
     # Apply project config defaults (CLI flags always win)
-    project_dir = Path(args.project_dir).resolve()
-    config = load_project_config(project_dir, section="deep_mode")
-    common = load_project_config(project_dir, section="common")
+    project_root = Path(args.project_dir).resolve()
+    config = load_project_config(project_root, section="deep_mode")
+    common = load_project_config(project_root, section="common")
     # Merge: common first, then section-specific overrides
     merged_config = {**common, **config}
     apply_config_defaults(args, merged_config, parser=parser)
@@ -1007,8 +1007,6 @@ def main(argv=None):
     if args.focus and args.skill != "refactor":
         print(f"{PREFIX} ERROR: --focus is only supported with --skill refactor.")
         return 1
-
-    project_root = Path(args.project_dir).resolve()
     test_command, env_error = _validate_environment(project_root, args)
     if env_error:
         print(f"{PREFIX} ERROR: {env_error}")
