@@ -91,11 +91,6 @@ def validate_coverage_unit_test_output(data):
     return data, warnings
 
 
-def validate_coverage_refactor_output(data):
-    """Validate and normalise coverage refactor phase output (same as deep-mode)."""
-    return validate_deep_mode_output(data)
-
-
 def validate_harness_output(data, harness_type, phase=None):
     """Dispatch to the appropriate validator based on harness type and phase."""
     if harness_type == "deep-mode":
@@ -103,6 +98,6 @@ def validate_harness_output(data, harness_type, phase=None):
     if harness_type == "test-coverage":
         if phase == "unit-test":
             return validate_coverage_unit_test_output(data)
-        return validate_coverage_refactor_output(data)
+        return validate_deep_mode_output(data)
     # Unknown harness type — no validation
     return data, []

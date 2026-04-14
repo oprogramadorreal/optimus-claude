@@ -46,7 +46,8 @@ def build_progress_digest(progress, iteration):
         failed = [
             f
             for f in findings
-            if "reverted" in f.get("status", "") or "persistent" in f.get("status", "")
+            if classify_finding_status(f.get("status", ""))
+            in ("reverted", "persistent")
         ]
         if failed:
             hints = []
@@ -72,7 +73,9 @@ def build_iteration_coaching(progress, iteration):
         )
 
     findings = progress.get("findings", [])
-    has_reverts = any("reverted" in f.get("status", "") for f in findings)
+    has_reverts = any(
+        classify_finding_status(f.get("status", "")) == "reverted" for f in findings
+    )
 
     if iteration <= 3:
         coaching = "Focus on NEW patterns not yet covered by prior iterations."

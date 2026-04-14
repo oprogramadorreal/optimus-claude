@@ -26,6 +26,7 @@ whitelist via --allowedTools.
 """
 
 import argparse
+import shlex
 import shutil
 import subprocess
 import sys
@@ -1058,7 +1059,7 @@ def main(argv=None):
         cmd = build_claude_session_cmd(
             prompt, system, args.allowed_tools, args.max_turns
         )
-        print(f"{PREFIX} [DRY RUN] Command: {' '.join(cmd)}")
+        print(f"{PREFIX} [DRY RUN] Command: {shlex.join(cmd)}")
         return 0
 
     # Main cycle loop
