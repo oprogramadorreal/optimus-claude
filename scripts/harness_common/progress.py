@@ -6,8 +6,6 @@ from pathlib import Path
 
 from .constants import BACKUP_SUFFIX
 
-_TERMINAL_STATUS_TOKENS = ("fixed", "retained", "persistent", "reverted", "skipped")
-
 
 def classify_finding_status(status):
     """Return the canonical bucket for a finding's status string.
