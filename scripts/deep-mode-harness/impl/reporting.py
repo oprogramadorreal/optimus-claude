@@ -9,7 +9,8 @@ from .constants import FIXED_STATUSES, PERSISTENT_STATUS, PREFIX, REVERTED_STATU
 
 def print_report(progress, current_branch=None, _get_branch=None):
     """Print the consolidated cumulative report."""
-    findings = progress["findings"]
+    # Include archived findings so totals don't drift once prune_resolved_findings kicks in.
+    findings = progress["findings"] + progress.get("archived_findings", [])
     total_fixed = sum(1 for f in findings if f["status"] in FIXED_STATUSES)
     total_reverted = sum(1 for f in findings if f["status"] in REVERTED_STATUSES)
     total_persistent = sum(1 for f in findings if f["status"] == PERSISTENT_STATUS)
