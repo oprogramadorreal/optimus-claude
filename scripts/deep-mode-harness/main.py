@@ -35,7 +35,6 @@ running the harness on unfamiliar codebases.
 """
 
 import argparse
-import shlex
 import shutil
 import subprocess
 import sys
@@ -46,8 +45,6 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from harness_common.config import apply_config_defaults, load_project_config
-from harness_common.hooks import run_hook
 from harness_common.parser import parse_harness_output
 from harness_common.progress import (
     check_progress_size,
@@ -55,7 +52,7 @@ from harness_common.progress import (
     record_timing,
     trim_scope_files,
 )
-from harness_common.reporting import write_json_summary
+from harness_common.reporting import print_phase
 from harness_common.runner import retry_on_failure, save_session_log
 from impl.constants import (
     APPLIED_PENDING_TEST,
@@ -191,32 +188,6 @@ Examples:
         type=int,
         default=DEFAULT_SESSION_TIMEOUT,
         help=f"Per-iteration timeout in seconds (default: {DEFAULT_SESSION_TIMEOUT})",
-    )
-    parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Print the claude command and prompt without executing",
-    )
-    parser.add_argument(
-        "--log-dir",
-        default="",
-        help="Directory for per-iteration session logs (default: disabled)",
-    )
-    parser.add_argument(
-        "--json-summary",
-        default="",
-        help="Path for JSON summary output (default: disabled)",
-    )
-    parser.add_argument(
-        "--hooks-dir",
-        default="",
-        help="Directory containing lifecycle hook scripts (default: disabled)",
-    )
-    parser.add_argument(
-        "--max-retries",
-        type=int,
-        default=2,
-        help="Max retry attempts per iteration on transient failure (default: 2)",
     )
     return parser
 
@@ -499,7 +470,7 @@ def _run_session_with_retry(
 
     return retry_on_failure(
         lambda: run_skill_session(progress, args, progress_path),
-        max_retries=args.max_retries,
+        max_retries=2,
         base_delay=5.0,
         on_retry=_on_retry,
         on_exhausted=_on_exhausted,
@@ -786,16 +757,6 @@ def _run_iteration_loop(
                 f"{PREFIX} WARNING: Progress file is {size_kb:.0f}KB — consider pruning"
             )
 
-        run_hook(
-            args.hooks_dir,
-            "pre-iteration",
-            env_vars={
-                "HARNESS_ITERATION": iteration,
-                "HARNESS_PROJECT_ROOT": str(project_root),
-            },
-            prefix=PREFIX,
-        )
-
         pre_head = git_rev_parse_head(project_root)
         if not pre_head:
             print(
@@ -816,6 +777,7 @@ def _run_iteration_loop(
 
         write_progress(progress_path, progress)
 
+        print_phase(PREFIX, "iter", iteration, max_iter, "run")
         output = _run_session_with_retry(
             args,
             progress,
@@ -828,8 +790,13 @@ def _run_iteration_loop(
         if output is None:
             break
 
-        save_session_log(args.log_dir, f"session-iter{iteration}", output or "")
+        save_session_log(
+            str(project_root / ".claude" / "harness-logs"),
+            f"session-iter{iteration}",
+            output or "",
+        )
 
+        print_phase(PREFIX, "iter", iteration, max_iter, "parse")
         result = parse_harness_output(output, harness_type="deep-mode")
         elapsed = round(time.time() - iteration_start, 2)
         record_timing(progress, f"iteration-{iteration}", elapsed)
@@ -847,6 +814,7 @@ def _run_iteration_loop(
             if result is None:
                 break
 
+        print_phase(PREFIX, "iter", iteration, max_iter, "apply")
         _promote_actionable_fixes(result)
 
         new_count = len(result.get("new_findings", []))
@@ -968,17 +936,6 @@ def _run_iteration_loop(
             )
             break
 
-        run_hook(
-            args.hooks_dir,
-            "post-iteration",
-            env_vars={
-                "HARNESS_ITERATION": iteration,
-                "HARNESS_PROJECT_ROOT": str(project_root),
-                "HARNESS_ELAPSED": str(elapsed),
-            },
-            prefix=PREFIX,
-        )
-
         progress["iteration"]["current"] += 1
         write_progress(progress_path, progress)
 
@@ -987,13 +944,7 @@ def main(argv=None):
     parser = _build_argument_parser()
     args = parser.parse_args(argv)
 
-    # Apply project config defaults (CLI flags always win)
     project_root = Path(args.project_dir).resolve()
-    config = load_project_config(project_root, section="deep_mode")
-    common = load_project_config(project_root, section="common")
-    # Merge: common first, then section-specific overrides
-    merged_config = {**common, **config}
-    apply_config_defaults(args, merged_config, parser=parser)
 
     # Clamp iterations
     if args.max_iterations > MAX_ITERATIONS_HARD_CAP:
@@ -1076,29 +1027,6 @@ def main(argv=None):
 
     _print_startup_info(args, progress)
 
-    # Dry-run: print the command that would be executed and exit
-    if args.dry_run:
-        from harness_common.runner import build_claude_session_cmd
-        from impl.runner import _build_harness_system, _build_prompt
-
-        prompt = _build_prompt(
-            progress["skill"],
-            progress["config"]["max_iterations"],
-            progress["scope_files"]["current"],
-            focus=progress["config"].get("focus", ""),
-        )
-        system = _build_harness_system(
-            str(progress_path),
-            progress["iteration"]["current"],
-            progress["config"]["max_iterations"],
-            progress,
-        )
-        cmd = build_claude_session_cmd(
-            prompt, system, args.allowed_tools, args.max_turns
-        )
-        print(f"{PREFIX} [DRY RUN] Command: {shlex.join(cmd)}")
-        return 0
-
     # Main iteration loop
     try:
         _run_iteration_loop(
@@ -1115,9 +1043,6 @@ def main(argv=None):
 
     # Final report and cleanup
     print_report(progress)
-    if args.json_summary:
-        write_json_summary(progress, "deep-mode", args.json_summary)
-        print(f"{PREFIX} JSON summary written to {args.json_summary}")
     _archive_progress(progress_path)
     return 0
 

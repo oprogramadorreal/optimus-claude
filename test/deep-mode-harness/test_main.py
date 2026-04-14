@@ -805,7 +805,7 @@ class TestHandleSafeExit:
 class TestRunSessionWithRetry:
     @patch("main.run_skill_session", return_value="output")
     def test_success_first_attempt(self, mock_session, sample_progress, tmp_path):
-        args = SimpleNamespace(timeout=900, max_retries=1)
+        args = SimpleNamespace(timeout=900)
         result = _run_session_with_retry(
             args, sample_progress, tmp_path / "p.json", None, "abc", tmp_path, 1
         )
@@ -828,7 +828,7 @@ class TestRunSessionWithRetry:
         sample_progress,
         tmp_path,
     ):
-        args = SimpleNamespace(timeout=900, max_retries=1)
+        args = SimpleNamespace(timeout=900)
         result = _run_session_with_retry(
             args, sample_progress, tmp_path / "p.json", None, "abc", tmp_path, 1
         )
@@ -840,7 +840,11 @@ class TestRunSessionWithRetry:
     @patch("main.restore_working_tree")
     @patch(
         "main.run_skill_session",
-        side_effect=[RuntimeError("crash"), RuntimeError("crash2")],
+        side_effect=[
+            RuntimeError("crash"),
+            RuntimeError("crash2"),
+            RuntimeError("crash3"),
+        ],
     )
     def test_returns_none_after_two_failures(
         self,
@@ -851,7 +855,7 @@ class TestRunSessionWithRetry:
         sample_progress,
         tmp_path,
     ):
-        args = SimpleNamespace(timeout=900, max_retries=1)
+        args = SimpleNamespace(timeout=900)
         result = _run_session_with_retry(
             args, sample_progress, tmp_path / "p.json", None, "abc", tmp_path, 1
         )
@@ -874,7 +878,7 @@ class TestRunSessionWithRetry:
         sample_progress,
         tmp_path,
     ):
-        args = SimpleNamespace(timeout=900, max_retries=1)
+        args = SimpleNamespace(timeout=900)
         result = _run_session_with_retry(
             args, sample_progress, tmp_path / "p.json", None, "abc", tmp_path, 1
         )
