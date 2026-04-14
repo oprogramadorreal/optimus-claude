@@ -84,7 +84,6 @@ For complex multi-step instructions:
 - **Too many options** — don't list five libraries for the same task. Provide one sensible default with an escape hatch for edge cases.
 - **Windows-style paths** — always use forward slashes (`reference/guide.md`), never backslashes. Forward slashes work cross-platform.
 - **Inconsistent terminology** — pick one term per concept. Don't mix "field"/"box"/"element" or "extract"/"pull"/"get" for the same operation.
-- **Speculative steps** — don't add steps for hypothetical edge cases or future requirements. Each step should address a concrete, current need. If a step starts with "optionally" or "if needed in the future," cut it.
 - **Drive-by improvements** — when fixing or updating an instruction, only change what the task requires. Don't restructure adjacent sections, rename variables in examples, or reformat content you're passing through.
 
 ## Documentation
