@@ -22,20 +22,28 @@ def load_project_config(project_root, section=None):
     return data
 
 
-def apply_config_defaults(args, config, key_map=None):
+def apply_config_defaults(args, config, parser=None, key_map=None):
     """Apply *config* values as defaults for unset argparse attributes.
 
-    Only fills in attributes that are still at their argparse default (i.e.
-    the caller did not explicitly pass a CLI flag).  *key_map* translates
-    config keys to attribute names when they differ (e.g.
-    ``{"max_iterations": "max_iterations"}`` is identity, but
-    ``{"max-retries": "max_retries"}`` handles the dash/underscore mismatch).
+    An attribute is considered unset when its current value equals the
+    argparse default for that flag — determined via ``parser.get_default``
+    when *parser* is supplied.  Without *parser*, only ``None`` / ``""``
+    values are treated as unset (a legitimately-passed ``0``/``False`` is
+    preserved).  *key_map* translates config keys to attribute names when
+    they differ.
 
     Mutates *args* in place and returns it for convenience.
     """
     key_map = key_map or {}
     for config_key, value in config.items():
         attr = key_map.get(config_key, config_key.replace("-", "_"))
-        if hasattr(args, attr) and getattr(args, attr) in (None, "", False, 0):
+        if attr.startswith("_") or not hasattr(args, attr):
+            continue
+        current = getattr(args, attr)
+        if parser is not None:
+            is_unset = current == parser.get_default(attr)
+        else:
+            is_unset = current in (None, "")
+        if is_unset:
             setattr(args, attr, value)
     return args

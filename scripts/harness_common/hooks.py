@@ -1,6 +1,5 @@
 import os
 import subprocess
-import sys
 from pathlib import Path
 
 
@@ -40,12 +39,8 @@ def run_hook(hooks_dir, event, env_vars=None, prefix="[harness]"):
         env.update({k: str(v) for k, v in env_vars.items()})
 
     try:
-        if sys.platform == "win32":
-            cmd = [str(hook_file)]
-        else:
-            cmd = [str(hook_file)]
         result = subprocess.run(
-            cmd,
+            [str(hook_file)],
             capture_output=True,
             text=True,
             timeout=30,

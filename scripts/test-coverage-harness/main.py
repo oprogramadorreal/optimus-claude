@@ -49,7 +49,6 @@ from harness_common.hooks import run_hook
 from harness_common.parser import parse_harness_output
 from harness_common.progress import (
     check_progress_size,
-    format_elapsed,
     record_timing,
 )
 from harness_common.reporting import detect_test_command, write_json_summary
@@ -562,7 +561,7 @@ def _run_unit_test_phase(
     save_session_log(args.log_dir, f"session-cycle{cycle}-unit-test", ut_output or "")
 
     ut_result = parse_harness_output(
-        ut_output, harness_type="coverage", phase="unit-test"
+        ut_output, harness_type="test-coverage", phase="unit-test"
     )
     ut_elapsed = round(time.time() - ut_start, 2)
     record_timing(progress, f"cycle-{cycle}-unit-test", ut_elapsed)
@@ -709,7 +708,7 @@ def _run_refactor_phase(
     save_session_log(args.log_dir, f"session-cycle{cycle}-refactor", rf_output or "")
 
     rf_result = parse_harness_output(
-        rf_output, harness_type="coverage", phase="refactor"
+        rf_output, harness_type="test-coverage", phase="refactor"
     )
     rf_elapsed = round(time.time() - rf_start, 2)
     record_timing(progress, f"cycle-{cycle}-refactor", rf_elapsed)
@@ -978,7 +977,7 @@ def main(argv=None):
     config = load_project_config(project_dir, section="test_coverage")
     common = load_project_config(project_dir, section="common")
     merged_config = {**common, **config}
-    apply_config_defaults(args, merged_config)
+    apply_config_defaults(args, merged_config, parser=parser)
 
     # Clamp cycles
     if args.max_cycles > MAX_CYCLES_HARD_CAP:
