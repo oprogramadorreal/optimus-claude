@@ -782,9 +782,6 @@ class TestRunCycleLoop:
             timeout=900,
             allowed_tools=None,
             project_dir=".",
-            max_retries=1,
-            log_dir="",
-            hooks_dir="",
         )
         defaults.update(overrides)
         return SimpleNamespace(**defaults)
@@ -887,7 +884,11 @@ class TestRunCycleLoop:
     @patch("main.restore_working_tree")
     @patch(
         "main.run_coverage_session",
-        side_effect=[RuntimeError("session crash"), RuntimeError("session crash")],
+        side_effect=[
+            RuntimeError("session crash"),
+            RuntimeError("session crash"),
+            RuntimeError("session crash"),
+        ],
     )
     @patch("main.git_stash_snapshot", return_value=None)
     @patch("main.git_rev_parse_head", return_value="abc123")
@@ -1361,6 +1362,7 @@ class TestRunCycleLoop:
         mock_parse.return_value = ut_result
         mock_session.side_effect = [
             "ut output",
+            RuntimeError("refactor crash"),
             RuntimeError("refactor crash"),
             RuntimeError("refactor crash"),
         ]

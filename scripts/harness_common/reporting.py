@@ -1,9 +1,5 @@
-import json
 import re
-from collections import Counter
 from pathlib import Path
-
-from .progress import classify_finding_status
 
 
 def detect_test_command(project_root, content=None):
@@ -46,63 +42,9 @@ def detect_test_command(project_root, content=None):
     return None
 
 
-# ---------------------------------------------------------------------------
-# JSON summary export
-# ---------------------------------------------------------------------------
+def print_phase(prefix, unit, current, total, phase):
+    """Emit a single-line phase banner for in-flight debugging.
 
-
-def build_json_summary(progress, harness_type):
-    """Build a stable-schema summary dict from a progress structure.
-
-    Intended for CI/CD consumption — the schema is independent of internal
-    progress file evolution.
+    Example: ``[harness] [iter 3/10 · run]``. *unit* is "iter" or "cycle".
     """
-    summary = {
-        "harness": harness_type,
-        "status": "completed",
-    }
-
-    if harness_type == "deep-mode":
-        summary["skill"] = progress.get("skill", "unknown")
-        iteration = progress.get("iteration", {})
-        summary["iterations_completed"] = iteration.get("completed", 0)
-
-        findings = progress.get("findings", [])
-        buckets = Counter(
-            classify_finding_status(f.get("status", "")) for f in findings
-        )
-        summary["findings"] = {
-            "total": len(findings),
-            "fixed": buckets["fixed"],
-            "reverted": buckets["reverted"],
-            "persistent": buckets["persistent"],
-        }
-    elif harness_type == "test-coverage":
-        cycle = progress.get("cycle", {})
-        summary["cycles_completed"] = cycle.get("completed", 0)
-
-        coverage = progress.get("coverage", {})
-        summary["coverage"] = {
-            "baseline": coverage.get("baseline"),
-            "current": coverage.get("current"),
-        }
-        summary["tests_created"] = len(progress.get("tests_created", []))
-
-    test_results = progress.get("test_results", {})
-    summary["test_status"] = test_results.get("last_full_run", "unknown")
-    summary["total_elapsed_seconds"] = progress.get("total_elapsed_seconds", 0)
-
-    termination = progress.get("termination")
-    if termination:
-        summary["status"] = termination.get("reason", "terminated")
-        summary["termination_message"] = termination.get("message", "")
-
-    return summary
-
-
-def write_json_summary(progress, harness_type, path):
-    """Write a JSON summary file for CI/CD integration."""
-    summary = build_json_summary(progress, harness_type)
-    path = Path(path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
+    print(f"{prefix} [{unit} {current}/{total} \u00b7 {phase}]")
