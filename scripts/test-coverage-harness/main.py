@@ -509,6 +509,7 @@ def _run_unit_test_phase(
     def _on_ut_retry(attempt, exc, delay):
         print(f"{PREFIX} Unit-test session error: {exc}")
         restore_working_tree(pre_stash, pre_head, project_root)
+        write_progress(progress_path, progress)
         print(f"{PREFIX} Retrying unit-test phase in {delay:.0f}s...")
 
     def _on_ut_exhausted(exc):
@@ -533,7 +534,7 @@ def _run_unit_test_phase(
     save_session_log(
         str(project_root / ".claude" / "harness-logs"),
         f"session-cycle{cycle}-unit-test",
-        ut_output or "",
+        ut_output,
     )
 
     ut_result = parse_harness_output(
@@ -659,6 +660,7 @@ def _run_refactor_phase(
     def _on_rf_retry(attempt, exc, delay):
         print(f"{PREFIX} Refactor session error: {exc}")
         restore_working_tree(pre_stash, pre_head, project_root)
+        write_progress(progress_path, progress)
         print(f"{PREFIX} Retrying refactor phase in {delay:.0f}s...")
 
     def _on_rf_exhausted(exc):
@@ -684,7 +686,7 @@ def _run_refactor_phase(
     save_session_log(
         str(project_root / ".claude" / "harness-logs"),
         f"session-cycle{cycle}-refactor",
-        rf_output or "",
+        rf_output,
     )
 
     rf_result = parse_harness_output(
@@ -931,10 +933,7 @@ def _run_cycle_loop(
 
 
 def main(argv=None):
-    parser = _build_argument_parser()
-    args = parser.parse_args(argv)
-
-    project_root = Path(args.project_dir).resolve()
+    args = _build_argument_parser().parse_args(argv)
 
     # Clamp cycles
     if args.max_cycles > MAX_CYCLES_HARD_CAP:
@@ -943,6 +942,8 @@ def main(argv=None):
     if args.max_cycles < 1:
         print(f"{PREFIX} Cycle cap clamped to 1 (minimum).")
         args.max_cycles = 1
+
+    project_root = Path(args.project_dir).resolve()
     test_command, env_error = _validate_environment(project_root, args)
     if env_error:
         print(f"{PREFIX} ERROR: {env_error}")

@@ -7,7 +7,6 @@ so callers can log contract violations without crashing.
 
 
 def _check_list(data, key, warnings):
-    """Ensure *key* is a list in *data*; fill with [] if missing/wrong type."""
     val = data.get(key)
     if val is None:
         data[key] = []
@@ -18,7 +17,6 @@ def _check_list(data, key, warnings):
 
 
 def _check_bool(data, key, default, warnings):
-    """Ensure *key* is a bool in *data*; fill with *default* if missing/wrong."""
     val = data.get(key)
     if val is None:
         data[key] = default
@@ -38,10 +36,15 @@ def _validate_finding(item, index, warnings):
             warnings.append(f"Finding [{index}] missing required field '{field}'")
     line = item.get("line")
     if line is not None and not isinstance(line, int):
-        try:
-            item["line"] = int(line)
-        except (ValueError, TypeError):
+        if isinstance(line, float) and not line.is_integer():
             warnings.append(f"Finding [{index}] 'line' is not an integer: {line!r}")
+            item["line"] = None
+        else:
+            try:
+                item["line"] = int(line)
+            except (ValueError, TypeError):
+                warnings.append(f"Finding [{index}] 'line' is not an integer: {line!r}")
+                item["line"] = None
 
 
 def validate_deep_mode_output(data):

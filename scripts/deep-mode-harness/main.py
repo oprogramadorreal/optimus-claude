@@ -793,7 +793,7 @@ def _run_iteration_loop(
         save_session_log(
             str(project_root / ".claude" / "harness-logs"),
             f"session-iter{iteration}",
-            output or "",
+            output,
         )
 
         print_phase(PREFIX, "iter", iteration, max_iter, "parse")
@@ -941,10 +941,7 @@ def _run_iteration_loop(
 
 
 def main(argv=None):
-    parser = _build_argument_parser()
-    args = parser.parse_args(argv)
-
-    project_root = Path(args.project_dir).resolve()
+    args = _build_argument_parser().parse_args(argv)
 
     # Clamp iterations
     if args.max_iterations > MAX_ITERATIONS_HARD_CAP:
@@ -958,6 +955,8 @@ def main(argv=None):
     if args.focus and args.skill != "refactor":
         print(f"{PREFIX} ERROR: --focus is only supported with --skill refactor.")
         return 1
+
+    project_root = Path(args.project_dir).resolve()
     test_command, env_error = _validate_environment(project_root, args)
     if env_error:
         print(f"{PREFIX} ERROR: {env_error}")

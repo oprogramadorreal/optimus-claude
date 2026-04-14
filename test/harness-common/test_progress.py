@@ -1,5 +1,4 @@
 import json
-import time
 
 from harness_common.constants import BACKUP_SUFFIX
 from harness_common.progress import (

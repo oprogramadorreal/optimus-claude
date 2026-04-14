@@ -138,11 +138,6 @@ def run_tests(test_command, cwd, timeout=DEFAULT_TEST_TIMEOUT, prefix="[harness]
     return passed, summary
 
 
-# ---------------------------------------------------------------------------
-# Framework-aware test output extraction
-# ---------------------------------------------------------------------------
-
-
 def extract_test_summary(raw_output):
     """Extract a concise test summary from raw test runner output.
 
@@ -159,7 +154,7 @@ def extract_test_summary(raw_output):
         if re.search(r"=+ .*(?:passed|failed|error).* in ", line):
             parts = [line]
             # Include first FAILED assertion (look backwards)
-            for j in range(i - 1, max(i - 30, -1), -1):
+            for j in range(i - 1, max(i - 31, -1), -1):
                 if lines[j].startswith("FAILED ") or lines[j].startswith("E "):
                     parts.insert(0, lines[j])
                     break
@@ -189,59 +184,27 @@ def extract_test_summary(raw_output):
     return "\n".join(lines[-10:])
 
 
-# ---------------------------------------------------------------------------
-# Session log capture
-# ---------------------------------------------------------------------------
+def save_session_log(log_dir, log_name, stdout):
+    """Save raw claude session stdout to a file in log_dir.
 
-
-def save_session_log(log_dir, log_name, stdout, stderr=""):
-    """Save raw claude session stdout/stderr to files in log_dir.
-
-    No-op when log_dir is falsy or when both streams are empty.  Creates
-    the directory if it doesn't exist.
+    No-op when log_dir is falsy or stdout is empty.
     """
-    if not log_dir or (not stdout and not stderr):
+    if not log_dir or not stdout:
         return
     log_dir = Path(log_dir)
     log_dir.mkdir(parents=True, exist_ok=True)
-    if stdout:
-        (log_dir / f"{log_name}.log").write_text(stdout, encoding="utf-8")
-    if stderr:
-        (log_dir / f"{log_name}.stderr.log").write_text(stderr, encoding="utf-8")
-
-
-# ---------------------------------------------------------------------------
-# Exponential backoff with jitter
-# ---------------------------------------------------------------------------
+    (log_dir / f"{log_name}.log").write_text(stdout, encoding="utf-8")
 
 
 def retry_on_failure(
     fn,
     max_retries=2,
     base_delay=5.0,
-    jitter_fraction=0.25,
     retryable=(RuntimeError, subprocess.TimeoutExpired),
     on_retry=None,
     on_exhausted=None,
 ):
     """Call *fn* with exponential backoff on retryable exceptions.
-
-    Parameters
-    ----------
-    fn : callable
-        Zero-argument callable to invoke.
-    max_retries : int
-        Maximum number of retry attempts (total calls = max_retries + 1).
-    base_delay : float
-        Base delay in seconds before the first retry.
-    jitter_fraction : float
-        Randomise delay by ± this fraction (e.g. 0.25 → ±25 %).
-    retryable : tuple[type, ...]
-        Exception types that trigger a retry.
-    on_retry : callable or None
-        ``on_retry(attempt, exc, delay)`` called before sleeping.
-    on_exhausted : callable or None
-        ``on_exhausted(exc)`` called when all retries are used up.
 
     Returns the result of *fn* on success, or None if all attempts fail.
     """
@@ -251,7 +214,7 @@ def retry_on_failure(
         except retryable as exc:
             if attempt < max_retries:
                 delay = base_delay * (2**attempt)
-                jitter = delay * jitter_fraction * (2 * random.random() - 1)
+                jitter = delay * 0.25 * (2 * random.random() - 1)
                 delay = max(0, delay + jitter)
                 if on_retry:
                     on_retry(attempt, exc, delay)

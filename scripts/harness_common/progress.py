@@ -51,11 +51,6 @@ def record_test_result(progress, passed, summary):
     progress["test_results"]["last_run_output_summary"] = summary
 
 
-# ---------------------------------------------------------------------------
-# Timing utilities
-# ---------------------------------------------------------------------------
-
-
 def record_timing(progress, label, elapsed_s):
     """Append a timing entry to the progress structure.
 
@@ -84,11 +79,6 @@ def format_elapsed(total_seconds):
     if minutes > 0:
         return f"{minutes}m {seconds}s"
     return f"{seconds}s"
-
-
-# ---------------------------------------------------------------------------
-# Progress pruning
-# ---------------------------------------------------------------------------
 
 
 def prune_resolved_findings(progress, current_iteration, archive_after=3):
