@@ -1,3 +1,4 @@
+import argparse
 import json
 from argparse import Namespace
 
@@ -76,11 +77,30 @@ class TestApplyConfigDefaults:
         assert args.verbose is True
 
     def test_key_map(self):
-        args = Namespace(max_retries=0)
+        parser = argparse.ArgumentParser()
+        parser.add_argument("--max-retries", type=int, default=0)
+        args = parser.parse_args([])
         apply_config_defaults(
-            args, {"max-retries": 3}, key_map={"max-retries": "max_retries"}
+            args,
+            {"max-retries": 3},
+            parser=parser,
+            key_map={"max-retries": "max_retries"},
         )
         assert args.max_retries == 3
+
+    def test_explicit_zero_not_overridden(self):
+        parser = argparse.ArgumentParser()
+        parser.add_argument("--max-retries", type=int, default=2)
+        args = parser.parse_args(["--max-retries", "0"])
+        apply_config_defaults(args, {"max_retries": 5}, parser=parser)
+        assert args.max_retries == 0
+
+    def test_parser_default_overridden_by_config(self):
+        parser = argparse.ArgumentParser()
+        parser.add_argument("--max-retries", type=int, default=2)
+        args = parser.parse_args([])
+        apply_config_defaults(args, {"max_retries": 5}, parser=parser)
+        assert args.max_retries == 5
 
     def test_dash_to_underscore_auto(self):
         args = Namespace(hooks_dir="")

@@ -109,12 +109,16 @@ class TestValidateHarnessOutput:
 
     def test_dispatches_coverage_unit_test(self):
         data = {"tests_written": []}
-        result, warnings = validate_harness_output(data, "coverage", phase="unit-test")
+        result, warnings = validate_harness_output(
+            data, "test-coverage", phase="unit-test"
+        )
         assert "no_new_tests" in result
 
     def test_dispatches_coverage_refactor(self):
         data = {"new_findings": []}
-        result, warnings = validate_harness_output(data, "coverage", phase="refactor")
+        result, warnings = validate_harness_output(
+            data, "test-coverage", phase="refactor"
+        )
         assert "no_new_findings" in result
 
     def test_unknown_harness_type(self):

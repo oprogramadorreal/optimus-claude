@@ -100,7 +100,7 @@ def validate_harness_output(data, harness_type, phase=None):
     """Dispatch to the appropriate validator based on harness type and phase."""
     if harness_type == "deep-mode":
         return validate_deep_mode_output(data)
-    if harness_type == "coverage":
+    if harness_type == "test-coverage":
         if phase == "unit-test":
             return validate_coverage_unit_test_output(data)
         return validate_coverage_refactor_output(data)

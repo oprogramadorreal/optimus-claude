@@ -1,4 +1,5 @@
 import random
+import re
 import shutil
 import subprocess
 import sys
@@ -141,8 +142,6 @@ def run_tests(test_command, cwd, timeout=DEFAULT_TEST_TIMEOUT, prefix="[harness]
 # Framework-aware test output extraction
 # ---------------------------------------------------------------------------
 
-import re as _re  # noqa: E402  (keep imports grouped at top in future refactors)
-
 
 def extract_test_summary(raw_output):
     """Extract a concise test summary from raw test runner output.
@@ -157,7 +156,7 @@ def extract_test_summary(raw_output):
 
     # --- pytest ---
     for i, line in enumerate(lines):
-        if _re.search(r"=+ .*(?:passed|failed|error).* in ", line):
+        if re.search(r"=+ .*(?:passed|failed|error).* in ", line):
             parts = [line]
             # Include first FAILED assertion (look backwards)
             for j in range(i - 1, max(i - 30, -1), -1):
@@ -167,21 +166,21 @@ def extract_test_summary(raw_output):
             return "\n".join(parts)
 
     # --- jest ---
-    jest_lines = [l for l in lines if _re.match(r"\s*(Tests|Test Suites):\s+", l)]
+    jest_lines = [l for l in lines if re.match(r"\s*(Tests|Test Suites):\s+", l)]
     if jest_lines:
         return "\n".join(jest_lines)
 
     # --- go test ---
     go_lines = []
     for line in lines:
-        if line.startswith("FAIL") or _re.match(r"---\s+FAIL:", line):
+        if line.startswith("FAIL") or re.match(r"---\s+FAIL:", line):
             go_lines.append(line)
     if go_lines:
         return "\n".join(go_lines[:5])
 
     # --- cargo test ---
     for line in lines:
-        if _re.match(r"test result:", line):
+        if re.match(r"test result:", line):
             return line
 
     # --- fallback: last 10 lines ---

@@ -73,8 +73,9 @@ def format_elapsed(total_seconds):
 def prune_resolved_findings(progress, current_iteration, archive_after=3):
     """Move old resolved findings to an archived_findings list.
 
-    A finding is archived when it has a terminal status (fixed or retained)
-    and was last attempted more than *archive_after* iterations ago.
+    A finding is archived when it has a terminal status (fixed, retained,
+    or persistent) and was last attempted more than *archive_after*
+    iterations ago.
     """
     findings = progress.get("findings", [])
     if not findings:
@@ -87,7 +88,9 @@ def prune_resolved_findings(progress, current_iteration, archive_after=3):
             "iteration_last_attempted", f.get("iteration_discovered", 0)
         )
         status = f.get("status", "")
-        is_terminal = "fixed" in status or "retained" in status
+        is_terminal = (
+            "fixed" in status or "retained" in status or "persistent" in status
+        )
         if is_terminal and (current_iteration - last_attempted) > archive_after:
             archived.append(f)
         else:
@@ -106,11 +109,11 @@ def trim_scope_files(progress, max_files=30):
     if len(current) <= max_files:
         return
 
-    # Collect files with active findings
+    # Collect files with active (non-terminal) findings
     active_files = set()
     for f in progress.get("findings", []):
         status = f.get("status", "")
-        if "fixed" not in status and "retained" not in status:
+        if not any(t in status for t in ("fixed", "retained", "persistent")):
             fpath = f.get("file", "")
             if fpath:
                 active_files.add(fpath)

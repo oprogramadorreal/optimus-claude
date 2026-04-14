@@ -67,8 +67,17 @@ def build_json_summary(progress, harness_type):
         findings = progress.get("findings", [])
         summary["findings"] = {
             "total": len(findings),
-            "fixed": sum(1 for f in findings if "fixed" in f.get("status", "")),
-            "reverted": sum(1 for f in findings if "reverted" in f.get("status", "")),
+            "fixed": sum(
+                1
+                for f in findings
+                if "fixed" in f.get("status", "") or "retained" in f.get("status", "")
+            ),
+            "reverted": sum(
+                1
+                for f in findings
+                if "reverted" in f.get("status", "")
+                and "retained" not in f.get("status", "")
+            ),
             "persistent": sum(
                 1 for f in findings if "persistent" in f.get("status", "")
             ),

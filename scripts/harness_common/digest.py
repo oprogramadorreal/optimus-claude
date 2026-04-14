@@ -19,12 +19,12 @@ def build_progress_digest(progress, iteration):
     counts = {"fixed": 0, "reverted": 0, "persistent": 0, "pending": 0}
     for f in findings:
         status = f.get("status", "")
-        if "fixed" in status:
+        if "fixed" in status or "retained" in status:
             counts["fixed"] += 1
-        elif "reverted" in status:
-            counts["reverted"] += 1
         elif "persistent" in status:
             counts["persistent"] += 1
+        elif "reverted" in status:
+            counts["reverted"] += 1
         else:
             counts["pending"] += 1
 

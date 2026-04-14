@@ -67,6 +67,8 @@ class TestParseWithSchemaValidation:
 
     def test_coverage_unit_test_validation(self):
         raw = '```json:harness-output\n{"tests_written": []}\n```'
-        result = parse_harness_output(raw, harness_type="coverage", phase="unit-test")
+        result = parse_harness_output(
+            raw, harness_type="test-coverage", phase="unit-test"
+        )
         assert result["no_new_tests"] is False
         assert "coverage" in result

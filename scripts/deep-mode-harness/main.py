@@ -50,7 +50,6 @@ from harness_common.hooks import run_hook
 from harness_common.parser import parse_harness_output
 from harness_common.progress import (
     check_progress_size,
-    format_elapsed,
     prune_resolved_findings,
     record_timing,
     trim_scope_files,
@@ -490,6 +489,7 @@ def _run_session_with_retry(
 
     def _on_exhausted(exc):
         print(f"{PREFIX} Iteration {iteration} failed after retries. Stopping.")
+        restore_working_tree(pre_stash, pre_head, project_root)
         progress["termination"] = {
             "reason": "crash",
             "message": f"Session failed on iteration {iteration}: {exc}",
@@ -992,7 +992,7 @@ def main(argv=None):
     common = load_project_config(project_dir, section="common")
     # Merge: common first, then section-specific overrides
     merged_config = {**common, **config}
-    apply_config_defaults(args, merged_config)
+    apply_config_defaults(args, merged_config, parser=parser)
 
     # Clamp iterations
     if args.max_iterations > MAX_ITERATIONS_HARD_CAP:
