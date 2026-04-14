@@ -92,6 +92,7 @@ For complex multi-step skills:
 - **Too many options** — don't list five libraries for the same task. Provide one sensible default with an escape hatch for edge cases.
 - **Windows-style paths** — always use forward slashes (`reference/guide.md`), never backslashes. Forward slashes work cross-platform.
 - **Inconsistent terminology** — pick one term per concept. Don't mix "field"/"box"/"element" or "extract"/"pull"/"get" for the same operation.
+- **Drive-by improvements** — when fixing or updating a skill, only change what the task requires. Don't restructure adjacent sections, rename variables in examples, or reformat content you're passing through.
 
 ## Documentation
 
