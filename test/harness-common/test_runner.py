@@ -6,7 +6,6 @@ from harness_common.runner import (
     extract_test_summary,
     retry_on_failure,
     run_tests,
-    save_session_log,
 )
 
 
@@ -276,23 +275,6 @@ class TestExtractTestSummary:
     def test_empty_input(self):
         assert extract_test_summary("") == ""
         assert extract_test_summary(None) == ""
-
-
-class TestSaveSessionLog:
-    def test_saves_stdout(self, tmp_path):
-        save_session_log(str(tmp_path), "session-iter1", "hello stdout")
-        assert (tmp_path / "session-iter1.log").read_text(
-            encoding="utf-8"
-        ) == "hello stdout"
-
-    def test_noop_when_no_log_dir(self):
-        save_session_log("", "session-iter1", "out")  # Should not crash
-        save_session_log(None, "session-iter1", "out")
-
-    def test_creates_directory(self, tmp_path):
-        log_dir = tmp_path / "nested" / "logs"
-        save_session_log(str(log_dir), "test", "content")
-        assert (log_dir / "test.log").exists()
 
 
 class TestRetryOnFailure:

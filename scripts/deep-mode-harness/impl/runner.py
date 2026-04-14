@@ -1,7 +1,6 @@
 import subprocess
 
 # Import shared run_tests and wrap to inject deep-mode prefix
-from harness_common.digest import build_iteration_coaching, build_progress_digest
 from harness_common.runner import build_claude_session_cmd
 from harness_common.runner import run_tests as _shared_run_tests
 
@@ -31,9 +30,9 @@ def _build_prompt(skill, max_iterations, scope_paths, focus=""):
     return prompt
 
 
-def _build_harness_system(progress_path, iteration, max_iterations, progress=None):
+def _build_harness_system(progress_path, iteration, max_iterations):
     """Build the harness-mode system prompt injected into the claude session."""
-    base = (
+    return (
         f"HARNESS_MODE_ACTIVE: You are running inside the deep-mode harness. "
         f"Progress file: {progress_path}\n"
         f"This is iteration {iteration} of {max_iterations}. "
@@ -42,11 +41,6 @@ def _build_harness_system(progress_path, iteration, max_iterations, progress=Non
         f"After applying fixes, output structured JSON in a "
         f"```json:harness-output block and stop."
     )
-    if progress is not None:
-        digest = build_progress_digest(progress, iteration)
-        coaching = build_iteration_coaching(progress, iteration)
-        base += f"\n\n--- Progress Digest ---\n{digest}\n\n--- Guidance ---\n{coaching}"
-    return base
 
 
 def run_skill_session(progress, args, resolved_progress_path, _run=subprocess.run):
@@ -65,9 +59,7 @@ def run_skill_session(progress, args, resolved_progress_path, _run=subprocess.ru
         progress["scope_files"]["current"],
         focus=progress["config"].get("focus", ""),
     )
-    harness_system = _build_harness_system(
-        progress_path, iteration, max_iterations, progress
-    )
+    harness_system = _build_harness_system(progress_path, iteration, max_iterations)
     cmd = build_claude_session_cmd(
         prompt, harness_system, args.allowed_tools, args.max_turns
     )

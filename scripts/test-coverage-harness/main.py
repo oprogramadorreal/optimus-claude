@@ -45,12 +45,9 @@ from harness_common.git import (
     restore_working_tree,
 )
 from harness_common.parser import parse_harness_output
-from harness_common.progress import (
-    check_progress_size,
-    record_timing,
-)
+from harness_common.progress import record_timing
 from harness_common.reporting import detect_test_command, print_phase
-from harness_common.runner import retry_on_failure, save_session_log
+from harness_common.runner import retry_on_failure
 from impl.constants import (
     DEFAULT_MAX_CYCLES,
     DEFAULT_MAX_TURNS,
@@ -531,12 +528,6 @@ def _run_unit_test_phase(
     if ut_output is None:
         return "break", None, pre_head, skip_commits
 
-    save_session_log(
-        str(project_root / ".claude" / "harness-logs"),
-        f"session-cycle{cycle}-unit-test",
-        ut_output,
-    )
-
     ut_result = parse_harness_output(
         ut_output, harness_type="test-coverage", phase="unit-test"
     )
@@ -683,12 +674,6 @@ def _run_refactor_phase(
     if rf_output is None:
         return "break", None, skip_commits
 
-    save_session_log(
-        str(project_root / ".claude" / "harness-logs"),
-        f"session-cycle{cycle}-refactor",
-        rf_output,
-    )
-
     rf_result = parse_harness_output(
         rf_output, harness_type="test-coverage", phase="refactor"
     )
@@ -825,13 +810,6 @@ def _run_cycle_loop(
     while True:
         cycle = progress["cycle"]["current"]
         print(f"\n{PREFIX} === Cycle {cycle}/{max_cycles} ===")
-
-        # Pre-cycle maintenance
-        size_kb, oversized = check_progress_size(progress_path)
-        if oversized:
-            print(
-                f"{PREFIX} WARNING: Progress file is {size_kb:.0f}KB — consider pruning"
-            )
 
         pre_head = git_rev_parse_head(project_root)
         if not pre_head:

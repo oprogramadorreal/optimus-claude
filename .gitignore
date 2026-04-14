@@ -13,4 +13,3 @@ htmlcov/
 .claude/deep-mode-progress.json
 .claude/deep-mode-progress.json.bak
 .claude/deep-mode-progress.done.json
-.claude/harness-logs/
