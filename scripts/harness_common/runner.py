@@ -166,7 +166,9 @@ def extract_test_summary(raw_output):
             return "\n".join(parts)
 
     # --- jest ---
-    jest_lines = [l for l in lines if re.match(r"\s*(Tests|Test Suites):\s+", l)]
+    jest_lines = [
+        line for line in lines if re.match(r"\s*(Tests|Test Suites):\s+", line)
+    ]
     if jest_lines:
         return "\n".join(jest_lines)
 
@@ -195,13 +197,15 @@ def extract_test_summary(raw_output):
 def save_session_log(log_dir, log_name, stdout, stderr=""):
     """Save raw claude session stdout/stderr to files in log_dir.
 
-    No-op when log_dir is falsy.  Creates the directory if it doesn't exist.
+    No-op when log_dir is falsy or when both streams are empty.  Creates
+    the directory if it doesn't exist.
     """
-    if not log_dir:
+    if not log_dir or (not stdout and not stderr):
         return
     log_dir = Path(log_dir)
     log_dir.mkdir(parents=True, exist_ok=True)
-    (log_dir / f"{log_name}.log").write_text(stdout or "", encoding="utf-8")
+    if stdout:
+        (log_dir / f"{log_name}.log").write_text(stdout, encoding="utf-8")
     if stderr:
         (log_dir / f"{log_name}.stderr.log").write_text(stderr, encoding="utf-8")
 
@@ -258,4 +262,3 @@ def retry_on_failure(
                 if on_exhausted:
                     on_exhausted(exc)
                 return None
-    return None  # pragma: no cover — unreachable

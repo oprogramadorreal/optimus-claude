@@ -1,6 +1,9 @@
 import json
 import re
+from collections import Counter
 from pathlib import Path
+
+from .progress import classify_finding_status
 
 
 def detect_test_command(project_root, content=None):
@@ -65,22 +68,14 @@ def build_json_summary(progress, harness_type):
         summary["iterations_completed"] = iteration.get("completed", 0)
 
         findings = progress.get("findings", [])
+        buckets = Counter(
+            classify_finding_status(f.get("status", "")) for f in findings
+        )
         summary["findings"] = {
             "total": len(findings),
-            "fixed": sum(
-                1
-                for f in findings
-                if "fixed" in f.get("status", "") or "retained" in f.get("status", "")
-            ),
-            "reverted": sum(
-                1
-                for f in findings
-                if "reverted" in f.get("status", "")
-                and "retained" not in f.get("status", "")
-            ),
-            "persistent": sum(
-                1 for f in findings if "persistent" in f.get("status", "")
-            ),
+            "fixed": buckets["fixed"],
+            "reverted": buckets["reverted"],
+            "persistent": buckets["persistent"],
         }
     elif harness_type == "test-coverage":
         cycle = progress.get("cycle", {})
