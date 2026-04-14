@@ -2,6 +2,8 @@ import json
 import re
 import sys
 
+from .schema import validate_harness_output
+
 
 def parse_harness_output(raw_output, harness_type=None, phase=None):
     """
@@ -38,8 +40,6 @@ def parse_harness_output(raw_output, harness_type=None, phase=None):
 
         # Schema validation when harness_type is provided
         if harness_type and isinstance(data, dict):
-            from .schema import validate_harness_output
-
             data, warnings = validate_harness_output(data, harness_type, phase=phase)
             for warning in warnings:
                 print(f"[harness] Contract warning: {warning}", file=sys.stderr)

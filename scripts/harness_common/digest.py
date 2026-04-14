@@ -5,6 +5,8 @@ doesn't waste context tokens parsing raw JSON.  Coaching adapts guidance to
 the iteration/cycle phase (early vs. late).
 """
 
+from .progress import classify_finding_status
+
 # ---------------------------------------------------------------------------
 # Deep-mode digest + coaching
 # ---------------------------------------------------------------------------
@@ -18,15 +20,7 @@ def build_progress_digest(progress, iteration):
 
     counts = {"fixed": 0, "reverted": 0, "persistent": 0, "pending": 0}
     for f in findings:
-        status = f.get("status", "")
-        if "fixed" in status or "retained" in status:
-            counts["fixed"] += 1
-        elif "persistent" in status:
-            counts["persistent"] += 1
-        elif "reverted" in status:
-            counts["reverted"] += 1
-        else:
-            counts["pending"] += 1
+        counts[classify_finding_status(f.get("status", ""))] += 1
 
     parts = [
         f"Iteration {iteration} of {progress.get('config', {}).get('max_iterations', '?')}.",

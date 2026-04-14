@@ -66,27 +66,15 @@ class TestLoadProjectConfig:
 
 class TestApplyConfigDefaults:
     def test_fills_empty_string(self):
-        args = Namespace(log_dir="", verbose=False)
-        apply_config_defaults(args, {"log_dir": "/tmp/logs"})
-        assert args.log_dir == "/tmp/logs"
+        args = Namespace(max_turns="", verbose=False)
+        apply_config_defaults(args, {"max_turns": "50"})
+        assert args.max_turns == "50"
 
     def test_does_not_override_explicit(self):
-        args = Namespace(log_dir="/explicit", verbose=True)
-        apply_config_defaults(args, {"log_dir": "/from-config", "verbose": False})
-        assert args.log_dir == "/explicit"
+        args = Namespace(max_turns="100", verbose=True)
+        apply_config_defaults(args, {"max_turns": "50", "verbose": False})
+        assert args.max_turns == "100"
         assert args.verbose is True
-
-    def test_key_map(self):
-        parser = argparse.ArgumentParser()
-        parser.add_argument("--max-retries", type=int, default=0)
-        args = parser.parse_args([])
-        apply_config_defaults(
-            args,
-            {"max-retries": 3},
-            parser=parser,
-            key_map={"max-retries": "max_retries"},
-        )
-        assert args.max_retries == 3
 
     def test_explicit_zero_not_overridden(self):
         parser = argparse.ArgumentParser()
@@ -103,11 +91,41 @@ class TestApplyConfigDefaults:
         assert args.max_retries == 5
 
     def test_dash_to_underscore_auto(self):
-        args = Namespace(hooks_dir="")
-        apply_config_defaults(args, {"hooks-dir": "/hooks"})
-        assert args.hooks_dir == "/hooks"
+        args = Namespace(max_turns="")
+        apply_config_defaults(args, {"max-turns": "50"})
+        assert args.max_turns == "50"
 
     def test_ignores_unknown_keys(self):
         args = Namespace(verbose=False)
         apply_config_defaults(args, {"unknown_key": "value"})
         assert not hasattr(args, "unknown_key")
+
+    def test_security_sensitive_keys_blocked(self):
+        """Project config must not be able to set hooks_dir, allowed_tools, etc."""
+        args = Namespace(
+            hooks_dir="",
+            allowed_tools="",
+            project_dir="",
+            log_dir="",
+            json_summary="",
+            max_turns="",
+        )
+        apply_config_defaults(
+            args,
+            {
+                "hooks_dir": "/evil/hooks",
+                "allowed_tools": "Bash",
+                "project_dir": "/evil/proj",
+                "log_dir": "/evil/logs",
+                "json_summary": "/evil.json",
+                "max_turns": "50",
+            },
+        )
+        # Blocklisted keys keep their empty defaults
+        assert args.hooks_dir == ""
+        assert args.allowed_tools == ""
+        assert args.project_dir == ""
+        assert args.log_dir == ""
+        assert args.json_summary == ""
+        # Non-blocklisted keys still flow through
+        assert args.max_turns == "50"

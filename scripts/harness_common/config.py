@@ -22,22 +22,40 @@ def load_project_config(project_root, section=None):
     return data
 
 
-def apply_config_defaults(args, config, parser=None, key_map=None):
+# Config keys that must never be set from a project-level harness.json,
+# because they influence which scripts the harness executes or what tools
+# the claude session is allowed to invoke.  A checked-out-but-untrusted
+# repo could otherwise silently widen the attack surface.
+_CONFIG_BLOCKLIST = frozenset(
+    {
+        "hooks_dir",
+        "allowed_tools",
+        "project_dir",
+        "log_dir",
+        "json_summary",
+    }
+)
+
+
+def apply_config_defaults(args, config, parser=None):
     """Apply *config* values as defaults for unset argparse attributes.
 
     An attribute is considered unset when its current value equals the
     argparse default for that flag — determined via ``parser.get_default``
     when *parser* is supplied.  Without *parser*, only ``None`` / ``""``
     values are treated as unset (a legitimately-passed ``0``/``False`` is
-    preserved).  *key_map* translates config keys to attribute names when
-    they differ.
+    preserved).
+
+    Security-sensitive keys (``hooks_dir``, ``allowed_tools``, etc.) are
+    ignored — those must come from the CLI, not a checked-in config file.
 
     Mutates *args* in place and returns it for convenience.
     """
-    key_map = key_map or {}
     for config_key, value in config.items():
-        attr = key_map.get(config_key, config_key.replace("-", "_"))
+        attr = config_key.replace("-", "_")
         if attr.startswith("_") or not hasattr(args, attr):
+            continue
+        if attr in _CONFIG_BLOCKLIST:
             continue
         current = getattr(args, attr)
         if parser is not None:

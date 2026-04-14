@@ -6,6 +6,29 @@ from pathlib import Path
 
 from .constants import BACKUP_SUFFIX
 
+_TERMINAL_STATUS_TOKENS = ("fixed", "retained", "persistent", "reverted")
+
+
+def classify_finding_status(status):
+    """Return the canonical bucket for a finding's status string.
+
+    Buckets: ``"fixed"``, ``"reverted"``, ``"persistent"``, ``"pending"``.
+    ``"retained"`` (a kept fix after a passing retry) maps to ``"fixed"``.
+    """
+    status = status or ""
+    if "fixed" in status or "retained" in status:
+        return "fixed"
+    if "persistent" in status:
+        return "persistent"
+    if "reverted" in status:
+        return "reverted"
+    return "pending"
+
+
+def is_terminal_status(status):
+    """True when a finding status is terminal (no further retries expected)."""
+    return classify_finding_status(status) != "pending"
+
 
 def write_progress(path, progress):
     """Write the progress file with a backup."""
@@ -88,10 +111,10 @@ def prune_resolved_findings(progress, current_iteration, archive_after=3):
             "iteration_last_attempted", f.get("iteration_discovered", 0)
         )
         status = f.get("status", "")
-        is_terminal = (
-            "fixed" in status or "retained" in status or "persistent" in status
-        )
-        if is_terminal and (current_iteration - last_attempted) > archive_after:
+        if (
+            is_terminal_status(status)
+            and (current_iteration - last_attempted) > archive_after
+        ):
             archived.append(f)
         else:
             kept.append(f)
@@ -112,8 +135,7 @@ def trim_scope_files(progress, max_files=30):
     # Collect files with active (non-terminal) findings
     active_files = set()
     for f in progress.get("findings", []):
-        status = f.get("status", "")
-        if not any(t in status for t in ("fixed", "retained", "persistent")):
+        if not is_terminal_status(f.get("status", "")):
             fpath = f.get("file", "")
             if fpath:
                 active_files.add(fpath)

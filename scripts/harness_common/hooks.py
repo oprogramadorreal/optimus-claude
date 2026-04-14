@@ -21,11 +21,11 @@ def run_hook(hooks_dir, event, env_vars=None, prefix="[harness]"):
     if not hooks_path.is_dir():
         return None
 
-    # Look for the hook file (with or without extension on Windows)
+    # Look for the hook file. On Windows, allow .cmd/.bat which subprocess can
+    # launch directly; .ps1/.sh need a shell wrapper and aren't supported here.
     hook_file = hooks_path / event
     if not hook_file.exists():
-        # Try common extensions on Windows
-        for ext in (".cmd", ".bat", ".ps1", ".sh"):
+        for ext in (".cmd", ".bat"):
             candidate = hooks_path / f"{event}{ext}"
             if candidate.exists():
                 hook_file = candidate
