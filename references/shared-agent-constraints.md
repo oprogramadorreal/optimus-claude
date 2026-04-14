@@ -28,7 +28,7 @@ Up to **15** findings — only when each is a distinct root cause with supportin
 
 ## False Positives to Avoid
 
-- Apparently incorrect or unusual-looking but actually correct code (intentional deviations) — when evidence of intent is ambiguous, assume intentional; the burden of proof is on the finding, not on the code. This does not override flagging of genuine bugs, security issues, or guideline violations.
+- Apparently incorrect or unusual-looking but actually correct code (intentional deviations) — when evidence of intent is ambiguous, prefer to omit the finding rather than flag the deviation. This does not override flagging of genuine bugs, security issues, or guideline violations.
 - Pedantic nitpicks
 - Linter-catchable issues
 - General code quality concerns not tied to project guidelines
