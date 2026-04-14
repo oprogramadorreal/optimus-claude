@@ -108,7 +108,8 @@ def prune_resolved_findings(progress, current_iteration, archive_after=3):
     kept = []
     for f in findings:
         last_attempted = f.get(
-            "iteration_last_attempted", f.get("iteration_discovered", 0)
+            "iteration_last_attempted",
+            f.get("iteration_discovered", current_iteration),
         )
         status = f.get("status", "")
         if (

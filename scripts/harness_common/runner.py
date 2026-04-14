@@ -175,7 +175,7 @@ def extract_test_summary(raw_output):
     # --- go test ---
     go_lines = []
     for line in lines:
-        if line.startswith("FAIL") or re.match(r"---\s+FAIL:", line):
+        if re.match(r"FAIL\t", line) or re.match(r"---\s+FAIL:", line):
             go_lines.append(line)
     if go_lines:
         return "\n".join(go_lines[:5])
@@ -245,12 +245,10 @@ def retry_on_failure(
 
     Returns the result of *fn* on success, or None if all attempts fail.
     """
-    last_exc = None
     for attempt in range(max_retries + 1):
         try:
             return fn()
-        except tuple(retryable) as exc:
-            last_exc = exc
+        except retryable as exc:
             if attempt < max_retries:
                 delay = base_delay * (2**attempt)
                 jitter = delay * jitter_fraction * (2 * random.random() - 1)
