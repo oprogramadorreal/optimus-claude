@@ -7,10 +7,6 @@ the iteration/cycle phase (early vs. late).
 
 from .progress import classify_finding_status
 
-# ---------------------------------------------------------------------------
-# Deep-mode digest + coaching
-# ---------------------------------------------------------------------------
-
 
 def build_progress_digest(progress, iteration):
     """Build a compact multi-line digest of deep-mode progress state."""
@@ -92,11 +88,6 @@ def build_iteration_coaching(progress, iteration):
         "that are clearly bugs or security issues. Skip optimizations, style, "
         "and minor improvements."
     )
-
-
-# ---------------------------------------------------------------------------
-# Coverage digest + coaching
-# ---------------------------------------------------------------------------
 
 
 def build_coverage_digest(progress, cycle, phase):

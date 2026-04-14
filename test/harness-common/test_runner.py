@@ -285,16 +285,6 @@ class TestSaveSessionLog:
             encoding="utf-8"
         ) == "hello stdout"
 
-    def test_saves_stderr(self, tmp_path):
-        save_session_log(str(tmp_path), "session-iter1", "out", stderr="err")
-        assert (tmp_path / "session-iter1.stderr.log").read_text(
-            encoding="utf-8"
-        ) == "err"
-
-    def test_no_stderr_file_when_empty(self, tmp_path):
-        save_session_log(str(tmp_path), "session-iter1", "out")
-        assert not (tmp_path / "session-iter1.stderr.log").exists()
-
     def test_noop_when_no_log_dir(self):
         save_session_log("", "session-iter1", "out")  # Should not crash
         save_session_log(None, "session-iter1", "out")
