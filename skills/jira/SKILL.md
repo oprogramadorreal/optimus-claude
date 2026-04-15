@@ -225,12 +225,12 @@ Treat this conversation as a review loop — validate the plan against the actua
 ```
 ````
 
-When emitting the prompt, substitute `<ISSUE-KEY>` with the real key so the pasted block is self-contained.
+When emitting both the plan-mode prompt above and the execution prompt below, substitute `<ISSUE-KEY>` with the real key so each pasted block is self-contained.
 
 Tell the user, quoting the canonical plan-mode handoff template from `$CLAUDE_PLUGIN_ROOT/references/skill-handoff.md`:
 
 > 1. Start a fresh Claude Code conversation and switch it into **plan mode** using your client's plan-mode toggle (on the Claude Code CLI, press `Shift+Tab` until the mode indicator reads "plan mode"; in the VSCode extension or other clients, use the equivalent control). Alternatively, launch with `claude --permission-mode plan` or prefix your first message with `/plan`. Paste the prompt above as the first message.
-> 2. Iterate with Claude. **Do not approve the plan** — approval executes immediately and skips `/optimus:tdd`'s Red-Green-Refactor discipline. When you're satisfied, **switch out of plan mode without approving** (CLI: press `Shift+Tab` again; other clients: use the equivalent toggle — the mode indicator confirms you've left plan mode). The pasted prompt has already told Claude to append a "Refined plan" section to `docs/jira/<ISSUE-KEY>.md` — it will do so now, in the same conversation, in normal mode.
+> 2. Iterate with Claude. **Do not approve the plan** (and ignore the "Ultraplan" option if offered — both execute immediately and skip `/optimus:tdd`'s Red-Green-Refactor discipline). When you're satisfied, **toggle plan mode off without approving** (CLI: press `Shift+Tab` again; other clients: use the equivalent toggle — the mode indicator confirms you've left plan mode). The pasted prompt has already told Claude to append a "Refined plan" section to `docs/jira/<ISSUE-KEY>.md` — it will do so now, in the same conversation, in normal mode.
 > 3. Start a **second fresh conversation** and paste the execution prompt below. (Each skill's Step 1 gathers context from scratch — a clean conversation keeps that honest.)
 
 Then emit the **execution prompt** as a second copyable block, pre-filled from the task file:
