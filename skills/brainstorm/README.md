@@ -38,8 +38,8 @@ A markdown design document written to `docs/design/` covering goal, approach, co
 | Task complexity | Workflow |
 |----------------|----------|
 | Small (1–2 components) | `/optimus:brainstorm` → `/optimus:tdd` (auto-detects design doc) |
-| Medium-to-large (3+ components) | `/optimus:brainstorm` → plan mode (brainstorm generates prompt) → `/optimus:tdd` |
-| From JIRA | `/optimus:jira` → `/optimus:brainstorm` (auto-detects JIRA context) → plan mode → `/optimus:tdd` |
+| Medium-to-large (3+ components) | `/optimus:brainstorm` → plan mode (review-only, do not approve) → `/optimus:tdd` |
+| From JIRA | `/optimus:jira` → `/optimus:brainstorm` (auto-detects JIRA context) → plan mode (review-only) → `/optimus:tdd` |
 
 Brainstorm generates the plan-mode prompt inline — no need to run `/optimus:prompt` as a separate step. Each skill recommends the right next step based on design complexity.
 
