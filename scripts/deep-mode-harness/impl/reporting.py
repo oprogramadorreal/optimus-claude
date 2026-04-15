@@ -1,6 +1,6 @@
 from harness_common.git import git_current_branch
 
-# Re-export for backward compatibility with external importers of impl.reporting
+# Re-export shared function for backward compatibility
 from harness_common.reporting import detect_test_command  # noqa: F401
 from harness_common.reporting import format_elapsed
 
