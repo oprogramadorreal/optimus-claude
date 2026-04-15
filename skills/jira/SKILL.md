@@ -221,17 +221,17 @@ The plan should include:
 - Out of scope: [anything explicitly excluded in the JIRA issue]
 
 ## How this conversation should run
-Treat this conversation as a review loop — validate the plan against the actual codebase and iterate with me. When I'm ready, I will toggle plan mode off in my client without approving. As soon as you observe the mode transition, append a "Refined plan" section to `docs/jira/<ISSUE-KEY>.md` to capture the refined plan, then stop — I will start a fresh conversation to run `/optimus:tdd`.
+Treat this conversation as a review loop — validate the plan against the actual codebase and iterate with me. When I say I'm done iterating, append a "Refined plan" section to `docs/jira/<ISSUE-KEY>.md` to capture the refined plan, then stop — I will toggle plan mode off and start a fresh conversation to run `/optimus:tdd`.
 ```
 ````
 
 When emitting both the plan-mode prompt above and the execution prompt below, substitute `<ISSUE-KEY>` with the real key so each pasted block is self-contained.
 
-Tell the user, quoting the canonical plan-mode handoff template from `$CLAUDE_PLUGIN_ROOT/references/skill-handoff.md`:
+Tell the user:
 
-> 1. Start a fresh Claude Code conversation and switch it into **plan mode** using your client's plan-mode toggle (on the Claude Code CLI, press `Shift+Tab` until the mode indicator reads "plan mode"; in the VSCode extension or other clients, use the equivalent control). Alternatively, launch with `claude --permission-mode plan` or prefix your first message with `/plan`. Paste the prompt above as the first message.
-> 2. Iterate with Claude. **Do not approve the plan** (and ignore the "Ultraplan" option if offered — both execute immediately and skip `/optimus:tdd`'s Red-Green-Refactor discipline). When you're satisfied, **toggle plan mode off without approving** (CLI: press `Shift+Tab` again; other clients: use the equivalent toggle — the mode indicator confirms you've left plan mode). The pasted prompt has already told Claude to append a "Refined plan" section to `docs/jira/<ISSUE-KEY>.md` — it will do so now, in the same conversation, in normal mode.
-> 3. Start a **second fresh conversation** and paste the execution prompt below. (Each skill's Step 1 gathers context from scratch — a clean conversation keeps that honest.)
+> 1. Start a fresh Claude Code conversation in **plan mode** (CLI: press `Shift+Tab` until the mode indicator shows plan mode; other clients: use the equivalent toggle). Paste the prompt above.
+> 2. Iterate with Claude. **Do not approve the plan** — approval executes immediately and skips `/optimus:tdd`'s Red-Green-Refactor discipline. When you're satisfied, tell Claude you're done iterating; Claude will append a "Refined plan" section to `docs/jira/<ISSUE-KEY>.md`. Then toggle plan mode off using the same control.
+> 3. Start a **second fresh conversation** and paste the execution prompt below.
 
 Then emit the **execution prompt** as a second copyable block, pre-filled from the task file:
 
@@ -250,7 +250,7 @@ Run `/optimus:tdd` to implement the refined plan in `docs/jira/<ISSUE-KEY>.md` t
 ```
 ````
 
-See `$CLAUDE_PLUGIN_ROOT/references/skill-handoff.md` for the full handoff convention, client-specific plan-mode controls, and why plan mode is used review-only.
+See `$CLAUDE_PLUGIN_ROOT/references/skill-handoff.md` for the full handoff convention and why plan mode is used review-only.
 
 If **Skip to TDD**: Recommend running `/optimus:tdd` to implement this test-first. It will auto-detect the task file at `docs/jira/<ISSUE-KEY>.md`. **Tip:** for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch.
 
