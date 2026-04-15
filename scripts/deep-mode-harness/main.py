@@ -455,6 +455,10 @@ def _run_session_with_retry(
         print(f"{PREFIX} Retrying iteration {iteration} in {delay:.0f}s...")
 
     def _on_exhausted(exc):
+        if isinstance(exc, subprocess.TimeoutExpired):
+            print(f"{PREFIX} Session timed out after {args.timeout}s (final attempt)")
+        else:
+            print(f"{PREFIX} Session error (final attempt): {exc}")
         print(f"{PREFIX} Iteration {iteration} failed after retries. Stopping.")
         restore_working_tree(pre_stash, pre_head, project_root)
         progress["termination"] = {

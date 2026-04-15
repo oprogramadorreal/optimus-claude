@@ -353,3 +353,37 @@ class TestRetryOnFailure:
             retryable=(ValueError,),
         )
         assert result == "ok"
+
+    def test_retries_on_timeout_expired(self):
+        """TimeoutExpired is part of the default retryable tuple."""
+        calls = []
+
+        def flaky_timeout():
+            calls.append(1)
+            if len(calls) < 2:
+                raise subprocess.TimeoutExpired("claude", 900)
+            return "ok"
+
+        result = retry_on_failure(flaky_timeout, max_retries=2, base_delay=0.01)
+        assert result == "ok"
+        assert len(calls) == 2
+
+    @patch("harness_common.runner.time.sleep")
+    def test_jitter_delay_within_25_percent(self, mock_sleep):
+        """Backoff delay passed to on_retry stays within ±25% of the exponential target."""
+        captured = []
+
+        def fail_twice():
+            raise RuntimeError("fail")
+
+        retry_on_failure(
+            fail_twice,
+            max_retries=2,
+            base_delay=10.0,
+            on_retry=lambda attempt, exc, delay: captured.append((attempt, delay)),
+        )
+        # attempt 0: target = 10.0, expect delay in [7.5, 12.5]
+        # attempt 1: target = 20.0, expect delay in [15.0, 25.0]
+        assert len(captured) == 2
+        assert 7.5 <= captured[0][1] <= 12.5
+        assert 15.0 <= captured[1][1] <= 25.0

@@ -47,13 +47,3 @@ def record_timing(progress, label, elapsed_s):
     progress["total_elapsed_seconds"] = round(
         progress.get("total_elapsed_seconds", 0) + elapsed_s, 2
     )
-
-
-def format_elapsed(total_seconds):
-    """Format seconds as a human-readable 'Xm Ys' string."""
-    total_seconds = max(0, total_seconds)
-    minutes = int(total_seconds) // 60
-    seconds = int(total_seconds) % 60
-    if minutes > 0:
-        return f"{minutes}m {seconds}s"
-    return f"{seconds}s"

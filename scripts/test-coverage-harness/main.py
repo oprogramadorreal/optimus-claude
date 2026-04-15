@@ -504,13 +504,22 @@ def _run_unit_test_phase(
     ut_start = time.time()
 
     def _on_ut_retry(attempt, exc, delay):
-        print(f"{PREFIX} Unit-test session error: {exc}")
+        if isinstance(exc, subprocess.TimeoutExpired):
+            print(f"{PREFIX} Unit-test session timed out after {args.timeout}s")
+        else:
+            print(f"{PREFIX} Unit-test session error: {exc}")
         restore_working_tree(pre_stash, pre_head, project_root)
         write_progress(progress_path, progress)
         print(f"{PREFIX} Retrying unit-test phase in {delay:.0f}s...")
 
     def _on_ut_exhausted(exc):
-        print(f"{PREFIX} ERROR: Unit-test session failed after retries: {exc}")
+        if isinstance(exc, subprocess.TimeoutExpired):
+            print(
+                f"{PREFIX} ERROR: Unit-test session timed out after {args.timeout}s "
+                f"(final attempt)"
+            )
+        else:
+            print(f"{PREFIX} ERROR: Unit-test session failed after retries: {exc}")
         restore_working_tree(pre_stash, pre_head, project_root)
         progress["termination"] = {
             "reason": "crash",
@@ -649,13 +658,22 @@ def _run_refactor_phase(
     rf_start = time.time()
 
     def _on_rf_retry(attempt, exc, delay):
-        print(f"{PREFIX} Refactor session error: {exc}")
+        if isinstance(exc, subprocess.TimeoutExpired):
+            print(f"{PREFIX} Refactor session timed out after {args.timeout}s")
+        else:
+            print(f"{PREFIX} Refactor session error: {exc}")
         restore_working_tree(pre_stash, pre_head, project_root)
         write_progress(progress_path, progress)
         print(f"{PREFIX} Retrying refactor phase in {delay:.0f}s...")
 
     def _on_rf_exhausted(exc):
-        print(f"{PREFIX} ERROR: Refactor session failed after retries: {exc}")
+        if isinstance(exc, subprocess.TimeoutExpired):
+            print(
+                f"{PREFIX} ERROR: Refactor session timed out after {args.timeout}s "
+                f"(final attempt)"
+            )
+        else:
+            print(f"{PREFIX} ERROR: Refactor session failed after retries: {exc}")
         restore_working_tree(pre_stash, pre_head, project_root)
         record_cycle_history(progress, cycle, ut_summary)
         progress["termination"] = {
