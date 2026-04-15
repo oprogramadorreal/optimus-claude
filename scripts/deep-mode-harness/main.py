@@ -781,7 +781,7 @@ def _run_iteration_loop(
             break
 
         print_phase(PREFIX, "iter", iteration, max_iter, "parse")
-        result = parse_harness_output(output, harness_type="deep-mode")
+        result = parse_harness_output(output)
         elapsed = round(time.time() - iteration_start, 2)
         record_timing(progress, f"iteration-{iteration}", elapsed)
 
