@@ -95,12 +95,17 @@ All actions respect the user's existing JIRA/Confluence permissions.
 
 ### 2. Register with Claude Code
 
-Run this command in your terminal:
+Run this command in your terminal (user scope — available across all your projects):
 
-    claude mcp add --transport sse atlassian https://mcp.atlassian.com/v1/mcp
+    claude mcp add --transport http --scope user atlassian https://mcp.atlassian.com/v1/mcp
 
-> Important: The older /v1/sse endpoint is deprecated. Always use
-> the /v1/mcp endpoint.
+> Important: Use `--transport http` (Streamable HTTP). The older SSE
+> transport is deprecated by Atlassian (EOL 30 June 2026) and has
+> reconnect issues on Windows. Always use the `/v1/mcp` endpoint,
+> not `/v1/sse`.
+>
+> To share the config with your team instead, see "Team-shared setup
+> via .mcp.json" below.
 
 ### 3. Authenticate
 1. Restart Claude Code (or start a new session)
@@ -137,7 +142,8 @@ After presenting instructions, use `AskUserQuestion` — header "Setup status", 
 - **Admin hasn't enabled it** — "I need to ask my admin first"
 
 Troubleshooting guidance:
-- **Server not listed**: Verify the command was `claude mcp add --transport sse atlassian https://mcp.atlassian.com/v1/mcp`. Check for typos. Try `claude mcp remove atlassian` then re-add.
+- **Server not listed**: Verify the command was `claude mcp add --transport http --scope user atlassian https://mcp.atlassian.com/v1/mcp`. Check for typos. Try `claude mcp remove atlassian` then re-add.
+- **OAuth succeeds but tools don't appear / reconnect fails (common on Windows)**: You likely registered with `--transport sse`. Run `claude mcp remove atlassian`, then re-add with `--transport http` as shown above.
 - **Auth failed**: Ensure Node.js v18+ is installed (`node --version`). Try a different browser. Clear browser cookies for `atlassian.com`. Ensure your Atlassian account has access to the site's JIRA/Confluence.
 - **Permission denied**: Your Atlassian account may lack project-level access. Check with your JIRA admin that you have the necessary project roles.
 - **Admin hasn't enabled it**: The user needs their org admin to enable the MCP server at `admin.atlassian.com → Apps → AI settings → Rovo MCP server`. Suggest the user share the setup instructions above with their admin.
@@ -241,9 +247,32 @@ For Server/Data Center:
 Restart Claude Code, then run: claude mcp list
 You should see "mcp-atlassian" in the server list.
 
-### Optional: Project-scoped config (.mcp.json)
-To share the config with your team (without tokens), create .mcp.json
-at the project root:
+### Team-shared setup via `.mcp.json`
+
+Commit `.mcp.json` at the repo root so every teammate gets the same
+MCP config on clone. OAuth tokens are NOT stored in `.mcp.json` —
+each teammate still completes their own OAuth flow the first time
+tools are used. Safe to commit.
+
+**Option 1 — Official remote Atlassian MCP (recommended for Cloud):**
+
+One-liner (writes `.mcp.json` for you):
+
+    claude mcp add --transport http --scope project atlassian https://mcp.atlassian.com/v1/mcp
+
+Or hand-write `.mcp.json`:
+
+    {
+      "mcpServers": {
+        "atlassian": {
+          "type": "http",
+          "url": "https://mcp.atlassian.com/v1/mcp"
+        }
+      }
+    }
+
+**Option 2 — Self-hosted `sooperset/mcp-atlassian` (Server/Data Center
+or Cloud with API tokens):**
 
     {
       "mcpServers": {
@@ -259,8 +288,8 @@ at the project root:
       }
     }
 
-Team members set JIRA_USERNAME and JIRA_API_TOKEN as environment
-variables. Add .mcp.json to version control but NEVER commit tokens.
+Team members set `JIRA_USERNAME` and `JIRA_API_TOKEN` as environment
+variables. Add `.mcp.json` to version control but NEVER commit tokens.
 ```
 
 After presenting instructions, use `AskUserQuestion` — header "Setup status", question "Have you completed the mcp-atlassian setup?":
