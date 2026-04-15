@@ -57,7 +57,7 @@ A Claude Code plugin that combines markdown-based skill authoring (16 skills inv
 
 ### Reference Hierarchy
 
-- **Root** `references/`: agent-architecture, shared-agent-constraints, context-injection-blocks, harness-mode, coverage-harness-mode, scope-expansion-rule — cross-skill shared procedures
+- **Root** `references/`: agent-architecture, shared-agent-constraints, context-injection-blocks, harness-mode, coverage-harness-mode, scope-expansion-rule, skill-handoff — cross-skill shared procedures
 - **Skill-level** `references/`: supplemental docs scoped to one skill (e.g., `init/references/`, `pr/references/`)
 - Maximum depth: SKILL.md → reference → sub-reference (two levels)
 

@@ -175,7 +175,7 @@ For implementation tasks, assess complexity from the Components table in the des
 
 ### Small (1–2 components, <5 behaviors implied)
 
-Tell the user: "This is small enough to implement directly. Start a **fresh conversation** and run `/optimus:tdd` — it will auto-detect the design doc at `<file-path>` and build it test-first. **Tip:** for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch."
+Tell the user: "This is small enough to implement directly — run `/optimus:tdd` to build it test-first. It will auto-detect the design doc at `<file-path>`. **Tip:** for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch."
 
 ### Medium-to-large (3+ components or complex interfaces)
 
@@ -212,7 +212,7 @@ The plan should include:
 - Out of scope: [from the design doc's Out of Scope section]
 
 ## How this conversation should run
-Treat this conversation as a review loop — validate the plan against the actual codebase and iterate with me. When I say I'm done iterating, I will exit plan mode. At that point, update `<design-doc-path>` to reflect the refined plan, then stop — I will start a fresh conversation to run `/optimus:tdd`.
+Treat this conversation as a review loop — validate the plan against the actual codebase and iterate with me. When I say I'm done iterating, I will exit plan mode. At that point, append a "Refined plan" section to `<design-doc-path>` to capture the refined plan, then stop — I will start a fresh conversation to run `/optimus:tdd`.
 ```
 ````
 
@@ -224,6 +224,4 @@ Tell the user:
 > 2. **Do not approve the plan.** Plan-mode approval executes immediately without `/optimus:tdd`'s Red-Green-Refactor discipline. When you're satisfied, tell Claude you're done and exit plan mode — Claude will write the refined plan back to the design doc automatically in normal mode.
 > 3. Start a **fresh conversation** and run `/optimus:tdd`. It will auto-detect the updated design doc and build the feature test-first.
 
-Tell the user: **Tip:** for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch.
-
-See `references/skill-handoff.md` for the full handoff convention and why plan mode is used review-only.
+See `$CLAUDE_PLUGIN_ROOT/references/skill-handoff.md` for the full handoff convention and why plan mode is used review-only.

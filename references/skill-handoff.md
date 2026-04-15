@@ -17,7 +17,7 @@ Claude Code's plan mode has built-in semantics the plugin cannot change: **appro
 When a skill recommends plan mode as a handoff step:
 
 - Treat plan mode as **review-only**. Tell the user not to approve the plan — use it to iterate on the design with Claude grounded against the real codebase.
-- The generated plan-mode prompt must include a closing instruction telling Claude to update the underlying design/task doc (`docs/design/…` or `docs/jira/…`) once the user signals they're done iterating. The write happens in normal mode after the user exits plan mode, so the refined plan is persisted automatically.
+- The generated plan-mode prompt must include a closing instruction telling Claude to **append a "Refined plan" section** to the underlying design/task doc (`docs/design/…` or `docs/jira/…`) once the user signals they're done iterating. Append (not overwrite) preserves the original design/task context for audit. The write happens in normal mode after the user exits plan mode, so the refined plan is persisted automatically.
 - After exiting plan mode, the user starts a **fresh conversation** and invokes the next skill (typically `/optimus:tdd`), which auto-detects the updated doc.
 
 ## Why fresh conversations
