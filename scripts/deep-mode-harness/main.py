@@ -469,7 +469,7 @@ def _run_session_with_retry(
 
     return retry_on_failure(
         lambda: run_skill_session(progress, args, progress_path),
-        max_retries=2,
+        max_retries=1,
         base_delay=5.0,
         on_retry=_on_retry,
         on_exhausted=_on_exhausted,
@@ -782,7 +782,7 @@ def _run_iteration_loop(
 
         print_phase(PREFIX, "iter", iteration, max_iter, "parse")
         result = parse_harness_output(output)
-        elapsed = round(time.time() - iteration_start, 2)
+        elapsed = int(time.time() - iteration_start)
         record_timing(progress, f"iteration-{iteration}", elapsed)
 
         if result is None:

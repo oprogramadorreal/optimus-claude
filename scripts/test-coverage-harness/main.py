@@ -529,7 +529,7 @@ def _run_unit_test_phase(
 
     ut_output = retry_on_failure(
         lambda: run_coverage_session(progress, args, progress_path, "unit-test"),
-        max_retries=2,
+        max_retries=1,
         base_delay=5.0,
         on_retry=_on_ut_retry,
         on_exhausted=_on_ut_exhausted,
@@ -538,7 +538,7 @@ def _run_unit_test_phase(
         return "break", None, pre_head, skip_commits
 
     ut_result = parse_harness_output(ut_output)
-    ut_elapsed = round(time.time() - ut_start, 2)
+    ut_elapsed = int(time.time() - ut_start)
     record_timing(progress, f"cycle-{cycle}-unit-test", ut_elapsed)
 
     if ut_result is None:
@@ -682,7 +682,7 @@ def _run_refactor_phase(
 
     rf_output = retry_on_failure(
         lambda: run_coverage_session(progress, args, progress_path, "refactor"),
-        max_retries=2,
+        max_retries=1,
         base_delay=5.0,
         on_retry=_on_rf_retry,
         on_exhausted=_on_rf_exhausted,
@@ -691,7 +691,7 @@ def _run_refactor_phase(
         return "break", None, skip_commits
 
     rf_result = parse_harness_output(rf_output)
-    rf_elapsed = round(time.time() - rf_start, 2)
+    rf_elapsed = int(time.time() - rf_start)
     record_timing(progress, f"cycle-{cycle}-refactor", rf_elapsed)
 
     if rf_result is None:
