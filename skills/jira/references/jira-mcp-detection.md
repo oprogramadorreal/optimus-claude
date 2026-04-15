@@ -100,9 +100,8 @@ Run this command in your terminal (user scope — available across all your proj
     claude mcp add --transport http --scope user atlassian https://mcp.atlassian.com/v1/mcp
 
 > Important: Use `--transport http` (Streamable HTTP). The older SSE
-> transport is deprecated by Atlassian (EOL 30 June 2026) and has
-> reconnect issues on Windows. Always use the `/v1/mcp` endpoint,
-> not `/v1/sse`.
+> transport is deprecated by Atlassian and has reconnect issues on
+> Windows. Always use the `/v1/mcp` endpoint, not `/v1/sse`.
 >
 > To share the config with your team instead, see "Team-shared setup
 > via .mcp.json" below.

@@ -36,7 +36,7 @@ claude mcp add --transport http --scope user atlassian https://mcp.atlassian.com
 
 Requires: Atlassian Cloud site with Rovo MCP Server enabled by your org admin (`admin.atlassian.com → Apps → AI settings → Rovo MCP server`).
 
-Use `--transport http` (Streamable HTTP); the older SSE transport is deprecated by Atlassian (EOL 30 June 2026) and has reconnect issues on Windows. For team-shared config, see the "Team-shared setup via `.mcp.json`" section in [references/jira-mcp-detection.md](references/jira-mcp-detection.md).
+Use `--transport http` (Streamable HTTP) — the older SSE transport is deprecated and has reconnect issues on Windows. For team-shared config, see [references/jira-mcp-detection.md](references/jira-mcp-detection.md).
 
 ### Quick Setup: mcp-atlassian (Cloud or Server)
 
