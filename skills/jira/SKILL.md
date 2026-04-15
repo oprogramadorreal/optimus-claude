@@ -221,17 +221,34 @@ The plan should include:
 - Out of scope: [anything explicitly excluded in the JIRA issue]
 
 ## How this conversation should run
-Treat this conversation as a review loop — validate the plan against the actual codebase and iterate with me. When I say I'm done iterating, I will exit plan mode. At that point, update `docs/jira/<ISSUE-KEY>.md` (append a "Refined plan" section) to reflect the refined plan, then stop — I will start a fresh conversation to run `/optimus:tdd`.
+Treat this conversation as a review loop — validate the plan against the actual codebase and iterate with me. When I say I'm done iterating, acknowledge but do not write yet — plan mode is read-only. I will then toggle plan mode off and send a short follow-up message (e.g. "go"). On that follow-up, append a "Refined plan" section to `docs/jira/<ISSUE-KEY>.md` to capture the refined plan, and stop. I will start a fresh conversation to run `/optimus:tdd`.
 ```
 ````
 
-When emitting the prompt, substitute `<ISSUE-KEY>` with the real key so the pasted block is self-contained.
+When emitting both the plan-mode prompt above and the execution prompt below, substitute `<ISSUE-KEY>` with the real key so each pasted block is self-contained.
 
-Present with:
+Tell the user:
 
-> 1. Start a new Claude Code conversation, enter **plan mode**, and paste the prompt above. Claude will validate the task against the actual codebase and iterate on the plan with you. The pasted prompt already instructs Claude to update the JIRA task file once you're done iterating.
-> 2. **Do not approve the plan.** Plan-mode approval executes immediately without `/optimus:tdd`'s Red-Green-Refactor discipline. When you're satisfied, tell Claude you're done and exit plan mode — Claude will write the refined plan back to the task file automatically in normal mode.
-> 3. Start a **fresh conversation** and run `/optimus:tdd`. It will auto-detect the updated task file and build the feature test-first.
+> 1. Start a fresh Claude Code conversation in **plan mode** (CLI: press `Shift+Tab` until the mode indicator shows plan mode; other clients: use the equivalent toggle). Paste the prompt above.
+> 2. Iterate with Claude. **Do not approve the plan** — approval executes immediately and skips `/optimus:tdd`'s Red-Green-Refactor discipline. When you're satisfied, tell Claude you're done iterating; Claude will acknowledge. Then toggle plan mode off using the same control **and send a short follow-up message (e.g. "go")** — Claude will append a "Refined plan" section to `docs/jira/<ISSUE-KEY>.md` in response.
+> 3. Start a **second fresh conversation** and paste the execution prompt below.
+
+Then emit the **execution prompt** as a second copyable block, pre-filled from the task file:
+
+````
+```
+## Goal
+Run `/optimus:tdd` to implement the refined plan in `docs/jira/<ISSUE-KEY>.md` test-first.
+
+## Starting Hints
+- JIRA task (with "Refined plan" section): docs/jira/<ISSUE-KEY>.md
+- Acceptance criteria: [carry forward from the task file]
+
+## Scope
+- Focus on: [component/area from the structured task context]
+- Out of scope: [anything explicitly excluded in the JIRA issue]
+```
+````
 
 See `$CLAUDE_PLUGIN_ROOT/references/skill-handoff.md` for the full handoff convention and why plan mode is used review-only.
 
