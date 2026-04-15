@@ -150,11 +150,11 @@ def extract_test_summary(raw_output):
     lines = raw_output.strip().splitlines()
 
     # --- pytest ---
+    pytest_lookback = 30  # scan at most N lines back for the first FAILED/E line
     for i, line in enumerate(lines):
         if re.search(r"=+ .*(?:passed|failed|error).* in ", line):
             parts = [line]
-            # Include first FAILED assertion (look backwards)
-            for j in range(i - 1, max(i - 31, -1), -1):
+            for j in range(i - 1, max(i - pytest_lookback - 1, -1), -1):
                 if lines[j].startswith("FAILED ") or lines[j].startswith("E "):
                     parts.insert(0, lines[j])
                     break
@@ -201,9 +201,9 @@ def retry_on_failure(
             return fn()
         except retryable as exc:
             if attempt < max_retries:
-                delay = base_delay * (2**attempt)
-                jitter = delay * 0.25 * (2 * random.random() - 1)
-                delay = max(0, delay + jitter)
+                # Exponential backoff with ±25% jitter
+                target = base_delay * (2**attempt)
+                delay = max(0.0, random.uniform(target * 0.75, target * 1.25))
                 if on_retry:
                     on_retry(attempt, exc, delay)
                 time.sleep(delay)

@@ -1,5 +1,5 @@
 from harness_common.git import git_current_branch
-from harness_common.progress import format_elapsed
+from harness_common.reporting import format_elapsed
 
 from .constants import FIXED_STATUSES, PREFIX
 

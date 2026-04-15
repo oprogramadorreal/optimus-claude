@@ -59,6 +59,18 @@ class TestValidateDeepModeOutput:
         _, warnings = validate_deep_mode_output(data)
         assert any("not an integer" in w for w in warnings)
 
+    def test_finding_non_integer_float_warns_and_nulls(self):
+        data = {"new_findings": [{"file": "a.py", "line": 2.5, "category": "bug"}]}
+        result, warnings = validate_deep_mode_output(data)
+        assert result["new_findings"][0]["line"] is None
+        assert any("not an integer" in w for w in warnings)
+
+    def test_finding_integer_valued_float_coerces(self):
+        data = {"new_findings": [{"file": "a.py", "line": 10.0, "category": "bug"}]}
+        result, warnings = validate_deep_mode_output(data)
+        assert result["new_findings"][0]["line"] == 10
+        assert warnings == []
+
     def test_non_dict_input(self):
         result, warnings = validate_deep_mode_output([1, 2, 3])
         assert any("Expected dict" in w for w in warnings)

@@ -1,8 +1,8 @@
 from harness_common.git import git_current_branch
-from harness_common.progress import format_elapsed
 
-# Re-export shared function for backward compatibility
+# Re-export for backward compatibility with external importers of impl.reporting
 from harness_common.reporting import detect_test_command  # noqa: F401
+from harness_common.reporting import format_elapsed
 
 from .constants import FIXED_STATUSES, PERSISTENT_STATUS, PREFIX, REVERTED_STATUSES
 

@@ -846,7 +846,7 @@ class TestRunSessionWithRetry:
             RuntimeError("crash3"),
         ],
     )
-    def test_returns_none_after_two_failures(
+    def test_returns_none_after_retries_exhausted(
         self,
         mock_session,
         mock_restore,

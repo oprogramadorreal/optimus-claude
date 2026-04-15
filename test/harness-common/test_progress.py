@@ -2,7 +2,6 @@ import json
 
 from harness_common.constants import BACKUP_SUFFIX
 from harness_common.progress import (
-    format_elapsed,
     read_progress,
     record_timing,
     write_progress,
@@ -84,30 +83,3 @@ class TestRecordTiming:
         ts = progress["timing"][0]["timestamp"]
         # Should be ISO-ish: YYYY-MM-DDTHH:MM:SSZ
         assert "T" in ts and ts.endswith("Z")
-
-
-class TestFormatElapsed:
-    def test_seconds_only(self):
-        assert format_elapsed(45) == "45s"
-
-    def test_minutes_and_seconds(self):
-        assert format_elapsed(125) == "2m 5s"
-
-    def test_zero(self):
-        assert format_elapsed(0) == "0s"
-
-    def test_negative_clamped(self):
-        assert format_elapsed(-5) == "0s"
-
-    def test_fractional(self):
-        assert format_elapsed(90.7) == "1m 30s"
-
-
-class TestPrintPhase:
-    def test_banner_format(self, capsys):
-        from harness_common.reporting import print_phase
-
-        print_phase("[harness]", "iter", 3, 10, "run")
-        out = capsys.readouterr().out
-        assert "[harness] [iter 3/10" in out
-        assert "run" in out
