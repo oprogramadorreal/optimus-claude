@@ -3,7 +3,6 @@ from unittest.mock import MagicMock, patch
 
 from harness_common.runner import (
     _find_bash,
-    extract_test_summary,
     retry_on_failure,
     run_tests,
 )
@@ -230,51 +229,6 @@ class TestFindBashGitExecPath:
                 mock_path_cls.return_value = mock_instance
                 result = _find_bash()
         assert result == "bash"
-
-
-class TestExtractTestSummary:
-    def test_pytest_summary(self):
-        output = (
-            "test_foo.py::test_bar PASSED\n"
-            "test_foo.py::test_baz FAILED\n"
-            "E       assert 1 == 2\n"
-            "FAILED test_foo.py::test_baz\n"
-            "======= 1 failed, 1 passed in 0.5s ======="
-        )
-        result = extract_test_summary(output)
-        assert "1 failed, 1 passed" in result
-
-    def test_jest_summary(self):
-        output = (
-            "PASS src/foo.test.js\n"
-            "FAIL src/bar.test.js\n"
-            "Test Suites: 1 failed, 1 passed, 2 total\n"
-            "Tests:       1 failed, 3 passed, 4 total\n"
-        )
-        result = extract_test_summary(output)
-        assert "Test Suites:" in result
-        assert "Tests:" in result
-
-    def test_go_test(self):
-        output = "--- FAIL: TestFoo (0.00s)\nFAIL\tgithub.com/foo/bar\t0.5s\n"
-        result = extract_test_summary(output)
-        assert "FAIL" in result
-
-    def test_cargo_test(self):
-        output = "test result: FAILED. 1 passed; 1 failed; 0 ignored\n"
-        result = extract_test_summary(output)
-        assert "test result:" in result
-
-    def test_fallback_last_10(self):
-        lines = [f"line {i}" for i in range(20)]
-        result = extract_test_summary("\n".join(lines))
-        assert "line 10" in result
-        assert "line 19" in result
-        assert "line 9" not in result
-
-    def test_empty_input(self):
-        assert extract_test_summary("") == ""
-        assert extract_test_summary(None) == ""
 
 
 class TestRetryOnFailure:

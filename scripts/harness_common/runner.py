@@ -1,5 +1,4 @@
 import random
-import re
 import shutil
 import subprocess
 import sys
@@ -132,56 +131,10 @@ def run_tests(test_command, cwd, timeout=DEFAULT_TEST_TIMEOUT, prefix="[harness]
         return False, summary
     passed = result.returncode == 0
     combined = "\n".join(filter(None, [result.stdout, result.stderr])).strip()
-    summary = extract_test_summary(combined)
+    summary = "\n".join(combined.split("\n")[-5:])
     status = "PASS" if passed else "FAIL"
     print(f"{prefix} Tests: {status}")
     return passed, summary
-
-
-def extract_test_summary(raw_output):
-    """Extract a concise test summary from raw test runner output.
-
-    Recognises pytest, jest, go test, and cargo test.  Falls back to the
-    last 10 lines of output for unknown frameworks.
-    """
-    if not raw_output:
-        return ""
-
-    lines = raw_output.strip().splitlines()
-
-    # --- pytest ---
-    pytest_lookback = 30  # scan at most N lines back for the first FAILED/E line
-    for i, line in enumerate(lines):
-        if re.search(r"=+ .*(?:passed|failed|error).* in ", line):
-            parts = [line]
-            for j in range(i - 1, max(i - pytest_lookback - 1, -1), -1):
-                if lines[j].startswith("FAILED ") or lines[j].startswith("E "):
-                    parts.insert(0, lines[j])
-                    break
-            return "\n".join(parts)
-
-    # --- jest ---
-    jest_lines = [
-        line for line in lines if re.match(r"\s*(Tests|Test Suites):\s+", line)
-    ]
-    if jest_lines:
-        return "\n".join(jest_lines)
-
-    # --- go test ---
-    go_lines = []
-    for line in lines:
-        if re.match(r"FAIL\t", line) or re.match(r"---\s+FAIL:", line):
-            go_lines.append(line)
-    if go_lines:
-        return "\n".join(go_lines[:5])
-
-    # --- cargo test ---
-    for line in lines:
-        if re.match(r"test result:", line):
-            return line
-
-    # --- fallback: last 10 lines ---
-    return "\n".join(lines[-10:])
 
 
 def retry_on_failure(

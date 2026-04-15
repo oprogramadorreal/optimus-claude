@@ -537,9 +537,7 @@ def _run_unit_test_phase(
     if ut_output is None:
         return "break", None, pre_head, skip_commits
 
-    ut_result = parse_harness_output(
-        ut_output, harness_type="test-coverage", phase="unit-test"
-    )
+    ut_result = parse_harness_output(ut_output)
     ut_elapsed = round(time.time() - ut_start, 2)
     record_timing(progress, f"cycle-{cycle}-unit-test", ut_elapsed)
 
@@ -692,9 +690,7 @@ def _run_refactor_phase(
     if rf_output is None:
         return "break", None, skip_commits
 
-    rf_result = parse_harness_output(
-        rf_output, harness_type="test-coverage", phase="refactor"
-    )
+    rf_result = parse_harness_output(rf_output)
     rf_elapsed = round(time.time() - rf_start, 2)
     record_timing(progress, f"cycle-{cycle}-refactor", rf_elapsed)
 
