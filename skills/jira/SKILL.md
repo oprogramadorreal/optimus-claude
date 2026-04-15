@@ -219,10 +219,21 @@ The plan should include:
 ## Scope
 - Focus on: [component/area from the structured task context]
 - Out of scope: [anything explicitly excluded in the JIRA issue]
+
+## How this conversation should run
+Treat this conversation as a review loop — validate the plan against the actual codebase and iterate with me. When I say I'm done iterating, I will exit plan mode. At that point, update `docs/jira/<ISSUE-KEY>.md` (append a "Refined plan" section) to reflect the refined plan, then stop — I will start a fresh conversation to run `/optimus:tdd`.
 ```
 ````
 
-Present with: "Paste this as the first message in a new Claude Code conversation started in **plan mode**. Once the plan is approved, run `/optimus:tdd` to build it test-first. **Tip:** for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch."
+When emitting the prompt, substitute `<ISSUE-KEY>` with the real key so the pasted block is self-contained.
+
+Present with:
+
+> 1. Start a new Claude Code conversation, enter **plan mode**, and paste the prompt above. Claude will validate the task against the actual codebase and iterate on the plan with you. The pasted prompt already instructs Claude to update the JIRA task file once you're done iterating.
+> 2. **Do not approve the plan.** Plan-mode approval executes immediately without `/optimus:tdd`'s Red-Green-Refactor discipline. When you're satisfied, tell Claude you're done and exit plan mode — Claude will write the refined plan back to the task file automatically in normal mode.
+> 3. Start a **fresh conversation** and run `/optimus:tdd`. It will auto-detect the updated task file and build the feature test-first.
+
+See `$CLAUDE_PLUGIN_ROOT/references/skill-handoff.md` for the full handoff convention and why plan mode is used review-only.
 
 If **Skip to TDD**: Recommend running `/optimus:tdd` to implement this test-first. It will auto-detect the task file at `docs/jira/<ISSUE-KEY>.md`. **Tip:** for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch.
 
