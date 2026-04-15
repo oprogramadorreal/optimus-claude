@@ -121,6 +121,14 @@ class TestPrintReport:
         assert "No fixes were retained" in output
         assert "git reset --hard" in output
 
+    def test_elapsed_time_printed_when_present(self, sample_progress, capsys):
+        sample_progress["total_elapsed_seconds"] = 125
+        sample_progress["termination"] = {"reason": "convergence", "message": "Done"}
+        sample_progress["iteration"]["completed"] = 1
+        print_report(sample_progress)
+        output = capsys.readouterr().out
+        assert "Elapsed:       2m 5s" in output
+
     def test_parse_failure_termination_branch(self, sample_progress, capsys):
         sample_progress["termination"] = {
             "reason": "parse-failure",

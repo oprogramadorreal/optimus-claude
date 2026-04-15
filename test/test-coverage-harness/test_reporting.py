@@ -80,6 +80,13 @@ class TestPrintReport:
         output = capsys.readouterr().out
         assert "git push" not in output
 
+    def test_elapsed_time_printed_when_present(self, sample_coverage_progress, capsys):
+        sample_coverage_progress["total_elapsed_seconds"] = 65
+        with patch("impl.reporting.git_current_branch", return_value="main"):
+            print_report(sample_coverage_progress)
+        output = capsys.readouterr().out
+        assert "Elapsed:          1m 5s" in output
+
     def test_refactor_fixes_counted(self, sample_coverage_progress, capsys):
         sample_coverage_progress["refactor_findings"] = [
             {"status": "fixed"},
