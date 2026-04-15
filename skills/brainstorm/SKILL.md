@@ -212,7 +212,7 @@ The plan should include:
 - Out of scope: [from the design doc's Out of Scope section]
 
 ## How this conversation should run
-Treat this conversation as a review loop — validate the plan against the actual codebase and iterate with me. When I say I'm done iterating, append a "Refined plan" section to `<design-doc-path>` to capture the refined plan, then stop — I will toggle plan mode off and start a fresh conversation to run `/optimus:tdd`.
+Treat this conversation as a review loop — validate the plan against the actual codebase and iterate with me. When I say I'm done iterating, acknowledge but do not write yet — plan mode is read-only. I will then toggle plan mode off and send a short follow-up message (e.g. "go"). On that follow-up, append a "Refined plan" section to `<design-doc-path>` to capture the refined plan, and stop. I will start a fresh conversation to run `/optimus:tdd`.
 ```
 ````
 
@@ -221,7 +221,7 @@ When emitting the prompt, substitute `<design-doc-path>` with the actual path fr
 Tell the user:
 
 > 1. Start a fresh Claude Code conversation in **plan mode** (CLI: press `Shift+Tab` until the mode indicator shows plan mode; other clients: use the equivalent toggle). Paste the prompt above.
-> 2. Iterate with Claude. **Do not approve the plan** — approval executes immediately and skips `/optimus:tdd`'s Red-Green-Refactor discipline. When you're satisfied, tell Claude you're done iterating; Claude will append a "Refined plan" section to `<design-doc-path>`. Then toggle plan mode off using the same control.
+> 2. Iterate with Claude. **Do not approve the plan** — approval executes immediately and skips `/optimus:tdd`'s Red-Green-Refactor discipline. When you're satisfied, tell Claude you're done iterating; Claude will acknowledge. Then toggle plan mode off using the same control **and send a short follow-up message (e.g. "go")** — Claude will append a "Refined plan" section to `<design-doc-path>` in response.
 > 3. Start a **second fresh conversation** and paste the execution prompt below.
 
 Then emit the **execution prompt** as a second copyable block, pre-filled from the design doc:
