@@ -216,7 +216,7 @@ Treat this conversation as a review loop — validate the plan against the actua
 ```
 ````
 
-When emitting the prompt, substitute `<design-doc-path>` with the actual path from Step 5 so the pasted block is self-contained.
+When emitting both the plan-mode prompt above and the execution prompt below, substitute `<design-doc-path>` with the actual path from Step 5 so each pasted block is self-contained.
 
 Tell the user:
 
