@@ -84,7 +84,7 @@ Given an issue key (e.g., `PROJ-123`), fetch context in this order. If any step 
 
 ### 1. Issue Details
 
-Fetch the issue using `jira_get_issue` (if available) or `jira_search` with JQL `key = {KEY}`.
+Fetch the issue using the get-single-issue tool from the Tool Name Resolution table (`getJiraIssue` for Rovo, `jira_get_issue` for sooperset). If unavailable, fall back to the search tool with JQL `key = {KEY}`.
 
 Extract these fields:
 - **Summary** (title)
