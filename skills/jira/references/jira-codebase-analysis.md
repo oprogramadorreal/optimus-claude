@@ -101,21 +101,41 @@ Only suggest additional criteria when the code makes them genuinely necessary. D
 When the user chooses to update the local task file:
 
 1. Read the existing `docs/jira/<KEY>.md`
-2. Add a new section after the existing content:
+
+2. Merge suggested criteria into the existing `### Acceptance Criteria` section — append each as a new numbered item with a "(from codebase analysis)" suffix to distinguish from original criteria. Where the codebase reveals that existing criteria are vague or inaccurate, clarify them in place (preserve the original criterion number; append a clarification note). Do not remove original criteria.
+
+3. Add new sections after the existing content:
 
 ```markdown
 
-### Codebase Impact
-[Files Affected section from the impact summary]
+### Refined Description
+[Re-state the issue's goal in concrete, actionable terms. Correct any
+vagueness from the original description based on what the codebase actually
+shows. If the original is not directly actionable, explain what can actually
+be done and how. This section must be self-contained — downstream skills
+read only this file, never JIRA.]
 
-### Suggested Criteria (from codebase analysis)
-[Numbered list of suggested criteria — omit this section if there are none]
+### Suggested Approach
+[Concrete next steps, smaller tasks, implementation sequence. What to do
+first, what depends on what. Make the task directly workable for downstream
+skills like /optimus:brainstorm and /optimus:tdd.]
+
+### Codebase Impact
+[Files Affected section from the impact summary, grouped by module/directory.
+For each file: what changes and why, tied to which criterion.]
+
+### Risks
+[Only if risks were found. What could go wrong, what to watch for.
+Omit this section if there are no risks.]
 
 ### Scope Assessment
 [Simple/Medium/Complex with explanation]
 ```
 
-3. Add an `enriched-date: [YYYY-MM-DD]` field to the YAML frontmatter (preserve the original `date` field unchanged — downstream skills use it for recency ordering)
-4. Write the updated file
+4. Add an `enriched-date: [YYYY-MM-DD]` field to the YAML frontmatter (preserve the original `date` field unchanged — downstream skills use it for recency ordering)
 
-When the user also chooses to update JIRA, merge the suggested criteria into the improved JIRA description (Step 6 of the skill handles the JIRA write).
+5. Write the updated file
+
+The local file is the single source of truth. It must be self-contained and directly consumable by downstream skills (`/optimus:brainstorm`, `/optimus:tdd`) without cross-referencing JIRA. Write all content in English, optimized as actionable input for skills rather than as a human-readable JIRA summary.
+
+When the user chooses "Update JIRA and local context" in Step 5, the skill posts an analysis comment to JIRA that mirrors the enriched local file content, written in the JIRA issue's original language. The local file is always updated first. Step 5 of the skill handles the JIRA write.
