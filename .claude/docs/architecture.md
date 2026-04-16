@@ -52,7 +52,7 @@ A Claude Code plugin that combines markdown-based skill authoring (16 skills inv
 ### Agent Boundaries
 
 - **Plugin-level** (`agents/`): code-simplifier, test-guardian — available across all skills
-- **Skill-level** (`skills/<name>/agents/`): scoped to the owning skill (e.g., code-review has 7 specialized agents, refactor has 4)
+- **Skill-level** (`skills/<name>/agents/`): scoped to the owning skill (e.g., code-review has 6 specialized agents, refactor has 4)
 - Agents receive context via explicit prompt construction in SKILL.md, not implicit sharing
 
 ### Reference Hierarchy
