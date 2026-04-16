@@ -126,7 +126,7 @@ Which issue are you working on?
 - **Before starting work** — fetch the JIRA issue to get structured context before coding
 - **Before TDD** — get acceptance criteria that map directly to testable behaviors
 - **Before branching** — the issue key and description inform the branch name
-- **To enrich tickets** — post codebase analysis findings back to JIRA as a structured comment
+- **To enrich issues** — post codebase analysis findings back to JIRA as a structured comment
 
 ## When NOT to Use
 

@@ -46,7 +46,7 @@ When a **Read** tool is unavailable, fall back to the search tool with targeted 
 
 During context extraction (Steps 1–4 of the jira skill), only call tools marked **Read** in the table above.
 
-**Hard rule:** NEVER call any tool whose name **starts with** `add`, `create`, `edit`, `update`, `transition`, or `delete` during context extraction (e.g., `addCommentToJiraIssue`, `editJiraIssue`, `transitionJiraIssue`). Read tools that contain these substrings in non-verb positions (e.g., `getTransitionsForJiraIssue`) are safe.
+**Hard rule:** NEVER call any tool whose name **starts with** `add`, `create`, `edit`, `update`, `transition`, or `delete` during context extraction (e.g., `addCommentToJiraIssue`, `editJiraIssue`, `transitionJiraIssue`).
 
 **Comments:** Comments are embedded in the `getJiraIssue` response or in search results — there is no dedicated "get comments" tool. Do NOT use `addCommentToJiraIssue` to read comments; it is a write tool that creates a new comment on the issue.
 

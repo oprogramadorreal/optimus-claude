@@ -130,9 +130,11 @@ Check whether the detected MCP server has a comment tool (see Tool Name Resoluti
 
 1. Update the `docs/jira/<ISSUE-KEY>.md` file following the **Task File Update** procedure in the reference. The local file is always updated first — it is the single source of truth.
 
-2. Post a structured JIRA comment using the add-comment tool from the Tool Name Resolution table in `jira-context-extraction.md` (`addCommentToJiraIssue` for Rovo). If the comment tool call fails at runtime (e.g., tool was listed but is unavailable), inform the user and skip the JIRA write — the local file update still applies. The comment must be written in the **same language as the JIRA issue** (see Language section above). Derive the comment content from the sections just written to the local file to ensure consistency. Use the **JIRA Comment Format** in `jira-codebase-analysis.md`.
+2. Post a structured JIRA comment using the add-comment tool from the Tool Name Resolution table in `jira-context-extraction.md` (`addCommentToJiraIssue` for Rovo). Derive the comment content from the sections just written to the local file, following the **JIRA Comment Format** in `jira-codebase-analysis.md`. If the JIRA issue is not in English, translate the derived content into the issue's original language before posting (see Language section above).
 
-3. Report success or failure. No further confirmation needed — comments are append-only and non-destructive. Proceed to Step 6.
+3. If the comment tool call fails at runtime (e.g., tool was listed but is unavailable), inform the user and skip the JIRA write — the local file update still applies.
+
+4. Report success or failure. No further confirmation needed — comments are append-only and non-destructive. Proceed to Step 6.
 
 ### If Update local context only
 

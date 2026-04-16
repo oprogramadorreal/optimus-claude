@@ -152,10 +152,8 @@ h3. Refined Description
 [Mirror the local file's Refined Description section. Omit if not present.]
 
 h3. Acceptance Criteria (refined)
-[Mirror the local file's ### Acceptance Criteria section, including
-items marked "(from codebase analysis)". The heading here uses "(refined)"
-for JIRA readers; source the content from the local file's ### Acceptance
-Criteria section.]
+[From the local file's ### Acceptance Criteria section, including
+items marked "(from codebase analysis)".]
 
 h3. Suggested Approach
 [Mirror the local file's Suggested Approach section. Omit if not present.]
