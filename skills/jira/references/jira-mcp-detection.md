@@ -27,14 +27,14 @@ If a matching key is found, record it as `jira-server-name` and proceed to step 
 
 Use `ToolSearch` with these queries (try in order, stop at first match):
 
-1. Query `jira` — look for tools containing `jira_search` or `jira_get_issue`
-2. Query `atlassian` — look for tools containing `jira_`
+1. Query `jira` — look for tools containing `jira_search`, `jira_get_issue`, `searchJiraIssues`, or `getJiraIssue`
+2. Query `atlassian` — look for tools containing `jira_` or `Jira`
 
 **Known tool patterns by server:**
 
 | Server | Tool prefix | Example tools |
 |--------|-------------|---------------|
-| Atlassian Rovo | `mcp__atlassian__` | `jira_search`, `jira_create_issue`, `jira_update_issue` |
+| Atlassian Rovo | `mcp__atlassian__` | `searchJiraIssuesUsingJql`, `getJiraIssue`, `createJiraIssue`, `editJiraIssue` |
 | sooperset/mcp-atlassian | `mcp__mcp-atlassian__` | `jira_search`, `jira_get_issue`, `jira_update_issue`, `jira_transition_issue`, `jira_get_sprints_from_board` |
 | Generic | `mcp__jira__` | Varies by implementation |
 

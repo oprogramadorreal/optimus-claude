@@ -1,6 +1,6 @@
 # optimus:jira
 
-A [Claude Code](https://docs.anthropic.com/en/docs/claude-code) skill that fetches and optimizes context from a JIRA issue for AI-assisted development. Distills title, description, acceptance criteria, sprint context, and comments into a structured task description ready for other optimus skills. Analyzes the codebase to surface missing criteria, scope, and risks. Optionally improves the JIRA issue itself.
+A [Claude Code](https://docs.anthropic.com/en/docs/claude-code) skill that fetches and optimizes context from a JIRA issue for AI-assisted development. Distills title, description, acceptance criteria, sprint context, and comments into a structured task description ready for other optimus skills. Analyzes the codebase to surface missing criteria, scope, and risks. Optionally enriches the JIRA issue with a structured analysis comment.
 
 JIRA issues are context — and like all context, their quality directly affects how well Claude Code performs. A vague ticket with no acceptance criteria produces vague implementations. This skill extracts the signal from JIRA, compares it against the actual codebase to find gaps, and structures it for optimal AI consumption.
 
@@ -12,7 +12,9 @@ JIRA issues are context — and like all context, their quality directly affects
 - **Structured distillation** — transforms raw JIRA data into a goal, acceptance criteria, and context summary
 - **Sprint awareness** — includes current sprint name, goal, and sibling issues for broader context
 - **Codebase impact analysis** — compares JIRA requirements against actual code to surface missing criteria, scope, and risks
-- **Improve JIRA issues** — optionally writes back structured acceptance criteria (including codebase-informed gaps) and better formatting to JIRA (double-confirmed before writing)
+- **Enrich JIRA issues** — optionally posts a structured analysis comment to JIRA with refined description, acceptance criteria, suggested approach, codebase impact, and risks (single confirmation, non-destructive)
+- **MCP safety** — read-only tool enforcement during context extraction prevents accidental writes to JIRA
+- **Language handling** — JIRA content stays in its original language when writing back; local files and user output are always in English
 - **Cross-skill flow** — recommends the next optimus skill based on codebase-assessed complexity (TDD for simple, plan mode for medium, brainstorm for complex, refactor for tech debt)
 
 ## Quick Start
@@ -109,23 +111,14 @@ Which issue are you working on?
 > 1
 ```
 
-**Improve a JIRA issue:**
+**Enrich JIRA and local context:**
 
 ```
-> Would you like to improve this JIRA issue's description?
-> Improve description
+> How would you like to use these findings?
+> Update JIRA and local context
 
-## Proposed JIRA Update: AUTH-456
-
-### Changes
-- Added 5 structured acceptance criteria (was: prose description only)
-- Restructured into Goal / Criteria / Technical Notes sections
-- Preserved all original content
-
-Apply this update to the JIRA issue?
-> Apply
-
-✓ JIRA issue AUTH-456 updated successfully.
+✓ Task file enriched: docs/jira/AUTH-456.md
+✓ Analysis comment posted to AUTH-456
 ```
 
 ## When to Use
@@ -133,7 +126,7 @@ Apply this update to the JIRA issue?
 - **Before starting work** — fetch the JIRA issue to get structured context before coding
 - **Before TDD** — get acceptance criteria that map directly to testable behaviors
 - **Before branching** — the issue key and description inform the branch name
-- **To improve tickets** — add structure to vague JIRA issues before implementation begins
+- **To enrich issues** — post codebase analysis findings back to JIRA as a structured comment
 
 ## When NOT to Use
 
@@ -316,7 +309,7 @@ The skill saves structured task context to `docs/jira/<ISSUE-KEY>.md` — downst
 
 The skill recommends the right path based on codebase-assessed complexity (not just criteria count) — you don't need to memorize these.
 
-The jira skill fetches, structures, and analyzes context — it never creates branches, writes code, or modifies your project (except writing the task file to `docs/jira/`).
+The jira skill fetches, structures, and analyzes context — it never creates branches, writes code, or modifies your project (except writing the task file to `docs/jira/` and optionally posting an analysis comment to JIRA).
 
 ## Supported MCP Servers
 
@@ -331,7 +324,7 @@ The skill auto-detects which server is configured and adapts its tool calls acco
 
 | File | Purpose |
 |------|---------|
-| `SKILL.md` | Skill definition with 7-step workflow |
+| `SKILL.md` | Skill definition with 6-step workflow |
 | `references/jira-mcp-detection.md` | MCP server detection and guided setup procedure |
 | `references/jira-context-extraction.md` | Context fetching, search, and structuring procedure |
 | `references/jira-codebase-analysis.md` | Codebase impact analysis, scope assessment, and criteria suggestion procedure |

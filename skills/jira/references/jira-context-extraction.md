@@ -19,17 +19,38 @@ Different MCP servers expose different tool names. Use `ToolSearch` at runtime t
 
 **Known tool names by server:**
 
-| Operation | Rovo (`mcp__atlassian__`) | sooperset (`mcp__mcp-atlassian__`) |
-|-----------|--------------------------|-----------------------------------|
-| Search issues (JQL) | `jira_search` | `jira_search` |
-| Get single issue | (use search with `key = X`) | `jira_get_issue` |
-| Update issue | `jira_update_issue` | `jira_update_issue` |
-| Create issue | `jira_create_issue` | `jira_create_issue` |
-| Transition status | (use update) | `jira_transition_issue` |
-| Get sprints | — | `jira_get_sprints_from_board` |
-| Get boards | — | `jira_get_agile_boards` |
+| Operation | Rovo (`mcp__atlassian__`) | sooperset (`mcp__mcp-atlassian__`) | Safety |
+|-----------|--------------------------|-----------------------------------|--------|
+| Search issues (JQL) | `searchJiraIssuesUsingJql` or `search` | `jira_search` | Read |
+| Get single issue | `getJiraIssue` | `jira_get_issue` | Read |
+| Get projects | `getVisibleJiraProjects` | — | Read |
+| Get transitions | `getTransitionsForJiraIssue` | — | Read |
+| Get link types | `getIssueLinkTypes` | — | Read |
+| Get remote links | `getJiraIssueRemoteIssueLinks` | — | Read |
+| Get issue type metadata | `getJiraIssueTypeMetaWithFields` | — | Read |
+| Get project issue types | `getJiraProjectIssueTypesMetadata` | — | Read |
+| Look up user | `lookupJiraAccountId` | — | Read |
+| User info | `atlassianUserInfo` | — | Read |
+| Get sprints | — | `jira_get_sprints_from_board` | Read |
+| Get boards | — | `jira_get_agile_boards` | Read |
+| Update issue | `editJiraIssue` | `jira_update_issue` | **Write** |
+| Create issue | `createJiraIssue` | `jira_create_issue` | **Write** |
+| Add comment | `addCommentToJiraIssue` | — | **Write** |
+| Transition status | `transitionJiraIssue` | `jira_transition_issue` | **Write** |
+| Create link | `createIssueLink` | — | **Write** |
+| Add worklog | `addWorklogToJiraIssue` | — | **Write** |
 
-When a specific tool is unavailable, fall back to the search tool with targeted JQL. For example, if `jira_get_issue` is unavailable, use `jira_search` with JQL `key = PROJ-123`.
+When a **Read** tool is unavailable, fall back to the search tool with targeted JQL. For example, if `getJiraIssue` is unavailable, use `searchJiraIssuesUsingJql` with JQL `key = PROJ-123`. Write operations have no fallback — if the specified write tool is unavailable, inform the user and skip the write.
+
+## MCP Safety
+
+During context extraction (Steps 1–4 of the jira skill), only call tools marked **Read** in the table above.
+
+**Hard rule:** NEVER call any tool whose name **starts with** `add`, `create`, `edit`, `update`, `transition`, or `delete` during context extraction (e.g., `addCommentToJiraIssue`, `editJiraIssue`, `transitionJiraIssue`).
+
+**Comments:** Comments are embedded in the `getJiraIssue` response or in search results — there is no dedicated "get comments" tool. Do NOT use `addCommentToJiraIssue` to read comments; it is a write tool that creates a new comment on the issue.
+
+Write tools are only permitted in Step 5 of the jira skill, after explicit user confirmation.
 
 ## Search Procedures
 
@@ -63,7 +84,7 @@ Given an issue key (e.g., `PROJ-123`), fetch context in this order. If any step 
 
 ### 1. Issue Details
 
-Fetch the issue using `jira_get_issue` (if available) or `jira_search` with JQL `key = {KEY}`.
+Fetch the issue using the get-single-issue tool from the Tool Name Resolution table (`getJiraIssue` for Rovo, `jira_get_issue` for sooperset). If unavailable, fall back to the search tool with JQL `key = {KEY}`.
 
 Extract these fields:
 - **Summary** (title)
@@ -86,7 +107,9 @@ Cap at 10 linked issues. For subtasks, list them separately.
 
 ### 3. Comments
 
-Fetch the last 10 comments on the issue. For each comment:
+Extract the last 10 comments from the issue data already fetched in step 1 (via `getJiraIssue` or search). Do not make a separate MCP call for comments — they are embedded in the issue response.
+
+For each comment:
 - Author display name
 - Date (relative, e.g., "3 days ago")
 - Body text
