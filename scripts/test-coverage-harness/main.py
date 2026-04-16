@@ -45,9 +45,6 @@ from harness_common.git import (
     restore_working_tree,
 )
 from harness_common.parser import parse_harness_output
-from harness_common.progress import record_timing
-from harness_common.reporting import detect_test_command, print_phase
-from harness_common.runner import retry_on_failure
 from impl.constants import (
     DEFAULT_MAX_CYCLES,
     DEFAULT_MAX_TURNS,
@@ -68,10 +65,11 @@ from impl.progress import (
     read_progress,
     record_cycle_history,
     record_test_result,
+    record_timing,
     write_progress,
 )
-from impl.reporting import print_report
-from impl.runner import run_coverage_session, run_tests
+from impl.reporting import detect_test_command, print_phase, print_report
+from impl.runner import retry_on_failure, run_coverage_session, run_tests
 
 # ---------------------------------------------------------------------------
 # Argument parsing
@@ -499,11 +497,10 @@ def _run_unit_test_phase(
     """
     progress["phase"] = "unit-test"
     write_progress(progress_path, progress)
-    print(f"{PREFIX} --- Phase: unit-test ---")
 
     ut_start = time.time()
 
-    def _on_ut_retry(attempt, exc, delay):
+    def _on_ut_retry(exc, delay):
         if isinstance(exc, subprocess.TimeoutExpired):
             print(f"{PREFIX} Unit-test session timed out after {args.timeout}s")
         else:
@@ -649,13 +646,11 @@ def _run_refactor_phase(
 
     progress["phase"] = "refactor"
     write_progress(progress_path, progress)
-    print(
-        f"{PREFIX} --- Phase: refactor (testability) — {len(pending_untestable)} items ---"
-    )
+    print(f"{PREFIX} {len(pending_untestable)} untestable items pending")
 
     rf_start = time.time()
 
-    def _on_rf_retry(attempt, exc, delay):
+    def _on_rf_retry(exc, delay):
         if isinstance(exc, subprocess.TimeoutExpired):
             print(f"{PREFIX} Refactor session timed out after {args.timeout}s")
         else:
@@ -823,7 +818,6 @@ def _run_cycle_loop(
 
     while True:
         cycle = progress["cycle"]["current"]
-        print(f"\n{PREFIX} === Cycle {cycle}/{max_cycles} ===")
 
         pre_head = git_rev_parse_head(project_root)
         if not pre_head:

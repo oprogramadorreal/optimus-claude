@@ -887,7 +887,6 @@ class TestRunCycleLoop:
         side_effect=[
             RuntimeError("session crash"),
             RuntimeError("session crash"),
-            RuntimeError("session crash"),
         ],
     )
     @patch("main.git_stash_snapshot", return_value=None)

@@ -139,26 +139,26 @@ def run_tests(test_command, cwd, timeout=DEFAULT_TEST_TIMEOUT, prefix="[harness]
 
 def retry_on_failure(
     fn,
-    max_retries=2,
+    max_retries=1,
     base_delay=5.0,
-    retryable=(RuntimeError, subprocess.TimeoutExpired),
     on_retry=None,
     on_exhausted=None,
 ):
-    """Call *fn* with exponential backoff on retryable exceptions.
+    """Call *fn* with exponential backoff on RuntimeError / subprocess.TimeoutExpired.
 
-    Returns the result of *fn* on success, or None if all attempts fail.
+    Other exceptions propagate. Returns *fn*'s result on success, or None when
+    all attempts fail.
     """
     for attempt in range(max_retries + 1):
         try:
             return fn()
-        except retryable as exc:
+        except (RuntimeError, subprocess.TimeoutExpired) as exc:
             if attempt < max_retries:
                 # Exponential backoff with ±25% jitter
                 target = base_delay * (2**attempt)
-                delay = max(0.0, random.uniform(target * 0.75, target * 1.25))
+                delay = random.uniform(target * 0.75, target * 1.25)
                 if on_retry:
-                    on_retry(attempt, exc, delay)
+                    on_retry(exc, delay)
                 time.sleep(delay)
             else:
                 if on_exhausted:

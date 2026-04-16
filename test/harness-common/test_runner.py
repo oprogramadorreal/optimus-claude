@@ -1,6 +1,7 @@
 import subprocess
 from unittest.mock import MagicMock, patch
 
+import pytest
 from harness_common.runner import (
     _find_bash,
     retry_on_failure,
@@ -277,39 +278,19 @@ class TestRetryOnFailure:
             fail_once,
             max_retries=1,
             base_delay=0.01,
-            on_retry=lambda attempt, exc, delay: retries.append(("retry", attempt)),
+            on_retry=lambda exc, delay: retries.append(("retry", str(exc))),
         )
-        assert ("retry", 0) in retries
+        assert ("retry", "once") in retries
 
     def test_non_retryable_exception_propagates(self):
         def raise_value_error():
             raise ValueError("not retryable")
 
-        try:
+        with pytest.raises(ValueError):
             retry_on_failure(raise_value_error, max_retries=2, base_delay=0.01)
-            assert False, "Should have raised"
-        except ValueError:
-            pass
-
-    def test_custom_retryable(self):
-        calls = []
-
-        def fail_with_value_error():
-            calls.append(1)
-            if len(calls) < 2:
-                raise ValueError("custom")
-            return "ok"
-
-        result = retry_on_failure(
-            fail_with_value_error,
-            max_retries=2,
-            base_delay=0.01,
-            retryable=(ValueError,),
-        )
-        assert result == "ok"
 
     def test_retries_on_timeout_expired(self):
-        """TimeoutExpired is part of the default retryable tuple."""
+        """subprocess.TimeoutExpired is retried alongside RuntimeError."""
         calls = []
 
         def flaky_timeout():
@@ -334,10 +315,10 @@ class TestRetryOnFailure:
             fail_twice,
             max_retries=2,
             base_delay=10.0,
-            on_retry=lambda attempt, exc, delay: captured.append((attempt, delay)),
+            on_retry=lambda exc, delay: captured.append(delay),
         )
         # attempt 0: target = 10.0, expect delay in [7.5, 12.5]
         # attempt 1: target = 20.0, expect delay in [15.0, 25.0]
         assert len(captured) == 2
-        assert 7.5 <= captured[0][1] <= 12.5
-        assert 15.0 <= captured[1][1] <= 25.0
+        assert 7.5 <= captured[0] <= 12.5
+        assert 15.0 <= captured[1] <= 25.0

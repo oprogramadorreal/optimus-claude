@@ -5,6 +5,7 @@ from harness_common.git import git_rev_parse_head
 from harness_common.progress import (  # noqa: F401
     read_progress,
     record_test_result,
+    record_timing,
     write_progress,
 )
 

@@ -1,3 +1,4 @@
+import datetime
 import json
 
 from harness_common.constants import BACKUP_SUFFIX
@@ -81,5 +82,7 @@ class TestRecordTiming:
         progress = {}
         record_timing(progress, "x", 1.0)
         ts = progress["timing"][0]["timestamp"]
-        # Should be ISO-ish: YYYY-MM-DDTHH:MM:SSZ
-        assert "T" in ts and ts.endswith("Z")
+        # Parsing enforces the exact ISO-8601 UTC shape contractually
+        # documented for this field; weaker checks let non-UTC or
+        # malformed values slip through.
+        datetime.datetime.strptime(ts, "%Y-%m-%dT%H:%M:%SZ")

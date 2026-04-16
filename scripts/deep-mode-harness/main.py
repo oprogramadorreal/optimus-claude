@@ -46,9 +46,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from harness_common.parser import parse_harness_output
-from harness_common.progress import record_timing
-from harness_common.reporting import print_phase
-from harness_common.runner import retry_on_failure
 from impl.constants import (
     APPLIED_PENDING_TEST,
     BACKUP_SUFFIX,
@@ -85,10 +82,11 @@ from impl.progress import (
     migrate_progress,
     read_progress,
     record_test_result,
+    record_timing,
     write_progress,
 )
-from impl.reporting import detect_test_command, print_report
-from impl.runner import run_skill_session, run_tests
+from impl.reporting import detect_test_command, print_phase, print_report
+from impl.runner import retry_on_failure, run_skill_session, run_tests
 
 # ---------------------------------------------------------------------------
 # Argument parsing
@@ -445,7 +443,7 @@ def _run_session_with_retry(
     On failure, sets progress termination reason before returning.
     """
 
-    def _on_retry(attempt, exc, delay):
+    def _on_retry(exc, delay):
         if isinstance(exc, subprocess.TimeoutExpired):
             print(f"{PREFIX} Session timed out after {args.timeout}s")
         else:
@@ -744,7 +742,6 @@ def _run_iteration_loop(
     skip_commits = args.no_commit
     while True:
         iteration = progress["iteration"]["current"]
-        print(f"{PREFIX} === Iteration {iteration}/{max_iter} ===")
         iteration_start = time.time()
 
         pre_head = git_rev_parse_head(project_root)

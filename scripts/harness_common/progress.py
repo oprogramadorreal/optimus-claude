@@ -1,6 +1,6 @@
+import datetime
 import json
 import shutil
-import time
 from pathlib import Path
 
 from .constants import BACKUP_SUFFIX
@@ -41,7 +41,9 @@ def record_timing(progress, label, elapsed_s):
         {
             "label": label,
             "elapsed_seconds": round(elapsed_s, 2),
-            "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "timestamp": datetime.datetime.now(datetime.timezone.utc).strftime(
+                "%Y-%m-%dT%H:%M:%SZ"
+            ),
         }
     )
     progress["total_elapsed_seconds"] = round(

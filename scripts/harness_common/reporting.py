@@ -52,7 +52,6 @@ def print_phase(prefix, unit, current, total, phase):
 
 def format_elapsed(total_seconds):
     """Format seconds as a human-readable 'Xm Ys' string."""
-    total_seconds = max(0, total_seconds)
     minutes = int(total_seconds) // 60
     seconds = int(total_seconds) % 60
     if minutes > 0:

@@ -1,5 +1,9 @@
 from harness_common.git import git_current_branch
-from harness_common.reporting import format_elapsed
+from harness_common.reporting import (  # noqa: F401
+    detect_test_command,
+    format_elapsed,
+    print_phase,
+)
 
 from .constants import FIXED_STATUSES, PREFIX
 
