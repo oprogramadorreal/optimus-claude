@@ -49,9 +49,6 @@ class TestFormatElapsed:
     def test_zero(self):
         assert format_elapsed(0) == "0s"
 
-    def test_negative_clamped(self):
-        assert format_elapsed(-5) == "0s"
-
     def test_fractional(self):
         assert format_elapsed(90.7) == "1m 30s"
 

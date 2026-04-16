@@ -1,8 +1,11 @@
 from harness_common.git import git_current_branch
 
-# Re-export shared function for backward compatibility
-from harness_common.reporting import detect_test_command  # noqa: F401
-from harness_common.reporting import format_elapsed
+# Re-export shared functions for backward compatibility
+from harness_common.reporting import (  # noqa: F401
+    detect_test_command,
+    format_elapsed,
+    print_phase,
+)
 
 from .constants import FIXED_STATUSES, PERSISTENT_STATUS, PREFIX, REVERTED_STATUSES
 

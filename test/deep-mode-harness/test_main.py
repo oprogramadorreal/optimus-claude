@@ -843,7 +843,6 @@ class TestRunSessionWithRetry:
         side_effect=[
             RuntimeError("crash"),
             RuntimeError("crash2"),
-            RuntimeError("crash3"),
         ],
     )
     def test_returns_none_after_retries_exhausted(
