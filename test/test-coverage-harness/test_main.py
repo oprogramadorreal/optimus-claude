@@ -880,8 +880,15 @@ class TestRunCycleLoop:
         assert progress["termination"]["reason"] == "error"
         assert "HEAD commit" in progress["termination"]["message"]
 
+    @patch("harness_common.runner.time.sleep")
     @patch("main.restore_working_tree")
-    @patch("main.run_coverage_session", side_effect=RuntimeError("session crash"))
+    @patch(
+        "main.run_coverage_session",
+        side_effect=[
+            RuntimeError("session crash"),
+            RuntimeError("session crash"),
+        ],
+    )
     @patch("main.git_stash_snapshot", return_value=None)
     @patch("main.git_rev_parse_head", return_value="abc123")
     @patch("main.write_progress")
@@ -892,6 +899,7 @@ class TestRunCycleLoop:
         mock_stash,
         mock_session,
         mock_restore,
+        mock_sleep,
         sample_coverage_progress,
         tmp_path,
     ):
@@ -903,7 +911,6 @@ class TestRunCycleLoop:
 
         assert progress["termination"]["reason"] == "crash"
         assert "Unit-test session failed" in progress["termination"]["message"]
-        mock_restore.assert_called_once()
 
     @patch("main.restore_working_tree")
     @patch("main.run_tests", return_value=(False, "fail"))
@@ -1318,6 +1325,7 @@ class TestRunCycleLoop:
         assert len(progress["refactor_findings"]) == 1
         assert progress["termination"]["reason"] == "cap"
 
+    @patch("harness_common.runner.time.sleep")
     @patch("main.check_coverage_plateau", return_value=(False, ""))
     @patch("main.check_unit_test_convergence", return_value=(False, ""))
     @patch("main.restore_working_tree")
@@ -1340,6 +1348,7 @@ class TestRunCycleLoop:
         mock_restore,
         mock_ut_conv,
         mock_plateau,
+        mock_sleep,
         sample_coverage_progress,
         tmp_path,
     ):
@@ -1352,6 +1361,8 @@ class TestRunCycleLoop:
         mock_parse.return_value = ut_result
         mock_session.side_effect = [
             "ut output",
+            RuntimeError("refactor crash"),
+            RuntimeError("refactor crash"),
             RuntimeError("refactor crash"),
         ]
 

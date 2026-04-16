@@ -45,7 +45,6 @@ from harness_common.git import (
     restore_working_tree,
 )
 from harness_common.parser import parse_harness_output
-from harness_common.reporting import detect_test_command
 from impl.constants import (
     DEFAULT_MAX_CYCLES,
     DEFAULT_MAX_TURNS,
@@ -66,10 +65,11 @@ from impl.progress import (
     read_progress,
     record_cycle_history,
     record_test_result,
+    record_timing,
     write_progress,
 )
-from impl.reporting import print_report
-from impl.runner import run_coverage_session, run_tests
+from impl.reporting import detect_test_command, print_phase, print_report
+from impl.runner import retry_on_failure, run_coverage_session, run_tests
 
 # ---------------------------------------------------------------------------
 # Argument parsing
@@ -497,23 +497,46 @@ def _run_unit_test_phase(
     """
     progress["phase"] = "unit-test"
     write_progress(progress_path, progress)
-    print(f"{PREFIX} --- Phase: unit-test ---")
 
     ut_start = time.time()
-    try:
-        ut_output = run_coverage_session(progress, args, progress_path, "unit-test")
-    except (RuntimeError, subprocess.TimeoutExpired) as exc:
-        print(f"{PREFIX} ERROR: Unit-test session failed: {exc}")
+
+    def _on_ut_retry(exc, delay):
+        if isinstance(exc, subprocess.TimeoutExpired):
+            print(f"{PREFIX} Unit-test session timed out after {args.timeout}s")
+        else:
+            print(f"{PREFIX} Unit-test session error: {exc}")
+        restore_working_tree(pre_stash, pre_head, project_root)
+        write_progress(progress_path, progress)
+        print(f"{PREFIX} Retrying unit-test phase in {delay:.0f}s...")
+
+    def _on_ut_exhausted(exc):
+        if isinstance(exc, subprocess.TimeoutExpired):
+            print(
+                f"{PREFIX} ERROR: Unit-test session timed out after {args.timeout}s "
+                f"(final attempt)"
+            )
+        else:
+            print(f"{PREFIX} ERROR: Unit-test session failed after retries: {exc}")
         restore_working_tree(pre_stash, pre_head, project_root)
         progress["termination"] = {
             "reason": "crash",
             "message": f"Unit-test session failed on cycle {cycle}: {exc}",
         }
         write_progress(progress_path, progress)
+
+    ut_output = retry_on_failure(
+        lambda: run_coverage_session(progress, args, progress_path, "unit-test"),
+        max_retries=1,
+        base_delay=5.0,
+        on_retry=_on_ut_retry,
+        on_exhausted=_on_ut_exhausted,
+    )
+    if ut_output is None:
         return "break", None, pre_head, skip_commits
 
     ut_result = parse_harness_output(ut_output)
     ut_elapsed = int(time.time() - ut_start)
+    record_timing(progress, f"cycle-{cycle}-unit-test", ut_elapsed)
 
     if ut_result is None:
         print(
@@ -623,15 +646,27 @@ def _run_refactor_phase(
 
     progress["phase"] = "refactor"
     write_progress(progress_path, progress)
-    print(
-        f"{PREFIX} --- Phase: refactor (testability) — {len(pending_untestable)} items ---"
-    )
+    print(f"{PREFIX} {len(pending_untestable)} untestable items pending")
 
     rf_start = time.time()
-    try:
-        rf_output = run_coverage_session(progress, args, progress_path, "refactor")
-    except (RuntimeError, subprocess.TimeoutExpired) as exc:
-        print(f"{PREFIX} ERROR: Refactor session failed: {exc}")
+
+    def _on_rf_retry(exc, delay):
+        if isinstance(exc, subprocess.TimeoutExpired):
+            print(f"{PREFIX} Refactor session timed out after {args.timeout}s")
+        else:
+            print(f"{PREFIX} Refactor session error: {exc}")
+        restore_working_tree(pre_stash, pre_head, project_root)
+        write_progress(progress_path, progress)
+        print(f"{PREFIX} Retrying refactor phase in {delay:.0f}s...")
+
+    def _on_rf_exhausted(exc):
+        if isinstance(exc, subprocess.TimeoutExpired):
+            print(
+                f"{PREFIX} ERROR: Refactor session timed out after {args.timeout}s "
+                f"(final attempt)"
+            )
+        else:
+            print(f"{PREFIX} ERROR: Refactor session failed after retries: {exc}")
         restore_working_tree(pre_stash, pre_head, project_root)
         record_cycle_history(progress, cycle, ut_summary)
         progress["termination"] = {
@@ -639,10 +674,20 @@ def _run_refactor_phase(
             "message": f"Refactor session failed on cycle {cycle}: {exc}",
         }
         write_progress(progress_path, progress)
+
+    rf_output = retry_on_failure(
+        lambda: run_coverage_session(progress, args, progress_path, "refactor"),
+        max_retries=1,
+        base_delay=5.0,
+        on_retry=_on_rf_retry,
+        on_exhausted=_on_rf_exhausted,
+    )
+    if rf_output is None:
         return "break", None, skip_commits
 
     rf_result = parse_harness_output(rf_output)
     rf_elapsed = int(time.time() - rf_start)
+    record_timing(progress, f"cycle-{cycle}-refactor", rf_elapsed)
 
     if rf_result is None:
         print(
@@ -773,7 +818,6 @@ def _run_cycle_loop(
 
     while True:
         cycle = progress["cycle"]["current"]
-        print(f"\n{PREFIX} === Cycle {cycle}/{max_cycles} ===")
 
         pre_head = git_rev_parse_head(project_root)
         if not pre_head:
@@ -788,6 +832,7 @@ def _run_cycle_loop(
         pre_stash = git_stash_snapshot(project_root) if args.no_commit else None
 
         # ---- Unit-test phase ----
+        print_phase(PREFIX, "cycle", cycle, max_cycles, "unit-test")
         action, ut_summary, pre_head, skip_commits = _run_unit_test_phase(
             args,
             progress,
@@ -822,6 +867,7 @@ def _run_cycle_loop(
             pre_head = git_rev_parse_head(project_root) or pre_head
 
         # ---- Refactor phase ----
+        print_phase(PREFIX, "cycle", cycle, max_cycles, "refactor")
         action, refactor_summary, skip_commits = _run_refactor_phase(
             args,
             progress,

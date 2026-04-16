@@ -1,7 +1,12 @@
+import datetime
 import json
 
 from harness_common.constants import BACKUP_SUFFIX
-from harness_common.progress import read_progress, write_progress
+from harness_common.progress import (
+    read_progress,
+    record_timing,
+    write_progress,
+)
 
 
 class TestWriteProgress:
@@ -51,3 +56,33 @@ class TestReadProgress:
         path = tmp_path / "progress.json"
         path.write_text('{"key": "value"}', encoding="utf-8")
         assert read_progress(path) == {"key": "value"}
+
+
+class TestRecordTiming:
+    def test_appends_entry(self):
+        progress = {}
+        record_timing(progress, "iteration-1", 12.345)
+        assert len(progress["timing"]) == 1
+        assert progress["timing"][0]["label"] == "iteration-1"
+        assert progress["timing"][0]["elapsed_seconds"] == 12.35
+        assert progress["total_elapsed_seconds"] == 12.35
+
+    def test_accumulates_total(self):
+        progress = {"timing": [], "total_elapsed_seconds": 10.0}
+        record_timing(progress, "iteration-2", 5.5)
+        assert progress["total_elapsed_seconds"] == 15.5
+        assert len(progress["timing"]) == 1
+
+    def test_creates_timing_list(self):
+        progress = {}
+        record_timing(progress, "x", 1.0)
+        assert "timing" in progress
+
+    def test_timestamp_format(self):
+        progress = {}
+        record_timing(progress, "x", 1.0)
+        ts = progress["timing"][0]["timestamp"]
+        # Parsing enforces the exact ISO-8601 UTC shape contractually
+        # documented for this field; weaker checks let non-UTC or
+        # malformed values slip through.
+        datetime.datetime.strptime(ts, "%Y-%m-%dT%H:%M:%SZ")

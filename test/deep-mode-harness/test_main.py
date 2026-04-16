@@ -812,6 +812,7 @@ class TestRunSessionWithRetry:
         assert result == "output"
         assert mock_session.call_count == 1
 
+    @patch("harness_common.runner.time.sleep")
     @patch("main.write_progress")
     @patch("main.restore_working_tree")
     @patch(
@@ -819,7 +820,13 @@ class TestRunSessionWithRetry:
         side_effect=[RuntimeError("crash"), "output"],
     )
     def test_retries_on_first_failure(
-        self, mock_session, mock_restore, mock_write, sample_progress, tmp_path
+        self,
+        mock_session,
+        mock_restore,
+        mock_write,
+        mock_sleep,
+        sample_progress,
+        tmp_path,
     ):
         args = SimpleNamespace(timeout=900)
         result = _run_session_with_retry(
@@ -828,14 +835,24 @@ class TestRunSessionWithRetry:
         assert result == "output"
         assert mock_session.call_count == 2
 
+    @patch("harness_common.runner.time.sleep")
     @patch("main.write_progress")
     @patch("main.restore_working_tree")
     @patch(
         "main.run_skill_session",
-        side_effect=[RuntimeError("crash"), RuntimeError("crash2")],
+        side_effect=[
+            RuntimeError("crash"),
+            RuntimeError("crash2"),
+        ],
     )
-    def test_returns_none_after_two_failures(
-        self, mock_session, mock_restore, mock_write, sample_progress, tmp_path
+    def test_returns_none_after_retries_exhausted(
+        self,
+        mock_session,
+        mock_restore,
+        mock_write,
+        mock_sleep,
+        sample_progress,
+        tmp_path,
     ):
         args = SimpleNamespace(timeout=900)
         result = _run_session_with_retry(
@@ -844,6 +861,7 @@ class TestRunSessionWithRetry:
         assert result is None
         assert sample_progress["termination"]["reason"] == "crash"
 
+    @patch("harness_common.runner.time.sleep")
     @patch("main.write_progress")
     @patch("main.restore_working_tree")
     @patch(
@@ -851,7 +869,13 @@ class TestRunSessionWithRetry:
         side_effect=subprocess.TimeoutExpired("claude", 900),
     )
     def test_handles_timeout(
-        self, mock_session, mock_restore, mock_write, sample_progress, tmp_path
+        self,
+        mock_session,
+        mock_restore,
+        mock_write,
+        mock_sleep,
+        sample_progress,
+        tmp_path,
     ):
         args = SimpleNamespace(timeout=900)
         result = _run_session_with_retry(

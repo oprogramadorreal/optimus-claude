@@ -1,4 +1,4 @@
-from harness_common.reporting import detect_test_command
+from harness_common.reporting import detect_test_command, format_elapsed, print_phase
 
 
 class TestDetectTestCommand:
@@ -37,3 +37,31 @@ class TestDetectTestCommand:
         content = "test command: `go test ./...`\n"
         result = detect_test_command("/nonexistent/path", content=content)
         assert result == "go test ./..."
+
+
+class TestFormatElapsed:
+    def test_seconds_only(self):
+        assert format_elapsed(45) == "45s"
+
+    def test_minutes_and_seconds(self):
+        assert format_elapsed(125) == "2m 5s"
+
+    def test_zero(self):
+        assert format_elapsed(0) == "0s"
+
+    def test_fractional(self):
+        assert format_elapsed(90.7) == "1m 30s"
+
+
+class TestPrintPhase:
+    def test_banner_format(self, capsys):
+        print_phase("[harness]", "iter", 3, 10, "run")
+        out = capsys.readouterr().out
+        assert "[harness] [iter 3/10" in out
+        assert "run" in out
+
+    def test_cycle_unit(self, capsys):
+        print_phase("[cov]", "cycle", 2, 5, "refactor")
+        out = capsys.readouterr().out
+        assert "[cov] [cycle 2/5" in out
+        assert "refactor" in out
