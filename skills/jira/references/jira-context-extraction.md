@@ -40,13 +40,13 @@ Different MCP servers expose different tool names. Use `ToolSearch` at runtime t
 | Create link | `createIssueLink` | — | **Write** |
 | Add worklog | `addWorklogToJiraIssue` | — | **Write** |
 
-When a specific tool is unavailable, fall back to the search tool with targeted JQL. For example, if `getJiraIssue` is unavailable, use `searchJiraIssuesUsingJql` with JQL `key = PROJ-123`.
+When a **Read** tool is unavailable, fall back to the search tool with targeted JQL. For example, if `getJiraIssue` is unavailable, use `searchJiraIssuesUsingJql` with JQL `key = PROJ-123`. Write operations have no fallback — if the specified write tool is unavailable, inform the user and skip the write.
 
 ## MCP Safety
 
 During context extraction (Steps 1–4 of the jira skill), only call tools marked **Read** in the table above.
 
-**Hard rule:** NEVER call any tool whose name contains `add`, `create`, `edit`, `update`, `transition`, or `delete` during context extraction. These are write tools that modify JIRA data.
+**Hard rule:** NEVER call any tool whose name **starts with** `add`, `create`, `edit`, `update`, `transition`, or `delete` during context extraction (e.g., `addCommentToJiraIssue`, `editJiraIssue`, `transitionJiraIssue`). Read tools that contain these substrings in non-verb positions (e.g., `getTransitionsForJiraIssue`) are safe.
 
 **Comments:** Comments are embedded in the `getJiraIssue` response or in search results — there is no dedicated "get comments" tool. Do NOT use `addCommentToJiraIssue` to read comments; it is a write tool that creates a new comment on the issue.
 

@@ -5,15 +5,15 @@ disable-model-invocation: true
 
 # JIRA Context
 
-Fetch a JIRA issue, distill it into an optimized task description for Claude Code, analyze the codebase to surface missing criteria, scope, and risks, and optionally enrich the issue in JIRA. The skill works with any JIRA MCP server (Atlassian Rovo or community servers like sooperset/mcp-atlassian) and guides first-time setup when no server is configured.
+Fetch a JIRA issue, distill it into a structured task for Claude Code, analyze the codebase to surface missing criteria, scope, and risks, and optionally enrich the issue in JIRA. The skill works with any JIRA MCP server (Atlassian Rovo or community servers like sooperset/mcp-atlassian) and guides first-time setup when no server is configured.
 
 ## Safety
 
-Steps 1–4 are READ-ONLY. No MCP write tool may be called until Step 5, and only after explicit user confirmation. See `jira-context-extraction.md` section "MCP Safety" for the tool classification.
+Steps 1–4 are READ-ONLY. No MCP write tool may be called until Step 5, and only after explicit user confirmation. The only write operation this skill performs is adding a comment (see Tool Name Resolution table in `jira-context-extraction.md` for the server-specific tool name) — do not call any other write tool. See `jira-context-extraction.md` section "MCP Safety" for the full tool classification.
 
 ## Language
 
-All content written back to JIRA (comments, description edits) MUST preserve the original language used in the JIRA issue. Do not translate JIRA content into English when writing to JIRA.
+All content written back to JIRA (comments) MUST preserve the original language used in the JIRA issue. Do not translate JIRA content into English when writing to JIRA.
 
 All local artifacts (`docs/jira/*.md`) and all Claude Code output to the user MUST be in English, regardless of the source language. Translate as needed when distilling the structured task and producing local files.
 
@@ -31,7 +31,7 @@ Two modes based on whether the user provided an issue key inline.
 ### Direct fetch
 
 If the user provided an issue key inline (e.g., `/optimus:jira PROJ-123`):
-1. Validate format — must match `[A-Z][A-Z0-9]+-\d+` (e.g., `PROJ-123`, `AB-1`)
+1. Validate format — must match `^[A-Z][A-Z0-9]+-\d+$` (entire input, no extra characters — e.g., `PROJ-123`, `AB-1`)
 2. If valid → proceed to Step 3 with this key
 3. If invalid → inform the user and use `AskUserQuestion` to request a corrected key
 
@@ -121,7 +121,7 @@ Read `$CLAUDE_PLUGIN_ROOT/skills/jira/references/jira-codebase-analysis.md` and 
 
 Present the **Impact Summary** to the user.
 
-Check whether the detected MCP server has a comment tool (see Tool Name Resolution table in `jira-context-extraction.md` — `addCommentToJiraIssue` for Rovo; sooperset has none). Then use `AskUserQuestion` — header "Codebase impact", question "How would you like to use these findings?":
+Check whether the detected MCP server has a comment tool (see Tool Name Resolution table in `jira-context-extraction.md`). If no comment tool is available, present only "Update local context only" and "Skip". Otherwise, present all three options. Use `AskUserQuestion` — header "Codebase impact", question "How would you like to use these findings?":
 - **Update JIRA and local context** (only if a comment tool is available) — "Enrich `docs/jira/<ISSUE-KEY>.md` and post an analysis comment to the JIRA issue"
 - **Update local context only** — "Enrich `docs/jira/<ISSUE-KEY>.md` only"
 - **Skip** — "Proceed without changes"
@@ -130,39 +130,7 @@ Check whether the detected MCP server has a comment tool (see Tool Name Resoluti
 
 1. Update the `docs/jira/<ISSUE-KEY>.md` file following the **Task File Update** procedure in the reference. The local file is always updated first — it is the single source of truth.
 
-2. Post a structured JIRA comment using the add-comment tool from the Tool Name Resolution table in `jira-context-extraction.md` (`addCommentToJiraIssue` for Rovo). If no comment tool is available for the detected server (e.g., sooperset has no comment tool), inform the user that JIRA comment posting is not supported by their MCP server and skip the JIRA write — the local file update still applies. The comment must be written in the **same language as the JIRA issue** (see Language section above). Use JIRA wiki markup:
-
-```
-h2. Codebase Analysis (automated)
-
-h3. Refined Description
-[Re-state the issue's goal in concrete, actionable terms. Correct any
-vagueness or inaccuracies from the original description based on what
-the codebase actually shows. If the original description is not directly
-actionable, explain what can actually be done and how.]
-
-h3. Acceptance Criteria (refined)
-[Merged list: original criteria (corrected/clarified if needed) + new
-criteria discovered from codebase analysis. Each criterion must be testable
-and specific. Mark new ones with "(from codebase analysis)".]
-
-h3. Suggested Approach
-[Concrete next steps, smaller tasks, implementation sequence. What to do
-first, what depends on what. This makes the issue directly workable.]
-
-h3. Codebase Impact
-[Files and modules affected, grouped by area. For each: what changes and
-why, tied to which criterion.]
-
-h3. Risks
-[Only if risks were found. What could go wrong, what to watch for.
-Omit this section if there are no risks.]
-
-h3. Scope: [Simple/Medium/Complex]
-[One-line explanation with rationale.]
-
-_Generated by optimus-claude on [YYYY-MM-DD]_
-```
+2. Post a structured JIRA comment using the add-comment tool from the Tool Name Resolution table in `jira-context-extraction.md` (`addCommentToJiraIssue` for Rovo). If the comment tool call fails at runtime (e.g., tool was listed but is unavailable), inform the user and skip the JIRA write — the local file update still applies. The comment must be written in the **same language as the JIRA issue** (see Language section above). Derive the comment content from the sections just written to the local file to ensure consistency. Use the **JIRA Comment Format** in `jira-codebase-analysis.md`.
 
 3. Report success or failure. No further confirmation needed — comments are append-only and non-destructive. Proceed to Step 6.
 
