@@ -87,9 +87,23 @@ Wait for the agent to complete.
 
 **If no test framework is detected** in the agent's Discovery Results, stop and report: "No test framework found. Run `/optimus:init` (or re-run it) to install a test framework and set up test infrastructure before using this skill." Do not proceed to test generation without a working framework.
 
-**If the agent's Test Suite Execution reports failures:**
-- **Fail - assertion** (tests compile and run, but some fail) — stop and report. A clean baseline is required before adding new tests. Report failing tests in the Step 5 "Bugs Discovered" section.
-- **Fail - build** (build/bootstrap failures) — stop and report. Test infrastructure should have been verified by `/optimus:init`. Recommend re-running `/optimus:init` to fix build-level issues.
+**If the agent's Test Suite Execution reports failures**, stop. This skill does not fix broken tests or broken infrastructure by design — silence on fixes is intentional. Print one of the messages below (Conversation / Mode / Next skill per `$CLAUDE_PLUGIN_ROOT/references/skill-handoff.md`), then also record the failures in the Step 5 "Bugs Discovered" section as a reference block.
+
+- **Fail - assertion** (tests compile and run, but some fail):
+
+  > Existing tests are failing. A clean baseline is required before adding new tests, and this skill does not modify existing tests or source code.
+  >
+  > **Next:** stay in this conversation (normal mode) and ask Claude to triage the failing tests listed in Bugs Discovered below — fixing broken test logic is generic debugging, not a skill workflow. Then re-run `/optimus:unit-test` in a fresh conversation once the baseline is green.
+  >
+  > **Tip:** for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch.
+
+- **Fail - build** (build/bootstrap failures):
+
+  > The test runner cannot start or test files fail to compile. These are build-level issues, not test logic, and `/optimus:init` owns that repair path.
+  >
+  > **Next:** start a fresh conversation in normal mode and run `/optimus:init` — its health check will propose minimal fixes and re-run the suite. Return here afterward.
+  >
+  > **Tip:** for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch.
 
 ### Present to user
 
@@ -190,6 +204,7 @@ Report to the user:
 
 ### Bugs Discovered
 - [List of bugs found in existing code — reported, not fixed]
+- For pre-existing test failures surfaced by the Step 2 stop gate, list each as `<test file> — <test name> — <one-line failure excerpt>`. In multi-repo workspaces, prefix each entry with the repo name/path.
 
 ### Not Testable Without Refactoring
 - [List of code flagged as untestable — with brief explanation of what structural change would be needed]

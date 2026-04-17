@@ -319,7 +319,11 @@ Run through this checklist. **Fix any failures before reporting to the user.**
 [If monorepo: add subproject breakdown rows. If multi-repo: per-repo results and reminder to commit each repo's `.claude/` separately.]
 ```
 
-After the table, include conditional warnings:
+**Test infra row — broken-baseline modifier:** If the Step 5b health check recorded assertion failures for a subproject, append `— ⚠ baseline broken (<N> failing)` to that subproject's Test-infra value (e.g., `Pre-existing: jest — ⚠ baseline broken (12 failing)`). In monorepo/multi-repo summaries, apply the modifier per subproject. If any subproject has a broken baseline, add this one-line hint immediately after the summary table:
+
+> ⚠ **Baseline broken in: [subproject(s)]** — init does not fix broken test logic by design. Ask Claude to triage the failing tests, or run `/optimus:unit-test` in a fresh conversation to enumerate failures.
+
+After the table (and the broken-baseline hint, if present), include these additional conditional warnings:
 
 If test infrastructure was installed from scratch in Step 5b (no pre-existing test framework — the user chose "Yes" to install one), include a strong warning:
 
