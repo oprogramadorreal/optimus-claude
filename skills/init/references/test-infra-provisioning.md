@@ -23,7 +23,7 @@ If the installed coverage tool only generates machine-readable output (XML, JSON
 After framework exists (pre-existing or just installed), run the test suite once to verify it works. Distinguish between failure types:
 
 - **Build/bootstrap failure** (test runner cannot start, or test files fail to compile — broken imports, missing polyfills, deprecated paths in setup files like `src/test.ts`, `jest.config.*`, `conftest.py`, or compilation errors in `.spec`/`.test` files due to renamed/removed APIs) — these are build-level issues, not test logic. Report the specific errors, ask the user for approval to fix them, and re-run. Apply minimal changes: update import paths, fix type references, adjust mocks to match current signatures. If the fix requires more than build-level corrections, stop and report.
-- **Test assertion failures** (tests compile and run, but some fail) — report but continue. These are logic bugs, not infrastructure issues. Record `{ subproject, failing_count }` per subproject and carry it into Step 7's summary (consumed by the broken-baseline modifier).
+- **Test assertion failures** (tests compile and run, but some fail) — report but continue. These are logic bugs, not infrastructure issues. Record `{ scope, failing_count }` where `scope` is one of `project`, `subproject`, or `repo`, and carry it into Step 7's summary (consumed by the broken-baseline modifier).
 - **All pass** — proceed normally.
 
 ## Optimus Infrastructure Provisioning

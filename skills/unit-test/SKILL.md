@@ -89,9 +89,9 @@ Wait for the agent to complete.
 
 **If the agent's Test Suite Execution reports failures**, stop. This skill does not fix failing tests or build-level issues by design. Print the matching message below (Conversation / Mode / Next skill per `$CLAUDE_PLUGIN_ROOT/references/skill-handoff.md`).
 
-- **Fail - assertion** (tests compile and run, but some fail): print the quote below, then append a `### Bugs Discovered` section listing each failing test as `<test file> — <test name> — <one-line failure excerpt>` (prefix entries with repo name/path in multi-repo workspaces; omit the excerpt if the test runner output did not expose it).
+- **Fail - assertion** (tests compile and run, but some fail): print the quote below, then append a `### Bugs Discovered` section listing each failing test as `[test file] — [test name] — [one-line failure excerpt]` (prefix entries with repo name/path in multi-repo workspaces; omit the excerpt if the test runner output did not expose it).
 
-  > Pre-existing tests are failing. A clean baseline is required before adding new tests, and this skill does not modify existing tests or source code.
+  > Pre-existing tests are failing. A green baseline is required before adding new tests, and this skill does not modify existing tests or source code.
   >
   > **Next:** stay in this conversation (normal mode) and ask Claude to triage the failing tests listed in Bugs Discovered. Once the baseline is green, start a fresh conversation and re-run `/optimus:unit-test`.
   >

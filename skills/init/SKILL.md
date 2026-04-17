@@ -321,10 +321,10 @@ Run through this checklist. **Fix any failures before reporting to the user.**
 
 **Broken-baseline reporting:** If the Step 5b health check recorded failing tests, apply the following to the summary:
 
-- **Test-infra row modifier:** append `— ⚠ baseline broken (<N> failing)` to the Test-infra value (e.g., `Pre-existing: jest — ⚠ baseline broken (12 failing)`). In monorepo/multi-repo summaries, apply it per subproject.
-- **Post-table hint:** if any subproject has a broken baseline, add this one-line hint immediately after the summary table:
+- **Test-infra row modifier:** append `— ⚠ baseline broken ([N] failing)` to the Test-infra value (e.g., `Pre-existing: jest — ⚠ baseline broken (12 failing)`). In monorepos, apply per subproject; in multi-repo workspaces, apply per repo.
+- **Post-table hint:** if any baseline is broken (single project, subproject, or repo), add this one-line hint immediately after the summary table:
 
-  > ⚠ **Baseline broken in: <subproject(s)>** — init does not fix failing tests by design. Ask Claude to triage them before running skills that need a green baseline.
+  > ⚠ **Baseline broken** — init does not fix failing tests by design. Ask Claude to triage the failing tests before running skills that need a green baseline.
 
 After the table (and the broken-baseline hint, if present), include conditional warnings:
 

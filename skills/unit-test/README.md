@@ -12,7 +12,8 @@ Well-maintained code has [30%+ fewer AI-introduced defects](https://arxiv.org/ab
 - **Project-wide discovery** — scans for test files, frameworks, coverage tooling; stops if no test framework found (recommends running `/optimus:init`)
 - **Achievable threshold estimation** — analyzes testable vs untestable code to set realistic coverage targets without requiring refactoring
 - **Prioritized test plan** — up to 10 items per run, highest-value targets first, user-approved before execution
-- **Conservative test writing** — adds new test files only; fixes failing tests, not source code
+- **Conservative test writing** — adds new test files only; may fix a newly-written test but never modifies existing tests or source code
+- **Broken baseline handoff** — stops with a triage pointer when pre-existing tests fail; never modifies their logic
 - **Bug discovery** — reports bugs found in existing code during test writing without fixing them
 - **Monorepo & multi-repo workspace support** — detects subprojects and processes each independently
 - **Submodule exclusion** — automatically skips git submodules during discovery
