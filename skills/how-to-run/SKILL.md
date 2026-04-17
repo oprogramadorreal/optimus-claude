@@ -54,7 +54,11 @@ Print a **Context Summary** from the agent's Context Detection Results:
 - **Hardware / OS requirements** (GPU, USB/serial, OS version — only if detected)
 - **Dev workflow signals** (Docker-based, Makefile-based, script-based, process runner, etc.)
 
-Give the user a chance to correct misdetections before proceeding.
+Use `AskUserQuestion` — header "Context review", question "Does this capture the project correctly?":
+- **Looks good** — "Proceed with detected context"
+- **Correct first** — "Some details are wrong or missing"
+
+If "Correct first": use `AskUserQuestion` — header "Corrections", question "What should be changed?" (free text). Apply the corrections to the Context Detection Results in memory and re-print the updated Context Summary. Re-confirm with the same binary prompt above. Only proceed once the user selects "Looks good".
 
 **Unsupported-Stack Fallback.** If the agent reported `Unsupported-Stack Fallback → Triggered: yes`, read `$CLAUDE_PLUGIN_ROOT/skills/init/references/unsupported-stack-fallback.md` and run its 5-step procedure here, using the agent's reported **Detected language(s)** and **Evidence** as input. Use `WebSearch` for step 2 (research); enforce the step 3 validation rules before presenting any command; use `AskUserQuestion` for step 4 (approval). Commands approved here feed Step 4 content generation as if from a recognized stack; commands skipped (search failed or user declined) render as `"not found"` in the affected sections.
 
