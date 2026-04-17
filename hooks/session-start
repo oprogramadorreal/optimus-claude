@@ -12,7 +12,7 @@ output=""
 if [ ! -f .claude/CLAUDE.md ] || [ ! -f .claude/docs/coding-guidelines.md ]; then
   # Multi-repo workspace: init may live in a sub-repo's .claude/, not the workspace root.
   # .optimus-version is uniquely written by /optimus:init, so it's the authoritative marker.
-  multi_repo_marker=$(find . -maxdepth 4 -path '*/.claude/.optimus-version' -print -quit 2>/dev/null)
+  multi_repo_marker=$(find . -mindepth 2 -maxdepth 4 -path '*/.claude/.optimus-version' -print -quit 2>/dev/null)
   if [ -z "$multi_repo_marker" ]; then
     output+="IMPORTANT: This project has not been initialized with the optimus plugin. You MUST mention this to the user in your first response: recommend running \`/optimus:init\` to set up CLAUDE.md, coding guidelines, and auto-format hooks for effective AI-assisted development."$'\n'
   fi
