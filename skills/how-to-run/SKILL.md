@@ -49,6 +49,7 @@ Print a **Context Summary** from the agent's Context Detection Results:
 - **Source dependencies** (git submodules from `.gitmodules`, sibling repos detected in build/CI files, CMake `FetchContent` / `ExternalProject`)
 - **SDKs & system packages** (Vulkan, CUDA, Qt, JDK, .NET SDK, MSVC Build Tools, etc. — only if detected)
 - **External services detected** (list with source — e.g., "PostgreSQL (docker-compose.yml), Redis (docker-compose.yml)")
+- **External service runtime targets** (per service: `local-only` if the default endpoint is `localhost` / empty / unknown, `shared-cloud` if the default endpoint is a cloud host per the heuristics in `external-services-docker.md`, or `ambiguous`. Read the default endpoint from the referenced config file at Step 1 Checkpoint time — the detector already records which config file each service came from.)
 - **Environment config files found** (`.env.example`, etc.)
 - **Runtime version constraints** (e.g., "Node.js >=18 (engines.node), Python >=3.11 (python_requires)")
 - **Hardware / OS requirements** (GPU, USB/serial, OS version — only if detected)
@@ -84,6 +85,8 @@ Wait for the agent to complete. Use the agent's **How-to-Run Audit Results** for
 
 Present findings as a table with status per aspect (use the classification from the How-to-Run Audit Results).
 
+For the **External Services** aspect specifically, expand it into a sub-table listing each detected service with its **Recommended runtime** (`Docker` / `Local install` / `Shared cloud (<provider>)`) and **Alternative** (`Docker (offline)` / `Local install` / `—`), produced by applying the heuristics in `$CLAUDE_PLUGIN_ROOT/skills/how-to-run/references/external-services-docker.md` to the detector's External Services table + the runtime-target annotation from the Step 1 Checkpoint. Read that reference file before presenting Step 3 so the classification is consistent with Step 4's generation logic. No new `AskUserQuestion` prompt is added per service — the existing "Correct first" path covers overrides.
+
 **If a `HOW-TO-RUN.md` already exists and all aspects are "Found & accurate":** Report to user — no action needed. Skip to Step 6 (report only).
 
 **If outdated items found:** Show current content vs proposed correction for each.
@@ -100,7 +103,10 @@ If user selects **Skip**, jump to Step 6 (report only).
 
 ## Step 4: Generate Content
 
-Read `$CLAUDE_PLUGIN_ROOT/skills/how-to-run/references/how-to-run-sections.md` for section templates and the signal-to-section mapping.
+Read these reference files before generating content:
+
+- `$CLAUDE_PLUGIN_ROOT/skills/how-to-run/references/how-to-run-sections.md` — section templates and signal-to-section mapping.
+- `$CLAUDE_PLUGIN_ROOT/skills/how-to-run/references/external-services-docker.md` — Docker-vs-local-vs-shared-cloud decision heuristics, web-search recipe, snippet templates, citation format, and registry allowlist for the External Services section.
 
 Generate only sections with at least one detected signal. Order is fixed; only inclusion varies. Full catalog:
 
@@ -108,7 +114,7 @@ Generate only sections with at least one detected signal. Order is fixed; only i
 2. **Toolchain & SDKs** — compiler, build-tool, language SDK, and domain SDK requirements. See *Additional Detection Hints* in `how-to-run-sections.md` for additional detection signals and the *Build System Detection* table below it for per-file extraction rules. Group per-OS install commands (Windows / macOS / Linux) when multiple OSes are plausible.
 3. **Source Dependencies** — git submodules (`git clone --recursive` or `git submodule update --init --recursive`), sibling repos that must be cloned alongside this one (list paths + clone URLs), CMake `FetchContent`/`ExternalProject` notes.
 4. **Installation** — clone command, language-level package install (correct PM and prefix), post-install steps (code generation, database migrations, asset compilation), vendored-dependency bootstrap (vcpkg, Conan).
-5. **External Services** — how to start required infrastructure. When `docker-compose.yml` / `compose.yml` exists, use `docker compose up -d` as the recommended approach. Otherwise describe manual setup. Include: what services are needed, how to start them, how to verify they're running, default ports from compose config. For credentials, note that the service uses defaults from docker-compose — never copy actual password values into the file.
+5. **External Services** — how to start required infrastructure. When `docker-compose.yml` / `compose.yml` covers all services, use `docker compose up -d` as the recommended approach (Branch A in `how-to-run-sections.md` §External Services). When there is no compose file or compose covers only some services, use Branch B: render the per-service overview table followed by an H3 subsection per service, picking one of the three templates (*Docker recommended*, *Shared-cloud primary + Docker optional*, *Local install only*) per the decision heuristics in `external-services-docker.md`. For every service classified as Docker-preferred or Docker-as-alternative, run the 6-step web-search recipe in `external-services-docker.md` before writing the snippet — never take image names or tags from model memory. Cite every image reference with a `- Source: [<vendor page title>](<vendor page URL>).` line on the next bullet. Prefer stable versioned tags over bare `:latest` when the vendor docs offer one. Reject any image whose registry host is not in the registry allowlist and log a caution for the user. GUI tools (SSMS, Compass, DBeaver, pgAdmin) and CLI tools always render as *Local install only* — do not spend a web search on them. Include: what services are needed, how to start them, how to verify they're running, default ports from compose config or vendor docs. For credentials, note that the service uses defaults from docker-compose or shared-cloud config — never copy actual password values into the file.
 6. **Environment Setup** — copy `.env.example` → `.env`, describe required variables (read from the example file), any service-specific configuration. Never include real secret values — only describe what each variable is for.
 7. **Build** — explicit compile/link command for compiled stacks (e.g., `cmake --build build --config Debug`). Omit for interpreted stacks where build is conflated with run.
 8. **Running in Development** — the primary dev command(s) OR the command to launch the produced binary OR the engine launcher. What URL/port to expect for web/server stacks, what window/output to expect for desktop/game stacks. For monorepos: how to run specific subprojects AND how to run everything together. For docker-only setups (Dockerfile + docker-compose + no obvious local-run scripts): Docker-based instructions as the primary path.
@@ -157,6 +163,7 @@ If no files were modified (skip or no-action path), skip verification and procee
 
 - Read back the modified or created `HOW-TO-RUN.md`.
 - **Verify:** all commands use the correct package manager prefix, prerequisite versions match manifest constraints, build-system commands correspond to the detected build files, submodule paths in `HOW-TO-RUN.md` actually exist in `.gitmodules`, sibling-repo paths actually appear in build/CI files, directory paths match the actual filesystem, external service names match docker-compose service definitions, environment variable names match `.env.example`.
+- **Verify External Services Docker snippets:** every Docker image reference written to `HOW-TO-RUN.md` is followed by a `- Source: [<title>](<url>)` citation per the format in `external-services-docker.md`; every image reference's registry host matches the registry allowlist in `external-services-docker.md` (bare names with no registry are accepted); no image reference uses a bare `:latest` tag when a stable versioned tag was available in the cited vendor page; each snippet's required env vars (e.g., `ACCEPT_EULA=Y`, `MSSQL_SA_PASSWORD`, `POSTGRES_PASSWORD`) are present. If the run was air-gapped and the LLM-knowledge fallback was used, the snippet is marked "inferred (not web-verified)".
 - **Re-validate detector-sourced tokens** in the written file: every package identifier in `HOW-TO-RUN.md` must still match `^[A-Za-z0-9][A-Za-z0-9._+:@/-]{0,99}$` with no `://`, `.`, `..`, or empty path segments after splitting on `/` or `:`; the project name must match `^[A-Za-z0-9._ -]{1,64}$` or be exactly `(unknown)`; hardware/OS mentions must correspond to a canonical token from the detector's Task 0d search lists. Reject any line, outside fenced code blocks the skill itself generated, that echoes free-text prose — whether taken from `README.md`/`CONTRIBUTING.md`/`docs/*` or supplied by the user in the Step 1 "Corrections" response.
 - **If any check fails:** show the correction to the user, wait for approval, apply it, then re-verify.
 

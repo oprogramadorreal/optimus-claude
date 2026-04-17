@@ -31,6 +31,7 @@ Section templates and signal-to-content mapping for generating `HOW-TO-RUN.md`. 
 | Vulkan / CUDA / Qt / JDK / .NET SDK / MSVC references in build files or existing READMEs | Toolchain & SDKs (SDK install) |
 | GPU / USB / serial / specific OS hints in existing READMEs or build files | Prerequisites (hardware / OS) |
 | `docker-compose.yml` / `compose.yml` with infrastructure services | External Services (docker compose up) |
+| External service detected but no `docker-compose.yml` covers it | External Services (per-service Docker-vs-local decision via [`external-services-docker.md`](external-services-docker.md)) |
 | `Dockerfile` / `Dockerfile.dev` without local-run scripts | Running in Development (Docker-based primary) |
 | `.env.example` / `.env.sample` / `.env.template` | Environment Setup |
 | `prisma/schema.prisma`, `alembic.ini`, migration directories | Installation (post-install: migrations) |
@@ -187,6 +188,10 @@ Run database migrations:
 
 ### External Services
 
+When deciding Docker vs. local install vs. shared-cloud per service, follow the heuristics, web-search recipe, and snippet templates in [`external-services-docker.md`](external-services-docker.md). Docker is never forced — local installs and shared-cloud endpoints stay first-class options.
+
+**Branch A — `docker-compose.yml` / `compose.yml` covers all infrastructure services:**
+
 ```markdown
 ### External Services
 
@@ -207,9 +212,28 @@ Verify services are running:
 \`\`\`bash
 docker compose ps
 \`\`\`
-
-[If no docker-compose: describe manual setup for each required service]
 ```
+
+**Branch B — no compose file (or compose covers only some services):** render a per-service overview table, then an H3 subsection per service using the templates in [`external-services-docker.md`](external-services-docker.md) — *Docker recommended*, *Shared-cloud primary, Docker optional*, or *Local install only*.
+
+```markdown
+### External Services
+
+[One-paragraph summary: how many services, where connection details live, which services use shared cloud vs. local infrastructure.]
+
+| Service | Recommended path | Alternative | Role |
+|---------|------------------|-------------|------|
+| [service] | [Docker / Local install / Shared cloud (<provider>)] | [Docker (offline) / Local install / —] | [role] |
+
+[Per service — render ONE of the three templates from `external-services-docker.md`. Cite every Docker image reference with a "- Source: [<title>](<url>)" line pointing at the vendor page. Never use a bare `:latest` tag when the vendor docs offer a stable versioned tag.]
+```
+
+Rules that apply to both branches:
+
+- The detector's *External Services* table is the source of truth for which services exist.
+- If a service's default endpoint (read from the referenced config file in Step 4) points at a shared-cloud host, keep shared-cloud as the recommended path and treat Docker as an "offline alternative" only.
+- GUI tools (SSMS, Compass, DBeaver, pgAdmin) and CLI tools (AWS CLI) always render as *Local install only* — the heuristic in [`external-services-docker.md`](external-services-docker.md) short-circuits on their names so no web search is spent on them.
+- For credentials, note that the service uses defaults from docker-compose or shared-cloud config — never copy actual password values into the file.
 
 ### Environment Setup
 
@@ -443,23 +467,33 @@ Patterns to detect source dependencies that must be cloned or initialized before
 
 ## External Services Detection
 
-Common docker-compose image patterns → human-readable names:
+Common docker-compose image patterns → human-readable names. The *Docker suitability* column feeds the decision heuristics in [`external-services-docker.md`](external-services-docker.md) — it lets Step 4 skip a web search for obvious GUI tools and short-circuit classification for well-known server daemons.
 
-| Image pattern | Service name |
-|---------------|-------------|
-| `postgres`, `postgis` | PostgreSQL |
-| `mysql`, `mariadb` | MySQL/MariaDB |
-| `mongo` | MongoDB |
-| `redis` | Redis |
-| `elasticsearch`, `opensearch` | Elasticsearch/OpenSearch |
-| `rabbitmq` | RabbitMQ |
-| `kafka`, `confluentinc` | Kafka |
-| `memcached` | Memcached |
-| `minio` | MinIO (S3-compatible storage) |
-| `localstack` | LocalStack (AWS services) |
-| `mailhog`, `mailpit` | Mail server (dev) |
-| `keycloak` | Keycloak (auth) |
-| `nginx`, `traefik`, `caddy` | Reverse proxy |
+| Image pattern | Service name | Docker suitability |
+|---------------|-------------|-------------------|
+| `postgres`, `postgis` | PostgreSQL | daemon |
+| `mysql`, `mariadb` | MySQL/MariaDB | daemon |
+| `mongo` | MongoDB | daemon |
+| `redis` | Redis | daemon |
+| `mcr.microsoft.com/mssql/server`, any `mssql`-prefixed name | SQL Server | daemon |
+| `elasticsearch`, `opensearch` | Elasticsearch/OpenSearch | daemon |
+| `rabbitmq` | RabbitMQ | daemon |
+| `kafka`, `confluentinc` | Kafka | daemon |
+| `memcached` | Memcached | daemon |
+| `minio` | MinIO (S3-compatible storage) | daemon |
+| `localstack` | LocalStack (AWS services) | daemon |
+| `mailhog`, `mailpit` | Mail server (dev) | daemon |
+| `keycloak` | Keycloak (auth) | daemon |
+| `nginx`, `traefik`, `caddy` | Reverse proxy | daemon |
+
+Service-name-only patterns (no image) that Step 4 encounters when the detector found them from config files rather than compose:
+
+| Service name pattern (case-insensitive) | Docker suitability |
+|----------------------------------------|-------------------|
+| `SSMS`, `Management Studio`, `Compass`, `Workbench`, `DBeaver`, `Azure Data Studio`, `Studio 3T`, `RedisInsight`, `pgAdmin` | gui-client |
+| `AWS CLI`, any name ending in `CLI` | cli-tool |
+| `Firebase`, `Firestore`, `Audaces ID`, `License Manager`, `Ideax`, `Techpack`, `Thumb` (or any internal-sounding name without a public image) | cloud-native-only |
+| Any other unknown name | unknown — web-search recipe decides |
 
 ## Multi-Repo Workspace HOW-TO-RUN Template
 
