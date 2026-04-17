@@ -323,7 +323,7 @@ Run through this checklist. **Fix any failures before reporting to the user.**
 
 > ⚠ **Baseline broken in: [subproject(s)]** — init does not fix broken test logic by design. Ask Claude to triage the failing tests, or run `/optimus:unit-test` in a fresh conversation to enumerate failures.
 
-After the table (and the broken-baseline hint, if present), include these additional conditional warnings:
+After the table (and the broken-baseline hint, if present), include conditional warnings:
 
 If test infrastructure was installed from scratch in Step 5b (no pre-existing test framework — the user chose "Yes" to install one), include a strong warning:
 

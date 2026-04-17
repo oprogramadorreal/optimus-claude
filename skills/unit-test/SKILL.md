@@ -87,7 +87,7 @@ Wait for the agent to complete.
 
 **If no test framework is detected** in the agent's Discovery Results, stop and report: "No test framework found. Run `/optimus:init` (or re-run it) to install a test framework and set up test infrastructure before using this skill." Do not proceed to test generation without a working framework.
 
-**If the agent's Test Suite Execution reports failures**, stop. This skill does not fix broken tests or broken infrastructure by design — silence on fixes is intentional. Print one of the messages below (Conversation / Mode / Next skill per `$CLAUDE_PLUGIN_ROOT/references/skill-handoff.md`), then also record the failures in the Step 5 "Bugs Discovered" section as a reference block.
+**If the agent's Test Suite Execution reports failures**, stop. This skill does not fix failing tests or broken infrastructure by design. Print one of the messages below (Conversation / Mode / Next skill per `$CLAUDE_PLUGIN_ROOT/references/skill-handoff.md`), then also record the failures in the Step 5 "Bugs Discovered" section.
 
 - **Fail - assertion** (tests compile and run, but some fail):
 
@@ -204,7 +204,7 @@ Report to the user:
 
 ### Bugs Discovered
 - [List of bugs found in existing code — reported, not fixed]
-- For pre-existing test failures surfaced by the Step 2 stop gate, list each as `<test file> — <test name> — <one-line failure excerpt>`. In multi-repo workspaces, prefix each entry with the repo name/path.
+- For pre-existing failing tests surfaced by the Step 2 stop gate, list each as `<test file> — <test name> — <one-line failure excerpt>`. In multi-repo workspaces, prefix each entry with the repo name/path.
 
 ### Not Testable Without Refactoring
 - [List of code flagged as untestable — with brief explanation of what structural change would be needed]
