@@ -126,6 +126,14 @@ The plugin uses a two-tier agent design. See `references/agent-architecture.md` 
 
 Follow the conventions visible in existing skills — study `skills/commit-message/` for a minimal example or `skills/init/` for a full-featured one.
 
+### Output tone and formatting
+
+Keep skill output templates plain: markdown headings, bold, and blockquotes — no decorative emoji (✅, ⚠, 🔴, 🟢, 🔄, etc.). Claude Opus 4.7 has a more direct, opinionated tone than Opus 4.6 and drops emoji by default; emoji in templates now reads as off-tone scaffolding. Semantic markers (`**bold**`, `>` blockquotes, `###` headings) already convey severity and structure.
+
+Similarly, do not hand-roll "[Step N/M]" progress indicators inside a skill. Opus 4.7 emits progress updates naturally during long agentic traces — forcing interim status lines duplicates that behavior and adds verbosity.
+
+For parallel-agent steps, spell out the expected fan-out as imperative ("Launch all 4 agents in a single message so they run in parallel"), not "up to N". Opus 4.7 spawns fewer subagents by default, so the count needs to be explicit where the design depends on it.
+
 ## Skill-authoring projects as a stack
 
 `/optimus:init` detects **skill authoring** as a first-class stack alongside Python, Node, Rust, Go, UI frameworks, and so on. The detection signal is structural: a directory named `skills/`, `agents/`, `prompts/`, `commands/`, or `instructions/` at the repo root — and for monorepos, also at each detected subproject root — containing ≥2 subdirectories, every such subdirectory holding a file named `SKILL.md`, `AGENT.md`, `PROMPT.md`, `COMMAND.md`, or `INSTRUCTION.md` (case-insensitive). When detected, init installs `.claude/docs/skill-writing-guidelines.md` from its framework-agnostic template, and the shared `skills/init/references/constraint-doc-loading.md` reference automatically routes review/refactor skills to use that lens for markdown instruction files while keeping `coding-guidelines.md` as the lens for code files.

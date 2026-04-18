@@ -7,8 +7,6 @@ disable-model-invocation: true
 
 Analyze local git changes (or a PR/MR) against the project's coding guidelines, using up to 7 parallel review agents for comprehensive coverage. High-signal findings only: bugs, logic errors, security issues, guideline violations. Excludes style concerns, subjective suggestions, and linter-catchable issues.
 
-**Progress visibility** — When starting each step, show a brief one-line progress indicator (e.g., "**[Step 2/9]** Activating deep mode..."). Keep it short — the indicator orients the user, not narrate internals.
-
 ## Step 1: Parse Arguments and Verify Prerequisites
 
 ### Parse invocation arguments
@@ -188,9 +186,9 @@ Proceed immediately to Step 5 — do not wait for user confirmation.
 
 ## Step 5: Parallel Multi-Agent Review (up to 7 agents)
 
-Up to 7 review agents, launched in parallel for maximum coverage.
+Up to 7 review agents, launched in parallel for maximum coverage. Agents 1–5 always run; Agent 6 runs when test infrastructure is detected; Agent 7 runs when contract-related files are changed (see agent overview below).
 
-Launch up to 7 `general-purpose` Agent tool calls simultaneously. Agents 1–5 always run; Agent 6 runs when test infrastructure is detected; Agent 7 runs when contract-related files are changed (see agent overview below).
+Launch every applicable agent as a `general-purpose` Agent tool call in a **single** message so they run in parallel. The full fan-out is the design — do not reduce the count to save tokens or time.
 
 Each agent receives the list of changed file paths (from Step 3 in normal/interactive mode, or from `scope_files.current` in harness mode when pre-populated by the harness).
 

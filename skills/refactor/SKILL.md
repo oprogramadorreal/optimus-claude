@@ -13,8 +13,6 @@ Two primary goals:
 
 The code-simplifier agent guards new code after every edit — this skill is the on-demand complement for restructuring existing code across the project.
 
-**Progress visibility** — When starting each step, show a brief one-line progress indicator (e.g., "**[Step 2/8]** Activating deep mode..."). Keep it short — the indicator orients the user, not narrate internals.
-
 ## Step 1: Verify Prerequisites and Determine Scope
 
 ### Multi-repo workspace detection
@@ -162,7 +160,7 @@ Before proceeding to analysis, present a brief summary: docs loaded (with paths)
 
 4 analysis agents, all launched in parallel for maximum coverage.
 
-Launch 4 `general-purpose` Agent tool calls simultaneously.
+Launch all 4 agents as `general-purpose` Agent tool calls in a **single** message so they run in parallel. The full fan-out is the design — do not reduce the count to save tokens or time.
 
 Each agent receives the list of source files/directories from Step 3.
 
