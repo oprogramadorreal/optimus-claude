@@ -94,20 +94,20 @@ Start cycling? [Start cycling / Adjust]
 Then for each behavior:
 
 ```
-## 🔴 Red — Returns 404 when email is not registered
+## Red — Returns 404 when email is not registered
 
 Test: src/__tests__/auth/reset-password.test.ts:"returns 404 when email is not registered"
 Status: FAILS ✓ (expected)
 Reason: POST /auth/reset-password returns 500 (route not implemented)
 Other tests: all passing ✓
 
-## 🟢 Green — Returns 404 when email is not registered
+## Green — Returns 404 when email is not registered
 
 Test: PASSES ✓
 Implementation: src/routes/auth.ts:resetPassword
 All tests: passing ✓
 
-## 🔄 Refactor — Returns 404 when email is not registered
+## Refactor — Returns 404 when email is not registered
 
 Changes: Renamed handler to handlePasswordReset (matches existing naming pattern)
 All tests: passing ✓
