@@ -183,7 +183,7 @@ Each agent returns a structured list of findings, bounded by the Finding Cap rul
 
 ### Execution
 
-Launch all available agents simultaneously (parallel, not sequential). Wait for all launched agents to complete before proceeding to Step 5.
+Launch all available agents in a **single** message so they run in parallel. Wait for all launched agents to complete before proceeding to Step 5.
 
 **Agent availability summary**: All 4 agents always run — no project dependencies required.
 

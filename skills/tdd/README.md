@@ -201,7 +201,7 @@ The skill produces a structured summary after completing:
 | 1 | Returns 404 for unregistered email | reset-password.test.ts:"returns 404..." | ✓ Complete |
 | 2 | Sends reset email with valid token | reset-password.test.ts:"sends reset..." | ✓ Complete |
 | 3 | Returns 400 for invalid email format | reset-password.test.ts:"returns 400..." | ✓ Complete |
-| 4 | Rate-limits to 3 per hour per email | reset-password.test.ts:"rate-limits..." | ⏸ Not started |
+| 4 | Rate-limits to 3 per hour per email | reset-password.test.ts:"rate-limits..." | Not started |
 
 ### Stats
 - Cycles completed: 3 of 4

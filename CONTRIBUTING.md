@@ -128,11 +128,11 @@ Follow the conventions visible in existing skills — study `skills/commit-messa
 
 ### Output tone and formatting
 
-Keep skill output templates plain: markdown headings, bold, and blockquotes — no decorative emoji (✅, ⚠, 🔴, 🟢, 🔄, etc.). Claude Opus 4.7 has a more direct, opinionated tone than Opus 4.6 and drops emoji by default; emoji in templates now reads as off-tone scaffolding. Semantic markers (`**bold**`, `>` blockquotes, `###` headings) already convey severity and structure.
+Keep skill output templates plain: markdown headings, bold, and blockquotes — no decorative emoji (✅, ⚠, 🔴, 🟢, 🔄, etc.). Semantic markers (`**bold**`, `>` blockquotes, `###` headings) already convey severity and structure; decorative emoji read as off-tone scaffolding against the direct tone current Claude Code models emit by default.
 
-Similarly, do not hand-roll "[Step N/M]" progress indicators inside a skill. Opus 4.7 emits progress updates naturally during long agentic traces — forcing interim status lines duplicates that behavior and adds verbosity.
+Similarly, do not hand-roll "[Step N/M]" progress indicators inside a skill. The harness and the model emit progress naturally during long agentic traces — forcing interim status lines duplicates that behavior and adds verbosity.
 
-For parallel-agent steps, spell out the expected fan-out as imperative ("Launch all 4 agents in a single message so they run in parallel"), not "up to N". Opus 4.7 spawns fewer subagents by default, so the count needs to be explicit where the design depends on it.
+For parallel-agent steps, spell out the expected fan-out as imperative ("Launch all 4 agents in a single message so they run in parallel"), not "up to N". Some Claude models conservatively under-spawn subagents, so the count needs to be explicit where the design depends on it.
 
 ## Skill-authoring projects as a stack
 

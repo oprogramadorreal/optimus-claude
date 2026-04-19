@@ -342,7 +342,7 @@ If there are uncommitted changes (e.g., the user stopped mid-cycle before the au
 |---|----------|------|--------|
 | 1 | [description] | [test file]:[test name] | ✓ Complete |
 | 2 | [description] | [test file]:[test name] | ✓ Complete |
-| 3 | [description] | — | ⏸ Not started |
+| 3 | [description] | — | Not started |
 
 ### Stats
 - Cycles completed: [N] of [total]
