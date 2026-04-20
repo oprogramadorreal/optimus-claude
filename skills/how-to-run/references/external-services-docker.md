@@ -26,13 +26,13 @@ Inputs (all derivable at Step 3 without extending the detector schema):
 Apply in order and stop at the first match:
 
 1. **GUI client / IDE / CLI tool.** Docker suitability resolves to `gui-client` or `cli-tool` via the service-name table in `how-to-run-sections.md` §External Services Detection. → **Local install only.** Do not search Docker.
-2. **Cloud-native-only default endpoint.** Docker suitability resolves to `cloud-native-only`, OR the endpoint hostname ends in `.amazonaws.com`, `.documents.azure.com`, `.database.windows.net`, `.servicebus.windows.net`, `.blob.core.windows.net`, `.windows.net`, `.googleapis.com`, `.firebaseio.com`, `.firestore.googleapis.com`, or any FQDN that is clearly not `localhost` / `127.0.0.1` / an IP literal. → **Shared-cloud primary.** Add "Docker (offline alternative)" only if the service type appears in the [canonical image catalogue](#canonical-image-catalogue-seeds) AND a current image is found by the web-search recipe.
+2. **Cloud-native-only default endpoint.** Docker suitability resolves to `cloud-native-only`, OR the endpoint hostname ends in `.amazonaws.com`, `.documents.azure.com`, `.database.windows.net`, `.servicebus.windows.net`, `.blob.core.windows.net`, `.windows.net`, `.googleapis.com`, `.firebaseio.com`, `.firestore.googleapis.com`, or any FQDN that is clearly not `localhost` / `127.0.0.1` / an IP literal. → **Shared-cloud primary.** Add "Docker (offline)" as the Alternative only if the service type appears in the [canonical image catalogue](#canonical-image-catalogue-seeds) AND a current image is found by the web-search recipe.
 3. **Local-endpoint daemon.** Endpoint label is `local-endpoint` (or `ambiguous` — treat as `local-endpoint` and append a caution to the Step 3 assessment table row noting the endpoint could not be verified) AND Docker suitability resolves to `daemon`. → **Docker-preferred.** Local install stays as alternative.
 4. **Web-search recipe fails to find a canonical image** (including services whose suitability resolves to `unknown`). → **Local install only.** Append a caution to that service's row in the Step 4 revised-plan prompt: "A Docker option was considered for <service> but no vendor-maintained image was found — falling back to local install."
 
 Rules 1–3 are evaluated in Step 3 (provisional verdict). Rule 4 is finalised in Step 4 after the web-search recipe runs: if the recipe fails for a service provisionally classified Docker-preferred or Shared-cloud primary with Docker alternative, downgrade the Docker path to local-install-only and present the revised plan to the user via a single `AskUserQuestion` (one prompt summarising all downgraded services and their cautions) before Step 5 writes the file. This single post-web-search prompt is the one exception to the "no new `AskUserQuestion` per service" rule below.
 
-Write the three-axis decision — `recommended`, `alternative`, `reason` — into the Step 3 assessment table so the user can override any row via the existing "Correct first" path. Do not emit a new `AskUserQuestion` prompt per service at Step 3 — the existing "Correct first" path covers overrides (Rule 4's post-web-search re-confirmation prompt, summarised above, is not per-service).
+Write the three-axis decision — `recommended`, `alternative`, `reason` — into the Step 3 assessment table. Do not emit a new `AskUserQuestion` prompt per service at Step 3. Per-service verdicts are determined by the endpoint labels (`local-endpoint` / `remote-endpoint` / `ambiguous`) recorded in the Step 1 Checkpoint and the service-name lookup in `how-to-run-sections.md` §External Services Detection — a user who wants a different verdict corrects the endpoint label or service classification via Step 1's "Correct first" path before Step 3 runs, or selects **Skip** at the Step 3 approval prompt and re-runs the skill. Rule 4's post-web-search re-confirmation prompt, summarised above, is the one exception and is batched across all downgraded services, not per-service.
 
 ## Web-Search Recipe
 
@@ -121,6 +121,7 @@ Use when the heuristic resolves to **Shared-cloud primary** AND the web-search r
 docker run -d --name <project-slug>-<service-slug> \
   -e '<REQUIRED_ENV_VAR>=<placeholder>' \
   -p 127.0.0.1:<host-port>:<container-port> \
+  -v <project-slug>-<service-slug>-data:<container-volume-path> \
   <registry>/<name>:<stable-tag>
 ```
 

@@ -223,8 +223,8 @@ docker compose ps
 
 [One-paragraph summary: how many services, where connection details live, which services use shared cloud vs. local infrastructure.]
 
-| Service | Recommended path | Alternative | Role |
-|---------|------------------|-------------|------|
+| Service | Recommended runtime | Alternative | Role |
+|---------|---------------------|-------------|------|
 | [service] | [Docker-preferred / Local install only / Shared-cloud primary (<provider>)] | [Docker (offline) / Local install / —] | [role] |
 
 [Per service — render ONE of the three templates from `external-services-docker.md`. Cite every Docker image reference with a "- Source: [<title>](<url>)" line pointing at the vendor page. Never use a bare `:latest` tag when the vendor docs offer a stable versioned tag.]
@@ -487,13 +487,13 @@ Common docker-compose image patterns → human-readable names. The *Docker suita
 | `keycloak` | Keycloak (auth) | daemon |
 | `nginx`, `traefik`, `caddy` | Reverse proxy | daemon |
 
-Service-name-only patterns (no image) that Step 4 encounters when the detector found them from config files rather than compose:
+Service-name-only patterns (no image) that Step 4 encounters when the detector found them from config files rather than compose. **Match whole tokens, not substrings** — a pattern hits only when it matches a word bounded by whitespace, punctuation, or start/end of the service name. Examples: `Thumb` must not match `thumbor`; `CLI` matches `AWS CLI` but not `AppServiceCLI`; `Studio` matches `Azure Data Studio` but not `StudioBuilder`.
 
 | Service name pattern (case-insensitive) | Docker suitability |
 |----------------------------------------|-------------------|
 | `SSMS`, `Management Studio`, `Compass`, `Workbench`, `DBeaver`, `Azure Data Studio`, `Studio 3T`, `RedisInsight`, `pgAdmin` | gui-client |
-| `AWS CLI`, any name ending in `CLI` | cli-tool |
-| `Firebase`, `Firestore`, `License Manager` (or any internal-sounding name without a public image — match whole tokens, not substrings; `Thumb` must not match `thumbor`, etc.) | cloud-native-only |
+| `AWS CLI`, `Azure CLI`, `gcloud CLI`, `kubectl`, or any name ending with a standalone `CLI` token (whitespace- or punctuation-bounded) | cli-tool |
+| `Firebase`, `Firestore`, `License Manager`, or any internal-sounding name without a public image | cloud-native-only |
 | Any other unknown name | unknown — web-search recipe decides |
 
 ## Multi-Repo Workspace HOW-TO-RUN Template
