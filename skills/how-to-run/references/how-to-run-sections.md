@@ -11,7 +11,6 @@ Section templates and signal-to-content mapping for generating `HOW-TO-RUN.md`. 
 - [Additional Detection Hints](#additional-detection-hints)
 - [Build System Detection](#build-system-detection)
 - [Source Dependencies Detection](#source-dependencies-detection)
-- [External Services Detection](#external-services-detection)
 - [Multi-Repo Workspace HOW-TO-RUN Template](#multi-repo-workspace-how-to-run-template)
 
 ## Signal → Section Mapping
@@ -31,6 +30,7 @@ Section templates and signal-to-content mapping for generating `HOW-TO-RUN.md`. 
 | Vulkan / CUDA / Qt / JDK / .NET SDK / MSVC references in build files or existing READMEs | Toolchain & SDKs (SDK install) |
 | GPU / USB / serial / specific OS hints in existing READMEs or build files | Prerequisites (hardware / OS) |
 | `docker-compose.yml` / `compose.yml` with infrastructure services | External Services (docker compose up) |
+| External service detected but no `docker-compose.yml` covers it | External Services (per-service Docker-vs-local decision via [`external-services-docker.md`](external-services-docker.md)) |
 | `Dockerfile` / `Dockerfile.dev` without local-run scripts | Running in Development (Docker-based primary) |
 | `.env.example` / `.env.sample` / `.env.template` | Environment Setup |
 | `prisma/schema.prisma`, `alembic.ini`, migration directories | Installation (post-install: migrations) |
@@ -187,6 +187,10 @@ Run database migrations:
 
 ### External Services
 
+When deciding Docker vs. local install vs. shared-cloud per service, follow the heuristics, web-search recipe, and snippet templates in [`external-services-docker.md`](external-services-docker.md). Docker is never forced — local installs and shared-cloud endpoints stay first-class options.
+
+**Branch A — `docker-compose.yml` / `compose.yml` covers all infrastructure services:**
+
 ```markdown
 ### External Services
 
@@ -207,9 +211,29 @@ Verify services are running:
 \`\`\`bash
 docker compose ps
 \`\`\`
-
-[If no docker-compose: describe manual setup for each required service]
 ```
+
+**Branch B — no compose file:** render a per-service overview table, then an H3 subsection per service using the templates in [`external-services-docker.md`](external-services-docker.md) — *Docker-preferred*, *Shared-cloud primary (Docker optional)*, *Shared-cloud, no Docker alternative*, or *Local install only*.
+
+**Hybrid — compose covers only some services:** render Branch A (the `docker compose up -d` block) for the services the compose file includes, listing those services in the Service/Port/Purpose table. Then append Branch B (overview table + per-service H3 subsections) scoped to the uncovered services only. Do not duplicate a compose-covered service as a standalone H3 subsection.
+
+```markdown
+### External Services
+
+[One-paragraph summary: how many services, where connection details live, which services use shared-cloud vs. local infrastructure.]
+
+| Service | Recommended runtime | Alternative | Role |
+|---------|---------------------|-------------|------|
+| [service] | [Docker-preferred / Local install only / Shared-cloud primary (<provider>)] | [Docker (offline) / Local install / —] | [role] |
+
+[Per service — render the matching template from `external-services-docker.md`. Cite every Docker image reference with a "- Source: [<title>](<url>)" line pointing at the vendor page. Never use a bare `:latest` tag when the vendor docs offer a stable versioned tag.]
+```
+
+Rules that apply to both branches:
+
+- The detector's *External Services* table is the source of truth for which services exist.
+- Service classification (Docker-preferred / Shared-cloud primary / Local install only) is owned by the Decision Heuristics in [`external-services-docker.md`](external-services-docker.md). Apply those rules; do not re-derive them here.
+- For credentials, note that the service uses defaults from docker-compose or shared-cloud config — never copy actual password values into the file.
 
 ### Environment Setup
 
@@ -440,26 +464,6 @@ Patterns to detect source dependencies that must be cloned or initialized before
 | `repo` tool / `default.xml` (Android AOSP-style) | Any content | Document `repo sync` flow |
 
 **Precision rule:** Sibling-repo detection from a `../[A-Za-z0-9_][A-Za-z0-9._-]*` path grep WILL produce false positives (e.g., `../node_modules/...`, `../dist/`). Report findings as *candidates* in the detector's Source Dependencies table with their source line and let the user confirm via Step 3's assessment — do not treat them as facts without cross-file corroboration.
-
-## External Services Detection
-
-Common docker-compose image patterns → human-readable names:
-
-| Image pattern | Service name |
-|---------------|-------------|
-| `postgres`, `postgis` | PostgreSQL |
-| `mysql`, `mariadb` | MySQL/MariaDB |
-| `mongo` | MongoDB |
-| `redis` | Redis |
-| `elasticsearch`, `opensearch` | Elasticsearch/OpenSearch |
-| `rabbitmq` | RabbitMQ |
-| `kafka`, `confluentinc` | Kafka |
-| `memcached` | Memcached |
-| `minio` | MinIO (S3-compatible storage) |
-| `localstack` | LocalStack (AWS services) |
-| `mailhog`, `mailpit` | Mail server (dev) |
-| `keycloak` | Keycloak (auth) |
-| `nginx`, `traefik`, `caddy` | Reverse proxy |
 
 ## Multi-Repo Workspace HOW-TO-RUN Template
 
