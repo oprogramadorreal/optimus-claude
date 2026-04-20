@@ -234,7 +234,7 @@ Then check termination conditions, in order:
 
 1. **All tests added this iteration were reverted** (every generated test failed and was rolled back) → stop. Report: "Deep mode stopped — all tests added in iteration [N] caused failures."
 2. **No new testable items discovered this iteration** (convergence — the discovery agent returned zero candidates not already in `accumulated-items`) → stop. Report: "Deep mode complete — converged on iteration [N] with no remaining testable items."
-3. **Coverage plateau** — this iteration's coverage delta is below 0.5 percentage points, OR the coverage tool is unavailable so no delta can be measured → stop. Report: "Deep mode stopped — coverage plateau on iteration [N]."
+3. **Coverage plateau or unmeasurable** — this iteration's coverage delta is below 0.5 percentage points, OR the coverage tool is unavailable so no delta can be measured → stop. Report "Deep mode stopped — coverage plateau on iteration [N]." when a delta was measured and fell below the threshold; otherwise report "Deep mode stopped — coverage tool unavailable on iteration [N]; cannot measure progress to gate further iterations."
 4. **`iteration-count` >= the cap** → cap reached. Report: "Deep mode reached the iteration cap ([cap]). Remaining testable code may exist — continue in a fresh conversation: re-run `/optimus:unit-test deep`, increase the cap with `/optimus:unit-test deep [higher-cap]`, or narrow scope with `/optimus:unit-test deep <scope>`."
 5. **Otherwise** → continue to the next pass.
 
