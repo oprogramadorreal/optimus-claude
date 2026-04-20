@@ -11,7 +11,6 @@ Section templates and signal-to-content mapping for generating `HOW-TO-RUN.md`. 
 - [Additional Detection Hints](#additional-detection-hints)
 - [Build System Detection](#build-system-detection)
 - [Source Dependencies Detection](#source-dependencies-detection)
-- [External Services Detection](#external-services-detection)
 - [Multi-Repo Workspace HOW-TO-RUN Template](#multi-repo-workspace-how-to-run-template)
 
 ## Signal → Section Mapping
@@ -214,7 +213,7 @@ docker compose ps
 \`\`\`
 ```
 
-**Branch B — no compose file:** render a per-service overview table, then an H3 subsection per service using the templates in [`external-services-docker.md`](external-services-docker.md) — *Docker-preferred*, *Shared-cloud primary, Docker optional*, or *Local install only*.
+**Branch B — no compose file:** render a per-service overview table, then an H3 subsection per service using the templates in [`external-services-docker.md`](external-services-docker.md) — *Docker-preferred*, *Shared-cloud primary (Docker optional)*, *Shared-cloud, no Docker alternative*, or *Local install only*.
 
 **Hybrid — compose covers only some services:** render Branch A (the `docker compose up -d` block) for the services the compose file includes, listing those services in the Service/Port/Purpose table. Then append Branch B (overview table + per-service H3 subsections) scoped to the uncovered services only. Do not duplicate a compose-covered service as a standalone H3 subsection.
 
@@ -227,13 +226,13 @@ docker compose ps
 |---------|---------------------|-------------|------|
 | [service] | [Docker-preferred / Local install only / Shared-cloud primary (<provider>)] | [Docker (offline) / Local install / —] | [role] |
 
-[Per service — render ONE of the three templates from `external-services-docker.md`. Cite every Docker image reference with a "- Source: [<title>](<url>)" line pointing at the vendor page. Never use a bare `:latest` tag when the vendor docs offer a stable versioned tag.]
+[Per service — render the matching template from `external-services-docker.md`. Cite every Docker image reference with a "- Source: [<title>](<url>)" line pointing at the vendor page. Never use a bare `:latest` tag when the vendor docs offer a stable versioned tag.]
 ```
 
 Rules that apply to both branches:
 
 - The detector's *External Services* table is the source of truth for which services exist.
-- Service classification (GUI / CLI / cloud-native-only short-circuits, localhost-daemon → Docker-preferred, cloud-endpoint → Shared-cloud primary) is owned by the Decision Heuristics in [`external-services-docker.md`](external-services-docker.md). Apply those rules; do not re-derive them here.
+- Service classification (Docker-preferred / Shared-cloud primary / Local install only) is owned by the Decision Heuristics in [`external-services-docker.md`](external-services-docker.md). Apply those rules; do not re-derive them here.
 - For credentials, note that the service uses defaults from docker-compose or shared-cloud config — never copy actual password values into the file.
 
 ### Environment Setup
@@ -465,36 +464,6 @@ Patterns to detect source dependencies that must be cloned or initialized before
 | `repo` tool / `default.xml` (Android AOSP-style) | Any content | Document `repo sync` flow |
 
 **Precision rule:** Sibling-repo detection from a `../[A-Za-z0-9_][A-Za-z0-9._-]*` path grep WILL produce false positives (e.g., `../node_modules/...`, `../dist/`). Report findings as *candidates* in the detector's Source Dependencies table with their source line and let the user confirm via Step 3's assessment — do not treat them as facts without cross-file corroboration.
-
-## External Services Detection
-
-Common docker-compose image patterns → human-readable names. The *Docker suitability* column is a lookup table consulted by the Decision Heuristics in [`external-services-docker.md`](external-services-docker.md) at Step 3 — the detector does not emit this field; Step 3 derives it by matching service name / image pattern against the rows below. This lets Step 4 skip a web search for obvious GUI tools and short-circuit classification for well-known server daemons.
-
-| Image pattern | Service name | Docker suitability |
-|---------------|-------------|-------------------|
-| `postgres`, `postgis` | PostgreSQL | daemon |
-| `mysql`, `mariadb` | MySQL/MariaDB | daemon |
-| `mongo` | MongoDB | daemon |
-| `redis` | Redis | daemon |
-| `mcr.microsoft.com/mssql/server`, any `mssql`-prefixed name | SQL Server | daemon |
-| `elasticsearch`, `opensearch` | Elasticsearch/OpenSearch | daemon |
-| `rabbitmq` | RabbitMQ | daemon |
-| `kafka`, `confluentinc` | Kafka | daemon |
-| `memcached` | Memcached | daemon |
-| `minio` | MinIO (S3-compatible storage) | daemon |
-| `localstack` | LocalStack (AWS services) | daemon |
-| `mailhog`, `mailpit` | Mail server (dev) | daemon |
-| `keycloak` | Keycloak (auth) | daemon |
-| `nginx`, `traefik`, `caddy` | Reverse proxy | daemon |
-
-Service-name-only patterns (no image) that Step 4 encounters when the detector found them from config files rather than compose. **Match whole tokens, not substrings** — a pattern hits only when it matches a word bounded by whitespace, punctuation, or start/end of the service name. Examples: `Thumb` must not match `thumbor`; `CLI` matches `AWS CLI` but not `AppServiceCLI`; `Studio` matches `Azure Data Studio` but not `StudioBuilder`.
-
-| Service name pattern (case-insensitive) | Docker suitability |
-|----------------------------------------|-------------------|
-| `SSMS`, `Management Studio`, `Compass`, `Workbench`, `DBeaver`, `Azure Data Studio`, `Studio 3T`, `RedisInsight`, `pgAdmin` | gui-client |
-| `AWS CLI`, `Azure CLI`, `gcloud CLI`, `kubectl`, or any name ending with a standalone `CLI` token (whitespace- or punctuation-bounded) | cli-tool |
-| `Firebase`, `Firestore`, `License Manager`, or any internal-sounding name without a public image | cloud-native-only |
-| Any other unknown name | unknown — web-search recipe decides |
 
 ## Multi-Repo Workspace HOW-TO-RUN Template
 

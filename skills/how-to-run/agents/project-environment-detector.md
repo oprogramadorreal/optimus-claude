@@ -26,7 +26,7 @@ You will receive the contents of five reference files as context before this pro
 - **tech-stack-detection.md** — manifest-to-type table, package manager detection, command prefix rules
 - **project-detection.md** — full detection algorithm: multi-repo workspace detection (Step 0), workspace configs (Step A), manifest scanning with depth-2 checks (Step B), supporting signals (Step C), subproject enumeration rules
 - **multi-repo-detection.md** — workspace structure detection for multi-repo setups
-- **how-to-run-sections.md** — signal-to-section mapping, build system detection, source dependencies detection, external services detection
+- **how-to-run-sections.md** — signal-to-section mapping, build system detection, source dependencies detection
 
 Apply the tables and algorithms from these reference files to the current project. The reference tables are detection hints, not an exhaustive support boundary — if you find a manifest or build file not listed in any reference table, identify the stack from your general knowledge and report it using the same return format tables.
 
@@ -119,7 +119,7 @@ For unsupported stacks, detect and gather evidence only — do NOT propose insta
 
 4. **Detect runtime version constraints** from manifests: `engines.node` in package.json, `python_requires` in pyproject.toml, `rust-version` in Cargo.toml, `environment.sdk` in pubspec.yaml, and similar fields.
 
-5. **Detect external services and dependencies** using the signal-to-section mapping and external services detection tables from how-to-run-sections.md:
+5. **Detect external services and dependencies** using the signal-to-section mapping in how-to-run-sections.md:
    - `docker-compose.yml` / `compose.yml`: parse `services` for databases, message queues, caches, and other infrastructure. Note which services have `build:` (app services) vs image-only (infrastructure services). Extract ports.
    - Database config files: `database.yml`, `prisma/schema.prisma`, `alembic.ini`, `knexfile.*`, `ormconfig.*`, migration directories.
 
