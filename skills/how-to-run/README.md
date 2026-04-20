@@ -54,7 +54,7 @@ The skill analyzes your project, scans existing documentation as hypotheses, and
 2. **Toolchain & SDKs** — compiler, build-tool versions, language SDKs, domain SDKs (Vulkan/CUDA/Qt/JDK/.NET). Per-OS install commands when multiple OSes are plausible.
 3. **Source Dependencies** — git submodules, sibling repos, CMake FetchContent
 4. **Installation** — clone, language-level deps, vendored deps (vcpkg/Conan), post-install (code generation, migrations)
-5. **External Services** — docker-compose services with ports and purpose, or per-service Docker / shared-cloud / local-install rendering when compose does not cover the service (with vendor-cited image references)
+5. **External Services** — docker-compose services with ports and purpose, or per-service Docker-preferred / Shared-cloud primary / Local install only rendering when compose does not cover the service (with vendor-cited image references)
 6. **Environment Setup** — copy `.env.example`, describe required variables
 7. **Build** — explicit compile/link command for compiled stacks
 8. **Running in Development** — dev command, produced-binary launcher, or engine launcher. Expected URL/port/window

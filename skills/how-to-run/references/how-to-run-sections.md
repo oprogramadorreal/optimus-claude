@@ -214,7 +214,7 @@ docker compose ps
 \`\`\`
 ```
 
-**Branch B — no compose file:** render a per-service overview table, then an H3 subsection per service using the templates in [`external-services-docker.md`](external-services-docker.md) — *Docker recommended*, *Shared-cloud primary, Docker optional*, or *Local install only*.
+**Branch B — no compose file:** render a per-service overview table, then an H3 subsection per service using the templates in [`external-services-docker.md`](external-services-docker.md) — *Docker-preferred*, *Shared-cloud primary, Docker optional*, or *Local install only*.
 
 **Hybrid — compose covers only some services:** render Branch A (the `docker compose up -d` block) for the services the compose file includes, listing those services in the Service/Port/Purpose table. Then append Branch B (overview table + per-service H3 subsections) scoped to the uncovered services only. Do not duplicate a compose-covered service as a standalone H3 subsection.
 
@@ -225,7 +225,7 @@ docker compose ps
 
 | Service | Recommended path | Alternative | Role |
 |---------|------------------|-------------|------|
-| [service] | [Docker / Local install / Shared cloud (<provider>)] | [Docker (offline) / Local install / —] | [role] |
+| [service] | [Docker-preferred / Local install only / Shared-cloud primary (<provider>)] | [Docker (offline) / Local install / —] | [role] |
 
 [Per service — render ONE of the three templates from `external-services-docker.md`. Cite every Docker image reference with a "- Source: [<title>](<url>)" line pointing at the vendor page. Never use a bare `:latest` tag when the vendor docs offer a stable versioned tag.]
 ```
@@ -468,7 +468,7 @@ Patterns to detect source dependencies that must be cloned or initialized before
 
 ## External Services Detection
 
-Common docker-compose image patterns → human-readable names. The *Docker suitability* column feeds the decision heuristics in [`external-services-docker.md`](external-services-docker.md) — it lets Step 4 skip a web search for obvious GUI tools and short-circuit classification for well-known server daemons.
+Common docker-compose image patterns → human-readable names. The *Docker suitability* column is a lookup table consulted by the Decision Heuristics in [`external-services-docker.md`](external-services-docker.md) at Step 3 — the detector does not emit this field; Step 3 derives it by matching service name / image pattern against the rows below. This lets Step 4 skip a web search for obvious GUI tools and short-circuit classification for well-known server daemons.
 
 | Image pattern | Service name | Docker suitability |
 |---------------|-------------|-------------------|
@@ -493,7 +493,7 @@ Service-name-only patterns (no image) that Step 4 encounters when the detector f
 |----------------------------------------|-------------------|
 | `SSMS`, `Management Studio`, `Compass`, `Workbench`, `DBeaver`, `Azure Data Studio`, `Studio 3T`, `RedisInsight`, `pgAdmin` | gui-client |
 | `AWS CLI`, any name ending in `CLI` | cli-tool |
-| `Firebase`, `Firestore`, `Audaces ID`, `License Manager`, `Ideax`, `Techpack`, `Thumb` (or any internal-sounding name without a public image) | cloud-native-only |
+| `Firebase`, `Firestore`, `License Manager` (or any internal-sounding name without a public image — match whole tokens, not substrings; `Thumb` must not match `thumbor`, etc.) | cloud-native-only |
 | Any other unknown name | unknown — web-search recipe decides |
 
 ## Multi-Repo Workspace HOW-TO-RUN Template
