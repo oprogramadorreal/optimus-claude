@@ -94,20 +94,20 @@ Start cycling? [Start cycling / Adjust]
 Then for each behavior:
 
 ```
-## 🔴 Red — Returns 404 when email is not registered
+## Red — Returns 404 when email is not registered
 
 Test: src/__tests__/auth/reset-password.test.ts:"returns 404 when email is not registered"
 Status: FAILS ✓ (expected)
 Reason: POST /auth/reset-password returns 500 (route not implemented)
 Other tests: all passing ✓
 
-## 🟢 Green — Returns 404 when email is not registered
+## Green — Returns 404 when email is not registered
 
 Test: PASSES ✓
 Implementation: src/routes/auth.ts:resetPassword
 All tests: passing ✓
 
-## 🔄 Refactor — Returns 404 when email is not registered
+## Refactor — Returns 404 when email is not registered
 
 Changes: Renamed handler to handlePasswordReset (matches existing naming pattern)
 All tests: passing ✓
@@ -201,7 +201,7 @@ The skill produces a structured summary after completing:
 | 1 | Returns 404 for unregistered email | reset-password.test.ts:"returns 404..." | ✓ Complete |
 | 2 | Sends reset email with valid token | reset-password.test.ts:"sends reset..." | ✓ Complete |
 | 3 | Returns 400 for invalid email format | reset-password.test.ts:"returns 400..." | ✓ Complete |
-| 4 | Rate-limits to 3 per hour per email | reset-password.test.ts:"rate-limits..." | ⏸ Not started |
+| 4 | Rate-limits to 3 per hour per email | reset-password.test.ts:"rate-limits..." | Not started |
 
 ### Stats
 - Cycles completed: 3 of 4

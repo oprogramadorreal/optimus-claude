@@ -10,7 +10,7 @@ Collect all files changed during the TDD session: `git diff --name-only <origina
 
 ### Launch parallel agents
 
-Launch up to 2 `general-purpose` Agent tool calls simultaneously. The code-simplifier agent always runs. The test-guardian agent runs when test infrastructure is detected (`.claude/docs/testing.md` or subproject `docs/testing.md` exists).
+The code-simplifier agent always runs. The test-guardian agent runs when test infrastructure is detected (`.claude/docs/testing.md` or subproject `docs/testing.md` exists). Launch every applicable agent as a `general-purpose` Agent tool call in a **single** message so they run in parallel — do not skip an applicable agent to save tokens or time.
 
 ### Present findings
 
