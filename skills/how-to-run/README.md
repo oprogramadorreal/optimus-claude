@@ -10,6 +10,7 @@ Many projects lack step-by-step "how to get this running on my machine" instruct
 - Detects build system, toolchain, SDKs, runtime version constraints, and dev commands from manifests and build files
 - Discovers source dependencies — git submodules from `.gitmodules`, sibling repos from CMake `FetchContent`/`ExternalProject`/hardcoded `../sibling` paths in build & CI files
 - Discovers external services from docker-compose (databases, queues, caches) and generates startup instructions
+- When no `docker-compose.yml` covers a service, classifies each one as **Docker-preferred**, **Shared-cloud primary** (with Docker as offline alternative), or **Local install only**, and emits a `docker run` snippet with a vendor-cited image reference (never guessed from model memory). GUI tools (SSMS, Compass, DBeaver, pgAdmin) and CLI tools always render as local install. Registry allowlist bounds supply-chain risk.
 - Detects required SDKs and system packages (Vulkan, CUDA, Qt, JDK, .NET SDK, MSVC Build Tools) and hardware/OS requirements
 - Scans existing docs (`HOW-TO-RUN.md`, `README.md`, `CONTRIBUTING.md`, `BUILDING.md`, `INSTALL.md`, `docs/*`) as hypotheses and verifies every fact against the actual codebase
 - Generates only applicable sections from a 10-item catalog: prerequisites, toolchain & SDKs, source dependencies, installation, external services, environment, build, running, testing, common issues
@@ -53,7 +54,7 @@ The skill analyzes your project, scans existing documentation as hypotheses, and
 2. **Toolchain & SDKs** — compiler, build-tool versions, language SDKs, domain SDKs (Vulkan/CUDA/Qt/JDK/.NET). Per-OS install commands when multiple OSes are plausible.
 3. **Source Dependencies** — git submodules, sibling repos, CMake FetchContent
 4. **Installation** — clone, language-level deps, vendored deps (vcpkg/Conan), post-install (code generation, migrations)
-5. **External Services** — docker-compose services with ports and purpose, startup commands
+5. **External Services** — docker-compose services with ports and purpose, or per-service Docker / shared-cloud / local-install rendering when compose does not cover the service (with vendor-cited image references)
 6. **Environment Setup** — copy `.env.example`, describe required variables
 7. **Build** — explicit compile/link command for compiled stacks
 8. **Running in Development** — dev command, produced-binary launcher, or engine launcher. Expected URL/port/window
@@ -88,6 +89,7 @@ The skill analyzes your project, scans existing documentation as hypotheses, and
 | `agents/how-to-run-auditor.md` | Agent for scanning existing docs as hypotheses and classifying them against detected state |
 | `agents/shared-constraints.md` | Skill-specific read-only analysis constraints for both agents |
 | `references/how-to-run-sections.md` | Section templates, signal-to-section mapping, build-system/source-dependency detection, PM command tables, external services detection |
+| `references/external-services-docker.md` | Decision heuristics for Docker vs. local install vs. shared-cloud per service, web-search recipe for vendor images, canonical image catalogue (seeds), snippet templates, citation format, and registry allowlist |
 | *(shared)* `init/references/readme-section-detection.md` | Algorithm for finding existing setup instructions in documentation |
 | *(shared)* `init/references/tech-stack-detection.md` | Manifest → tech stack and package manager detection tables |
 | *(shared)* `init/references/project-detection.md` | Monorepo/single-project detection algorithm |

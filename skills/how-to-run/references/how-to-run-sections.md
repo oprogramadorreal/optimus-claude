@@ -214,7 +214,9 @@ docker compose ps
 \`\`\`
 ```
 
-**Branch B — no compose file (or compose covers only some services):** render a per-service overview table, then an H3 subsection per service using the templates in [`external-services-docker.md`](external-services-docker.md) — *Docker recommended*, *Shared-cloud primary, Docker optional*, or *Local install only*.
+**Branch B — no compose file:** render a per-service overview table, then an H3 subsection per service using the templates in [`external-services-docker.md`](external-services-docker.md) — *Docker recommended*, *Shared-cloud primary, Docker optional*, or *Local install only*.
+
+**Hybrid — compose covers only some services:** render Branch A (the `docker compose up -d` block) for the services the compose file includes, listing those services in the Service/Port/Purpose table. Then append Branch B (overview table + per-service H3 subsections) scoped to the uncovered services only. Do not duplicate a compose-covered service as a standalone H3 subsection.
 
 ```markdown
 ### External Services
@@ -231,8 +233,7 @@ docker compose ps
 Rules that apply to both branches:
 
 - The detector's *External Services* table is the source of truth for which services exist.
-- If a service's default endpoint (read from the referenced config file in Step 4) points at a shared-cloud host, keep shared-cloud as the recommended path and treat Docker as an "offline alternative" only.
-- GUI tools (SSMS, Compass, DBeaver, pgAdmin) and CLI tools (AWS CLI) always render as *Local install only* — the heuristic in [`external-services-docker.md`](external-services-docker.md) short-circuits on their names so no web search is spent on them.
+- Service classification (GUI / CLI / cloud-native-only short-circuits, localhost-daemon → Docker-preferred, cloud-endpoint → Shared-cloud primary) is owned by the Decision Heuristics in [`external-services-docker.md`](external-services-docker.md). Apply those rules; do not re-derive them here.
 - For credentials, note that the service uses defaults from docker-compose or shared-cloud config — never copy actual password values into the file.
 
 ### Environment Setup
