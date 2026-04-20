@@ -1,6 +1,5 @@
 import subprocess
 
-# Import shared run_tests and wrap to inject deep-mode prefix
 from harness_common.runner import (  # noqa: F401
     build_claude_session_cmd,
     retry_on_failure,

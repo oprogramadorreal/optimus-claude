@@ -527,7 +527,7 @@ def _run_unit_test_phase(
     ut_output = retry_on_failure(
         lambda: run_coverage_session(progress, args, progress_path, "unit-test"),
         max_retries=1,
-        base_delay=5.0,
+        delay=5.0,
         on_retry=_on_ut_retry,
         on_exhausted=_on_ut_exhausted,
     )
@@ -678,7 +678,7 @@ def _run_refactor_phase(
     rf_output = retry_on_failure(
         lambda: run_coverage_session(progress, args, progress_path, "refactor"),
         max_retries=1,
-        base_delay=5.0,
+        delay=5.0,
         on_retry=_on_rf_retry,
         on_exhausted=_on_rf_exhausted,
     )

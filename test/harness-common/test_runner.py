@@ -246,7 +246,7 @@ class TestRetryOnFailure:
                 raise RuntimeError("fail")
             return "ok"
 
-        result = retry_on_failure(flaky, max_retries=2, base_delay=0.01)
+        result = retry_on_failure(flaky, max_retries=2, delay=0.01)
         assert result == "ok"
         assert len(calls) == 2
 
@@ -259,7 +259,7 @@ class TestRetryOnFailure:
         result = retry_on_failure(
             always_fail,
             max_retries=1,
-            base_delay=0.01,
+            delay=0.01,
             on_exhausted=lambda exc: exhausted_called.append(str(exc)),
         )
         assert result is None
@@ -277,17 +277,17 @@ class TestRetryOnFailure:
         retry_on_failure(
             fail_once,
             max_retries=1,
-            base_delay=0.01,
-            on_retry=lambda exc, delay: retries.append(("retry", str(exc))),
+            delay=0.01,
+            on_retry=lambda exc, delay: retries.append(("retry", str(exc), delay)),
         )
-        assert ("retry", "once") in retries
+        assert ("retry", "once", 0.01) in retries
 
     def test_non_retryable_exception_propagates(self):
         def raise_value_error():
             raise ValueError("not retryable")
 
         with pytest.raises(ValueError):
-            retry_on_failure(raise_value_error, max_retries=2, base_delay=0.01)
+            retry_on_failure(raise_value_error, max_retries=2, delay=0.01)
 
     def test_retries_on_timeout_expired(self):
         """subprocess.TimeoutExpired is retried alongside RuntimeError."""
@@ -299,26 +299,24 @@ class TestRetryOnFailure:
                 raise subprocess.TimeoutExpired("claude", 900)
             return "ok"
 
-        result = retry_on_failure(flaky_timeout, max_retries=2, base_delay=0.01)
+        result = retry_on_failure(flaky_timeout, max_retries=2, delay=0.01)
         assert result == "ok"
         assert len(calls) == 2
 
-    @patch("harness_common.runner.time.sleep")
-    def test_jitter_delay_within_25_percent(self, mock_sleep):
-        """Backoff delay passed to on_retry stays within ±25% of the exponential target."""
-        captured = []
+    def test_exhausted_without_callback_returns_none(self):
+        """Exhaustion path must not require on_exhausted to be provided."""
 
-        def fail_twice():
-            raise RuntimeError("fail")
+        def always_fail():
+            raise RuntimeError("always")
 
-        retry_on_failure(
-            fail_twice,
-            max_retries=2,
-            base_delay=10.0,
-            on_retry=lambda exc, delay: captured.append(delay),
-        )
-        # attempt 0: target = 10.0, expect delay in [7.5, 12.5]
-        # attempt 1: target = 20.0, expect delay in [15.0, 25.0]
-        assert len(captured) == 2
-        assert 7.5 <= captured[0] <= 12.5
-        assert 15.0 <= captured[1] <= 25.0
+        result = retry_on_failure(always_fail, max_retries=1, delay=0.01)
+        assert result is None
+
+    def test_timeout_expired_exhausted_returns_none(self):
+        """subprocess.TimeoutExpired exhausts retries and returns None."""
+
+        def always_timeout():
+            raise subprocess.TimeoutExpired("claude", 900)
+
+        result = retry_on_failure(always_timeout, max_retries=1, delay=0.01)
+        assert result is None

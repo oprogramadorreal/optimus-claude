@@ -27,6 +27,8 @@ class TestMakeInitialProgress:
         assert progress["coverage"]["baseline"] is None
         assert progress["tests_created"] == []
         assert progress["untestable_code"] == []
+        assert progress["timing"] == []
+        assert progress["total_elapsed_seconds"] == 0
 
     @patch("impl.progress.git_rev_parse_head", return_value="def456")
     def test_auto_detects_base_commit(self, mock_git):

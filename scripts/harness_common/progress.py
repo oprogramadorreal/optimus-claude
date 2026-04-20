@@ -29,23 +29,19 @@ def record_test_result(progress, passed, summary):
     progress["test_results"]["last_run_output_summary"] = summary
 
 
-def record_timing(progress, label, elapsed_s):
-    """Append a timing entry to the progress structure.
-
-    Each entry records the label (e.g. "iteration-3"), wall-clock seconds,
-    and an ISO timestamp.  Also updates total_elapsed_seconds.
-    """
+def record_timing(progress, label, elapsed_seconds):
+    """Append a timing entry and accumulate into total_elapsed_seconds."""
     if "timing" not in progress:
         progress["timing"] = []
     progress["timing"].append(
         {
             "label": label,
-            "elapsed_seconds": round(elapsed_s, 2),
+            "elapsed_seconds": round(elapsed_seconds, 2),
             "timestamp": datetime.datetime.now(datetime.timezone.utc).strftime(
                 "%Y-%m-%dT%H:%M:%SZ"
             ),
         }
     )
     progress["total_elapsed_seconds"] = round(
-        progress.get("total_elapsed_seconds", 0) + elapsed_s, 2
+        progress.get("total_elapsed_seconds", 0) + elapsed_seconds, 2
     )

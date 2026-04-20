@@ -468,7 +468,7 @@ def _run_session_with_retry(
     return retry_on_failure(
         lambda: run_skill_session(progress, args, progress_path),
         max_retries=1,
-        base_delay=5.0,
+        delay=5.0,
         on_retry=_on_retry,
         on_exhausted=_on_exhausted,
     )

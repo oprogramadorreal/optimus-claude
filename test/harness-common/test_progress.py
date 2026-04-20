@@ -73,11 +73,6 @@ class TestRecordTiming:
         assert progress["total_elapsed_seconds"] == 15.5
         assert len(progress["timing"]) == 1
 
-    def test_creates_timing_list(self):
-        progress = {}
-        record_timing(progress, "x", 1.0)
-        assert "timing" in progress
-
     def test_timestamp_format(self):
         progress = {}
         record_timing(progress, "x", 1.0)

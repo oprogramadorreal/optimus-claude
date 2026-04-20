@@ -170,6 +170,23 @@ class TestMigrateProgress:
         migrate_progress(progress)
         assert progress["scope_files"]["current"] == []
 
+    def test_fills_missing_timing_fields(self):
+        progress = {"config": {"scope": {}}}
+        migrate_progress(progress)
+        assert progress["timing"] == []
+        assert progress["total_elapsed_seconds"] == 0
+
+    def test_preserves_existing_timing_fields(self):
+        existing = [{"label": "iteration-1", "elapsed_seconds": 5.0, "timestamp": "x"}]
+        progress = {
+            "config": {"scope": {}},
+            "timing": existing,
+            "total_elapsed_seconds": 5.0,
+        }
+        migrate_progress(progress)
+        assert progress["timing"] is existing
+        assert progress["total_elapsed_seconds"] == 5.0
+
 
 class TestGenerateFindingId:
     def test_empty_findings(self, sample_progress):
@@ -236,6 +253,8 @@ class TestMakeInitialProgress:
         assert progress["config"]["base_commit"] == "abc123def456"
         assert progress["iteration"]["current"] == 1
         assert progress["findings"] == []
+        assert progress["timing"] == []
+        assert progress["total_elapsed_seconds"] == 0
 
     @patch("impl.progress.git_rev_parse_head", return_value="abc123def456")
     def test_with_scope(self, mock_git, tmp_path):
