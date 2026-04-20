@@ -220,7 +220,7 @@ docker compose ps
 ```markdown
 ### External Services
 
-[One-paragraph summary: how many services, where connection details live, which services use shared cloud vs. local infrastructure.]
+[One-paragraph summary: how many services, where connection details live, which services use shared-cloud vs. local infrastructure.]
 
 | Service | Recommended runtime | Alternative | Role |
 |---------|---------------------|-------------|------|

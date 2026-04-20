@@ -424,6 +424,33 @@ if [ -f "$sections_file" ]; then
   done
 fi
 
+# Load-bearing headings in external-services-docker.md: SKILL.md Step 4 and
+# Step 6 reach these sections by name, and the Decision Heuristics link the
+# snippet-template H3s by anchor. A silent rename breaks the entire
+# Docker-suggestion path.
+esd_file="skills/how-to-run/references/external-services-docker.md"
+if [ -f "$esd_file" ]; then
+  for heading in \
+    '^## Service Classification Tables' \
+    '^## Decision Heuristics' \
+    '^## Web-Search Recipe' \
+    '^## Citation Format' \
+    '^## Registry Allowlist' \
+    '^### Docker-preferred' \
+    '^### Local install only'; do
+    if ! grep -qE "$heading" "$esd_file" 2>/dev/null; then
+      wiring_errors+="  $esd_file missing heading matching: $heading\n"
+    fi
+  done
+  for fixed_heading in \
+    '### Shared-cloud primary (Docker optional)' \
+    '### Shared-cloud, no Docker alternative'; do
+    if ! grep -qF "$fixed_heading" "$esd_file" 2>/dev/null; then
+      wiring_errors+="  $esd_file missing heading: $fixed_heading\n"
+    fi
+  done
+fi
+
 # Return-format heading contracts: SKILL.md consumes the detector's
 # "## Context Detection Results" and the auditor's "## How-to-Run Audit Results"
 # headings by name. A rename silently drops all findings from the context summary.

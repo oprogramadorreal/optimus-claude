@@ -61,15 +61,20 @@ Inputs (all derivable at Step 3 without extending the detector schema):
 Apply in order and stop at the first match:
 
 1. **GUI client / IDE / CLI tool.** Docker suitability resolves to `gui-client` or `cli-tool`. → **Local install only.** Do not search Docker.
-2. **Cloud-native-only default endpoint.** Docker suitability resolves to `cloud-native-only`, OR the endpoint hostname is a public FQDN (anything that is not `localhost`, `127.0.0.1`, or an IP literal). → **Shared-cloud primary.** In Step 3, set Alternative provisionally to "Docker (offline)" if the service type appears in the [canonical image catalogue](#canonical-image-catalogue-seeds), or to `—` otherwise. In Step 4, the web-search recipe finalises the choice: if the recipe finds a current image, render the [Shared-cloud primary (Docker optional)](#shared-cloud-primary-docker-optional) template; otherwise render the [Shared-cloud, no Docker alternative](#shared-cloud-no-docker-alternative) template and downgrade the Alternative to `—` via the rule-4 batched prompt.
-3. **Local-endpoint daemon.** Endpoint label is `local-endpoint` AND Docker suitability resolves to `daemon`. → **Docker-preferred.** Local install stays as alternative.
-4. **Web-search recipe fails to find a canonical image** (including services whose suitability resolves to `unknown`). → **Local install only.** Append a caution to that service's row in the Step 4 revised-plan prompt: "A Docker option was considered for <service> but no vendor-maintained image was found — falling back to local install."
+2. **Vendor recommends a local emulator over a shared-cloud image.** Docker suitability resolves to `cloud-native-only` AND the vendor publishes an official local emulator (e.g., Firebase/Firestore → Firebase Local Emulator Suite). → **Local install only.** Render the [Local install only](#local-install-only) template pointing at the emulator docs. Do not search Docker.
+3. **Cloud-native-only default endpoint (no local emulator).** Docker suitability resolves to `cloud-native-only`, OR the endpoint hostname is a public FQDN (anything that is not `localhost`, `127.0.0.1`, or an IP literal). → **Shared-cloud primary.**
+   - **Step 3 provisional Alternative.** Set Alternative to "Docker (offline)" if the service type appears in the [canonical image catalogue](#canonical-image-catalogue-seeds); otherwise set Alternative to `—`.
+   - **Step 4 finalisation.** Run the web-search recipe and apply its result as a gate:
+     - If every §Web-Search Recipe validation passes → render the [Shared-cloud primary (Docker optional)](#shared-cloud-primary-docker-optional) template.
+     - On any validation failure → fall through to the [Shared-cloud, no Docker alternative](#shared-cloud-no-docker-alternative) template and downgrade Alternative to `—` via the rule-5 batched prompt.
+4. **Local-endpoint daemon.** Endpoint label is `local-endpoint` AND Docker suitability resolves to `daemon`. → **Docker-preferred.** Local install stays as alternative.
+5. **Web-search recipe fails to find a canonical image** (including services whose suitability resolves to `unknown`). → **Local install only.** Append a caution to that service's row in the Step 4 revised-plan prompt: "A Docker option was considered for <service> but no vendor-maintained image was found — falling back to local install."
 
-Rules 1–3 are evaluated in Step 3 (provisional verdict). Rule 4 is finalised in Step 4 after the web-search recipe runs: downgraded services are batched into a single `AskUserQuestion` before Step 5 writes the file — the one exception to Step 3's no-per-service-prompt rule. Write `recommended`, `alternative`, `reason` into the Step 3 assessment table; a user who disagrees with a verdict corrects the endpoint label or service classification via Step 1's "Correct first" path, or selects **Skip** at Step 3 and re-runs the skill.
+Rules 1–4 are evaluated in Step 3 (provisional verdict). Rule 5 is finalised in Step 4 after the web-search recipe runs: downgraded services are batched into a single `AskUserQuestion` before Step 5 writes the file — the one exception to Step 3's no-per-service-prompt rule. Write `recommended`, `alternative`, `reason` into the Step 3 assessment table; a user who disagrees with a verdict corrects the endpoint label or service classification via Step 1's "Correct first" path, or selects **Skip** at Step 3 and re-runs the skill.
 
 ## Web-Search Recipe
 
-Run this recipe in Step 4 for every service classified as **Docker-preferred** (rule 3) or **Shared-cloud primary** with a Docker offline alternative (rule 2). No image name is ever taken from model memory. If any step fails, fall back to local-install-only and log a caution.
+Run this recipe in Step 4 for every service classified as **Docker-preferred** (rule 4) or **Shared-cloud primary** with a Docker offline alternative (rule 3). No image name is ever taken from model memory. If any step fails, fall back to local-install-only and log a caution.
 
 1. **Query Docker Hub first.** `WebSearch` for `"<service> docker official image site:hub.docker.com"`. Prefer results tagged *Docker Official Image* or *Verified Publisher* (vendor-maintained).
 2. **For vendor-registry services, also search vendor docs.** Some vendors publish outside Docker Hub — SQL Server lives at `mcr.microsoft.com/mssql/server`, not on Docker Hub. Search `"<service> docker <vendor> quickstart"` (e.g., `learn.microsoft.com`) and prefer the vendor page as the canonical source.
@@ -86,14 +91,14 @@ Run this recipe in Step 4 for every service classified as **Docker-preferred** (
 4. **Validate the extracted image reference:**
    - Must match `^[A-Za-z0-9][A-Za-z0-9._-]*(/[A-Za-z0-9._-]+)*:[A-Za-z0-9._-]+$` with no path segment equal to `.` or `..`.
    - Apply the [Host Extraction and Allowlist Match](#host-extraction-and-allowlist-match) algorithm — the same one Step 6 re-runs.
-   - Reject unknown registries — do not write the snippet; treat per rule 4 of the Decision Heuristics (downgrade to local-install-only and surface in the Step 4 revised-plan prompt).
+   - Reject unknown registries — do not write the snippet; treat per rule 5 of the Decision Heuristics (downgrade to local-install-only and surface in the Step 4 revised-plan prompt).
 5. **Sanitize every WebFetch-derived string before writing it into `HOW-TO-RUN.md`.** Apply these regexes per field — reject the entire recipe (downgrade per rule 4) if any field fails:
    - Image reference: regex from step 4 above.
-   - Env-var name: `^[A-Z_][A-Z0-9_]*$`.
-   - Env-var value: `^<[A-Za-z_][A-Za-z0-9_-]*>$` (placeholder form), OR `^[A-Za-z0-9_.+-]{1,64}$` (vendor-documented constant), OR `^[0-9]+$` (numeric literal). For env-var names containing any of `TOKEN`, `SECRET`, `KEY`, `PASSWORD`, `PWD`, `CREDENTIAL` (case-insensitive), ONLY the placeholder form is permitted.
+   - Env-var name: `^([A-Z_][A-Z0-9_]*|<[A-Z_][A-Z0-9_]*>)$` (literal uppercase form, or the placeholder form when the snippet template leaves `<REQUIRED_ENV_VAR>` unsubstituted per SKILL.md Step 4 item 5).
+   - Env-var value: `^<[A-Za-z_][A-Za-z0-9_-]*>$` (placeholder form), OR `^[A-Za-z0-9_.,+-]{1,64}$` (vendor-documented constant — comma permitted for comma-separated lists like LocalStack `SERVICES=s3,sns,sqs`), OR `^[0-9]+$` (numeric literal). For env-var names whose uppercase form is exactly one of `TOKEN`, `SECRET`, `PASSWORD`, `PWD`, `CREDENTIAL`, `KEY`, or ends with `_TOKEN` / `_SECRET` / `_PASSWORD` / `_PWD` / `_CREDENTIAL` / `_KEY`, OR starts with `TOKEN_` / `SECRET_` / `PASSWORD_` / `PWD_` / `CREDENTIAL_` / `KEY_`, ONLY the placeholder form is permitted. (Substring-anywhere match is not used — it would force placeholders into benign names like `APIKEY_HEADER_NAME` or `APIGWD_ENDPOINT`.)
    - Port: `^[0-9]{1,5}$` with value ≤ 65535.
    - Volume mount path: `^/[A-Za-z0-9_./+-]{0,255}$` (absolute Unix path, no spaces, no `:`, no shell metacharacters). After the regex passes, split on `/` and reject if any segment equals `.` or `..`.
-   - Vendor page URL: must parse as `https://<host><path>`; `<host>` lowercased must match exactly one of `hub.docker.com`, `learn.microsoft.com`, `quay.io`, `gcr.io`, `ghcr.io`, `gallery.ecr.aws`, or a vendor-owned docs subdomain (`docs.<vendor>.com` or `<vendor>.com/docs/...` where `<vendor>` matches the image's vendor namespace). Reject URLs containing `)`, unencoded whitespace, control characters, or non-ASCII.
+   - Vendor page URL: must start with `https://`; `<host>` is the substring between `://` and the first subsequent `/`, `:`, `?`, `#`, or end-of-string. Lowercased, `<host>` must match exactly one of `hub.docker.com`, `learn.microsoft.com`, `quay.io`, `gcr.io`, `ghcr.io`, `gallery.ecr.aws`, or a vendor-owned docs subdomain (`docs.<vendor>.com` or `<vendor>.com/docs/...` where `<vendor>` matches the image's vendor namespace). Reject URLs containing `)`, `@`, `\`, unencoded whitespace, control characters, or non-ASCII anywhere in the string.
    - Free-text fields (page title, notes): strip every backtick, `` ` ``, `[`, `]`, `(`, `)`, `<`, `>`, newline, carriage return, NUL, and any Unicode category Cc/Cf character; truncate to 120 characters.
 6. **Prefer stable tags over `:latest`.** Use the newest documented version tag the vendor page recommends (e.g., `mcr.microsoft.com/mssql/server:2022-latest` over `:latest`). Reject bare `:latest` when a versioned tag is available.
 7. **Cite the source URL** in the generated doc using the [citation format](#citation-format). The URL is the vendor/registry page, not the WebSearch result page.
@@ -114,7 +119,7 @@ Run this recipe in Step 4 for every service classified as **Docker-preferred** (
 **Deliberately excluded from the seed catalogue:**
 
 - **Firebase / Firestore** — no vendor-maintained Docker image. The Firebase Local Emulator Suite runs via `firebase emulators:start` (Node-based). When detected, render the [Local install only template](#local-install-only) pointing at the emulator docs.
-- **Vendor-internal / proprietary APIs** (e.g., licence managers, in-house identity providers). These are shared-cloud-only; render as shared-cloud with no Docker alternative.
+- **Vendor-internal / proprietary APIs** (e.g., licence managers, in-house identity providers). These are shared-cloud only; render using the [Shared-cloud, no Docker alternative](#shared-cloud-no-docker-alternative) template.
 
 ## Snippet Templates
 
@@ -154,7 +159,7 @@ Use when the heuristic resolves to **Shared-cloud primary** AND the web-search r
 ````markdown
 ### <Service name>
 
-**Recommended: shared cloud.** This project's default configuration points at <cloud endpoint, e.g., "Azure Cosmos DB at port 10255">. Obtain credentials from a teammate — they are not published here.
+**Recommended: shared-cloud endpoint.** This project's default configuration points at <cloud endpoint, e.g., "Azure Cosmos DB at port 10255">. Obtain credentials from a teammate — they are not published here.
 
 **Offline alternative: Docker.** If you need to run without connectivity to the shared endpoint:
 
@@ -177,7 +182,7 @@ Use when the heuristic resolves to **Shared-cloud primary** AND (a) the service 
 ````markdown
 ### <Service name>
 
-**Recommended: shared cloud.** This project's default configuration points at <cloud endpoint, e.g., "the project's Firebase project">. Obtain credentials from a teammate — they are not published here.
+**Recommended: shared-cloud endpoint.** This project's default configuration points at <cloud endpoint, e.g., "the project's Firebase project">. Obtain credentials from a teammate — they are not published here.
 
 - Source: [<vendor docs title>](<vendor docs URL>).
 - Update <config key> in <config file> when pointing at a different environment.
@@ -205,14 +210,14 @@ Every `- Source: [<title>](<url>)` line written to `HOW-TO-RUN.md` (whether next
 - Source: [<Vendor page title>](<vendor page URL>).
 ```
 
-The `- Source: [` prefix is what the Step 6 validator pattern-matches. The URL must parse as `https://<host><path>` and `<host>` (lowercased) must equal exactly one of:
+The `- Source: [` prefix is what the Step 6 validator pattern-matches. Apply the same host extraction as §Web-Search Recipe step 5 (URL must start with `https://`; `<host>` is the substring between `://` and the first subsequent `/`, `:`, `?`, `#`, or end-of-string; reject `@`, `\`, unencoded whitespace, control chars, non-ASCII). `<host>` (lowercased) must equal exactly one of:
 
-- `hub.docker.com` — Docker Official / Verified Publisher pages (`hub.docker.com/_/<name>` or `hub.docker.com/r/<vendor>/<name>`).
-- `learn.microsoft.com` — Microsoft Learn canonical docs.
-- `quay.io`, `gcr.io`, `ghcr.io`, `gallery.ecr.aws` — registry-provided listing pages for images pulled from the matching allowlisted registry.
+- `hub.docker.com` — Docker Official / Verified Publisher pages (`hub.docker.com/_/<name>` or `hub.docker.com/r/<vendor>/<name>`). Accepted ONLY when the image registry resolves to `docker.io` (after the hub.docker.com → docker.io normalization).
+- `learn.microsoft.com` — Microsoft Learn canonical docs. Accepted ONLY when the image registry is `mcr.microsoft.com`.
+- `quay.io`, `gcr.io`, `ghcr.io`, `gallery.ecr.aws` — registry-provided listing pages. Accepted ONLY when the image registry matches (`quay.io` ↔ `quay.io`, `gcr.io` ↔ `gcr.io`, `ghcr.io` ↔ `ghcr.io`, `gallery.ecr.aws` ↔ `public.ecr.aws` after normalization).
 - `docs.<vendor>.com` or `<vendor>.com` (path starts with `/docs/`) — the vendor's own documentation domain.
   - **For citations attached to a Docker image:** `<vendor>` must match the image's vendor namespace by case-insensitive exact equality with the second-level domain label of the URL host. For Docker Official Images (`docker.io/library/<name>`), the `<vendor>` namespace is `library` — accept ONLY `hub.docker.com` as the citation host (third-party domains are rejected).
-  - **For citations under the *Shared-cloud, no Docker alternative* template (no image):** accept `docs.<vendor>.com` or `<vendor>.com` paths starting with `/docs/` where `<vendor>` is any second-level domain label (no image cross-check required). Also accept `firebase.google.com/docs/...` for Firebase-style cases where the vendor docs live on a non-`docs.` subdomain of the parent product host.
+  - **For citations under the *Shared-cloud, no Docker alternative* template (no image):** accept `docs.<vendor>.com` or `<vendor>.com` paths starting with `/docs/` ONLY when `<vendor>` (the second-level domain label, case-insensitive) appears as a whole-token substring of the detected service name OR of the service-config default-endpoint hostname. For product families whose vendor docs live on a non-`docs.` subdomain, use the explicit allowlist: `firebase.google.com/docs/...` (Firebase/Firestore), `cloud.google.com/<product>/docs/...` (GCP services), `aws.amazon.com/<product>/` (AWS services documented on the product landing page). Add new entries to this allowlist by editing this file; do not synthesise new hosts at runtime.
 
 Do not cite blog posts, Medium articles, or Stack Overflow answers — they are not authoritative.
 
@@ -235,7 +240,7 @@ Step 4 must reject any extracted image reference whose registry host is not in t
 - `quay.io` (Red Hat)
 - `gcr.io` (Google Container Registry)
 - `ghcr.io` (GitHub Container Registry — open-publish; prefer references sourced from the vendor's own official docs rather than from a raw search hit)
-- `public.ecr.aws` (AWS Public Elastic Container Registry — open-publish; same caveat as `ghcr.io`)
+- `public.ecr.aws` (AWS Public Elastic Container Registry — open-publish; same caveat as `ghcr.io`). Note: `gallery.ecr.aws` is the web UI, not a pullable registry host; it is rewritten to `public.ecr.aws` by the *Host Extraction and Allowlist Match* normalization rule below.
 
 Bare image names with no registry host (`mongo:<tag>`, `redis:<tag>`, `postgres:<tag>`) implicitly resolve to `docker.io/library/<name>` (Docker Official Images) and are accepted. A `:<tag>` suffix is always required.
 
@@ -245,8 +250,8 @@ Both Step 4 (write time) and Step 6 (re-validation) MUST extract the registry ho
 
 1. **Does the reference contain `/`?** If NO → the reference is a bare name (e.g., `mongo:7`, `postgres:16-alpine`); the implicit registry is `docker.io` — set host = `docker.io` and skip to step 4.
 2. **Split on the first `/`.** Call the left part the *candidate host*. If the candidate host contains a `.` or `:` (e.g., `mcr.microsoft.com`, `ghcr.io`, `localhost:5000`), treat it as the registry host and continue to step 3. Otherwise the left part is a Docker Hub user or organization namespace (e.g., `localstack`, `bitnami`): set host = `docker.io` and skip to step 4.
-3. **Normalize `hub.docker.com`.** If the candidate host is literally `hub.docker.com`, rewrite the reference before the allowlist check: `hub.docker.com/_/<name>:<tag>` → bare name `<name>:<tag>` (implicit `docker.io`); `hub.docker.com/r/<vendor>/<name>:<tag>` → `<vendor>/<name>:<tag>` (implicit `docker.io`). `hub.docker.com` is the web UI, not a pullable registry — the normalized form is what Docker actually pulls. Re-run step 2 on the rewritten reference.
+3. **Normalize web-UI hosts to pullable registry hosts.** If the candidate host is literally `hub.docker.com`, rewrite the reference before the allowlist check: `hub.docker.com/_/<name>:<tag>` → bare name `<name>:<tag>` (implicit `docker.io`); `hub.docker.com/r/<vendor>/<name>:<tag>` → `<vendor>/<name>:<tag>` (implicit `docker.io`). If the candidate host is literally `gallery.ecr.aws`, rewrite: `gallery.ecr.aws/<ns>/<name>:<tag>` → `public.ecr.aws/<ns>/<name>:<tag>`. The rewrites exist because `hub.docker.com` and `gallery.ecr.aws` are web UIs, not pullable registries — the normalized form is what Docker actually pulls. Re-run step 1 on the rewritten reference.
 4. Lowercase the host and compare by **exact string equality** to each allowlist entry. Reject partial, prefix, or suffix matches — `ghcr.io.evil.com` must be rejected because it is not exactly `ghcr.io`.
-5. If the host is not in the allowlist, reject the reference and treat per rule 4 of the Decision Heuristics (downgrade to local-install-only and surface in the Step 4 revised-plan prompt).
+5. If the host is not in the allowlist, reject the reference and treat per rule 5 of the Decision Heuristics (downgrade to local-install-only and surface in the Step 4 revised-plan prompt).
 
 If a legitimate vendor image lives outside this list, a plugin maintainer can add the registry to this file — Claude must **not** bypass the check at run time.
