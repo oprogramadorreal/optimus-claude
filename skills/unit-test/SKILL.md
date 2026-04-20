@@ -66,6 +66,32 @@ Parse optional path argument (e.g., `/optimus:unit-test src/api`) to limit scope
 
 For monorepos and multi-repo workspaces, detect project structure using the same approach as `/optimus:init` — reference `$CLAUDE_PLUGIN_ROOT/skills/init/SKILL.md` Step 1 for detection logic (multi-repo workspace detection, workspace configs, manifest scanning, supporting signals). Process each project/repo independently.
 
+### Interactive deep mode activation
+
+<!-- Deep-mode activation; keep structure in sync with code-review/SKILL.md and refactor/SKILL.md -->
+
+If the `deep` flag was detected in argument parsing (and `harness` keyword was NOT), activate deep mode. Deep mode loops discovery-and-write cycles (Steps 2–4) until tests converge or the cycle cap is reached.
+
+Clamp the parsed cycle cap: if it exceeds 10, clamp to 10 and warn: "Cycle cap clamped to 10 (maximum)." If it is less than 1, clamp to 1 and warn: "Cycle cap clamped to 1 (minimum)." Default is 5 when no number is given.
+
+Before proceeding, check whether a test command is available (from `.claude/CLAUDE.md`). If no test command exists, deep mode's auto-approve loop has no safety net — fall back to normal mode and warn: "Deep mode requires a test command for safe auto-approve. Falling back to normal mode — re-run `/optimus:init` to set up test infrastructure first." Set `deep-mode` to false. Then continue with the standard single-pass flow.
+
+If a test command is available, warn the user:
+
+> **Deep mode** runs up to [cap] iterative test-generation passes. Each iteration is a full discovery-and-write cycle — credit and time consumption multiplies with iteration count. Tests are generated automatically at each iteration without per-item approval. Untestable code that requires refactoring is flagged but not addressed; consider running `/optimus:refactor testability` first or `/optimus:unit-test deep harness` for an automated unit-test + refactor-testability loop. Each iteration also accumulates context — on large codebases, output quality may degrade in later iterations.
+>
+> Test command: `[test command from CLAUDE.md]`
+
+Then use `AskUserQuestion` — header "Deep mode", question "Proceed with deep mode?":
+- **Start deep mode** — "Run iterative test-generation until converged (max [cap] iterations)"
+- **Normal mode** — "Single pass with manual plan approval instead"
+
+Tell the user: *Tip: For large codebases or extended sessions, re-run with `/optimus:unit-test deep harness` to launch the external harness with fresh context per phase.*
+
+If the user did not invoke with `deep`, skip this step.
+
+If the user selects **Normal mode**, continue with the standard single-pass flow. Record the user's choice as a `deep-mode` flag for subsequent steps. If deep mode is confirmed, initialize `iteration-count` to 1, `total-added` to 0, `total-reverted` to 0, `accumulated-coverage-delta` to 0, and `accumulated-items` to an empty list. Each entry in `accumulated-items` tracks: **file** (test file path), **target** (source file or function being tested), **iteration** (which iteration added it), and **status** (`pass`, `reverted — test failure`, `bug-found`, or `abandoned`).
+
 ## Step 2: Discovery & Coverage Analysis (agent-assisted)
 
 Delegate test infrastructure scanning, test execution, and coverage analysis to a reconnaissance agent to keep the main context clean for test writing.
@@ -75,7 +101,20 @@ For each subproject (or the single project):
 Read `$CLAUDE_PLUGIN_ROOT/skills/unit-test/agents/shared-constraints.md` for agent constraints.
 Read `$CLAUDE_PLUGIN_ROOT/skills/unit-test/agents/test-infrastructure-analyzer.md` for the full prompt template, scanning patterns, execution rules, and return format for the Test Infrastructure Analyzer Agent.
 
-Launch 1 `general-purpose` Agent tool call using the prompt from test-infrastructure-analyzer.md, prepended with the shared constraints.
+### Iteration context injection (interactive deep mode, iterations 2+)
+
+If interactive deep mode is active and `iteration-count` > 1, prepend a concise context block to the agent prompt before the main instructions. Include:
+
+- **Tests already added** — bullet list of `file → target` entries from `accumulated-items` with status `pass`, so the agent skips re-discovering the same targets.
+- **Items previously reverted or abandoned** — bullet list from `accumulated-items` with status `reverted — test failure` or `abandoned`, so the agent does not re-propose them.
+- **Untestable code already flagged** — bullet list of prior untestable items, so the agent does not re-flag them; focus new discovery on genuinely new candidates.
+- **Cumulative coverage delta** — `+[accumulated-coverage-delta]pp so far` so the agent has a sense of progress.
+
+The goal is convergence: each iteration should propose **new** testable candidates, not duplicates. Keep the block under ~30 lines to limit context drift.
+
+### Launch
+
+Launch 1 `general-purpose` Agent tool call using the prompt from test-infrastructure-analyzer.md, prepended with the shared constraints (and the iteration context block, if applicable).
 
 | Agent | Role | Runs when |
 |-------|------|-----------|
@@ -135,7 +174,7 @@ Create a prioritized list, **capped at 10 items per run**:
 
 ### User confirmation
 
-**Deep mode (harness or interactive)**: Skip the question — auto-select "Generate tests for all planned items" and proceed directly to Step 4.
+**Deep mode (harness or interactive)**: Skip the question — auto-select "Generate tests for all planned items" and proceed directly to Step 4. In interactive deep mode, the deep-mode loop sub-section at the end of Step 4 decides whether to iterate or finalize; in harness mode, Step 6 emits structured JSON and the external harness drives any further cycles.
 
 **Normal mode**: Present the plan, then use `AskUserQuestion` — header "Plan", question "How would you like to proceed with the test generation plan?":
 - **Approve all** — "Generate tests for all planned items"
@@ -183,9 +222,74 @@ For each approved item:
 
 After all tests are written, run the **full test suite** to ensure no regressions. Follow the verification protocol from `$CLAUDE_PLUGIN_ROOT/skills/init/references/verification-protocol.md` — run tests fresh, read complete output, and report actual results with evidence before claiming success.
 
+### Deep mode loop
+
+<!-- Deep-mode iteration loop; keep structure in sync with code-review/SKILL.md Step 9 and refactor/SKILL.md Step 8 -->
+
+**Normal mode and harness mode:** Skip this subsection — normal mode proceeds to Step 5; harness mode proceeds to Step 6.
+
+**Interactive deep mode:** After Final verification above completes for this iteration, append this iteration's results to `accumulated-items`. For each test file attempted, record file path, target (source file or function), current `iteration-count`, and status (`pass` | `reverted — test failure` | `bug-found` | `abandoned`). Update `total-added` by the count of passing tests added this iteration; update `total-reverted` by the count reverted; add this iteration's coverage delta to `accumulated-coverage-delta` (use `0` if the coverage tool is unavailable).
+
+Then check termination conditions, in order:
+
+1. **All tests added this iteration were reverted** (every generated test failed and was rolled back) → stop. Report: "Deep mode stopped — all tests added in iteration [N] caused failures."
+2. **No new testable items discovered this iteration** (convergence — the discovery agent returned zero candidates not already in `accumulated-items`) → stop. Report: "Deep mode complete — converged on iteration [N] with no remaining testable items."
+3. **Coverage plateau** — this iteration's coverage delta is below 0.5 percentage points, OR the coverage tool is unavailable so no delta can be measured → stop. Report: "Deep mode stopped — coverage plateau on iteration [N]."
+4. **`iteration-count` >= the cap** → cap reached. Report: "Deep mode reached the iteration cap ([cap]). Remaining testable code may exist — continue in a fresh conversation: re-run `/optimus:unit-test deep`, increase the cap with `/optimus:unit-test deep [higher-cap]`, or narrow scope with `/optimus:unit-test deep <scope>`."
+5. **Otherwise** → continue to the next pass.
+
+**For all five conditions above**, present the iteration report immediately after the termination/continuation message. Informational and non-blocking — no user prompt follows:
+
+```
+#### Iteration [N] — Report
+
+| # | File | Target | Coverage Δ | Status |
+|---|------|--------|------------|--------|
+[one row per test file attempted in THIS iteration from accumulated-items where iteration == current]
+```
+
+Column definitions:
+- **#** — Sequential number within this iteration
+- **File** — Test file path (or `—` for reverted/abandoned)
+- **Target** — Source file or function tested
+- **Coverage Δ** — Percentage point change this test contributed (or `—` if coverage tool unavailable)
+- **Status** — `✓ Pass`, `✗ Reverted — test failure`, `Bug found`, or `Abandoned`
+
+For condition 5 (continue), after the iteration report also show the progress summary: "Iteration [N] of up to [cap] — [total-added] tests added so far, [total-reverted] reverted, cumulative coverage +[accumulated-coverage-delta]pp. Starting next pass..." If the **next** iteration will be 3 or higher, append: "Note: context is accumulating — if output quality degrades, consider finishing in a fresh conversation." Then increment `iteration-count` and **return to Step 2** for the next discovery-and-write pass. Keep the same scope from Step 1.
+
+After the loop ends (conditions 1–4 triggered), present a cumulative report in place of the Step 5 single-pass summary:
+
+```
+## Unit Test — Deep Mode Cumulative Report
+
+**Summary:**
+- Total iterations: [iteration-count]
+- Total tests added: [total-added]
+- Total tests reverted (failures): [total-reverted]
+- Cumulative coverage delta: +[accumulated-coverage-delta]pp (or "not measured" if coverage tool unavailable)
+- Final test status: pass / fail / not available
+
+**All Tests Added:**
+
+| # | Iter | File | Target | Coverage Δ | Status |
+|---|------|------|--------|------------|--------|
+[one row per item from accumulated-items, across all iterations, ordered by iteration then sequence]
+
+### Bugs Discovered
+- [cumulative list across all iterations; omit this section if empty]
+
+### Not Testable Without Refactoring
+- [cumulative list across all iterations; omit this section if empty]
+- To address these, run `/optimus:refactor testability` to prioritize testability improvements.
+```
+
+Then skip Step 5 — the single-pass summary is replaced by the cumulative report above. Tell the user: **Tip:** for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch.
+
 ## Step 5: Summary
 
-Report to the user:
+**Interactive deep mode:** Skip this step — the cumulative report rendered by the deep mode loop at the end of Step 4 replaces the single-pass summary below.
+
+**Normal mode and harness mode (fallthrough):** Report to the user:
 
 ```
 ## Unit Test Summary
