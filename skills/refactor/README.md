@@ -152,11 +152,11 @@ Each iteration:
 
 ### Key differences from normal mode
 
-**Key differences from normal mode:** Deep mode **applies changes automatically** at each iteration — it modifies your code, not just reports findings. It **requires a test command** (from `.claude/CLAUDE.md`) as its safety net; without one, it falls back to normal mode. All changes remain as local modifications — nothing is committed or pushed.
+Deep mode **applies changes automatically** at each iteration — it modifies your code, not just reports findings. It **requires a test command** (from `.claude/CLAUDE.md`) as its safety net; without one, it falls back to normal mode. All changes remain as local modifications — nothing is committed or pushed.
 
 ### Iteration context
 
-**Iteration memory:** On iterations 2+, all agents receive a table of prior findings with their status (fixed/reverted/persistent). This prevents circular fixes — agents focus on NEW issues only and do not undo work from previous iterations.
+On iterations 2+, all agents receive a table of prior findings with their status (fixed/reverted/persistent). This prevents circular fixes — agents focus on NEW issues only and do not undo work from previous iterations.
 
 ### Stop conditions
 

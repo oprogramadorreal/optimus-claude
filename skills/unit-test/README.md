@@ -29,8 +29,8 @@ In Claude Code, use any of these:
 - `/optimus:unit-test` — full project test coverage improvement
 - `/optimus:unit-test src/api` — scope to a specific directory
 - `/optimus:unit-test packages/auth` — scope to a monorepo subproject
-- `/optimus:unit-test deep` — iterative test-generation until converged (default 5 cycles, max 10)
-- `/optimus:unit-test deep 8` — deep mode with custom cycle cap
+- `/optimus:unit-test deep` — iterative test-generation until converged (default 5 iterations, max 10)
+- `/optimus:unit-test deep 8` — deep mode with custom iteration cap
 - `/optimus:unit-test deep src/api` — deep mode with scope
 - `/optimus:unit-test deep harness` — multi-cycle automated test coverage + testability refactoring with fresh context per phase; runs unit-test and refactor testability in alternating cycles, resetting context between phases to avoid degradation
 
@@ -82,17 +82,17 @@ The skill produces a structured summary after completing:
 
 ## Deep Mode
 
-Normal mode caps test generation at 10 items per run — one pass through discovery, plan, write. Deep mode loops the discovery-and-write cycle automatically, each iteration discovering new testable items not yet covered, until coverage converges, plateaus, or the cycle cap is reached.
+Normal mode caps test generation at 10 items per run — one pass through discovery, plan, write. Deep mode loops the discovery-and-write cycle automatically, each iteration discovering new testable items not yet covered, until coverage converges, plateaus, or the iteration cap is reached.
 
 ### How it works
 
-Deep mode runs the same discovery-and-write cycle repeatedly (default 5, up to 10 iterations) until coverage converges or plateaus. Before starting, it warns about credit/time consumption and the risk of brittle tests when too little context remains, and asks for explicit confirmation.
+Deep mode runs the same discovery-and-write cycle repeatedly (default 5, up to 10 iterations) until coverage converges or plateaus. Before starting, it warns about credit/time consumption and context-accumulation risk on large codebases, and asks for explicit confirmation.
 
 Each iteration:
 1. Runs the Test Infrastructure Analyzer agent with an iteration-context block on iterations 2+ (prior test files, reverted items, flagged untestable code, cumulative coverage delta)
 2. Auto-approves the test generation plan — skips the "Approve all / Selective / Skip" prompt
 3. Writes tests for each planned item, running each test immediately and fixing or flagging failures (up to 3 attempts per test)
-4. Runs the full test suite — reverts any test that causes regressions
+4. Runs the full test suite — reverts any newly-added test file that causes regressions
 5. Presents an **iteration report** — a table showing each test attempted, target, coverage delta, and status (pass / reverted / bug-found / abandoned)
 6. Loops back to discovery for the next pass, or stops when a termination condition is met
 
@@ -103,22 +103,17 @@ Each iteration:
 | Iterations | 1 (single pass, 10 items) | Up to 10 (default 5) |
 | Plan approval | User chooses (Approve all / Selective / Skip) | Automatic (confirmed upfront) |
 | Test verification | After all tests written | After every iteration |
-| Failed tests | Fixed up to 3 attempts, else flagged | Reverted individually, tracked in accumulated items |
+| Failed tests | Fixed up to 3 attempts, else flagged | Same per-test rule; additionally, any newly-added test causing full-suite regressions is reverted and tracked |
 | Output | Single summary | Per-iteration report tables + cumulative summary table |
 | Requirement | None | Test command in `.claude/CLAUDE.md` |
 
 ### Iteration context
 
-On iterations 2+, the discovery agent receives a context block summarizing: test files added in prior iterations (to skip re-discovery), items previously reverted or abandoned (to avoid re-attempting), untestable code already flagged (to focus discovery on genuinely new candidates), and cumulative coverage delta so far. This keeps each iteration converging on new testable code rather than thrashing on items the previous pass already addressed.
+On iterations 2+, the discovery agent receives a context block summarizing: test files added in prior iterations (to skip re-discovery), items previously reverted or abandoned (to avoid re-attempting), untestable code already flagged (to focus discovery on genuinely new items), and cumulative coverage delta so far. This keeps each iteration converging on new testable items rather than thrashing on items the previous pass already addressed.
 
 ### Stop conditions
 
-Deep mode stops when any of the following conditions is met:
-
-- **Convergence** — discovery returns zero testable candidates not already attempted in prior iterations
-- **All reverted** — every test added in an iteration caused failures and was rolled back
-- **Coverage plateau** — this iteration's coverage delta is below 0.5 percentage points, or the coverage tool is unavailable
-- **Cap reached** — the cycle cap is reached (default 5, max 10; continue in a fresh conversation)
+Deep mode stops on convergence, all-reverted, coverage plateau, or cap reached — exact thresholds and messages are defined in [skills/unit-test/SKILL.md](SKILL.md) under "Deep mode loop" (Step 4).
 
 From iteration 3 onward, a context-accumulation warning appears; if the cap is reached, all continuation options are framed under starting a fresh conversation. After all iterations complete, a **cumulative report** summarizes every test added across all iterations in a single table, plus aggregated Bugs Discovered and Not Testable Without Refactoring sections.
 
