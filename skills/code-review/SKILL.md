@@ -186,9 +186,7 @@ Proceed immediately to Step 5 — do not wait for user confirmation.
 
 ## Step 5: Parallel Multi-Agent Review (5–7 agents)
 
-5 to 7 review agents run in parallel for maximum coverage. Agents 1–5 always run; Agent 6 runs when test infrastructure is detected; Agent 7 runs when contract-related files are changed (see agent overview below).
-
-Launch every applicable agent as a `general-purpose` Agent tool call in a **single** message so they run in parallel. The full fan-out is the design — do not reduce the count to save tokens or time.
+Launch every applicable agent as a `general-purpose` Agent tool call in a **single** message so they run in parallel. The full fan-out is the design — do not reduce the count to save tokens or time. See the agent overview below for which agents always run and which activate conditionally.
 
 Each agent receives the list of changed file paths (from Step 3 in normal/interactive mode, or from `scope_files.current` in harness mode when pre-populated by the harness).
 

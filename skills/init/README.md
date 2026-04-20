@@ -141,7 +141,7 @@ Note: re-running `/optimus:init` always overwrites `coding-guidelines.md` and ho
 |---|---|---|
 | `/optimus:unit-test` | testing.md, CLAUDE.md, test framework, coverage tooling | Writes test files to increase coverage |
 | `/optimus:refactor` | coding-guidelines.md, skill-writing-guidelines.md (if present) | Full-project refactoring for guideline compliance and testability; dual-lens routing for skill-authoring projects |
-| `/optimus:code-review` | All docs (including skill-writing-guidelines.md if present) | Pre-commit review with up to 7 parallel agents; dual-lens routing for skill-authoring projects |
+| `/optimus:code-review` | All docs (including skill-writing-guidelines.md if present) | Pre-commit review with 5 to 7 parallel agents; dual-lens routing for skill-authoring projects |
 | `/optimus:tdd` | CLAUDE.md, coding-guidelines.md, testing.md | Red-Green-Refactor TDD with feature branch workflow |
 | `/optimus:permissions` | Shares `.claude/settings.json` | Permission rules + path-restriction hook |
 | `/optimus:commit` | Independent | Stage, commit, and optionally push with conventional message |

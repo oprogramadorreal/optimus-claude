@@ -1,5 +1,5 @@
 ---
-description: Refactors existing code for guideline compliance and testability using 4 parallel analysis agents (guideline compliance, testability barriers, duplication/consistency, optional code-simplifier). Two goals — align code with project guidelines AND make untestable code testable so /optimus:unit-test can safely increase coverage. Use after /optimus:init to align existing code, before /optimus:unit-test to remove testability barriers, or periodically to prevent tech debt. Supports "testability" focus (after unit-test flags untestable code) or "guidelines" focus (after init establishes rules) to prioritize finding categories, flexible scoping, and a "deep" mode for iterative refactoring (default 8, up to 10 iterations).
+description: Refactors existing code for guideline compliance and testability using 4 parallel analysis agents (guideline compliance, testability barriers, duplication/consistency, code-simplifier). Two goals — align code with project guidelines AND make untestable code testable so /optimus:unit-test can safely increase coverage. Use after /optimus:init to align existing code, before /optimus:unit-test to remove testability barriers, or periodically to prevent tech debt. Supports "testability" focus (after unit-test flags untestable code) or "guidelines" focus (after init establishes rules) to prioritize finding categories, flexible scoping, and a "deep" mode for iterative refactoring (default 8, up to 10 iterations).
 disable-model-invocation: true
 ---
 
@@ -157,8 +157,6 @@ Analyze highest-churn directories first. For full-project scope on large codebas
 Before proceeding to analysis, present a brief summary: docs loaded (with paths), docs missing (with fallback status), project type (single/monorepo/multi-repo workspace), and analysis areas identified with their git activity rank. Proceed immediately to Step 4 — do not wait for user confirmation.
 
 ## Step 4: Parallel Multi-Agent Analysis (4 agents)
-
-4 analysis agents, all launched in parallel for maximum coverage.
 
 Launch all 4 agents as `general-purpose` Agent tool calls in a **single** message so they run in parallel. The full fan-out is the design — do not reduce the count to save tokens or time.
 
