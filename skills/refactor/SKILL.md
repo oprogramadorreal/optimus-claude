@@ -1,11 +1,11 @@
 ---
-description: Refactors existing code for guideline compliance and testability using up to 4 parallel analysis agents (guideline compliance, testability barriers, duplication/consistency, optional code-simplifier). Two goals — align code with project guidelines AND make untestable code testable so /optimus:unit-test can safely increase coverage. Use after /optimus:init to align existing code, before /optimus:unit-test to remove testability barriers, or periodically to prevent tech debt. Supports "testability" focus (after unit-test flags untestable code) or "guidelines" focus (after init establishes rules) to prioritize finding categories, flexible scoping, and a "deep" mode for iterative refactoring (default 8, up to 10 iterations).
+description: Refactors existing code for guideline compliance and testability using 4 parallel analysis agents (guideline compliance, testability barriers, duplication/consistency, optional code-simplifier). Two goals — align code with project guidelines AND make untestable code testable so /optimus:unit-test can safely increase coverage. Use after /optimus:init to align existing code, before /optimus:unit-test to remove testability barriers, or periodically to prevent tech debt. Supports "testability" focus (after unit-test flags untestable code) or "guidelines" focus (after init establishes rules) to prioritize finding categories, flexible scoping, and a "deep" mode for iterative refactoring (default 8, up to 10 iterations).
 disable-model-invocation: true
 ---
 
 # Project-Wide Code Refactoring
 
-Analyze existing source code against the project's coding guidelines using up to 4 parallel agents to find guideline violations, testability barriers, cross-file duplication, and pattern inconsistency. Present a prioritized refactoring plan, then apply only user-approved changes with test verification.
+Analyze existing source code against the project's coding guidelines using 4 parallel agents to find guideline violations, testability barriers, cross-file duplication, and pattern inconsistency. Present a prioritized refactoring plan, then apply only user-approved changes with test verification.
 
 Two primary goals:
 1. **Guideline compliance** — align code with coding-guidelines.md, architecture.md, styling.md, and testing.md
@@ -181,11 +181,7 @@ If deep mode is active and `iteration-count` > 1, prepend the iteration context 
 
 Each agent returns a structured list of findings, bounded by the Finding Cap rule in `$CLAUDE_PLUGIN_ROOT/references/shared-agent-constraints.md`. The Guideline Compliance agent (Agent 1) is constructed dynamically based on Step 3's doc loading results (single project vs monorepo paths).
 
-### Execution
-
-Launch all available agents in a **single** message so they run in parallel. Wait for all launched agents to complete before proceeding to Step 5.
-
-**Agent availability summary**: All 4 agents always run — no project dependencies required.
+Wait for all launched agents to complete before proceeding to Step 5.
 
 ## Step 5: Validate Findings
 

@@ -1,11 +1,11 @@
 ---
-description: Reviews local changes, PRs/MRs, or branch diffs against project coding guidelines using up to 7 parallel review agents (bug detection, security/logic, guideline compliance x2, code simplification, test coverage, contract quality). Use before committing, on open PRs/MRs, or to review any branch diff. HIGH SIGNAL only: real bugs, logic errors, security concerns, and guideline violations. Supports a "deep" mode for iterative auto-fix — reviews and fixes code in a loop until clean.
+description: Reviews local changes, PRs/MRs, or branch diffs against project coding guidelines using 5 to 7 parallel review agents (bug detection, security/logic, guideline compliance x2, code simplification, test coverage, contract quality). Use before committing, on open PRs/MRs, or to review any branch diff. HIGH SIGNAL only: real bugs, logic errors, security concerns, and guideline violations. Supports a "deep" mode for iterative auto-fix — reviews and fixes code in a loop until clean.
 disable-model-invocation: true
 ---
 
 # Code Review
 
-Analyze local git changes (or a PR/MR) against the project's coding guidelines, using up to 7 parallel review agents for comprehensive coverage. High-signal findings only: bugs, logic errors, security issues, guideline violations. Excludes style concerns, subjective suggestions, and linter-catchable issues.
+Analyze local git changes (or a PR/MR) against the project's coding guidelines, using 5 to 7 parallel review agents for comprehensive coverage. High-signal findings only: bugs, logic errors, security issues, guideline violations. Excludes style concerns, subjective suggestions, and linter-catchable issues.
 
 ## Step 1: Parse Arguments and Verify Prerequisites
 
@@ -184,9 +184,9 @@ Before proceeding to the review, present a brief summary:
 
 Proceed immediately to Step 5 — do not wait for user confirmation.
 
-## Step 5: Parallel Multi-Agent Review (up to 7 agents)
+## Step 5: Parallel Multi-Agent Review (5–7 agents)
 
-Up to 7 review agents, launched in parallel for maximum coverage. Agents 1–5 always run; Agent 6 runs when test infrastructure is detected; Agent 7 runs when contract-related files are changed (see agent overview below).
+5 to 7 review agents run in parallel for maximum coverage. Agents 1–5 always run; Agent 6 runs when test infrastructure is detected; Agent 7 runs when contract-related files are changed (see agent overview below).
 
 Launch every applicable agent as a `general-purpose` Agent tool call in a **single** message so they run in parallel. The full fan-out is the design — do not reduce the count to save tokens or time.
 
