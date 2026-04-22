@@ -444,7 +444,8 @@ if [ -f "$esd_file" ]; then
   done
   for fixed_heading in \
     '### Shared-cloud primary (Docker optional)' \
-    '### Shared-cloud, no Docker alternative'; do
+    '### Shared-cloud, no Docker alternative' \
+    '### Known Vendor Emulators'; do
     if ! grep -qF "$fixed_heading" "$esd_file" 2>/dev/null; then
       wiring_errors+="  $esd_file missing heading: $fixed_heading\n"
     fi

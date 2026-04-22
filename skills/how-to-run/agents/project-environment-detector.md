@@ -85,7 +85,7 @@ Record each with the OS it applies to (or "cross-platform" if unclear), the pack
 
 Drop any entry whose extracted token fails any check and note "sanitized" in the source column.
 
-#### Task 0d — Hardware / OS requirement detection
+#### Task 0d — Hardware / OS / deployment-artifact requirement detection
 
 Grep existing docs and build files for:
 
@@ -94,8 +94,9 @@ Grep existing docs and build files for:
 - Target MCUs: `STM32`, `ESP32`, `RP2040`, `AVR`, `Cortex-M`, `ARM`, `RISC-V` (in PlatformIO / Arduino contexts)
 - OS version constraints: `Windows 10`, `Windows 11`, `macOS 13`, `Ubuntu 22.04`, `Sonoma`, `Ventura`
 - Memory/disk hints: `GB RAM`, `GB disk` in build/setup docs
+- Deployment/runtime artifacts (whole-token match, case-insensitive): `Web.config`, `web.config`, `IIS`, `Windows Service`, `.NET Framework`, `systemd unit`, `launchd plist`
 
-Record each match as the canonical token from the search lists above (e.g., `NVIDIA`, `CUDA`, `USB`, `STM32`, `Windows 10`, `macOS 13`) plus a source `<file>:<line>` reference. Do **not** copy free-text prose from the surrounding paragraph — only the canonical token the search matched. Drop any match whose token does not correspond to one of the listed search strings.
+Record each match as the canonical token from the search lists above (e.g., `NVIDIA`, `CUDA`, `USB`, `STM32`, `Windows 10`, `macOS 13`, `Web.config`, `IIS`) plus a source `<file>:<line>` reference. Do **not** copy free-text prose from the surrounding paragraph — only the canonical token the search matched. Drop any match whose token does not correspond to one of the listed search strings. `App.config` and `appsettings.json` are deliberately excluded — they are application configuration files present in virtually every .NET project, not deployment-host signals, and surfacing them as hardware/OS requirements would be noise. The genuine .NET deployment-host signals (`IIS`, `Windows Service`, `Web.config`) cover the actual hosting concern.
 
 #### Task 0e — Unsupported-Stack Fallback detection
 
