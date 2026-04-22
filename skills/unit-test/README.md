@@ -93,7 +93,7 @@ Each iteration:
 2. Auto-approves the test generation plan — skips the "Approve all / Selective / Skip" prompt
 3. Writes tests for each planned item, running each test immediately and fixing or flagging failures (up to 3 attempts per test)
 4. Runs the full test suite — reverts any newly-added test file that causes regressions
-5. Presents an **iteration report** — a table showing each test attempted, target, coverage delta, and status (pass / reverted / bug-found / abandoned)
+5. Presents an **iteration report** — a table showing each test attempted with file, target, and status (pass / reverted — test failure / bug-found / abandoned); cumulative coverage is shown once above the table
 6. Loops back to discovery for the next pass, or stops when a termination condition is met
 
 ### Key differences from normal mode
@@ -109,18 +109,16 @@ Each iteration:
 
 ### Iteration context
 
-On iterations 2+, the discovery agent receives a context block summarizing: test files added in prior iterations (to skip re-discovery), items previously reverted or abandoned (to avoid re-attempting), untestable code already flagged (to focus discovery on genuinely new items), and cumulative coverage delta so far. This keeps each iteration converging on new testable items rather than thrashing on items the previous pass already addressed.
+On iterations 2+, the discovery agent receives a context block summarizing: test files added in prior iterations (to skip re-discovery), items previously reverted, abandoned, or bug-found (to avoid re-attempting), untestable code already flagged (to focus discovery on genuinely new items), and cumulative coverage delta so far. This keeps each iteration converging on new testable items rather than thrashing on items the previous pass already addressed.
 
 ### Stop conditions
 
 Deep mode stops when any of the following conditions is met:
 
 - **Convergence** — no new testable items discovered this iteration
-- **All reverted** — every test added in an iteration caused failures
+- **All reverted** — at least one test was added this iteration and every one was reverted due to test failures
 - **Coverage plateau** *(when coverage tool is available)* — this iteration's coverage delta is ≤ 0.5 percentage points in absolute value
 - **Cap reached** — the iteration cap is reached (continue in a fresh conversation)
-
-Exact messages and the "plateau is skipped when coverage tool is unavailable" rule are in [skills/unit-test/SKILL.md](SKILL.md) under "Deep mode loop" (Step 4).
 
 From iteration 3 onward, a context-accumulation warning appears; if the cap is reached, all continuation options are framed under starting a fresh conversation. After all iterations complete, a **cumulative report** summarizes every test added across all iterations in a single table, plus aggregated Bugs Discovered and Not Testable Without Refactoring sections.
 

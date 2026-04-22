@@ -46,6 +46,30 @@ class TestRefactorHarnessContract:
         assert "parent directories" in text
 
 
+class TestUnitTestHarnessContract:
+    def test_harness_section_runs_steps_2_through_4(self):
+        text = _read("skills/unit-test/SKILL.md")
+        assert "HARNESS_MODE_ACTIVE" in text
+        # Load-bearing phrase: harness mode runs the full multi-step pipeline once
+        assert "run Steps 2–4 exactly once" in text
+        # Regression sentinel: pre-fix wording from the PR #93 family must not appear
+        assert "proceed directly to Step 5" not in text
+
+    def test_harness_output_step_emits_structured_json(self):
+        text = _read("skills/unit-test/SKILL.md")
+        # Step 6 emits the JSON block instead of the Step 5 summary
+        assert "json:harness-output" in text
+
+    def test_iteration_cap_contract_locked(self):
+        text = _read("skills/unit-test/SKILL.md")
+        # Default/hard-cap and clamp warnings are user-visible contract;
+        # silent drift (e.g. default 8 to match refactor) would break README
+        # consistency and validate.sh wiring.
+        assert "default 5, hard cap 10" in text
+        assert "Iteration cap clamped to 10 (maximum)." in text
+        assert "Iteration cap clamped to 1 (minimum)." in text
+
+
 class TestHarnessModeReferenceContract:
     def test_scope_files_override_is_conditional(self):
         text = _read("references/harness-mode.md")
