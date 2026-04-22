@@ -46,6 +46,63 @@ class TestRefactorHarnessContract:
         assert "parent directories" in text
 
 
+class TestUnitTestHarnessContract:
+    def test_harness_section_runs_steps_2_through_4(self):
+        text = _read("skills/unit-test/SKILL.md")
+        assert "HARNESS_MODE_ACTIVE" in text
+        # Load-bearing phrase: harness mode runs the full multi-step pipeline once
+        assert "run Steps 2–4 exactly once" in text
+        # Regression sentinel: pre-fix wording from the PR #93 family must not appear
+        assert "proceed directly to Step 5" not in text
+
+    def test_harness_output_step_emits_structured_json(self):
+        text = _read("skills/unit-test/SKILL.md")
+        # Step 6 emits the JSON block instead of the Step 5 summary
+        assert "json:harness-output" in text
+
+    def test_iteration_cap_contract_locked(self):
+        text = _read("skills/unit-test/SKILL.md")
+        # Default/hard-cap and clamp warnings are user-visible contract;
+        # silent drift (e.g. default 8 to match refactor) would break README
+        # consistency and validate.sh wiring.
+        assert "default 5, hard cap 10" in text
+        assert "Iteration cap clamped to 10 (maximum)." in text
+        assert "Iteration cap clamped to 1 (minimum)." in text
+
+    def test_deep_mode_test_command_fallback_wording(self):
+        text = _read("skills/unit-test/SKILL.md")
+        # Safety-net contract: when no test command is available, deep mode
+        # must fall back to normal mode rather than run unguarded auto-approve.
+        assert "Deep mode requires a test command for safe auto-approve" in text
+        assert "Falling back to normal mode" in text
+
+    def test_step_5_interactive_deep_mode_skip_contract(self):
+        text = _read("skills/unit-test/SKILL.md")
+        # Interactive deep mode replaces the single-pass Step 5 summary with
+        # the cumulative report; a silent drop would double-render the summary.
+        assert "Interactive deep mode:" in text
+        assert "the cumulative report rendered by the deep mode loop" in text
+
+    def test_coverage_plateau_threshold_locked(self):
+        # 0.5pp is the sole numeric knob for the plateau stop condition.
+        # README advertises "0.5 percentage points"; drift between the two
+        # would be silent — neither validate.sh nor any other test locks it.
+        skill = _read("skills/unit-test/SKILL.md")
+        readme = _read("skills/unit-test/README.md")
+        assert "0.5pp" in skill
+        assert "0.5 percentage points" in readme
+
+    def test_accumulated_items_entry_schema_fields(self):
+        # Convergence matching filters on `target` in `accumulated-items`;
+        # a silent rename of any field (file/target/iteration/status) would
+        # break the exact-match check with no loud failure.
+        text = _read("skills/unit-test/SKILL.md")
+        assert "**file**" in text
+        assert "**target**" in text
+        assert "**iteration**" in text
+        assert "**status**" in text
+
+
 class TestHarnessModeReferenceContract:
     def test_scope_files_override_is_conditional(self):
         text = _read("references/harness-mode.md")

@@ -461,6 +461,33 @@ if ! grep -q '^## How-to-Run Audit Results' skills/how-to-run/agents/how-to-run-
   wiring_errors+="  skills/how-to-run/agents/how-to-run-auditor.md missing '## How-to-Run Audit Results' return-format heading\n"
 fi
 
+# Unit-test deep-mode wiring: the Deep mode loop in skills/unit-test/SKILL.md
+# depends on exact-string status values, stop messages, and state variable names.
+# A silent rename (e.g., "bug-found" -> "bug_found") would leave the termination
+# conditions unmatched, the cumulative report mis-classified, or the analyzer's
+# iteration-context block lying — with no other check catching it.
+unit_test_skill="skills/unit-test/SKILL.md"
+for token in \
+  'accumulated-items' \
+  'accumulated-untestable' \
+  'accumulated-bugs' \
+  'iteration-count' \
+  'total-added' \
+  'total-reverted' \
+  'accumulated-coverage-delta' \
+  '`pass`' \
+  '`reverted — test failure`' \
+  '`bug-found`' \
+  '`abandoned`' \
+  'Deep mode complete — converged on iteration' \
+  'Deep mode stopped — all tests added in iteration' \
+  'Deep mode stopped — coverage plateau on iteration' \
+  'Deep mode reached the iteration cap'; do
+  if ! grep -qF "$token" "$unit_test_skill" 2>/dev/null; then
+    wiring_errors+="  $unit_test_skill missing deep-mode wiring token: $token\n"
+  fi
+done
+
 check "Load-bearing wiring intact" test -z "$wiring_errors"
 if [ -n "$wiring_errors" ]; then
   printf "       Wiring issues:\n%b" "$wiring_errors"
