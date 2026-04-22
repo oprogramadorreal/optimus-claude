@@ -113,7 +113,14 @@ On iterations 2+, the discovery agent receives a context block summarizing: test
 
 ### Stop conditions
 
-Deep mode stops on convergence, all-reverted, coverage plateau, or cap reached — exact thresholds and messages are defined in [skills/unit-test/SKILL.md](SKILL.md) under "Deep mode loop" (Step 4).
+Deep mode stops when any of the following conditions is met:
+
+- **Convergence** — no new testable items discovered this iteration
+- **All reverted** — every test added in an iteration caused failures
+- **Coverage plateau** *(when coverage tool is available)* — this iteration's coverage delta is ≤ 0.5 percentage points in absolute value
+- **Cap reached** — the iteration cap is reached (continue in a fresh conversation)
+
+Exact messages and the "plateau is skipped when coverage tool is unavailable" rule are in [skills/unit-test/SKILL.md](SKILL.md) under "Deep mode loop" (Step 4).
 
 From iteration 3 onward, a context-accumulation warning appears; if the cap is reached, all continuation options are framed under starting a fresh conversation. After all iterations complete, a **cumulative report** summarizes every test added across all iterations in a single table, plus aggregated Bugs Discovered and Not Testable Without Refactoring sections.
 
