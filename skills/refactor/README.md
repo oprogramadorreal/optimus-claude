@@ -152,6 +152,15 @@ Each iteration:
 
 ### Key differences from normal mode
 
+| Aspect | Normal mode | Deep mode |
+|--------|-------------|-----------|
+| Iterations | 1 (single pass, 15 findings) | Up to 10 (default 8) |
+| Apply approval | User chooses (Apply all / Selective / Skip) | Automatic (confirmed upfront) |
+| Test verification | After apply phase | After every iteration |
+| Failed fixes | Surfaced in the apply report | Per-change bisect reverts regressions; statuses tracked across iterations |
+| Output | Single plan + summary | Per-iteration report tables + cumulative summary |
+| Requirement | None | Test command in `.claude/CLAUDE.md` |
+
 Deep mode **applies changes automatically** at each iteration — it modifies your code, not just reports findings. It **requires a test command** (from `.claude/CLAUDE.md`) as its safety net; without one, it falls back to normal mode. All changes remain as local modifications — nothing is committed or pushed.
 
 ### Iteration context

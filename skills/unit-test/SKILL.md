@@ -93,9 +93,14 @@ If the user did not invoke with `deep`, skip this step.
 
 If the user selects **Normal mode**, set `deep-mode` to false and continue with the standard single-pass flow.
 
-If deep mode is confirmed, set `deep-mode` to true and initialize `iteration-count` to 1, `total-added` to 0, `total-reverted` to 0, `accumulated-coverage-delta` to 0, `accumulated-items` to an empty list, `accumulated-untestable` to an empty list, and `accumulated-bugs` to an empty list. Each entry in `accumulated-items` tracks: **file** (test file path), **target** (the `file:function/class` being tested, recorded in the same format the analyzer's Testability Classification emits — one entry per covered symbol, so convergence matching is uniform exact-match), **iteration** (which iteration added it), and **status** (`pass`, `reverted — test failure`, `bug-found`, or `abandoned`). `accumulated-untestable` collects items the analyzer classified as not-testable-without-refactoring across iterations; `accumulated-bugs` collects bugs discovered by test failures across iterations.
+If deep mode is confirmed, set `deep-mode` to true and initialize:
 
-Define the `[coverage-summary]` placeholder once: render as `+[accumulated-coverage-delta]pp` when the coverage tool is available (prefix negative deltas with `-` instead of `+`, e.g. `+2.5pp` or `-1.0pp`), or as `not measured` when the coverage tool is unavailable. Every downstream use (iteration-context block, iteration report, progress summary, cumulative report) applies this same rendering.
+- Counters: `iteration-count` = 1, `total-added` = 0, `total-reverted` = 0, `accumulated-coverage-delta` = 0
+- `accumulated-items` = empty list — each entry records **file** (test file path), **target** (the `file:function/class` being tested — one entry per covered symbol, so convergence matching is exact-match on this string), **iteration** (which iteration added it), and **status** (`pass` | `reverted — test failure` | `bug-found` | `abandoned`)
+- `accumulated-untestable` = empty list — items the analyzer classifies as not-testable-without-refactoring across iterations
+- `accumulated-bugs` = empty list — bugs discovered by test failures across iterations
+
+Define the `[coverage-summary]` placeholder once: when the coverage tool is available, render as `<sign><abs(accumulated-coverage-delta)>pp` where `<sign>` is `+` for values ≥ 0 and `-` for negative (e.g. `+2.5pp`, `-1.0pp`). When the coverage tool is unavailable, render as `not measured`. Every downstream use (iteration-context block, iteration report, progress summary, cumulative report) applies this same rendering.
 
 ## Step 2: Discovery & Coverage Analysis (agent-assisted)
 
@@ -231,7 +236,7 @@ For each approved item:
 
 After all tests are written, run the **full test suite** to ensure no regressions. Follow the verification protocol from `$CLAUDE_PLUGIN_ROOT/skills/init/references/verification-protocol.md` — run tests fresh, read complete output, and report actual results with evidence before claiming success.
 
-**In deep mode:** if the full-suite run reveals that a newly-added test file causes regressions (either the new test itself failing under the full suite, or causing other tests to fail), revert that test file and record its final status as `reverted — test failure` (to be appended by the Deep mode loop below). Otherwise, Per-test statuses carry through unchanged — only `pass` is eligible for promotion to `reverted — test failure` on full-suite breakage.
+**In deep mode:** if the full-suite run reveals that a newly-added test file causes regressions (either the new test itself failing under the full suite, or causing other tests to fail), revert that test file and promote its status from `pass` to `reverted — test failure` (to be appended by the Deep mode loop below). `abandoned` and `bug-found` statuses are not affected — only a `pass` is eligible for this promotion.
 
 ### Deep mode loop
 
@@ -239,12 +244,17 @@ After all tests are written, run the **full test suite** to ensure no regression
 
 **Normal mode and harness mode:** Skip this subsection — normal mode proceeds to Step 5; harness mode proceeds to Step 6.
 
-**Interactive deep mode:** After Final verification above completes for this iteration, append this iteration's results to `accumulated-items` — **one entry per covered symbol** (see Step 1 state init; a test file exercising 3 functions yields 3 entries). For each entry, record file path, target (format defined in Step 1 state init), current `iteration-count`, and status — the final per-item status settled during Per-test workflow and Final verification, one of `pass` | `reverted — test failure` | `bug-found` | `abandoned`. Update `total-added` by the count of passing tests added this iteration; update `total-reverted` by the count reverted; compute `iteration-coverage-delta` as the difference between current coverage and coverage at the start of this iteration (use `0` if the coverage tool is unavailable), then add `iteration-coverage-delta` to `accumulated-coverage-delta`.
+**Interactive deep mode:** After Final verification above completes for this iteration:
+
+1. Append this iteration's results to `accumulated-items` — **one entry per covered symbol** (a test file exercising 3 functions yields 3 entries). Each entry uses the schema defined in Step 1 state init (file, target, iteration, status), with status settled during Per-test workflow and Final verification.
+2. Update `total-added` by the count of entries with status `pass`.
+3. Update `total-reverted` by the count of entries with status `reverted — test failure`.
+4. Compute `iteration-coverage-delta` as the difference between current coverage and coverage at the start of this iteration (use `0` if the coverage tool is unavailable), then add it to `accumulated-coverage-delta`.
 
 Then check termination conditions in order; the first matching condition stops the loop:
 
 1. **No new testable items discovered this iteration** (convergence) → stop. Filter the discovery agent's Testability Classification Testable section against `accumulated-items` using exact-match on the `file:function/class` portion (format set in Step 1 state init). If every Testable entry is already a `target` in `accumulated-items`, convergence is reached. Report: "Deep mode complete — converged on iteration [N] with no remaining testable items."
-2. **All tests added this iteration were reverted** (at least one test was written and every one failed and was rolled back) → stop. Report: "Deep mode stopped — all tests added in iteration [N] caused failures."
+2. **No newly-written test passed verification** — at least one test was written this iteration AND `total-added` for this iteration is 0 (every attempt ended in `reverted — test failure`, `abandoned`, or `bug-found`) → stop. Report: "Deep mode stopped — all tests added in iteration [N] caused failures."
 3. **Coverage plateau** — coverage tool is available AND `|iteration-coverage-delta| ≤ 0.5pp` → stop. Report: "Deep mode stopped — coverage plateau on iteration [N]."
 4. **`iteration-count` >= the cap** → cap reached. Report: "Deep mode reached the iteration cap ([cap]). Remaining testable items may exist — continue in a fresh conversation: re-run `/optimus:unit-test deep`, increase the cap with `/optimus:unit-test deep [higher-cap]`, or narrow scope with `/optimus:unit-test deep <scope>`."
 5. **Otherwise** → continue to the next pass.
