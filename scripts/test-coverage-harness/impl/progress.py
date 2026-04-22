@@ -5,6 +5,7 @@ from harness_common.git import git_rev_parse_head
 from harness_common.progress import (  # noqa: F401
     read_progress,
     record_test_result,
+    record_timing,
     write_progress,
 )
 
@@ -36,6 +37,8 @@ def make_initial_progress(
             "base_commit": base_commit,
         },
         "cycle": {"current": 1, "completed": 0},
+        "timing": [],
+        "total_elapsed_seconds": 0,
         "phase": "unit-test",
         "coverage": {
             "baseline": None,

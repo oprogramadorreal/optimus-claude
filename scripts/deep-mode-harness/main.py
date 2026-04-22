@@ -82,10 +82,11 @@ from impl.progress import (
     migrate_progress,
     read_progress,
     record_test_result,
+    record_timing,
     write_progress,
 )
-from impl.reporting import detect_test_command, print_report
-from impl.runner import run_skill_session, run_tests
+from impl.reporting import detect_test_command, print_phase, print_report
+from impl.runner import retry_on_failure, run_skill_session, run_tests
 
 # ---------------------------------------------------------------------------
 # Argument parsing
@@ -436,31 +437,41 @@ def _handle_safe_exit(
 def _run_session_with_retry(
     args, progress, progress_path, pre_stash, pre_head, project_root, iteration
 ):
-    """Launch a claude session with one retry on failure.
+    """Launch a claude session with retry on failure.
 
-    Returns raw output on success, or None if both attempts failed.
+    Returns raw output on success, or None if all attempts failed.
     On failure, sets progress termination reason before returning.
     """
-    for attempt in range(2):
-        try:
-            return run_skill_session(progress, args, progress_path)
-        except (RuntimeError, subprocess.TimeoutExpired) as exc:
-            if isinstance(exc, subprocess.TimeoutExpired):
-                print(f"{PREFIX} Session timed out after {args.timeout}s")
-            else:
-                print(f"{PREFIX} Session error: {exc}")
-            restore_working_tree(pre_stash, pre_head, project_root)
-            if attempt == 0:
-                write_progress(progress_path, progress)
-                print(f"{PREFIX} Retrying iteration {iteration}...")
-            else:
-                print(f"{PREFIX} Iteration {iteration} failed after retry. Stopping.")
-                progress["termination"] = {
-                    "reason": "crash",
-                    "message": f"Session failed twice on iteration {iteration}: {exc}",
-                }
-                write_progress(progress_path, progress)
-                return None
+
+    def _on_retry(exc, delay):
+        if isinstance(exc, subprocess.TimeoutExpired):
+            print(f"{PREFIX} Session timed out after {args.timeout}s")
+        else:
+            print(f"{PREFIX} Session error: {exc}")
+        restore_working_tree(pre_stash, pre_head, project_root)
+        write_progress(progress_path, progress)
+        print(f"{PREFIX} Retrying iteration {iteration} in {delay:.0f}s...")
+
+    def _on_exhausted(exc):
+        if isinstance(exc, subprocess.TimeoutExpired):
+            print(f"{PREFIX} Session timed out after {args.timeout}s (final attempt)")
+        else:
+            print(f"{PREFIX} Session error (final attempt): {exc}")
+        print(f"{PREFIX} Iteration {iteration} failed after retries. Stopping.")
+        restore_working_tree(pre_stash, pre_head, project_root)
+        progress["termination"] = {
+            "reason": "crash",
+            "message": f"Session failed on iteration {iteration}: {exc}",
+        }
+        write_progress(progress_path, progress)
+
+    return retry_on_failure(
+        lambda: run_skill_session(progress, args, progress_path),
+        max_retries=1,
+        delay=5.0,
+        on_retry=_on_retry,
+        on_exhausted=_on_exhausted,
+    )
 
 
 def _recover_from_missing_output(
@@ -731,7 +742,6 @@ def _run_iteration_loop(
     skip_commits = args.no_commit
     while True:
         iteration = progress["iteration"]["current"]
-        print(f"{PREFIX} === Iteration {iteration}/{max_iter} ===")
         iteration_start = time.time()
 
         pre_head = git_rev_parse_head(project_root)
@@ -754,6 +764,7 @@ def _run_iteration_loop(
 
         write_progress(progress_path, progress)
 
+        print_phase(PREFIX, "iter", iteration, max_iter, "run")
         output = _run_session_with_retry(
             args,
             progress,
@@ -766,8 +777,10 @@ def _run_iteration_loop(
         if output is None:
             break
 
+        print_phase(PREFIX, "iter", iteration, max_iter, "parse")
         result = parse_harness_output(output)
         elapsed = int(time.time() - iteration_start)
+        record_timing(progress, f"iteration-{iteration}", elapsed)
 
         if result is None:
             result = _recover_from_missing_output(
@@ -782,6 +795,7 @@ def _run_iteration_loop(
             if result is None:
                 break
 
+        print_phase(PREFIX, "iter", iteration, max_iter, "apply")
         _promote_actionable_fixes(result)
 
         new_count = len(result.get("new_findings", []))

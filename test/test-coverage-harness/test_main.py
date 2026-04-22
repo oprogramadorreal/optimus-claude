@@ -880,8 +880,15 @@ class TestRunCycleLoop:
         assert progress["termination"]["reason"] == "error"
         assert "HEAD commit" in progress["termination"]["message"]
 
+    @patch("harness_common.runner.time.sleep")
     @patch("main.restore_working_tree")
-    @patch("main.run_coverage_session", side_effect=RuntimeError("session crash"))
+    @patch(
+        "main.run_coverage_session",
+        side_effect=[
+            RuntimeError("session crash"),
+            RuntimeError("session crash"),
+        ],
+    )
     @patch("main.git_stash_snapshot", return_value=None)
     @patch("main.git_rev_parse_head", return_value="abc123")
     @patch("main.write_progress")
@@ -892,6 +899,7 @@ class TestRunCycleLoop:
         mock_stash,
         mock_session,
         mock_restore,
+        mock_sleep,
         sample_coverage_progress,
         tmp_path,
     ):
@@ -903,7 +911,82 @@ class TestRunCycleLoop:
 
         assert progress["termination"]["reason"] == "crash"
         assert "Unit-test session failed" in progress["termination"]["message"]
-        mock_restore.assert_called_once()
+
+    @patch("harness_common.runner.time.sleep")
+    @patch("main.run_tests", return_value=(False, "fail"))
+    @patch("main.record_test_result")
+    @patch("main.parse_harness_output", return_value=None)
+    @patch("main.restore_working_tree")
+    @patch(
+        "main.run_coverage_session",
+        side_effect=[RuntimeError("first"), "ut output"],
+    )
+    @patch("main.git_stash_snapshot", return_value=None)
+    @patch("main.git_rev_parse_head", return_value="abc123")
+    @patch("main.write_progress")
+    def test_unit_test_retry_then_success_invokes_on_retry(
+        self,
+        mock_wp,
+        mock_head,
+        mock_stash,
+        mock_session,
+        mock_restore,
+        mock_parse,
+        mock_record,
+        mock_run_tests,
+        mock_sleep,
+        sample_coverage_progress,
+        tmp_path,
+        capsys,
+    ):
+        """First attempt raises; second succeeds — on_retry side-effects fire."""
+        args = self._make_args()
+        progress = sample_coverage_progress
+        progress["config"]["max_cycles"] = 1
+        progress_path = tmp_path / "progress.json"
+
+        _run_cycle_loop(args, progress, progress_path, tmp_path, "pytest", 1)
+
+        assert mock_session.call_count == 2
+        assert progress["termination"]["reason"] == "parse-failure"
+        assert "Retrying unit-test phase" in capsys.readouterr().out
+
+    @patch("harness_common.runner.time.sleep")
+    @patch("main.restore_working_tree")
+    @patch(
+        "main.run_coverage_session",
+        side_effect=[
+            subprocess.TimeoutExpired("claude", 900),
+            subprocess.TimeoutExpired("claude", 900),
+        ],
+    )
+    @patch("main.git_stash_snapshot", return_value=None)
+    @patch("main.git_rev_parse_head", return_value="abc123")
+    @patch("main.write_progress")
+    def test_unit_test_timeout_expired_messages(
+        self,
+        mock_wp,
+        mock_head,
+        mock_stash,
+        mock_session,
+        mock_restore,
+        mock_sleep,
+        sample_coverage_progress,
+        tmp_path,
+        capsys,
+    ):
+        """TimeoutExpired on both attempts produces distinct retry + final-attempt messages."""
+        args = self._make_args()
+        progress = sample_coverage_progress
+        progress["config"]["max_cycles"] = 1
+        progress_path = tmp_path / "progress.json"
+
+        _run_cycle_loop(args, progress, progress_path, tmp_path, "pytest", 1)
+
+        assert progress["termination"]["reason"] == "crash"
+        out = capsys.readouterr().out
+        assert "Unit-test session timed out after 900s" in out
+        assert "(final attempt)" in out
 
     @patch("main.restore_working_tree")
     @patch("main.run_tests", return_value=(False, "fail"))
@@ -1318,6 +1401,7 @@ class TestRunCycleLoop:
         assert len(progress["refactor_findings"]) == 1
         assert progress["termination"]["reason"] == "cap"
 
+    @patch("harness_common.runner.time.sleep")
     @patch("main.check_coverage_plateau", return_value=(False, ""))
     @patch("main.check_unit_test_convergence", return_value=(False, ""))
     @patch("main.restore_working_tree")
@@ -1340,6 +1424,7 @@ class TestRunCycleLoop:
         mock_restore,
         mock_ut_conv,
         mock_plateau,
+        mock_sleep,
         sample_coverage_progress,
         tmp_path,
     ):
@@ -1353,6 +1438,8 @@ class TestRunCycleLoop:
         mock_session.side_effect = [
             "ut output",
             RuntimeError("refactor crash"),
+            RuntimeError("refactor crash"),
+            RuntimeError("refactor crash"),
         ]
 
         args = self._make_args()
@@ -1363,6 +1450,113 @@ class TestRunCycleLoop:
 
         assert progress["termination"]["reason"] == "crash"
         assert "Refactor session failed" in progress["termination"]["message"]
+
+    @patch("harness_common.runner.time.sleep")
+    @patch("main.check_coverage_plateau", return_value=(False, ""))
+    @patch("main.check_unit_test_convergence", return_value=(False, ""))
+    @patch("main.restore_working_tree")
+    @patch("main.run_tests", return_value=(True, "ok"))
+    @patch("main.record_test_result")
+    @patch("main.record_cycle_history")
+    @patch("main.parse_harness_output")
+    @patch("main.run_coverage_session")
+    @patch("main.git_rev_parse_head", return_value="abc123")
+    @patch("main.write_progress")
+    def test_refactor_retry_then_success_invokes_on_retry(
+        self,
+        mock_wp,
+        mock_head,
+        mock_session,
+        mock_parse,
+        mock_record_cycle,
+        mock_record_test,
+        mock_run_tests,
+        mock_restore,
+        mock_ut_conv,
+        mock_plateau,
+        mock_sleep,
+        sample_coverage_progress,
+        tmp_path,
+        capsys,
+    ):
+        """Refactor first attempt raises; second succeeds — on_retry side-effects fire."""
+        ut_result = {
+            "tests_written": [],
+            "coverage": {},
+            "untestable_code": [{"file": "src/db.py", "barrier": "x"}],
+            "bugs_discovered": [],
+        }
+        mock_parse.side_effect = [ut_result, None]
+        mock_session.side_effect = [
+            "ut output",
+            RuntimeError("rf crash"),
+            "rf output",
+        ]
+
+        args = self._make_args()
+        progress = sample_coverage_progress
+        progress["config"]["max_cycles"] = 1
+        progress_path = tmp_path / "progress.json"
+
+        _run_cycle_loop(args, progress, progress_path, tmp_path, "pytest", 1)
+
+        assert mock_session.call_count == 3
+        assert "Retrying refactor phase" in capsys.readouterr().out
+
+    @patch("harness_common.runner.time.sleep")
+    @patch("main.check_coverage_plateau", return_value=(False, ""))
+    @patch("main.check_unit_test_convergence", return_value=(False, ""))
+    @patch("main.restore_working_tree")
+    @patch("main.run_tests", return_value=(True, "ok"))
+    @patch("main.record_test_result")
+    @patch("main.record_cycle_history")
+    @patch("main.parse_harness_output")
+    @patch("main.run_coverage_session")
+    @patch("main.git_rev_parse_head", return_value="abc123")
+    @patch("main.write_progress")
+    def test_refactor_timeout_expired_messages(
+        self,
+        mock_wp,
+        mock_head,
+        mock_session,
+        mock_parse,
+        mock_record_cycle,
+        mock_record_test,
+        mock_run_tests,
+        mock_restore,
+        mock_ut_conv,
+        mock_plateau,
+        mock_sleep,
+        sample_coverage_progress,
+        tmp_path,
+        capsys,
+    ):
+        """Refactor TimeoutExpired on both attempts produces distinct retry + final messages."""
+        ut_result = {
+            "tests_written": [],
+            "coverage": {},
+            "untestable_code": [{"file": "src/db.py", "barrier": "x"}],
+            "bugs_discovered": [],
+        }
+        mock_parse.return_value = ut_result
+        mock_session.side_effect = [
+            "ut output",
+            subprocess.TimeoutExpired("claude", 900),
+            subprocess.TimeoutExpired("claude", 900),
+        ]
+
+        args = self._make_args()
+        progress = sample_coverage_progress
+        progress["config"]["max_cycles"] = 1
+        progress_path = tmp_path / "progress.json"
+
+        _run_cycle_loop(args, progress, progress_path, tmp_path, "pytest", 1)
+
+        assert progress["termination"]["reason"] == "crash"
+        assert "Refactor session failed" in progress["termination"]["message"]
+        out = capsys.readouterr().out
+        assert "Refactor session timed out after 900s" in out
+        assert "(final attempt)" in out
 
     @patch("main.check_unit_test_convergence", return_value=(False, ""))
     @patch("main.run_tests", return_value=(True, "ok"))

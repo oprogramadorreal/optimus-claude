@@ -1,6 +1,7 @@
 import shutil
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 from .constants import DEFAULT_TEST_TIMEOUT
@@ -133,3 +134,29 @@ def run_tests(test_command, cwd, timeout=DEFAULT_TEST_TIMEOUT, prefix="[harness]
     status = "PASS" if passed else "FAIL"
     print(f"{prefix} Tests: {status}")
     return passed, summary
+
+
+def retry_on_failure(
+    fn,
+    max_retries=1,
+    delay=5.0,
+    on_retry=None,
+    on_exhausted=None,
+):
+    """Call *fn* with a fixed delay between retries on RuntimeError / subprocess.TimeoutExpired.
+
+    Other exceptions propagate. Returns *fn*'s result on success, or None when
+    all attempts fail.
+    """
+    for attempt in range(max_retries + 1):
+        try:
+            return fn()
+        except (RuntimeError, subprocess.TimeoutExpired) as exc:
+            if attempt < max_retries:
+                if on_retry:
+                    on_retry(exc, delay)
+                time.sleep(delay)
+            else:
+                if on_exhausted:
+                    on_exhausted(exc)
+                return None

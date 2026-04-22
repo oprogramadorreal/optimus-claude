@@ -1,7 +1,10 @@
 import subprocess
 
 from harness_common.constants import DEFAULT_TEST_TIMEOUT, normalize_path
-from harness_common.runner import build_claude_session_cmd
+from harness_common.runner import (  # noqa: F401
+    build_claude_session_cmd,
+    retry_on_failure,
+)
 from harness_common.runner import run_tests as _shared_run_tests
 
 from .constants import PREFIX

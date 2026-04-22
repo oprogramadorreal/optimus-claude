@@ -1,4 +1,9 @@
 from harness_common.git import git_current_branch
+from harness_common.reporting import (  # noqa: F401
+    detect_test_command,
+    format_elapsed,
+    print_phase,
+)
 
 from .constants import FIXED_STATUSES, PREFIX
 
@@ -34,6 +39,9 @@ def print_report(progress, current_branch=None):
         print(f"{PREFIX}   Still untestable: {len(untestable)}")
     if bugs:
         print(f"{PREFIX}   Bugs discovered:  {len(bugs)}")
+    total_elapsed = progress.get("total_elapsed_seconds", 0)
+    if total_elapsed:
+        print(f"{PREFIX}   Elapsed:          {format_elapsed(total_elapsed)}")
     print(f"{PREFIX}   Final tests:      {last_test}")
 
     termination = progress["termination"]

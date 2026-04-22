@@ -1,7 +1,12 @@
 import subprocess
 from unittest.mock import MagicMock, patch
 
-from harness_common.runner import _find_bash, run_tests
+import pytest
+from harness_common.runner import (
+    _find_bash,
+    retry_on_failure,
+    run_tests,
+)
 
 
 class TestFindBash:
@@ -225,3 +230,93 @@ class TestFindBashGitExecPath:
                 mock_path_cls.return_value = mock_instance
                 result = _find_bash()
         assert result == "bash"
+
+
+class TestRetryOnFailure:
+    def test_success_no_retry(self):
+        result = retry_on_failure(lambda: 42)
+        assert result == 42
+
+    def test_retries_on_failure(self):
+        calls = []
+
+        def flaky():
+            calls.append(1)
+            if len(calls) < 2:
+                raise RuntimeError("fail")
+            return "ok"
+
+        result = retry_on_failure(flaky, max_retries=2, delay=0.01)
+        assert result == "ok"
+        assert len(calls) == 2
+
+    def test_exhausted_returns_none(self):
+        exhausted_called = []
+
+        def always_fail():
+            raise RuntimeError("always")
+
+        result = retry_on_failure(
+            always_fail,
+            max_retries=1,
+            delay=0.01,
+            on_exhausted=lambda exc: exhausted_called.append(str(exc)),
+        )
+        assert result is None
+        assert len(exhausted_called) == 1
+
+    def test_on_retry_callback(self):
+        retries = []
+
+        def fail_once():
+            if not retries:
+                retries.append(1)
+                raise RuntimeError("once")
+            return "done"
+
+        retry_on_failure(
+            fail_once,
+            max_retries=1,
+            delay=0.01,
+            on_retry=lambda exc, delay: retries.append(("retry", str(exc), delay)),
+        )
+        assert ("retry", "once", 0.01) in retries
+
+    def test_non_retryable_exception_propagates(self):
+        def raise_value_error():
+            raise ValueError("not retryable")
+
+        with pytest.raises(ValueError):
+            retry_on_failure(raise_value_error, max_retries=2, delay=0.01)
+
+    def test_retries_on_timeout_expired(self):
+        """subprocess.TimeoutExpired is retried alongside RuntimeError."""
+        calls = []
+
+        def flaky_timeout():
+            calls.append(1)
+            if len(calls) < 2:
+                raise subprocess.TimeoutExpired("claude", 900)
+            return "ok"
+
+        result = retry_on_failure(flaky_timeout, max_retries=2, delay=0.01)
+        assert result == "ok"
+        assert len(calls) == 2
+
+    def test_exhausted_without_callback_returns_none(self):
+        """Exhaustion path must not require on_exhausted to be provided."""
+
+        def always_fail():
+            raise RuntimeError("always")
+
+        result = retry_on_failure(always_fail, max_retries=1, delay=0.01)
+        assert result is None
+
+    def test_timeout_expired_exhausted_returns_none(self):
+        """subprocess.TimeoutExpired exhausts retries and returns None."""
+
+        def always_timeout():
+            raise subprocess.TimeoutExpired("claude", 900)
+
+        result = retry_on_failure(always_timeout, max_retries=1, delay=0.01)
+        assert result is None

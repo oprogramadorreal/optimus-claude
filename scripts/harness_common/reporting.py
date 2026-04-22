@@ -40,3 +40,20 @@ def detect_test_command(project_root, content=None):
                 return re.sub(r"\s+#\s.*$", "", line)
 
     return None
+
+
+def print_phase(prefix, unit, current, total, phase):
+    """Emit a single-line phase banner for in-flight debugging.
+
+    Example: ``[harness] [iter 3/10 · run]``. *unit* is "iter" or "cycle".
+    """
+    print(f"{prefix} [{unit} {current}/{total} \u00b7 {phase}]")
+
+
+def format_elapsed(total_seconds):
+    """Format seconds as a human-readable 'Xm Ys' string."""
+    minutes = int(total_seconds) // 60
+    seconds = int(total_seconds) % 60
+    if minutes > 0:
+        return f"{minutes}m {seconds}s"
+    return f"{seconds}s"

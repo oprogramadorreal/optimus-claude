@@ -1,7 +1,11 @@
 from harness_common.git import git_current_branch
 
-# Re-export shared function for backward compatibility
-from harness_common.reporting import detect_test_command  # noqa: F401
+# Re-export shared functions for backward compatibility
+from harness_common.reporting import (  # noqa: F401
+    detect_test_command,
+    format_elapsed,
+    print_phase,
+)
 
 from .constants import FIXED_STATUSES, PERSISTENT_STATUS, PREFIX, REVERTED_STATUSES
 
@@ -25,6 +29,9 @@ def print_report(progress, current_branch=None, _get_branch=None):
     print(f"{PREFIX}   Fixed:         {total_fixed}")
     print(f"{PREFIX}   Reverted:      {total_reverted}")
     print(f"{PREFIX}   Persistent:    {total_persistent}")
+    total_elapsed = progress.get("total_elapsed_seconds", 0)
+    if total_elapsed:
+        print(f"{PREFIX}   Elapsed:       {format_elapsed(total_elapsed)}")
     print(f"{PREFIX}   Final tests:   {last_test}")
 
     termination = progress["termination"]
