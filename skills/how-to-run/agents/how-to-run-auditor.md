@@ -58,7 +58,13 @@ You will receive three pieces of context before this prompt:
    - **Found but outdated** — documents this aspect BUT details contradict current state
    - **Partial** — mentions this aspect but lacks actionable detail
    - **Missing** — no mention found in any scanned document
-   - **Documented but unverifiable** — the doc mentions the aspect, but the detector has no codebase signal to confirm or refute it (e.g., a documented GPU requirement when no GPU-related build flags exist, or a documented sibling-repo URL the detector cannot find in build files). Also classify as unverifiable: **conditional caveats** describing behavior when a prerequisite is missing (e.g., "Developers without access can still build the frontend, but custom theming will be missing"), **workspace characterization sentences** describing build/deploy artifacts the detector's Task 0d canonical-token list does not cover, and **team/access conventions** ("Contact X for credentials", "Requires Y group membership"). These items must be surfaced separately so the user can decide per item.
+   - **Documented but unverifiable** — the doc mentions the aspect, but the detector has no codebase signal to confirm or refute it. Classify all of the following as unverifiable:
+     - **codebase-signal gaps** (e.g., "Requires an NVIDIA GPU" when no CUDA or graphics build flags appear in build files)
+     - **conditional caveats** describing behavior when a prerequisite is missing (e.g., "Developers without access can still build the frontend, but custom theming will be missing")
+     - **workspace characterization sentences** describing build/deploy artifacts the detector's Task 0d canonical-token list does not cover (e.g., "The backend is deployed as a Windows service on the prod cluster")
+     - **team/access conventions** (e.g., "Contact X for credentials", "Requires Y group membership")
+
+     These items must be surfaced separately so the user can decide per item.
 
 5. **Cross-check** documented commands and facts against Context Detection Results:
    - Package manager commands: does the documented PM match the detected PM?
