@@ -106,7 +106,7 @@ Only include this section when the project has a non-trivial compile/build step 
 
 ### Source Dependencies
 
-Scope rule: **Source Dependencies is fix-after-clone only.** The primary `git clone` for the repository lives in the Installation section below — having two clone blocks in the same doc forces the reader to guess which to run. Source Dependencies documents what must additionally be pulled or initialized after the main clone.
+Scope rule: **Source Dependencies is fix-after-clone only.** The primary `git clone` lives in the Installation section below; this section documents what must be pulled or initialized after the main clone.
 
 ```markdown
 ### Source Dependencies
@@ -145,14 +145,23 @@ External sources are fetched automatically by CMake during configuration — no 
 ```markdown
 ### Installation
 
-Clone the repository[ with submodules]:
+[If .gitmodules is present at the repo root:]
+
+Clone the repository with submodules:
 
 \`\`\`bash
-git clone [--recursive ]<repo-url>
+git clone --recursive <repo-url>
 cd "<project-name>"
 \`\`\`
 
-[Substitution rule: when `.gitmodules` is present at the repo root, render the phrase ` with submodules` in the sentence and the flag `--recursive ` in the command. When absent, both bracketed tokens collapse to the empty string, yielding the plain `git clone <repo-url>` form.]
+[Otherwise:]
+
+Clone the repository:
+
+\`\`\`bash
+git clone <repo-url>
+cd "<project-name>"
+\`\`\`
 
 [For projects with language-level package managers:]
 
@@ -186,17 +195,13 @@ Generate code:
 <codegen command>
 \`\`\`
 
-[If ORM migration tooling, raw SQL bootstrap scripts, or seed files detected — emit the Schema Bootstrap block below. When only one option was detected, render only that bullet (no "Choose one:" framing). When two or more options were detected, render the "Choose one:" framing + every detected bullet so the reader picks.]
+[If ORM migration tooling, raw SQL bootstrap scripts, or seed files detected — emit the Schema Bootstrap sub-block shown below inside the Installation section. Render the heading and one bullet per detected option, in the detector's report order. The bullet order is not a recommendation — when multiple options render, the reader picks whichever matches their stack.]
 
-**Schema Bootstrap block (detection-order rendering, NOT priority):**
-
-Initialize database schema. Choose one:
+Initialize database schema (apply the matching option below for this project's stack):
 
 - [If ORM migration tooling detected:] Apply migrations: `<migration command>`.
 - [If raw SQL bootstrap scripts detected:] Execute the bootstrap script against the database: `<invocation-hint from detector>` (e.g., `sqlcmd -i db/DatabaseNew.sql`, `psql -f db/schema.sql`, `mysql < db/schema.sql`).
-- [If seed scripts detected:] Run the seed script: `<invocation-hint from detector>` (e.g., `rails db:seed`, `mix ecto.seed`, `tsx prisma/seed.ts`, `python manage.py loaddata <fixture>`).
-
-The order of bullets reflects the detector's report order, not a recommendation. Teams on the same stack choose differently — the reader picks.
+- [If seed scripts detected:] Run the seed script: `<invocation-hint from detector>` (the detector substitutes `<file>` with the actual fixture filename, e.g., `rails db:seed`, `mix ecto.seed`, `tsx prisma/seed.ts`, `python manage.py loaddata fixtures/initial_data.json`).
 ```
 
 ### External Services
@@ -251,9 +256,11 @@ Rules that apply to both branches:
 
 ### Environment Setup
 
-Pick the sub-template that matches the detector's Environment Setup table. When both a dotenv template AND framework config files exist, render both sub-templates under the same H3, dotenv first.
+Pick the sub-template that matches the detector's Environment Setup table. When both a dotenv file AND framework config files exist, emit a single `### Environment Setup` heading and render (a)'s body first (without its own heading), then (b)'s body (also without its own heading). When only one kind of file exists, render only that sub-template with its heading intact.
 
 **(a) Dotenv-driven environment**
+
+Use when the detector reports at least one Environment Setup row with `Format: dotenv`.
 
 ```markdown
 ### Environment Setup
@@ -269,12 +276,12 @@ cp .env.example .env
 
 **(b) Config-file-driven environment (non-dotenv stacks)**
 
-Use when the detector reports Environment Setup rows with `Format: json` / `yaml` / `properties` / `exs` / `php` / `toml` and no `.env.example` exists. Spring Boot, ASP.NET Core, Rails, Phoenix/Elixir, Laravel, and Go-with-Viper stacks all hit this path.
+Use when the detector reports Environment Setup rows with `Format: json` / `yaml` / `properties` / `exs` / `php` / `toml`. When (a) is NOT rendered above (no dotenv file detected), open with the stand-alone sentence: `There is no <code>.env.example</code> template. Local configuration lives in...`. When (a) IS rendered above, drop the "There is no `.env.example` template." sentence and open with `Additionally, local configuration lives in...`.
 
 ```markdown
 ### Environment Setup
 
-There is no `.env.example` template. Local configuration lives in `<config file>` (format: `<format>`). The file is committed with development defaults; override locally by editing it or by setting the runtime environment variables listed in `<launch-file or override-hint>`.
+There is no `.env.example` template. Local configuration lives in `<config file>` (format: `<format>`). The file is committed with development defaults; override locally by editing it or by setting the matching runtime environment variables.
 
 Top-level sections that require values before running locally:
 
@@ -323,7 +330,7 @@ Include this section only for compiled stacks where build is distinct from run (
 
 ### Running in Development
 
-Pick the sub-template that matches the detected run mode. **The `Expected result:` line is mandatory in every sub-template** — it gives the reader a concrete success check and is the fastest way to diagnose a silent-start failure. If the detector cannot supply a verifiable result (no port / no window / no console output that can be asserted), emit the literal placeholder `Expected result: <unknown — verify manually>` rather than skipping the line. The placeholder makes the gap visible and discourages shipping a doc where the reader cannot tell whether their start command worked.
+Pick the sub-template that matches the detected run mode. **The `Expected result:` line is mandatory in every sub-template.** When no concrete check is available (no port, window, or stdout to assert), emit the literal placeholder `Expected result: <unknown — verify manually>`.
 
 When more than one component must run (backend + frontend, producer + worker), prefix the block with a `Start order:` line naming the component that must start first and why. Example: `Start order: backend first (frontend's local config expects it), then frontend. Use two shells.`
 

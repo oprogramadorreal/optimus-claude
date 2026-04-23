@@ -10,8 +10,11 @@ Many projects lack step-by-step "how to get this running on my machine" instruct
 - Detects build system, toolchain, SDKs, runtime version constraints, and dev commands from manifests and build files
 - Discovers source dependencies — git submodules from `.gitmodules`, sibling repos from CMake `FetchContent`/`ExternalProject`/hardcoded `../sibling` paths in build & CI files
 - Discovers external services from docker-compose (databases, queues, caches) and generates startup instructions
-- When no `docker-compose.yml` covers a service, classifies each one as **Docker-preferred**, **Shared-cloud primary** (with Docker as offline alternative when a vendor image exists, otherwise shared-cloud only), or **Local install only**, and emits a `docker run` snippet with a vendor-cited image reference (never guessed from model memory). GUI tools and CLI tools (see [`references/external-services-docker.md`](references/external-services-docker.md) §Service Classification Tables) always render as local install. Registry allowlist bounds supply-chain risk.
+- Also discovers external services from framework config files (`appsettings*.json`, `application.yml`, `config/*.exs`, Rails `config/*.yml`, Laravel `config/*.php`) — rendered with a `(candidate)` marker so compose-confirmed and config-file-inferred services are distinguishable
+- When no `docker-compose.yml` covers a service, classifies each one as **Docker-preferred**, **Shared-cloud primary** (with Docker as offline alternative when a vendor image exists, otherwise shared-cloud only), or **Local install only**, and emits a `docker run` snippet with a vendor-cited image reference (never guessed from model memory). Vendor-branded cloud services (AWS S3/SNS/SQS, Azure Cosmos DB, Firebase, GCP Pub/Sub) resolve to their local emulators (LocalStack, Azurite, Firebase Local Emulator Suite, etc.) via the Vendor-Service → Emulator Index. GUI tools and CLI tools (see [`references/external-services-docker.md`](references/external-services-docker.md) §Service Classification Tables) always render as local install. Registry allowlist bounds supply-chain risk.
 - Detects required SDKs and system packages (Vulkan, CUDA, Qt, JDK, .NET SDK, MSVC Build Tools) and hardware/OS requirements
+- Detects schema-bootstrap scripts (raw `.sql` files, `db/seeds.rb`, `priv/repo/seeds.exs`, Django fixtures, Prisma seed scripts) alongside ORM migrations
+- Detects recommended developer tools (browsers, IDEs, DB GUIs, API debuggers) mentioned in existing READMEs and surfaces them under Prerequisites
 - Scans existing docs (`HOW-TO-RUN.md`, `README.md`, `CONTRIBUTING.md`, `BUILDING.md`, `INSTALL.md`, `docs/*`) as hypotheses and verifies every fact against the actual codebase
 - Generates only applicable sections from a 10-item catalog: prerequisites, toolchain & SDKs, source dependencies, installation, external services, environment, build, running, testing, common issues
 - **Write-only to `HOW-TO-RUN.md`** — never modifies any other file. Outdated info found elsewhere is reported to the user at the end so they can fix it manually.
@@ -50,12 +53,12 @@ The skill analyzes your project, scans existing documentation as hypotheses, and
 
 ### Generated sections (only applicable ones)
 
-1. **Prerequisites** — OS version constraints, hardware requirements, system tools, version managers
+1. **Prerequisites** — OS version constraints, hardware requirements, system tools, version managers, plus a *Recommended developer tools* sub-list when browsers, IDEs, DB GUIs, or API tools are mentioned in existing docs
 2. **Toolchain & SDKs** — compiler, build-tool versions, language SDKs, domain SDKs (Vulkan/CUDA/Qt/JDK/.NET). Per-OS install commands when multiple OSes are plausible.
 3. **Source Dependencies** — git submodules, sibling repos, CMake FetchContent
 4. **Installation** — clone, language-level deps, vendored deps (vcpkg/Conan), post-install (code generation, migrations)
-5. **External Services** — docker-compose services with ports and purpose, or per-service Docker-preferred / Shared-cloud primary / Local install only rendering when compose does not cover the service (with vendor-cited image references)
-6. **Environment Setup** — copy `.env.example`, describe required variables
+5. **External Services** — docker-compose services with ports and purpose, or per-service Docker-preferred / Shared-cloud primary / Local install only rendering when compose does not cover the service (with vendor-cited image references). Framework-config-discovered services render with a `(candidate)` marker.
+6. **Environment Setup** — either dotenv-driven (copy `.env.example`, describe variables) or config-file-driven (list top-level sections from `appsettings*.json` / `application.yml` / `config/*.exs` / etc.) — both templates render when both kinds of files exist
 7. **Build** — explicit compile/link command for compiled stacks
 8. **Running in Development** — dev command, produced-binary launcher, or engine launcher. Expected URL/port/window
 9. **Running Tests** — test and coverage commands

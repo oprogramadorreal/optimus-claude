@@ -72,12 +72,12 @@ Each item lists: (1) the gap, (2) files to change, (3) the concrete change, (4) 
 
 #### 1. Detect external services from framework config files, not just `docker-compose.yml` + ORM migrations
 
-**Gap.** The detector's External Services source list (Task 5 in [project-environment-detector.md](../../../skills/how-to-run/agents/project-environment-detector.md)) covers `docker-compose.yml`, `database.yml`, `prisma/schema.prisma`, `alembic.ini`, `knexfile.*`, `ormconfig.*`, and migration directories. Services wired up through framework config files (authority URLs, SNS topic ARNs, Firebase project IDs, internal REST endpoints) are invisible. This is what pruned ISA's table from 7 → 4 and would do the same to any Spring/Rails/Elixir/.NET/Laravel project.
+**Gap.** The detector's External Services source list (Task 5 in [project-environment-detector.md](../skills/how-to-run/agents/project-environment-detector.md)) covers `docker-compose.yml`, `database.yml`, `prisma/schema.prisma`, `alembic.ini`, `knexfile.*`, `ormconfig.*`, and migration directories. Services wired up through framework config files (authority URLs, SNS topic ARNs, Firebase project IDs, internal REST endpoints) are invisible. This is what pruned ISA's table from 7 → 4 and would do the same to any Spring/Rails/Elixir/.NET/Laravel project.
 
 **Files.**
-- [skills/how-to-run/agents/project-environment-detector.md](../../../skills/how-to-run/agents/project-environment-detector.md) — add Task 5b, extend return schema with a `Confidence` column.
-- [skills/how-to-run/references/how-to-run-sections.md](../../../skills/how-to-run/references/how-to-run-sections.md) — add a signal row mapping app-config service references to External Services.
-- [skills/how-to-run/references/external-services-docker.md](../../../skills/how-to-run/references/external-services-docker.md) — extend §Service Classification Tables to resolve `<vendor>Settings` suffixes and auth-config names to `cloud-native-only`.
+- [skills/how-to-run/agents/project-environment-detector.md](../skills/how-to-run/agents/project-environment-detector.md) — add Task 5b, extend return schema with a `Confidence` column.
+- [skills/how-to-run/references/how-to-run-sections.md](../skills/how-to-run/references/how-to-run-sections.md) — add a signal row mapping app-config service references to External Services.
+- [skills/how-to-run/references/external-services-docker.md](../skills/how-to-run/references/external-services-docker.md) — extend §Service Classification Tables to resolve `<vendor>Settings` suffixes and auth-config names to `cloud-native-only`.
 
 **Concrete change.** Add **Task 5b — Detect external services from framework config files**:
 
@@ -102,11 +102,11 @@ Extend the `cloud-native-only` classification: service names matching `OIDC`/`Op
 
 #### 2. Enumerate environment config keys from app-config files, not just `.env.example`
 
-**Gap.** [Task 6](../../../skills/how-to-run/agents/project-environment-detector.md) reads `.env.example`/`.env.sample`/`.env.template` only. Projects configured via `appsettings.json`, `application.yml`, Rails `config/secrets.yml`, or Spring profile files produce an empty Environment Setup — the 18 → 5 collapse. The template at [how-to-run-sections.md §Environment Setup](../../../skills/how-to-run/references/how-to-run-sections.md) assumes `.env.example` → `.env`.
+**Gap.** [Task 6](../skills/how-to-run/agents/project-environment-detector.md) reads `.env.example`/`.env.sample`/`.env.template` only. Projects configured via `appsettings.json`, `application.yml`, Rails `config/secrets.yml`, or Spring profile files produce an empty Environment Setup — the 18 → 5 collapse. The template at [how-to-run-sections.md §Environment Setup](../skills/how-to-run/references/how-to-run-sections.md) assumes `.env.example` → `.env`.
 
 **Files.**
-- [skills/how-to-run/agents/project-environment-detector.md](../../../skills/how-to-run/agents/project-environment-detector.md) — extend Task 6 to enumerate top-level sections of detected app-config files.
-- [skills/how-to-run/references/how-to-run-sections.md](../../../skills/how-to-run/references/how-to-run-sections.md) — add a "Config-file-driven environment (non-dotenv stacks)" template variant.
+- [skills/how-to-run/agents/project-environment-detector.md](../skills/how-to-run/agents/project-environment-detector.md) — extend Task 6 to enumerate top-level sections of detected app-config files.
+- [skills/how-to-run/references/how-to-run-sections.md](../skills/how-to-run/references/how-to-run-sections.md) — add a "Config-file-driven environment (non-dotenv stacks)" template variant.
 
 **Concrete change.** Extend Task 6's Environment Setup return schema: `File`, `Format` (`dotenv`/`json`/`yaml`/`properties`/`exs`), `Variable count`, `Key variables` (top-level section names or env-var names). Cap `Key variables` **at 25 names per file** (see Resolution #2).
 
@@ -137,10 +137,10 @@ SKILL.md Step 4 picks template (a) when `.env.example` exists, (b) when only app
 
 #### 3. Vendor-service → emulator mapping in the canonical image catalogue
 
-**Gap.** [§Canonical Image Catalogue](../../../skills/how-to-run/references/external-services-docker.md) is keyed by exact service name. Decision Heuristics rule 3 sets the Docker alternative only "if the service type appears in the canonical image catalogue" — so a detected `AWS S3` finds no row, Alternative becomes `—`, and LocalStack is dropped. Same miss affects DynamoDB (vendor emulator exists), Cosmos DB (emulator in Known Vendor Emulators but no path from service name), Pub/Sub, and anything Azure Blob Storage-shaped.
+**Gap.** [§Canonical Image Catalogue](../skills/how-to-run/references/external-services-docker.md) is keyed by exact service name. Decision Heuristics rule 3 sets the Docker alternative only "if the service type appears in the canonical image catalogue" — so a detected `AWS S3` finds no row, Alternative becomes `—`, and LocalStack is dropped. Same miss affects DynamoDB (vendor emulator exists), Cosmos DB (emulator in Known Vendor Emulators but no path from service name), Pub/Sub, and anything Azure Blob Storage-shaped.
 
 **Files.**
-- [skills/how-to-run/references/external-services-docker.md](../../../skills/how-to-run/references/external-services-docker.md) — add a *Vendor-Service → Emulator Index*, update rule 3, append Azurite to the Canonical Image Catalogue.
+- [skills/how-to-run/references/external-services-docker.md](../skills/how-to-run/references/external-services-docker.md) — add a *Vendor-Service → Emulator Index*, update rule 3, append Azurite to the Canonical Image Catalogue.
 
 **Concrete change.** Insert a new section between *Canonical Image Catalogue* and *Known Vendor Emulators*:
 
@@ -171,11 +171,11 @@ Update rule 3's "Step 3 provisional Alternative" text:
 
 #### 4. Detect schema bootstrap via raw SQL scripts and seed files, not just ORM migrations
 
-**Gap.** [Task 5](../../../skills/how-to-run/agents/project-environment-detector.md) detects `prisma/schema.prisma`, `alembic.ini`, `knexfile.*`, `ormconfig.*`, and migration directories — but a raw `DatabaseNew.sql`/`Database.sql`/`db/seeds.rb`/`priv/repo/seeds.exs` is invisible. The old ISA doc enumerated three bootstrap paths; the new doc dropped SQL-script bootstrap entirely. Hits any project that ships raw SQL init scripts or language-specific seed files.
+**Gap.** [Task 5](../skills/how-to-run/agents/project-environment-detector.md) detects `prisma/schema.prisma`, `alembic.ini`, `knexfile.*`, `ormconfig.*`, and migration directories — but a raw `DatabaseNew.sql`/`Database.sql`/`db/seeds.rb`/`priv/repo/seeds.exs` is invisible. The old ISA doc enumerated three bootstrap paths; the new doc dropped SQL-script bootstrap entirely. Hits any project that ships raw SQL init scripts or language-specific seed files.
 
 **Files.**
-- [skills/how-to-run/agents/project-environment-detector.md](../../../skills/how-to-run/agents/project-environment-detector.md) — add schema-bootstrap detection to Task 6.
-- [skills/how-to-run/references/how-to-run-sections.md](../../../skills/how-to-run/references/how-to-run-sections.md) — extend the Installation template with a schema-bootstrap sub-block.
+- [skills/how-to-run/agents/project-environment-detector.md](../skills/how-to-run/agents/project-environment-detector.md) — add schema-bootstrap detection to Task 6.
+- [skills/how-to-run/references/how-to-run-sections.md](../skills/how-to-run/references/how-to-run-sections.md) — extend the Installation template with a schema-bootstrap sub-block.
 
 **Concrete change.** Add to Task 6:
 
@@ -198,10 +198,10 @@ Initialize database schema. Choose one:
 
 #### 5. Consolidate clone commands into a single section
 
-**Gap.** Two templates in [how-to-run-sections.md](../../../skills/how-to-run/references/how-to-run-sections.md) emit `git clone` — *Source Dependencies* (if submodules detected) and *Installation* (unconditionally). Affects any repo with submodules regardless of stack.
+**Gap.** Two templates in [how-to-run-sections.md](../skills/how-to-run/references/how-to-run-sections.md) emit `git clone` — *Source Dependencies* (if submodules detected) and *Installation* (unconditionally). Affects any repo with submodules regardless of stack.
 
 **Files.**
-- [skills/how-to-run/references/how-to-run-sections.md](../../../skills/how-to-run/references/how-to-run-sections.md) — restructure both templates.
+- [skills/how-to-run/references/how-to-run-sections.md](../skills/how-to-run/references/how-to-run-sections.md) — restructure both templates.
 
 **Concrete change.** Rewrite *Source Dependencies* as fix-after-clone only:
 
@@ -241,8 +241,8 @@ Step 4 substitutes `--recursive` and the ` with submodules` phrase when `.gitmod
 **Gap.** Step 4's web-search recipe generates caveats like *"Port/volume taken from the skill's canonical catalogue because the vendor page did not expose them in structured form"*. Correct but reads like implementation notes.
 
 **Files.**
-- [skills/how-to-run/references/external-services-docker.md §Web-Search Recipe](../../../skills/how-to-run/references/external-services-docker.md) — rewrite the caution template.
-- [skills/how-to-run/SKILL.md](../../../skills/how-to-run/SKILL.md) Step 4 — add a Content Principle.
+- [skills/how-to-run/references/external-services-docker.md §Web-Search Recipe](../skills/how-to-run/references/external-services-docker.md) — rewrite the caution template.
+- [skills/how-to-run/SKILL.md](../skills/how-to-run/SKILL.md) Step 4 — add a Content Principle.
 
 **Concrete change.** Replace the current caveat wording:
 
@@ -309,8 +309,8 @@ Per Resolution #5, this is editorial only — no Step 6 regex gate.
 
 ### Critical files to modify
 
-- [skills/how-to-run/SKILL.md](../../../skills/how-to-run/SKILL.md) — Step 4 Content Principles (candidate rendering for item #1, humanize caveats for item #6; polish: reject exact counts, explain wrapper commands).
-- [skills/how-to-run/agents/project-environment-detector.md](../../../skills/how-to-run/agents/project-environment-detector.md) — new Task 5b (app-config service detection), extended Task 6 (config-file-driven env vars, schema-bootstrap detection), extended Task 0c (dev-tool recommendations).
-- [skills/how-to-run/references/how-to-run-sections.md](../../../skills/how-to-run/references/how-to-run-sections.md) — Installation template (clone consolidation + bootstrap sub-block), Source Dependencies template (submodule-only), Environment Setup template variant (config-file-driven), Running in Development (mandatory Expected result).
-- [skills/how-to-run/references/external-services-docker.md](../../../skills/how-to-run/references/external-services-docker.md) — new Vendor-Service → Emulator Index, Service Classification Tables (`cloud-native-only` matcher), humanized caveat wording, Azurite catalogue row.
-- [.claude-plugin/plugin.json](../../../.claude-plugin/plugin.json) + [README.md](../../../README.md) — version bump when the change lands.
+- [skills/how-to-run/SKILL.md](../skills/how-to-run/SKILL.md) — Step 4 Content Principles (candidate rendering for item #1, humanize caveats for item #6; polish: reject exact counts, explain wrapper commands).
+- [skills/how-to-run/agents/project-environment-detector.md](../skills/how-to-run/agents/project-environment-detector.md) — new Task 5b (app-config service detection), extended Task 6 (config-file-driven env vars, schema-bootstrap detection), extended Task 0c (dev-tool recommendations).
+- [skills/how-to-run/references/how-to-run-sections.md](../skills/how-to-run/references/how-to-run-sections.md) — Installation template (clone consolidation + bootstrap sub-block), Source Dependencies template (submodule-only), Environment Setup template variant (config-file-driven), Running in Development (mandatory Expected result).
+- [skills/how-to-run/references/external-services-docker.md](../skills/how-to-run/references/external-services-docker.md) — new Vendor-Service → Emulator Index, Service Classification Tables (`cloud-native-only` matcher), humanized caveat wording, Azurite catalogue row.
+- [.claude-plugin/plugin.json](../.claude-plugin/plugin.json) + [README.md](../README.md) — version bump when the change lands.
