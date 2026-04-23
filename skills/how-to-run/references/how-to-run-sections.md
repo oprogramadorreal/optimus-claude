@@ -60,7 +60,7 @@ Section templates and signal-to-content mapping for generating `HOW-TO-RUN.md`. 
 - [Docker](https://www.docker.com/) (if docker-compose detected — for running external services)
 - [System tool] (if detected: make, protoc, etc.)
 
-[If the detector's Recommended Dev Tools table has entries, render a separate sub-list under the bullets above:]
+[If the detector's Recommended Developer Tools table has entries, render a separate sub-list under the bullets above:]
 
 **Recommended developer tools**
 
@@ -256,7 +256,7 @@ Rules that apply to both branches:
 
 ### Environment Setup
 
-Pick the sub-template that matches the detector's Environment Setup table. When both a dotenv file AND framework config files exist, emit a single `### Environment Setup` heading and render (a)'s body first (without its own heading), then (b)'s body (also without its own heading). When only one kind of file exists, render only that sub-template with its heading intact.
+Pick the sub-template that matches the detector's Environment Setup table. When only one kind of file exists, render only that sub-template (including its `### Environment Setup` heading). When both a dotenv file AND framework config files exist, emit the `### Environment Setup` heading once at the top and then render (a)'s body and (b)'s body **without** their own headings — strip the `### Environment Setup` line from each inner template block before pasting its body.
 
 **(a) Dotenv-driven environment**
 

@@ -463,6 +463,34 @@ if ! grep -q '^## How-to-Run Audit Results' skills/how-to-run/agents/how-to-run-
   wiring_errors+="  skills/how-to-run/agents/how-to-run-auditor.md missing '## How-to-Run Audit Results' return-format heading\n"
 fi
 
+# Detector return-format sub-headings and column contracts added by the
+# framework-config detection feature. SKILL.md Step 1 / Step 4 branch on
+# these exact strings; a silent rename would collapse service coverage,
+# drop schema-bootstrap rendering, or hide the (candidate) marker.
+detector_file="skills/how-to-run/agents/project-environment-detector.md"
+if [ -f "$detector_file" ]; then
+  for detector_heading in \
+    '### Recommended Developer Tools' \
+    '### External Services' \
+    '### Environment Setup' \
+    '### Schema Bootstrap'; do
+    if ! grep -qF "$detector_heading" "$detector_file" 2>/dev/null; then
+      wiring_errors+="  $detector_file missing sub-heading: $detector_heading\n"
+    fi
+  done
+  for detector_token in \
+    '| Confidence |' \
+    '| Format |' \
+    '| Invocation hint |' \
+    '`confirmed`' \
+    '`candidate`' \
+    'Format: dotenv'; do
+    if ! grep -qF "$detector_token" "$detector_file" 2>/dev/null; then
+      wiring_errors+="  $detector_file missing return-format token: $detector_token\n"
+    fi
+  done
+fi
+
 # Unit-test deep-mode wiring: the Deep mode loop in skills/unit-test/SKILL.md
 # depends on exact-string status values, stop messages, and state variable names.
 # A silent rename (e.g., "bug-found" -> "bug_found") would leave the termination
