@@ -29,8 +29,10 @@ Section templates and signal-to-content mapping for generating `HOW-TO-RUN.md`. 
 | `platformio.ini`, `.ino` files | Toolchain & SDKs (PlatformIO / Arduino, target board), Prerequisites (target MCU hardware), Build, Running in Development (flash) |
 | Vulkan / CUDA / Qt / JDK / .NET SDK / MSVC references in build files or existing READMEs | Toolchain & SDKs (SDK install) |
 | GPU / USB / serial / specific OS hints in existing READMEs or build files | Prerequisites (hardware / OS) |
+| README mentions of browsers (Chrome/Chromium), IDEs (Visual Studio, VS Code, IntelliJ family), DB GUIs (SSMS, DBeaver, pgAdmin), API tools (Postman, ngrok) — see detector Task 0d2 | Prerequisites (recommended developer tools — bullet list separate from hardware/OS requirements) |
 | `docker-compose.yml` / `compose.yml` with infrastructure services | External Services (docker compose up) |
 | External service detected but no `docker-compose.yml` covers it | External Services (per-service Docker-vs-local decision via [`external-services-docker.md`](external-services-docker.md)) |
+| Framework config file with service-shaped sections (`appsettings*.json`, `application.yml`, `config/*.exs`, `config/*.yml`, `config.yaml`, etc. — see detector Task 5b) | External Services (Branch B per-service subsections, rendered with a `(candidate)` marker; user can drop via Step 1 "Correct first") |
 | `Dockerfile` / `Dockerfile.dev` without local-run scripts | Running in Development (Docker-based primary) |
 | `.env.example` / `.env.sample` / `.env.template` | Environment Setup |
 | `prisma/schema.prisma`, `alembic.ini`, migration directories | Installation (post-install: migrations) |
@@ -57,7 +59,18 @@ Section templates and signal-to-content mapping for generating `HOW-TO-RUN.md`. 
 - [Additional runtime for heterogeneous monorepo]
 - [Docker](https://www.docker.com/) (if docker-compose detected — for running external services)
 - [System tool] (if detected: make, protoc, etc.)
+
+[If the detector's Recommended Developer Tools table has entries, render a separate sub-list under the bullets above:]
+
+**Recommended developer tools**
+
+- [Token] — [why it helps for this project, e.g., "Chrome / Chromium: the Karma test runner starts a headless Chrome", "SSMS: GUI browser for the SQL Server database", "Visual Studio: IDE the README assumes"].
 ```
+
+Rendering rules for *Recommended developer tools*:
+- Only emit when the detector produced at least one row. Never invent tools from general knowledge.
+- One bullet per detected token, in the order the detector returned them. When 12+ tokens, render the first 12 plus a single "+N more — see READMEs" line.
+- Keep each bullet short (one line). The "why" clause is optional — skip it when no obvious project-specific reason can be derived from detection context (e.g., a token found with no surrounding semantics).
 
 ### Toolchain & SDKs
 
@@ -93,19 +106,14 @@ Only include this section when the project has a non-trivial compile/build step 
 
 ### Source Dependencies
 
+Scope rule: **Source Dependencies is fix-after-clone only.** The primary `git clone` lives in the Installation section below; this section documents what must be pulled or initialized after the main clone.
+
 ```markdown
 ### Source Dependencies
 
-[If .gitmodules detected — recommend recursive clone:]
+[If .gitmodules detected:]
 
-Clone with all submodules:
-
-\`\`\`bash
-git clone --recursive <repo-url>
-cd "<project-name>"
-\`\`\`
-
-If you already cloned without `--recursive`:
+This repo uses git submodules. On a fresh clone, use the `--recursive` form shown in the Installation section below. If you already cloned without it, initialize the submodules now:
 
 \`\`\`bash
 git submodule update --init --recursive
@@ -136,6 +144,17 @@ External sources are fetched automatically by CMake during configuration — no 
 
 ```markdown
 ### Installation
+
+[If .gitmodules is present at the repo root:]
+
+Clone the repository with submodules:
+
+\`\`\`bash
+git clone --recursive <repo-url>
+cd "<project-name>"
+\`\`\`
+
+[Otherwise:]
 
 Clone the repository:
 
@@ -176,13 +195,13 @@ Generate code:
 <codegen command>
 \`\`\`
 
-[If database migrations detected:]
+[If ORM migration tooling, raw SQL bootstrap scripts, or seed files detected — emit the Schema Bootstrap sub-block shown below inside the Installation section (no sub-heading; the block lives under Installation's H3). Render the lead-in paragraph and one bullet per detected option, in the detector's report order. The bullet order is not a recommendation — when multiple options render, the reader picks whichever matches their stack.]
 
-Run database migrations:
+Initialize database schema (apply the matching option below for this project's stack):
 
-\`\`\`bash
-<migration command>
-\`\`\`
+- [If ORM migration tooling detected:] Apply migrations: `<migration command>`.
+- [If raw SQL bootstrap scripts detected:] Execute the bootstrap script against the database: `<invocation-hint from detector>` (e.g., `sqlcmd -i db/DatabaseNew.sql`, `psql -f db/schema.sql`, `mysql < db/schema.sql`).
+- [If seed scripts detected:] Run the seed script: `<invocation-hint from detector>` (the detector substitutes `<file>` with the actual fixture filename, e.g., `rails db:seed`, `mix ecto.seed`, `tsx prisma/seed.ts`, `python manage.py loaddata fixtures/initial_data.json`).
 ```
 
 ### External Services
@@ -237,6 +256,12 @@ Rules that apply to both branches:
 
 ### Environment Setup
 
+Pick the sub-template that matches the detector's Environment Setup table. When only one kind of file exists, render only that sub-template (including its `### Environment Setup` heading). When both a dotenv file AND framework config files exist, emit the `### Environment Setup` heading once at the top and then render (a)'s body and (b)'s body **without** their own headings — strip the `### Environment Setup` line from each inner template block before pasting its body.
+
+**(a) Dotenv-driven environment**
+
+Use when the detector reports at least one Environment Setup row with `Format: dotenv`.
+
 ```markdown
 ### Environment Setup
 
@@ -248,6 +273,30 @@ cp .env.example .env
 
 [List key variables from .env.example with brief descriptions of what they configure. Do not include secret values — only describe what each variable is for.]
 ```
+
+**(b) Config-file-driven environment (non-dotenv stacks)**
+
+Use when the detector reports Environment Setup rows with `Format: json` / `yaml` / `properties` / `exs` / `php` / `toml`. When (a) is NOT rendered above (no dotenv file detected), open with the stand-alone sentence: `There is no <code>.env.example</code> template. Local configuration lives in...`. When (a) IS rendered above, drop the "There is no `.env.example` template." sentence and open with `Additionally, local configuration lives in...`.
+
+```markdown
+### Environment Setup
+
+There is no `.env.example` template. Local configuration lives in `<config file>` (format: `<format>`). The file is committed with development defaults; override locally by editing it or by setting the matching runtime environment variables.
+
+Top-level sections that require values before running locally:
+
+- `<SectionName>` — <one-line description derived from section-name semantics>
+- ...
+
+[If the detector truncated the section list at 25 per file:] See `<config file>` for the full list of <N> sections.
+
+**Never commit real secrets.** Treat any key whose name matches `(?i)(key|secret|password|token|credential|private)` as sensitive.
+```
+
+Rendering rules:
+- One bullet per detected top-level section, in the order the detector returned them (alphabetical when the detector truncated).
+- Derive the one-line description from section-name semantics only — never from the file's values. Example hints: `AWS` → "AWS SDK credentials and region"; `RedisSettings` → "Redis connection string and pool sizing"; `OpenIdConnect` → "OIDC authority and client credentials". When the semantics are ambiguous, emit the section name with no description (a bare bullet is better than a wrong guess).
+- Include the "See `<config file>` for the full list of <N> sections." footnote only when the detector reports `Variable count` > 25. Omit otherwise.
 
 ### Build
 
@@ -281,18 +330,26 @@ Include this section only for compiled stacks where build is distinct from run (
 
 ### Running in Development
 
-Pick the sub-template that matches the detected run mode:
+Pick the sub-template that matches the detected run mode. **The `Expected result:` line is mandatory in every sub-template.** When no concrete check is available (no port, window, or stdout to assert), emit the literal placeholder `Expected result: <unknown — verify manually>`.
+
+When more than one component must run (backend + frontend, producer + worker), prefix the block with a `Start order:` line naming the component that must start first and why. Example: `Start order: backend first (frontend's local config expects it), then frontend. Use two shells.`
 
 **(a) Script / dev server — web or interpreted backends**
 
 ```markdown
 ### Running in Development
 
+[If multiple components:] Start order: <component A> first (<reason>), then <component B>. Use separate shells.
+
 \`\`\`bash
 <dev command from manifest scripts>
 \`\`\`
 
-[Expected result: URL, port, or output to verify it works]
+Expected result: <URL / port / stdout line the reader can check — e.g., "Server listening on http://localhost:3000" — or the placeholder above when unknowable>.
+
+[If the detected dev command is a wrapper (a shell script / npm-script alias that executes additional steps beyond the idiomatic tool invocation), add a single-line explanation below the code block:]
+
+> `<wrapper command>` runs: `<expanded form, e.g., "npm run export-scss-vars && ng serve">`.
 
 [For monorepos — workspace-level:]
 
@@ -314,7 +371,7 @@ Run a specific subproject:
 docker compose up
 \`\`\`
 
-[Expected result]
+Expected result: <service list or URL the reader can check>.
 ```
 
 **(b) Compiled artifact — C/C++, Rust, Go binary, .NET, Swift**
@@ -328,9 +385,9 @@ Run the produced binary:
 <path/to/built/binary [args]>
 \`\`\`
 
-[Where the binary lands — e.g., "build/Debug/myapp.exe" on Windows, "build/myapp" on Linux/macOS]
+Where it lands: <e.g., "build/Debug/myapp.exe" on Windows, "build/myapp" on Linux/macOS>.
 
-[Expected result: window, console output, or port]
+Expected result: <window / console output / port the reader can check — or the placeholder above>.
 
 [Common command-line flags if documented or obvious from source]
 ```
@@ -346,7 +403,7 @@ Open the project in [engine]:
 2. Open `<project file>` (e.g., `MyProject.uproject`, the project folder for Unity/Godot)
 3. [Engine-specific run step — e.g., "Press Play in the editor" or "Click Play button"]
 
-[Expected result: what you should see]
+Expected result: <viewport content / PIE-mode indicator / title-screen stanza the reader can check — or the placeholder above>.
 ```
 
 ### Running Tests

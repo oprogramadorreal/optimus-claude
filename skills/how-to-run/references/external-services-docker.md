@@ -10,6 +10,7 @@ Per-service decision logic, web-search recipe, and snippet templates for the *Ex
 - [Decision Heuristics](#decision-heuristics)
 - [Web-Search Recipe](#web-search-recipe)
 - [Canonical Image Catalogue (seeds)](#canonical-image-catalogue-seeds)
+- [Vendor-Service → Emulator Index](#vendor-service--emulator-index)
   - [Known Vendor Emulators](#known-vendor-emulators)
 - [Snippet Templates](#snippet-templates)
 - [Citation Format](#citation-format)
@@ -42,11 +43,15 @@ If the image pattern does not match any row above, fall through to the service-n
 
 **Match whole tokens, not substrings** — a pattern hits only when it matches a word bounded by whitespace, punctuation, or start/end of the service name. Examples: `Thumb` must not match `thumbor`; `CLI` matches `AWS CLI` but not `AppServiceCLI`; `Studio` matches `Azure Data Studio` but not `StudioBuilder`.
 
+**`<Vendor>Settings` / `<Vendor>Config` / `<Vendor>Options` gate.** The classifier requires BOTH a vendor-branded prefix AND an FQDN in the section's values. Purely-internal names that only describe application behaviour — `AppSettings`, `LoggingSettings`, `CorsOptions`, `FeatureFlagsConfig`, `HostSettings`, `KestrelSettings`, `SerilogSettings`, `AllowedHosts`, `ConnectionStringsOptions` — never qualify because they do not describe an external vendor endpoint and, absent an FQDN in their values, fail the second half of the gate.
+
 | Service name pattern (case-insensitive) | Docker suitability |
 |----------------------------------------|-------------------|
 | `SSMS`, `Management Studio`, `Compass`, `Workbench`, `DBeaver`, `Azure Data Studio`, `Studio 3T`, `RedisInsight`, `pgAdmin` | gui-client |
 | `AWS CLI`, `Azure CLI`, `gcloud CLI`, `kubectl`, or any name ending with a standalone `CLI` token (whitespace- or punctuation-bounded) | cli-tool |
-| `Firebase`, `Firestore`, `License Manager`, or any internal-sounding name without a public image | cloud-native-only |
+| `Firebase`, `Firestore`, `Firebase Auth`, `Firebase Storage`, `License Manager`, or any name ending with `Settings`, `Config`, or `Options` whose prefix is a vendor-branded token AND whose detected section values contain at least one external FQDN per Task 5b (e.g., `AudacesIdSettings`, `LicenseManagerSettings`, `StripeSettings`) | cloud-native-only |
+| `OIDC`, `OpenIdConnect`, `IdentityProvider`, `IdentityServer`, `Cognito`, `Auth0`, `Okta` (when detected as a config-section name — not as a Keycloak-style self-hosted deployment) | cloud-native-only |
+| `AWS <Product>` (e.g., `AWS S3`, `AWS SNS`, `AWS SQS`, `AWS Lambda`, `AWS DynamoDB`), `Azure <Product>` (e.g., `Azure Cosmos DB`, `Azure Blob Storage`, `Azure Service Bus`), `Google Cloud <Product>` / `GCP <Product>` / bare `Pub/Sub` | cloud-native-only (then consult [Vendor-Service → Emulator Index](#vendor-service--emulator-index) for a Docker offline alternative) |
 | Any other unknown name | unknown — web-search recipe decides |
 
 ## Decision Heuristics
@@ -62,9 +67,9 @@ Inputs (all derivable at Step 3 without extending the detector schema):
 Apply in order and stop at the first match:
 
 1. **GUI client / IDE / CLI tool.** Docker suitability resolves to `gui-client` or `cli-tool`. → **Local install only.** Do not search Docker.
-2. **Vendor recommends a local emulator over a shared-cloud image.** Docker suitability resolves to `cloud-native-only` AND the service appears in the [Known Vendor Emulators](#known-vendor-emulators) table below. → **Local install only.** Render the [Local install only](#local-install-only) template; cite the row's `Canonical source` URL (the table itself is the trusted source for Local-install-only citations — §Citation Format governs `- Source:` lines in Docker-related templates, not the `Install from` line this template uses). Do not search Docker. **Never synthesise an emulator at runtime** — if a `cloud-native-only` service is not in the table, skip this rule and let rule 3 handle it (Shared-cloud primary).
+2. **Vendor recommends a local emulator over a shared-cloud image.** Docker suitability resolves to `cloud-native-only` AND the service appears in the [Known Vendor Emulators](#known-vendor-emulators) table below — either by direct whole-token match on the table's `Vendor service` column, or by synonym resolution via the [Vendor-Service → Emulator Index](#vendor-service--emulator-index) to a Known-Vendor-Emulators-targeted row. → **Local install only.** Render the [Local install only](#local-install-only) template; cite the row's `Canonical source` URL (the table itself is the trusted source for Local-install-only citations — §Citation Format governs `- Source:` lines in Docker-related templates, not the `Install from` line this template uses). Do not search Docker. **Never synthesise an emulator at runtime** — if a `cloud-native-only` service is not in the table or reachable via the Index, skip this rule and let rule 3 handle it (Shared-cloud primary).
 3. **Cloud-native-only default endpoint (no local emulator).** Docker suitability resolves to `cloud-native-only`, OR the endpoint hostname is a public FQDN (anything that is not `localhost`, `127.0.0.1`, or an IP literal). → **Shared-cloud primary.**
-   - **Step 3 provisional Alternative.** Set Alternative to "Docker (offline)" if the service type appears in the [canonical image catalogue](#canonical-image-catalogue-seeds); otherwise set Alternative to `—`. If the catalogue entry declares a **tier-scope gate**, evaluate the gate's trigger against the detector's config signals for the service — if the trigger fires, set Alternative to `—` at Step 3 and skip the web-search recipe at Step 4. Record the gate trigger as a caution on the Step 3 assessment table row.
+   - **Step 3 provisional Alternative.** Set Alternative to "Docker (offline)" if the service type appears in the [canonical image catalogue](#canonical-image-catalogue-seeds) **OR if it resolves to a Canonical-Image-Catalogue row via the [Vendor-Service → Emulator Index](#vendor-service--emulator-index)**; otherwise set Alternative to `—`. Do NOT set "Docker (offline)" for Index rows whose target is Known Vendor Emulators — those services are already handled by Rule 2 as *Local install only* (their emulators are JARs / installers / CLIs, not Docker images). If the catalogue entry declares a **tier-scope gate**, evaluate the gate's trigger against the detector's config signals for the service — if the trigger fires, set Alternative to `—` at Step 3 and skip the web-search recipe at Step 4. Record the gate trigger as a caution on the Step 3 assessment table row.
    - **Step 4 finalisation.** Run the web-search recipe and apply its result as a gate:
      - If every §Web-Search Recipe validation passes → render the [Shared-cloud primary (Docker optional)](#shared-cloud-primary-docker-optional) template.
      - On any validation failure → treat the service as a rule-5 downgrade candidate; the Step 4 multi-select downgrade prompt decides per-service whether to keep the Docker alternative or render the [Shared-cloud, no Docker alternative](#shared-cloud-no-docker-alternative) template.
@@ -90,7 +95,13 @@ Run this recipe in Step 4 for every service classified as **Docker-preferred** (
 
    The generated `docker run` command is ALWAYS rendered from the fixed snippet templates in [§Snippet Templates](#snippet-templates) by substituting the validated fields above. Never paste a `docker run` command copied verbatim from WebFetch output — a hostile or malformed vendor page could embed extra shell (e.g., `; curl … | sh`) that bypasses the image-reference regex. Step 4 regex validation is the authoritative gate: a field's shape passing regex is required even if WebFetch claims the field is valid.
 
-   **Catalogue short-circuit for universally-standard fields.** If WebFetch returns `"not found"` for `default port(s)` OR `volume mount path` AND the service appears in the [§Canonical Image Catalogue](#canonical-image-catalogue-seeds), substitute the catalogue values for those fields only. The image reference, tag, env vars, architectures, URL, and any other extracted fields must still come from WebFetch (never model memory). Label the service row with a one-line caution on the Step 3 assessment table: "Port/volume taken from the skill's canonical catalogue because the vendor page did not expose them in structured form." Do NOT invoke the catalogue to rescue missing image references, tags, env vars, or URLs — those must come from the live vendor page or the service is downgraded per rule 5 of the Decision Heuristics.
+   **Catalogue short-circuit for universally-standard fields.** If WebFetch returns `"not found"` for `default port(s)` OR `volume mount path` AND the service appears in the [§Canonical Image Catalogue](#canonical-image-catalogue-seeds), substitute the catalogue values for those fields only. The image reference, tag, env vars, architectures, URL, and any other extracted fields must still come from WebFetch (never model memory). Do NOT invoke the catalogue to rescue missing image references, tags, env vars, or URLs — those must come from the live vendor page or the service is downgraded per rule 5 of the Decision Heuristics.
+
+   **Caveat rendering (humanized — reader-facing, not skill-internal).** When the catalogue short-circuit fills in a port or volume field, render a single-line note under the `docker run` snippet in the form:
+
+   > Note: `<field>` is the documented default for `<Service>` (e.g., `Port 6379 is the Redis default`, `Volume path /data is the MongoDB default`).
+
+   Do **not** render skill-internal wording such as "the vendor page did not expose the port in structured form", "taken from the canonical catalogue", or "short-circuit applied". Those phrases describe how the skill decided; the reader only needs to know what the value is and where it came from (the vendor default). The same humanization rule applies to any other Step-4 caveat — moving-tag rejection (phrase as: "Pinned to `<tag>` to avoid the moving `latest` tag"), LocalStack tier gate (phrase as: "Docker alternative skipped — the project's config references pro-tier LocalStack features"), ARM fallback (phrase as: "Running under emulation on ARM — expect slower performance than a native image"). The Step 3 assessment-table row still records the machine-readable reason for audit purposes; only the rendered caveat in `HOW-TO-RUN.md` is humanized.
 4. **Validate the extracted image reference:**
    - Must match `^[A-Za-z0-9][A-Za-z0-9._-]*(/[A-Za-z0-9._-]+)*:[A-Za-z0-9._-]+$` with no path segment equal to `.` or `..`.
    - Apply the [Host Extraction and Allowlist Match](#host-extraction-and-allowlist-match) algorithm — the same one Step 6 re-runs.
@@ -117,12 +128,40 @@ Run this recipe in Step 4 for every service classified as **Docker-preferred** (
 | Redis | `redis:<stable-tag>` | [Docker Hub — redis (Docker Official Image)](https://hub.docker.com/_/redis) | Port 6379. Volume `/data` (if persistence enabled via `--appendonly yes`). Set a password with `--requirepass` when exposing beyond localhost. |
 | PostgreSQL | `postgres:<stable-tag>` | [Docker Hub — postgres (Docker Official Image)](https://hub.docker.com/_/postgres) | Requires `POSTGRES_PASSWORD`. Port 5432. Volume `/var/lib/postgresql/data`. |
 | MySQL / MariaDB | `mysql:<stable-tag>` or `mariadb:<stable-tag>` | [Docker Hub — mysql](https://hub.docker.com/_/mysql) / [Docker Hub — mariadb](https://hub.docker.com/_/mariadb) | Requires `MYSQL_ROOT_PASSWORD`. Port 3306. Volume `/var/lib/mysql`. |
-| LocalStack (AWS S3/SNS/SQS/etc.) | `localstack/localstack:<stable-tag>` (numeric tag required per §Web-Search Recipe step 6) | [Docker Hub — localstack/localstack](https://hub.docker.com/r/localstack/localstack) | **Tier-scope gate trigger:** any `.env.example` / `.env.sample` / `.env.template` file listed in the detector's Environment Setup table contains a `LOCALSTACK_AUTH_TOKEN` variable, indicating pro-tier use. Re-read the file directly rather than relying on the Step 1 Key-variables summary (which may truncate long variable lists and drop the token). Before re-reading, validate the detector-reported filename against `^[A-Za-z0-9][A-Za-z0-9._/-]{0,128}$`, split on `/` and reject empty/`.`/`..` segments, and confirm the resolved path stays inside the repo root — skip the gate silently if validation fails. When the trigger fires, set Alternative to `—` and render the [Shared-cloud, no Docker alternative](#shared-cloud-no-docker-alternative) template. Set `SERVICES=<comma-list>` to narrow scope. Port 4566. |
+| LocalStack (AWS S3/SNS/SQS/etc.) | `localstack/localstack:<stable-tag>` (numeric tag required per §Web-Search Recipe step 6) | [Docker Hub — localstack/localstack](https://hub.docker.com/r/localstack/localstack) | **Tier-scope gate trigger:** any file listed in the detector's Environment Setup table — regardless of `Format` (dotenv, json, yaml, properties, exs, php, toml) — contains an **active** `LOCALSTACK_AUTH_TOKEN` assignment with a non-empty value, indicating pro-tier use. Active means: the token appears to the left of `=`, `:`, or `:=` (or as a quoted JSON/YAML key), the assigned value is non-empty, and the line itself is not a comment. Skip lines whose first non-whitespace characters are `#`, `!`, `//`, `--`, or `;` (format-appropriate comment markers — `!` covers Java `.properties` files). Re-read the file directly rather than relying on the Step 1 Key-variables summary (which may truncate long variable lists and drop the token). Before re-reading, validate the detector-reported filename against `^[A-Za-z0-9][A-Za-z0-9._/-]{0,128}$`, split on `/` and reject empty/`.`/`..` segments, and confirm the resolved path stays inside the repo root — skip the gate silently if validation fails. When the trigger fires, set Alternative to `—` and render the [Shared-cloud, no Docker alternative](#shared-cloud-no-docker-alternative) template. Set `SERVICES=<comma-list>` to narrow scope. Port 4566. |
+| Azurite (Azure Blob/Queue/Table emulator) | `mcr.microsoft.com/azure-storage/azurite:<stable-tag>` | [MS Learn — Azurite emulator for local Azure Storage development](https://learn.microsoft.com/en-us/azure/storage/common/storage-use-azurite) | No licence prompts. Default ports: Blob 10000, Queue 10001, Table 10002. Volume `/data` for persistence. Windows host: Docker Desktop in Linux-container mode. Reached by the [Vendor-Service → Emulator Index](#vendor-service--emulator-index) for detected `Azure Blob Storage` / `Azure Queue Storage` / `Azure Table Storage` services; not emitted for `Azure Service Bus` (no vendor-maintained Docker image — falls through to *Shared-cloud, no Docker alternative*). |
 
 **Deliberately excluded from the seed catalogue:**
 
 - **Firebase / Firestore** — no vendor-maintained Docker image. The Firebase Local Emulator Suite runs via `firebase emulators:start` (Node-based). When detected, render the [Local install only template](#local-install-only) pointing at the emulator docs.
 - **Vendor-internal / proprietary APIs** (e.g., licence managers, in-house identity providers). These are shared-cloud only; render using the [Shared-cloud, no Docker alternative](#shared-cloud-no-docker-alternative) template.
+
+## Vendor-Service → Emulator Index
+
+Synonym lookup consumed by §Decision Heuristics rules 2 and 3 — some target services have vendor-branded aliases (`AWS S3` vs bare `S3`, `Azure Cosmos DB` vs `Cosmos`) that would not match a table row by exact name. Each row lists the detected synonyms in the left column and the backing row in the right column.
+
+**Target-type routing (which rule consumes each row):**
+
+- Rows whose target is a **Canonical Image Catalogue** row (LocalStack, Azurite) feed Rule 3. When a detected service is `cloud-native-only` AND not directly in Known Vendor Emulators, Rule 3 uses this index to resolve Alternative to **"Docker (offline)"**.
+- Rows whose target is a **Known Vendor Emulators** row (DynamoDB Local, Cosmos Emulator, Firebase Suite, Pub/Sub Emulator) feed Rule 2's whole-token appearance check. Rule 2 treats a synonym hit the same as a direct table row match and returns **Local install only** — NOT "Docker (offline)", because those emulators are JARs, vendor installers, or CLI-launched, not Docker images.
+
+| Detected service name pattern (case-insensitive whole-token match) | Maps to |
+|---|---|
+| `AWS S3`, `S3`, `AWS SNS`, `SNS`, `AWS SQS`, `SQS`, `AWS Lambda`, `AWS DynamoDB Streams` | LocalStack — row in [Canonical Image Catalogue](#canonical-image-catalogue-seeds) |
+| `AWS DynamoDB`, `DynamoDB` | DynamoDB Local — row in [Known Vendor Emulators](#known-vendor-emulators) |
+| `Azure Cosmos DB`, `Cosmos DB`, `Cosmos` (as a service name, not a vendor prefix) | Azure Cosmos DB Emulator — row in [Known Vendor Emulators](#known-vendor-emulators) |
+| `Firebase`, `Firestore`, `Firebase Auth`, `Firebase Storage` | Firebase Local Emulator Suite — row in [Known Vendor Emulators](#known-vendor-emulators) |
+| `Google Cloud Pub/Sub`, `GCP Pub/Sub`, `Pub/Sub` | Pub/Sub Emulator — row in [Known Vendor Emulators](#known-vendor-emulators) |
+| `Azure Blob Storage`, `Azure Queue Storage`, `Azure Table Storage` | Azurite — row in [Canonical Image Catalogue](#canonical-image-catalogue-seeds) |
+
+**Deliberately not mapped (fall through to *Shared-cloud, no Docker alternative*):**
+
+- `Azure Service Bus`, `Azure Event Hubs` — no vendor-maintained Docker emulator.
+- `AWS Kinesis`, `AWS Step Functions` — LocalStack covers these only on the pro tier; the existing tier-scope gate on LocalStack applies.
+- `GCP Bigtable`, `GCP Spanner` — Google's emulators exist but ship outside a stable Docker image.
+- Any SaaS observability service (Datadog, Sentry, New Relic, Honeycomb, PagerDuty) — these are production dependencies without local emulators.
+
+**Extension rule.** Maintainers may add a row when a new cloud service gains an official vendor-maintained local emulator. Update this index plus either the [Canonical Image Catalogue](#canonical-image-catalogue-seeds) (if the emulator has a Docker image on an allowlisted registry) or [Known Vendor Emulators](#known-vendor-emulators) (if it launches via a vendor CLI / installer). Do **not** synthesise new mappings at runtime — a row appears here or nowhere.
 
 ### Known Vendor Emulators
 
@@ -173,7 +212,7 @@ Use when the heuristic resolves to **Shared-cloud primary** AND the web-search r
 ````markdown
 ### <Service name>
 
-**Recommended: shared-cloud endpoint.** This project's default configuration points at <cloud endpoint, e.g., "Azure Cosmos DB at port 10255">. Obtain credentials from a teammate — they are not published here.
+**Recommended: shared-cloud endpoint.** This project's default configuration points at <cloud endpoint, e.g., "Azure Cosmos DB at port 10255">. Obtain credentials for `<service-slug>` from a teammate — they are not published here. Typical items to request: <credential-kinds — populate from the service class, e.g., "connection string" for databases; "access key / secret key" for AWS services; "client secret / client ID" for OIDC; "API key" for generic REST services; "service account JSON" for GCP services>.
 
 **Offline alternative: Docker.** If you need to run without connectivity to the shared endpoint:
 
@@ -196,7 +235,7 @@ Use when the heuristic resolves to **Shared-cloud primary** AND (a) the service 
 ````markdown
 ### <Service name>
 
-**Recommended: shared-cloud endpoint.** This project's default configuration points at <cloud endpoint, e.g., "the project's Firebase project">. Obtain credentials from a teammate — they are not published here.
+**Recommended: shared-cloud endpoint.** This project's default configuration points at <cloud endpoint, e.g., "the project's Firebase project">. Obtain credentials for `<service-slug>` from a teammate — they are not published here. Typical items to request: <credential-kinds — populate from the service class, e.g., "Firebase project ID + service-account JSON" for Firebase; "client ID + client secret + authority URL" for OIDC; "base URL + API key" for internal REST APIs; "connection string" for vendor databases>.
 
 - Source: [<vendor docs title>](<vendor docs URL>).
 - Update <config key> in <config file> when pointing at a different environment.
