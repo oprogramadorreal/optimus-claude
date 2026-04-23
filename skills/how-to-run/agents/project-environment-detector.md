@@ -98,6 +98,18 @@ Grep existing docs and build files for:
 
 Record each match as the canonical token from the search lists above (e.g., `NVIDIA`, `CUDA`, `USB`, `STM32`, `Windows 10`, `macOS 13`, `Web.config`, `IIS`) plus a source `<file>:<line>` reference. Do **not** copy free-text prose from the surrounding paragraph — only the canonical token the search matched. Drop any match whose token does not correspond to one of the listed search strings. `App.config` and `appsettings.json` are deliberately excluded — they are application configuration files present in virtually every .NET project, not deployment-host signals, and surfacing them as hardware/OS requirements would be noise. The genuine .NET deployment-host signals (`IIS`, `Windows Service`, `Web.config`) cover the actual hosting concern.
 
+#### Task 0d2 — Recommended developer-tool detection
+
+Grep existing docs (`README.md`, `CONTRIBUTING.md`, `BUILDING.md`, `INSTALL.md`, `docs/*.md`) for whole-token mentions of developer tools a new contributor would benefit from knowing about up-front. Match case-insensitively; use word boundaries so `Rider` does not match `Riderless`.
+
+- Browsers (test runners / headless browsers): `Chrome`, `Chromium`, `Google Chrome`, `Firefox`, `Edge`, `WebKit`, `Playwright`
+- IDEs: `Visual Studio` (whole phrase), `VS Code`, `VSCode`, `IntelliJ`, `PyCharm`, `GoLand`, `WebStorm`, `Rider`, `RustRover`, `CLion`, `Android Studio`, `Xcode`
+- Database / cache GUIs: `SSMS`, `Azure Data Studio`, `DBeaver`, `pgAdmin`, `MySQL Workbench`, `MongoDB Compass`, `Studio 3T`, `RedisInsight`, `DataGrip`
+- API / debugging utilities: `Postman`, `Insomnia`, `Bruno`, `ngrok`, `mkcert`
+- Cloud CLIs (document only if also referenced as a dev-time dependency, not deploy-only): `AWS CLI`, `Azure CLI`, `gcloud CLI`
+
+Record each match as the canonical token from the list above plus a source `<file>:<line>` reference. Sanitize the token with the same allowlist regex as Task 0c package tokens: `^[A-Za-z0-9][A-Za-z0-9._+:@/ -]{0,99}$` (space permitted because canonical tokens like `Google Chrome`, `Azure Data Studio`, `AWS CLI` contain spaces). Reject tokens containing `://`. Drop any match whose token is not in the list above. This is a recommendation signal, not a hard requirement — the main skill renders a *Recommended developer tools* bullet list under Prerequisites, distinct from the *Hardware / OS Requirements* section. Cap the emitted list at 12 unique tokens; additional matches are collapsed into a single "+N more" note the main skill may render or omit.
+
 #### Task 0e — Unsupported-Stack Fallback detection
 
 For unsupported stacks, detect and gather evidence only — do NOT propose install/build/test commands. The parent SKILL runs the fallback procedure.
@@ -121,14 +133,26 @@ For unsupported stacks, detect and gather evidence only — do NOT propose insta
 4. **Detect runtime version constraints** from manifests: `engines.node` in package.json, `python_requires` in pyproject.toml, `rust-version` in Cargo.toml, `environment.sdk` in pubspec.yaml, and similar fields.
 
 5. **Detect external services and dependencies** using the signal-to-section mapping in how-to-run-sections.md:
-   - `docker-compose.yml` / `compose.yml`: parse `services` for databases, message queues, caches, and other infrastructure. Note which services have `build:` (app services) vs image-only (infrastructure services). Extract ports.
-   - Database config files: `database.yml`, `prisma/schema.prisma`, `alembic.ini`, `knexfile.*`, `ormconfig.*`, migration directories.
+   - `docker-compose.yml` / `compose.yml`: parse `services` for databases, message queues, caches, and other infrastructure. Note which services have `build:` (app services) vs image-only (infrastructure services). Extract ports. Mark `Confidence: confirmed`.
+   - Database config files: `database.yml`, `prisma/schema.prisma`, `alembic.ini`, `knexfile.*`, `ormconfig.*`, migration directories. Mark `Confidence: confirmed`.
+
+5b. **Detect external services from framework config files.** Many projects (Spring Boot, ASP.NET Core, Rails, Phoenix/Elixir, Laravel, Go-with-Viper, and any polyglot stack where services are shared-cloud rather than compose-managed) wire their external services through the application's config file, not through `docker-compose.yml` or an ORM migration tool. Scan these files so those services are not silently dropped:
+
+   - **Files to scan:** at repo root or under the conventional subdirectories listed — `appsettings*.json`, `application.yml`, `application.yaml`, `application.properties`, `application-*.yml`/`.yaml`/`.properties` (Spring profile variants), `config/*.yml` / `config/*.yaml` (Rails), `config/*.exs` (Elixir/Phoenix), `config/*.php` / `config.php` (Laravel/PHP), `config.yaml` / `config.yml` / `config.toml` (Go/Viper/Koanf).
+   - **Depth limit:** scan at most 2 levels deep under the listed root directories (`config/` / `config/**/`) and never follow symlinks.
+   - **Matching:** parse top-level keys (JSON objects, YAML mappings, Elixir keyword-list roots, PHP arrays — use a tolerant scan that reports key names without requiring the file to be well-formed). Flag a section when its **name** matches any of these whole-token keywords (case-insensitive; match on the full top-level key, not substrings): `redis`, `mongo`, `mongodb`, `nosql`, `database`, `db`, `connectionstring`, `connection_string`, `datasource`, `authority`, `oidc`, `openidconnect`, `identity`, `auth0`, `cognito`, `okta`, `keycloak`, `firebase`, `firestore`, `aws`, `s3`, `sns`, `sqs`, `storage`, `blob`, `queue`, `bus`, `messaging`, `elastic`, `search`, `rabbitmq`, `kafka`, `smtp`, `mail`, `license`, `licensemanager`. Also flag any top-level section whose value contains a string that looks like an external FQDN (matches `^[a-z0-9]([a-z0-9.-]*[a-z0-9])?\.[a-z]{2,}(:\d{1,5})?/?.*$` — rejects `localhost`, IP literals, and `example.com` placeholders). A section matching a vendor-branded suffix `<Vendor>Settings` / `<Vendor>Config` / `<Vendor>Options` AND containing an FQDN in its values is always flagged.
+   - **What to extract per match:** the section name (exactly as it appears in the file, then title-cased for the report), source `<file>:<line>`, one representative endpoint (first FQDN seen in the section's values, else the string `shared-cloud endpoint`), and a best-guess type (`database` / `cache` / `queue` / `storage` / `identity` / `api` / `email` / `search` / `license` / `other`).
+   - **Sanitization:** never parse or echo string values that look like secrets — reject any value whose key name matches `(?i)(key|secret|password|token|credential|private)` from being used as the representative endpoint. Apply the Task 0b URL sanitization (scheme `http`/`https` only; reject `..` segments, control chars, schemes `file`/`javascript`/`data`/`mailto`). Apply Task 0b path sanitization to the source `<file>` field.
+   - **Caps:** cap at 20 detected services per config file; beyond that, emit a single `N+ more — see <file>` line without enumerating further. Cap total across all scanned files at 60 — beyond that, report only the first 60 and state the overflow.
+   - **Confidence:** every service detected via this task is marked `Confidence: candidate` (contrast with `Confidence: confirmed` for compose/ORM-migration sources). The main skill renders candidates with a `(candidate)` marker and allows the user to drop any candidate via the Step 1 "Correct first" flow; do not emit a per-service prompt.
 
 6. **Detect infrastructure signals:**
    - `Dockerfile` / `Dockerfile.dev`: Docker-based dev workflow.
    - `Makefile` / `Justfile`: scan for targets like `dev`, `start`, `setup`, `run`, `serve`, `up`, `docker-up`.
    - `Procfile` / `Procfile.dev`: process runner configuration.
-   - `.env.example` / `.env.sample` / `.env.template`: read to identify required config variables and their count. Extract variable **names only**: for each line, skip blank lines and any line whose first non-whitespace character is `#`, strip an optional leading `export ` and surrounding whitespace, take the token to the left of the first `=`, and emit it only if it matches `^[A-Za-z_][A-Za-z0-9_]*$` (POSIX identifier). Never return values, inline comments, or surrounding lines, even when the example file appears to contain placeholder defaults. Do not read `.env`, `.env.local`, or any `.env.*.local` file — those may contain real secrets.
+   - **Environment config — dotenv templates:** `.env.example` / `.env.sample` / `.env.template`: read to identify required config variables and their count. Extract variable **names only**: for each line, skip blank lines and any line whose first non-whitespace character is `#`, strip an optional leading `export ` and surrounding whitespace, take the token to the left of the first `=`, and emit it only if it matches `^[A-Za-z_][A-Za-z0-9_]*$` (POSIX identifier). Never return values, inline comments, or surrounding lines, even when the example file appears to contain placeholder defaults. Do not read `.env`, `.env.local`, or any `.env.*.local` file — those may contain real secrets. Emit one row per file with `Format: dotenv`.
+   - **Environment config — framework config files:** when any of the framework config files enumerated in Task 5b exist, also emit one Environment Setup row per file with the file's name, its format (`json` for `appsettings*.json`, `yaml` for `application.yml`/`application.yaml` and Rails `config/*.yml`, `properties` for `application.properties`, `exs` for Phoenix `config/*.exs`, `php` for Laravel `config/*.php`, `toml` for `config.toml`), and the list of top-level section names (not nested keys) the file defines. Sanitize each section name with `^[A-Za-z_][A-Za-z0-9_-]{0,63}$` and drop any that fail. **Cap at 25 section names per file**; when more exist, emit the first 25 alphabetically and set the row's `Variable count` to the true total so the main skill can render a "See `<file>` for the full list" footnote. Never emit values or nested-key contents — only top-level section names.
+   - **Schema bootstrap scripts:** glob for `*.sql` at repo root, under `db/`, `database/`, `scripts/sql/`, `data/`, `migrations/`, `bootstrap/`, `sql/`. Glob for language-specific seed files: `db/seeds.rb` (Rails), `priv/repo/seeds.exs` (Phoenix/Ecto), `fixtures/*.json` / `fixtures/*.yaml` (Django `loaddata`), `seed.ts` / `seed.js` / `seed.mjs` at repo root, `prisma/seed.*`, `scripts/seed.*`. Cross-reference the External Services table produced in Task 5/5b: emit a `Schema bootstrap` row only when at least one service of type `database` (SQL, NoSQL) is present AND at least one of these files exists. Record filenames (not contents); cap the file list at 5 entries per directory, with overflow collapsed into a single "+N more under `<dir>`" note. Report the language / invocation hint alongside each entry (`sqlcmd -i <file>`, `psql -f <file>`, `mysql < <file>`, `rails db:seed`, `mix ecto.seed`, `python manage.py loaddata <file>`, `tsx prisma/seed.ts`, `node scripts/seed.js`) — do NOT copy any text from the file contents.
    - `template.yaml` (AWS SAM), `serverless.yml` / `serverless.ts` (Serverless Framework): serverless local dev signals.
    - `.npmrc`, `pip.conf`, `.pypirc`, Maven `settings.xml`: private registry indicators.
    - `.nvmrc`, `.node-version`, `.python-version`, `.tool-versions`, `rust-toolchain.toml`: version manager configs.
@@ -188,6 +212,13 @@ Mark sibling-repo findings as `(candidate)` when derived only from a path grep w
 
 [If none detected, state "No hardware or OS requirements detected."]
 
+### Recommended Dev Tools
+- [e.g., Google Chrome — source: ngapp/README.md:37]
+- [e.g., SSMS — source: isa-server/README.md:58]
+- [e.g., Visual Studio — source: README.md:12]
+
+[If none detected, state "No recommended developer tools detected."]
+
 ### Commands
 | Command | Value | Source |
 |---------|-------|--------|
@@ -205,18 +236,36 @@ Mark sibling-repo findings as `(candidate)` when derived only from a path grep w
 [If no constraints found, state "No runtime version constraints detected."]
 
 ### External Services
-| Service | Source | Port | Type |
-|---------|--------|------|------|
-| [e.g., PostgreSQL] | [e.g., docker-compose.yml] | [5432] | [database] |
+| Service | Source | Port | Type | Confidence |
+|---------|--------|------|------|-----------|
+| [e.g., PostgreSQL] | [e.g., docker-compose.yml] | [5432] | [database] | [confirmed] |
+| [e.g., OpenIdConnect] | [e.g., src/Web/config/appsettings.development.json:42] | [—] | [identity] | [candidate] |
 
 [If no services found, state "No external services detected."]
 
-### Environment Setup
-| File | Variable count | Key variables |
-|------|---------------|---------------|
-| [e.g., .env.example] | [N] | [list up to 10 variable names] |
+Confidence values:
+- `confirmed` — detected from `docker-compose.yml` / `compose.yml` or an ORM migration tool / database config file (Task 5).
+- `candidate` — detected from a framework config file by Task 5b's keyword/FQDN scan; the main skill renders these with a `(candidate)` marker and allows the user to drop them via the Step 1 "Correct first" flow.
 
-[If no env files found, state "No environment config templates detected."]
+### Environment Setup
+| File | Format | Variable count | Key variables |
+|------|--------|----------------|---------------|
+| [e.g., .env.example] | [dotenv] | [N] | [list of variable names — dotenv files: all names; config files: top-level section names, up to 25/file] |
+| [e.g., src/Web/config/appsettings.development.json] | [json] | [N] | [top-level section names, up to 25] |
+
+[If no env files or framework config files found, state "No environment config templates detected."]
+
+`Variable count` is the true count (not the displayed-sample count) so the main skill can decide whether to render a "See `<file>` for the full list" footnote when the displayed list was truncated to 25.
+
+### Schema Bootstrap
+| File | Directory | Invocation hint |
+|------|-----------|-----------------|
+| [e.g., DatabaseNew.sql] | [repo root] | [sqlcmd -i DatabaseNew.sql] |
+| [e.g., db/seeds.rb] | [db/] | [rails db:seed] |
+
+[If no schema-bootstrap files detected, OR no SQL/NoSQL service detected, state "No schema-bootstrap scripts detected."]
+
+Emit rows only when at least one database-type service is present in the External Services table. Cap at 5 entries per directory; beyond that, add a single "+N more under `<dir>`" row.
 
 ### Dev Workflow Signals
 - **Docker-based:** [yes/no — Dockerfile detected, docker-compose app services]
