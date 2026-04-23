@@ -56,6 +56,10 @@ Additionally check for modern dev environment signals:
 - `.devcontainer/devcontainer.json` — containerized dev environment (extract image, features, post-create commands).
 - `flake.nix`, `shell.nix`, `default.nix` — Nix-based reproducible environment (`nix develop` / `nix-shell`).
 - `mise.toml`, `.mise.toml` — mise version manager (asdf successor).
+- **One-shot setup scripts** — glob for `bootstrap.sh` / `bootstrap.bat` / `bootstrap.ps1`, `setup.sh` / `setup.bat` / `setup.ps1` / `setup.py` (only when `setup.py` is NOT a Python setuptools manifest — check for `from setuptools` / `from distutils` to disambiguate), `bin/setup` (Rails convention), `script/bootstrap` (GitHub Scripts to Rule Them All convention), `scripts/setup*`, `scripts/bootstrap*`, `scripts/install*`, `Makefile` targets named `setup` / `bootstrap` / `install-deps`. Validate each filename with `^[A-Za-z0-9][A-Za-z0-9._/-]{0,128}$`, split on `/` and reject empty/`.`/`..` segments. Emit matching files in a *Setup scripts* row of the Dev Workflow Signals (listed paths, up to 5; overflow collapsed into `+N more`). Skip when the file appears to be a CI-only entrypoint (first comment line contains `ci` / `continuous integration` / `pipeline`). Never read the script contents to infer intent — the filename + presence is the signal; the main skill renders an opt-in "one-shot setup" block under Installation that invokes the script verbatim.
+- **Pre-commit hooks** — `.pre-commit-config.yaml` at repo root → emit a *Pre-commit hooks* entry in Dev Workflow Signals with value `yes`; otherwise `none`. Main skill renders a Prerequisites note: `run \`pre-commit install\` after cloning` and a Common Issues note.
+- **direnv** — `.envrc` at repo root → emit a *direnv* entry in Dev Workflow Signals with value `yes`; otherwise `none`. Never read `.envrc` contents (it is executable and may contain secrets). Main skill renders a Prerequisites note: `run \`direnv allow\` after cloning to activate the project environment`.
+- **Local-HTTPS cert bootstrap (mkcert / similar)** — grep existing scripts (`scripts/*.sh`, `scripts/*.ps1`, `bin/*`, `Makefile`) for whole-token mentions of `mkcert` (not substring — `mkcert` must be surrounded by whitespace/start/end); emit a *Local TLS cert* entry in Dev Workflow Signals with value `mkcert` when found; otherwise `none`. Main skill renders a Prerequisites note about running `mkcert -install` once per dev machine.
 
 Record build system, minimum toolchain version, and any SDK requirements discovered.
 
@@ -130,7 +134,21 @@ For unsupported stacks, detect and gather evidence only — do NOT propose insta
    - Step B: Scan for independent manifests (depth-2 nested check)
    - Step C: Supporting signals (docker-compose, README descriptions, concurrently scripts, proxy configs)
 
-4. **Detect runtime version constraints** from manifests: `engines.node` in package.json, `python_requires` in pyproject.toml, `rust-version` in Cargo.toml, `environment.sdk` in pubspec.yaml, and similar fields.
+4. **Detect runtime version constraints** from manifests: `engines.node` in package.json, `python_requires` in pyproject.toml, `rust-version` in Cargo.toml, `environment.sdk` in pubspec.yaml, `toolchain.channel` in `rust-toolchain.toml`, `go.mod` `go` directive, `.java-version` / `pom.xml` `maven.compiler.source`, and similar fields. Each emits one row with the Source field pointing at `<file>:<line>` (line number required so Step 6's Specific-Token Audit can re-read).
+
+   **Version-manager files are authoritative when the manifest is silent.** If the manifest has NO version constraint for a runtime (no `engines.node`, no `python_requires`, etc.) AND a version-manager file exists for that runtime, emit a row using the version-manager file's committed content as the constraint, cited as `Source: <version-manager-file>` (no line needed — these files contain only the version string):
+   - `.python-version` → `Python == <content>` (pyenv pin; exact-version constraint — treat leading `3.10.5` as `3.10.x` when the file lacks patch level)
+   - `.ruby-version` → `Ruby == <content>`
+   - `.nvmrc` / `.node-version` → `Node.js >= <major>.<minor>` (nvm/fnm pins; minor floor, major+minor becomes `>=` constraint)
+   - `rust-toolchain.toml` / `rust-toolchain` → `Rust == <channel>` (literal channel: `stable`, `nightly`, or `<X.Y.Z>`)
+   - `.java-version` → `Java == <content>` (jenv/jabba pin)
+   - `.tool-versions` (asdf / mise) — one row per `<runtime> <version>` line whose `<runtime>` matches a known name (`nodejs`, `python`, `ruby`, `java`, `rust`, `go`, `dotnet`, `deno`, `bun`, `terraform`). Skip `<runtime>` tokens the allowlist does not recognize.
+
+   **File sanitization:** read each file with Read; reject if larger than 1 KB (these are one-line pinning files); validate the version string against `^[A-Za-z0-9._+-]{1,32}$` and drop the entry when the content is empty, contains whitespace outside the leading/trailing boundaries, or contains path separators / shell metacharacters. Never parse a comment-like line (starts with `#`) as a version — in `.tool-versions` these are legitimate comments.
+
+   **Precedence when both manifest AND version-manager file exist:** emit both rows. The manifest constraint is the contract (engines.node `^>=18`); the version-manager file is the recommended/tested version (.nvmrc `20.11.1`). Mark the version-manager row `Source: <file> (recommended pin)` so the main skill can render the Prerequisites line as "Node.js ≥18 required (engines.node); 20.11.1 recommended (.nvmrc)".
+
+   **No constraint in either place:** if neither the manifest nor a version-manager file pins the runtime, emit NO row for that runtime. The main skill's *Never guess runtime ports* Content Principle extends by analogy to versions — do not invent a floor from general knowledge.
 
 5. **Detect external services and dependencies** using the signal-to-section mapping in how-to-run-sections.md:
    - `docker-compose.yml` / `compose.yml`: parse `services` for databases, message queues, caches, and other infrastructure. Note which services have `build:` (app services) vs image-only (infrastructure services). Extract ports. Mark `Confidence: confirmed`.
@@ -148,12 +166,82 @@ Many projects (Spring Boot, ASP.NET Core, Rails, Phoenix/Elixir, Laravel, Go-wit
    - **Caps:** cap at 20 detected services per config file; beyond that, emit a single `N+ more — see <file>` line without enumerating further. Cap total across all scanned files at 60 — beyond that, report only the first 60 and state the overflow.
    - **Confidence:** every service detected via this task is marked `Confidence: candidate` (contrast with `Confidence: confirmed` for compose/ORM-migration sources). The main skill renders candidates with a `(candidate)` marker and allows the user to drop any candidate via the Step 1 "Correct first" flow; do not emit a per-service prompt.
 
+#### Task 3b — Runnable component enumeration
+
+A project may have multiple runnable entrypoints a developer must start in parallel: web API, background worker, scheduler, job-queue consumer, frontend dev server. Surface each one so the main skill's *Running in Development* section can render a `### <Component> (shell N)` subsection per entrypoint with a `Boot order:` header and per-component `Requires:` list — not just the primary binary. Missing-component bugs (e.g., "the worker that wasn't documented") account for a disproportionate share of first-boot failures.
+
+Run in parallel with Tasks 5 and 5c. Emit rows in the Components table of the return format.
+
+Per-stack detection rules (apply every rule whose signals are present; a polyglot repo with both .NET and Node services emits rows for both):
+
+- **.NET:** glob `**/*.csproj` (depth cap 6, never follow symlinks). For each file, read it and emit a row when ANY of these signals is present — unless it is a test/build-helper project (skip rules below):
+  - `Sdk="Microsoft.NET.Sdk.Web"` on the `<Project>` element (ASP.NET Core web/API),
+  - `Sdk="Microsoft.NET.Sdk.Worker"` on the `<Project>` element (Background worker),
+  - `<OutputType>Exe</OutputType>` anywhere in the file,
+  - Presence of `Program.cs`, `Program.fs`, or `Program.vb` in the same directory as the csproj.
+
+  **Skip rules (never emit a row):** csproj filename matches `(?i)(\.Tests|\.Test|\.Spec|\.Specs|\.UnitTests|\.IntegrationTests|\.E2E)\.csproj$`; csproj directory is under `build/`, `tools/build/`, or `tools/`; csproj SDK is plain `Microsoft.NET.Sdk` AND it has no `<OutputType>` AND no `Program.*` file in its directory (library-only).
+- **Node / TypeScript:** for each `package.json`, emit a row when `scripts.start` OR `scripts.dev` OR `scripts.serve` OR `bin` field is present. Prefer `dev` > `serve` > `start` as the `Start command`. Skip when the package's own `private` is `true` AND it has no `scripts.start|dev|serve` AND no `bin` (pure library).
+- **Rust:** for each `Cargo.toml`, emit one row per `[[bin]]` entry (component name = the `[[bin]].name` field). If no `[[bin]]` entries AND `src/main.rs` exists, emit one row with component name = `[package].name`. Skip `[[example]]` / `[[test]]` / `[[bench]]`.
+- **Python:** parse `pyproject.toml` `[project.scripts]` — each `name = "<module>:<function>"` becomes one row. Also parse `setup.py` `entry_points={"console_scripts": [...]}` when present. For web frameworks without console scripts (Django, Flask, FastAPI), emit a row when `manage.py` / `app.py` / `main.py` / `wsgi.py` / `asgi.py` sits at the repo root or under a `src/` directory.
+- **Go:** glob `cmd/*/main.go` — one row per `<name>` (the directory name under `cmd/`). Also emit a row for `main.go` at the repo root when present (component name = the module's last path segment from `go.mod`).
+- **Procfile / Procfile.dev:** each non-comment, non-blank line becomes a row. Component name is the token before the first `:`; the `Start command` is everything after.
+- **Elixir umbrella:** each `apps/*/` subdirectory that contains its own `mix.exs` is a separate component.
+- **Python Celery / Node BullMQ / background-only libraries:** when a manifest declares a dependency on `celery`, `bull`, `bullmq`, `sidekiq`, `rq`, `apscheduler`, `hangfire`, or `quartz` AND a `worker.py` / `worker.ts` / `worker.js` / `jobs/` directory exists, emit a separate row with Kind `worker`, component name derived from the file or directory.
+
+**Per-row fields:**
+
+- **Component:** validate with `^[A-Za-z0-9._ -]{1,64}$` (same regex as the project-name field). Reject otherwise.
+- **Path:** component directory relative to repo root, validated with `^[A-Za-z0-9][A-Za-z0-9._/-]{0,128}$`; split on `/` and reject empty/`.`/`..` segments. Path is the directory, not the file.
+- **Kind:** one of `web`, `worker`, `scheduler`, `cli`, `frontend`, `other`. Derivation:
+  - `Microsoft.NET.Sdk.Web`, Spring Boot `spring-boot-starter-web`, Rails/Django web entrypoint, Express/Fastify/NestJS listen → `web`
+  - `Microsoft.NET.Sdk.Worker`, `BackgroundService` grep, Celery/Sidekiq/BullMQ/RQ imports, a detected `worker.*` entrypoint → `worker`
+  - Cron/schedule/quartz/hangfire references, `scheduler.*` entrypoint → `scheduler`
+  - Angular / React / Vue / Svelte / Next.js / Nuxt dev server (presence of `angular.json`, `vite.config.*`, `next.config.*`, `nuxt.config.*`, `svelte.config.*` in the component directory) → `frontend`
+  - Otherwise → `cli` (when a console-script entry point) or `other`
+- **Start command:** the canonical invocation to run the component in dev. For .NET: `dotnet run --project <path>`. For Node: `npm run <script>` (or `pnpm run <script>` / `yarn <script>`) — use the detected PM's prefix from `tech-stack-detection.md`. For Rust: `cargo run --bin <name>` (or `cargo run` when single `[[bin]]`). For Python console scripts: `<name>` (after `pip install -e .`). For Go cmd/: `go run ./cmd/<name>`. For Procfile lines: render the line's RHS verbatim.
+- **Requires (services):** comma-separated list of service names from the External Services table whose *Source* file path lies strictly within the component's directory (prefix match with trailing `/`). Empty string `—` if none.
+- **Requires (components):** comma-separated list of other component names this component's config references. Detection: grep the component's config files (`appsettings*.json`, `environment*.ts`, `application*.yml`, `config/*.exs`, `config.*`, `.env*`) for `http://localhost:<port>` / `http://127.0.0.1:<port>` / bare `:<port>` in connection-string-looking strings, and match each `<port>` against another component's Runtime Ports row. Empty string `—` if none.
+
+**Caps & overflow:** cap at 20 components total across the project. Beyond the cap, emit a single `+N more — see <glob pattern>` row and stop enumerating. Duplicate rows (same Component + Path) are suppressed silently.
+
+**Ordering:** emit rows in deterministic topological order — components with empty `Requires (components)` first (roots), then components whose requirements are already emitted, then any remaining in discovery order. This lets the main skill render `Boot order:` from the rows verbatim.
+
+When the entire project produces no rows, state `[No runnable components detected.]` in the Components table body — this means the repo is a library. The main skill's *Running in Development* section omits entirely when no components are detected.
+
+#### Task 5c — Runtime-bind port detection
+
+Extract the port(s) the application itself listens on (distinct from external-service ports in Task 5). The main skill's Step 4 quotes these ports in `Expected result:` URLs; surfacing the wrong port is the most common regression on any stack where the framework default (ASP.NET `5000`, Rails `3000`, Django `8000`, Spring Boot `8080`, Node `3000`) differs from the project's actual bound port.
+
+Run this task after Task 5b and emit one row per detected component-port pair in the **Runtime Ports** return-format table. Every row MUST carry a `<file>:<line>` Source citation that Step 6 can re-read — no framework defaults, no inference from unrelated config.
+
+Per-stack detection rules (apply every rule whose signals are present; a project with both .NET and Node services emits rows for both):
+
+- **.NET / ASP.NET Core:** glob `**/Properties/launchSettings.json` (depth cap 6, never follow symlinks). For each file, parse the JSON and extract: (a) `iisSettings.iisExpress.applicationUrl` for the IIS Express profile, and (b) every `profiles.<name>.applicationUrl` for non-IIS profiles. Extract the port from the URL with the regex `^https?://[^:/]+:([0-9]{1,5})(?:/|$)`; emit one row per distinct `(component, port)` pair where component is the parent `src/<Component>/` directory name (fall back to the file's grandparent directory). Skip URLs without an explicit port (implicit `:80` / `:443` is valid but not a runtime-bind signal worth emitting).
+- **Rails / Ruby:** read `config/puma.rb` if present; grep for `port` (ERB-aware: skip lines whose first non-whitespace is `#`) and `bind` (e.g., `bind "tcp://0.0.0.0:3001"`). Extract integer port; component is "Puma" or the Rails app directory name when the project is a monorepo.
+- **Spring Boot / Java:** read `src/main/resources/application.yml` / `application.yaml` / `application.properties` and each `application-<profile>.*` variant. Extract `server.port` (YAML) or `server.port=<N>` (properties). Component is the Maven/Gradle module directory when a multi-module project; else the project name.
+- **Django / Python:** look for a `PORT` default in `manage.py`, `wsgi.py`, `asgi.py`, or `config/settings.py`. If not found literally, emit NO row — the Django `runserver` default (`8000`) is a developer-supplied argument, not a project bound port.
+- **Node / Express / Fastify / Koa / NestJS:** grep the project's entrypoint (resolved from `package.json` `main` / `bin`, else common paths `src/index.*`, `src/server.*`, `src/main.*`, `app.js`) for `\.listen\(\s*([0-9]{1,5})\b` and for `process.env.PORT\s*\|\|\s*([0-9]{1,5})`. Emit only when the integer literal is present AND the function name is one of `listen`, `createServer`, `fastify.listen`. Do NOT emit when the port only appears as `process.env.PORT` with no literal fallback — that defers to the environment.
+- **Go:** grep source files for `http.ListenAndServe\(\s*":([0-9]{1,5})"` and `\.Listen\(\s*":([0-9]{1,5})"`. Also read any `config.yaml` / `config.toml` for a top-level `port` / `server.port` integer.
+- **Phoenix / Elixir:** read `config/dev.exs` for `http: [port: <N>]` or `port: <N>` inside an endpoint config block.
+- **Rust (Axum / Actix / Rocket):** grep `src/main.rs` and `src/bin/*.rs` for `::bind\(\s*"[^"]*:([0-9]{1,5})"` and `Rocket.toml` / `Rocket.toml` `[default]`/`[release]` `port = <N>`.
+
+Sanitization — reject any extracted port value unless it matches `^[0-9]{1,5}$` with integer value between 1 and 65535. Sanitize each source file path with Task 0b's path validation regex and reject absolute paths, `..` segments, or symlink traversal. Validate the component name against `^[A-Za-z0-9._ -]{1,64}$` (same regex as the project name field); reject otherwise.
+
+Cap at 20 distinct `(component, port)` rows total; beyond that, emit a single `+N more` overflow line and stop. This prevents a large monorepo from overflowing the return format. Rows MUST be listed in discovery order (one file at a time, in file-read order) — the main skill depends on the first row per component being the "primary" bound port.
+
+When no stack produces a row, write `[No bound runtime ports detected.]` in the Runtime Ports table (exactly that literal body between the table header and the next section) and do NOT guess. The main skill's *Never guess runtime ports* Content Principle will force the `Expected result:` URL to be rendered without a port when this is the case.
+
 6. **Detect infrastructure signals:**
    - `Dockerfile` / `Dockerfile.dev`: Docker-based dev workflow.
    - `Makefile` / `Justfile`: scan for targets like `dev`, `start`, `setup`, `run`, `serve`, `up`, `docker-up`.
    - `Procfile` / `Procfile.dev`: process runner configuration.
    - **Environment config — dotenv templates:** `.env.example` / `.env.sample` / `.env.template`: read to identify required config variables and their count. Extract variable **names only**: for each line, skip blank lines and any line whose first non-whitespace character is `#`, strip an optional leading `export ` and surrounding whitespace, take the token to the left of the first `=`, and emit it only if it matches `^[A-Za-z_][A-Za-z0-9_]*$` (POSIX identifier). Never return values, inline comments, or surrounding lines, even when the example file appears to contain placeholder defaults. Do not read `.env`, `.env.local`, or any `.env.*.local` file — those may contain real secrets. Emit one row per file with `Format: dotenv`.
    - **Environment config — framework config files:** when any of the framework config files enumerated in Task 5b exist, also emit one Environment Setup row per file with the file's name, its format (`json` for `appsettings*.json`, `yaml` for `application.yml`/`application.yaml` and Rails `config/*.yml`, `properties` for `application.properties`, `exs` for Phoenix `config/*.exs`, `php` for Laravel `config/*.php`, `toml` for `config.toml`), and the list of top-level section names (not nested keys) the file defines. Sanitize each section name with the shared top-level-section-name allowlist `^:?[A-Za-z_][A-Za-z0-9_.-]{0,63}$` (same regex as Task 5b) and drop any that fail. For `properties`-format rows, collapse each key to the substring before the first `.` and dedupe before applying the allowlist, so `spring.datasource.url` and `spring.datasource.username` reduce to a single `spring` section. **Cap at 25 section names per file**; when more exist, emit the first 25 alphabetically and set the row's `Variable count` to the true total so the main skill can render a "See `<file>` for the full list" footnote. Never emit values or nested-key contents — only top-level section names.
+
+     **Key leaf properties per section:** for each top-level section, also collect up to 3 first-level leaf property names (the immediate children of the section, NOT nested grandchildren). Leaf property names are the ones readers will actually edit (`ConnectionString`, `Password`, `ClientId`) — listing them with the section heading turns the Env Setup from "here are names" into "here are the exact keys you'll touch". Sanitize each leaf name with the same allowlist `^:?[A-Za-z_][A-Za-z0-9_.-]{0,63}$` and drop any that fail. Emit them in the detector's Environment Setup table under a new `Key leafs` column (semicolon-separated list, e.g., `ConnectionString; Password; Ssl`). For `properties`-format rows, after collapsing to a top-level section, the leaf is the character range between the first and second `.` (e.g., `spring.datasource.url` → leaf `datasource`); apply the allowlist to that. Cap at 3 leafs per section — readers only need a signpost, not an exhaustive list.
+
+     **Committed-secrets warning:** after enumerating top-level sections, run a grep pass over the file looking for non-placeholder values assigned to keys whose name matches `(?i)(key|secret|password|token|credential|private)`. A "non-placeholder value" is: any string longer than 8 characters that is NOT `<placeholder>` / `changeme` / `your-<anything>` / `example` / `TODO` / `FIXME` / `""` / `null` / `None` / empty. If at least one such assignment is found, set the row's `Secrets committed` field to `yes`; otherwise `no`. The main skill renders a Caution block under Env Setup when this is `yes`, telling the reader the file is tracked by git and appears to contain live credentials that should be rotated. Never emit the actual value — only the boolean flag + the count of flagged keys.
    - **Schema bootstrap scripts:** glob for `*.sql` at repo root, under `db/`, `database/`, `scripts/sql/`, `data/`, `bootstrap/`, `sql/`. Skip `migrations/` when an ORM migration tool (alembic, knex, Prisma, Sequelize, TypeORM) was detected in Task 5 — those files are already covered by the ORM migration row and re-reporting them would produce duplicate "Choose one" entries. Glob for language-specific seed files: `db/seeds.rb` (Rails), `priv/repo/seeds.exs` (Phoenix/Ecto), `fixtures/*.json` / `fixtures/*.yaml` (Django `loaddata`), `seed.ts` / `seed.js` / `seed.mjs` at repo root, `prisma/seed.*`, `scripts/seed.*`. Cross-reference the External Services table produced in Task 5/5b: emit a `Schema bootstrap` row only when at least one service of type `database` (SQL, NoSQL) is present AND at least one of these files exists. Before emitting each entry, validate the filename against `^[A-Za-z0-9][A-Za-z0-9._/-]{0,128}$`, split on `/` and reject empty/`.`/`..` segments AND reject any segment whose first character is `-` (a crafted name like `db/-rf.sql` would otherwise be interpolated into `psql -f db/-rf.sql` or `sqlcmd -i db/-rf.sql` and parsed by the tool as an option) — drop any file that fails so crafted filenames cannot smuggle shell metacharacters or option-like arguments into the invocation hint. Record filenames (not contents); cap the file list at 5 entries per directory, with overflow collapsed into a single "+N more under `<dir>`" note. Report the language / invocation hint alongside each entry (`sqlcmd -i <file>`, `psql -f <file>`, `mysql < <file>`, `rails db:seed`, `mix ecto.seed`, `python manage.py loaddata <file>`, `tsx prisma/seed.ts`, `node scripts/seed.js`) — do NOT copy any text from the file contents.
    - `template.yaml` (AWS SAM), `serverless.yml` / `serverless.ts` (Serverless Framework): serverless local dev signals.
    - `.npmrc`, `pip.conf`, `.pypirc`, Maven `settings.xml`: private registry indicators.
@@ -178,6 +266,20 @@ Return your findings in this exact structure:
 - **Tech stack(s):** [languages, frameworks]
 - **Package manager(s):** [detected from lock files / config]
 - **Project structure:** [single project | monorepo | multi-repo workspace | ambiguous]
+- **Workspace kind:** [one of `npm-workspaces` | `pnpm-workspaces` | `yarn-workspaces` | `lerna` | `nx` | `turbo` | `cargo-workspace` | `go-workspace` | `gradle-multi-module` | `maven-multi-module` | `none`]. Drives install/build/run command selection downstream. Detection rules:
+  - `pnpm-workspaces` — `pnpm-workspace.yaml` present at repo root
+  - `yarn-workspaces` — `package.json` at root has `workspaces` field AND `yarn.lock` is the lock file
+  - `npm-workspaces` — `package.json` at root has `workspaces` field AND `package-lock.json` is the lock file (not `yarn.lock`)
+  - `lerna` — `lerna.json` at root
+  - `nx` — `nx.json` at root
+  - `turbo` — `turbo.json` at root
+  - `cargo-workspace` — `Cargo.toml` at root has a `[workspace]` section (`members = [...]`)
+  - `go-workspace` — `go.work` at repo root
+  - `gradle-multi-module` — root `settings.gradle` / `settings.gradle.kts` contains `include(...)` with >1 module
+  - `maven-multi-module` — root `pom.xml` has `<modules>` with >1 `<module>` child
+  - `none` — none of the above; project is a single-repo (even if monorepo-shaped by directory layout alone). Note: a directory with multiple subprojects at depth 2 but no workspace file renders as `Project structure: monorepo` with `Workspace kind: none`.
+
+  Emit exactly one value. When multiple signals fire (e.g., `pnpm-workspace.yaml` AND `turbo.json`), pick the higher-specificity one in this precedence order: `nx > turbo > lerna > pnpm-workspaces > yarn-workspaces > npm-workspaces > cargo-workspace > go-workspace > gradle-multi-module > maven-multi-module > none`. `nx` / `turbo` / `lerna` are monorepo-orchestration layers on top of an underlying PM; picking the orchestrator is usually what the reader wants to invoke.
 - **Structure signals:** [evidence that led to determination]
 
 ### Build System & Toolchain
@@ -237,6 +339,26 @@ Mark sibling-repo findings as `(candidate)` when derived only from a path grep w
 
 [If no constraints found, state "No runtime version constraints detected."]
 
+### Components
+| Component | Path | Kind | Start command | Requires (services) | Requires (components) |
+|-----------|------|------|---------------|---------------------|------------------------|
+| [e.g., Isa360.Web] | [src/Isa360.Web] | [web] | [dotnet run --project src/Isa360.Web] | [SQL Server, Redis] | [—] |
+| [e.g., Isa360.WebWorkerManager] | [src/Isa360.WebWorkerManager] | [worker] | [dotnet run --project src/Isa360.WebWorkerManager] | [SQL Server, Redis, AWS SNS] | [—] |
+| [e.g., isa360-ngapp] | [isa360/ngapp] | [frontend] | [npm run serve] | [—] | [Isa360.Web] |
+
+[If no runnable components detected, state "No runnable components detected."]
+
+This table drives the main skill's *Running in Development* section: one `### <Component> (shell N)` subsection per row, a `Boot order:` header derived from the `Requires (components)` topological chain, and a `Requires:` bullet per subsection listing service + component dependencies. Populate via Task 3b (Runnable component enumeration). Emit rows in topological order (roots first). When only one row exists, the main skill renders a single-component layout without shell-numbering suffixes. When zero rows exist, the main skill omits the section entirely (the repo is a library).
+
+### Runtime Ports
+| Component | Port | Source |
+|-----------|------|--------|
+| [e.g., Isa360.Web] | [e.g., 51914] | [e.g., src/Isa360.Web/Properties/launchSettings.json:6] |
+
+[If no bound runtime ports detected, state "No bound runtime ports detected."]
+
+This table drives the Step 6 Specific-Token Audit's grounded-ports set. Populate it via Task 5c (Runtime-bind port detection). Every row MUST carry a `<file>:<line>` Source citation the main skill can re-read — the audit re-opens each cited file and confirms the port value still matches before allowing it into any `Expected result:` URL. Omit the row entirely if no `<file>:<line>` can be produced; NEVER emit a framework default (ASP.NET `5000`, Rails `3000`, Django `8000`, Spring Boot `8080`) without a live file citation.
+
 ### External Services
 | Service | Source | Port | Type | Confidence |
 |---------|--------|------|------|-----------|
@@ -250,14 +372,14 @@ Confidence values:
 - `candidate` — detected from a framework config file by Task 5b's keyword/FQDN scan; the main skill renders these with a `(candidate)` marker and allows the user to drop them via the Step 1 "Correct first" flow.
 
 ### Environment Setup
-| File | Format | Variable count | Key variables |
-|------|--------|----------------|---------------|
-| [e.g., .env.example] | [dotenv] | [N] | [list of variable names — dotenv files: all names; config files: top-level section names, up to 25/file] |
-| [e.g., src/Web/config/appsettings.development.json] | [json] | [N] | [top-level section names, up to 25] |
+| File | Format | Variable count | Key variables | Key leafs | Secrets committed |
+|------|--------|----------------|---------------|-----------|-------------------|
+| [e.g., .env.example] | [dotenv] | [N] | [list of variable names — dotenv files: all names; config files: top-level section names, up to 25/file] | [—] | [no] |
+| [e.g., src/Web/config/appsettings.development.json] | [json] | [N] | [top-level section names, up to 25] | [per section: up to 3 first-level leaf names joined by `; ` — e.g., "Database: ConnectionString; RedisSettings: ConnectionString, Password, Ssl"] | [yes / no] |
 
 [If no env files or framework config files found, state "No environment config templates detected."]
 
-`Variable count` is the true count (not the displayed-sample count) so the main skill can decide whether to render a "See `<file>` for the full list" footnote when the displayed list was truncated to 25.
+`Variable count` is the true count (not the displayed-sample count) so the main skill can decide whether to render a "See `<file>` for the full list" footnote when the displayed list was truncated to 25. `Key leafs` carries up to 3 first-level leaf property names per section (empty `—` for dotenv rows, which have no hierarchy). `Secrets committed` is `yes` when the committed config file appears to hold non-placeholder credential-shaped values — the main skill renders a Caution under Env Setup telling the reader to rotate and `.gitignore` the file.
 
 ### Schema Bootstrap
 | File | Directory | Invocation hint |
@@ -277,6 +399,10 @@ Emit rows only when at least one database-type service is present in the Externa
 - **Makefile targets:** [list of dev-relevant targets, or "none"]
 - **Process runner:** [Procfile/Procfile.dev detected, or "none"]
 - **Version managers:** [.nvmrc, .python-version, mise.toml, etc., or "none"]
+- **Setup scripts:** [list of one-shot setup script paths detected (bootstrap.sh, bin/setup, etc.), or "none"]
+- **Pre-commit hooks:** [yes if .pre-commit-config.yaml detected, or "none"]
+- **direnv:** [yes if .envrc detected, or "none"]
+- **Local TLS cert:** [mkcert if detected, or "none"]
 - **Code generation:** [protobuf, build_runner, etc., or "none"]
 - **Database migrations:** [prisma, alembic, etc., or "none"]
 - **Private registry:** [.npmrc, pip.conf, etc., or "none"]
