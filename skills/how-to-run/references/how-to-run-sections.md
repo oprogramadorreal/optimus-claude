@@ -195,7 +195,7 @@ Generate code:
 <codegen command>
 \`\`\`
 
-[If ORM migration tooling, raw SQL bootstrap scripts, or seed files detected — emit the Schema Bootstrap sub-block shown below inside the Installation section. Render the heading and one bullet per detected option, in the detector's report order. The bullet order is not a recommendation — when multiple options render, the reader picks whichever matches their stack.]
+[If ORM migration tooling, raw SQL bootstrap scripts, or seed files detected — emit the Schema Bootstrap sub-block shown below inside the Installation section (no sub-heading; the block lives under Installation's H3). Render the lead-in paragraph and one bullet per detected option, in the detector's report order. The bullet order is not a recommendation — when multiple options render, the reader picks whichever matches their stack.]
 
 Initialize database schema (apply the matching option below for this project's stack):
 
