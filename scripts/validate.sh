@@ -487,8 +487,8 @@ if [ -f "$detector_file" ]; then
     '`confirmed`' \
     '`candidate`' \
     'Format: dotenv' \
-    '#### Task 3b' \
     '#### Task 5c' \
+    '#### Task 5d' \
     'No bound runtime ports detected.' \
     'No runnable components detected.' \
     '| Requires (services) | Requires (components) |'; do
@@ -507,14 +507,20 @@ if [ -f "$sections_file" ]; then
     '**Boot order:**' \
     'Multi-component layout' \
     'Single-component layout' \
-    'Components table (Task 3b)' \
+    'Components table (Task 5d)' \
     'Runtime Ports table (Task 5c)' \
     '## Workspace-Kind Command Branches' \
+    '`npm-workspaces`' \
+    '`pnpm-workspaces`' \
+    '`yarn-workspaces`' \
+    '`lerna`' \
+    '`nx`' \
+    '`turbo`' \
     '`cargo-workspace`' \
     '`go-workspace`' \
     '`gradle-multi-module`' \
     '`maven-multi-module`' \
-    '### Quick start (Dev Container)' \
+    '#### Quick start (Dev Container)' \
     '**One-shot setup (preferred):**' \
     '**Manual setup:**'; do
     if ! grep -qF -- "$sections_token" "$sections_file" 2>/dev/null; then
@@ -544,10 +550,10 @@ fi
 # how-to-run-sections.md, and the committed-secrets Caution block.
 if [ -f "$detector_file" ]; then
   for env_setup_token in \
-    '| Key leafs |' \
+    '| Key leaves |' \
     '| Secrets committed |'; do
     if ! grep -qF -- "$env_setup_token" "$detector_file" 2>/dev/null; then
-      wiring_errors+="  $detector_file missing Env-Setup key-leafs/secrets column: $env_setup_token\n"
+      wiring_errors+="  $detector_file missing Env-Setup key-leaves/secrets column: $env_setup_token\n"
     fi
   done
 fi
@@ -590,6 +596,11 @@ fi
 if [ -f "$detector_file" ]; then
   for wk_token in \
     '- **Workspace kind:**' \
+    '.python-version' \
+    '.ruby-version' \
+    '.nvmrc' \
+    '.node-version' \
+    '.java-version' \
     'rust-toolchain.toml' \
     '.tool-versions' \
     'recommended pin'; do

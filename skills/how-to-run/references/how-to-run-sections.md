@@ -50,7 +50,7 @@ Section templates and signal-to-content mapping for generating `HOW-TO-RUN.md`. 
 | `mkcert` references in scripts | Prerequisites (`mkcert -install` once per dev machine), Common Issues (OAuth / webhook / SameSite cookie flows require local HTTPS) |
 | `template.yaml` (AWS SAM) / `serverless.yml` / `serverless.ts` | Running in Development (`sam local start-api` / `serverless offline`) |
 | Test framework in dependencies + test script in manifest | Running Tests |
-| Detector's Components table (Task 3b) with >1 runnable entrypoint (`Microsoft.NET.Sdk.Web` + `Microsoft.NET.Sdk.Worker`, `cmd/*/main.go`, `[[bin]]` entries in Cargo, Procfile lines, Rails + Sidekiq, etc.) | Running in Development (multi-component layout: `Boot order:` header + one `#### <Component> (shell N)` subsection per row with per-component `Requires:` list) |
+| Detector's Components table (Task 5d) with >1 runnable component (`Microsoft.NET.Sdk.Web` + `Microsoft.NET.Sdk.Worker`, `cmd/*/main.go`, `[[bin]]` entries in Cargo, Procfile lines, Rails + Sidekiq, etc.) | Running in Development (multi-component layout: `Boot order:` header + one `#### <Component> (shell N)` subsection per row with per-component `Requires:` list) |
 | Detector's Runtime Ports table (Task 5c) entry for a component | Running in Development (cited in that component's `Expected result:` URL — no port = omit URL, never fall back to framework default) |
 
 ## Section Skeletons
@@ -325,7 +325,7 @@ Top-level sections that require values before running locally:
 Rendering rules:
 - One bullet per detected top-level section, in the order the detector returned them (alphabetical when the detector truncated).
 - Derive the one-line description from section-name semantics only — never from the file's values. Example hints: `AWS` → "AWS SDK credentials and region"; `RedisSettings` → "Redis connection string and pool sizing"; `OpenIdConnect` → "OIDC authority and client credentials". When the semantics are ambiguous, emit the section name with no description (a bare bullet is better than a wrong guess).
-- **Keys you will edit:** append this clause only when the detector's `Key leafs` column has entries for the section — render up to 3 leafs joined by `, ` (the detector already caps at 3). Omit the clause entirely when the detector emitted `—` (dotenv files or sections with no first-level leaves worth surfacing).
+- **Keys you will edit:** append this clause only when the detector's `Key leaves` column has entries for the section — parse the cell by splitting on `; ` to isolate sections, then split each section's `<Section>: <leaf1>, <leaf2>, <leaf3>` on `:` to isolate its leaves, and render up to 3 leaves joined by `, ` for the matching section (the detector already caps at 3). Omit the clause entirely when the detector emitted `—` (dotenv files or sections with no first-level leaves worth surfacing).
 - Include the "See `<config file>` for the full list of <N> sections." footnote only when the detector reports `Variable count` > 25. Omit otherwise.
 - Render the Caution block only when the detector's `Secrets committed` column is `yes`. The block goes immediately after the section list and before the "Never commit real secrets" line — the Caution is specific to this file's observed state; the final line is the general rule.
 
@@ -372,21 +372,19 @@ Pick the sub-template that matches the detected run mode. **The `Expected result
 
 Never fabricate an endpoint path — when unsure, omit the `Verify:` line. The `Expected result:` line is the mandatory assertion; `Verify:` is the optional "how to confirm it".
 
-**Quick start (Dev Container) — prepend when the detector's *Containerized dev env* signal is set.** Render this block at the very top of *Running in Development*, above the Multi-component layout (or single-component sub-template). The dev container is usually the simplest path when one is provided.
+**Quick start (Dev Container) — prepend when the detector's *Containerized dev env* signal is set.** Render this block as an H4 subsection INSIDE the `### Running in Development` H3, immediately under the section heading and above the Multi-component / Single-component layout content. A single `### Running in Development` H3 wraps the whole section — never emit two sibling H3s. The dev container is usually the simplest path when one is provided.
 
 ```markdown
-### Quick start (Dev Container)
+#### Quick start (Dev Container)
 
 If you use VS Code, open the cloned repo and choose *Dev Containers: Reopen in Container* (requires the [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) and Docker Desktop). The container build runs the setup steps in `.devcontainer/devcontainer.json`; you can skip the manual Installation and run the per-component commands below once it finishes.
 
 For a terminal-only workflow (no VS Code), install the [dev container CLI](https://github.com/devcontainers/cli) and run `devcontainer up --workspace-folder .`.
 ```
 
-**Multi-component layout (applies when the detector's Components table has >1 row).** Render one `#### <Component> (shell N)` H4 subsection per Component-table row, in the order the detector returned them (topological — roots first). Before the per-component subsections, render a single `Boot order:` block:
+**Multi-component layout (applies when the detector's Components table has >1 row).** Render one `#### <Component> (shell N)` H4 subsection per Component-table row, in the order the detector returned them (topological — roots first). Before the per-component subsections, render a single `Boot order:` block under the section's `### Running in Development` H3 (do NOT emit a second `### Running in Development` heading — the section opening's H3 already exists, and any Quick start block rendered above is a nested H4 that does not provide a new H3):
 
 ```markdown
-### Running in Development
-
 **Boot order:** start external services first (`docker compose up -d` or the per-service snippets above), run any one-time migrations / schema bootstrap (from [Installation](#installation)), then start each component in its own shell in the order shown below. A component that lists `Requires: <other-component>` must start AFTER that other component.
 
 1. **<Component A> (shell 1)** — [Kind badge if useful: web / worker / frontend]
