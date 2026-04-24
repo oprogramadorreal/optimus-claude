@@ -473,7 +473,9 @@ if [ -f "$detector_file" ]; then
     '### Recommended Developer Tools' \
     '### External Services' \
     '### Environment Setup' \
-    '### Schema Bootstrap'; do
+    '### Schema Bootstrap' \
+    '### Runtime Ports' \
+    '### Components'; do
     if ! grep -qF "$detector_heading" "$detector_file" 2>/dev/null; then
       wiring_errors+="  $detector_file missing sub-heading: $detector_heading\n"
     fi
@@ -484,9 +486,141 @@ if [ -f "$detector_file" ]; then
     '| Invocation hint |' \
     '`confirmed`' \
     '`candidate`' \
-    'Format: dotenv'; do
+    'Format: dotenv' \
+    '#### Task 5c' \
+    '#### Task 5d' \
+    'No bound runtime ports detected.' \
+    'No runnable components detected.' \
+    '| Requires (services) | Requires (components) |'; do
     if ! grep -qF "$detector_token" "$detector_file" 2>/dev/null; then
       wiring_errors+="  $detector_file missing return-format token: $detector_token\n"
+    fi
+  done
+fi
+
+# Multi-component layout wiring in how-to-run-sections.md. The Components
+# table drives the `Boot order:` header and the per-component shell
+# subsections; a silent rename of either heading would collapse the output
+# back to a single-component layout and lose worker/scheduler documentation.
+if [ -f "$sections_file" ]; then
+  for sections_token in \
+    '**Boot order:**' \
+    'Multi-component layout' \
+    'Single-component layout' \
+    'Components table (Task 5d)' \
+    'Runtime Ports table (Task 5c)' \
+    '## Workspace-Kind Command Branches' \
+    '`npm-workspaces`' \
+    '`pnpm-workspaces`' \
+    '`yarn-workspaces`' \
+    '`lerna`' \
+    '`nx`' \
+    '`turbo`' \
+    '`cargo-workspace`' \
+    '`go-workspace`' \
+    '`gradle-multi-module`' \
+    '`maven-multi-module`' \
+    '#### Quick start (Dev Container)' \
+    '**One-shot setup (preferred):**' \
+    '**Manual setup:**'; do
+    if ! grep -qF -- "$sections_token" "$sections_file" 2>/dev/null; then
+      wiring_errors+="  $sections_file missing multi-component wiring token: $sections_token\n"
+    fi
+  done
+fi
+
+# Dev Workflow Signals fields (setup scripts, pre-commit, direnv, mkcert).
+# Detector emits these signal rows; main skill templates branch on them to
+# render one-shot setup / quick start / prereq notes. A silent field rename
+# would drop the entire branch.
+if [ -f "$detector_file" ]; then
+  for dws_token in \
+    '- **Setup scripts:**' \
+    '- **Pre-commit hooks:**' \
+    '- **direnv:**' \
+    '- **Local TLS cert:**'; do
+    if ! grep -qF -- "$dws_token" "$detector_file" 2>/dev/null; then
+      wiring_errors+="  $detector_file missing Dev Workflow Signals field: $dws_token\n"
+    fi
+  done
+fi
+
+# Env-Setup key-leafs / secrets-committed wiring: leaf-property + secrets
+# columns in the detector's Environment Setup table, Verify: guidance in
+# how-to-run-sections.md, and the committed-secrets Caution block.
+if [ -f "$detector_file" ]; then
+  for env_setup_token in \
+    '| Key leaves |' \
+    '| Secrets committed |'; do
+    if ! grep -qF -- "$env_setup_token" "$detector_file" 2>/dev/null; then
+      wiring_errors+="  $detector_file missing Env-Setup key-leaves/secrets column: $env_setup_token\n"
+    fi
+  done
+fi
+if [ -f "$sections_file" ]; then
+  for env_setup_token in \
+    'Keys you will edit:' \
+    '**Optional `Verify:` line.**' \
+    'appears to contain live credentials'; do
+    if ! grep -qF -- "$env_setup_token" "$sections_file" 2>/dev/null; then
+      wiring_errors+="  $sections_file missing Env-Setup key-leaves/secrets token: $env_setup_token\n"
+    fi
+  done
+fi
+
+# Specific-Token Audit + Unverified-Count filter wiring in SKILL.md.
+# Step 6 relies on these tokens to run the new audit passes added to catch
+# hallucinated ports/paths/counts (port 5000 vs actual 51914, unverified
+# "15 .csproj projects" prose, etc.). Step 4 Content Principles and Step 1
+# Checkpoint must cite the same rules so the three steps stay in sync.
+how_to_run_skill="skills/how-to-run/SKILL.md"
+if [ -f "$how_to_run_skill" ]; then
+  for token in \
+    'Specific-Token Audit' \
+    'Unverified-Count filter' \
+    'Never assert an unobserved path' \
+    'Never guess runtime ports' \
+    'Runtime bind ports' \
+    'grounded-tokens' \
+    'Runtime Ports table'; do
+    if ! grep -qF "$token" "$how_to_run_skill" 2>/dev/null; then
+      wiring_errors+="  $how_to_run_skill missing token-audit wiring token: $token\n"
+    fi
+  done
+fi
+
+# Workspace-kind wiring in detector.md. Detector must emit the Workspace kind
+# field that SKILL.md Step 1 Checkpoint and Step 4 branch on. Silent rename
+# loses the per-kind command branching.
+wk_token='- **Workspace kind:**'
+if [ -f "$detector_file" ] && ! grep -qF -- "$wk_token" "$detector_file" 2>/dev/null; then
+  wiring_errors+="  $detector_file missing Workspace kind field: $wk_token\n"
+fi
+
+# Version-manager file wiring in detector.md. These are the authoritative
+# runtime pins when the manifest is silent. Silent removal of any filename
+# would drop support for that language's pyenv/nvm/asdf flow.
+if [ -f "$detector_file" ]; then
+  for vm_token in \
+    '.python-version' \
+    '.ruby-version' \
+    '.nvmrc' \
+    '.node-version' \
+    '.java-version' \
+    'rust-toolchain.toml' \
+    '.tool-versions' \
+    'recommended pin'; do
+    if ! grep -qF -- "$vm_token" "$detector_file" 2>/dev/null; then
+      wiring_errors+="  $detector_file missing version-manager token: $vm_token\n"
+    fi
+  done
+fi
+if [ -f "$how_to_run_skill" ]; then
+  for skill_wk_token in \
+    '- **Workspace kind**' \
+    '- **Runnable components**'; do
+    if ! grep -qF -- "$skill_wk_token" "$how_to_run_skill" 2>/dev/null; then
+      wiring_errors+="  $how_to_run_skill missing Step 1 Checkpoint bullet: $skill_wk_token\n"
     fi
   done
 fi

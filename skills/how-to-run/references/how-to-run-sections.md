@@ -7,6 +7,7 @@ Section templates and signal-to-content mapping for generating `HOW-TO-RUN.md`. 
 - [Signal → Section Mapping](#signal--section-mapping)
 - [Section Skeletons](#section-skeletons) (Prerequisites, Toolchain & SDKs, Source Dependencies, Installation, External Services, Environment Setup, Build, Running in Development, Running Tests, Common Issues)
 - [Scaling Guidance](#scaling-guidance)
+- [Workspace-Kind Command Branches](#workspace-kind-command-branches)
 - [Package Manager Command Forms](#package-manager-command-forms)
 - [Additional Detection Hints](#additional-detection-hints)
 - [Build System Detection](#build-system-detection)
@@ -40,11 +41,17 @@ Section templates and signal-to-content mapping for generating `HOW-TO-RUN.md`. 
 | `.npmrc`, `pip.conf`, `.pypirc`, Maven `settings.xml` | Prerequisites (private registry auth) |
 | `Makefile` / `Justfile` with `dev`/`start`/`setup` targets | Running in Development (mention make target) |
 | `Procfile` / `Procfile.dev` | Running in Development (process runner) |
-| `.devcontainer/devcontainer.json` | Prerequisites (devcontainer as primary path), Running in Development (devcontainer launch) |
+| `.devcontainer/devcontainer.json` | Prerequisites (devcontainer as primary path), Running in Development (*Quick start (Dev Container)* subsection rendered ABOVE the per-component layout) |
 | `flake.nix` / `shell.nix` / `default.nix` | Prerequisites + Installation (`nix develop` / `nix-shell` replaces manual toolchain setup) |
 | `mise.toml` / `.mise.toml` | Prerequisites (version manager — alongside `.tool-versions`) |
+| Setup scripts from Dev Workflow Signals (`bootstrap.sh`, `bin/setup`, `scripts/bootstrap.*`, etc.) | Installation (*One-shot setup* block rendered BEFORE the per-PM install commands — reader can run one script or follow the manual steps) |
+| `.pre-commit-config.yaml` | Prerequisites (`pre-commit install` post-clone), Common Issues (CI will reject commits when hooks skipped) |
+| `.envrc` (direnv) | Prerequisites (`direnv allow` post-clone), Common Issues (env vars only load inside project dir when direnv is active) |
+| `mkcert` references in scripts | Prerequisites (`mkcert -install` once per dev machine), Common Issues (OAuth / webhook / SameSite cookie flows require local HTTPS) |
 | `template.yaml` (AWS SAM) / `serverless.yml` / `serverless.ts` | Running in Development (`sam local start-api` / `serverless offline`) |
 | Test framework in dependencies + test script in manifest | Running Tests |
+| Detector's Components table (Task 5d) with >1 runnable component (`Microsoft.NET.Sdk.Web` + `Microsoft.NET.Sdk.Worker`, `cmd/*/main.go`, `[[bin]]` entries in Cargo, Procfile lines, Rails + Sidekiq, etc.) | Running in Development (multi-component layout: `Boot order:` header + one `#### <Component> (shell N)` subsection per row with per-component `Requires:` list) |
+| Detector's Runtime Ports table (Task 5c) entry for a component | Running in Development (cited in that component's `Expected result:` URL — no port = omit URL, never substitute a framework default) |
 
 ## Section Skeletons
 
@@ -141,6 +148,24 @@ External sources are fetched automatically by CMake during configuration — no 
 ```
 
 ### Installation
+
+When the detector's *Setup scripts* signal is set, render a *One-shot setup* block IMMEDIATELY after the clone command and BEFORE the per-PM install commands. The reader can run one script or follow the manual steps below — both get to the same place.
+
+```markdown
+[One-shot setup block — render only when the detector's *Setup scripts* signal has entries. Use the first entry as the primary invocation; list any additional entries as alternatives.]
+
+**One-shot setup (preferred):**
+
+\`\`\`bash
+<path from detector's Setup scripts signal, e.g., ./bootstrap.sh, bin/setup, ./setup.ps1>
+\`\`\`
+
+[If the signal lists >1 script, append: "Alternate setup scripts: `<script 2>`, `<script 3>`." — don't auto-pick between them.]
+
+This runs the cumulative install + migrations + seeds pass in one command. If the script fails or you need to reproduce its individual steps, follow the manual flow below instead.
+
+**Manual setup:**
+```
 
 ```markdown
 ### Installation
@@ -285,10 +310,14 @@ There is no `.env.example` template. Local configuration lives in `<config file>
 
 Top-level sections that require values before running locally:
 
-- `<SectionName>` — <one-line description derived from section-name semantics>
+- `<SectionName>` — <one-line description derived from section-name semantics>. Keys you will edit: `<leaf1>`, `<leaf2>`, `<leaf3>`.
 - ...
 
 [If the detector truncated the section list at 25 per file:] See `<config file>` for the full list of <N> sections.
+
+[If the detector's *Secrets committed* field for this file is `yes`, render a Caution block IMMEDIATELY after the section list:]
+
+> **Caution: `<config file>` appears to contain live credentials.** This skill detected credential-shaped values (key names matching `(?i)(key|secret|password|token|credential|private)` paired with non-placeholder values) but did NOT verify whether the file is git-tracked or gitignored — confirm with `git ls-files --error-unmatch <config file>` before treating this as a leaked-secret incident. If the file is tracked, rotate any exposed keys, move secrets to a locally-ignored overlay (e.g., `appsettings.Local.json` / `.env.local`), and add the committed file's real values to your team's secret store. Auditing the file manually before running is safer than assuming the values are stubs.
 
 **Never commit real secrets.** Treat any key whose name matches `(?i)(key|secret|password|token|credential|private)` as sensitive.
 ```
@@ -296,7 +325,9 @@ Top-level sections that require values before running locally:
 Rendering rules:
 - One bullet per detected top-level section, in the order the detector returned them (alphabetical when the detector truncated).
 - Derive the one-line description from section-name semantics only — never from the file's values. Example hints: `AWS` → "AWS SDK credentials and region"; `RedisSettings` → "Redis connection string and pool sizing"; `OpenIdConnect` → "OIDC authority and client credentials". When the semantics are ambiguous, emit the section name with no description (a bare bullet is better than a wrong guess).
+- **Keys you will edit:** append this clause only when the detector's `Key leaves` column has entries for the section — parse the cell by splitting on `; ` to isolate sections, then split each section's `<Section>: <leaf1>, <leaf2>, <leaf3>` on `:` to isolate its leaves, and render up to 3 leaves joined by `, ` for the matching section (the detector already caps at 3). Omit the clause entirely when the detector emitted `—` (dotenv files or sections with no first-level leaves worth surfacing).
 - Include the "See `<config file>` for the full list of <N> sections." footnote only when the detector reports `Variable count` > 25. Omit otherwise.
+- Render the Caution block only when the detector's `Secrets committed` column is `yes`. The block goes immediately after the section list and before the "Never commit real secrets" line — the Caution is specific to this file's observed state; the final line is the general rule.
 
 ### Build
 
@@ -332,14 +363,59 @@ Include this section only for compiled stacks where build is distinct from run (
 
 Pick the sub-template that matches the detected run mode. **The `Expected result:` line is mandatory in every sub-template.** When no concrete check is available (no port, window, or stdout to assert), emit the literal placeholder `Expected result: <unknown — verify manually>`.
 
-When more than one component must run (backend + frontend, producer + worker), prefix the block with a `Start order:` line naming the component that must start first and why. Example: `Start order: backend first (frontend's local config expects it), then frontend. Use two shells.`
+**Optional `Verify:` line.** Append a single `Verify:` line below the `Expected result:` line when a natural health probe exists for the component. Keep it to one command the reader can run from their terminal:
+
+- Web / API with an HTTP port (grounded via the Runtime Ports table) → `` Verify: `curl -fsS http://localhost:<port>/` `` — or the detected health endpoint if one is documented (`/healthz`, `/health`, `/_/health`, `/-/health`).
+- Database service → `` Verify: `pg_isready -h localhost` `` (Postgres), `` Verify: `mysqladmin ping -h 127.0.0.1` `` (MySQL), `` Verify: `redis-cli ping` `` (Redis), `` Verify: `mongosh --eval 'db.runCommand({ ping: 1 })'` `` (Mongo).
+- Frontend dev server → `Verify:` open `http://localhost:<port>/` in a browser; the dev server's hot-reload banner should appear within ~5 seconds.
+- Worker / scheduler (no port) → OMIT the `Verify:` line. Workers' health is best observed through their own logs or the job-queue dashboard, not via a single probe command; offering a wrong probe is worse than offering none.
+
+Never fabricate an endpoint path — when unsure, omit the `Verify:` line. The `Expected result:` line is the mandatory assertion; `Verify:` is the optional "how to confirm it".
+
+**Quick start (Dev Container) — prepend when the detector's *Containerized dev env* signal is set.** Render this block as an H4 subsection INSIDE the `### Running in Development` H3, immediately under the section heading and above the Multi-component / Single-component layout content. A single `### Running in Development` H3 wraps the whole section — never emit two sibling H3s. The dev container is usually the simplest path when one is provided.
+
+```markdown
+#### Quick start (Dev Container)
+
+If you use VS Code, open the cloned repo and choose *Dev Containers: Reopen in Container* (requires the [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) and Docker Desktop). The container build runs the setup steps in `.devcontainer/devcontainer.json`; you can skip the manual Installation and run the per-component commands below once it finishes.
+
+For a terminal-only workflow (no VS Code), install the [dev container CLI](https://github.com/devcontainers/cli) and run `devcontainer up --workspace-folder .`.
+```
+
+**Multi-component layout (applies when the detector's Components table has >1 row).** Emit a single `### Running in Development` H3 heading at the top of this section (the same H3 the single-component sub-templates (a)/(b)/(c) emit) — this is the only H3 the section ever renders. Under that H3, render the `Boot order:` block, then one `#### <Component> (shell N)` H4 subsection per Component-table row in the order the detector returned them (topological — roots first). Any Quick start block rendered above is a nested H4 under the same H3 and does not provide a new H3:
+
+```markdown
+**Boot order:** start external services first (`docker compose up -d` or the per-service snippets above), run any one-time migrations / schema bootstrap (from [Installation](#installation)), then start each component in its own shell in the order shown below. A component that lists `Requires: <other-component>` must start AFTER that other component.
+
+1. **<Component A> (shell 1)** — [Kind badge if useful: web / worker / frontend]
+2. **<Component B> (shell 2)** — [...]
+3. **<Component C> (shell 3)** — [...]
+```
+
+Then, per component, an H4 subsection with:
+
+```markdown
+#### <Component name> (shell N)
+
+**Requires:** <comma-separated list from the detector's `Requires (services)` + `Requires (components)` fields; write "—" when both are empty.>
+
+From `<component-path>/`:
+
+\`\`\`bash
+<Start command from the detector's Components table row>
+\`\`\`
+
+Expected result: <URL / port / stdout line derived from the Runtime Ports table for this component's row; or "<stdout-assertion>" for workers that do not bind a port; or the `<unknown — verify manually>` placeholder when nothing is derivable>.
+
+[Wrapper-command expansion line if applicable — same rule as in the single-component sub-template below.]
+```
+
+**Single-component layout (applies when the detector's Components table has exactly one row).** Emit a single `### Running in Development` H3 heading at the top of this section (the same H3 the multi-component layout emits — exactly one H3 per section regardless of layout), then render any Quick start block above as an H4 nested under that H3, then fall through to sub-template (a) / (b) / (c) below with the sub-template's own leading `### Running in Development` line stripped (the parent emits it). Omit the `Boot order:` block and the shell-N suffix on the heading. (When the Components table is empty, the detector states `No runnable components detected.` and the main skill omits this entire *Running in Development* section — a library has nothing to launch in development.)
 
 **(a) Script / dev server — web or interpreted backends**
 
 ```markdown
 ### Running in Development
-
-[If multiple components:] Start order: <component A> first (<reason>), then <component B>. Use separate shells.
 
 \`\`\`bash
 <dev command from manifest scripts>
@@ -447,6 +523,25 @@ Only include if clear signals exist. Examples:
 |------------|-------------|------------|
 | [name] | `<command>` | [URL or port] |
 ```
+
+## Workspace-Kind Command Branches
+
+When the detector sets `Workspace kind` to something other than `none`, use the workspace-aware commands below instead of (or in addition to) the per-package PM commands. The point of these branches is correctness: `cargo build --workspace` builds all crates in a Cargo workspace; `cargo build` in the root builds only the root crate. `go work sync` resolves modules referenced by `go.work`; `go mod download` does not. Writing the wrong form is a silent failure — the build succeeds but only half the code compiled.
+
+| Workspace kind | Install | Build (all) | Build (one) | Run (one) | Test (all) |
+|----------------|---------|-------------|-------------|-----------|------------|
+| `npm-workspaces` | `npm install` (at root) | `npm run build --workspaces --if-present` | `npm run build --workspace=<pkg>` | `npm run <script> --workspace=<pkg>` | `npm test --workspaces --if-present` |
+| `pnpm-workspaces` | `pnpm install` (at root) | `pnpm -r build` | `pnpm --filter <pkg> build` | `pnpm --filter <pkg> <script>` | `pnpm -r test` |
+| `yarn-workspaces` | `yarn install` (at root) | `yarn workspaces foreach -A run build` | `yarn workspace <pkg> build` | `yarn workspace <pkg> <script>` | `yarn workspaces foreach -A run test` |
+| `lerna` | `npm install` (root) | `npx lerna run build` | `npx lerna run build --scope=<pkg>` | `npx lerna run <script> --scope=<pkg>` | `npx lerna run test` |
+| `nx` | `npm install` (root) | `npx nx run-many -t build` | `npx nx build <pkg>` | `npx nx serve <pkg>` / `npx nx run <pkg>:<target>` | `npx nx run-many -t test` |
+| `turbo` | `npm install` (root) | `npx turbo run build` | `npx turbo run build --filter=<pkg>` | `npx turbo run <script> --filter=<pkg>` | `npx turbo run test` |
+| `cargo-workspace` | — (Cargo resolves automatically) | `cargo build --workspace` | `cargo build -p <crate>` | `cargo run -p <crate>` | `cargo test --workspace` |
+| `go-workspace` | `go work sync` (at root — resolves modules declared in `go.work`) | `go build ./...` (at root — walks every module in `go.work` on Go ≥1.18) | `go build ./<module>/...` | `go run ./<module>` (or `./cmd/<name>`) | `go test ./...` |
+| `gradle-multi-module` | — (Gradle resolves automatically) | `./gradlew build` | `./gradlew :<module>:build` | `./gradlew :<module>:run` | `./gradlew test` |
+| `maven-multi-module` | — (Maven resolves automatically) | `mvn install` (from repo root; `-DskipTests` for a faster dev build) | `mvn -pl <module> -am install` | `mvn -pl <module> exec:java` (if configured) | `mvn test` |
+
+Render the Install row under Installation, the Build-all row under Build, and the per-module Run rows under Running in Development (one per component from the detector's Components table). Fall back to the per-package `Package Manager Command Forms` table below only when `Workspace kind: none`.
 
 ## Package Manager Command Forms
 
