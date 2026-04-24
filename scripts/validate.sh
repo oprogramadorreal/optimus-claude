@@ -555,7 +555,7 @@ if [ -f "$sections_file" ]; then
   for env_setup_token in \
     'Keys you will edit:' \
     '**Optional `Verify:` line.**' \
-    'tracked by git and appears to contain live credentials'; do
+    'appears to contain live credentials'; do
     if ! grep -qF -- "$env_setup_token" "$sections_file" 2>/dev/null; then
       wiring_errors+="  $sections_file missing Env-Setup key-leafs/secrets token: $env_setup_token\n"
     fi

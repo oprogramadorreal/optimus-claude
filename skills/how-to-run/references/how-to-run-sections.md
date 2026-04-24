@@ -157,7 +157,7 @@ When the detector's *Setup scripts* signal is set, render a *One-shot setup* blo
 **One-shot setup (preferred):**
 
 \`\`\`bash
-<path from detector's Setup scripts signal, e.g., ./bootstrap.sh, bin/setup, .\setup.ps1>
+<path from detector's Setup scripts signal, e.g., ./bootstrap.sh, bin/setup, ./setup.ps1>
 \`\`\`
 
 [If the signal lists >1 script, append: "Alternate setup scripts: `<script 2>`, `<script 3>`." — don't auto-pick between them.]
@@ -317,7 +317,7 @@ Top-level sections that require values before running locally:
 
 [If the detector's *Secrets committed* field for this file is `yes`, render a Caution block IMMEDIATELY after the section list:]
 
-> ⚠️ **`<config file>` is tracked by git and appears to contain live credentials.** Rotate any exposed keys, move secrets to a locally-ignored overlay (e.g., `appsettings.Local.json` / `.env.local`), and add the committed file's real values to your team's secret store. This skill detected credential-shaped values without placeholder markers; auditing the file manually before running is safer than assuming the values are stubs.
+> ⚠️ **`<config file>` appears to contain live credentials.** This skill detected credential-shaped values (key names matching `(?i)(key|secret|password|token|credential|private)` paired with non-placeholder values) but did NOT verify whether the file is git-tracked or gitignored — confirm with `git ls-files --error-unmatch <config file>` before treating this as a leaked-secret incident. If the file is tracked, rotate any exposed keys, move secrets to a locally-ignored overlay (e.g., `appsettings.Local.json` / `.env.local`), and add the committed file's real values to your team's secret store. Auditing the file manually before running is safer than assuming the values are stubs.
 
 **Never commit real secrets.** Treat any key whose name matches `(?i)(key|secret|password|token|credential|private)` as sensitive.
 ```
@@ -412,7 +412,7 @@ Expected result: <URL / port / stdout line derived from the Runtime Ports table 
 [Wrapper-command expansion line if applicable — same rule as in the single-component sub-template below.]
 ```
 
-**Single-component layout (applies when the detector's Components table has exactly one row, or is empty and a script-style dev command is detected).** Fall through to sub-template (a) / (b) / (c) below — omit the `Boot order:` block and the shell-N suffix on the heading.
+**Single-component layout (applies when the detector's Components table has exactly one row).** Fall through to sub-template (a) / (b) / (c) below — omit the `Boot order:` block and the shell-N suffix on the heading. (When the Components table is empty, the detector states `[No runnable components detected.]` and the main skill omits this entire *Running in Development* section — a library has nothing to launch in development.)
 
 **(a) Script / dev server — web or interpreted backends**
 
@@ -535,7 +535,7 @@ When the detector sets `Workspace kind` to something other than `none`, use the 
 | `npm-workspaces` | `npm install` (at root) | `npm run build --workspaces --if-present` | `npm run build --workspace=<pkg>` | `npm run <script> --workspace=<pkg>` | `npm test --workspaces --if-present` |
 | `pnpm-workspaces` | `pnpm install` (at root) | `pnpm -r build` | `pnpm --filter <pkg> build` | `pnpm --filter <pkg> <script>` | `pnpm -r test` |
 | `yarn-workspaces` | `yarn install` (at root) | `yarn workspaces foreach -A run build` | `yarn workspace <pkg> build` | `yarn workspace <pkg> <script>` | `yarn workspaces foreach -A run test` |
-| `lerna` | `npx lerna bootstrap` (legacy) / `npm install` + `npx lerna run` | `npx lerna run build` | `npx lerna run build --scope=<pkg>` | `npx lerna run <script> --scope=<pkg>` | `npx lerna run test` |
+| `lerna` | `npm install` (root) | `npx lerna run build` | `npx lerna run build --scope=<pkg>` | `npx lerna run <script> --scope=<pkg>` | `npx lerna run test` |
 | `nx` | `npm install` (root) | `npx nx run-many -t build` | `npx nx build <pkg>` | `npx nx serve <pkg>` / `npx nx run <pkg>:<target>` | `npx nx run-many -t test` |
 | `turbo` | `npm install` (root) | `npx turbo run build` | `npx turbo run build --filter=<pkg>` | `npx turbo run <script> --filter=<pkg>` | `npx turbo run test` |
 | `cargo-workspace` | — (Cargo resolves automatically) | `cargo build --workspace` | `cargo build -p <crate>` | `cargo run -p <crate>` | `cargo test --workspace` |
