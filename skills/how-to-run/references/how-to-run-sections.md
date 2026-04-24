@@ -7,6 +7,7 @@ Section templates and signal-to-content mapping for generating `HOW-TO-RUN.md`. 
 - [Signal → Section Mapping](#signal--section-mapping)
 - [Section Skeletons](#section-skeletons) (Prerequisites, Toolchain & SDKs, Source Dependencies, Installation, External Services, Environment Setup, Build, Running in Development, Running Tests, Common Issues)
 - [Scaling Guidance](#scaling-guidance)
+- [Workspace-Kind Command Branches](#workspace-kind-command-branches)
 - [Package Manager Command Forms](#package-manager-command-forms)
 - [Additional Detection Hints](#additional-detection-hints)
 - [Build System Detection](#build-system-detection)
@@ -381,7 +382,7 @@ If you use VS Code, open the cloned repo and choose *Dev Containers: Reopen in C
 For a terminal-only workflow (no VS Code), install the [dev container CLI](https://github.com/devcontainers/cli) and run `devcontainer up --workspace-folder .`.
 ```
 
-**Multi-component layout (applies when the detector's Components table has >1 row).** Render one `### <Component> (shell N)` H3 subsection per Component-table row, in the order the detector returned them (topological — roots first). Before the per-component subsections, render a single `Boot order:` block:
+**Multi-component layout (applies when the detector's Components table has >1 row).** Render one `#### <Component> (shell N)` H4 subsection per Component-table row, in the order the detector returned them (topological — roots first). Before the per-component subsections, render a single `Boot order:` block:
 
 ```markdown
 ### Running in Development
@@ -393,7 +394,7 @@ For a terminal-only workflow (no VS Code), install the [dev container CLI](https
 3. **<Component C> (shell 3)** — [...]
 ```
 
-Then, per component, an H3 subsection with:
+Then, per component, an H4 subsection with:
 
 ```markdown
 #### <Component name> (shell N)
@@ -417,8 +418,6 @@ Expected result: <URL / port / stdout line derived from the Runtime Ports table 
 
 ```markdown
 ### Running in Development
-
-[If multiple components:] Render per the Multi-component layout above.
 
 \`\`\`bash
 <dev command from manifest scripts>
@@ -540,7 +539,7 @@ When the detector sets `Workspace kind` to something other than `none`, use the 
 | `nx` | `npm install` (root) | `npx nx run-many -t build` | `npx nx build <pkg>` | `npx nx serve <pkg>` / `npx nx run <pkg>:<target>` | `npx nx run-many -t test` |
 | `turbo` | `npm install` (root) | `npx turbo run build` | `npx turbo run build --filter=<pkg>` | `npx turbo run <script> --filter=<pkg>` | `npx turbo run test` |
 | `cargo-workspace` | — (Cargo resolves automatically) | `cargo build --workspace` | `cargo build -p <crate>` | `cargo run -p <crate>` | `cargo test --workspace` |
-| `go-workspace` | `go work sync` (at root — resolves modules declared in `go.work`) | per-module `go build ./...` after `go work sync`; or `go build ./...` iterates all workspace modules | `go build ./<module>/...` | `go run ./<module>` (or `./cmd/<name>`) | `go test ./...` |
+| `go-workspace` | `go work sync` (at root — resolves modules declared in `go.work`) | `go build ./...` (at root — walks every module in `go.work` on Go ≥1.18) | `go build ./<module>/...` | `go run ./<module>` (or `./cmd/<name>`) | `go test ./...` |
 | `gradle-multi-module` | — (Gradle resolves automatically) | `./gradlew build` | `./gradlew :<module>:build` | `./gradlew :<module>:run` | `./gradlew test` |
 | `maven-multi-module` | — (Maven resolves automatically) | `mvn install` (from repo root; `-DskipTests` for a faster dev build) | `mvn -pl <module> -am install` | `mvn -pl <module> exec:java` (if configured) | `mvn test` |
 

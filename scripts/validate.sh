@@ -502,8 +502,7 @@ fi
 # table drives the `Boot order:` header and the per-component shell
 # subsections; a silent rename of either heading would collapse the output
 # back to a single-component layout and lose worker/scheduler documentation.
-sections_file_path="skills/how-to-run/references/how-to-run-sections.md"
-if [ -f "$sections_file_path" ]; then
+if [ -f "$sections_file" ]; then
   for sections_token in \
     '**Boot order:**' \
     'Multi-component layout' \
@@ -518,16 +517,16 @@ if [ -f "$sections_file_path" ]; then
     '### Quick start (Dev Container)' \
     '**One-shot setup (preferred):**' \
     '**Manual setup:**'; do
-    if ! grep -qF -- "$sections_token" "$sections_file_path" 2>/dev/null; then
-      wiring_errors+="  $sections_file_path missing multi-component wiring token: $sections_token\n"
+    if ! grep -qF -- "$sections_token" "$sections_file" 2>/dev/null; then
+      wiring_errors+="  $sections_file missing multi-component wiring token: $sections_token\n"
     fi
   done
 fi
 
-# New Dev Workflow Signals fields added by Priority 7 (setup scripts,
-# pre-commit, direnv, mkcert). Detector emits these signal rows; main skill
-# templates branch on them to render one-shot setup / quick start / prereq
-# notes. A silent field rename would drop the entire branch.
+# Dev Workflow Signals fields (setup scripts, pre-commit, direnv, mkcert).
+# Detector emits these signal rows; main skill templates branch on them to
+# render one-shot setup / quick start / prereq notes. A silent field rename
+# would drop the entire branch.
 if [ -f "$detector_file" ]; then
   for dws_token in \
     '- **Setup scripts:**' \
@@ -540,25 +539,25 @@ if [ -f "$detector_file" ]; then
   done
 fi
 
-# Priority 8 ergonomics wiring: leaf-property + secrets-committed columns
-# in the detector's Environment Setup table, Verify: guidance in
+# Env-Setup key-leafs / secrets-committed wiring: leaf-property + secrets
+# columns in the detector's Environment Setup table, Verify: guidance in
 # how-to-run-sections.md, and the committed-secrets Caution block.
 if [ -f "$detector_file" ]; then
-  for p8_token in \
+  for env_setup_token in \
     '| Key leafs |' \
     '| Secrets committed |'; do
-    if ! grep -qF -- "$p8_token" "$detector_file" 2>/dev/null; then
-      wiring_errors+="  $detector_file missing Priority 8 Env-Setup column: $p8_token\n"
+    if ! grep -qF -- "$env_setup_token" "$detector_file" 2>/dev/null; then
+      wiring_errors+="  $detector_file missing Env-Setup key-leafs/secrets column: $env_setup_token\n"
     fi
   done
 fi
-if [ -f "$sections_file_path" ]; then
-  for p8_sections_token in \
+if [ -f "$sections_file" ]; then
+  for env_setup_token in \
     'Keys you will edit:' \
     '**Optional `Verify:` line.**' \
     'tracked by git and appears to contain live credentials'; do
-    if ! grep -qF -- "$p8_sections_token" "$sections_file_path" 2>/dev/null; then
-      wiring_errors+="  $sections_file_path missing Priority 8 ergonomics token: $p8_sections_token\n"
+    if ! grep -qF -- "$env_setup_token" "$sections_file" 2>/dev/null; then
+      wiring_errors+="  $sections_file missing Env-Setup key-leafs/secrets token: $env_setup_token\n"
     fi
   done
 fi
