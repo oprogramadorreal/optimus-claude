@@ -51,7 +51,7 @@ Section templates and signal-to-content mapping for generating `HOW-TO-RUN.md`. 
 | `template.yaml` (AWS SAM) / `serverless.yml` / `serverless.ts` | Running in Development (`sam local start-api` / `serverless offline`) |
 | Test framework in dependencies + test script in manifest | Running Tests |
 | Detector's Components table (Task 5d) with >1 runnable component (`Microsoft.NET.Sdk.Web` + `Microsoft.NET.Sdk.Worker`, `cmd/*/main.go`, `[[bin]]` entries in Cargo, Procfile lines, Rails + Sidekiq, etc.) | Running in Development (multi-component layout: `Boot order:` header + one `#### <Component> (shell N)` subsection per row with per-component `Requires:` list) |
-| Detector's Runtime Ports table (Task 5c) entry for a component | Running in Development (cited in that component's `Expected result:` URL — no port = omit URL, never fall back to framework default) |
+| Detector's Runtime Ports table (Task 5c) entry for a component | Running in Development (cited in that component's `Expected result:` URL — no port = omit URL, never substitute a framework default) |
 
 ## Section Skeletons
 
@@ -317,7 +317,7 @@ Top-level sections that require values before running locally:
 
 [If the detector's *Secrets committed* field for this file is `yes`, render a Caution block IMMEDIATELY after the section list:]
 
-> ⚠️ **`<config file>` appears to contain live credentials.** This skill detected credential-shaped values (key names matching `(?i)(key|secret|password|token|credential|private)` paired with non-placeholder values) but did NOT verify whether the file is git-tracked or gitignored — confirm with `git ls-files --error-unmatch <config file>` before treating this as a leaked-secret incident. If the file is tracked, rotate any exposed keys, move secrets to a locally-ignored overlay (e.g., `appsettings.Local.json` / `.env.local`), and add the committed file's real values to your team's secret store. Auditing the file manually before running is safer than assuming the values are stubs.
+> **Caution: `<config file>` appears to contain live credentials.** This skill detected credential-shaped values (key names matching `(?i)(key|secret|password|token|credential|private)` paired with non-placeholder values) but did NOT verify whether the file is git-tracked or gitignored — confirm with `git ls-files --error-unmatch <config file>` before treating this as a leaked-secret incident. If the file is tracked, rotate any exposed keys, move secrets to a locally-ignored overlay (e.g., `appsettings.Local.json` / `.env.local`), and add the committed file's real values to your team's secret store. Auditing the file manually before running is safer than assuming the values are stubs.
 
 **Never commit real secrets.** Treat any key whose name matches `(?i)(key|secret|password|token|credential|private)` as sensitive.
 ```
@@ -365,8 +365,8 @@ Pick the sub-template that matches the detected run mode. **The `Expected result
 
 **Optional `Verify:` line.** Append a single `Verify:` line below the `Expected result:` line when a natural health probe exists for the component. Keep it to one command the reader can run from their terminal:
 
-- Web / API with an HTTP port (grounded via the Runtime Ports table) → `Verify: \`curl -fsS http://localhost:<port>/\`` — or the detected health endpoint if one is documented (`/healthz`, `/health`, `/_/health`, `/-/health`).
-- Database service → `Verify: \`pg_isready -h localhost\`` (Postgres), `` `mysqladmin ping -h 127.0.0.1` `` (MySQL), `` `redis-cli ping` `` (Redis), `` `mongosh --eval 'db.runCommand({ ping: 1 })'` `` (Mongo).
+- Web / API with an HTTP port (grounded via the Runtime Ports table) → `` Verify: `curl -fsS http://localhost:<port>/` `` — or the detected health endpoint if one is documented (`/healthz`, `/health`, `/_/health`, `/-/health`).
+- Database service → `` Verify: `pg_isready -h localhost` `` (Postgres), `` Verify: `mysqladmin ping -h 127.0.0.1` `` (MySQL), `` Verify: `redis-cli ping` `` (Redis), `` Verify: `mongosh --eval 'db.runCommand({ ping: 1 })'` `` (Mongo).
 - Frontend dev server → `Verify:` open `http://localhost:<port>/` in a browser; the dev server's hot-reload banner should appear within ~5 seconds.
 - Worker / scheduler (no port) → OMIT the `Verify:` line. Workers' health is best observed through their own logs or the job-queue dashboard, not via a single probe command; offering a wrong probe is worse than offering none.
 
@@ -382,7 +382,7 @@ If you use VS Code, open the cloned repo and choose *Dev Containers: Reopen in C
 For a terminal-only workflow (no VS Code), install the [dev container CLI](https://github.com/devcontainers/cli) and run `devcontainer up --workspace-folder .`.
 ```
 
-**Multi-component layout (applies when the detector's Components table has >1 row).** Render one `#### <Component> (shell N)` H4 subsection per Component-table row, in the order the detector returned them (topological — roots first). Before the per-component subsections, render a single `Boot order:` block under the section's `### Running in Development` H3 (do NOT emit a second `### Running in Development` heading — the section opening's H3 already exists, and any Quick start block rendered above is a nested H4 that does not provide a new H3):
+**Multi-component layout (applies when the detector's Components table has >1 row).** Emit a single `### Running in Development` H3 heading at the top of this section (the same H3 the single-component sub-templates (a)/(b)/(c) emit) — this is the only H3 the section ever renders. Under that H3, render the `Boot order:` block, then one `#### <Component> (shell N)` H4 subsection per Component-table row in the order the detector returned them (topological — roots first). Any Quick start block rendered above is a nested H4 under the same H3 and does not provide a new H3:
 
 ```markdown
 **Boot order:** start external services first (`docker compose up -d` or the per-service snippets above), run any one-time migrations / schema bootstrap (from [Installation](#installation)), then start each component in its own shell in the order shown below. A component that lists `Requires: <other-component>` must start AFTER that other component.
@@ -410,7 +410,7 @@ Expected result: <URL / port / stdout line derived from the Runtime Ports table 
 [Wrapper-command expansion line if applicable — same rule as in the single-component sub-template below.]
 ```
 
-**Single-component layout (applies when the detector's Components table has exactly one row).** Fall through to sub-template (a) / (b) / (c) below — omit the `Boot order:` block and the shell-N suffix on the heading. (When the Components table is empty, the detector states `[No runnable components detected.]` and the main skill omits this entire *Running in Development* section — a library has nothing to launch in development.)
+**Single-component layout (applies when the detector's Components table has exactly one row).** Emit a single `### Running in Development` H3 heading at the top of this section (the same H3 the multi-component layout emits — exactly one H3 per section regardless of layout), then render any Quick start block above as an H4 nested under that H3, then fall through to sub-template (a) / (b) / (c) below with the sub-template's own leading `### Running in Development` line stripped (the parent emits it). Omit the `Boot order:` block and the shell-N suffix on the heading. (When the Components table is empty, the detector states `No runnable components detected.` and the main skill omits this entire *Running in Development* section — a library has nothing to launch in development.)
 
 **(a) Script / dev server — web or interpreted backends**
 

@@ -563,7 +563,7 @@ if [ -f "$sections_file" ]; then
     '**Optional `Verify:` line.**' \
     'appears to contain live credentials'; do
     if ! grep -qF -- "$env_setup_token" "$sections_file" 2>/dev/null; then
-      wiring_errors+="  $sections_file missing Env-Setup key-leafs/secrets token: $env_setup_token\n"
+      wiring_errors+="  $sections_file missing Env-Setup key-leaves/secrets token: $env_setup_token\n"
     fi
   done
 fi
@@ -589,13 +589,19 @@ if [ -f "$how_to_run_skill" ]; then
   done
 fi
 
-# Workspace-kind + version-manager wiring in detector + SKILL.md.
-# SKILL.md Step 1 Checkpoint must name the Workspace kind bullet; detector
-# must emit the Workspace kind field. Silent rename loses the per-kind
-# command branching.
+# Workspace-kind wiring in detector.md. Detector must emit the Workspace kind
+# field that SKILL.md Step 1 Checkpoint and Step 4 branch on. Silent rename
+# loses the per-kind command branching.
+wk_token='- **Workspace kind:**'
+if [ -f "$detector_file" ] && ! grep -qF -- "$wk_token" "$detector_file" 2>/dev/null; then
+  wiring_errors+="  $detector_file missing Workspace kind field: $wk_token\n"
+fi
+
+# Version-manager file wiring in detector.md. These are the authoritative
+# runtime pins when the manifest is silent. Silent removal of any filename
+# would drop support for that language's pyenv/nvm/asdf flow.
 if [ -f "$detector_file" ]; then
-  for wk_token in \
-    '- **Workspace kind:**' \
+  for vm_token in \
     '.python-version' \
     '.ruby-version' \
     '.nvmrc' \
@@ -604,8 +610,8 @@ if [ -f "$detector_file" ]; then
     'rust-toolchain.toml' \
     '.tool-versions' \
     'recommended pin'; do
-    if ! grep -qF -- "$wk_token" "$detector_file" 2>/dev/null; then
-      wiring_errors+="  $detector_file missing workspace-kind/version-manager token: $wk_token\n"
+    if ! grep -qF -- "$vm_token" "$detector_file" 2>/dev/null; then
+      wiring_errors+="  $detector_file missing version-manager token: $vm_token\n"
     fi
   done
 fi
