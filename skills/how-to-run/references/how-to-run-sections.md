@@ -520,7 +520,7 @@ Only include if clear signals exist. Examples:
 
 ## Scaling Guidance
 
-**Use a quick-reference table in *Running in Development* when the detector's Components table has 6 or more rows.** The trigger and layout selection are driven by the *Component count → layout* table above; the quick-reference table replaces inline per-component listings entirely — do NOT also emit H4 subsections for the same components.
+Quick-reference table skeleton for the 6+ row case selected by *Component count → layout* above — replaces inline per-component listings entirely (no H4 subsections, no per-component bullets).
 
 ```markdown
 | Subproject | Path | Dev command | URL / port |

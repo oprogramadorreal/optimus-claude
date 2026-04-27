@@ -578,10 +578,10 @@ if [ -f "$sections_file" ]; then
 fi
 
 # Specific-Token Audit + Unverified-Count filter wiring in SKILL.md.
-# Step 6 relies on these tokens to run the new audit passes added to catch
+# Step 6 relies on these tokens to run the audit passes that catch
 # hallucinated ports/paths/counts (port 5000 vs actual 51914, unverified
-# "15 .csproj projects" prose, etc.). Step 4 Content Principles and Step 1
-# Checkpoint must cite the same rules so the three steps stay in sync.
+# "15 .csproj projects" prose, etc.). Step 4 Content Principles must cite
+# the same rules so the two steps stay in sync.
 how_to_run_skill="skills/how-to-run/SKILL.md"
 if [ -f "$how_to_run_skill" ]; then
   for token in \
