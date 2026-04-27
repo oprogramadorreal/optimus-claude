@@ -622,12 +622,9 @@ if [ -f "$detector_file" ]; then
     fi
   done
 fi
-# Template-shape audit + new Content Principles wiring in SKILL.md. The audit
-# enforces the tiered Running-in-Development layout (1 / 2 / 3-5 / 6+
-# components), the Build Debug+Release pair, the OS-version Prerequisites
-# line, the all-candidate compression rule, and the consolidated `Render
-# once, not twice.` guidance. A silent rename of any of these named anchors
-# would let the corresponding regression slip through unnoticed.
+# Template-shape audit + Content Principle anchors in SKILL.md.
+# A silent rename of any of these would let the corresponding
+# layout/audit regression slip through unnoticed.
 if [ -f "$how_to_run_skill" ]; then
   for shape_token in \
     'Template-shape audit' \

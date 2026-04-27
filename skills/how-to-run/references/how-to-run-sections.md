@@ -50,7 +50,7 @@ Section templates and signal-to-content mapping for generating `HOW-TO-RUN.md`. 
 | `mkcert` references in scripts | Prerequisites (`mkcert -install` once per dev machine), Common Issues (OAuth / webhook / SameSite cookie flows require local HTTPS) |
 | `template.yaml` (AWS SAM) / `serverless.yml` / `serverless.ts` | Running in Development (`sam local start-api` / `serverless offline`) |
 | Test framework in dependencies + test script in manifest | Running Tests |
-| Detector's Components table (Task 5d) with ≥1 runnable component (`Microsoft.NET.Sdk.Web` + `Microsoft.NET.Sdk.Worker`, `cmd/*/main.go`, `[[bin]]` entries in Cargo, Procfile lines, Rails + Sidekiq, etc.) | Running in Development — layout selected by row count per the *Component count → layout* table below: 1 → *Flat layout* (sub-template a/b/c); 2 → *Flat layout* applied as adjacent sibling blocks; 3-5 → *Compact multi-component layout* (numbered Boot-order list + flat per-component bullets, no H4 subsections); 6+ → *Scaling Guidance* quick-reference table |
+| Detector's Components table (Task 5d) with ≥1 runnable component (`Microsoft.NET.Sdk.Web` + `Microsoft.NET.Sdk.Worker`, `cmd/*/main.go`, `[[bin]]` entries in Cargo, Procfile lines, Rails + Sidekiq, etc.) | Running in Development — layout selected by row count per the *Component count → layout* table below |
 | Detector's Runtime Ports table (Task 5c) entry for a component | Running in Development (cited in that component's `Expected result:` URL — no port = omit URL, never substitute a framework default) |
 
 ## Section Skeletons
@@ -279,7 +279,7 @@ Rules that apply to both branches:
 - Service classification (Docker-preferred / Shared-cloud primary / Local install only) is owned by the Decision Heuristics in [`external-services-docker.md`](external-services-docker.md). Apply those rules; do not re-derive them here.
 - For credentials, note that the service uses defaults from docker-compose or shared-cloud config — never copy actual password values into the file.
 - **All-candidate compression.** When ≥3 services in the External Services table share `Confidence: candidate` AND no row is `confirmed`, drop the `(candidate)` marker from the per-service H3 headings and from the *Service* column of the overview table. Render a single overview sentence at the top of *External Services* instead — for example: "Services below were detected from `<config file>` rather than a compose file. Drop any incorrect rows via *Correct first* in Step 1." The marker discriminates only when mixed with confirmed rows; in an all-candidate table it conveys no signal.
-- **Per-service "Update `<key>` in `<config file>`" consolidation.** When ≥3 shared-cloud services in this section share the same source config file, do NOT emit the per-service "Update `<ConfigKey>` in `<config file>` when pointing at a different environment" line under each H3. Instead, render a single overview sentence at the top of *External Services*: "All endpoints below come from `<config-file>`; swap them per environment by editing the matching config key listed in [Environment Setup](#environment-setup)." Keep the per-service line only when there are ≤2 services or when the services span multiple config files.
+- **Per-service "Update `<key>` in `<config file>`" consolidation.** When ≥3 shared-cloud services in this section share the same source config file, do NOT emit the per-service "Update `<ConfigKey>` in `<config file>` when pointing at a different environment" line under each H3. Instead, render a single overview sentence at the top of *External Services*: "The shared-cloud endpoints below come from `<config-file>`; swap them per environment by editing the matching config key listed in [Environment Setup](#environment-setup)." Keep the per-service line only when there are ≤2 services or when the services span multiple config files.
 
 ### Environment Setup
 
@@ -391,8 +391,7 @@ For a terminal-only workflow (no VS Code), install the [dev container CLI](https
 | Components | Layout |
 |------------|--------|
 | 0 | Omit the entire *Running in Development* section — the repo is a library. |
-| 1 | *Flat layout* — sub-template (a) / (b) / (c). No shells. No `Boot order:` block. |
-| 2 | *Flat layout* applied twice as adjacent sibling blocks. No shells. No `Boot order:` block. |
+| 1-2 | *Flat layout* — sub-template (a) / (b) / (c); render one block per component. No `Boot order:` block. |
 | 3-5 | *Compact multi-component layout* — numbered Boot-order list + flat per-component bullets. No per-component H4 subsections. |
 | 6+ | *Scaling Guidance* quick-reference table from §[Scaling Guidance](#scaling-guidance) — one row per component (Subproject / Component, Path, Dev command, URL/port). No H4 subsections, no per-component bullets. |
 
@@ -403,9 +402,9 @@ The single `### Running in Development` H3 wraps every layout. Any Quick start (
 ```markdown
 ### Running in Development
 
-[If every Components-table row shares the same parent directory (path prefix up to the first `/`), render `From <shared-parent>/` once here; otherwise omit this line and prepend `(from <component-path>/)` to each bullet's start command below — e.g., 1. **App.Web** (`web`) — (from `src/App.Web/`) `dotnet run --project src/App.Web`.]
+[If every Components-table row shares the same parent directory (path prefix up to the first `/`), render `From <shared-parent>/` once here; otherwise omit this line and prepend `(from <component-path>/)` to each numbered bullet's start command below.]
 
-**Boot order:** start external services first (`docker compose up -d` or the per-service snippets above), run any one-time migrations / schema bootstrap (from [Installation](#installation)), then start each component in its own shell in the order below. A component that lists `Requires: <other-component>` must start AFTER that other component.
+**Boot order:** start external services first (`docker compose up -d` or the per-service snippets above), run any one-time migrations / schema bootstrap (from [Installation](#installation)), then start each component in a separate terminal in the order below. A component that lists `Requires: <other-component>` must start AFTER that other component.
 
 1. **<Component A>** (`<kind>`) — `<start command>`. Expected result: <URL / port / stdout assertion>. Requires: <services + components, or "—">.
 2. **<Component B>** (`<kind>`) — `<start command>`. Expected result: <URL / port / stdout assertion>. Requires: <services + components, or "—">.
@@ -521,7 +520,7 @@ Only include if clear signals exist. Examples:
 
 ## Scaling Guidance
 
-**Use a quick-reference table in *Running in Development* when the project has 6 or more runnable components or subprojects** (Components-table row count ≥ 6, or monorepo subprojects ≥ 6 — the threshold applies to both). Below 6, the *Compact multi-component layout* (3-5) or *Flat layout* (1-2) is preferred. The quick-reference table replaces inline per-component listings entirely — do NOT also emit H4 subsections for the same components.
+**Use a quick-reference table in *Running in Development* when the detector's Components table has 6 or more rows.** The trigger and layout selection are driven by the *Component count → layout* table above; the quick-reference table replaces inline per-component listings entirely — do NOT also emit H4 subsections for the same components.
 
 ```markdown
 | Subproject | Path | Dev command | URL / port |
