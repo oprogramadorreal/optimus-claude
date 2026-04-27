@@ -191,7 +191,7 @@ When no stack produces a row, write the literal `No bound runtime ports detected
 
 #### Task 5d — Runnable component enumeration
 
-Emit one row in the Components table of the return format per runnable component (web, worker, scheduler, CLI, frontend). Surfacing each component lets the main skill's *Running in Development* section pick its layout from the row count (see how-to-run-sections.md §Component count → layout for the row-count → layout mapping) instead of documenting only the primary binary. The `Requires (components)` field below matches config-file port references against the Runtime Ports rows populated by Task 5c above.
+Emit one row in the Components table of the return format per runnable component (web, worker, scheduler, CLI, frontend). Surfacing each component lets the main skill's *Running in Development* section pick its layout from the row count (see the *Component count → layout* table in how-to-run-sections.md §Running in Development) instead of documenting only the primary binary. The `Requires (components)` field below matches config-file port references against the Runtime Ports rows populated by Task 5c above.
 
 Per-stack detection rules (apply every rule whose signals are present; a polyglot repo with both .NET and Node services emits rows for both):
 
@@ -360,7 +360,7 @@ Mark sibling-repo findings as `(candidate)` when derived only from a path grep w
 
 [If no runnable components detected, state "No runnable components detected."]
 
-This table drives the main skill's *Running in Development* section — see how-to-run-sections.md §Component count → layout for the row-count → layout mapping. Populate via Task 5d (Runnable component enumeration). Emit rows in topological order (roots first). When zero rows exist, the main skill omits the section entirely (the repo is a library).
+This table drives the main skill's *Running in Development* section — see the *Component count → layout* table in how-to-run-sections.md §Running in Development. Populate via Task 5d (Runnable component enumeration). Emit rows in topological order (roots first). When zero rows exist, the main skill omits the section entirely (the repo is a library).
 
 ### Runtime Ports
 | Component | Port | Source |
