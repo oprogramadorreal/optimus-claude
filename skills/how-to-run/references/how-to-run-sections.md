@@ -50,7 +50,7 @@ Section templates and signal-to-content mapping for generating `HOW-TO-RUN.md`. 
 | `mkcert` references in scripts | Prerequisites (`mkcert -install` once per dev machine), Common Issues (OAuth / webhook / SameSite cookie flows require local HTTPS) |
 | `template.yaml` (AWS SAM) / `serverless.yml` / `serverless.ts` | Running in Development (`sam local start-api` / `serverless offline`) |
 | Test framework in dependencies + test script in manifest | Running Tests |
-| Detector's Components table (Task 5d) with >1 runnable component (`Microsoft.NET.Sdk.Web` + `Microsoft.NET.Sdk.Worker`, `cmd/*/main.go`, `[[bin]]` entries in Cargo, Procfile lines, Rails + Sidekiq, etc.) | Running in Development (multi-component layout: `Boot order:` header + one `#### <Component> (shell N)` subsection per row with per-component `Requires:` list) |
+| Detector's Components table (Task 5d) with >1 runnable component (`Microsoft.NET.Sdk.Web` + `Microsoft.NET.Sdk.Worker`, `cmd/*/main.go`, `[[bin]]` entries in Cargo, Procfile lines, Rails + Sidekiq, etc.) | Running in Development — layout selected by row count per the *Component count → layout* table below: 2 → adjacent flat sub-templates; 3-5 → *Compact multi-component layout* (numbered Boot-order list + flat per-component bullets, no H4 subsections); 6+ → *Scaling Guidance* quick-reference table |
 | Detector's Runtime Ports table (Task 5c) entry for a component | Running in Development (cited in that component's `Expected result:` URL — no port = omit URL, never substitute a framework default) |
 
 ## Section Skeletons
@@ -367,7 +367,7 @@ Include this section only for compiled stacks where build is distinct from run (
 
 Pick the sub-template that matches the detected run mode. **The `Expected result:` line is mandatory in every sub-template.** When no concrete check is available (no port, window, or stdout to assert), emit the literal placeholder `Expected result: <unknown — verify manually>`.
 
-**Optional `Verify:` line.** Append a single `Verify:` line below the `Expected result:` line when a natural health probe exists for the component. Keep it to one command the reader can run from their terminal:
+**Optional `Verify:` line.** Permitted only in the 1- and 2-component layouts. When the Components table has ≥3 rows, OMIT every `Verify:` line — individual probes belong in *Common Issues* per the *Component count → layout* rules below; Step 6's *Template-shape audit* rejects a 3+-component *Running in Development* section that emits any `Verify:` line. Otherwise, append a single `Verify:` line below the `Expected result:` line when a natural health probe exists for the component. Keep it to one command the reader can run from their terminal:
 
 - Web / API with an HTTP port (grounded via the Runtime Ports table) → `` Verify: `curl -fsS http://localhost:<port>/` `` — or the detected health endpoint if one is documented (`/healthz`, `/health`, `/_/health`, `/-/health`).
 - Database service → `` Verify: `pg_isready -h localhost` `` (Postgres), `` Verify: `mysqladmin ping -h 127.0.0.1` `` (MySQL), `` Verify: `redis-cli ping` `` (Redis), `` Verify: `mongosh --eval 'db.runCommand({ ping: 1 })'` `` (Mongo).
@@ -376,7 +376,7 @@ Pick the sub-template that matches the detected run mode. **The `Expected result
 
 Never fabricate an endpoint path — when unsure, omit the `Verify:` line. The `Expected result:` line is the mandatory assertion; `Verify:` is the optional "how to confirm it".
 
-**Quick start (Dev Container) — prepend when the detector's *Containerized dev env* signal is set.** Render this block as an H4 subsection INSIDE the `### Running in Development` H3, immediately under the section heading and above the Multi-component / Single-component layout content. A single `### Running in Development` H3 wraps the whole section — never emit two sibling H3s. The dev container is usually the simplest path when one is provided.
+**Quick start (Dev Container) — prepend when the detector's *Containerized dev env* signal is set.** Render this block as an H4 subsection INSIDE the `### Running in Development` H3, immediately under the section heading and above the per-component layout content selected by the *Component count → layout* table below. A single `### Running in Development` H3 wraps the whole section — never emit two sibling H3s. The dev container is usually the simplest path when one is provided.
 
 ```markdown
 #### Quick start (Dev Container)
@@ -393,24 +393,24 @@ For a terminal-only workflow (no VS Code), install the [dev container CLI](https
 | 0 | Omit the entire *Running in Development* section — the repo is a library. |
 | 1 | *Single-component layout* — sub-template (a) / (b) / (c). No shells. No `Boot order:` block. |
 | 2 | *Single-component layout* applied twice as adjacent sibling blocks. No shells. No `Boot order:` block. The two components stay readable without ceremony. |
-| 3–5 | *Compact multi-component layout* — numbered Boot-order list + flat per-component bullets. **No `#### <Component> (shell N)` H4 subsections.** This is the layout that replaces the legacy H4-per-component renderer. |
+| 3-5 | *Compact multi-component layout* — numbered Boot-order list + flat per-component bullets. **No `#### <Component> (shell N)` H4 subsections.** This is the layout that replaces the legacy H4-per-component renderer. |
 | 6+ | *Scaling Guidance* quick-reference table from §[Scaling Guidance](#scaling-guidance) — one row per component (Subproject / Component, Path, Dev command, URL/port). No H4 subsections, no per-component bullets. |
 
 The single `### Running in Development` H3 wraps every layout. Any Quick start (Dev Container) block rendered above is a nested H4 under that H3.
 
-**Compact multi-component layout (3–5 components).** Replaces the legacy H4-per-component renderer.
+**Compact multi-component layout (3-5 components).** Replaces the legacy H4-per-component renderer.
 
 ```markdown
 ### Running in Development
 
-[If every Components-table row shares the same parent directory (path prefix up to the first `/`), render `From <shared-parent>/:` once here; otherwise omit this line and put `From <component-path>/` inside each bullet below.]
+[If every Components-table row shares the same parent directory (path prefix up to the first `/`), render `From <shared-parent>/` once here; otherwise omit this line and put `From <component-path>/` inside each bullet below.]
 
 **Boot order:** start external services first (`docker compose up -d` or the per-service snippets above), run any one-time migrations / schema bootstrap (from [Installation](#installation)), then start each component in its own shell in the order below. A component that lists `Requires: <other-component>` must start AFTER that other component.
 
-1. **<Component A>** (`<kind>`) — `<start command>`. Expected: <URL / port / stdout assertion>. Requires: <services + components, or "—">.
-2. **<Component B>** (`<kind>`) — `<start command>`. Expected: <URL / port / stdout assertion>. Requires: <services + components, or "—">.
-3. **<Component C>** (`<kind>`) — `<start command>`. Expected: <URL / port / stdout assertion>. Requires: <services + components, or "—">.
-[continue for 4–5 components — never exceed 5 here; emit the Scaling Guidance table when the count reaches 6.]
+1. **<Component A>** (`<kind>`) — `<start command>`. Expected result: <URL / port / stdout assertion>. Requires: <services + components, or "—">.
+2. **<Component B>** (`<kind>`) — `<start command>`. Expected result: <URL / port / stdout assertion>. Requires: <services + components, or "—">.
+3. **<Component C>** (`<kind>`) — `<start command>`. Expected result: <URL / port / stdout assertion>. Requires: <services + components, or "—">.
+[continue for 4-5 components — never exceed 5 here; emit the Scaling Guidance table when the count reaches 6.]
 
 [Wrapper-command expansion lines, if applicable — one `> <wrapper> runs: <expanded form>` line per component below the numbered list.]
 ```

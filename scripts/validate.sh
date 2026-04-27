@@ -526,7 +526,9 @@ if [ -f "$sections_file" ]; then
     '#### Quick start (Dev Container)' \
     '**One-shot setup (preferred):**' \
     '**Manual setup:**' \
-    '**All-candidate compression.**'; do
+    '**All-candidate compression.**' \
+    'Default skeleton — multi-configuration build systems' \
+    'Single-configuration skeleton — Cargo / Go / single-output build systems'; do
     if ! grep -qF -- "$sections_token" "$sections_file" 2>/dev/null; then
       wiring_errors+="  $sections_file missing multi-component wiring token: $sections_token\n"
     fi
@@ -620,11 +622,11 @@ if [ -f "$detector_file" ]; then
   done
 fi
 # Template-shape audit + new Content Principles wiring in SKILL.md. The audit
-# enforces the 4-tier Running-in-Development layout, the Build Debug+Release
-# pair, the OS-version Prerequisites line, the all-candidate compression
-# rule, and the consolidated `Render once, not twice.` guidance. A silent
-# rename of any of these named anchors would let the corresponding regression
-# slip through unnoticed.
+# enforces the tiered Running-in-Development layout (1 / 2 / 3-5 / 6+
+# components), the Build Debug+Release pair, the OS-version Prerequisites
+# line, the all-candidate compression rule, and the consolidated `Render
+# once, not twice.` guidance. A silent rename of any of these named anchors
+# would let the corresponding regression slip through unnoticed.
 if [ -f "$how_to_run_skill" ]; then
   for shape_token in \
     'Template-shape audit' \

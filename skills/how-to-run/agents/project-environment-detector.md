@@ -191,7 +191,7 @@ When no stack produces a row, write the literal `No bound runtime ports detected
 
 #### Task 5d — Runnable component enumeration
 
-Emit one row in the Components table of the return format per runnable component (web, worker, scheduler, CLI, frontend). Surfacing each component lets the main skill's *Running in Development* section render a per-component `#### <Component> (shell N)` subsection with a `Boot order:` header and `Requires:` list instead of documenting only the primary binary. The `Requires (components)` field below matches config-file port references against the Runtime Ports rows populated by Task 5c above.
+Emit one row in the Components table of the return format per runnable component (web, worker, scheduler, CLI, frontend). Surfacing each component lets the main skill's *Running in Development* section pick its layout from the row count (1-2 → flat sub-templates; 3-5 → *Compact multi-component layout* with a numbered Boot-order list and per-component bullets; 6+ → *Scaling Guidance* quick-reference table) instead of documenting only the primary binary. The `Requires (components)` field below matches config-file port references against the Runtime Ports rows populated by Task 5c above.
 
 Per-stack detection rules (apply every rule whose signals are present; a polyglot repo with both .NET and Node services emits rows for both):
 
@@ -208,7 +208,7 @@ Per-stack detection rules (apply every rule whose signals are present; a polyglo
 - **Go:** glob `cmd/*/main.go` — one row per `<name>` (the directory name under `cmd/`). Also emit a row for `main.go` at the repo root when present (component name = the module's last path segment from `go.mod`).
 - **Procfile / Procfile.dev:** each non-comment, non-blank line becomes a row. Component name is the token before the first `:`; the `Start command` is everything after.
 - **Elixir umbrella:** each `apps/*/` subdirectory that contains its own `mix.exs` is a separate component.
-- **Python Celery / Node BullMQ / background-only libraries:** when a manifest declares a dependency on `celery`, `bull`, `bullmq`, `sidekiq`, `rq`, `apscheduler`, `hangfire`, or `quartz` AND a `worker.py` / `worker.ts` / `worker.js` / `jobs/` directory exists, emit a separate row with Kind `worker`, component name derived from the file or directory. The Start command is derived from the matched library per the *Start command — derivation* list below; a worker row whose library has no canonical invocation in that list MUST be omitted (do not emit a row with an empty Start command — Multi-component layout requires every row to render a runnable command).
+- **Python Celery / Node BullMQ / background-only libraries:** when a manifest declares a dependency on `celery`, `bull`, `bullmq`, `sidekiq`, `rq`, `apscheduler`, `hangfire`, or `quartz` AND a `worker.py` / `worker.ts` / `worker.js` / `jobs/` directory exists, emit a separate row with Kind `worker`, component name derived from the file or directory. The Start command is derived from the matched library per the *Start command — derivation* list below; a worker row whose library has no canonical invocation in that list MUST be omitted (do not emit a row with an empty Start command — every layout the main skill renders requires a runnable command per row).
 
 **Per-row fields:**
 
@@ -360,7 +360,7 @@ Mark sibling-repo findings as `(candidate)` when derived only from a path grep w
 
 [If no runnable components detected, state "No runnable components detected."]
 
-This table drives the main skill's *Running in Development* section: one `#### <Component> (shell N)` subsection per row, a `Boot order:` header derived from the `Requires (components)` topological chain, and a `Requires:` bullet per subsection listing service + component dependencies. Populate via Task 5d (Runnable component enumeration). Emit rows in topological order (roots first). When only one row exists, the main skill renders a single-component layout without shell-numbering suffixes. When zero rows exist, the main skill omits the section entirely (the repo is a library).
+This table drives the main skill's *Running in Development* section. The main skill picks its layout from the row count: 1-2 rows → flat sub-templates with no shells and no Boot-order block; 3-5 rows → *Compact multi-component layout* (numbered Boot-order list derived from the `Requires (components)` topological chain + per-component bullets carrying the service + component dependencies, no H4 subsections); 6+ rows → *Scaling Guidance* quick-reference table. Populate via Task 5d (Runnable component enumeration). Emit rows in topological order (roots first). When zero rows exist, the main skill omits the section entirely (the repo is a library).
 
 ### Runtime Ports
 | Component | Port | Source |
