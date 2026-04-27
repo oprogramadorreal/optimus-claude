@@ -499,13 +499,16 @@ if [ -f "$detector_file" ]; then
 fi
 
 # Multi-component layout wiring in how-to-run-sections.md. The Components
-# table drives the `Boot order:` header and the per-component shell
-# subsections; a silent rename of either heading would collapse the output
-# back to a single-component layout and lose worker/scheduler documentation.
+# table drives the `Boot order:` header and the per-component layout; the
+# layout-selection decision table maps row count -> sub-template (1, 2, 3-5,
+# 6+). Silent rename of any of these tokens would collapse the output back
+# to a single-component layout and lose worker/scheduler documentation, OR
+# re-inflate the 3-5 case to the legacy H4-per-component renderer.
 if [ -f "$sections_file" ]; then
   for sections_token in \
     '**Boot order:**' \
-    'Multi-component layout' \
+    '**Component count → layout.**' \
+    'Compact multi-component layout' \
     'Single-component layout' \
     'Components table (Task 5d)' \
     'Runtime Ports table (Task 5c)' \
@@ -522,7 +525,8 @@ if [ -f "$sections_file" ]; then
     '`maven-multi-module`' \
     '#### Quick start (Dev Container)' \
     '**One-shot setup (preferred):**' \
-    '**Manual setup:**'; do
+    '**Manual setup:**' \
+    '**All-candidate compression.**'; do
     if ! grep -qF -- "$sections_token" "$sections_file" 2>/dev/null; then
       wiring_errors+="  $sections_file missing multi-component wiring token: $sections_token\n"
     fi
@@ -615,12 +619,22 @@ if [ -f "$detector_file" ]; then
     fi
   done
 fi
+# Template-shape audit + new Content Principles wiring in SKILL.md. The audit
+# enforces the 4-tier Running-in-Development layout, the Build Debug+Release
+# pair, the OS-version Prerequisites line, the all-candidate compression
+# rule, and the consolidated `Render once, not twice.` guidance. A silent
+# rename of any of these named anchors would let the corresponding regression
+# slip through unnoticed.
 if [ -f "$how_to_run_skill" ]; then
-  for skill_wk_token in \
-    '- **Workspace kind**' \
-    '- **Runnable components**'; do
-    if ! grep -qF -- "$skill_wk_token" "$how_to_run_skill" 2>/dev/null; then
-      wiring_errors+="  $how_to_run_skill missing Step 1 Checkpoint bullet: $skill_wk_token\n"
+  for shape_token in \
+    'Template-shape audit' \
+    'Render once, not twice.' \
+    'all-candidate compression' \
+    'Compact multi-component layout' \
+    '`Verify:` permitted only' \
+    'OS-version line in Prerequisites'; do
+    if ! grep -qF -- "$shape_token" "$how_to_run_skill" 2>/dev/null; then
+      wiring_errors+="  $how_to_run_skill missing template-shape wiring token: $shape_token\n"
     fi
   done
 fi

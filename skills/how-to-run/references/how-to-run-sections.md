@@ -60,7 +60,7 @@ Section templates and signal-to-content mapping for generating `HOW-TO-RUN.md`. 
 ```markdown
 ### Prerequisites
 
-- [OS version constraint if detected — e.g., "Windows 11 22H2 or later", "macOS 13+"]
+- [OS version constraint — MANDATORY when Task 0d returned an OS-version token; render the canonical token verbatim as the first bullet (e.g., "Windows 10 or 11", "macOS 13+", "Ubuntu 22.04+"). Skip only when Task 0d returned no OS-version token.]
 - [Hardware if detected — e.g., "NVIDIA GPU with CUDA 12+", "USB serial port for flashing"]
 - [Runtime] [version constraint from manifest] ([version manager] recommended if config file detected)
 - [Additional runtime for heterogeneous monorepo]
@@ -278,6 +278,8 @@ Rules that apply to both branches:
 - The detector's *External Services* table is the source of truth for which services exist.
 - Service classification (Docker-preferred / Shared-cloud primary / Local install only) is owned by the Decision Heuristics in [`external-services-docker.md`](external-services-docker.md). Apply those rules; do not re-derive them here.
 - For credentials, note that the service uses defaults from docker-compose or shared-cloud config — never copy actual password values into the file.
+- **All-candidate compression.** When ≥3 services in the External Services table share `Confidence: candidate` AND no row is `confirmed`, drop the `(candidate)` marker from the per-service H3 headings and from the *Service* column of the overview table. Render a single overview sentence at the top of *External Services* instead — for example: "Services below were detected from `<config file>` rather than a compose file. Drop any incorrect rows via *Correct first* in Step 1." The marker discriminates only when mixed with confirmed rows; in an all-candidate table it conveys no signal and adds 11–22 characters of noise per row.
+- **Per-service "Update `<key>` in `<config file>`" consolidation.** When ≥3 shared-cloud services in this section share the same source config file, do NOT emit the per-service "Update `<ConfigKey>` in `<config file>` when pointing at a different environment" line under each H3. Instead, render a single overview sentence at the top of *External Services*: "All endpoints below come from `<config-file>`; swap them per environment by editing the matching config key listed in [Environment Setup](#environment-setup)." Keep the per-service line only when there are ≤2 services or when the services span multiple config files.
 
 ### Environment Setup
 
@@ -315,9 +317,9 @@ Top-level sections that require values before running locally:
 
 [If the detector truncated the section list at 25 per file:] See `<config file>` for the full list of <N> sections.
 
-[If the detector's *Secrets committed* field for this file is `yes`, render a Caution block IMMEDIATELY after the section list:]
+[If the detector's *Secrets committed* field for this file is `yes`, render a Caution block IMMEDIATELY after the section list. Keep it to three short sentences: notice + verification command + remediation. Do NOT inline the detection regex, the rotation playbook, or the "auditing manually is safer" caveat — those rationale lines are skill-internal:]
 
-> **Caution: `<config file>` appears to contain live credentials.** This skill detected credential-shaped values (key names matching `(?i)(key|secret|password|token|credential|private)` paired with non-placeholder values) but did NOT verify whether the file is git-tracked or gitignored — confirm with `git ls-files --error-unmatch <config file>` before treating this as a leaked-secret incident. If the file is tracked, rotate any exposed keys, move secrets to a locally-ignored overlay (e.g., `appsettings.Local.json` / `.env.local`), and add the committed file's real values to your team's secret store. Auditing the file manually before running is safer than assuming the values are stubs.
+> **Caution: `<config file>` appears to contain live credentials.** Confirm whether the file is git-tracked with `git ls-files --error-unmatch <config file>` before treating this as a leaked-secret incident. If tracked, rotate the exposed keys and move them to a locally-ignored overlay (e.g., `appsettings.Local.json` / `.env.local`) or your team's secret store.
 
 **Never commit real secrets.** Treat any key whose name matches `(?i)(key|secret|password|token|credential|private)` as sensitive.
 ```
@@ -331,15 +333,7 @@ Rendering rules:
 
 ### Build
 
-```markdown
-### Build
-
-\`\`\`bash
-<build command — e.g., cmake --build build --config Debug>
-\`\`\`
-```
-
-For build systems with multiple configurations (CMake, MSBuild, .NET), show both Debug and Release:
+**Default skeleton — multi-configuration build systems (CMake, MSBuild, .NET, Xcode).** Render BOTH Debug and Release. SKILL.md Step 4 item 7 mandates this; Step 6's *Template-shape audit* rejects a Build section that includes only one configuration.
 
 ```markdown
 ### Build
@@ -354,6 +348,16 @@ Release (optimized):
 
 \`\`\`bash
 <build command --config Release>
+\`\`\`
+```
+
+**Single-configuration skeleton — Cargo / Go / single-output build systems.** Render one fence.
+
+```markdown
+### Build
+
+\`\`\`bash
+<build command — e.g., cargo build --release, go build ./...>
 \`\`\`
 ```
 
@@ -382,35 +386,38 @@ If you use VS Code, open the cloned repo and choose *Dev Containers: Reopen in C
 For a terminal-only workflow (no VS Code), install the [dev container CLI](https://github.com/devcontainers/cli) and run `devcontainer up --workspace-folder .`.
 ```
 
-**Multi-component layout (applies when the detector's Components table has >1 row).** Emit a single `### Running in Development` H3 heading at the top of this section (the same H3 the single-component sub-templates (a)/(b)/(c) emit) — this is the only H3 the section ever renders. Under that H3, render the `Boot order:` block, then one `#### <Component> (shell N)` H4 subsection per Component-table row in the order the detector returned them (topological — roots first). Any Quick start block rendered above is a nested H4 under the same H3 and does not provide a new H3:
+**Component count → layout.** Pick the layout from the row count of the detector's Components table (excluding the `No runnable components detected.` sentinel and any `+N more` overflow row):
+
+| Components | Layout |
+|------------|--------|
+| 0 | Omit the entire *Running in Development* section — the repo is a library. |
+| 1 | *Single-component layout* — sub-template (a) / (b) / (c). No shells. No `Boot order:` block. |
+| 2 | *Single-component layout* applied twice as adjacent sibling blocks. No shells. No `Boot order:` block. The two components stay readable without ceremony. |
+| 3–5 | *Compact multi-component layout* — numbered Boot-order list + flat per-component bullets. **No `#### <Component> (shell N)` H4 subsections.** This is the layout that replaces the legacy H4-per-component renderer. |
+| 6+ | *Scaling Guidance* quick-reference table from §[Scaling Guidance](#scaling-guidance) — one row per component (Subproject / Component, Path, Dev command, URL/port). No H4 subsections, no per-component bullets. |
+
+The single `### Running in Development` H3 wraps every layout. Any Quick start (Dev Container) block rendered above is a nested H4 under that H3.
+
+**Compact multi-component layout (3–5 components).** Replaces the legacy H4-per-component renderer.
 
 ```markdown
-**Boot order:** start external services first (`docker compose up -d` or the per-service snippets above), run any one-time migrations / schema bootstrap (from [Installation](#installation)), then start each component in its own shell in the order shown below. A component that lists `Requires: <other-component>` must start AFTER that other component.
+### Running in Development
 
-1. **<Component A> (shell 1)** — [Kind badge if useful: web / worker / frontend]
-2. **<Component B> (shell 2)** — [...]
-3. **<Component C> (shell 3)** — [...]
+[If every Components-table row shares the same parent directory (path prefix up to the first `/`), render `From <shared-parent>/:` once here; otherwise omit this line and put `From <component-path>/` inside each bullet below.]
+
+**Boot order:** start external services first (`docker compose up -d` or the per-service snippets above), run any one-time migrations / schema bootstrap (from [Installation](#installation)), then start each component in its own shell in the order below. A component that lists `Requires: <other-component>` must start AFTER that other component.
+
+1. **<Component A>** (`<kind>`) — `<start command>`. Expected: <URL / port / stdout assertion>. Requires: <services + components, or "—">.
+2. **<Component B>** (`<kind>`) — `<start command>`. Expected: <URL / port / stdout assertion>. Requires: <services + components, or "—">.
+3. **<Component C>** (`<kind>`) — `<start command>`. Expected: <URL / port / stdout assertion>. Requires: <services + components, or "—">.
+[continue for 4–5 components — never exceed 5 here; emit the Scaling Guidance table when the count reaches 6.]
+
+[Wrapper-command expansion lines, if applicable — one `> <wrapper> runs: <expanded form>` line per component below the numbered list.]
 ```
 
-Then, per component, an H4 subsection with:
+**`Verify:` is permitted only in the 1- and 2-component layouts.** For 3+ components, individual probe commands belong in *Common Issues*, not in *Running in Development* — a probe per row would re-inflate the section to the noise level the compact layout exists to remove. Step 6's *Template-shape audit* enforces this.
 
-```markdown
-#### <Component name> (shell N)
-
-**Requires:** <comma-separated list from the detector's `Requires (services)` + `Requires (components)` fields; write "—" when both are empty.>
-
-From `<component-path>/`:
-
-\`\`\`bash
-<Start command from the detector's Components table row>
-\`\`\`
-
-Expected result: <URL / port / stdout line derived from the Runtime Ports table for this component's row; or "<stdout-assertion>" for workers that do not bind a port; or the `<unknown — verify manually>` placeholder when nothing is derivable>.
-
-[Wrapper-command expansion line if applicable — same rule as in the single-component sub-template below.]
-```
-
-**Single-component layout (applies when the detector's Components table has exactly one row).** Emit a single `### Running in Development` H3 heading at the top of this section (the same H3 the multi-component layout emits — exactly one H3 per section regardless of layout), then render any Quick start block above as an H4 nested under that H3, then fall through to sub-template (a) / (b) / (c) below with the sub-template's own leading `### Running in Development` line stripped (the parent emits it). Omit the `Boot order:` block and the shell-N suffix on the heading. (When the Components table is empty, the detector states `No runnable components detected.` and the main skill omits this entire *Running in Development* section — a library has nothing to launch in development.)
+**Single-component layout (applies when the detector's Components table has 1 or 2 rows).** Emit a single `### Running in Development` H3 heading at the top of this section, then render any Quick start block above as an H4 nested under that H3, then fall through to sub-template (a) / (b) / (c) below with the sub-template's own leading `### Running in Development` line stripped (the parent emits it). Omit the `Boot order:` block. For the 2-component case, render two adjacent sibling blocks (still no shell-numbering, no H4 subsections). When the Components table is empty, the detector states `No runnable components detected.` and the main skill omits this entire *Running in Development* section.
 
 **(a) Script / dev server — web or interpreted backends**
 
@@ -516,12 +523,12 @@ Only include if clear signals exist. Examples:
 
 ## Scaling Guidance
 
-**Monorepo with many subprojects:** When a monorepo has more than 5 subprojects, use a quick-reference table in "Running in Development" instead of inline per-subproject listings:
+**Use a quick-reference table in *Running in Development* when the project has 6 or more runnable components or subprojects** (Components-table row count ≥ 6, or monorepo subprojects ≥ 6 — the threshold applies to both). Below 6, the *Compact multi-component layout* (3-5) or *Single-component layout* (1-2) is preferred. The quick-reference table replaces inline per-component listings entirely — do NOT also emit H4 subsections for the same components.
 
 ```markdown
-| Subproject | Dev command | URL / port |
-|------------|-------------|------------|
-| [name] | `<command>` | [URL or port] |
+| Subproject | Path | Dev command | URL / port |
+|------------|------|-------------|------------|
+| [name] | `<path>` | `<command>` | [URL or port — from the Runtime Ports table; omit when no port is grounded] |
 ```
 
 ## Workspace-Kind Command Branches
