@@ -64,7 +64,7 @@ Grouped by concern. This is a study; entries describe *candidate* plug-in points
 
 **Cyclomatic complexity & module size**
 - `skills/refactor/agents/testability-analyzer.md` — feed deterministic findings from `radon` (Python) or ESLint's complexity rule (JS/TS); agent currently uses LLM-only heuristics. Tied to AC #3, #4, #10.
-- `skills/code-review/agents/shared-constraints.md` — optional: flag over-threshold functions during review. Tied to AC #3.
+- `skills/code-review/agents/test-guardian.md` — optional: opt-in surfacing of CC / cycle / module-size findings during review (default off). Tied to AC #3.
 
 **Dependency structure**
 - `skills/refactor/` — new `dependency-analyzer` agent consuming `pydeps`/`import-linter` (Python) or `dependency-cruiser`/`madge` (JS/TS). Tied to AC #4.
@@ -83,6 +83,22 @@ Grouped by concern. This is a study; entries describe *candidate* plug-in points
 - **Harness JSON contracts** — `harness_common`, deep-mode, and coverage-harness share tight schemas. New metrics (mutation score, CC, cycles, module size) each require schema additions and can break existing convergence logic for `unit-test` and `refactor`.
 - **Metric-driven churn** — CC thresholds are heuristics. Telling agents "refactor anything over CC > 10" can produce low-value refactors. Metric findings should inform agents, not drive them.
 - **Precedent risk** — the first deterministic-tool-consuming agent sets the pattern every subsequent tool inherits. Argues for landing the shared reference (AC #9) before any tool-specific agent.
+
+### Implementation Tickets
+
+The full design lives in [docs/design/2026-04-23-evaluate-ai-code-quality.md](../design/2026-04-23-evaluate-ai-code-quality.md). OPTS-8 is the design record; per-section work is tracked in these follow-up tickets (all in Backlog as of 2026-04-27):
+
+| Ticket | Title | Prerequisites |
+|--------|-------|---------------|
+| OPTS-10 | Create `references/deterministic-tool-consumption.md` shared contract | None — gates all others |
+| OPTS-11 | Add deep-harness mutation mode to `/optimus:unit-test` | OPTS-10 |
+| OPTS-12 | Per-stack mutation-tool install in `/optimus:init` + `/optimus:reset` inverse | OPTS-10 |
+| OPTS-13 | Extend `testability-analyzer` with CC and module-size findings | OPTS-10 |
+| OPTS-14 | New `dependency-analyzer` agent in `skills/refactor/` | OPTS-10 |
+| OPTS-15 | Optional opt-in advisory surfacing in code-review's `test-guardian` | OPTS-10, OPTS-13, OPTS-14 |
+| OPTS-16 | README "CI integration" section with sample workflow | None (independent) |
+
+OPTS-10 is the single hard prerequisite — every other ticket inherits its envelope contract. OPTS-16 is the only ticket that can land independently. No source-modifying work happens under OPTS-8 itself.
 
 ### Scope Assessment
 **Complex** — research/design study touching `init` (installers), `unit-test` or a new skill, `refactor` (new agents + tool plumbing), `code-review` (optional findings), `references/` (new shared pattern), and a possible `optimus:ci`. The JIRA issue has 7 stated criteria, which hints at medium, but the code reveals a missing shared integration pattern plus six affected areas — this lifts the effort into the complex bucket. Output should be a design/plan artifact with follow-up JIRA tickets, not a single implementation PR.

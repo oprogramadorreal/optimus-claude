@@ -41,8 +41,8 @@ Two tiers, distinguished by whether the tool drives an iterative loop or produce
 | `skills/refactor/agents/dependency-analyzer.md` | Consume dependency-tool output; emit findings following the shared reference | New |
 | `references/coverage-harness-mode.md` | Add mutation-score plateau as a convergence signal | Modified |
 | `skills/unit-test/SKILL.md` | Add opt-in `deep harness mutation` step; delegate tool invocation through the shared reference | Modified |
-| `scripts/harness_common/progress.py` | Extend progress schema with a `mutation` peer key to `coverage` | Modified |
-| `scripts/harness_common/convergence.py` | Add mutation-plateau check alongside coverage-plateau | Modified |
+| `scripts/test-coverage-harness/impl/progress.py` | Extend progress schema with a `mutation` peer key to `coverage` | Modified |
+| `scripts/test-coverage-harness/impl/convergence.py` | Add mutation-plateau check alongside coverage-plateau | Modified |
 | `scripts/test-coverage-harness/main.py` | Invoke the mutation tool when flagged; coverage-only path remains the default | Modified |
 | `skills/init/references/test-infra-provisioning.md` | Per-stack mutation-tool install (opt-in) | Modified |
 | `skills/init/references/test-framework-recommendations.md` | Add Mutation / CC / Module-size / Deps columns to the stack matrix | Modified |
@@ -134,11 +134,10 @@ Each bullet becomes one ticket; OPTS-8 itself remains the design record.
 
 ## Refined plan — per-ticket briefs (added 2026-04-23)
 
-Validation against the current codebase surfaced three findings that changed the shape of these briefs:
+Validation against the current codebase surfaced two findings that changed the shape of these briefs:
 
-1. **Path correction.** The `coverage` progress schema and plateau check live in [scripts/test-coverage-harness/impl/progress.py](../../scripts/test-coverage-harness/impl/progress.py) (line 40–45) and [scripts/test-coverage-harness/impl/convergence.py](../../scripts/test-coverage-harness/impl/convergence.py), not in `scripts/harness_common/` as the Components table above states. `harness_common/progress.py` is a thin I/O + `record_test_result` shim. Ticket #2 uses the corrected paths; the Components table rows are preserved unchanged above.
-2. **Tool matrix substitutions.** `jscpd` is a copy-paste detector, not a module-size tool — ticket #3 substitutes ESLint `max-lines` (preferred — in-band with the CC pick) or `cloc`. `cargo-deps` is unmaintained and Graphviz-only — ticket #3 substitutes built-in `cargo tree --format json`. Original matrix preserved above.
-3. **Reset scope widening.** [skills/reset/SKILL.md](../../skills/reset/SKILL.md) restricts itself to `.claude/` by explicit rule. Ticket #3 widens that contract so mutation-tool entries in manifest files can be surgically removed, and names the widening as a ticket-specific risk with a conditional-removal guardrail.
+1. **Tool matrix substitutions.** `jscpd` is a copy-paste detector, not a module-size tool — ticket #3 substitutes ESLint `max-lines` (preferred — in-band with the CC pick) or `cloc`. `cargo-deps` is unmaintained and Graphviz-only — ticket #3 substitutes built-in `cargo tree --format json`. Original matrix preserved above.
+2. **Reset scope widening.** [skills/reset/SKILL.md](../../skills/reset/SKILL.md) restricts itself to `.claude/` by explicit rule. Ticket #3 widens that contract so mutation-tool entries in manifest files can be surgically removed, and names the widening as a ticket-specific risk with a conditional-removal guardrail.
 
 Ticket #1 gates #2, #3, #4, #5, #6. Ticket #7 is independent.
 
@@ -179,8 +178,8 @@ Ticket #1 gates #2, #3, #4, #5, #6. Ticket #7 is independent.
 - New tests guarding the coverage-only regression path when the mutation flag is absent.
 
 **Files to modify.**
-- [scripts/test-coverage-harness/impl/progress.py](../../scripts/test-coverage-harness/impl/progress.py) — add a `mutation` peer key to `coverage` in `make_initial_progress` (line 40–45), shape `{baseline, current, tool, history: []}`. *(Corrected from Components table.)*
-- [scripts/test-coverage-harness/impl/convergence.py](../../scripts/test-coverage-harness/impl/convergence.py) — add `check_mutation_plateau(mutation_history, min_consecutive=2)` mirroring `check_coverage_plateau` but with `|Δ| ≤ 1pp` rather than zero-delta (per the design's convergence-signal section). *(Corrected from Components table.)*
+- [scripts/test-coverage-harness/impl/progress.py](../../scripts/test-coverage-harness/impl/progress.py) — add a `mutation` peer key to `coverage` in `make_initial_progress` (line 40–45), shape `{baseline, current, tool, history: []}`.
+- [scripts/test-coverage-harness/impl/convergence.py](../../scripts/test-coverage-harness/impl/convergence.py) — add `check_mutation_plateau(mutation_history, min_consecutive=2)` mirroring `check_coverage_plateau` but with `|Δ| ≤ 1pp` rather than zero-delta (per the design's convergence-signal section).
 - [scripts/test-coverage-harness/main.py](../../scripts/test-coverage-harness/main.py) — gate mutation invocation on a flag from the skill; coverage-only remains the default.
 - [skills/unit-test/SKILL.md](../../skills/unit-test/SKILL.md) — extend Step 1 arg parsing (lines 14–27) to accept a trailing `mutation` keyword after `deep harness`. Extend harness-mode detection (lines 29–41) to forward the flag.
 - [references/coverage-harness-mode.md](../../references/coverage-harness-mode.md) — add mutation-score plateau as a peer convergence signal; document diff-scope default, full-run explicit opt-in, expected per-stack runtime order of magnitude.
