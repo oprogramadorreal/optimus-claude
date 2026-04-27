@@ -395,8 +395,6 @@ For a terminal-only workflow (no VS Code), install the [dev container CLI](https
 | 3-5 | *Compact multi-component layout* — numbered Boot-order list + flat per-component bullets. No per-component H4 subsections. |
 | 6+ | *Scaling Guidance* quick-reference table from §[Scaling Guidance](#scaling-guidance) — one row per component (Subproject / Component, Path, Dev command, URL/port). No H4 subsections, no per-component bullets. |
 
-The single `### Running in Development` H3 wraps every layout. Any Quick start (Dev Container) block rendered above is a nested H4 under that H3.
-
 **Compact multi-component layout (3-5 components).**
 
 ```markdown
