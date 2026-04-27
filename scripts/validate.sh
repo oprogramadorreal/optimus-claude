@@ -533,7 +533,7 @@ if [ -f "$sections_file" ]; then
     '| 3-5 |' \
     '| 6+ |'; do
     if ! grep -qF -- "$sections_token" "$sections_file" 2>/dev/null; then
-      wiring_errors+="  $sections_file missing multi-component wiring token: $sections_token\n"
+      wiring_errors+="  $sections_file missing component-layout wiring token: $sections_token\n"
     fi
   done
 fi
