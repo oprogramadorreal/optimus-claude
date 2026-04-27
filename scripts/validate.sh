@@ -509,7 +509,7 @@ if [ -f "$sections_file" ]; then
     '**Boot order:**' \
     '**Component count → layout.**' \
     'Compact multi-component layout' \
-    'Single-component layout' \
+    'Flat layout' \
     'Components table (Task 5d)' \
     'Runtime Ports table (Task 5c)' \
     '## Workspace-Kind Command Branches' \
@@ -528,7 +528,9 @@ if [ -f "$sections_file" ]; then
     '**Manual setup:**' \
     '**All-candidate compression.**' \
     'Default skeleton — multi-configuration build systems' \
-    'Single-configuration skeleton — Cargo / Go / single-output build systems'; do
+    'Single-configuration skeleton — Cargo / Go / single-output build systems' \
+    '| 3-5 |' \
+    '| 6+ |'; do
     if ! grep -qF -- "$sections_token" "$sections_file" 2>/dev/null; then
       wiring_errors+="  $sections_file missing multi-component wiring token: $sections_token\n"
     fi
@@ -586,7 +588,6 @@ if [ -f "$how_to_run_skill" ]; then
     'Unverified-Count filter' \
     'Never assert an unobserved path' \
     'Never guess runtime ports' \
-    'Runtime bind ports' \
     'grounded-tokens' \
     'Runtime Ports table'; do
     if ! grep -qF "$token" "$how_to_run_skill" 2>/dev/null; then
@@ -634,7 +635,9 @@ if [ -f "$how_to_run_skill" ]; then
     'all-candidate compression' \
     'Compact multi-component layout' \
     '`Verify:` permitted only' \
-    'OS-version line in Prerequisites'; do
+    'OS-version line in Prerequisites' \
+    'Detector-internal fields' \
+    '## Contents'; do
     if ! grep -qF -- "$shape_token" "$how_to_run_skill" 2>/dev/null; then
       wiring_errors+="  $how_to_run_skill missing template-shape wiring token: $shape_token\n"
     fi
