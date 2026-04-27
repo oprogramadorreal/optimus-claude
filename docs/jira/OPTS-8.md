@@ -3,6 +3,7 @@ source: jira
 issue: OPTS-8
 date: 2026-04-23
 enriched-date: 2026-04-23
+description-refresh-date: 2026-04-27
 ---
 
 ## Task: OPTS-8 — How to evaluate AI-generated code quality
@@ -13,7 +14,7 @@ Evaluate how to incorporate Uncle Bob's AI code-quality criteria (mutation testi
 ### Acceptance Criteria
 1. Produce an analysis of how the optimus-claude plugin currently works and where each of the four remaining criteria (mutation testing, cyclomatic complexity, module size, dependency structure) could be incorporated.
 2. For **mutation testing** specifically, evaluate whether `init` should install a mutation-testing tool per stack (e.g., `mutmut` for Python) and whether `unit-test` should use it to guide test writing — mirroring the current coverage approach.
-3. For **cyclomatic complexity**, evaluate alternatives: (a) a new `optimus:ci` skill to configure static-analysis tooling in CI, (b) having `code-review` perform the analysis directly, or (c) a combination — and describe how `code-review` / `refactor` would consume feedback from those tools to act on the code.
+3. For **cyclomatic complexity**, evaluate alternatives: (a) a new `optimus:ci` skill to configure static-analysis tooling in CI, (b) having `code-review` perform the analysis directly, or (c) a combination — and describe how `code-review` / `refactor` would consume feedback from those tools to act on the code. Within this criterion, also evaluate whether the **CRAP metric** (Change Risk Anti-Patterns — `CC² × (1 − coverage)³ + CC`) makes sense for optimus-claude, given that it composes CC with the coverage signal the harness already produces.
 4. Propose an approach for **module size** and **dependency structure** analysis.
 5. Include a **risk analysis** of the proposed changes to avoid breaking current behavior.
 6. Ensure proposals do not require a paid dependency (no hard dependency on commercial tools like SonarQube Server).
@@ -35,6 +36,7 @@ Evaluate how to incorporate Uncle Bob's AI code-quality criteria (mutation testi
 - **Mutation testing is the top priority** — because it validates whether AI-generated tests are actually effective, not just present.
 - **No paid tools** — static-analysis proposals must use free/open-source tools.
 - **Safety first** — any proposal must include a risk analysis showing current behavior won't break.
+- **CRAP metric** (added to description on 2026-04-27) — evaluate whether CRAP makes sense alongside raw CC. Decision recorded in design doc: derive in-agent from CC + coverage; no new tool, no new ticket — folds into ticket #4.
 
 ### Refined Description
 Deliver a design document (not code) that answers, for each non-coverage Uncle-Bob criterion, **where** it plugs into optimus-claude's existing architecture, **how** graceful degradation works when the underlying tool is absent, **what** the uninstall path looks like via `/optimus:reset`, and **what** the per-criterion risk profile is.
@@ -65,6 +67,7 @@ Grouped by concern. This is a study; entries describe *candidate* plug-in points
 **Cyclomatic complexity & module size**
 - `skills/refactor/agents/testability-analyzer.md` — feed deterministic findings from `radon` (Python) or ESLint's complexity rule (JS/TS); agent currently uses LLM-only heuristics. Tied to AC #3, #4, #10.
 - `skills/code-review/agents/test-guardian.md` — optional: opt-in surfacing of CC / cycle / module-size findings during review (default off). Tied to AC #3.
+- **CRAP metric (derived, no new tool)** — once CC and coverage envelopes are both present (post ticket #4), `testability-analyzer` can compute `CRAP = CC² × (1 − coverage)³ + CC` per function inside the agent and surface it as an additional advisory field. No new dependency; no Java-only tool; no change to the per-stack matrix. Tied to AC #3.
 
 **Dependency structure**
 - `skills/refactor/` — new `dependency-analyzer` agent consuming `pydeps`/`import-linter` (Python) or `dependency-cruiser`/`madge` (JS/TS). Tied to AC #4.
@@ -91,14 +94,15 @@ The full design lives in [docs/design/2026-04-23-evaluate-ai-code-quality.md](..
 | Ticket | Title | Prerequisites |
 |--------|-------|---------------|
 | OPTS-10 | Create `references/deterministic-tool-consumption.md` shared contract | None — gates all others |
-| OPTS-11 | Add deep-harness mutation mode to `/optimus:unit-test` | OPTS-10 |
+| OPTS-11 | Add deep-harness mutation mode to `/optimus:unit-test` (harness mode only) | OPTS-10 |
 | OPTS-12 | Per-stack mutation-tool install in `/optimus:init` + `/optimus:reset` inverse | OPTS-10 |
-| OPTS-13 | Extend `testability-analyzer` with CC and module-size findings | OPTS-10 |
+| OPTS-13 | Extend `testability-analyzer` with CC, module-size, and CRAP findings | OPTS-10 |
 | OPTS-14 | New `dependency-analyzer` agent in `skills/refactor/` | OPTS-10 |
 | OPTS-15 | Optional opt-in advisory surfacing in code-review's `test-guardian` | OPTS-10, OPTS-13, OPTS-14 |
 | OPTS-16 | README "CI integration" section with sample workflow | None (independent) |
+| OPTS-18 | Extend interactive deep mode (`/optimus:unit-test deep mutation`) with mutation-plateau termination | OPTS-10, OPTS-11 |
 
-OPTS-10 is the single hard prerequisite — every other ticket inherits its envelope contract. OPTS-16 is the only ticket that can land independently. No source-modifying work happens under OPTS-8 itself.
+OPTS-10 is the single hard prerequisite — every other ticket inherits its envelope contract. OPTS-16 is the only ticket that can land independently. OPTS-18 is the deferred interactive-deep companion to OPTS-11; both share the per-stack adapters and the mutation-plateau threshold definition. (OPTS-17 was unrelated; JIRA allocated OPTS-18 as the next available key.) No source-modifying work happens under OPTS-8 itself.
 
 ### Scope Assessment
 **Complex** — research/design study touching `init` (installers), `unit-test` or a new skill, `refactor` (new agents + tool plumbing), `code-review` (optional findings), `references/` (new shared pattern), and a possible `optimus:ci`. The JIRA issue has 7 stated criteria, which hints at medium, but the code reveals a missing shared integration pattern plus six affected areas — this lifts the effort into the complex bucket. Output should be a design/plan artifact with follow-up JIRA tickets, not a single implementation PR.

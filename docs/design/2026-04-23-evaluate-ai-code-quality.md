@@ -22,7 +22,7 @@ Two tiers, distinguished by whether the tool drives an iterative loop or produce
 
 1. **Shared foundation (lands first).** A new `references/deterministic-tool-consumption.md` defines a single contract every deterministic tool adapter implements: detection, invocation, JSON output schema, absence handling, graceful degradation, and reset path. It is the canonical way any deterministic tool plugs into the plugin, whether the consumer is the harness or an agent.
 
-2. **Convergence tier — mutation testing.** Extends the existing `coverage-harness-mode.md` pattern. Mutation-score plateau becomes a convergence signal alongside coverage plateau. **Packaging decision:** an opt-in `deep harness mutation` mode inside `/optimus:unit-test`, *not* a separate `/optimus:mutation-test` skill. Rationale: mutation testing is in service of better test writing — the same mental context users already reach for when running `/optimus:unit-test`. A separate skill would fragment that surface without adding capability.
+2. **Convergence tier — mutation testing.** Extends the existing `coverage-harness-mode.md` pattern. Mutation-score plateau becomes a convergence signal alongside coverage plateau. **Packaging decision:** an opt-in `deep harness mutation` mode inside `/optimus:unit-test`, *not* a separate `/optimus:mutation-test` skill. Rationale: mutation testing is in service of better test writing — the same mental context users already reach for when running `/optimus:unit-test`. A separate skill would fragment that surface without adding capability. **Scope decision (clarified 2026-04-27):** the MVP lives in **harness mode only**. Interactive deep mode (`/optimus:unit-test deep`, no `harness`) already has a coverage-plateau termination condition that mutation-plateau would peer with — but adding mutation invocation inside Claude's in-conversation loop is a meaningfully different implementation (Claude itself invokes the tool, parses the envelope, drives termination) and is deferred to Ticket #8. Normal mode (single-pass) has no loop and is intentionally out of scope.
 
 3. **Advisory tier — CC, module size, dependency structure.** One-shot snapshots feeding `skills/refactor/agents/testability-analyzer.md` (and optionally `skills/code-review/agents/test-guardian.md`). No harness involvement — these tools do not produce a metric the loop should chase. Findings enter the agent's existing markdown output as fields on each barrier. "Findings inform the agent; they do not drive it" (mitigates JIRA Risk #5 — metric-driven churn).
 
@@ -111,6 +111,7 @@ Gaps (Rust CC today) are flagged in this doc and spawn named follow-up tickets �
 - A separate `/optimus:ci` skill (decision: README sample workflow is sufficient).
 - Rust cyclomatic-complexity tooling (documented gap; named follow-up).
 - Paid tools (AC #6) — nothing in the matrix requires a license.
+- Adopting an external CRAP tool (e.g., Cobertura's Java-only implementation). The CRAP metric itself is in scope as a derived advisory field inside `testability-analyzer` (see Refined plan finding #3 and Ticket #4 AC #6); a per-stack CRAP tool dependency is not.
 - Dependency-graph visualisations beyond the analyzer agent's text findings.
 - Retrofitting existing LLM-driven agents (e.g., bug-detector, security-reviewer) to consume deterministic tool output — out of scope until a need arises.
 
@@ -125,21 +126,24 @@ Gaps (Rust CC today) are flagged in this doc and spawn named follow-up tickets �
 Each bullet becomes one ticket; OPTS-8 itself remains the design record.
 
 1. Build `references/deterministic-tool-consumption.md` with contract tests. **Prerequisite for every other ticket below.**
-2. Extend `/optimus:unit-test` with the `deep harness mutation` mode: harness schema additions, convergence updates, adapter wiring via the shared reference.
+2. Extend `/optimus:unit-test` with the `deep harness mutation` mode: harness schema additions, convergence updates, adapter wiring via the shared reference. **Harness mode only — interactive deep is Ticket #8.**
 3. Add mutation-tool install paths to `skills/init/references/test-infra-provisioning.md` per stack, plus the `/optimus:reset` inverse.
 4. Extend `skills/refactor/agents/testability-analyzer.md` to consume CC and module-size findings via the shared reference.
 5. New `skills/refactor/agents/dependency-analyzer.md` agent consuming dependency-structure tools via the shared reference.
 6. Optional — opt-in CC / cycle / module-size surfacing in `skills/code-review/agents/test-guardian.md`.
 7. Add a "CI integration" section plus a sample GitHub Actions workflow fragment to `README.md`.
+8. Extend interactive deep mode (`/optimus:unit-test deep mutation`, no `harness`) with mutation-plateau as a peer to coverage-plateau termination. Reuses Ticket #2's adapters; touches only the interactive deep-mode loop.
 
-## Refined plan — per-ticket briefs (added 2026-04-23)
+## Refined plan — per-ticket briefs (added 2026-04-23, CRAP addendum 2026-04-27)
 
 Validation against the current codebase surfaced two findings that changed the shape of these briefs:
 
 1. **Tool matrix substitutions.** `jscpd` is a copy-paste detector, not a module-size tool — ticket #3 substitutes ESLint `max-lines` (preferred — in-band with the CC pick) or `cloc`. `cargo-deps` is unmaintained and Graphviz-only — ticket #3 substitutes built-in `cargo tree --format json`. Original matrix preserved above.
 2. **Reset scope widening.** [skills/reset/SKILL.md](../../skills/reset/SKILL.md) restricts itself to `.claude/` by explicit rule. Ticket #3 widens that contract so mutation-tool entries in manifest files can be surgically removed, and names the widening as a ticket-specific risk with a conditional-removal guardrail.
+3. **CRAP metric (added 2026-04-27, prompted by JIRA description refresh).** The reporter asked whether CRAP (Change Risk Anti-Patterns — `CC² × (1 − coverage)³ + CC`, originated in Java/Cobertura) belongs here. **Decision: yes, but as a derived advisory field — no new tool, no new ticket.** Once ticket #4 lands, `testability-analyzer` already has both inputs (CC envelope from ticket #4, coverage envelope from the existing harness). The agent computes CRAP per function in-band and surfaces it as an additional optional field on existing barriers, alongside `CC:` and `Module size:`. Rationale for not spinning a separate ticket: (a) no widely-maintained cross-stack OSS CRAP tool exists today — every option is Java-only or Cobertura-bound, which would violate AC #6 by stack and contradict the "no paid / Java-only" constraint; (b) the formula is trivial to derive in-agent and avoids matrix explosion; (c) treating CRAP as advisory inherits Risk #5 mitigation automatically — never a ranking driver. The rule "findings are still ordered by testability impact, not metric value" already applies. AC #4 of ticket #4 explicitly covers this — no change to ticket structure required beyond the AC addition below.
+4. **Mutation-mode scope (added 2026-04-27, prompted by SKILL.md re-read).** Ticket #2's `mutation` keyword is bound to **harness mode only** (`/optimus:unit-test deep harness mutation`). [skills/unit-test/SKILL.md](../../skills/unit-test/SKILL.md) has three execution modes — normal (single pass), interactive deep (in-conversation loop, lines 241–280), and harness deep (external Python script). The interactive deep loop already terminates on coverage plateau (line 258), so a mutation-plateau peer is the natural fit there too — **but** invoking mutation tools inside Claude's in-conversation loop is a different implementation surface (Claude parses the ticket-#1 envelope and drives termination itself, rather than the harness orchestrator doing it), with different context-window pressure (mutation runs are slow → context accumulation across iterations bites harder than the harness's fresh-context-per-phase model). **Decision:** keep ticket #2 harness-only as MVP; spawn **Ticket #8** to extend interactive-deep mode with mutation-plateau as a follow-up. Normal mode stays out — it has no convergence loop, so a one-shot mutation report there has marginal value over running mutmut/stryker directly.
 
-Ticket #1 gates #2, #3, #4, #5, #6. Ticket #7 is independent.
+Ticket #1 gates #2, #3, #4, #5, #6, #8. Ticket #7 is independent.
 
 ---
 
@@ -170,6 +174,8 @@ Ticket #1 gates #2, #3, #4, #5, #6. Ticket #7 is independent.
 
 **Goal.** Add an opt-in `deep harness mutation` mode that runs a mutation tool inside the existing coverage-harness loop and converges on mutation-score plateau alongside coverage plateau.
 
+**Scope.** Harness mode only. Interactive deep mode (`/optimus:unit-test deep`, without `harness`) and normal mode are explicitly out of scope; interactive deep is covered by Ticket #8.
+
 **Prerequisites.** Ticket #1.
 
 **Files to create.**
@@ -191,6 +197,7 @@ Ticket #1 gates #2, #3, #4, #5, #6. Ticket #7 is independent.
 4. With the mutation flag **present**, the harness invokes the stack's mutation adapter via the ticket-#1 envelope and records results into `progress.mutation.history`.
 5. `deep harness mutation` defaults to **diff-scoped** runs. Full-run reached only via an additional explicit keyword.
 6. If the mutation tool is **absent**, the harness emits an informational warning and continues in coverage-only mode (never fatal — inherited from ticket #1).
+7. The `mutation` keyword is accepted **only** after `deep harness`. Invocations like `/optimus:unit-test mutation` or `/optimus:unit-test deep mutation` (without `harness`) are rejected with a clear message pointing at Ticket #8 as the deferred path.
 
 **Risks.** Risk #2 (mutation too slow) — mitigated by diff-scope default. Risk #4 (schema churn) — contained to one new peer key. "Coverage-harness regression" — AC #3 is the direct guard.
 
@@ -226,16 +233,17 @@ Ticket #1 gates #2, #3, #4, #5, #6. Ticket #7 is independent.
 **Prerequisites.** Ticket #1.
 
 **Files to modify.**
-- [skills/refactor/agents/testability-analyzer.md](../../skills/refactor/agents/testability-analyzer.md) — extend the output format (lines 40–57) with two new optional fields per finding: `CC:` (integer, from radon/ESLint/gocyclo) and `Module size:` (LOC, from radon raw / `max-lines` / tokei). Append a rule: findings are still ordered by testability impact, not metric value.
+- [skills/refactor/agents/testability-analyzer.md](../../skills/refactor/agents/testability-analyzer.md) — extend the output format (lines 40–57) with three new optional fields per finding: `CC:` (integer, from radon/ESLint/gocyclo), `Module size:` (LOC, from radon raw / `max-lines` / tokei), and `CRAP:` (rounded number — derived in-agent as `CC² × (1 − coverage)³ + CC` when both CC and coverage envelopes are present for the same function/file). Append a rule: findings are still ordered by testability impact, not metric value.
 
 **Acceptance criteria.**
-1. When the deterministic tool is **present**, findings include the two new fields with concrete integer values.
+1. When the deterministic tool is **present**, findings include the new fields with concrete integer values.
 2. When the deterministic tool is **absent** (ticket #1 `absent: true`), findings omit the fields entirely — existing output format unchanged, no error, no placeholder.
 3. Agent's High/Medium confidence bar, max-15 findings limit, and read-only constraints (from [references/shared-agent-constraints.md](../../references/shared-agent-constraints.md)) remain intact.
-4. A finding is **never created solely because** CC or module-size crossed a threshold. Existing structural-barrier focus (lines 22–33) remains the sole trigger.
+4. A finding is **never created solely because** CC, module-size, or CRAP crossed a threshold. Existing structural-barrier focus (lines 22–33) remains the sole trigger.
 5. Example output in the agent markdown updated to show both the with-metrics and without-metrics shapes.
+6. **CRAP derivation:** the agent computes `CRAP = CC² × (1 − coverage)³ + CC` only when **both** the CC envelope (this ticket) and the coverage envelope (existing harness output) are present and resolvable to the same function/file. If either input is missing for a given finding, the `CRAP:` field is omitted — never zero, never a placeholder. No external tool dependency for CRAP; no Java-only path; no addition to the per-stack matrix.
 
-**Risks.** Risk #5 (metric-driven churn) — AC #4 is the direct mitigation. Risk #6 (precedent) — resolved by ticket #1 landing first.
+**Risks.** Risk #5 (metric-driven churn) — AC #4 is the direct mitigation; CRAP is treated identically to raw CC, never as a ranking driver. Risk #6 (precedent) — resolved by ticket #1 landing first.
 
 ---
 
@@ -300,4 +308,36 @@ Ticket #1 gates #2, #3, #4, #5, #6. Ticket #7 is independent.
 4. Section fits under the existing README structure without duplicating content elsewhere.
 
 **Risks.** None from the design Risks table. Ticket-specific: example-workflow rot — mitigated by keeping the fragment short and pointing at skill docs for authoritative detail.
+
+---
+
+### Ticket 8 — Extend interactive deep mode with mutation-plateau (added 2026-04-27)
+
+**Goal.** Allow `/optimus:unit-test deep mutation` (no `harness`) to drive Claude's in-conversation iteration loop with a mutation-score plateau as a peer to the existing coverage-plateau termination condition.
+
+**Scope.** Interactive deep mode only. Harness mode is already covered by Ticket #2; normal mode (single-pass) remains out of scope by design — no convergence loop to plug into.
+
+**Prerequisites.** Ticket #1 (envelope contract). Ticket #2 (per-stack mutation adapters and the `coverage-harness-mode.md` mutation-plateau definition — Ticket #8 reuses the same `|Δ| ≤ 1pp` threshold and adapter wrappers).
+
+**Files to modify.**
+- [skills/unit-test/SKILL.md](../../skills/unit-test/SKILL.md):
+  - Step 1 arg parsing (lines 14–27): accept `mutation` after `deep` (without `harness`). Currently rejected — Ticket #2 AC #7 enforces that.
+  - Step 1 deep-mode state init (lines 96–103): add `accumulated-mutation-history = []` peer to `accumulated-coverage-delta`.
+  - Step 4 deep-mode loop (lines 241–280): add a new termination condition between current #3 (coverage plateau) and #4 (cap reached): "**Mutation plateau** — mutation tool is available AND `|iteration-mutation-delta| ≤ 1pp` for two consecutive iterations → stop." Use the same shape as the coverage-plateau check.
+  - Step 4 per-iteration: invoke the stack's mutation adapter via the Ticket-#1 envelope, parse `summary.primary_metric`, append to `accumulated-mutation-history`. Only when mutation flag is present.
+  - Iteration report (lines 264–272): add a `Mutation: [score / not measured]` line peer to `Cumulative coverage`.
+  - Cumulative report (lines 282–306): add `Mutation score delta` to the Summary block.
+
+**Acceptance criteria.**
+1. With `mutation` keyword **absent**, the deep-mode loop is byte-identical to today's behavior — Ticket #2's regression-guard discipline applies here too.
+2. With `mutation` keyword **present** and the mutation tool available, the loop terminates on mutation plateau using the same `|Δ| ≤ 1pp` threshold defined in `coverage-harness-mode.md`. Two consecutive iterations within tolerance trigger termination.
+3. With `mutation` keyword **present** but the mutation tool absent, the loop emits an informational warning and continues with the existing coverage-plateau / convergence / cap conditions only — never fatal (inherited from Ticket #1).
+4. Mutation invocation is **diff-scoped by default** (matching Ticket #2). Full-run requires an additional explicit keyword.
+5. Iteration report renders the per-iteration mutation score; cumulative report renders the cumulative delta.
+6. Context-window pressure: if mutation invocation output exceeds a per-iteration budget (defined inside the ticket), the score is recorded but the raw envelope is dropped from in-conversation context to avoid quality degradation across iterations. Documented in the ticket.
+
+**Risks.**
+- **Risk #2 (mutation too slow)** — bites harder here than in Ticket #2 because interactive deep accumulates context across iterations. AC #4 (diff-scope default) is the primary mitigation; AC #6 (envelope drop) is the secondary.
+- **Coverage-harness regression** is not in scope — Ticket #8 doesn't touch the harness — but the **interactive deep regression** (today's coverage-only deep-mode behavior must remain unchanged when `mutation` is absent) is its analog. AC #1 is the direct guard.
+- **Ticket-specific:** the deep-mode loop is the most heavily instructed part of `unit-test/SKILL.md`. Adding a fifth termination condition + new state + new report fields touches lines 241–306 — review carefully against the comment at line 243 ("keep structure in sync with code-review/SKILL.md Step 9 and refactor/SKILL.md Step 8") to ensure the cross-skill structural parity is preserved.
 
