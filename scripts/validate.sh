@@ -498,12 +498,13 @@ if [ -f "$detector_file" ]; then
   done
 fi
 
-# Multi-component layout wiring in how-to-run-sections.md. The Components
-# table drives the `Boot order:` header and the per-component layout; the
-# layout-selection decision table maps row count -> sub-template (1, 2, 3-5,
-# 6+). Silent rename of any of these tokens would collapse the output back
-# to a single-component layout and lose worker/scheduler documentation, OR
-# re-inflate the 3-5 case to the legacy H4-per-component renderer.
+# Component-layout wiring in how-to-run-sections.md. The Components
+# table drives the `Boot order:` header and selects among Flat / Compact
+# multi-component / Scaling-Guidance layouts via the *Component count →
+# layout* decision table (rows: 0, 1-2, 3-5, 6+). Silent rename of any of
+# these tokens would collapse the output back to a single-component layout
+# and lose worker/scheduler documentation, OR re-inflate the 3-5 case to
+# the legacy H4-per-component renderer.
 if [ -f "$sections_file" ]; then
   for sections_token in \
     '**Boot order:**' \
