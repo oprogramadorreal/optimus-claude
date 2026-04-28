@@ -129,11 +129,19 @@ For each file: what changes and why, tied to which criterion.]
 [Only if risks were found. What could go wrong, what to watch for.
 Omit this section if there are no risks.]
 
+### Implementation Tickets
+[Only present when sub-task creation has run (Complex scope, opt-in via
+`jira-subtask-creation.md`). The sub-task creation procedure owns this
+section — do not write or modify it from this procedure. Format documented
+in `jira-subtask-creation.md` "Recording".]
+
 ### Scope Assessment
 [Simple/Medium/Complex with explanation]
 ```
 
-4. Add an `enriched-date: [YYYY-MM-DD]` field to the YAML frontmatter (preserve the original `date` field unchanged — downstream skills use it for recency ordering)
+4. Update YAML frontmatter:
+   - Add `enriched-date: [YYYY-MM-DD]` (preserve the original `date` field unchanged — downstream skills use `date` for recency ordering, `enriched-date` for tracking the most recent codebase-analysis run).
+   - Add `description-refresh-date: [YYYY-MM-DD]` set to the same value as `enriched-date` on the first enrichment run. The refresh procedure (`jira-refresh.md`) bumps this field independently on subsequent re-runs whenever the JIRA description's Goal or Acceptance Criteria diverged from the local file.
 
 5. Write the updated file
 

@@ -13,6 +13,8 @@ JIRA issues are context — and like all context, their quality directly affects
 - **Sprint awareness** — includes current sprint name, goal, and sibling issues for broader context
 - **Codebase impact analysis** — compares JIRA requirements against actual code to surface missing criteria, scope, and risks
 - **Enrich JIRA issues** — optionally posts a structured analysis comment to JIRA with refined description, acceptance criteria, suggested approach, codebase impact, and risks (single confirmation, non-destructive)
+- **Refresh-aware re-runs** — re-running on the same key reconciles local docs with the latest JIRA state instead of regenerating: diffs Goal / Acceptance Criteria, preserves enrichment sections, walks the local Implementation Tickets table for sub-item drift, and short-circuits when nothing changed
+- **Implementation-ticket creation (Complex scope)** — opt-in sub-task spawning during analysis when the codebase scope is `Complex`. Creates child tickets, links them to the parent (Rovo), and records them in the local file for refresh-time drift checks
 - **MCP safety** — read-only tool enforcement during context extraction prevents accidental writes to JIRA
 - **Language handling** — JIRA content stays in its original language when writing back; local files and user output are always in English
 - **Cross-skill flow** — recommends the next optimus skill based on codebase-assessed complexity (TDD for simple, plan mode for medium, brainstorm for complex, refactor for tech debt)
@@ -324,10 +326,12 @@ The skill auto-detects which server is configured and adapts its tool calls acco
 
 | File | Purpose |
 |------|---------|
-| `SKILL.md` | Skill definition with 6-step workflow |
+| `SKILL.md` | Skill definition with 6-step workflow plus the Step 3.5 prior-run gate |
 | `references/jira-mcp-detection.md` | MCP server detection and guided setup procedure |
 | `references/jira-context-extraction.md` | Context fetching, search, and structuring procedure |
 | `references/jira-codebase-analysis.md` | Codebase impact analysis, scope assessment, and criteria suggestion procedure |
+| `references/jira-refresh.md` | Re-run reconciliation procedure — diff JIRA against the local file, update divergent sections, walk sub-items |
+| `references/jira-subtask-creation.md` | Implementation-ticket creation procedure for Complex-scope analysis (opt-in) |
 
 ## Requirements
 

@@ -9,7 +9,13 @@ Fetch a JIRA issue, distill it into a structured task for Claude Code, analyze t
 
 ## Safety
 
-Steps 1–4 are READ-ONLY. No MCP write tool may be called until Step 5, and only after explicit user confirmation. The only write operation this skill performs is adding a comment (see Tool Name Resolution table in `jira-context-extraction.md` for the server-specific tool name) — do not call any other write tool. See `jira-context-extraction.md` section "MCP Safety" for the full tool classification.
+Steps 1–3.5 are READ-ONLY. No MCP write tool may be called until Step 5, and only after explicit user confirmation.
+
+The only writes this skill performs are:
+- Adding an analysis comment (default — see Tool Name Resolution table in `jira-context-extraction.md`).
+- Optional sub-task creation (Complex-scope branch only — `createJiraIssue` / `jira_create_issue`, plus `createIssueLink` on Rovo for parent-child linking). Gated behind a separate user confirmation per `jira-subtask-creation.md`.
+
+Editing the issue description, transitioning status, deleting any artefact, or adding worklogs is never permitted by this skill regardless of branch. See `jira-context-extraction.md` section "MCP Safety" for the full tool classification.
 
 ## Language
 
@@ -59,6 +65,15 @@ Read `$CLAUDE_PLUGIN_ROOT/skills/jira/references/jira-context-extraction.md` and
 
 Handle errors according to the **Error Handling** table in the reference. If a critical error occurs (401, 403, 404), report it to the user with the specified message and stop.
 
+## Step 3.5: Detect Prior Run
+
+Check whether `docs/jira/<ISSUE-KEY>.md` exists at the project root.
+
+- **File does not exist** → first run for this issue. Continue to Step 4 unchanged.
+- **File exists** → a prior run produced this file. Read `$CLAUDE_PLUGIN_ROOT/skills/jira/references/jira-refresh.md` and follow the **Refresh Procedure**, then jump to Step 6. Do NOT continue to Step 4 — refresh owns reconciliation.
+
+The refresh procedure compares the freshly fetched JIRA against the local file, updates only the diverged sections (preserving enrichment), walks the local `### Implementation Tickets` table for sub-item drift, and may prompt the user to re-run codebase analysis (Step 5) if criteria materially changed.
+
 ## Step 4: Distill into Structured Task
 
 Assemble the fetched data into the **Structured Output Format** from the extraction reference:
@@ -99,6 +114,8 @@ If "Adjust": use `AskUserQuestion` — header "Refinement", question "What would
 
 After the user confirms the structured task, save it to a persistent file so downstream skills (`/optimus:tdd`, `/optimus:brainstorm`) can auto-detect it without copy-paste.
 
+This block runs only on the first-run path (Step 3.5 confirmed the file does not exist). Refresh runs are handled by `jira-refresh.md` and never reach this block.
+
 1. Create the `docs/jira/` directory at the project root if it doesn't exist
 2. Write the structured task to `docs/jira/<ISSUE-KEY>.md` (e.g., `docs/jira/AUTH-456.md`) with YAML frontmatter:
 
@@ -112,8 +129,7 @@ date: [YYYY-MM-DD]
 [The full structured task content from above — Goal, Acceptance Criteria, Context, Key Decisions]
 ```
 
-3. If a file for the same issue key already exists, overwrite it (the user re-fetched for fresh context)
-4. Report the file path: "Task context saved to `docs/jira/<ISSUE-KEY>.md`"
+3. Report the file path: "Task context saved to `docs/jira/<ISSUE-KEY>.md`"
 
 ## Step 5: Analyze Against Codebase
 
@@ -134,7 +150,11 @@ Check whether the detected MCP server has a comment tool (see Tool Name Resoluti
 
 3. If the comment tool call fails at runtime (e.g., tool was listed but is unavailable), inform the user and skip the JIRA write — the local file update still applies.
 
-4. Report success or failure. No further confirmation needed — comments are append-only and non-destructive. Proceed to Step 6.
+4. Report success or failure. No further confirmation needed for the comment — comments are append-only and non-destructive.
+
+5. **Complex scope only** — if the Scope Assessment from Step 5 is `Complex`, read `$CLAUDE_PLUGIN_ROOT/skills/jira/references/jira-subtask-creation.md` and follow the procedure to optionally spawn implementation tickets. The procedure has its own confirmation gate; the default is to skip JIRA writes and emit a proposed list to the local file only. For Simple and Medium scopes, do NOT enter this branch — proceed directly to Step 6.
+
+6. Proceed to Step 6.
 
 ### If Update local context only
 
