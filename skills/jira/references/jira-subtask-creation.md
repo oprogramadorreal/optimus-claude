@@ -2,7 +2,7 @@
 
 Procedure for creating implementation tickets in JIRA after a Complex-scope codebase analysis. Called only from Step 5 of SKILL.md, only when the user has chosen "Update JIRA and local context", and only when the Scope Assessment is `Complex`.
 
-This is the only place in the skill that creates new JIRA issues. Read [`jira-context-extraction.md`](jira-context-extraction.md) section "MCP Safety" for the write-tool classification — `createJiraIssue`, `jira_create_issue`, and `createIssueLink` are the only write tools permitted by this procedure (in addition to `addCommentToJiraIssue` already permitted by Step 5).
+This is the only place in the skill that creates new JIRA issues. See [`jira-context-extraction.md`](jira-context-extraction.md) section "MCP Safety" — that table is the single source of truth for which write tools this procedure is allowed to call.
 
 ## Contents
 
@@ -27,11 +27,11 @@ All of the following must be true. If any one is false, do not invoke this proce
 - Step 5 of SKILL.md reached the "Update JIRA and local context" branch (user opted in to JIRA writes).
 - The Scope Assessment from the codebase analysis is `Complex`.
 - The detected MCP server exposes a create-issue tool (see [Tool resolution](#tool-resolution)). If it does not, fall through to Skip-mode: run [Decomposition](#decomposition) and [Recording](#recording) in Proposed mode (no JIRA writes), then continue to Step 6.
-- The local `docs/jira/<KEY>.md` does not already have an `### Implementation Tickets` section with one or more real JIRA keys (rows whose `Ticket` cell matches `^[A-Z][A-Z0-9]+-\d+$`). Parenthesised placeholders like `(proposed-1)` from a prior Skip-mode recording do NOT count — those still allow a fresh creation batch. If real keys are present, skip implementation ticket creation, inform the user that existing tickets are managed by refresh, and continue to Step 6.
+- The local `docs/jira/<KEY>.md` does not already have an `### Implementation Tickets` section with one or more real JIRA keys (rows whose `Ticket` cell matches `^[A-Z][A-Z0-9]+-\d+$`). Parenthesized placeholders like `(proposed-1)` from a prior Skip-mode recording do NOT count — those still allow a fresh creation batch. If real keys are present, skip implementation ticket creation, inform the user that existing tickets are managed by refresh, and continue to Step 6.
 
 ## Decomposition
 
-Derive ticket boundaries from the analysis output already produced in Step 5 — do not re-analyse the codebase.
+Derive ticket boundaries from the analysis output already produced in Step 5 — do not re-analyze the codebase.
 
 Inputs (all already in `docs/jira/<KEY>.md` after Step 5's Task File Update):
 - `### Codebase Impact` — modules and files grouped by concern.
@@ -70,7 +70,7 @@ If "Skip": run [Recording](#recording) in **Proposed** mode (no JIRA writes), co
 
 If "Create all": run [Creation procedure](#creation-procedure) for the full list.
 
-If "Review one-by-one": for each ticket, present its full payload (summary + description) and use `AskUserQuestion` — header "Create #N", question "Create this ticket?" with options **Create**, **Skip**, **Stop batch**. On "Stop batch", create what's been confirmed so far and skip the rest.
+If "Review one-by-one": for each ticket, present its full payload (summary + description) and use `AskUserQuestion` — header "Create #N", question "Create this ticket?" with options **Create**, **Skip**, **Stop batch**. On "Stop batch", finalize without prompting for the rest. After the loop ends (whether by reaching the end of the list or by "Stop batch"), proceed to [Linking](#linking) (if applicable) and [Recording](#recording) with the keys created so far.
 
 ## Tool resolution
 
@@ -125,5 +125,5 @@ Also bump `description-refresh-date` in frontmatter to today (recording counts a
 
 On a subsequent `/optimus:jira <KEY>` run with the local file already populated:
 
-- New tickets are not created on refresh runs when real JIRA keys are already recorded — the [Entry condition](#entry-condition) check blocks re-creation even when the user chooses Re-analyse. Files with only `(proposed-N)` placeholders from a prior Skip-mode recording remain eligible for a fresh creation batch on Re-analyse. See `jira-refresh.md` "Sub-item walk" for the read-only drift review of existing real-key tickets.
-- To spawn an additional batch on top of an existing real-key recording, remove or rename the existing `### Implementation Tickets` section first, then re-run `/optimus:jira` and re-analyse.
+- New tickets are not created on refresh runs when real JIRA keys are already recorded — the [Entry condition](#entry-condition) check blocks re-creation even when the user chooses Re-analyze. Files with only `(proposed-N)` placeholders from a prior Skip-mode recording remain eligible for a fresh creation batch on Re-analyze. See `jira-refresh.md` "Sub-item walk" for the read-only drift review of existing real-key tickets.
+- To spawn an additional batch on top of an existing real-key recording, remove or rename the existing `### Implementation Tickets` section first, then re-run `/optimus:jira` and re-analyze.

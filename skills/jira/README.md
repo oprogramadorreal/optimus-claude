@@ -326,7 +326,7 @@ The skill auto-detects which server is configured and adapts its tool calls acco
 
 | File | Purpose |
 |------|---------|
-| `SKILL.md` | Skill definition with the step-by-step workflow (detect MCP, find, fetch, refresh-or-distill, analyse, recommend) |
+| `SKILL.md` | Skill definition with the step-by-step workflow |
 | `references/jira-mcp-detection.md` | MCP server detection and guided setup procedure |
 | `references/jira-context-extraction.md` | Context fetching, search, and structuring procedure |
 | `references/jira-codebase-analysis.md` | Codebase impact analysis, scope assessment, and criteria suggestion procedure |

@@ -64,7 +64,7 @@ Handle errors according to the **Error Handling** table in the reference. If a c
 Check whether `docs/jira/<ISSUE-KEY>.md` exists at the project root.
 
 - **File does not exist** → first run for this issue. Continue to Step 4 unchanged.
-- **File exists** → a prior run produced this file. Read `$CLAUDE_PLUGIN_ROOT/skills/jira/references/jira-refresh.md` and follow the **Refresh Procedure**. The procedure exits to Step 6 (no-change, Skip, or metadata-only update), re-enters Step 5 when the user chooses "Re-analyse", or terminates the skill if the user picks "Stop" in the Sub-item walk's drift prompt. Do NOT continue to Step 4 — refresh owns reconciliation.
+- **File exists** → read `$CLAUDE_PLUGIN_ROOT/skills/jira/references/jira-refresh.md` and follow the **Refresh Procedure**. Do NOT continue to Step 4 — refresh owns reconciliation and routes to Step 5, Step 6, or terminates the skill itself (the skill terminates on "Stop" in the Sub-item walk's drift prompt).
 
 ## Step 4: Distill into Structured Task
 
@@ -124,7 +124,7 @@ description-refresh-date: [YYYY-MM-DD]
 
 ## Step 5: Analyze Against Codebase
 
-Read `$CLAUDE_PLUGIN_ROOT/skills/jira/references/jira-codebase-analysis.md` and follow the **Analysis Procedure** using the Goal and Acceptance Criteria most recently written to `docs/jira/<ISSUE-KEY>.md` — produced by Step 4 on a first run, or by the refresh Update procedure on a Re-analyse re-entry from Step 3.5.
+Read `$CLAUDE_PLUGIN_ROOT/skills/jira/references/jira-codebase-analysis.md` and follow the **Analysis Procedure** using the Goal and Acceptance Criteria from `docs/jira/<ISSUE-KEY>.md`.
 
 Present the **Impact Summary** to the user.
 

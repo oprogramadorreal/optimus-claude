@@ -103,9 +103,11 @@ When the user chooses to update the local task file:
 
 1. Read the existing `docs/jira/<KEY>.md`
 
-2. Merge suggested criteria into the existing `### Acceptance Criteria` section — append each as a new numbered item with a "(from codebase analysis)" suffix to distinguish from original criteria. Where the codebase reveals that existing criteria are vague or inaccurate, clarify them in place (preserve the original criterion number; append a clarification note). Do not remove original criteria. On a re-analyse run (the section already contains items tagged `(from codebase analysis)` from a prior enrichment), drop those tagged items first — only the current run's tagged additions should remain.
+2. **Drop stale tagged items first (re-analyze runs only):** if `### Acceptance Criteria` already contains items tagged `(from codebase analysis)` from a prior enrichment, remove those tagged items first — only the current run's tagged additions should remain.
 
-3. Write each enrichment section listed below. If the section already exists in the file (re-analyse run), replace its body in place and preserve section order; otherwise append it after the existing content. Do NOT write `### Implementation Tickets` or `### Sub-item Drift` here — both are owned by other procedures (`jira-subtask-creation.md` Recording and `jira-refresh.md` Sub-item walk respectively) and must be preserved verbatim across re-analyse runs. Template:
+3. Merge suggested criteria into the existing `### Acceptance Criteria` section — append each as a new numbered item with a "(from codebase analysis)" suffix to distinguish from original criteria. Where the codebase reveals that existing criteria are vague or inaccurate, clarify them in place (preserve the original criterion number; append a clarification note). Do not remove original criteria.
+
+4. Write each enrichment section listed below. If the section already exists in the file (re-analyze run), replace its body in place and preserve section order. For sections that do not yet exist, insert them in canonical order before the first of `### Implementation Tickets`, `### Sub-item Drift`, or `### Scope Assessment` (whichever appears first in the file); if none of those are present, append after the existing content. Preserve `### Implementation Tickets` and `### Sub-item Drift` verbatim if present — they are written by other procedures. Template:
 
 ```markdown
 
@@ -133,11 +135,11 @@ Omit this section if there are no risks.]
 [Simple/Medium/Complex with explanation]
 ```
 
-4. Update YAML frontmatter (set or overwrite each field — do not skip if already present from a prior run):
-   - Set `enriched-date: [YYYY-MM-DD]` to today. Preserve the original `date` field unchanged — downstream skills use `date` for recency ordering, `enriched-date` for tracking the most recent codebase-analysis run.
-   - Set `description-refresh-date: [YYYY-MM-DD]` to today on every enrichment run (first run or re-analyse). On the first run this matches `enriched-date`; on re-analyse runs triggered from `jira-refresh.md`, this captures that fresh JIRA criteria have just been consumed. See `jira-refresh.md` "Frontmatter update" for the field's semantic across other refresh paths.
+5. Update YAML frontmatter (set or overwrite each field — do not skip if already present from a prior run):
+   - Set `enriched-date: [YYYY-MM-DD]` to today. Preserve the original `date` field unchanged.
+   - Set `description-refresh-date: [YYYY-MM-DD]` to today (see `jira-refresh.md` "Frontmatter update" for the field's full semantic).
 
-5. Write the updated file
+6. Write the updated file
 
 The local file is the single source of truth. It must be self-contained and directly consumable by downstream skills (`/optimus:brainstorm`, `/optimus:tdd`) without cross-referencing JIRA. Write all content in English, optimized as actionable input for skills rather than as a human-readable JIRA summary.
 
