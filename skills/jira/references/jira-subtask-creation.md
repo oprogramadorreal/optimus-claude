@@ -22,7 +22,7 @@ All of the following must be true. If any one is false, do not invoke this proce
 - Step 5 of SKILL.md reached the "Update JIRA and local context" branch (user opted in to JIRA writes).
 - The Scope Assessment from the codebase analysis is `Complex`.
 - The detected MCP server exposes a create-issue tool (see [Tool resolution](#tool-resolution)). If it does not, skip this procedure entirely — emit the proposed list as a markdown table for the user to copy and continue to Step 6.
-- The local `docs/jira/<KEY>.md` does not already have an `### Implementation Tickets` section with one or more keys. If it does, this is a re-run; sub-task creation is skipped — refresh handles existing tickets per `jira-refresh.md`.
+- The local `docs/jira/<KEY>.md` does not already have an `### Implementation Tickets` section with one or more real JIRA keys. If it does, skip sub-task creation and tell the user: `Implementation tickets already recorded in docs/jira/<KEY>.md — skipping creation. Remove or rename the ### Implementation Tickets section to regenerate.` Then continue to Step 6. Refresh handles existing tickets per `jira-refresh.md`.
 
 ## Decomposition
 

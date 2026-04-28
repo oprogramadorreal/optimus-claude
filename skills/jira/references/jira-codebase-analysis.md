@@ -103,9 +103,9 @@ When the user chooses to update the local task file:
 
 1. Read the existing `docs/jira/<KEY>.md`
 
-2. Merge suggested criteria into the existing `### Acceptance Criteria` section — append each as a new numbered item with a "(from codebase analysis)" suffix to distinguish from original criteria. Where the codebase reveals that existing criteria are vague or inaccurate, clarify them in place (preserve the original criterion number; append a clarification note). Do not remove original criteria.
+2. Merge suggested criteria into the existing `### Acceptance Criteria` section — append each as a new numbered item with a "(from codebase analysis)" suffix to distinguish from original criteria. Where the codebase reveals that existing criteria are vague or inaccurate, clarify them in place (preserve the original criterion number; append a clarification note). Do not remove original criteria. On a re-analyse run (the section already contains items tagged `(from codebase analysis)` from a prior enrichment), drop those tagged items first — only the current run's tagged additions should remain.
 
-3. Add new sections after the existing content:
+3. Write each enrichment section listed below. If the section already exists in the file (re-analyse run), replace its body in place and preserve section order; otherwise append it after the existing content. Leave `### Implementation Tickets` untouched here — it is owned by `jira-subtask-creation.md`. Template:
 
 ```markdown
 
