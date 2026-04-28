@@ -498,19 +498,16 @@ if [ -f "$detector_file" ]; then
   done
 fi
 
-# Component-layout wiring in how-to-run-sections.md. The Components
-# table drives the `Boot order:` header and selects among Flat / Compact
-# multi-component / Scaling-Guidance layouts via the *Component count →
-# layout* decision table (rows: 0, 1-2, 3-5, 6+). Silent rename of any of
-# these tokens would collapse the output back to a single-component layout
-# and lose worker/scheduler documentation, OR re-inflate the 3-5 case to
-# the legacy H4-per-component renderer.
+# Component-layout wiring in how-to-run-sections.md. Silent rename of
+# any token below would collapse the rendered layout to a
+# single-component or H4-per-component shape and lose worker/scheduler
+# documentation.
 if [ -f "$sections_file" ]; then
   for sections_token in \
     '**Boot order:**' \
     '**Component count → layout.**' \
     'Compact multi-component layout' \
-    'Flat layout' \
+    '**Flat layout (1-2 components).**' \
     'Components table (Task 5d)' \
     'Runtime Ports table (Task 5c)' \
     '## Workspace-Kind Command Branches' \
@@ -528,10 +525,14 @@ if [ -f "$sections_file" ]; then
     '**One-shot setup (preferred):**' \
     '**Manual setup:**' \
     '**All-candidate compression.**' \
+    '**Per-service "Update `<key>` in `<config file>`" consolidation.**' \
+    '## Source Dependencies / Clone All' \
+    '## Running Everything' \
     'Default skeleton — multi-configuration build systems' \
     'Single-configuration skeleton — Cargo / Go / single-output build systems' \
     '| 3-5 |' \
-    '| 6+ |'; do
+    '| 6+ |' \
+    '| Subproject | Path | Dev command | URL / port |'; do
     if ! grep -qF -- "$sections_token" "$sections_file" 2>/dev/null; then
       wiring_errors+="  $sections_file missing component-layout wiring token: $sections_token\n"
     fi
@@ -634,7 +635,11 @@ if [ -f "$how_to_run_skill" ]; then
     'Compact multi-component layout' \
     '`Verify:` permitted only' \
     'OS-version line in Prerequisites' \
+    'Build Debug+Release pair' \
+    'Running-in-Development layout vs Components-table row count' \
     'Detector-internal fields' \
+    'Workspace-aware commands.' \
+    'count is 7 or more' \
     '## Contents'; do
     if ! grep -qF -- "$shape_token" "$how_to_run_skill" 2>/dev/null; then
       wiring_errors+="  $how_to_run_skill missing template-shape wiring token: $shape_token\n"

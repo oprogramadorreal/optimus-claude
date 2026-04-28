@@ -400,7 +400,7 @@ For a terminal-only workflow (no VS Code), install the [dev container CLI](https
 ```markdown
 ### Running in Development
 
-[If every Components-table row shares the same parent directory (path prefix up to the first `/`), render `From <shared-parent>/` once here; otherwise omit this line and prepend `(from <component-path>/)` to each numbered bullet's start command below.]
+[Apply *Render once, not twice* (c) from SKILL.md Step 4: when every Components-table row shares the same parent directory, render `From <shared-parent>/` once here; otherwise omit this line and prepend `(from <component-path>/)` to each numbered bullet's start command below.]
 
 **Boot order:** start external services first (`docker compose up -d` or the per-service snippets above), run any one-time migrations / schema bootstrap (from [Installation](#installation)), then start each component in a separate terminal in the order below. A component that lists `Requires: <other-component>` must start AFTER that other component.
 
