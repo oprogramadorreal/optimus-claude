@@ -105,7 +105,7 @@ When the user chooses to update the local task file:
 
 2. Merge suggested criteria into the existing `### Acceptance Criteria` section — append each as a new numbered item with a "(from codebase analysis)" suffix to distinguish from original criteria. Where the codebase reveals that existing criteria are vague or inaccurate, clarify them in place (preserve the original criterion number; append a clarification note). Do not remove original criteria. On a re-analyse run (the section already contains items tagged `(from codebase analysis)` from a prior enrichment), drop those tagged items first — only the current run's tagged additions should remain.
 
-3. Write each enrichment section listed below. If the section already exists in the file (re-analyse run), replace its body in place and preserve section order; otherwise append it after the existing content. Leave `### Implementation Tickets` untouched here — it is owned by `jira-subtask-creation.md`. Template:
+3. Write each enrichment section listed below. If the section already exists in the file (re-analyse run), replace its body in place and preserve section order; otherwise append it after the existing content. Do NOT write `### Implementation Tickets` here — it is owned by `jira-subtask-creation.md` and is inserted between `### Risks` (when present) and `### Scope Assessment` only when sub-task creation runs. Template (Implementation Tickets is intentionally absent — it is filled in later by the sub-task procedure when the user opts in):
 
 ```markdown
 
@@ -129,19 +129,13 @@ For each file: what changes and why, tied to which criterion.]
 [Only if risks were found. What could go wrong, what to watch for.
 Omit this section if there are no risks.]
 
-### Implementation Tickets
-[Only present when sub-task creation has run (Complex scope, opt-in via
-`jira-subtask-creation.md`). The sub-task creation procedure owns this
-section — do not write or modify it from this procedure. Format documented
-in `jira-subtask-creation.md` "Recording".]
-
 ### Scope Assessment
 [Simple/Medium/Complex with explanation]
 ```
 
-4. Update YAML frontmatter:
-   - Add `enriched-date: [YYYY-MM-DD]` (preserve the original `date` field unchanged — downstream skills use `date` for recency ordering, `enriched-date` for tracking the most recent codebase-analysis run).
-   - Add `description-refresh-date: [YYYY-MM-DD]` set to the same value as `enriched-date` on the first enrichment run. The refresh procedure (`jira-refresh.md`) bumps this field independently on subsequent re-runs whenever the JIRA description's Goal or Acceptance Criteria diverged from the local file.
+4. Update YAML frontmatter (set or overwrite each field — do not skip if already present from a prior run):
+   - Set `enriched-date: [YYYY-MM-DD]` to today. Preserve the original `date` field unchanged — downstream skills use `date` for recency ordering, `enriched-date` for tracking the most recent codebase-analysis run.
+   - Set `description-refresh-date: [YYYY-MM-DD]` to today on every enrichment run (first run or re-analyse). On the first run this matches `enriched-date`; on re-analyse runs triggered from `jira-refresh.md`, this captures that fresh JIRA criteria have just been consumed. See `jira-refresh.md` "Frontmatter update" for the field's semantic across other refresh paths.
 
 5. Write the updated file
 

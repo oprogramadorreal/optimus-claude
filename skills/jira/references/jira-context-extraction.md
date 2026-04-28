@@ -44,13 +44,21 @@ When a **Read** tool is unavailable, fall back to the search tool with targeted 
 
 ## MCP Safety
 
-During context extraction (Steps 1–4 of the jira skill), only call tools marked **Read** in the table above.
+During context extraction (Steps 1–3.5 of the jira skill, including the refresh path), only call tools marked **Read** in the table above.
 
 **Hard rule:** NEVER call any tool whose name **starts with** `add`, `create`, `edit`, `update`, `transition`, or `delete` during context extraction (e.g., `addCommentToJiraIssue`, `editJiraIssue`, `transitionJiraIssue`).
 
 **Comments:** Comments are embedded in the `getJiraIssue` response or in search results — there is no dedicated "get comments" tool. Do NOT use `addCommentToJiraIssue` to read comments; it is a write tool that creates a new comment on the issue.
 
-Write tools are only permitted in Step 5 of the jira skill, after explicit user confirmation.
+Write tools are only permitted in Step 5 of the jira skill, after explicit user confirmation. The full set of writes the skill is allowed to call:
+
+| Tool (Rovo / sooperset) | Purpose | Gate |
+|------------------------|---------|------|
+| `addCommentToJiraIssue` / — | Post the analysis comment | Step 5 user confirmation |
+| `createJiraIssue` / `jira_create_issue` | Spawn implementation sub-tasks | Step 5 user confirmation + sub-task confirmation gate (default Skip), Complex scope only |
+| `createIssueLink` / — | Link new sub-tasks to the parent (Rovo only, best-effort) | Same gates as `createJiraIssue` |
+
+All other write tools (`editJiraIssue`, `jira_update_issue`, `transitionJiraIssue`, `jira_transition_issue`, `addWorklogToJiraIssue`, deletes, etc.) are forbidden by this skill regardless of branch.
 
 ## Search Procedures
 

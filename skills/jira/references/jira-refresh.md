@@ -6,7 +6,7 @@ The skill calls this from Step 3.5 after a fresh fetch of the issue. The fresh f
 
 ## Contents
 
-1. [When to enter this procedure](#when-to-enter-this-procedure) — the gating condition
+1. [Refresh Procedure](#refresh-procedure) — entry guard and flow order
 2. [Comparison rules](#comparison-rules) — what to diff
 3. [Decision matrix](#decision-matrix) — what to do for each kind of divergence
 4. [Update procedure](#update-procedure) — how to merge while preserving enrichment
@@ -14,11 +14,13 @@ The skill calls this from Step 3.5 after a fresh fetch of the issue. The fresh f
 6. [No-change short circuit](#no-change-short-circuit) — exit cleanly when nothing diverged
 7. [Frontmatter update](#frontmatter-update) — bump `description-refresh-date`
 
-## When to enter this procedure
+## Refresh Procedure
 
 Enter only when `docs/jira/<KEY>.md` already exists at the project root. If it does not, the skill is on a first-run path — return immediately and let Step 4 of SKILL.md proceed.
 
 The fresh fetch from Step 3 (issue details, linked issues, comments, sprint context) is the canonical "what JIRA says now". The local file is "what JIRA said the last time the skill ran, plus any enrichment". The job is to reconcile.
+
+Run the sub-procedures below in order: [Comparison rules](#comparison-rules) → [Decision matrix](#decision-matrix), then the matrix routes to [Update procedure](#update-procedure) (and [Sub-item walk](#sub-item-walk) when Goal/AC diverged) or to [No-change short circuit](#no-change-short-circuit) when nothing diverged. The [Frontmatter update](#frontmatter-update) is invoked from the Update procedure on every refresh that writes. Exit to Step 6 of SKILL.md when the chosen path completes.
 
 ## Comparison rules
 
@@ -41,10 +43,8 @@ Do NOT diff: comments, sub-task statuses, sibling issues, key decisions, refined
 | Diff outcome | Action |
 |--------------|--------|
 | Nothing diverged | [No-change short circuit](#no-change-short-circuit) — report and exit to Step 6 |
-| Status / Priority / Sprint changed only | Update those lines in `### Context`, bump `description-refresh-date`, report change, continue to Step 6 (no re-analysis) |
-| Goal changed | Update `### Goal`, run [Update procedure](#update-procedure), then prompt for re-analysis |
-| Acceptance Criteria changed | Update `### Acceptance Criteria`, run [Update procedure](#update-procedure), then prompt for re-analysis |
-| Multiple changes | Apply each above, then prompt for re-analysis once |
+| Status / Priority / Sprint changed only | Run [Update procedure](#update-procedure) for the diverged `### Context` lines, skip the re-analysis prompt and the [Sub-item walk](#sub-item-walk), continue to Step 6 |
+| Goal and/or Acceptance Criteria changed (with or without metadata changes) | Run [Update procedure](#update-procedure) for every diverged section, then prompt for re-analysis once |
 
 When prompting for re-analysis, use `AskUserQuestion` — header "Re-analyse", question "JIRA criteria changed since the last run. Would you like to re-run codebase analysis against the new criteria?":
 - **Skip** — "Update the local file only" (default)
@@ -69,27 +69,26 @@ If the diff is so large that preservation makes no sense (e.g., all criteria cha
 
 ## Sub-item walk
 
-Run after the [Update procedure](#update-procedure) completes, before exiting to Step 6.
+Run after the [Update procedure](#update-procedure) completes, before exiting to Step 6. Only entered when Goal and/or Acceptance Criteria diverged — metadata-only diffs (Status/Priority/Sprint) skip this section.
 
 If the local file has no `### Implementation Tickets` section, skip this step.
 
 Otherwise:
 
-1. Parse the markdown table under `### Implementation Tickets` to extract the list of sub-item keys.
-2. For each key, fetch the issue using the get-single-issue tool from the Tool Name Resolution table in `jira-context-extraction.md` (Read-only — no writes). Cap the walk at 15 sub-items; if more, fetch the first 15 and report the rest as unwalked.
-3. For each fetched sub-item, compare its summary and (if available) acceptance criteria against the parent's now-updated `### Acceptance Criteria` and `### Codebase Impact` sections.
+1. Parse the markdown table under `### Implementation Tickets` to extract the list of `Ticket` cell values. Skip rows whose value is parenthesised (e.g., `(proposed-1)`) — these are placeholders from a Skip-mode recording, not real keys. If no real keys remain after filtering, skip this step.
+2. For each remaining key, fetch the issue using the get-single-issue tool from the Tool Name Resolution table in `jira-context-extraction.md` (Read-only — no writes). Cap the walk at 15 sub-items; if more, fetch the first 15 and report the rest as unwalked.
+3. For each fetched sub-item, compare its summary and (if available) acceptance criteria against the parent's now-updated `### Acceptance Criteria` only. Do NOT use `### Codebase Impact` — that section is enrichment owned by prior analysis runs and is not refreshed here, so on Skip-re-analyse paths it would be stale.
 4. Flag a sub-item as drifted only when:
    - The parent gained or removed an acceptance criterion AND no sub-item's stated scope clearly maps to the change, OR
    - A sub-item's summary references a parent criterion that no longer exists.
 5. Do NOT auto-edit sub-items. Report drift only — present a summary and ask the user via `AskUserQuestion` whether to:
    - **Continue** — "Note the drift in the local file and proceed" (default)
    - **Stop** — "Pause so I can update sub-items manually first"
+6. Write the `### Sub-item Drift` block to `docs/jira/<KEY>.md`. This is a separate write after the Update procedure's write — the Update procedure does not own this section. Insert it immediately before `### Scope Assessment` (always present after enrichment); if the section is unexpectedly absent, append at end of file.
+   - **If drift detected and user chose Continue:** body is a bullet list of `<sub-key>: <reason>` entries. Replace any prior `### Sub-item Drift` block — it represents the latest refresh only.
+   - **If no drift detected:** remove any prior `### Sub-item Drift` block; do not insert a new one.
 
-If "Continue": append a short `### Sub-item Drift` block to `docs/jira/<KEY>.md` listing the drifted keys + reasons, then proceed to Step 6. Replace any previous `### Sub-item Drift` block — it represents the latest refresh only.
-
-If "Stop": exit the skill without progressing to Step 6. The user resumes by re-running `/optimus:jira <KEY>` after they've updated the sub-items.
-
-If no drift was detected, do not append the `### Sub-item Drift` block. Remove any stale block from a prior run if it exists.
+If "Stop": exit the skill without progressing to Step 6. Do not write the drift block on Stop — the user resumes by re-running `/optimus:jira <KEY>` after they've updated the sub-items.
 
 ## No-change short circuit
 
@@ -104,9 +103,9 @@ The sub-item walk is also skipped on no-change exits — there is no parent diff
 
 ## Frontmatter update
 
-Bump `description-refresh-date` to today's date (YYYY-MM-DD) on every refresh that writes anything. Leave `date` and `enriched-date` unchanged — `date` records the original first-run date, `enriched-date` records the most recent codebase-analysis enrichment.
+Bump `description-refresh-date` to today's date (YYYY-MM-DD) on every refresh write — this includes Goal/AC divergence updates, Status/Priority/Sprint-only updates, sub-task creation Recording, and re-analyse runs that re-execute the Task File Update procedure. The field name preserves the original artefact's wording for backward compatibility with existing local files; semantically it tracks "the most recent skill run that wrote to this file", not just description-driven refreshes. Leave `date` and `enriched-date` unchanged — `date` records the original first-run date, `enriched-date` records the most recent codebase-analysis enrichment.
 
-If the existing frontmatter does not yet have a `description-refresh-date` field (artefacts from earlier skill versions), add it. Place it directly after `enriched-date` if that field exists, otherwise after `date`.
+If the existing frontmatter does not yet have a `description-refresh-date` field (artifacts from earlier skill versions), add it. Place it directly after `enriched-date` if that field exists, otherwise after `date`.
 
 Example after refresh:
 
