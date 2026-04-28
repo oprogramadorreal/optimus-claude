@@ -105,7 +105,7 @@ When the user chooses to update the local task file:
 
 2. Merge suggested criteria into the existing `### Acceptance Criteria` section — append each as a new numbered item with a "(from codebase analysis)" suffix to distinguish from original criteria. Where the codebase reveals that existing criteria are vague or inaccurate, clarify them in place (preserve the original criterion number; append a clarification note). Do not remove original criteria. On a re-analyse run (the section already contains items tagged `(from codebase analysis)` from a prior enrichment), drop those tagged items first — only the current run's tagged additions should remain.
 
-3. Write each enrichment section listed below. If the section already exists in the file (re-analyse run), replace its body in place and preserve section order; otherwise append it after the existing content. Do NOT write `### Implementation Tickets` here — it is owned by `jira-subtask-creation.md` and is inserted between `### Risks` (when present) and `### Scope Assessment` only when sub-task creation runs. Template (Implementation Tickets is intentionally absent — it is filled in later by the sub-task procedure when the user opts in):
+3. Write each enrichment section listed below. If the section already exists in the file (re-analyse run), replace its body in place and preserve section order; otherwise append it after the existing content. Do NOT write `### Implementation Tickets` or `### Sub-item Drift` here — both are owned by other procedures (`jira-subtask-creation.md` Recording and `jira-refresh.md` Sub-item walk respectively) and must be preserved verbatim across re-analyse runs. Template:
 
 ```markdown
 

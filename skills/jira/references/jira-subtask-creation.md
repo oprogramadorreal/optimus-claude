@@ -6,14 +6,15 @@ This is the only place in the skill that creates new JIRA issues. Read [`jira-co
 
 ## Contents
 
-1. [Sub-task Creation Procedure](#sub-task-creation-procedure) — entry guard and flow order
-2. [Decomposition](#decomposition) — derive ticket boundaries from analysis output
-3. [Confirmation gate](#confirmation-gate) — explicit per-batch user approval
-4. [Tool resolution](#tool-resolution) — server-specific create + link tools
-5. [Creation procedure](#creation-procedure) — order, payload, error handling
-6. [Linking](#linking) — parent ↔ child relationship (best-effort)
-7. [Recording](#recording) — write the resulting keys into the local file
-8. [Refresh interaction](#refresh-interaction) — what happens on re-runs
+1. [Sub-task Creation Procedure](#sub-task-creation-procedure) — flow order
+2. [Entry condition](#entry-condition) — gating predicates for invocation
+3. [Decomposition](#decomposition) — derive ticket boundaries from analysis output
+4. [Confirmation gate](#confirmation-gate) — explicit per-batch user approval
+5. [Tool resolution](#tool-resolution) — server-specific create + link tools
+6. [Creation procedure](#creation-procedure) — order, payload, error handling
+7. [Linking](#linking) — parent ↔ child relationship (best-effort)
+8. [Recording](#recording) — write the resulting keys into the local file
+9. [Refresh interaction](#refresh-interaction) — what happens on re-runs
 
 ## Sub-task Creation Procedure
 
@@ -65,7 +66,7 @@ The proposed list precedes the question as a markdown table:
 ...
 ```
 
-If "Skip": run [Recording](#recording) using `recorded-as: proposed` (no JIRA writes), continue to Step 6.
+If "Skip": run [Recording](#recording) in **Proposed** mode (no JIRA writes), continue to Step 6.
 
 If "Create all": run [Creation procedure](#creation-procedure) for the full list.
 
@@ -73,14 +74,9 @@ If "Review one-by-one": for each ticket, present its full payload (summary + des
 
 ## Tool resolution
 
-Look up the create + link tools in the [Tool Name Resolution table](jira-context-extraction.md#tool-name-resolution):
+Look up the create-issue and create-link tools in the [Tool Name Resolution table](jira-context-extraction.md#tool-name-resolution) — that table is the single source of truth for tool names.
 
-| Operation | Rovo (`mcp__atlassian__`) | sooperset (`mcp__mcp-atlassian__`) |
-|-----------|--------------------------|-----------------------------------|
-| Create issue | `createJiraIssue` | `jira_create_issue` |
-| Create link | `createIssueLink` | (not exposed — skip linking) |
-
-If the create tool is not in the available tool list, skip this procedure (see [Entry condition](#entry-condition)). If only the create tool is available but not the link tool, create issues without linking — the local table remains the authoritative parent ↔ child record.
+If the create-issue tool is not in the available tool list, skip this procedure (see [Entry condition](#entry-condition)). If only the create-issue tool is available but not the create-link tool (the sooperset server does not expose link creation), create issues without linking — the local table remains the authoritative parent ↔ child record.
 
 ## Creation procedure
 
@@ -129,5 +125,5 @@ Also bump `description-refresh-date` in frontmatter to today (recording counts a
 
 On a subsequent `/optimus:jira <KEY>` run with the local file already populated:
 
-- The refresh path takes over via Step 3.5 — this procedure is not entered again. See `jira-refresh.md` "Sub-item walk" for the read-only review of existing tickets.
-- New tickets are not created on refresh runs. If the user wants to spawn additional implementation tickets after enrichment evolves, they re-trigger Step 5 through the re-analysis prompt and explicitly opt into a fresh batch — the [Entry condition](#entry-condition) check (no existing `### Implementation Tickets` keys) will block automatic re-creation; the user must remove or rename the section to invite a new batch.
+- New tickets are not created on refresh runs when real JIRA keys are already recorded — the [Entry condition](#entry-condition) check blocks re-creation even when the user chooses Re-analyse. Files with only `(proposed-N)` placeholders from a prior Skip-mode recording remain eligible for a fresh creation batch on Re-analyse. See `jira-refresh.md` "Sub-item walk" for the read-only drift review of existing real-key tickets.
+- To spawn an additional batch on top of an existing real-key recording, remove or rename the existing `### Implementation Tickets` section first, then re-run `/optimus:jira` and re-analyse.

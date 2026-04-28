@@ -20,7 +20,12 @@ Enter only when `docs/jira/<KEY>.md` already exists at the project root. If it d
 
 The fresh fetch from Step 3 (issue details, linked issues, comments, sprint context) is the canonical "what JIRA says now". The local file is "what JIRA said the last time the skill ran, plus any enrichment". The job is to reconcile.
 
-Run the sub-procedures below in order: [Comparison rules](#comparison-rules) → [Decision matrix](#decision-matrix), then the matrix routes to [Update procedure](#update-procedure) (and [Sub-item walk](#sub-item-walk) when Goal/AC diverged) or to [No-change short circuit](#no-change-short-circuit) when nothing diverged. The [Frontmatter update](#frontmatter-update) is invoked from the Update procedure on every refresh that writes. Exit to Step 6 of SKILL.md when the chosen path completes.
+Run [Comparison rules](#comparison-rules) → [Decision matrix](#decision-matrix) — the matrix specifies which branch each diff outcome routes to.
+
+Each chosen path ends in one of three ways:
+- Exit to Step 6 of SKILL.md (no-change, Skip, or metadata-only update).
+- Re-enter Step 5 of SKILL.md when the user chooses "Re-analyse" at the re-analysis prompt.
+- Terminate the skill if the user picks "Stop" in the Sub-item walk's drift prompt.
 
 ## Comparison rules
 
@@ -44,7 +49,7 @@ Do NOT diff: comments, sub-task statuses, sibling issues, key decisions, refined
 |--------------|--------|
 | Nothing diverged | [No-change short circuit](#no-change-short-circuit) — report and exit to Step 6 |
 | Status / Priority / Sprint changed only | Run [Update procedure](#update-procedure) for the diverged `### Context` lines, skip the re-analysis prompt and the [Sub-item walk](#sub-item-walk), continue to Step 6 |
-| Goal and/or Acceptance Criteria changed (with or without metadata changes) | Run [Update procedure](#update-procedure) for every diverged section, then prompt for re-analysis once |
+| Goal and/or Acceptance Criteria changed (with or without metadata changes) | Run [Update procedure](#update-procedure) for every diverged section, run the [Sub-item walk](#sub-item-walk), then prompt for re-analysis once |
 
 When prompting for re-analysis, use `AskUserQuestion` — header "Re-analyse", question "JIRA criteria changed since the last run. Would you like to re-run codebase analysis against the new criteria?":
 - **Skip** — "Update the local file only" (default)
@@ -69,7 +74,7 @@ If the diff is so large that preservation makes no sense (e.g., all criteria cha
 
 ## Sub-item walk
 
-Run after the [Update procedure](#update-procedure) completes, before exiting to Step 6. Only entered when Goal and/or Acceptance Criteria diverged — metadata-only diffs (Status/Priority/Sprint) skip this section.
+Run after the [Update procedure](#update-procedure) completes and before the re-analysis prompt fires (so drift is recorded regardless of the user's Skip / Re-analyse choice). Only entered when Goal and/or Acceptance Criteria diverged — metadata-only diffs (Status/Priority/Sprint) skip this section.
 
 If the local file has no `### Implementation Tickets` section, skip this step.
 
@@ -81,7 +86,7 @@ Otherwise:
 4. Flag a sub-item as drifted only when:
    - The parent gained or removed an acceptance criterion AND no sub-item's stated scope clearly maps to the change, OR
    - A sub-item's summary references a parent criterion that no longer exists.
-5. Do NOT auto-edit sub-items. Report drift only — present a summary and ask the user via `AskUserQuestion` whether to:
+5. If no sub-items were flagged in step 4, skip the prompt — proceed directly to step 6's no-drift branch (remove any prior block, write nothing new). Otherwise, do NOT auto-edit sub-items. Report drift only — present a summary and ask the user via `AskUserQuestion` whether to:
    - **Continue** — "Note the drift in the local file and proceed" (default)
    - **Stop** — "Pause so I can update sub-items manually first"
 6. Write the `### Sub-item Drift` block to `docs/jira/<KEY>.md`. This is a separate write after the Update procedure's write — the Update procedure does not own this section. Insert it immediately before `### Scope Assessment` (always present after enrichment); if the section is unexpectedly absent, append at end of file.

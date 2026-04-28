@@ -1,5 +1,5 @@
 ---
-description: Fetches and optimizes context from a JIRA issue for AI-assisted development. Searches assigned issues or fetches by key. Distills title, description, acceptance criteria, sprint context, and comments into a structured task description. Analyzes the codebase to surface missing criteria, scope, and risks. Optionally enriches the JIRA issue with a structured analysis comment, and for Complex-scope work can spawn implementation sub-tasks in JIRA. Re-running on the same key refreshes the local task with the latest JIRA state instead of overwriting prior enrichment. Use before /optimus:tdd, /optimus:brainstorm, or /optimus:branch to pull task context from JIRA, or to refresh existing context after JIRA edits.
+description: Fetches and optimizes context from a JIRA issue for AI-assisted development. Searches assigned issues or fetches by key. Distills title, description, acceptance criteria, sprint context, and comments into a structured task description. Analyzes the codebase to surface missing criteria, scope, and risks. Optionally enriches the JIRA issue with a structured analysis comment, and for Complex-scope work can spawn implementation tickets in JIRA. Re-running on the same key refreshes the local task with the latest JIRA state instead of overwriting prior enrichment. Use before /optimus:tdd, /optimus:brainstorm, or /optimus:branch to pull task context from JIRA, or to refresh existing context after JIRA edits.
 disable-model-invocation: true
 ---
 
@@ -9,7 +9,7 @@ Fetch a JIRA issue, distill it into a structured task for Claude Code, analyze t
 
 ## Safety
 
-Steps 1–3.5 perform no MCP writes. Local file writes (e.g., the refresh path's updates to `docs/jira/<KEY>.md`) are permitted; MCP writes are only allowed in Step 5 after explicit user confirmation. See `jira-context-extraction.md` "MCP Safety" for the full permitted-write table — that reference is the single source of truth for which tools the skill is allowed to call and at which gate. Editing the issue description, transitioning status, deleting any artifact, or adding worklogs is never permitted regardless of branch.
+Steps 1–3.5 perform no MCP writes. Local file writes (e.g., the refresh path's updates to `docs/jira/<KEY>.md`) are permitted; MCP writes are only allowed in Step 5 after explicit user confirmation. See `jira-context-extraction.md` "MCP Safety" for the full permitted-write table — that reference is the single source of truth for which tools the skill is allowed to call and at which gate.
 
 ## Language
 
@@ -64,7 +64,7 @@ Handle errors according to the **Error Handling** table in the reference. If a c
 Check whether `docs/jira/<ISSUE-KEY>.md` exists at the project root.
 
 - **File does not exist** → first run for this issue. Continue to Step 4 unchanged.
-- **File exists** → a prior run produced this file. Read `$CLAUDE_PLUGIN_ROOT/skills/jira/references/jira-refresh.md` and follow the **Refresh Procedure**, then jump to Step 6. Do NOT continue to Step 4 — refresh owns reconciliation.
+- **File exists** → a prior run produced this file. Read `$CLAUDE_PLUGIN_ROOT/skills/jira/references/jira-refresh.md` and follow the **Refresh Procedure**. The procedure exits to Step 6 (no-change, Skip, or metadata-only update), re-enters Step 5 when the user chooses "Re-analyse", or terminates the skill if the user picks "Stop" in the Sub-item walk's drift prompt. Do NOT continue to Step 4 — refresh owns reconciliation.
 
 ## Step 4: Distill into Structured Task
 

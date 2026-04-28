@@ -55,8 +55,8 @@ Write tools are only permitted in Step 5 of the jira skill, after explicit user 
 | Tool (Rovo / sooperset) | Purpose | Gate |
 |------------------------|---------|------|
 | `addCommentToJiraIssue` / — | Post the analysis comment | Step 5 user confirmation |
-| `createJiraIssue` / `jira_create_issue` | Spawn implementation sub-tasks | Step 5 user confirmation + sub-task confirmation gate (default Skip), Complex scope only |
-| `createIssueLink` / — | Link new sub-tasks to the parent (Rovo only, best-effort) | Same gates as `createJiraIssue` |
+| `createJiraIssue` / `jira_create_issue` | Spawn implementation tickets | Step 5 user confirmation + ticket-creation confirmation gate (default Skip), Complex scope only |
+| `createIssueLink` / — | Link new implementation tickets to the parent (Rovo only, best-effort) | Same gates as `createJiraIssue` |
 
 All other write tools (`editJiraIssue`, `jira_update_issue`, `transitionJiraIssue`, `jira_transition_issue`, `addWorklogToJiraIssue`, deletes, etc.) are forbidden by this skill regardless of branch.
 
