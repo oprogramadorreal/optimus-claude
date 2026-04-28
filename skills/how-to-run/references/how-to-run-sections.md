@@ -50,7 +50,7 @@ Section templates and signal-to-content mapping for generating `HOW-TO-RUN.md`. 
 | `mkcert` references in scripts | Prerequisites (`mkcert -install` once per dev machine), Common Issues (OAuth / webhook / SameSite cookie flows require local HTTPS) |
 | `template.yaml` (AWS SAM) / `serverless.yml` / `serverless.ts` | Running in Development (`sam local start-api` / `serverless offline`) |
 | Test framework in dependencies + test script in manifest | Running Tests |
-| Detector's Components table (Task 5d) with >1 runnable component (`Microsoft.NET.Sdk.Web` + `Microsoft.NET.Sdk.Worker`, `cmd/*/main.go`, `[[bin]]` entries in Cargo, Procfile lines, Rails + Sidekiq, etc.) | Running in Development (multi-component layout: `Boot order:` header + one `#### <Component> (shell N)` subsection per row with per-component `Requires:` list) |
+| Detector's Components table (Task 5d) with ≥1 runnable component (`Microsoft.NET.Sdk.Web` + `Microsoft.NET.Sdk.Worker`, `cmd/*/main.go`, `[[bin]]` entries in Cargo, Procfile lines, Rails + Sidekiq, etc.) | Running in Development — layout selected by row count per the *Component count → layout* table below |
 | Detector's Runtime Ports table (Task 5c) entry for a component | Running in Development (cited in that component's `Expected result:` URL — no port = omit URL, never substitute a framework default) |
 
 ## Section Skeletons
@@ -60,7 +60,7 @@ Section templates and signal-to-content mapping for generating `HOW-TO-RUN.md`. 
 ```markdown
 ### Prerequisites
 
-- [OS version constraint if detected — e.g., "Windows 11 22H2 or later", "macOS 13+"]
+- [OS version constraint — MANDATORY when Task 0d returned an OS-version token; render the canonical token verbatim as the first bullet (e.g., "Windows 10 or 11", "macOS 13+", "Ubuntu 22.04+"). Skip only when Task 0d returned no OS-version token.]
 - [Hardware if detected — e.g., "NVIDIA GPU with CUDA 12+", "USB serial port for flashing"]
 - [Runtime] [version constraint from manifest] ([version manager] recommended if config file detected)
 - [Additional runtime for heterogeneous monorepo]
@@ -278,6 +278,8 @@ Rules that apply to both branches:
 - The detector's *External Services* table is the source of truth for which services exist.
 - Service classification (Docker-preferred / Shared-cloud primary / Local install only) is owned by the Decision Heuristics in [`external-services-docker.md`](external-services-docker.md). Apply those rules; do not re-derive them here.
 - For credentials, note that the service uses defaults from docker-compose or shared-cloud config — never copy actual password values into the file.
+- **All-candidate compression.** When ≥3 services in the External Services table share `Confidence: candidate` AND no row is `confirmed`, drop the `(candidate)` marker from the per-service H3 headings and from the *Service* column of the overview table. Render a single overview sentence at the top of *External Services* instead — for example: "Services below were detected from `<config file>` rather than a compose file. Drop any incorrect rows via *Correct first* in Step 1." The marker discriminates only when mixed with confirmed rows; in an all-candidate table it conveys no signal.
+- **Per-service "Update `<key>` in `<config file>`" consolidation.** When ≥3 shared-cloud services in this section share the same source config file, do NOT emit the per-service "Update `<ConfigKey>` in `<config file>` when pointing at a different environment" line under each H3. Instead, render a single overview sentence at the top of *External Services*: "The shared-cloud endpoints below come from `<config-file>`; swap them per environment by editing the matching config key listed in [Environment Setup](#environment-setup)." Keep the per-service line only when there are ≤2 services or when the services span multiple config files.
 
 ### Environment Setup
 
@@ -315,9 +317,9 @@ Top-level sections that require values before running locally:
 
 [If the detector truncated the section list at 25 per file:] See `<config file>` for the full list of <N> sections.
 
-[If the detector's *Secrets committed* field for this file is `yes`, render a Caution block IMMEDIATELY after the section list:]
+[If the detector's *Secrets committed* field for this file is `yes`, render the Caution block below IMMEDIATELY after the section list:]
 
-> **Caution: `<config file>` appears to contain live credentials.** This skill detected credential-shaped values (key names matching `(?i)(key|secret|password|token|credential|private)` paired with non-placeholder values) but did NOT verify whether the file is git-tracked or gitignored — confirm with `git ls-files --error-unmatch <config file>` before treating this as a leaked-secret incident. If the file is tracked, rotate any exposed keys, move secrets to a locally-ignored overlay (e.g., `appsettings.Local.json` / `.env.local`), and add the committed file's real values to your team's secret store. Auditing the file manually before running is safer than assuming the values are stubs.
+> **Caution: `<config file>` appears to contain live credentials.** Audit the file's values before running the project — the detector flagged credential-shape, not authenticity. Confirm whether the file is git-tracked with `git ls-files --error-unmatch <config file>` before treating this as a leaked-secret incident. If tracked, rotate the exposed keys, move local copies to a locally-ignored overlay (e.g., `appsettings.Local.json` / `.env.local`), and put the rotated production values in your team's secret store.
 
 **Never commit real secrets.** Treat any key whose name matches `(?i)(key|secret|password|token|credential|private)` as sensitive.
 ```
@@ -331,15 +333,7 @@ Rendering rules:
 
 ### Build
 
-```markdown
-### Build
-
-\`\`\`bash
-<build command — e.g., cmake --build build --config Debug>
-\`\`\`
-```
-
-For build systems with multiple configurations (CMake, MSBuild, .NET), show both Debug and Release:
+**Default skeleton — multi-configuration build systems (CMake, MSBuild, .NET, Xcode).** Render BOTH Debug and Release code fences.
 
 ```markdown
 ### Build
@@ -357,13 +351,23 @@ Release (optimized):
 \`\`\`
 ```
 
+**Single-configuration skeleton — Cargo / Go / single-output build systems.** Render one fence.
+
+```markdown
+### Build
+
+\`\`\`bash
+<build command — e.g., cargo build --release, go build ./...>
+\`\`\`
+```
+
 Include this section only for compiled stacks where build is distinct from run (C/C++, Rust release builds, Go with explicit compile, .NET publish, Java/Kotlin, Swift, Unreal/Unity cook, PlatformIO). Skip for interpreted stacks (Node, Python, Ruby) unless there is a distinct production build step useful for developers.
 
 ### Running in Development
 
 Pick the sub-template that matches the detected run mode. **The `Expected result:` line is mandatory in every sub-template.** When no concrete check is available (no port, window, or stdout to assert), emit the literal placeholder `Expected result: <unknown — verify manually>`.
 
-**Optional `Verify:` line.** Append a single `Verify:` line below the `Expected result:` line when a natural health probe exists for the component. Keep it to one command the reader can run from their terminal:
+**Optional `Verify:` line.** Permitted only in the 1- and 2-component layouts. When the Components table has ≥3 rows, OMIT every `Verify:` line — individual probes belong in *Common Issues* per the *Component count → layout* rules below. Otherwise, append a single `Verify:` line below the `Expected result:` line when a natural health probe exists for the component. Keep it to one command the reader can run from their terminal:
 
 - Web / API with an HTTP port (grounded via the Runtime Ports table) → `` Verify: `curl -fsS http://localhost:<port>/` `` — or the detected health endpoint if one is documented (`/healthz`, `/health`, `/_/health`, `/-/health`).
 - Database service → `` Verify: `pg_isready -h localhost` `` (Postgres), `` Verify: `mysqladmin ping -h 127.0.0.1` `` (MySQL), `` Verify: `redis-cli ping` `` (Redis), `` Verify: `mongosh --eval 'db.runCommand({ ping: 1 })'` `` (Mongo).
@@ -372,7 +376,7 @@ Pick the sub-template that matches the detected run mode. **The `Expected result
 
 Never fabricate an endpoint path — when unsure, omit the `Verify:` line. The `Expected result:` line is the mandatory assertion; `Verify:` is the optional "how to confirm it".
 
-**Quick start (Dev Container) — prepend when the detector's *Containerized dev env* signal is set.** Render this block as an H4 subsection INSIDE the `### Running in Development` H3, immediately under the section heading and above the Multi-component / Single-component layout content. A single `### Running in Development` H3 wraps the whole section — never emit two sibling H3s. The dev container is usually the simplest path when one is provided.
+**Quick start (Dev Container) — prepend when the detector's *Containerized dev env* signal is set.** Render this block as an H4 subsection INSIDE the `### Running in Development` H3, immediately under the section heading and above the per-component layout content selected by the *Component count → layout* table below. A single `### Running in Development` H3 wraps the whole section — never emit two sibling H3s. The dev container is usually the simplest path when one is provided.
 
 ```markdown
 #### Quick start (Dev Container)
@@ -382,35 +386,33 @@ If you use VS Code, open the cloned repo and choose *Dev Containers: Reopen in C
 For a terminal-only workflow (no VS Code), install the [dev container CLI](https://github.com/devcontainers/cli) and run `devcontainer up --workspace-folder .`.
 ```
 
-**Multi-component layout (applies when the detector's Components table has >1 row).** Emit a single `### Running in Development` H3 heading at the top of this section (the same H3 the single-component sub-templates (a)/(b)/(c) emit) — this is the only H3 the section ever renders. Under that H3, render the `Boot order:` block, then one `#### <Component> (shell N)` H4 subsection per Component-table row in the order the detector returned them (topological — roots first). Any Quick start block rendered above is a nested H4 under the same H3 and does not provide a new H3:
+**Component count → layout.** Pick the layout from the row count of the detector's Components table (excluding the `No runnable components detected.` sentinel and any `+N more` overflow row):
+
+| Components | Layout |
+|------------|--------|
+| 0 | Omit the entire *Running in Development* section — the repo is a library. |
+| 1-2 | *Flat layout* — sub-template (a) / (b) / (c); render one block per component. No `Boot order:` block. |
+| 3-5 | *Compact multi-component layout* — numbered Boot-order list + flat per-component bullets. No per-component H4 subsections. |
+| 6+ | *Scaling Guidance* quick-reference table from §[Scaling Guidance](#scaling-guidance) — one row per component (Subproject / Component, Path, Dev command, URL/port). No H4 subsections, no per-component bullets. |
+
+**Compact multi-component layout (3-5 components).**
 
 ```markdown
-**Boot order:** start external services first (`docker compose up -d` or the per-service snippets above), run any one-time migrations / schema bootstrap (from [Installation](#installation)), then start each component in its own shell in the order shown below. A component that lists `Requires: <other-component>` must start AFTER that other component.
+### Running in Development
 
-1. **<Component A> (shell 1)** — [Kind badge if useful: web / worker / frontend]
-2. **<Component B> (shell 2)** — [...]
-3. **<Component C> (shell 3)** — [...]
+[Apply *Render once, not twice* (c) from SKILL.md Step 4: when every Components-table row shares the same parent directory, render `From <shared-parent>/` once here; otherwise omit this line and prepend `(from <component-path>/)` to each numbered bullet's start command below.]
+
+**Boot order:** start external services first (`docker compose up -d` or the per-service snippets above), run any one-time migrations / schema bootstrap (from [Installation](#installation)), then start each component in a separate terminal in the order below. A component that lists `Requires: <other-component>` must start AFTER that other component.
+
+1. **<Component A>** (`<kind>`) — `<start command>`. Expected result: <URL / port / stdout assertion>. Requires: <services + components, or "—">.
+2. **<Component B>** (`<kind>`) — `<start command>`. Expected result: <URL / port / stdout assertion>. Requires: <services + components, or "—">.
+3. **<Component C>** (`<kind>`) — `<start command>`. Expected result: <URL / port / stdout assertion>. Requires: <services + components, or "—">.
+[continue for 4-5 components — never exceed 5 here; emit the Scaling Guidance table when the count reaches 6.]
+
+[Wrapper-command expansion lines, if applicable — one `> <wrapper> runs: <expanded form>` line per component below the numbered list.]
 ```
 
-Then, per component, an H4 subsection with:
-
-```markdown
-#### <Component name> (shell N)
-
-**Requires:** <comma-separated list from the detector's `Requires (services)` + `Requires (components)` fields; write "—" when both are empty.>
-
-From `<component-path>/`:
-
-\`\`\`bash
-<Start command from the detector's Components table row>
-\`\`\`
-
-Expected result: <URL / port / stdout line derived from the Runtime Ports table for this component's row; or "<stdout-assertion>" for workers that do not bind a port; or the `<unknown — verify manually>` placeholder when nothing is derivable>.
-
-[Wrapper-command expansion line if applicable — same rule as in the single-component sub-template below.]
-```
-
-**Single-component layout (applies when the detector's Components table has exactly one row).** Emit a single `### Running in Development` H3 heading at the top of this section (the same H3 the multi-component layout emits — exactly one H3 per section regardless of layout), then render any Quick start block above as an H4 nested under that H3, then fall through to sub-template (a) / (b) / (c) below with the sub-template's own leading `### Running in Development` line stripped (the parent emits it). Omit the `Boot order:` block and the shell-N suffix on the heading. (When the Components table is empty, the detector states `No runnable components detected.` and the main skill omits this entire *Running in Development* section — a library has nothing to launch in development.)
+**Flat layout (1-2 components).** Emit a single `### Running in Development` H3, render any Quick start block as an H4 nested under it, then fall through to sub-template (a) / (b) / (c) below with the sub-template's own `### Running in Development` line stripped. For the 2-component case, render two adjacent sibling blocks.
 
 **(a) Script / dev server — web or interpreted backends**
 
@@ -516,12 +518,12 @@ Only include if clear signals exist. Examples:
 
 ## Scaling Guidance
 
-**Monorepo with many subprojects:** When a monorepo has more than 5 subprojects, use a quick-reference table in "Running in Development" instead of inline per-subproject listings:
+Quick-reference table skeleton for the 6+ row case selected by *Component count → layout* above — replaces inline per-component listings entirely (no H4 subsections, no per-component bullets).
 
 ```markdown
-| Subproject | Dev command | URL / port |
-|------------|-------------|------------|
-| [name] | `<command>` | [URL or port] |
+| Subproject | Path | Dev command | URL / port |
+|------------|------|-------------|------------|
+| [name] | `<path>` | `<command>` | [URL or port — from the Runtime Ports table; omit when no port is grounded] |
 ```
 
 ## Workspace-Kind Command Branches
