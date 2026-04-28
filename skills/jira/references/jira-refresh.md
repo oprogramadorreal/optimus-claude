@@ -89,7 +89,7 @@ Otherwise:
 5. If no sub-items were flagged in step 4, skip the prompt — proceed directly to step 6's no-drift branch (remove any prior block, write nothing new). Otherwise, do NOT auto-edit sub-items. Report drift only — present a summary and ask the user via `AskUserQuestion` whether to:
    - **Continue** — "Note the drift in the local file and proceed" (default)
    - **Stop** — "Pause so I can update sub-items manually first"
-6. Write the `### Sub-item Drift` block to `docs/jira/<KEY>.md`. This is a separate write after the Update procedure's write — the Update procedure does not own this section. Insert it immediately before `### Scope Assessment` (always present after enrichment); if the section is unexpectedly absent, append at end of file.
+6. Write the `### Sub-item Drift` block to `docs/jira/<KEY>.md`. This is a separate write after the Update procedure's write — the Update procedure does not own this section. Insert it immediately before `### Scope Assessment` (always present after enrichment) and after `### Implementation Tickets` if that section is present; if `### Scope Assessment` is unexpectedly absent, append at end of file.
    - **If drift detected and user chose Continue:** body is a bullet list of `<sub-key>: <reason>` entries. Replace any prior `### Sub-item Drift` block — it represents the latest refresh only.
    - **If no drift detected:** remove any prior `### Sub-item Drift` block; do not insert a new one.
 
@@ -108,7 +108,7 @@ The sub-item walk is also skipped on no-change exits — there is no parent diff
 
 ## Frontmatter update
 
-Bump `description-refresh-date` to today's date (YYYY-MM-DD) on every refresh write — this includes Goal/AC divergence updates, Status/Priority/Sprint-only updates, sub-task creation Recording, and re-analyse runs that re-execute the Task File Update procedure. The field name preserves the original artefact's wording for backward compatibility with existing local files; semantically it tracks "the most recent skill run that wrote to this file", not just description-driven refreshes. Leave `date` and `enriched-date` unchanged — `date` records the original first-run date, `enriched-date` records the most recent codebase-analysis enrichment.
+Bump `description-refresh-date` to today's date (YYYY-MM-DD) on every write to the file by `/optimus:jira` — this includes Goal/AC divergence updates, Status/Priority/Sprint-only updates, sub-task creation Recording, and re-analyse runs that re-execute the Task File Update procedure. The field name preserves the original artefact's wording for backward compatibility with existing local files; semantically it tracks "the most recent skill run that wrote to this file", not just description-driven refreshes. Leave `date` and `enriched-date` unchanged — `date` records the original first-run date, `enriched-date` records the most recent codebase-analysis enrichment.
 
 If the existing frontmatter does not yet have a `description-refresh-date` field (artifacts from earlier skill versions), add it. Place it directly after `enriched-date` if that field exists, otherwise after `date`.
 

@@ -26,7 +26,7 @@ All of the following must be true. If any one is false, do not invoke this proce
 
 - Step 5 of SKILL.md reached the "Update JIRA and local context" branch (user opted in to JIRA writes).
 - The Scope Assessment from the codebase analysis is `Complex`.
-- The detected MCP server exposes a create-issue tool (see [Tool resolution](#tool-resolution)). If it does not, skip this procedure entirely — emit the proposed list as a markdown table for the user to copy and continue to Step 6.
+- The detected MCP server exposes a create-issue tool (see [Tool resolution](#tool-resolution)). If it does not, fall through to Skip-mode: run [Decomposition](#decomposition) and [Recording](#recording) in Proposed mode (no JIRA writes), then continue to Step 6.
 - The local `docs/jira/<KEY>.md` does not already have an `### Implementation Tickets` section with one or more real JIRA keys (rows whose `Ticket` cell matches `^[A-Z][A-Z0-9]+-\d+$`). Parenthesised placeholders like `(proposed-1)` from a prior Skip-mode recording do NOT count — those still allow a fresh creation batch. If real keys are present, skip sub-task creation, inform the user that existing tickets are managed by refresh, and continue to Step 6.
 
 ## Decomposition
