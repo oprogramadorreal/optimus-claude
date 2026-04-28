@@ -27,7 +27,7 @@ All of the following must be true. If any one is false, do not invoke this proce
 - Step 5 of SKILL.md reached the "Update JIRA and local context" branch (user opted in to JIRA writes).
 - The Scope Assessment from the codebase analysis is `Complex`.
 - The detected MCP server exposes a create-issue tool (see [Tool resolution](#tool-resolution)). If it does not, fall through to Skip-mode: run [Decomposition](#decomposition) and [Recording](#recording) in Proposed mode (no JIRA writes), then continue to Step 6.
-- The local `docs/jira/<KEY>.md` does not already have an `### Implementation Tickets` section with one or more real JIRA keys (rows whose `Ticket` cell matches `^[A-Z][A-Z0-9]+-\d+$`). Parenthesised placeholders like `(proposed-1)` from a prior Skip-mode recording do NOT count — those still allow a fresh creation batch. If real keys are present, skip sub-task creation, inform the user that existing tickets are managed by refresh, and continue to Step 6.
+- The local `docs/jira/<KEY>.md` does not already have an `### Implementation Tickets` section with one or more real JIRA keys (rows whose `Ticket` cell matches `^[A-Z][A-Z0-9]+-\d+$`). Parenthesised placeholders like `(proposed-1)` from a prior Skip-mode recording do NOT count — those still allow a fresh creation batch. If real keys are present, skip implementation ticket creation, inform the user that existing tickets are managed by refresh, and continue to Step 6.
 
 ## Decomposition
 
@@ -46,7 +46,7 @@ Rules:
 
 For each proposed ticket, draft:
 - `summary` — one short imperative sentence (≤ 80 chars). Inherit the parent issue's language.
-- `description` — three sections: `Goal` (one sentence), `Tied to parent acceptance criteria` (numbered list referring to parent criterion numbers), `Prerequisites` (other ticket keys from this batch, or `None`). Inherit the parent issue's language for body text — translate from the local file's English content as needed.
+- `description` — three sections: `Goal` (one sentence), `Tied to parent acceptance criteria` (numbered list referring to parent criterion numbers), `Prerequisites` (other ticket keys from this batch, or `None`). Inherit the parent issue's language for the entire description, including the section headers — the English names listed here are reference labels only; translate them along with the body text from the local file's English content as needed.
 - `issuetype` — `Task` by default. Override only if the user explicitly requests a different type (e.g., `Sub-task` when the JIRA project schema requires it). When `Sub-task` is used, the parent issue's key must also be passed in the create call (see [Creation procedure](#creation-procedure) step 1).
 
 ## Confirmation gate
@@ -95,7 +95,7 @@ Run only if the link tool is available (Rovo only). Best-effort — failures her
 For each successfully created child key, call `createIssueLink` with:
 - `inwardIssue`: parent key (e.g., `OPTS-8`)
 - `outwardIssue`: child key (e.g., `OPTS-19`)
-- `linkType`: `relates to` (use the type name returned by `getIssueLinkTypes` if `relates to` is not present in the project schema; pick the closest non-blocking type).
+- `linkType`: `relates to`. If `relates to` is absent from the schema returned by `getIssueLinkTypes`, try (in order) `relates`, `related to`, `is related to`. If none of those exist, skip the link for this child and report it — do NOT fall back to directional or causal types (`blocks`, `is blocked by`, `duplicates`, `clones`, `causes`), which would silently misrepresent the parent ↔ child relationship.
 
 If a link call fails, record the failure but continue with the remaining links. The local table is the source of truth; the JIRA link is decoration.
 

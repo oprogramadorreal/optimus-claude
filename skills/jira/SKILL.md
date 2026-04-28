@@ -143,7 +143,7 @@ Check whether the detected MCP server has a comment tool (see Tool Name Resoluti
 
 4. Report success or failure. No further confirmation needed for the comment — comments are append-only and non-destructive.
 
-5. **Complex scope only** — if the Scope Assessment from the Impact Summary is `Complex`, read `$CLAUDE_PLUGIN_ROOT/skills/jira/references/jira-subtask-creation.md` and follow the **Implementation Ticket Creation Procedure** to optionally spawn implementation tickets. The procedure has its own confirmation gate; the default is to skip JIRA writes and emit a proposed list to the local file only. For Simple and Medium scopes, skip this step. Proceed to Step 6 either way.
+5. **Complex scope only** — if the Scope Assessment from the Impact Summary is `Complex`, read `$CLAUDE_PLUGIN_ROOT/skills/jira/references/jira-subtask-creation.md` and follow the **Implementation Ticket Creation Procedure** to optionally spawn implementation tickets. The procedure has its own confirmation gate; the default is to skip JIRA writes and emit a proposed list to the local file only. Then proceed to Step 6.
 
 ### If Update local context only
 

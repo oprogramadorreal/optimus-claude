@@ -1,6 +1,6 @@
 # optimus:jira
 
-A [Claude Code](https://docs.anthropic.com/en/docs/claude-code) skill that fetches and optimizes context from a JIRA issue for AI-assisted development. Distills title, description, acceptance criteria, sprint context, and comments into a structured task description ready for other optimus skills. Analyzes the codebase to surface missing criteria, scope, and risks. Optionally enriches the JIRA issue with a structured analysis comment.
+A [Claude Code](https://docs.anthropic.com/en/docs/claude-code) skill that fetches and optimizes context from a JIRA issue for AI-assisted development. Distills title, description, acceptance criteria, sprint context, and comments into a structured task description ready for other optimus skills. Analyzes the codebase to surface missing criteria, scope, and risks. Optionally enriches the JIRA issue with a structured analysis comment, and for Complex-scope work can spawn linked implementation tickets in JIRA. Re-running on the same key reconciles the local task with the latest JIRA state instead of overwriting prior enrichment.
 
 JIRA issues are context — and like all context, their quality directly affects how well Claude Code performs. A vague ticket with no acceptance criteria produces vague implementations. This skill extracts the signal from JIRA, compares it against the actual codebase to find gaps, and structures it for optimal AI consumption.
 
