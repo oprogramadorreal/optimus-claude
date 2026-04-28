@@ -1,4 +1,4 @@
-# JIRA Sub-task Creation
+# JIRA Implementation Ticket Creation
 
 Procedure for creating implementation tickets in JIRA after a Complex-scope codebase analysis. Called only from Step 5 of SKILL.md, only when the user has chosen "Update JIRA and local context", and only when the Scope Assessment is `Complex`.
 
@@ -6,7 +6,7 @@ This is the only place in the skill that creates new JIRA issues. Read [`jira-co
 
 ## Contents
 
-1. [Sub-task Creation Procedure](#sub-task-creation-procedure) — flow order
+1. [Implementation Ticket Creation Procedure](#implementation-ticket-creation-procedure) — flow order
 2. [Entry condition](#entry-condition) — gating predicates for invocation
 3. [Decomposition](#decomposition) — derive ticket boundaries from analysis output
 4. [Confirmation gate](#confirmation-gate) — explicit per-batch user approval
@@ -16,7 +16,7 @@ This is the only place in the skill that creates new JIRA issues. Read [`jira-co
 8. [Recording](#recording) — write the resulting keys into the local file
 9. [Refresh interaction](#refresh-interaction) — what happens on re-runs
 
-## Sub-task Creation Procedure
+## Implementation Ticket Creation Procedure
 
 Run the sub-procedures below in order: check [Entry condition](#entry-condition) first; if it fails, skip and continue to Step 6 of SKILL.md. Otherwise [Decomposition](#decomposition) → [Confirmation gate](#confirmation-gate). The gate routes to [Creation procedure](#creation-procedure) (which uses [Tool resolution](#tool-resolution)) and optionally [Linking](#linking), then to [Recording](#recording). On Skip-mode the procedure goes straight to [Recording](#recording) with placeholder keys. [Refresh interaction](#refresh-interaction) documents the re-run behavior and is not a step in the linear flow.
 
@@ -46,7 +46,7 @@ Rules:
 
 For each proposed ticket, draft:
 - `summary` — one short imperative sentence (≤ 80 chars). Inherit the parent issue's language.
-- `description` — three sections: `Goal` (one sentence), `Tied to parent acceptance criteria` (numbered list referring to parent criterion numbers), `Prerequisites` (other ticket keys from this batch, or `None`).
+- `description` — three sections: `Goal` (one sentence), `Tied to parent acceptance criteria` (numbered list referring to parent criterion numbers), `Prerequisites` (other ticket keys from this batch, or `None`). Inherit the parent issue's language for body text — translate from the local file's English content as needed.
 - `issuetype` — `Task` by default. Override only if the user explicitly requests a different type (e.g., `Sub-task` when the JIRA project schema requires it). When `Sub-task` is used, the parent issue's key must also be passed in the create call (see [Creation procedure](#creation-procedure) step 1).
 
 ## Confirmation gate

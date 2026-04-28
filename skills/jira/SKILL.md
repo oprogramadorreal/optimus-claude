@@ -114,6 +114,7 @@ After the user confirms the structured task, save it to a persistent file so dow
 source: jira
 issue: [ISSUE-KEY]
 date: [YYYY-MM-DD]
+description-refresh-date: [YYYY-MM-DD]
 ---
 
 [The full structured task content from above — Goal, Acceptance Criteria, Context, Key Decisions]
@@ -123,7 +124,7 @@ date: [YYYY-MM-DD]
 
 ## Step 5: Analyze Against Codebase
 
-Read `$CLAUDE_PLUGIN_ROOT/skills/jira/references/jira-codebase-analysis.md` and follow the **Analysis Procedure** using the Goal and Acceptance Criteria from Step 4.
+Read `$CLAUDE_PLUGIN_ROOT/skills/jira/references/jira-codebase-analysis.md` and follow the **Analysis Procedure** using the Goal and Acceptance Criteria most recently written to `docs/jira/<ISSUE-KEY>.md` — produced by Step 4 on a first run, or by the refresh Update procedure on a Re-analyse re-entry from Step 3.5.
 
 Present the **Impact Summary** to the user.
 
@@ -142,7 +143,7 @@ Check whether the detected MCP server has a comment tool (see Tool Name Resoluti
 
 4. Report success or failure. No further confirmation needed for the comment — comments are append-only and non-destructive.
 
-5. **Complex scope only** — if the Scope Assessment from the Impact Summary is `Complex`, read `$CLAUDE_PLUGIN_ROOT/skills/jira/references/jira-subtask-creation.md` and follow the **Sub-task Creation Procedure** to optionally spawn implementation tickets. The procedure has its own confirmation gate; the default is to skip JIRA writes and emit a proposed list to the local file only. For Simple and Medium scopes, skip this step. Proceed to Step 6 either way.
+5. **Complex scope only** — if the Scope Assessment from the Impact Summary is `Complex`, read `$CLAUDE_PLUGIN_ROOT/skills/jira/references/jira-subtask-creation.md` and follow the **Implementation Ticket Creation Procedure** to optionally spawn implementation tickets. The procedure has its own confirmation gate; the default is to skip JIRA writes and emit a proposed list to the local file only. For Simple and Medium scopes, skip this step. Proceed to Step 6 either way.
 
 ### If Update local context only
 

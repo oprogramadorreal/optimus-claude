@@ -65,7 +65,7 @@ Apply changes in place; preserve everything else.
 
 1. Read the existing `docs/jira/<KEY>.md` in full.
 2. Replace the body of any diverged section (`### Goal`, `### Acceptance Criteria`, or `### Context` lines) with the fresh content. For Acceptance Criteria, preserve any items previously marked `(from codebase analysis)` — these were added during enrichment and do not come from JIRA. New JIRA criteria slot before the `(from codebase analysis)` items, keeping numbering continuous.
-3. Do NOT touch `### Refined Description`, `### Suggested Approach`, `### Codebase Impact`, `### Risks`, `### Scope Assessment`, or `### Implementation Tickets`. These belong to enrichment runs.
+3. Do NOT touch `### Refined Description`, `### Suggested Approach`, `### Codebase Impact`, `### Risks`, or `### Scope Assessment` (owned by enrichment runs in `jira-codebase-analysis.md`); also do NOT touch `### Implementation Tickets` (owned by `jira-subtask-creation.md` Recording) or `### Sub-item Drift` (owned by the Sub-item walk below).
 4. Update frontmatter per [Frontmatter update](#frontmatter-update).
 5. Write the file.
 6. Report to the user which sections changed, one line each: e.g., `Updated: ### Acceptance Criteria (1 new criterion, 1 reworded)`.
