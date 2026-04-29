@@ -64,7 +64,7 @@ Handle errors according to the **Error Handling** table in the reference. If a c
 Check whether `docs/jira/<ISSUE-KEY>.md` exists at the project root.
 
 - **File does not exist** → first run for this issue. Continue to Step 4 unchanged.
-- **File exists** → read `$CLAUDE_PLUGIN_ROOT/skills/jira/references/jira-refresh.md` and follow the **Refresh Procedure**. Do NOT continue to Step 4 — refresh owns reconciliation and routes to Step 5, Step 6, or terminates the skill itself (the skill terminates on "Stop" in the Sub-item walk's drift prompt).
+- **File exists** → read `$CLAUDE_PLUGIN_ROOT/skills/jira/references/jira-refresh.md` and follow the **Refresh Procedure**. Do NOT continue to Step 4 — the refresh procedure owns its own routing on completion.
 
 ## Step 4: Distill into Structured Task
 
@@ -124,7 +124,7 @@ description-refresh-date: [YYYY-MM-DD]
 
 ## Step 5: Analyze Against Codebase
 
-Read `$CLAUDE_PLUGIN_ROOT/skills/jira/references/jira-codebase-analysis.md` and follow the **Analysis Procedure** using the Goal and Acceptance Criteria from `docs/jira/<ISSUE-KEY>.md`.
+Read `$CLAUDE_PLUGIN_ROOT/skills/jira/references/jira-codebase-analysis.md` and follow the **Analysis Procedure** using the Goal and the original Acceptance Criteria from `docs/jira/<ISSUE-KEY>.md` (exclude items tagged `(from codebase analysis)` — those are prior enrichment, not source criteria).
 
 Present the **Impact Summary** to the user.
 
@@ -143,7 +143,7 @@ Check whether the detected MCP server has a comment tool (see Tool Name Resoluti
 
 4. Report success or failure. No further confirmation needed for the comment — comments are append-only and non-destructive.
 
-5. **Complex scope only** — if the Scope Assessment from the Impact Summary is `Complex`, read `$CLAUDE_PLUGIN_ROOT/skills/jira/references/jira-subtask-creation.md` and follow the **Implementation Ticket Creation Procedure** to optionally spawn implementation tickets. The procedure has its own confirmation gate; the default is to skip JIRA writes and emit a proposed list to the local file only. Then proceed to Step 6.
+5. **Complex scope only** — if the Scope Assessment from the Impact Summary is `Complex`, read `$CLAUDE_PLUGIN_ROOT/skills/jira/references/jira-implementation-tickets.md` and follow the **Implementation Ticket Creation Procedure** to optionally spawn implementation tickets. The procedure has its own confirmation gate; the default is to skip JIRA writes and emit a proposed list to the local file only. Then proceed to Step 6.
 
 ### If Update local context only
 
@@ -210,7 +210,7 @@ The plan should include:
 - Out of scope: [anything explicitly excluded in the JIRA issue]
 
 ## How this conversation should run
-Treat this conversation as a review loop — validate the plan against the actual codebase and iterate with me. When I say I'm done iterating, acknowledge but do not write yet — plan mode is read-only. I will then toggle plan mode off and send a short follow-up message (e.g. "go"). On that follow-up, append a "Refined plan" section to `docs/jira/<ISSUE-KEY>.md` to capture the refined plan, and stop. I will start a fresh conversation to run `/optimus:tdd`.
+Treat this conversation as a review loop — validate the plan against the actual codebase and iterate with me. When I say I'm done iterating, acknowledge but do not write yet — plan mode is read-only. I will then toggle plan mode off and send a short follow-up message (e.g. "go"). On that follow-up, append a `### Refined plan` section (heading exactly `### Refined plan`) to `docs/jira/<ISSUE-KEY>.md` to capture the refined plan, and stop. I will start a fresh conversation to run `/optimus:tdd`.
 ```
 ````
 
@@ -219,7 +219,7 @@ When emitting both the plan-mode prompt above and the execution prompt below, su
 Tell the user:
 
 > 1. Start a fresh Claude Code conversation in **plan mode** (CLI: press `Shift+Tab` until the mode indicator shows plan mode; other clients: use the equivalent toggle). Paste the prompt above.
-> 2. Iterate with Claude. **Do not approve the plan** — approval executes immediately and skips `/optimus:tdd`'s Red-Green-Refactor discipline. When you're satisfied, tell Claude you're done iterating; Claude will acknowledge. Then toggle plan mode off using the same control **and send a short follow-up message (e.g. "go")** — Claude will append a "Refined plan" section to `docs/jira/<ISSUE-KEY>.md` in response.
+> 2. Iterate with Claude. **Do not approve the plan** — approval executes immediately and skips `/optimus:tdd`'s Red-Green-Refactor discipline. When you're satisfied, tell Claude you're done iterating; Claude will acknowledge. Then toggle plan mode off using the same control **and send a short follow-up message (e.g. "go")** — Claude will append a `### Refined plan` section to `docs/jira/<ISSUE-KEY>.md` in response.
 > 3. Start a **second fresh conversation** and paste the execution prompt below.
 
 Then emit the **execution prompt** as a second copyable block, pre-filled from the task file:

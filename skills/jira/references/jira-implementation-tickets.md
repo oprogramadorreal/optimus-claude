@@ -2,7 +2,7 @@
 
 Procedure for creating implementation tickets in JIRA after a Complex-scope codebase analysis. Called only from Step 5 of SKILL.md, only when the user has chosen "Update JIRA and local context", and only when the Scope Assessment is `Complex`.
 
-This is the only place in the skill that creates new JIRA issues. See [`jira-context-extraction.md`](jira-context-extraction.md) section "MCP Safety" — that table is the single source of truth for which write tools this procedure is allowed to call.
+This is the only place in the skill that creates new JIRA issues. See [`jira-context-extraction.md`](jira-context-extraction.md) section "MCP Safety" — that table enumerates the write tools this procedure is allowed to call and at which gate.
 
 ## Contents
 
@@ -18,7 +18,7 @@ This is the only place in the skill that creates new JIRA issues. See [`jira-con
 
 ## Implementation Ticket Creation Procedure
 
-Run the sub-procedures below in order: check [Entry condition](#entry-condition) first; if it fails, skip and continue to Step 6 of SKILL.md. Otherwise [Decomposition](#decomposition) → [Confirmation gate](#confirmation-gate). The gate routes to [Creation procedure](#creation-procedure) (which uses [Tool resolution](#tool-resolution)) and optionally [Linking](#linking), then to [Recording](#recording). On Skip-mode the procedure goes straight to [Recording](#recording) with placeholder keys. [Refresh interaction](#refresh-interaction) documents the re-run behavior and is not a step in the linear flow.
+Normal flow: [Entry condition](#entry-condition) → [Decomposition](#decomposition) → [Confirmation gate](#confirmation-gate) → [Creation procedure](#creation-procedure) → [Linking](#linking) → [Recording](#recording). [Entry condition](#entry-condition) owns its own failure routing — see that section. On Skip-mode (Confirmation gate), jump directly to [Recording](#recording). [Refresh interaction](#refresh-interaction) is reference-only, not a step.
 
 ## Entry condition
 
@@ -27,7 +27,7 @@ All of the following must be true. If any one is false, do not invoke this proce
 - Step 5 of SKILL.md reached the "Update JIRA and local context" branch (user opted in to JIRA writes).
 - The Scope Assessment from the codebase analysis is `Complex`.
 - The detected MCP server exposes a create-issue tool (see [Tool resolution](#tool-resolution)). If it does not, fall through to Skip-mode: run [Decomposition](#decomposition) and [Recording](#recording) in Proposed mode (no JIRA writes), then continue to Step 6.
-- The local `docs/jira/<KEY>.md` does not already have an `### Implementation Tickets` section with one or more real JIRA keys (rows whose `Ticket` cell matches `^[A-Z][A-Z0-9]+-\d+$`). Parenthesized placeholders like `(proposed-1)` from a prior Skip-mode recording do NOT count — those still allow a fresh creation batch. If real keys are present, skip implementation ticket creation, inform the user that existing tickets are managed by refresh, and continue to Step 6.
+- The local `docs/jira/<KEY>.md` has no `### Implementation Tickets` section with one or more **real JIRA keys** — `Ticket` cells matching `^[A-Z][A-Z0-9]+-\d+$`. Parenthesized placeholders like `(proposed-1)` from a prior Skip-mode recording do NOT count. If real keys are present, skip implementation ticket creation, inform the user that existing tickets are managed by refresh, and continue to Step 6.
 
 ## Decomposition
 
@@ -47,7 +47,7 @@ Rules:
 For each proposed ticket, draft:
 - `summary` — one short imperative sentence (≤ 80 chars). Inherit the parent issue's language.
 - `description` — three sections: `Goal` (one sentence), `Tied to parent acceptance criteria` (numbered list referring to parent criterion numbers), `Prerequisites` (other ticket keys from this batch, or `None`). Inherit the parent issue's language for the entire description, including the section headers — the English names listed here are reference labels only; translate them along with the body text from the local file's English content as needed.
-- `issuetype` — `Task` by default. Override only if the user explicitly requests a different type (e.g., `Sub-task` when the JIRA project schema requires it). When `Sub-task` is used, the parent issue's key must also be passed in the create call (see [Creation procedure](#creation-procedure) step 1).
+- `issuetype` — `Task`. The procedure does not auto-detect `Sub-task` schema requirements; if the user's project schema requires `Sub-task` instead, that's out of scope for this procedure — they should create the tickets manually.
 
 ## Confirmation gate
 
@@ -76,7 +76,7 @@ If "Review one-by-one": for each ticket, present its full payload (summary + des
 
 Look up the create-issue and create-link tools in the [Tool Name Resolution table](jira-context-extraction.md#tool-name-resolution) — that table is the single source of truth for tool names.
 
-If the create-issue tool is not in the available tool list, skip this procedure (see [Entry condition](#entry-condition)). If only the create-issue tool is available but not the create-link tool (the sooperset server does not expose link creation), create issues without linking — the local table remains the authoritative parent ↔ child record.
+If the create-issue tool is not in the available tool list, fall through to Skip-mode per [Entry condition](#entry-condition) — [Decomposition](#decomposition) and [Recording](#recording) still run in Proposed mode. If only the create-issue tool is available but not the create-link tool (the sooperset server does not expose link creation), create issues without linking — the local table remains the authoritative parent ↔ child record.
 
 ## Creation procedure
 
@@ -84,9 +84,9 @@ Create tickets in dependency order — prerequisites first. The Decomposition st
 
 For each confirmed ticket:
 
-1. Call the create-issue tool with the project key from the parent (e.g., `OPTS` for `OPTS-8`), the drafted `summary`, `description`, and `issuetype`. When `issuetype` is `Sub-task`, also pass the parent issue's key — the exact parent-field name varies by server, so inspect the create-issue tool's input schema at runtime to find it (commonly named something like `parent`, `parentIssueKey`, or `parent_issue_key`). For default `Task` issuetype, no parent field is required.
+1. Call the create-issue tool with the project key from the parent (e.g., `OPTS` for `OPTS-8`) and the drafted `summary`, `description`, and `issuetype: Task`. No parent field is required for `Task` issuetype.
 2. On success, record the returned key (e.g., `OPTS-19`) and proceed.
-3. On failure (permission, schema mismatch, validation error), report the failure to the user with the tool's error message, stop the batch, and run [Recording](#recording) for the tickets created so far. Do not retry — schema or permission errors will not resolve on retry.
+3. On failure (permission, schema mismatch, validation error), report the failure to the user with the tool's error message and the un-created remainder (their drafted summaries and prerequisites), then stop the batch. Run [Recording](#recording) for the tickets created so far in Created mode — do NOT mix `(proposed-N)` placeholders into the same table. The un-created remainder must be created manually in JIRA by the user (copy the drafts from this chat log); the skill will NOT retry them automatically, because the Entry condition guards real-key rows from re-creation and bypassing that guard (e.g., by removing the `### Implementation Tickets` section per [Refresh interaction](#refresh-interaction)) would risk creating duplicates of the tickets that succeeded. Schema or permission errors will not resolve on retry anyway.
 
 ## Linking
 
@@ -103,7 +103,7 @@ If a link call fails, record the failure but continue with the remaining links. 
 
 Always run after the batch completes (or is skipped), regardless of outcome.
 
-Read the existing `docs/jira/<KEY>.md` and append (or replace, if already present) the `### Implementation Tickets` section immediately before `### Scope Assessment` (which is always present — `### Risks` may be omitted when there are no risks, so anchoring on Scope Assessment is reliable). Use this exact format:
+Read the existing `docs/jira/<KEY>.md` and append (or replace, if already present) the `### Implementation Tickets` section immediately before `### Scope Assessment`. (SKILL.md Step 5's "Update JIRA and local context" branch runs Task File Update before invoking this procedure, so `### Scope Assessment` is guaranteed to be present here.) Use this exact format:
 
 ```markdown
 ### Implementation Tickets
@@ -119,7 +119,7 @@ Differences by recording mode:
 - **Created (Create all / Review one-by-one):** `Ticket` column holds the real keys returned by JIRA. Add a one-line note above the table: `Created on YYYY-MM-DD as part of /optimus:jira analysis.`
 - **Proposed (Skip):** `Ticket` column holds placeholders like `(proposed-1)`. Add a one-line note above the table: `Proposed on YYYY-MM-DD; not yet created in JIRA.`
 
-Also bump `description-refresh-date` in frontmatter to today (recording counts as a write to the file — see `jira-refresh.md` "Frontmatter update" for the field's broader semantic).
+In Created mode, bump `description-refresh-date` in frontmatter to today (a JIRA-driven write — see `jira-refresh.md` "Frontmatter update"). In Skip-mode, do NOT bump — only a local proposed list was emitted, no JIRA-driven change occurred.
 
 ## Refresh interaction
 

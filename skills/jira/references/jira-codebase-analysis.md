@@ -13,7 +13,7 @@ Procedure for comparing a JIRA issue's requirements against the actual codebase 
 
 ## Analysis Procedure
 
-Using the Goal and Acceptance Criteria from the confirmed structured task, explore the codebase to answer three questions:
+Using the Goal and the original Acceptance Criteria from the confirmed structured task, explore the codebase to answer three questions. On a re-analyze run, exclude any items tagged `(from codebase analysis)` — those are prior enrichment, not source criteria.
 
 1. **What code does each criterion touch?** — For each acceptance criterion, identify the files and modules that need to change. Use targeted searches (Grep, Glob, Read) driven by keywords from the criterion (function names, endpoint paths, component names, domain terms).
 
@@ -107,7 +107,7 @@ When the user chooses to update the local task file:
 
 3. Merge suggested criteria into the existing `### Acceptance Criteria` section — append each as a new numbered item with a "(from codebase analysis)" suffix to distinguish from original criteria. Where the codebase reveals that existing criteria are vague or inaccurate, clarify them in place (preserve the original criterion number; append a clarification note). Do not remove original criteria.
 
-4. Write each enrichment section listed below. If the section already exists in the file (re-analyze run), replace its body in place and preserve section order. For sections that do not yet exist, insert them in canonical order before the first of `### Implementation Tickets`, `### Sub-item Drift`, or `### Scope Assessment` (whichever appears first in the file); if none of those are present, append after the existing content. Preserve `### Implementation Tickets` and `### Sub-item Drift` verbatim if present — they are written by other procedures. Template:
+4. Write each enrichment section listed below. If the section already exists in the file (re-analyze run), replace its body in place and preserve section order. For sections that do not yet exist, insert them in canonical order before the first of `### Implementation Tickets`, `### Sub-item Drift`, or `### Refined plan` (whichever appears first in the file); if none of those are present, append after the existing content. Preserve `### Implementation Tickets`, `### Sub-item Drift`, and `### Refined plan` verbatim if present — they are written by other procedures. (`### Scope Assessment` is itself written by this template — replace its body in place if it already exists.) Template:
 
 ```markdown
 

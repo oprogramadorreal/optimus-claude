@@ -13,7 +13,7 @@ JIRA issues are context — and like all context, their quality directly affects
 - **Sprint awareness** — includes current sprint name, goal, and sibling issues for broader context
 - **Codebase impact analysis** — compares JIRA requirements against actual code to surface missing criteria, scope, and risks
 - **Enrich JIRA issues** — optionally posts a structured analysis comment to JIRA with refined description, acceptance criteria, suggested approach, codebase impact, and risks (single confirmation, non-destructive)
-- **Refresh-aware re-runs** — re-running on the same key reconciles local docs with the latest JIRA state instead of regenerating: diffs Goal / Acceptance Criteria, preserves enrichment sections, walks the local Implementation Tickets table for sub-item drift, and short-circuits when nothing changed
+- **Refresh-aware re-runs** — re-running on the same key reconciles local docs with the latest JIRA state instead of regenerating, preserving prior enrichment and walking linked implementation tickets for drift against the parent's criteria
 - **Implementation-ticket creation (Complex scope)** — opt-in spawning of implementation tickets during analysis when the codebase scope is `Complex`. Creates child issues in JIRA, links them to the parent (Rovo), and records them in the local file for refresh-time drift checks
 - **MCP safety** — read-only tool enforcement during context extraction prevents accidental writes to JIRA
 - **Language handling** — JIRA content stays in its original language when writing back; local files and user output are always in English
@@ -331,7 +331,7 @@ The skill auto-detects which server is configured and adapts its tool calls acco
 | `references/jira-context-extraction.md` | Context fetching, search, and structuring procedure |
 | `references/jira-codebase-analysis.md` | Codebase impact analysis, scope assessment, and criteria suggestion procedure |
 | `references/jira-refresh.md` | Re-run reconciliation procedure — diff JIRA against the local file, update divergent sections, walk sub-items |
-| `references/jira-subtask-creation.md` | Implementation-ticket creation procedure for Complex-scope analysis (opt-in) |
+| `references/jira-implementation-tickets.md` | Implementation-ticket creation procedure for Complex-scope analysis (opt-in) |
 
 ## Requirements
 
