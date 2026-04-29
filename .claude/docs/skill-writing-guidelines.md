@@ -115,4 +115,4 @@ Every skill must end with a recommendation for the next logical optimus skill. T
 
 ## Further Reading
 
-Anthropic's official [Skill Authoring Best Practices](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices) is the upstream source for general skill-authoring guidance. This file is the authoritative guide for *this plugin* — it already incorporates the upstream guidance that applies here and omits sections that target claude.ai/API sandboxes (executable scripts, MCP tool references, package dependencies, runtime environment). Plugin-specific rules that diverge from upstream (`disable-model-invocation`, omitting the `name` field) are documented in [Design Principles](#design-principles).
+Anthropic's official [Skill Authoring Best Practices](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices) is the upstream source. This file omits upstream sections targeting claude.ai/API sandboxes (executable scripts, MCP tool references, package dependencies, runtime environment); plugin-specific divergences (`disable-model-invocation`, omitting the `name` field) are in [Design Principles](#design-principles).
