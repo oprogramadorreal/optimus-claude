@@ -31,6 +31,96 @@ class TestCodeReviewHarnessContract:
         assert "scope_files.current" in text
 
 
+class TestCodeReviewAutoRouteContract:
+    def test_force_branch_diff_recorded_for_step_3(self):
+        text = _read("skills/code-review/SKILL.md")
+        # Step 1 must record the --branch flag as force-branch-diff state for Step 3
+        assert "Recorded as `force-branch-diff`" in text
+
+    def test_force_branch_diff_consumed_in_step_3(self):
+        text = _read("skills/code-review/SKILL.md")
+        # Step 3 bullet must consume the same state name Step 1 records — drift between
+        # producer and consumer would silently disable the --branch override
+        assert "`force-branch-diff` is set" in text
+
+    def test_gitlab_mr_substitution_documented(self):
+        text = _read("skills/code-review/SKILL.md")
+        # Auto-route notices must document the MR !N substitution for GitLab projects;
+        # silent removal would emit GitHub-formatted "PR #N" notices on GitLab repos
+        assert 'substitute "MR !N" for "PR #N"' in text
+
+    def test_step_3_captures_current_branch(self):
+        text = _read("skills/code-review/SKILL.md")
+        # Auto-route compares HEAD to origin/<current-branch>; Step 3 must capture it
+        assert "<current-branch>" in text
+        assert "git rev-parse --abbrev-ref HEAD" in text
+
+    def test_auto_route_uses_rev_list_pushed_check(self):
+        text = _read("skills/code-review/SKILL.md")
+        # Load-bearing: HEAD-pushed gate must use git rev-list against origin/<current-branch>
+        # AND require BOTH exit 0 AND no output. `git rev-list A..B` exits 0 even when it
+        # prints commit SHAs, so dropping "with no output" silently lets auto-route fire
+        # for branches with unpushed local commits.
+        assert "git rev-list origin/<current-branch>..HEAD" in text
+        assert "exits 0 with no output" in text
+        assert "returns lines or exits non-zero" in text
+
+    def test_auto_route_user_notification_phrases(self):
+        text = _read("skills/code-review/SKILL.md")
+        # Two user-facing notices that signal the chosen route
+        assert "using the PR description as author intent context" in text
+        assert "PR #N exists but HEAD is not fully pushed" in text
+
+    def test_auto_route_user_recovery_hints(self):
+        text = _read("skills/code-review/SKILL.md")
+        # Each notice must include an escape-hatch hint to switch routes
+        assert "Pass `--branch`" in text
+        assert "Pass `--pr N`" in text
+
+    def test_auto_route_does_not_prompt_user(self):
+        text = _read("skills/code-review/SKILL.md")
+        # Pre-fix behavior was an interactive prompt; new behavior must not regress
+        assert "do NOT prompt the user to choose" in text
+
+    def test_branch_flag_documented_in_examples(self):
+        text = _read("skills/code-review/SKILL.md")
+        # User-discoverable invocations must remain in the Examples list
+        assert "/optimus:code-review --branch" in text
+        assert "/optimus:code-review deep --branch" in text
+
+    def test_force_branch_diff_takes_precedence_over_pr_route(self):
+        text = _read("skills/code-review/SKILL.md")
+        # --branch override must fire BEFORE the PR auto-route bullet so the user's
+        # explicit flag wins; reordering would silently let an open PR override
+        # `force-branch-diff`
+        force_branch_idx = text.index("`force-branch-diff` is set")
+        pr_route_idx = text.index("HEAD is fully pushed")
+        assert force_branch_idx < pr_route_idx
+
+    def test_auto_route_reuses_step_2_identifier(self):
+        text = _read("skills/code-review/SKILL.md")
+        # Auto-route must reuse the PR/MR identifier already fetched in sub-step 2
+        # to avoid a redundant gh/glab round-trip and keep pr-description flowing
+        assert "Reuse the PR/MR identifier captured in sub-step 2 above" in text
+
+    def test_auto_route_state_filter_locked(self):
+        text = _read("skills/code-review/SKILL.md")
+        # Auto-route must only fire on truly open PRs/MRs — a drive-by drop of
+        # the state filter would let closed/merged PRs pull stale pr-description
+        # into agent context. Both platform literals are load-bearing.
+        assert '`state` equals `"OPEN"`' in text  # GitHub
+        assert '`state` equals `"opened"`' in text  # GitLab
+
+    def test_auto_route_target_branch_field_names_locked(self):
+        text = _read("skills/code-review/SKILL.md")
+        # Target-branch extraction depends on the literal JSON field names; a
+        # prose-cleanup that renames either to a non-existent field would silently
+        # fall back to default-branch detection, mis-comparing PRs that target a
+        # non-default branch (e.g., stacked PRs, release branches).
+        assert "baseRefName" in text  # GitHub
+        assert "target_branch" in text  # GitLab
+
+
 class TestRefactorHarnessContract:
     def test_refactor_harness_section_does_not_skip_scope_resolution(self):
         text = _read("skills/refactor/SKILL.md")
