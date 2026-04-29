@@ -115,9 +115,4 @@ Every skill must end with a recommendation for the next logical optimus skill. T
 
 ## Further Reading
 
-Anthropic's official [Skill Authoring Best Practices](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices) covers additional patterns including evaluation-driven development, progressive disclosure architecture, and executable script design.
-
-**Key differences for this plugin:**
-- **`name` field** — Anthropic requires it for standalone skills; we omit it to avoid namespace collision with built-in commands ([#22063](https://github.com/anthropics/claude-code/issues/22063)).
-- **`disable-model-invocation`** — not covered by Anthropic's docs; required on all our skills (plugin-specific rule).
-- **Executable code sections** — Anthropic's guidance on script packaging, MCP tools, and runtime environments targets claude.ai/API sandboxes, not Claude Code plugins. Our skills are markdown-based instruction sets, not code execution environments.
+Anthropic's official [Skill Authoring Best Practices](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices) is the upstream source. This file omits upstream sections targeting claude.ai/API sandboxes (executable scripts, MCP tool references, package dependencies, runtime environment); plugin-specific divergences (`disable-model-invocation`, omitting the `name` field) are in [Design Principles](#design-principles).
