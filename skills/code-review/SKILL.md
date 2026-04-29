@@ -14,12 +14,14 @@ Analyze local git changes (or a PR/MR) against the project's coding guidelines, 
 Extract from the user's arguments:
 1. `deep` flag (present/absent)
 2. `harness` keyword after `deep` (present/absent)
-3. Everything else → scope/focus instructions (natural language, including PR numbers, paths, refs)
+3. `--branch` flag (present/absent) — forces branch-diff review even when an open PR/MR exists for the current branch. Ignored when the user explicitly requests a PR (`--pr N`, `#N`, or a PR URL — explicit beats override).
+4. Everything else → scope/focus instructions (natural language, including PR numbers, paths, refs)
 
 Examples:
 - `/optimus:code-review` → local changes, normal mode
 - `/optimus:code-review src/auth` → scope to path, normal mode
 - `/optimus:code-review --pr 42` or `/optimus:code-review #42` → PR mode, normal
+- `/optimus:code-review --branch` → branch-diff against the detected base, skip PR auto-default
 - `/optimus:code-review deep` → local changes, deep mode (8 iterations)
 - `/optimus:code-review deep "focus on src/auth"` → scoped, deep mode
 - `/optimus:code-review deep harness` → harness mode (present command and stop)
@@ -106,8 +108,11 @@ git status --short
      - If platform unknown: try both, ignore CLI-unavailable errors — use the first result where an open PR/MR is confirmed (state check passed)
      - If no open PR/MR found or CLI unavailable → detect the default branch using `$CLAUDE_PLUGIN_ROOT/skills/pr/references/default-branch-detection.md`
   3. Use the detected branch as `<base-branch>`. Run `git log --oneline origin/<base-branch>..HEAD`
-  4. If commits found → offer to review the branch diff (if the base came from an open PR/MR, mention that the review uses the PR's target branch)
-  5. If an open PR/MR was found in step 2 → also offer to review it directly (PR mode)
+  4. If commits found → route to the appropriate review mode (do NOT prompt the user to choose):
+     - **`--branch` flag was set in Step 1** → review the branch diff (jump to the **Branch/ref mode** block below using the detected base)
+     - **An open PR/MR was found in step 2 AND `git rev-list origin/<current-branch>..HEAD 2>/dev/null` succeeds and returns zero lines** (HEAD is fully pushed) → auto-enter PR mode for that PR. Reuse the PR number from step 2 — jump to the **PR mode (explicit request)** block below without re-prompting. Tell the user, in one line: *"Reviewing PR #N — description loaded as author-intent context for agents. Pass `--branch` to review the branch diff instead."*
+     - **An open PR/MR was found in step 2 BUT `git rev-list origin/<current-branch>..HEAD` shows unpushed commits or fails** → review the branch diff (jump to **Branch/ref mode** below using the PR's target branch as the base). Tell the user, in one line: *"PR #N exists but your local branch has unpushed commits — reviewing the branch diff to include them. Pass `--pr N` to review the PR's pushed state instead."*
+     - **No open PR/MR found (or CLI unavailable)** → review the branch diff against the detected default branch
 - **If nothing at all** → inform the user there are no changes to review and suggest staging changes or specifying a PR
 
 ### PR mode (explicit request)

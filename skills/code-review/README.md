@@ -31,10 +31,11 @@ This skill is part of the [optimus](https://github.com/oprogramadorreal/optimus-
 
 In Claude Code, use any of these:
 
-- `/optimus:code-review` — review local uncommitted changes
+- `/optimus:code-review` — review local uncommitted changes; on a clean branch with an open PR/MR, auto-routes to PR mode when HEAD is fully pushed (so PR description is used as author-intent context) and falls back to branch-diff when local commits are unpushed
 - `/optimus:code-review` "review PR #42"
 - `/optimus:code-review` "review changes since main"
 - `/optimus:code-review` "focus on src/auth"
+- `/optimus:code-review --branch` — force branch-diff against the detected base, skipping PR auto-default
 - `/optimus:code-review deep` — iterative review-fix until clean (max 8 passes)
 - `/optimus:code-review deep` "review PR #42" — deep mode on a PR
 - `/optimus:code-review deep harness` — deep harness mode (external, fresh context per iteration)
