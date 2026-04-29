@@ -38,7 +38,7 @@ First-time setup: `install.cmd` (creates `.venv` and installs dev dependencies).
 
 ## Skill-writing guidelines
 
-See `.claude/docs/skill-writing-guidelines.md` for skill structure, design principles, and quality standards. `.claude/docs/coding-guidelines.md` covers code quality principles for non-markdown files (scripts, hooks, harness code). `.claude/docs/architecture.md` documents the directory map, harness data flow, module dependencies, and skill/agent/reference hierarchy. A `.claude/docs/testing.md` bridge file also exists so that `/optimus:unit-test`, the code-review test-guardian agent, and the SessionStart hook can discover this repo's pytest conventions through the standard doc-loading path.
+When creating or making non-trivial changes to a skill (any file under `skills/<name>/` or shared `references/`), read and apply `.claude/docs/skill-writing-guidelines.md` before editing. For non-markdown files (`scripts/`, `hooks/`), apply `.claude/docs/coding-guidelines.md` instead. `.claude/docs/architecture.md` documents the directory map, harness data flow, module dependencies, and skill/agent/reference hierarchy. A `.claude/docs/testing.md` bridge file also exists so that `/optimus:unit-test`, the code-review test-guardian agent, and the SessionStart hook can discover this repo's pytest conventions through the standard doc-loading path.
 
 ## Testing changes
 
