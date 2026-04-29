@@ -1,6 +1,6 @@
 # optimus:jira
 
-A [Claude Code](https://docs.anthropic.com/en/docs/claude-code) skill that fetches and optimizes context from a JIRA issue for AI-assisted development. Distills title, description, acceptance criteria, sprint context, and comments into a structured task description ready for other optimus skills. Analyzes the codebase to surface missing criteria, scope, and risks. Optionally enriches the JIRA issue with a structured analysis comment.
+A [Claude Code](https://docs.anthropic.com/en/docs/claude-code) skill that fetches and optimizes context from a JIRA issue for AI-assisted development. Distills title, description, acceptance criteria, sprint context, and comments into a structured task description ready for other optimus skills. Analyzes the codebase to surface missing criteria, scope, and risks. Optionally enriches the JIRA issue with a structured analysis comment, and for Complex-scope work can spawn linked implementation tickets in JIRA. Re-running on the same key reconciles the local task with the latest JIRA state instead of overwriting prior enrichment.
 
 JIRA issues are context — and like all context, their quality directly affects how well Claude Code performs. A vague ticket with no acceptance criteria produces vague implementations. This skill extracts the signal from JIRA, compares it against the actual codebase to find gaps, and structures it for optimal AI consumption.
 
@@ -13,6 +13,8 @@ JIRA issues are context — and like all context, their quality directly affects
 - **Sprint awareness** — includes current sprint name, goal, and sibling issues for broader context
 - **Codebase impact analysis** — compares JIRA requirements against actual code to surface missing criteria, scope, and risks
 - **Enrich JIRA issues** — optionally posts a structured analysis comment to JIRA with refined description, acceptance criteria, suggested approach, codebase impact, and risks (single confirmation, non-destructive)
+- **Refresh-aware re-runs** — re-running on the same key reconciles local docs with the latest JIRA state instead of regenerating, preserving prior enrichment and walking linked implementation tickets for drift against the parent's criteria
+- **Implementation-ticket creation (Complex scope)** — opt-in spawning of implementation tickets during analysis when the codebase scope is `Complex`. Creates child issues in JIRA, links them to the parent (Rovo), and records them in the local file for refresh-time drift checks
 - **MCP safety** — read-only tool enforcement during context extraction prevents accidental writes to JIRA
 - **Language handling** — JIRA content stays in its original language when writing back; local files and user output are always in English
 - **Cross-skill flow** — recommends the next optimus skill based on codebase-assessed complexity (TDD for simple, plan mode for medium, brainstorm for complex, refactor for tech debt)
@@ -324,10 +326,12 @@ The skill auto-detects which server is configured and adapts its tool calls acco
 
 | File | Purpose |
 |------|---------|
-| `SKILL.md` | Skill definition with 6-step workflow |
+| `SKILL.md` | Skill definition with the step-by-step workflow |
 | `references/jira-mcp-detection.md` | MCP server detection and guided setup procedure |
 | `references/jira-context-extraction.md` | Context fetching, search, and structuring procedure |
 | `references/jira-codebase-analysis.md` | Codebase impact analysis, scope assessment, and criteria suggestion procedure |
+| `references/jira-refresh.md` | Re-run reconciliation procedure — diff JIRA against the local file, update divergent sections, walk sub-items |
+| `references/jira-implementation-tickets.md` | Implementation-ticket creation procedure for Complex-scope analysis (opt-in) |
 
 ## Requirements
 

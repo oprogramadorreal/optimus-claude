@@ -13,7 +13,7 @@ Procedure for comparing a JIRA issue's requirements against the actual codebase 
 
 ## Analysis Procedure
 
-Using the Goal and Acceptance Criteria from the confirmed structured task, explore the codebase to answer three questions:
+Using the Goal and the original Acceptance Criteria from the confirmed structured task, explore the codebase to answer three questions. On a re-analyze run, exclude any items tagged `(from codebase analysis)` — those are prior enrichment, not source criteria.
 
 1. **What code does each criterion touch?** — For each acceptance criterion, identify the files and modules that need to change. Use targeted searches (Grep, Glob, Read) driven by keywords from the criterion (function names, endpoint paths, component names, domain terms).
 
@@ -103,9 +103,11 @@ When the user chooses to update the local task file:
 
 1. Read the existing `docs/jira/<KEY>.md`
 
-2. Merge suggested criteria into the existing `### Acceptance Criteria` section — append each as a new numbered item with a "(from codebase analysis)" suffix to distinguish from original criteria. Where the codebase reveals that existing criteria are vague or inaccurate, clarify them in place (preserve the original criterion number; append a clarification note). Do not remove original criteria.
+2. **Drop stale tagged items first (re-analyze runs only):** if `### Acceptance Criteria` already contains items tagged `(from codebase analysis)` from a prior enrichment, remove those tagged items first — only the current run's tagged additions should remain.
 
-3. Add new sections after the existing content:
+3. Merge suggested criteria into the existing `### Acceptance Criteria` section — append each as a new numbered item with a "(from codebase analysis)" suffix to distinguish from original criteria. Where the codebase reveals that existing criteria are vague or inaccurate, clarify them in place (preserve the original criterion number; append a clarification note). Do not remove original criteria.
+
+4. Write each enrichment section listed below. If the section already exists in the file (re-analyze run), replace its body in place and preserve section order. For sections that do not yet exist, insert them in canonical order before the first of `### Implementation Tickets`, `### Sub-item Drift`, or `### Refined plan` (whichever appears first in the file); if none of those are present, append after the existing content. Preserve `### Implementation Tickets`, `### Sub-item Drift`, and `### Refined plan` verbatim if present — they are written by other procedures. (`### Scope Assessment` is itself written by this template — replace its body in place if it already exists.) Template:
 
 ```markdown
 
@@ -133,9 +135,11 @@ Omit this section if there are no risks.]
 [Simple/Medium/Complex with explanation]
 ```
 
-4. Add an `enriched-date: [YYYY-MM-DD]` field to the YAML frontmatter (preserve the original `date` field unchanged — downstream skills use it for recency ordering)
+5. Update YAML frontmatter (set or overwrite each field — do not skip if already present from a prior run):
+   - Set `enriched-date: [YYYY-MM-DD]` to today. Preserve the original `date` field unchanged.
+   - Set `description-refresh-date: [YYYY-MM-DD]` to today (see `jira-refresh.md` "Frontmatter update" for the field's full semantic).
 
-5. Write the updated file
+6. Write the updated file
 
 The local file is the single source of truth. It must be self-contained and directly consumable by downstream skills (`/optimus:brainstorm`, `/optimus:tdd`) without cross-referencing JIRA. Write all content in English, optimized as actionable input for skills rather than as a human-readable JIRA summary.
 
