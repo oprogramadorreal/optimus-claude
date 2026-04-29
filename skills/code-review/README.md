@@ -6,7 +6,7 @@ Well-maintained code has [30%+ fewer AI-introduced defects](https://arxiv.org/ab
 
 ## Features
 
-- **Local-first** — reviews uncommitted changes by default (staged + unstaged + untracked); PR/MR and branch-diff modes available on request
+- **Local-first** — reviews uncommitted changes by default (staged + unstaged + untracked); PR/MR and branch diff modes available on request
 - **5 to 7 parallel agents** — bug detection, security/logic, guideline compliance (x2 for cross-validation), code-simplifier, test-guardian (when test infrastructure is detected), and contracts-reviewer (when API/contract files are changed)
 - **Project-aware** — evaluates against your coding-guidelines.md, testing.md, architecture.md, and styling.md. For projects with a skill-authoring stack, markdown instruction files under `skills/`, `agents/`, `prompts/`, `commands/`, or `instructions/` are evaluated against `skill-writing-guidelines.md` instead of `coding-guidelines.md` — both lenses apply side-by-side on mixed changes, each to its own files.
 - **High signal only** — bugs, security issues, logic errors, explicit guideline violations; excludes style concerns and subjective suggestions
@@ -31,12 +31,14 @@ This skill is part of the [optimus](https://github.com/oprogramadorreal/optimus-
 
 In Claude Code, use any of these:
 
-- `/optimus:code-review` — review local uncommitted changes
+- `/optimus:code-review` — review local uncommitted changes (with no local changes, auto-routes to an open PR/MR when HEAD is fully pushed; otherwise reviews the branch diff)
 - `/optimus:code-review` "review PR #42"
 - `/optimus:code-review` "review changes since main"
 - `/optimus:code-review` "focus on src/auth"
+- `/optimus:code-review --branch` — force branch diff against the detected base, skipping PR auto-route
 - `/optimus:code-review deep` — iterative review-fix until clean (max 8 passes)
 - `/optimus:code-review deep` "review PR #42" — deep mode on a PR
+- `/optimus:code-review deep --branch` — deep mode against the branch diff
 - `/optimus:code-review deep harness` — deep harness mode (external, fresh context per iteration)
 - `/optimus:code-review deep harness` "focus on src/auth" — deep harness with scope
 
