@@ -77,7 +77,7 @@ Assemble the fetched data into the **Structured Output Format** from the extract
 [Single-sentence distilled goal]
 
 ### Acceptance Criteria
-[Extracted or inferred acceptance criteria as a numbered list]
+[Extracted or inferred acceptance criteria as a numbered list. If the original JIRA issue uses Given/When/Then phrasing or a stakeholder-facing scenario format, preserve that phrasing in each criterion so `/optimus:brainstorm` can lift it directly into a Scenarios section in its design doc.]
 
 ### Context
 - Type: [Issue type]

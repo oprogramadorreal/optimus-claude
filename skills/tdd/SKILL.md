@@ -139,6 +139,8 @@ Decomposition strategies by task type:
 - **Bug fixes** — first behavior is always "reproduce the bug" (a test that demonstrates the current broken behavior)
 - **Data transformations** — one behavior per transformation step or boundary (empty input, boundary values, malformed data)
 
+**Scenario-driven shortcut:** if the input design or JIRA doc contains a `## Scenarios` section with `### Scenario:` headings in Given/When/Then form, use those scenarios directly as the behavior list in the order they appear — each scenario maps to one Red-Green-Refactor cycle. The scenarios are the stakeholder-approved acceptance criteria; do not re-derive a parallel behavior list. If a scenario implies multiple sub-behaviors (e.g., a Then with two unrelated outcomes joined by "and"), apply the decomposition strategies above to split that single scenario into the minimum number of cycles needed.
+
 If the decomposition produces more than 10 behaviors, split into milestones. Present the first milestone (~5-8 behaviors that deliver a coherent slice of functionality) as the current scope, and list remaining behaviors as "Future milestones" with brief descriptions. After completing the last behavior of the current milestone, use `AskUserQuestion` — header "Milestone complete", question "Milestone [N] is done ([N] behaviors). Continue to the next milestone?":
 - **Next milestone** — "Load the next milestone's behaviors for approval"
 - **Stop here** — "Done for now — show summary"
