@@ -17,7 +17,7 @@ The [2025 DORA report](https://cloud.google.com/discover/how-test-driven-develop
 ## Features
 
 - **Suitability analysis** — analyzes the task against the codebase before starting; redirects unsuitable tasks (refactoring, docs, styling) to the right skill
-- **Behavior decomposition** — breaks features or bug fixes into small, independently testable behaviors before writing any code
+- **Behavior decomposition** — breaks features or bug fixes into small, independently testable behaviors before writing any code. When the source design doc contains a `## Scenarios` section in Given/When/Then form, those scenarios are used directly as the behavior list (one Red-Green-Refactor cycle per scenario)
 - **Red-Green-Refactor cycles** — enforces the classic TDD discipline: failing test → minimal pass → clean up
 - **Guideline-aware refactoring** — applies your project's `coding-guidelines.md` during the Refactor step
 - **Convention-aware tests** — follows your `testing.md` for framework, file location, naming, and mocking patterns

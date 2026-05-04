@@ -37,6 +37,20 @@ Focus on public boundaries, not internal implementation.>
 |------|------------|
 | ... | ... |
 
+## Scenarios
+
+<Conditional section — see `scenario-style.md` "When to include" for inclusion
+signals; remove this entire section if none apply. Format: 3–7 Given/When/Then
+scenarios per the same reference.>
+
+### Scenario: <Concrete user-observable outcome>
+**Given** <starting state in business language>
+**When** <single user action>
+**Then** <observable outcome>
+
+### Scenario: <Next user-observable outcome>
+...
+
 ## Out of Scope
 
 - <What this design explicitly does NOT cover>
@@ -52,5 +66,6 @@ Focus on public boundaries, not internal implementation.>
 - **Goal** must be a single sentence — if it takes a paragraph, the scope is too broad
 - **Components** table helps TDD decomposition — each component maps to one or more testable behaviors
 - **Interfaces** section is critical for multi-component designs — skip for single-file changes
+- **Scenarios** section is conditional — see `scenario-style.md` for inclusion criteria
 - **Out of Scope** prevents the implementation phase from expanding beyond the design
 - Keep the entire document under 200 lines — design docs that rival the implementation are a smell
