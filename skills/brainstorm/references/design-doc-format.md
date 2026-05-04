@@ -39,8 +39,9 @@ Focus on public boundaries, not internal implementation.>
 
 ## Scenarios
 
-<Conditional section — see `scenario-style.md` for inclusion signals, the
-3–7-scenario format, and phrasing discipline.>
+<Conditional section — see `scenario-style.md` "When to include" for inclusion
+signals; remove this entire section if none apply. Format: 3–7 Given/When/Then
+scenarios per the same reference.>
 
 ### Scenario: <Concrete user-observable outcome>
 **Given** <starting state in business language>

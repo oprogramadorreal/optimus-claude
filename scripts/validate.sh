@@ -674,6 +674,39 @@ for token in \
   fi
 done
 
+# Brainstorm/TDD scenario contract: TDD's Step 3 scenario-driven shortcut greps
+# for the literal '## Scenarios' and '### Scenario:' strings in design docs that
+# brainstorm produces from the design-doc-format template. A silent rename of
+# either heading on either side would cause TDD's shortcut to never fire — the
+# user would silently fall back to the generic decomposition path with no error.
+brainstorm_template="skills/brainstorm/references/design-doc-format.md"
+tdd_skill="skills/tdd/SKILL.md"
+if [ -f "$brainstorm_template" ]; then
+  for scenario_token in '## Scenarios' '### Scenario:'; do
+    if ! grep -qF -- "$scenario_token" "$brainstorm_template" 2>/dev/null; then
+      wiring_errors+="  $brainstorm_template missing scenario contract token: $scenario_token\n"
+    fi
+  done
+fi
+if [ -f "$tdd_skill" ]; then
+  for scenario_token in '## Scenarios' '### Scenario:'; do
+    if ! grep -qF -- "$scenario_token" "$tdd_skill" 2>/dev/null; then
+      wiring_errors+="  $tdd_skill missing scenario contract token: $scenario_token\n"
+    fi
+  done
+fi
+
+# Brainstorm self-review reaches scenario-style.md by section name. Silent
+# rename of either heading would leave the self-review pointer dangling.
+scenario_style="skills/brainstorm/references/scenario-style.md"
+if [ -f "$scenario_style" ]; then
+  for scenario_style_heading in '^## Discipline' '^## Anti-patterns'; do
+    if ! grep -qE "$scenario_style_heading" "$scenario_style" 2>/dev/null; then
+      wiring_errors+="  $scenario_style missing heading matching: $scenario_style_heading\n"
+    fi
+  done
+fi
+
 check "Load-bearing wiring intact" test -z "$wiring_errors"
 if [ -n "$wiring_errors" ]; then
   printf "       Wiring issues:\n%b" "$wiring_errors"
