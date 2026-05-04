@@ -6,12 +6,27 @@ These quality principles apply to skill authoring just as they apply to code:
 
 - **Follow Existing Patterns** — match existing skill structure, frontmatter conventions, and reference patterns. Prefer established approaches over novel ones. When introducing a different pattern, apply it consistently — don't leave skills in a mixed state.
 - **KISS** — default to the simplest instructions that meet current requirements. Don't add steps or branches for hypothetical scenarios. Remove dead steps — unused branches, commented-out instructions, and redundant clarifications add noise without value. Safety procedures (validation rules, command allowlists, user-approval gates) and explicit behavioral constraints are requirements — their detail is justified, not a simplicity violation.
-- **SRP** — each skill focused on one concern, each step on one action. When a step handles multiple concerns or mixes abstraction levels, decompose it.
+- **SRP** — each skill focused on one concern, each step on one action. When a step handles multiple concerns or mixes abstraction levels, decompose it. See [Scope and Granularity](#scope-and-granularity) for when to merge vs. split.
 
   > **Exception — orchestration skills:** A skill may span multiple concerns when it serves as a one-time setup orchestrator whose value depends on executing all steps atomically (e.g., `skills/init/` handles project detection, CLAUDE.md generation, hooks, agents, and test infrastructure as a single coherent setup). Decomposing these into separate skills would force users to run them in sequence with no clear benefit. Keep orchestration skills well-structured internally — each step should still follow SRP.
 
 - **Intention-Revealing Names** — skill names, template files, and reference docs should convey purpose without tracing through content. Avoid generic names like `helper.md`, `utils.md`, or `doc2.md`.
 - **Pragmatic Abstractions** — extract shared references when 2+ skills reuse a procedure. Don't add indirection for its own sake. Don't extract for hypothetical future reuse.
+
+## Scope and Granularity
+
+Two failure modes pull in opposite directions — aim for the balance, not either extreme:
+
+- **Skill bloat** — a skill that does many things wastes context on every invocation and makes its description vague. Already mitigated by [SRP](#foundation) and the 500-line cap in [Writing Style](#writing-style).
+- **Skill-count bloat** — skills here are user-invoked, never auto-selected by Claude (see [Design Principles](#design-principles)), so a sprawling `/optimus:*` list hurts user discovery and recall. Fewer, well-scoped skills beat many narrow ones.
+
+When adding a capability, prefer extending an existing skill if **all** hold; otherwise create a new one:
+
+- It runs in the same conversation as skill X, on the same inputs, producing related outputs.
+- It wouldn't push X past ~500 lines or force X's description to mix unrelated triggers.
+- A user reaching for X would also expect it — they wouldn't search for it under a separate name.
+
+If a procedure ends up reused by 2+ skills after splitting, extract it per [Shared References](#shared-references) rather than re-merging.
 
 ## Design Principles
 
