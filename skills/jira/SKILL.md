@@ -77,7 +77,7 @@ Assemble the fetched data into the **Structured Output Format** from the extract
 [Single-sentence distilled goal]
 
 ### Acceptance Criteria
-[Extracted or inferred acceptance criteria as a numbered list. If the original JIRA issue uses Given/When/Then phrasing or a stakeholder-facing scenario format, preserve that phrasing in each criterion so `/optimus:brainstorm` can lift it directly into a Scenarios section in its design doc.]
+[Extracted or inferred acceptance criteria as a numbered list]
 
 ### Context
 - Type: [Issue type]
@@ -95,6 +95,8 @@ Assemble the fetched data into the **Structured Output Format** from the extract
 ```
 
 Omit sections that have no data (e.g., no sprint, no linked issues, no comments with decisions).
+
+If the original JIRA issue uses Given/When/Then phrasing in its acceptance criteria, preserve that phrasing verbatim in each Acceptance Criteria entry — `/optimus:brainstorm` can then reformat each entry into a `### Scenario:` block in its Scenarios section.
 
 Present the structured task to the user. Use `AskUserQuestion` — header "Task review", question "Does this capture the task correctly?":
 - **Looks good** — "Use this task description"

@@ -39,16 +39,16 @@ Focus on public boundaries, not internal implementation.>
 
 ## Scenarios
 
-<Include this section ONLY when the task is stakeholder-facing or names explicit
-acceptance criteria (user flows, regulatory rules, cross-team contracts). Omit
-for internal refactors, infrastructure changes, or developer-only tooling.
-3–7 scenarios in plain markdown using Given/When/Then. See
-`scenario-style.md` for phrasing discipline.>
+<Conditional section — see `scenario-style.md` for inclusion signals, the
+3–7-scenario format, and phrasing discipline.>
 
 ### Scenario: <Concrete user-observable outcome>
 **Given** <starting state in business language>
 **When** <single user action>
 **Then** <observable outcome>
+
+### Scenario: <Next user-observable outcome>
+...
 
 ## Out of Scope
 
@@ -65,6 +65,6 @@ for internal refactors, infrastructure changes, or developer-only tooling.
 - **Goal** must be a single sentence — if it takes a paragraph, the scope is too broad
 - **Components** table helps TDD decomposition — each component maps to one or more testable behaviors
 - **Interfaces** section is critical for multi-component designs — skip for single-file changes
-- **Scenarios** section is conditional — include only when stakeholder-facing or acceptance-criteria-driven; TDD uses each scenario as a behavior in its Red-Green-Refactor cycle
+- **Scenarios** section is conditional — see `scenario-style.md` for inclusion criteria
 - **Out of Scope** prevents the implementation phase from expanding beyond the design
 - Keep the entire document under 200 lines — design docs that rival the implementation are a smell

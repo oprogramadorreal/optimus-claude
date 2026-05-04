@@ -107,7 +107,7 @@ The result: consistent patterns, meaningful names, and lean context across every
 
 Each skill recommends the next step based on task complexity — you don't need to memorize these paths. Also available: `/optimus:branch` to move work to a properly named branch, `/optimus:worktree` for parallel isolated workspaces, `/optimus:prompt` to craft optimized prompts for any AI tool, `/optimus:commit` for conventional commits (or `/optimus:commit-message` to preview).
 
-> **Stakeholder-facing features?** For user-flows, cross-team contracts, or acceptance-criteria-driven work, `/optimus:brainstorm` includes a Given/When/Then Scenarios section in the design doc, and `/optimus:tdd` uses each scenario as the behavior in its Red-Green-Refactor cycle. No new skill, no Cucumber/Gherkin tooling — just acceptance criteria as a first-class part of the design artifact.
+> **Stakeholder-facing features?** Acceptance criteria are a first-class part of the design artifact (see `/optimus:brainstorm` in the [Skills](#skills) table above) — no new skill, no Cucumber/Gherkin tooling.
 
 **Before merging** — `/optimus:pr` to create or update pull requests, `/optimus:code-review` for pre-merge code quality review.
 

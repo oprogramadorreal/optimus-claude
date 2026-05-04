@@ -21,9 +21,9 @@ Before implementing a new feature or significant change. Especially valuable whe
 1. Scans the project for existing patterns and relevant code
 2. Asks clarifying questions (up to 3) to fill gaps in the requirement
 3. Proposes 2-3 approaches with trade-offs and a recommendation
-4. Develops a detailed design for the chosen approach. For stakeholder-facing or acceptance-criteria-driven tasks, the design includes a **Scenarios** section with 3–7 Given/When/Then scenarios in plain markdown — `/optimus:tdd` consumes these directly as its behavior list. The section is omitted for internal refactors and infrastructure work.
+4. Develops a detailed design for the chosen approach — including a conditional Given/When/Then **Scenarios** section that `/optimus:tdd` consumes as its behavior list when the work is stakeholder-facing or acceptance-criteria-driven.
 5. Writes the design to `docs/design/YYYY-MM-DD-<topic-slug>.md`
-6. Self-reviews the doc for completeness, contradictions, scenario discipline (when applicable), and YAGNI violations
+6. Self-reviews the doc for completeness, contradictions, scenario discipline (when a Scenarios section is present), and YAGNI violations
 
 ## The hard gate
 
@@ -31,7 +31,7 @@ No implementation until the design is approved. The skill enforces a strict boun
 
 ## Output
 
-A markdown design document written to `docs/design/` covering goal, approach, components, interfaces, edge cases, and explicit scope boundaries.
+A markdown design document written to `docs/design/` covering goal, approach, components, interfaces, edge cases, explicit scope boundaries, and — for stakeholder-facing or acceptance-criteria-driven work — a Given/When/Then Scenarios section.
 
 ## Recommended workflow
 
@@ -61,7 +61,7 @@ Brainstorm generates the plan-mode prompt inline — no need to run `/optimus:pr
 | File | Purpose |
 |------|---------|
 | `SKILL.md` | Skill definition with 7-step brainstorming workflow |
-| `references/design-doc-format.md` | Design document template (Scenarios section is optional) |
+| `references/design-doc-format.md` | Design document template (Scenarios section is conditional) |
 | `references/scenario-style.md` | Given/When/Then phrasing discipline for the Scenarios section |
 
 ## Requirements

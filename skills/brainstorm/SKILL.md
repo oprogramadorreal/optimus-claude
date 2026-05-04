@@ -4,7 +4,9 @@ description: >-
   questions, proposes multiple approaches with trade-offs, and writes an approved
   design doc to the project. Use before implementation to think through design
   decisions and avoid premature coding. Produces a persistent artifact that feeds
-  into plan mode and TDD.
+  into plan mode and TDD. For stakeholder-facing or acceptance-criteria-driven
+  work, the design doc includes a Given/When/Then Scenarios section consumed by
+  /optimus:tdd.
 disable-model-invocation: true
 ---
 
@@ -123,10 +125,8 @@ Based on the chosen approach, develop a detailed design. Cover each section as a
 - **Components** — what gets created or modified, each component's responsibility
 - **Interfaces** — how components interact (APIs, data flow, contracts, function signatures)
 - **Edge cases and risks** — what could go wrong, mitigations
-- **Scenarios** — *conditional.* Include only when the task is stakeholder-facing (end-user flows, cross-team contracts) or names explicit acceptance criteria. 3–7 scenarios in plain markdown using `### Scenario:` headings with Given/When/Then. Omit entirely for internal refactors, infrastructure changes, and developer-only tooling. Read `$CLAUDE_PLUGIN_ROOT/skills/brainstorm/references/scenario-style.md` before writing scenarios. TDD will use each scenario as a behavior in its Red-Green-Refactor cycle.
+- **Scenarios** — *conditional.* 3–7 Given/When/Then scenarios that `/optimus:tdd` consumes as the behavior list. See `$CLAUDE_PLUGIN_ROOT/skills/brainstorm/references/scenario-style.md` for inclusion signals and phrasing — read it before writing scenarios.
 - **Out of scope** — explicit boundaries to prevent scope creep
-
-Decide whether to include the Scenarios section based on three signals: (1) the JIRA task file (if present) lists explicit Acceptance Criteria, (2) the user's intent statement names a user-visible flow, or (3) the answers to clarifying questions described observable outcomes rather than internal mechanics. If none of these apply, omit Scenarios.
 
 Present the design in conversation. Use `AskUserQuestion` — header "Design review", question "Does this design look right?":
 - **Approve** — "Write it to a design doc"
@@ -152,7 +152,7 @@ After writing, read the file back and check for:
 - Internal contradictions (e.g., a component listed in Components but missing from Interfaces)
 - Requirements ambiguous enough to cause someone to build the wrong thing
 - YAGNI violations — features or complexity the user didn't ask for
-- If a Scenarios section was included: each scenario describes one observable outcome, uses business language (not implementation details), and follows declarative phrasing — re-check against `$CLAUDE_PLUGIN_ROOT/skills/brainstorm/references/scenario-style.md`
+- If a Scenarios section was included: re-check it against `$CLAUDE_PLUGIN_ROOT/skills/brainstorm/references/scenario-style.md` (Discipline and Anti-patterns)
 
 Fix any issues found. If a fix would change a design decision, ask the user first.
 
