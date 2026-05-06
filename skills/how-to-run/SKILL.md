@@ -10,7 +10,10 @@ description: >-
   info found in README.md / CONTRIBUTING.md / docs but never modifies those
   files — any outdated info found elsewhere is reported to the user at the
   end. Use after /optimus:init or standalone when onboarding feels broken.
-  Handles single projects, monorepos, and multi-repo workspaces.
+  Handles single projects, monorepos, and multi-repo workspaces. When the
+  file already exists, also offers a guided in-conversation walkthrough of
+  the documented steps with per-step user approval — never batches execution
+  and never runs long-running or platform-mismatched commands.
 disable-model-invocation: true
 ---
 
@@ -19,6 +22,8 @@ disable-model-invocation: true
 Generate or update a `HOW-TO-RUN.md` at the project (or workspace) root that teaches a new developer who has just cloned the repo how to set up their environment and run the project locally — covering OS/hardware prerequisites, toolchain & SDKs, source dependencies (submodules, sibling repos), language-level install, external services, env config, build, run, and tests.
 
 **Write scope:** The only file this skill is ever permitted to create or modify is `HOW-TO-RUN.md`. It never modifies `README.md`, `CONTRIBUTING.md`, `docs/*`, `BUILDING.md`, `INSTALL.md`, or any other file — not even to add a link. Existing docs are *input only*: the skill learns from them but always verifies every fact against the actual codebase before using it.
+
+**Execution policy:** When the optional guided walkthrough runs (Step 3a), the skill executes commands only with explicit per-step user approval — never batches, never auto-allows, and never runs long-running or platform-mismatched commands. Each step is asked, every time.
 
 ## Step 1: Detect Full Project Context (agent-assisted)
 
@@ -96,19 +101,28 @@ For the **External Services** aspect, expand it into a sub-table with columns **
 - Read `$CLAUDE_PLUGIN_ROOT/skills/how-to-run/references/external-services-docker.md` and produce one row per service by applying its Decision Heuristics to the Step 1 Checkpoint's endpoint labels.
 - Do not emit a per-service `AskUserQuestion` here — the reference file documents the single exception (the Step 4 multi-select downgrade prompt for rule 5's post-web-search re-confirmation).
 
-**If a `HOW-TO-RUN.md` already exists and all aspects are "Found & accurate":** Report to user — no action needed. Skip to Step 6 (report only).
-
 **If outdated items found:** Show current content vs proposed correction for each.
 
 **Caution rule:** For existing content that seems intentionally unusual or whose purpose is beyond what the codebase reveals — **flag explicitly and ask** rather than silently including or excluding. Examples: custom startup scripts with non-obvious flags, environment variables with no clear source, instructions referencing external systems not visible in the codebase, documented hardware requirements the detector cannot confirm.
 
-For each "Documented but unverifiable" item from the audit, use `AskUserQuestion` to ask whether to include it in `HOW-TO-RUN.md`. Show the source file and heading so the user can judge. When the user approves an item, record it in an in-memory `approved-unverifiable-items` list as `{aspect, source_file, source_heading, text, rendered_line}`. Validate `source_file` strictly against `^[A-Za-z0-9][A-Za-z0-9._/-]{0,128}$`, then split on `/` and drop the entry if any resulting segment is empty, `.`, or `..` — mirrors the submodule/sibling path validation in project-environment-detector.md Task 0b so `docs/../etc/passwd` cannot render as a plausible-looking attribution. Sanitize `source_heading`: truncate to 80 chars; strip backtick, `` ` ``, `<`, `>`, `\`, newline, carriage return, NUL, and any Cc/Cf character; then escape every remaining `[` as `\[` and every `]` as `\]` before rendering, so a heading like `[Source](javascript:alert(1))` cannot form a clickable link inside the attribution preamble `Per <source_file> "<source_heading>": ...`. `\` is stripped (not escaped) because stacked backslashes combined with bracket escapes can produce unclosed link labels that confuse downstream markdown consumers. Do not whitelist heading characters — legitimate markdown headings routinely contain `:`, `'`, `!`, `?`, `+`, `#`, en/em dashes, and other punctuation. `rendered_line` is populated in Step 4 (it is the exact line Step 6 will exempt).
+**Branching on whether `HOW-TO-RUN.md` exists:**
 
-Use `AskUserQuestion` — header "How to Run Documentation", question "How would you like to proceed?":
-- **Create/Update** — "Generate HOW-TO-RUN.md (I'll write directly if no file exists; show diff first if one exists)"
-- **Skip** — "No changes needed"
+- **If `HOW-TO-RUN.md` does NOT exist:** skip the 3-option question below and proceed directly to Step 4. Step 5 writes directly without re-asking — the user already approved the assessment by being here. The per-item unverifiable prompts in the next paragraph still apply.
+- **If `HOW-TO-RUN.md` exists** (whether all aspects are "Found & accurate", partial, or stale): use `AskUserQuestion` — header "How to Run Documentation", question "HOW-TO-RUN.md already exists (audit summary above). How would you like to proceed?":
+  - **Walk through it** — "I'll guide you through each step in chat. For each command I'll show what it does and ask before running it; you can also run it yourself."
+  - **Regenerate** — "Show the diff and rewrite HOW-TO-RUN.md to match the current project state. (Default for stale or partial docs.)"
+  - **Skip** — "No changes. Print the audit findings and stop."
 
-If user selects **Skip**, jump to Step 6 (report only).
+  Route on the answer:
+  - **Walk through it** → jump to Step 3a.
+  - **Regenerate** → continue with Step 4.
+  - **Skip** → jump to Step 6 (report only).
+
+**If continuing to Step 4** (Regenerate path, or no existing `HOW-TO-RUN.md`): for each "Documented but unverifiable" item from the audit, use `AskUserQuestion` to ask whether to include it in `HOW-TO-RUN.md`. Skip these per-item prompts on the Walk-through and Skip branches — no file is written there, so there is nothing to include. Show the source file and heading so the user can judge. When the user approves an item, record it in an in-memory `approved-unverifiable-items` list as `{aspect, source_file, source_heading, text, rendered_line}`. Validate `source_file` strictly against `^[A-Za-z0-9][A-Za-z0-9._/-]{0,128}$`, then split on `/` and drop the entry if any resulting segment is empty, `.`, or `..` — mirrors the submodule/sibling path validation in project-environment-detector.md Task 0b so `docs/../etc/passwd` cannot render as a plausible-looking attribution. Sanitize `source_heading`: truncate to 80 chars; strip backtick, `` ` ``, `<`, `>`, `\`, newline, carriage return, NUL, and any Cc/Cf character; then escape every remaining `[` as `\[` and every `]` as `\]` before rendering, so a heading like `[Source](javascript:alert(1))` cannot form a clickable link inside the attribution preamble `Per <source_file> "<source_heading>": ...`. `\` is stripped (not escaped) because stacked backslashes combined with bracket escapes can produce unclosed link labels that confuse downstream markdown consumers. Do not whitelist heading characters — legitimate markdown headings routinely contain `:`, `'`, `!`, `?`, `+`, `#`, en/em dashes, and other punctuation. `rendered_line` is populated in Step 4 (it is the exact line Step 6 will exempt).
+
+## Step 3a: Guided Walkthrough (only when user picked "Walk through it" at Step 3)
+
+Read `$CLAUDE_PLUGIN_ROOT/skills/how-to-run/references/guided-walkthrough.md` and follow it. The walkthrough is interactive: per-step `AskUserQuestion`, optional in-conversation execution gated per command, no batching, with overrides for long-running, destructive, and platform-mismatched commands. When the walkthrough finishes (or the user chooses **Stop the walkthrough**), jump to Step 6 — this branch does not write to `HOW-TO-RUN.md`.
 
 ## Step 4: Generate Content
 
