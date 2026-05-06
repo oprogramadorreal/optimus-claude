@@ -220,13 +220,13 @@ Generate code:
 <codegen command>
 \`\`\`
 
-[If ORM migration tooling, raw SQL bootstrap scripts, or seed files detected — emit the Schema Bootstrap sub-block shown below inside the Installation section (no sub-heading; the block lives under Installation's H3). Render the lead-in paragraph and one bullet per detected option, in the detector's report order. The bullet order is not a recommendation — when multiple options render, the reader picks whichever matches their stack.]
+[If ORM migration tooling, raw SQL bootstrap scripts, or seed files detected — emit the Schema Bootstrap sub-block shown below inside the Installation section (no sub-heading; the block lives under Installation's H3). **Pick exactly one mechanism as primary** per the [§Schema Bootstrap](#schema-bootstrap) precedence rule and render the matching invocation. Demote any other detected mechanisms to a "Legacy / alternative" callout — never present two schema-creating mechanisms as fungible (applying both an ORM migration history and a hand-maintained `DatabaseNew.sql` against the same database usually produces a conflicting schema). For *Docker-preferred* destination DBs, render the **full host-side invocation** per [§Schema Bootstrap](#schema-bootstrap) §Connection-mode-aware invocation rather than the detector's bare hint.]
 
-Initialize database schema (apply the matching option below for this project's stack):
+Initialize database schema:
 
-- [If ORM migration tooling detected:] Apply migrations: `<migration command>`.
-- [If raw SQL bootstrap scripts detected:] Execute the bootstrap script against the database: `<invocation-hint from detector>` (e.g., `sqlcmd -i db/DatabaseNew.sql`, `psql -f db/schema.sql`, `mysql < db/schema.sql`).
-- [If seed scripts detected:] Run the seed script: `<invocation-hint from detector>` (the detector substitutes `<file>` with the actual fixture filename, e.g., `rails db:seed`, `mix ecto.seed`, `tsx prisma/seed.ts`, `python manage.py loaddata fixtures/initial_data.json`).
+- **Primary:** `<primary-invocation>` (chosen via [§Schema Bootstrap](#schema-bootstrap) precedence; rendered with [§Schema Bootstrap](#schema-bootstrap) connection-mode form when the destination DB is Docker-preferred).
+- [Optional: when ≥2 mechanisms detected, render the demoted one(s) as a `> **Legacy alternative:** …` blockquote line directly under the Primary bullet — see [§Schema Bootstrap](#schema-bootstrap) for the exact callout form.]
+- [If seed / fixture-load rows exist alongside an ORM or raw-SQL primary — they never compete with schema mechanisms — render them as a follow-up bullet: "After the schema is in place, populate seed data: `<seed-invocation>`".]
 ```
 
 ### External Services
@@ -515,6 +515,9 @@ Only include if clear signals exist. Examples:
 - Sibling repos → "Build will fail if the expected sibling repo is not cloned at the documented path."
 - Multiple build configurations (C/C++, .NET) → "Use `--config Debug` for development or `--config Release` for optimized builds."
 - Python virtualenv → "Activate the virtual environment before running commands: `source .venv/bin/activate` (Linux/macOS) or `.venv\Scripts\activate` (Windows)."
+- Windows host + Docker service published with `-p 127.0.0.1:<port>:<port>` → "Host can't reach `localhost:<port>` but `docker exec` works. Windows resolves `localhost` to `::1` (IPv6); the container is bound to `127.0.0.1` (IPv4) only. Use `127.0.0.1` explicitly in connection strings, or rebind the container with `-p <port>:<port>` to drop the IPv4-only restriction." Render this bullet only when (a) the detector's *Hardware / OS Requirements* table contains `Windows 10`, `Windows 11`, or `Windows`, AND (b) at least one service in External Services rendered a Docker snippet using the `-p 127.0.0.1:<host-port>:<container-port>` form (the §Snippet Templates default for both *Docker-preferred* and *Shared-cloud primary (Docker optional)* templates). The rule fires once per project regardless of how many services use the form — list affected service names parenthetically when more than one.
+
+For multi-layer failure modes that benefit from a symptom→layered-checks playbook (e.g., "container running but host can't connect" — single-bullet preventive form is too thin), render a [diagnostic ladder](#diagnostic-ladders) instead of a single-line bullet. Ladders fire conditionally on the detector's outputs (Docker-mapped service, schema-bootstrap row, etc.) per §Diagnostic Ladders.
 
 ## Scaling Guidance
 
@@ -619,6 +622,145 @@ Patterns to detect source dependencies that must be cloned or initialized before
 
 **Precision rule:** Sibling-repo detection from a `../[A-Za-z0-9_][A-Za-z0-9._-]*` path grep WILL produce false positives (e.g., `../node_modules/...`, `../dist/`). Report findings as *candidates* in the detector's Source Dependencies table with their source line and let the user confirm via Step 3's assessment — do not treat them as facts without cross-file corroboration.
 
+## Schema Bootstrap
+
+Precedence rule and connection-mode-aware invocation forms for the Installation H3's Schema Bootstrap sub-block. Two principles drive the design: (a) **Pick exactly one mechanism as primary** — applying two schema-creating mechanisms against the same database usually produces conflicting schemas (a hand-maintained `DatabaseNew.sql` and an ORM migration history rarely produce the same shape, and re-running an ORM migration after the SQL bootstrap leaves the migration table out of sync). (b) **Connection-mode-aware invocation** — the detector's bare `<tool> -i <file>` hint defaults to the local-default-instance + Windows-auth / peer-auth path, which is the wrong default when the destination DB lives in Docker.
+
+### Pick-one rule
+
+Inputs:
+
+- Detector's *Database migrations* row in *Dev Workflow Signals* (e.g., `prisma`, `alembic`, `flyway`, `ef`, `liquibase`, `knex`, `sequelize`, `typeorm`, `gorm`, `rails`, `phoenix-ecto`).
+- Detector's *Schema Bootstrap* table rows, with their `Bootstrap mechanism` field set to `raw-sql`, `seed-script`, or `fixture-load`.
+
+Precedence (apply in order; first match selects the **primary** mechanism):
+
+1. **ORM migration tool detected.** When *Database migrations* is set to a recognized tool, render the ORM's migrate command from the table below as the primary mechanism. Demote any `raw-sql` rows in *Schema Bootstrap* to a "Legacy / alternative — superseded by ORM migrations" callout.
+2. **Raw-SQL bootstrap detected (no ORM).** When *Schema Bootstrap* contains `raw-sql` rows and no ORM is detected, the first row by detector report order is primary. Demote any further `raw-sql` rows to "Alternative bootstrap script" callouts.
+3. **Seed / fixture only.** When only `seed-script` / `fixture-load` rows exist, render them as the primary "after schema is in place, populate seed data: …" step. Seeds populate data, not schema, so they never compete with ORM/raw-SQL mechanisms — when both seeds AND a schema mechanism exist, render the schema mechanism first and the seed step as a follow-up bullet (the Installation H3 template already shows this two-bullet layout).
+
+ORM migrate-command catalog (consumed by precedence rule 1):
+
+| ORM tool | Migrate command |
+|---|---|
+| `prisma` | `npx prisma migrate deploy` |
+| `alembic` | `alembic upgrade head` |
+| `flyway` | `flyway migrate` |
+| `ef` / Entity Framework Core | `dotnet ef database update` |
+| `liquibase` | `liquibase update` |
+| `knex` | `npx knex migrate:latest` |
+| `sequelize` | `npx sequelize db:migrate` |
+| `typeorm` | `npm run typeorm migration:run` (or the project's `package.json` script that wraps `typeorm migration:run`) |
+| `gorm` | (no CLI — schema is migrated in code via `db.AutoMigrate(...)`; render the callout `> Schema is migrated in application code via GORM \`AutoMigrate\` — there is no separate migrate command.` instead of an invocation) |
+| `rails` | `bundle exec rails db:migrate` |
+| `phoenix-ecto` | `mix ecto.migrate` |
+
+Demoted mechanisms render as a blockquote under the primary bullet using this exact form:
+
+> **Legacy alternative:** `<demoted-invocation>` — pre-dates the migration tooling above and applying both can conflict; use only when explicitly instructed by the project's docs.
+
+### Connection-mode-aware invocation
+
+When the destination DB row's *Recommended runtime* (per the Step 3 assessment table; see [`external-services-docker.md`](external-services-docker.md) §Decision Heuristics) is `Docker-preferred` OR `Shared-cloud primary` with the *Docker (offline)* alternative kept by the user via the Step 4 multi-select downgrade prompt, replace the detector's bare invocation hint with the full host-side form below. For *Local install only* services, keep the bare form — the local default-instance + Windows-auth / peer-auth path is correct in those cases.
+
+| CLI | Bare form (Local install only) | Docker-preferred / Docker (offline) form |
+|---|---|---|
+| `sqlcmd` (SQL Server) | `sqlcmd -i <file>` | `sqlcmd -S "<host>,<host-port>" -U <user> -P '<password-placeholder>' -C [-d <db>] -i <file>` |
+| `psql` (PostgreSQL) | `psql -f <file>` | `psql -h <host> -p <host-port> -U <user> -d <db> -f <file>` (set `PGPASSWORD='<password-placeholder>'` in the surrounding shell or pass `--password` for interactive prompt) |
+| `mysql` (MySQL/MariaDB) | `mysql < <file>` | `mysql -h <host> -P <host-port> -u <user> -p'<password-placeholder>' <db> < <file>` |
+| `mongosh` (MongoDB) | `mongosh --file <file>` | `mongosh "mongodb://<user>:<password-placeholder>@<host>:<host-port>/<db>?authSource=admin" --file <file>` |
+
+ORM migrate commands from the catalog above are NOT enriched with connection flags — ORM tools read their connection details from the project's config files (`prisma/schema.prisma`, `alembic.ini`, `appsettings.json`, etc.) which Step 6's connection-string-shift audit already verifies match the recommended runtime. Substituting host/port into an ORM command would conflict with the ORM's own config-file connection.
+
+Substitute every placeholder from the matching External Services snippet (the same snippet the External Services H3 already rendered):
+
+- `<host>` → `127.0.0.1` when the detector's *Hardware / OS Requirements* table contains `Windows 10`, `Windows 11`, or `Windows` (per [`external-services-docker.md`](external-services-docker.md) §Common Issues IPv4/IPv6 caveat); else `localhost`.
+- `<host-port>` → the port from the snippet's `-p <host>:<host-port>:<container-port>` line.
+- `<user>` → the username from the snippet's matching `-e '<USER_VAR>=<value>'` line, OR the image's documented default — `sa` for SQL Server, `postgres` for Postgres, `root` for MySQL/MariaDB, the value of `MONGO_INITDB_ROOT_USERNAME` for MongoDB.
+- `<password-placeholder>` → the placeholder from the snippet's matching `-e '<PASSWORD_VAR>=<placeholder>'` line, kept as a placeholder (`<MSSQL_SA_PASSWORD>`, `<POSTGRES_PASSWORD>`, etc.) — do NOT substitute a real value, since `HOW-TO-RUN.md` is committed.
+- `<db>` → the schema-bootstrap target DB. Render as a placeholder `<db-name>` and let the reader fill it in; the bootstrap file's content (which the detector never reads) determines what's correct.
+
+The Step 6 audit re-checks every rendered invocation: flags must come from the per-tool flag set above; placeholders must match the snippet's `-e` lines verbatim; `<host>` must follow the OS-aware substitution rule.
+
+## Section Depends-On Graph
+
+Cross-section dependency edges consumed by Step 6's *Section ordering audit*. Each edge says "the dependent section's actionable content must NOT appear before the prerequisite section's content in the rendered file when the trigger condition fires." The audit walks the file's H2 sections in render order and applies the row's *Resolution* on violation.
+
+| Dependent | Prerequisite | Trigger condition | Resolution |
+|---|---|---|---|
+| Installation (Schema Bootstrap sub-block — ORM migrate, `<tool> -i <file>` / `<tool> -f <file>` / equivalent) | External Services | Destination DB row's Recommended runtime is `Docker-preferred` (or *Docker (offline)* was kept by the user) | **Auto-callout.** The DB container must be running before the bootstrap connects. When the rendered section order has Installation-then-External Services (the Multi-Repo template before D.1's reorder, or any future topology that orders this way), emit a `> **Pre-condition:** start the External Services Docker containers below before running the schema bootstrap commands above.` blockquote above the Schema Bootstrap sub-block. |
+| Installation (Schema Bootstrap sub-block) | Environment Setup | Destination DB row's `Endpoint semantics` is in `{local-windows-auth, local-named-instance, local-socket}`, OR `local-default` with the snippet's host-port differing from the committed port | **Auto-callout.** The committed connection-string change must precede any schema-bootstrap command that connects to the DB. Emit a `> **Pre-condition:** apply the connection-string change in Environment Setup before running the schema bootstrap commands above.` blockquote above the Schema Bootstrap sub-block. |
+| Installation (language-level install commands — `npm install`, `pip install`, `dotnet restore`, `bundle install`, etc.) | Environment Setup | Detector's *Private registry* signal is set (`.npmrc`, `pip.conf`, `.pypirc`, Maven `settings.xml`) OR detector's *Local TLS cert* signal is `mkcert` | **Auto-callout.** Some installs require credentials or trusted root certs to be present first. Emit a `> **Pre-condition:** complete the auth / cert steps in Environment Setup before running the install commands above.` blockquote above the install commands. |
+| Running in Development | Setup / Installation, External Services | Always | **Surface-to-user.** Dev server cannot start without deps installed and services running. Catalog order (item 8 follows items 4 and 5) enforces this in single-project / monorepo templates, so violations only fire when a topology template reorders sections. Surfacing avoids an auto-rewrite that could break the topology layout. |
+| Build | Installation | Always | **Surface-to-user.** Compile / link needs dependencies installed. Catalog order (item 7 follows item 4) enforces this; violations are topology-driven. |
+| Build | Source Dependencies | Detector's *Source Dependencies* table has submodules / FetchContent / approved sibling-repo rows | **Surface-to-user.** Submodule contents and sibling repos must be present before compile. Catalog order (item 7 follows item 3) enforces this; violations are topology-driven. |
+
+The Pre-condition callouts the audit auto-renders are **idempotent** — a second audit pass on the same file detects an existing matching `> **Pre-condition:** …` line directly above the dependent's actionable content (line-after-trim equality match against the auto-callout text recorded in the audit's working set) and skips re-emitting it. This lets the audit re-run after a user fix-up without producing duplicate callouts.
+
+### Audit-flow summary
+
+1. Walk the rendered file's H2 sections in document order; build a `section-position` map (`<section-name> → integer index`).
+2. For each row in the table above whose *Trigger condition* is satisfied by the detector's outputs:
+   - Resolve the *Dependent* and *Prerequisite* sections to their positions.
+   - When the dependent's position ≤ the prerequisite's position (i.e., dependent appears at or before prerequisite), fire the row's *Resolution*:
+     - **Auto-callout** rows: emit (or verify the presence of) a `> **Pre-condition:** …` blockquote directly above the dependent's first actionable line. Record the callout text in the audit's working set so a re-run is idempotent.
+     - **Surface-to-user** rows: report the conflict via the standard Step 6 fix-up flow with no auto-rewrite — reordering a topology template's H2 layout is an editorial decision the user needs to make.
+3. Include any auto-rendered callouts in Step 6's "what was created/updated" report under a "Pre-condition callouts" sub-section.
+
+### Why the Multi-Repo template reorder (D.1) and the depends-on graph coexist
+
+The Multi-Repo template's `## Environment Setup`-before-`## Setup` reorder (see [§Multi-Repo Workspace HOW-TO-RUN Template](#multi-repo-workspace-how-to-run-template)) is unconditional — workspace-level Setup typically aggregates per-repo migration commands across multiple language stacks, so the precondition risk is high enough to warrant the order change for every multi-repo project. The depends-on graph here is conditional and project-specific — it catches single-project / monorepo cases where a particular Trigger condition (private-registry creds, connection-string shift, schema-bootstrap-on-Docker-DB) creates a precondition that the catalog order doesn't anticipate. Both mechanisms cover the same shape of bug; together they form a defense-in-depth layer.
+
+## Diagnostic Ladders
+
+For multi-layer failure modes that don't fit the single-sentence preventive bullet form of [§Common Issues](#common-issues) — typically "container is up but host can't connect", "tests pass locally but fail in CI", "auth flow returns 200 but the session is empty" — render a *diagnostic ladder*: a numbered list of symptom→check→action steps the reader walks top-down until one matches. Ladders fire conditionally on the detector's outputs and never replace the single-bullet form for simple gotchas (a `.nvmrc` ladder would be overkill for "run `nvm use`").
+
+### Format
+
+```markdown
+- **<Symptom sentence ending with a question mark — what the reader observes>** Walk down this ladder:
+  1. **<Check 1 — most common cause first>** — `<concrete diagnostic command>`. If <observable result>, <concrete action>.
+  2. **<Check 2>** — `<command>`. If <result>, <action>.
+  3. **<Check 3>** — `<command>`. If <result>, <action>.
+```
+
+Render the ladder as a top-level bullet under `### Common Issues`, sharing the bullet list with single-line entries. Every step's *check* must be a concrete diagnostic command (not a leading question), every *result* must be observable from the command's output, every *action* must be specific (not "investigate further").
+
+### Library
+
+#### Container running but host can't connect
+
+**Trigger.** External Services has at least one service whose Recommended runtime is `Docker-preferred` (or *Docker (offline)* was kept).
+
+```markdown
+- **Host can't connect to <Service> on `<host>:<host-port>` but `docker ps` shows the container as `Up`?** Walk down this ladder:
+  1. **Did the container actually finish starting?** `docker logs --tail 50 <project-slug>-<service-slug>`. First-boot for `<Service>` typically takes 10–20s; if the log shows recent startup messages but no readiness signal yet, wait 10s and retry the host connection.
+  2. **Does the connection work from inside the container?** Run the [§Verify Commands](external-services-docker.md#verify-commands-seeds) entry for `<Service>`. If it succeeds inside but the host still fails, the container is up — the problem is between the host and the published port (steps 3–5 below).
+  3. **(Windows hosts) Is `localhost` resolving to IPv6?** Replace `localhost` with `127.0.0.1` explicitly in your client / connection string. The snippet publishes the container as `-p 127.0.0.1:<host-port>:<container-port>` (IPv4-only); Windows resolves `localhost` to `::1` (IPv6) first and the IPv6 lookup times out before falling back. (Render this step only when the detector's *Hardware / OS Requirements* table contains Windows.)
+  4. **Is the host port actually mapped?** `docker port <project-slug>-<service-slug>`. The output should include `<container-port>/tcp -> 127.0.0.1:<host-port>` (or `0.0.0.0:<host-port>` if the snippet was rebound). If the listed mapping doesn't match what your connection string uses, recreate the container with the correct `-p`.
+  5. **Is a non-Docker process holding the port?** `Get-NetTCPConnection -LocalPort <host-port>` (PowerShell) / `lsof -i :<host-port>` (macOS / Linux) / `netstat -ano | findstr :<host-port>` (Windows cmd). If the port is bound by a non-Docker process (e.g., a local install of `<Service>`), stop that process or republish the container on a different host-port.
+```
+
+Substitute `<Service>`, `<host>`, `<host-port>`, `<project-slug>-<service-slug>`, and the per-Windows step from the rendered snippet's values. Step 3 is rendered only when *Hardware / OS Requirements* contains Windows; on pure-Unix projects, drop step 3 and renumber.
+
+#### Test command fails with database connection / authentication error
+
+**Trigger.** External Services has at least one row whose `Type` is `database` AND the detector's *Commands* table has a non-empty `test` row (so a `<test command>` exists to render).
+
+```markdown
+- **`<test command>` fails with a database connection / authentication error?** Walk down this ladder:
+  1. **Is the DB container running?** `docker ps --filter name=<project-slug>-<db-service-slug>`. The test run typically expects the same DB container as the dev environment; start it via the External Services snippet first if missing.
+  2. **Did you apply schema bootstrap?** Tests run against either an empty schema or a seeded one — see Installation §Schema Bootstrap for the project's primary bootstrap command. Missing tables / fixtures often surface as authentication errors or `relation does not exist` rather than "table missing", because the framework's connection check runs before the query.
+  3. **Does the test config override the dev connection string?** Frameworks commonly carry a separate test profile (Spring `application-test.yml`, Rails `database.yml` test env, ASP.NET `appsettings.Test.json`, Django `DATABASES['test']`). Verify it points at the same host:port as the rendered snippet — when the test profile inherits the committed default (e.g., `localhost\SQLEXPRESS` Windows-auth), apply the same connection-string change the External Services Pre-Conditions block describes for the dev profile.
+  4. **(Docker-preferred DB) Did the bootstrap run with the host-side flags, not the bare form?** Per [§Schema Bootstrap](#schema-bootstrap) §Connection-mode-aware invocation, the destination DB in Docker requires `<tool> -h <host> -p <host-port> -U <user> -P '<password-placeholder>' …` rather than `<tool> -i <file>`; if the bootstrap silently used the bare form, it created the schema in a different DB (or failed silently against the local default instance) and the test connect doesn't see it.
+```
+
+The ladder's step 3 references the Pre-Conditions block from `external-services-docker.md` §Pre-Conditions Block; step 4 references the connection-mode-aware invocation table from §Schema Bootstrap above. Both are conditional renders driven by detector signals, so the ladder coheres with the rest of the rendered file.
+
+### Adding new ladders
+
+Future contributors extending this library should respect three rules: (a) every ladder must have an explicit *Trigger* — no "always-render" ladders; (b) every step must be a concrete diagnostic command, not a question; (c) the ladder format above is required (Markdown numbered list inside a top-level bullet) so Step 6's audits can identify ladder steps for grounded-token validation. The Specific-Token Audit in SKILL.md Step 6 already audits all rendered ports, paths, versions, and counts — ladders are subject to the same checks.
+
 ## Multi-Repo Workspace HOW-TO-RUN Template
 
 For workspace root (not version-controlled):
@@ -650,6 +792,10 @@ git clone --recursive <meta-repo-url>
 
 [Aggregated from all repos — OS, hardware, toolchain & SDKs]
 
+## Environment Setup
+
+[Per-repo env files and shared config keys to set before running Setup. Override any committed defaults that conflict with External Services choices (e.g., connection strings when a service runs in Docker but the committed default points at a local daemon).]
+
 ## Setup
 
 [Per-repo install commands, or a setup script if one exists]
@@ -662,3 +808,5 @@ git clone --recursive <meta-repo-url>
 
 [How to start all services/apps together]
 ```
+
+The catalog order (single-project / monorepo: items 1-10 in `SKILL.md` Step 4) places Environment Setup AFTER Installation and External Services. The multi-repo template intentionally lifts Environment Setup BEFORE Setup because per-repo Setup commands (language-level install, schema migrations, seed scripts, asset compilation) frequently read connection strings and credentials whose committed defaults must be overridden first — e.g., a private-registry token for `npm install`, a connection string for `dotnet ef database update` or `rails db:migrate`, an OAuth client secret for a build-time codegen step. The depends-on graph in *Section Depends-On Graph* below catches the analogous case for single-project / monorepo templates without reordering them; in multi-repo the reorder is unconditional because workspace-level Setup typically aggregates per-repo migration commands across multiple language stacks, so the precondition risk is high enough to warrant the order change by default.

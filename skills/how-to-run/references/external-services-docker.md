@@ -10,9 +10,11 @@ Per-service decision logic, web-search recipe, and snippet templates for the *Ex
 - [Decision Heuristics](#decision-heuristics)
 - [Web-Search Recipe](#web-search-recipe)
 - [Canonical Image Catalogue (seeds)](#canonical-image-catalogue-seeds)
+- [Verify Commands (seeds)](#verify-commands-seeds)
 - [Vendor-Service → Emulator Index](#vendor-service--emulator-index)
   - [Known Vendor Emulators](#known-vendor-emulators)
 - [Snippet Templates](#snippet-templates)
+- [Pre-Conditions Block](#pre-conditions-block)
 - [Citation Format](#citation-format)
 - [Windows / Docker Desktop Caveats](#windows--docker-desktop-caveats)
 - [Registry Allowlist](#registry-allowlist)
@@ -136,6 +138,28 @@ Run this recipe in Step 4 for every service classified as **Docker-preferred** (
 - **Firebase / Firestore** — no vendor-maintained Docker image. The Firebase Local Emulator Suite runs via `firebase emulators:start` (Node-based). When detected, render the [Local install only template](#local-install-only) pointing at the emulator docs.
 - **Vendor-internal / proprietary APIs** (e.g., licence managers, in-house identity providers). These are shared-cloud only; render using the [Shared-cloud, no Docker alternative](#shared-cloud-no-docker-alternative) template.
 
+## Verify Commands (seeds)
+
+Seed verify commands for catalogue services, used by Step 4 when emitting "Verify <service>" bullets in Common Issues and re-checked by Step 6's in-container path audit. Like the [Canonical Image Catalogue](#canonical-image-catalogue-seeds), **not authoritative** — vendor binary renames across major versions are the exact failure mode the validation rules below guard against (the canonical example: `/opt/mssql-tools/bin/sqlcmd` was renamed to `/opt/mssql-tools18/bin/sqlcmd` and now requires `-C`; the deprecated `mongo` shell was replaced by `mongosh`).
+
+| Service | Verify command (seed) |
+|---|---|
+| SQL Server | `docker exec <name> /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P '<password>' -C -Q "SELECT 1"` |
+| PostgreSQL | `docker exec <name> pg_isready -U postgres` |
+| MongoDB | `docker exec <name> mongosh --eval "db.adminCommand('ping')"` |
+| Redis | `docker exec <name> redis-cli ping` |
+| MySQL / MariaDB | `docker exec <name> mysqladmin -u root -p'<password>' ping` |
+
+`<name>` is the rendered container name (`<project-slug>-<service-slug>` per §Snippet Templates). `<password>` is substituted with the same placeholder used in the snippet's `-e` line for the password env var; verify commands for services without a password env var omit the `-P` / `-p` flag entirely.
+
+When a catalogue row has no entry above, no "Verify <service>" bullet is emitted for that service — the table's coverage is the gate, not the catalogue's.
+
+**Stale-tag re-validation rule.** When the resolved image tag matches `^([0-9]{4}-)?(latest|stable|edge|nightly|canary|main|current|rolling)$` (bare moving labels OR year-versioned-latest patterns like `2022-latest` that pass §Web-Search Recipe step 6's regex but still float to whatever the vendor publishes), Step 4 MUST WebFetch the catalogue row's `Canonical source` URL before emitting the verify command and confirm every absolute in-container path it references — paths matching `^/opt/[a-z][a-z0-9-]+(/[a-z0-9_.-]+)+$` or `^/usr/local/(bin|lib|share)/[a-z0-9_.-]+(/[a-z0-9_.-]+)*$` — appears verbatim on the page. If any path fails verification, or WebFetch fails, Step 4 drops the verify command (no bullet emitted) and records the failure in the Step 3 assessment table for audit.
+
+For fully-pinned numeric tags (`postgres:16-alpine`, `mongo:7.0.5`, `redis:7.4.1-bookworm`), re-validation is optional at Step 4 — Step 6's in-container path audit is the safety net (it rejects any path the audit cannot trace to either this seed table or a Step-4-recorded WebFetch validation).
+
+**Where this differs from §Web-Search Recipe.** The Web-Search Recipe validates the `docker run` snippet's metadata (image reference, ports, volumes, env vars). This rule validates the verify command's in-container paths — a separate concern, because the recipe never sees `/opt/mssql-tools18/...` (it lives only in the verify command, not the `docker run` invocation). The two sets of paths fail differently: image references rot when registries reorganise; verify-command paths rot when vendors rename binaries. Both kinds of rot motivated this skill change.
+
 ## Vendor-Service → Emulator Index
 
 Synonym lookup consumed by §Decision Heuristics rules 2 and 3 — some target services have vendor-branded aliases (`AWS S3` vs bare `S3`, `Azure Cosmos DB` vs `Cosmos`) that would not match a table row by exact name. Each row lists the detected synonyms in the left column and the backing row in the right column.
@@ -179,6 +203,14 @@ Consumed by §Decision Heuristics rule 2. Non-exhaustive — add a row when a ne
 Render **one** of these templates per service, chosen by the heuristics. Keep all service subsections under a single `## External Services` H2; each service is an H3.
 
 **Env-var rule (applies to both Docker templates below):** include one `-e '<VAR>=<placeholder>'` line per env var the vendor page marks as required (e.g., `POSTGRES_PASSWORD`; `ACCEPT_EULA=Y` + `MSSQL_SA_PASSWORD` for SQL Server). Omit the `-e` line entirely for images with no required env vars (e.g., `redis`).
+
+**Per-shell rendering (Windows host).** When the detector's *Hardware / OS Requirements* table contains `Windows 10`, `Windows 11`, or `Windows`, render every `docker run` snippet in BOTH shell variants — first as the existing `bash` fence, immediately followed by an equivalent `powershell` fence with `\` line continuations replaced by backticks (`` ` ``). Single-quoted `-e '<VAR>=<placeholder>'` args work identically in both shells, so no other text changes between variants. The two fences appear back-to-back under the service's H3 with no intervening prose; the bash fence comes first regardless of the project's primary OS, because the bullets that cite the snippet (`- Source: …`, `- <required-env-var note>`) reference the snippet just above and reading them under a shell that the reader doesn't use is the lesser evil. Pure-Unix projects (no Windows in the OS list) render the bash variant only. The `Hardware / OS Requirements` field is a project-required-OS signal — not a host-OS-of-the-runner detection — and is the right driver here: team-shared docs target the project's audience, not the dev currently running this skill.
+
+**Shell-quoting hazard caveat (passwords, secrets, tokens).** When ANY rendered `-e` line's env-var name matches `(?i)password|secret|token|credential|key` AND the snippet rendered a PowerShell variant per the rule above, append a one-line caveat to the snippet's bullet list:
+
+> **PowerShell users:** when choosing a value for `<env-var-name>`, avoid `$`, `!`, and backtick. PowerShell expands these inside double-quoted strings (and history-expands `!` in interactive sessions); a value containing them stored via `$env:<VAR>` or pasted into a `"…"`-quoted argument will reach the container as a different string than you typed, and authentication will fail silently.
+
+Render the caveat exactly once per service H3, listing every matched env-var name in `<env-var-name>` (comma-separated when more than one); do not duplicate per env var.
 
 ### Docker-preferred
 
@@ -254,6 +286,55 @@ Install from [<vendor page>](<vendor page URL>).
 
 [Optional: one-line note on a CLI alternative that ships inside a related container, or on the vendor's own local-emulator tool.]
 ```
+
+## Pre-Conditions Block
+
+When the committed connection string in the project's config file uses a transport / auth mode that the recommended Docker runtime cannot reproduce, the dev hits a wall the moment any Setup-time command (schema bootstrap, migration, dev server) tries to connect: their connection string is still pointing at the wrong place. The Pre-Conditions block surfaces the required override at the top of the service's H3, with a generated before/after diff, so the change is visible *before* the reader runs anything.
+
+### Trigger
+
+Render the block when both conditions hold:
+
+- The matching External Services row's `Recommended runtime` (per Step 3 assessment) is `Docker-preferred`, OR its Alternative is `Docker (offline)` and the user kept the Docker alternative via the Step 4 multi-select downgrade prompt.
+- One of these is true about the row's `Endpoint semantics` (set by the detector — see [`project-environment-detector.md`](../agents/project-environment-detector.md) §External Services return format):
+  - `local-windows-auth` — committed config uses Windows authentication; Linux containers cannot honor it.
+  - `local-named-instance` — committed config references a SQL Server named instance (`localhost\SQLEXPRESS`); the named-instance + SQL Browser flow is Windows-host-only.
+  - `local-socket` — committed config uses a Unix socket / Windows named pipe / Mongo direct-connection; the standard Docker publish form cannot reproduce these.
+  - `local-default` AND the rendered snippet's host-port differs from the port encoded in the committed connection string (e.g., committed `localhost:5432` but snippet publishes `5433` to avoid collision with a local Postgres install).
+
+Skip the block in every other case — `docker-compose` (the project is already Docker-aware), `remote` (already pointing at a real endpoint), `ambiguous` (the detector couldn't classify; the Step 3 caution covers this case), and `local-default` with matching ports (the connection string still works as-committed).
+
+### Block format
+
+```markdown
+> **Pre-condition — update before running Setup or starting the backend.** The committed `<config-key>` in `<config-file>` uses <one-sentence summary of the incompatibility — e.g., "Windows authentication", "a SQL Server named instance", "a Unix socket transport", "host port `<old-port>` instead of the published `<new-port>`">. Replace it with the form below; the change must precede any command that opens a connection to <Service>.
+
+```diff
+- <committed-connection-string-from-source-config>
++ <required-connection-string-built-from-snippet>
+```
+
+> See [Environment Setup](#environment-setup) for the canonical place to keep this override (drop the new value into the project's local-only env file or per-machine config — never commit it to source control if it carries a real password).
+```
+
+The block is rendered as the FIRST element inside the service's `### <Service name>` H3 — above the existing `**Recommended: Docker.**` paragraph and snippet. When this block renders, also DROP the existing `- Connection details for <…>` bullet from the snippet template's bullet list (the diff inside this block subsumes it). The Step 6 audit treats a Pre-Conditions block plus a `Connection details` bullet on the same H3 as a duplication and rejects it.
+
+### Substitution rules
+
+- **`<committed-connection-string-from-source-config>`** — read verbatim from the row's `Source` file, scoped to the matching `<config-key>`. Apply [§Web-Search Recipe](#web-search-recipe) step 5's free-text sanitization (strip backticks, brackets, parens, angle brackets, control chars; truncate to 240 chars) before rendering. When the committed string contains a real-looking password (per the same `(?i)password|secret|token|credential|key` regex used elsewhere), redact the password segment as `<REDACTED — see source>` so the rendered diff doesn't echo a secret committed to source control.
+- **`<required-connection-string-built-from-snippet>`** — assembled from the rendered snippet's substituted values. Per service kind:
+  - **SQL Server:** `Server=<host>,<host-port>;Database=<db-name>;User Id=<sa-or-from-user-env>;Password=<password-placeholder>;TrustServerCertificate=True`
+  - **PostgreSQL:** `Host=<host>;Port=<host-port>;Database=<db-name>;Username=<from-POSTGRES_USER-env-or-postgres>;Password=<POSTGRES_PASSWORD-placeholder>` (or the equivalent `host=… port=… dbname=… user=… password=…` libpq-style form when the committed string used libpq)
+  - **MySQL/MariaDB:** `Server=<host>;Port=<host-port>;Database=<db-name>;Uid=root;Pwd=<MYSQL_ROOT_PASSWORD-placeholder>`
+  - **MongoDB:** `mongodb://<from-root-username>:<root-password-placeholder>@<host>:<host-port>/<db-name>?authSource=admin`
+- **`<host>`** — `127.0.0.1` when *Hardware / OS Requirements* contains `Windows 10`, `Windows 11`, or `Windows` (per [§Common Issues IPv4/IPv6 caveat in `how-to-run-sections.md`](how-to-run-sections.md#common-issues)); else `localhost`.
+- **Match the committed string's syntactic family** — when the committed string is ADO.NET-style (semicolon-separated keyvalue), the new form is also ADO.NET-style. When it's libpq-style or a URI, match that. The diff should differ only in semantics (`Server`, `Port`, auth flags), not in syntax shape.
+
+### Step 6 audit
+
+- The connection-string-shift audit re-derives the `+` line from the snippet's `-e`, `-p` substitutions and rejects any rendered `+` line that doesn't match byte-for-byte (modulo the diff marker prefix).
+- The audit rejects a service H3 that contains BOTH a Pre-Conditions block AND a `- Connection details for …` bullet — duplication is a Step-4 logic bug.
+- The audit verifies the Pre-Conditions block is the FIRST element of the H3 (no intervening prose, no snippet); a misplaced block is rejected with a "render order" failure.
 
 ## Citation Format
 
