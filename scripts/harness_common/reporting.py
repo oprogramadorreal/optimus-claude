@@ -17,27 +17,19 @@ _SHELL_FENCE_LANGS = (
 
 
 def detect_test_command(project_root, content=None):
-    """Extract the test command from ``.claude/CLAUDE.md``.
+    """Extract the test command from ``.claude/CLAUDE.md``. Returns None if absent.
 
-    Test-command discovery contract (shared between the deep-mode harness, the
-    test-coverage harness, and any future skill that needs to read this):
+    Discovery order:
+      1. Inline form — see ``inline_patterns`` below for accepted keywords;
+         first match wins.
+      2. Fenced shell-style block — language tag in ``_SHELL_FENCE_LANGS``
+         (or untagged). First non-comment line matching a test-runner token
+         (see ``test_command_pattern`` below) wins.
 
-    1. **Inline form** — ``test command: `<cmd>` `` / ``tests: `<cmd>` `` /
-       ``run tests: `<cmd>` `` / ``testing: `<cmd>` ``. First inline match
-       wins.
-    2. **Fenced-block form** — a fenced code block whose language tag is one
-       of ``bash``, ``sh``, ``shell``, ``console``, ``powershell``, ``pwsh``,
-       ``cmd``, ``bat``, ``zsh``, ``fish``, or empty (untagged). Inside the
-       block, the first non-comment line that mentions a test-runner token
-       (``test``, ``spec``, ``jest``, ``pytest``, ``cargo test``, ``go test``,
-       ``dotnet test``) wins.
-
-    A trailing ``# comment`` is stripped from whichever form matched. The
-    language-tag allow-list is intentionally restricted to shell-style fences
-    so that ``python``/``yaml``/``dockerfile`` blocks containing a substring
-    like ``pytest`` inside string literals are not mistaken for commands.
-
-    Pass ``content`` directly to skip filesystem access (useful for testing).
+    The allow-list is restricted to shell-style fences so that python / yaml
+    / dockerfile blocks containing ``pytest`` inside string literals are not
+    mistaken for commands. A trailing ``# comment`` is stripped from the
+    matched line. Pass ``content`` directly to skip filesystem access.
     """
     if content is None:
         claude_md = Path(project_root) / ".claude" / "CLAUDE.md"
@@ -57,12 +49,13 @@ def detect_test_command(project_root, content=None):
             cmd = re.sub(r"\s+#\s.*$", "", cmd)
             return cmd
 
-    # Search within shell-style code blocks for lines containing test commands.
-    # Allow-list of language tags (plus untagged) keeps the door closed against
-    # python/yaml/dockerfile blocks where a substring like "pytest" can appear
-    # inside string literals.
+    # Body forbids embedded ``` and must be non-empty: with the language
+    # tag optional, an empty body would let a closing fence match as an
+    # opener and swallow the next block. See
+    # test_does_not_span_two_adjacent_non_shell_blocks.
     block_pattern = (
-        r"```\s*(?:" + "|".join(_SHELL_FENCE_LANGS) + r")?\s*\n([\s\S]*?)\n\s*```"
+        r"```\s*(?:" + "|".join(_SHELL_FENCE_LANGS) + r")?\s*\n"
+        r"((?:(?!```)[\s\S])+?)\n\s*```"
     )
     test_command_pattern = r"(?:test|spec|jest|pytest|cargo test|go test|dotnet test)"
     for block_match in re.finditer(block_pattern, content):
