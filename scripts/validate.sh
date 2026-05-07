@@ -717,6 +717,17 @@ fi
 how_to_run_skill_md="skills/how-to-run/SKILL.md"
 walkthrough_ref="skills/how-to-run/references/guided-walkthrough.md"
 auditor_agent="skills/how-to-run/agents/how-to-run-auditor.md"
+# Audit verdict list — shared producer/consumer contract between Step 2
+# auditor agent, SKILL.md, and the walkthrough's per-step Audit: prefix +
+# Audit-verdict prepend. Hoisted once and applied to each producer
+# independently below; the per-file checks remain in separate `if` blocks so
+# one file's absence cannot mask drift in another.
+audit_verdicts=('Found & accurate' 'Found but outdated' 'Partial' 'Documented but unverifiable' 'Missing')
+# auditor_agent must exist on disk — the verdict-drift check below is gated
+# on `[ -f "$auditor_agent" ]` and would silently no-op if the file went
+# missing or moved. Assert presence as a first-class check rather than a
+# guard, mirroring how other validate.sh checks bind file existence.
+check "auditor_agent file present" test -f "$auditor_agent"
 if [ -f "$how_to_run_skill_md" ]; then
   # Heading anchor uses regex; literal triggers use fixed-string match so a
   # typo like 'guided-walkthroughxmd' (where . matches any char in regex mode)
@@ -726,9 +737,11 @@ if [ -f "$how_to_run_skill_md" ]; then
   fi
   # Step 3 option labels — silent rename in SKILL.md without matching update in
   # the per-answer routing block would silently send the user down the wrong
-  # branch. The frontmatter discoverability phrase 'guided in-chat walkthrough'
+  # branch. '**Skip**' uses bold form because bare 'Skip' would also match
+  # 'skipped' / 'Skip the prompt' in unrelated prose elsewhere in SKILL.md.
+  # The frontmatter discoverability phrase 'guided in-chat walkthrough'
   # is also load-bearing for users finding this option.
-  for literal_trigger in 'Walk through it' 'Regenerate' 'Stop the walkthrough' 'guided-walkthrough.md' 'guided in-chat walkthrough'; do
+  for literal_trigger in 'Walk through it' 'Regenerate' '**Skip**' 'Stop the walkthrough' 'guided-walkthrough.md' 'guided in-chat walkthrough'; do
     if ! grep -qF "$literal_trigger" "$how_to_run_skill_md" 2>/dev/null; then
       wiring_errors+="  $how_to_run_skill_md missing walk-through trigger: $literal_trigger\n"
     fi
@@ -756,16 +769,12 @@ if [ -f "$walkthrough_ref" ]; then
       wiring_errors+="  $walkthrough_ref missing safety message: $safety_msg\n"
     fi
   done
-  # Audit verdicts — producer/consumer contract between Step 2 auditor agent,
-  # SKILL.md, and the walkthrough's per-step Audit: prefix + Audit-verdict
-  # prepend. A silent rename on either side leaves the per-step audit prepend
-  # never firing.
-  for verdict in 'Found & accurate' 'Found but outdated' 'Partial' 'Documented but unverifiable' 'Missing'; do
+  # Audit verdicts — walkthrough_ref side. The auditor_agent side is checked
+  # in its own block below so the contract holds even if walkthrough_ref is
+  # missing (the contracts are independent producer/consumer pairs, not nested).
+  for verdict in "${audit_verdicts[@]}"; do
     if ! grep -qF "$verdict" "$walkthrough_ref" 2>/dev/null; then
       wiring_errors+="  $walkthrough_ref missing audit verdict: $verdict\n"
-    fi
-    if [ -f "$auditor_agent" ] && ! grep -qF "$verdict" "$auditor_agent" 2>/dev/null; then
-      wiring_errors+="  $auditor_agent missing audit verdict: $verdict\n"
     fi
   done
   # The walkthrough's own exit string must match the one SKILL.md Step 3a
@@ -774,6 +783,16 @@ if [ -f "$walkthrough_ref" ]; then
   if ! grep -qF 'Stop the walkthrough' "$walkthrough_ref" 2>/dev/null; then
     wiring_errors+="  $walkthrough_ref missing exit string: Stop the walkthrough\n"
   fi
+fi
+# Auditor verdict contract — producer side; checked independently of
+# walkthrough_ref so a missing/renamed walkthrough_ref cannot mask a verdict
+# drift in the auditor agent.
+if [ -f "$auditor_agent" ]; then
+  for verdict in "${audit_verdicts[@]}"; do
+    if ! grep -qF "$verdict" "$auditor_agent" 2>/dev/null; then
+      wiring_errors+="  $auditor_agent missing audit verdict: $verdict\n"
+    fi
+  done
 fi
 
 check "Load-bearing wiring intact" test -z "$wiring_errors"
