@@ -37,3 +37,40 @@ class TestDetectTestCommand:
         content = "test command: `go test ./...`\n"
         result = detect_test_command("/nonexistent/path", content=content)
         assert result == "go test ./..."
+
+    def test_powershell_code_block(self):
+        content = (
+            "```powershell\n"
+            "pip install -r requirements.txt          # Install dependencies\n"
+            "pytest                                    # Run tests\n"
+            "```\n"
+        )
+        assert detect_test_command("/unused", content=content) == "pytest"
+
+    def test_pwsh_code_block(self):
+        content = "```pwsh\npytest\n```\n"
+        assert detect_test_command("/unused", content=content) == "pytest"
+
+    def test_cmd_code_block(self):
+        content = "```cmd\npytest\n```\n"
+        assert detect_test_command("/unused", content=content) == "pytest"
+
+    def test_console_code_block(self):
+        content = "```console\npytest -v\n```\n"
+        assert detect_test_command("/unused", content=content) == "pytest -v"
+
+    def test_shell_code_block(self):
+        content = "```shell\nnpm test\n```\n"
+        assert detect_test_command("/unused", content=content) == "npm test"
+
+    def test_untagged_code_block(self):
+        content = "```\npytest\n```\n"
+        assert detect_test_command("/unused", content=content) == "pytest"
+
+    def test_python_code_block_is_ignored(self):
+        content = '```python\nsubprocess.run(["pytest"])\n```\n'
+        assert detect_test_command("/unused", content=content) is None
+
+    def test_powershell_block_skips_comment_lines(self):
+        content = "```powershell\n# install\npytest\n```\n"
+        assert detect_test_command("/unused", content=content) == "pytest"
