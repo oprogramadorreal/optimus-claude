@@ -714,7 +714,6 @@ fi
 # walkthrough" exit string is referenced from SKILL.md Step 3a. If any of these
 # strings drifts, the entire branch silently dies — the generic cross-ref
 # check (check 8) only validates path resolution, not these textual contracts.
-how_to_run_skill_md="skills/how-to-run/SKILL.md"
 walkthrough_ref="skills/how-to-run/references/guided-walkthrough.md"
 auditor_agent="skills/how-to-run/agents/how-to-run-auditor.md"
 # Audit verdict list — shared producer/consumer contract between Step 2
@@ -728,18 +727,18 @@ audit_verdicts=('Found & accurate' 'Found but outdated' 'Partial' 'Documented bu
 # missing or moved. Assert presence as a first-class check rather than a
 # guard, mirroring how other validate.sh checks bind file existence.
 check "how-to-run auditor agent present" test -f "$auditor_agent"
-if [ -f "$how_to_run_skill_md" ]; then
+if [ -f "$how_to_run_skill" ]; then
   # Heading anchor uses regex; literal triggers use fixed-string match so a
   # typo like 'guided-walkthroughxmd' (where . matches any char in regex mode)
   # cannot satisfy the wiring contract.
-  if ! grep -qE '^## Step 3a:' "$how_to_run_skill_md" 2>/dev/null; then
-    wiring_errors+="  $how_to_run_skill_md missing walkthrough heading: ^## Step 3a:\n"
+  if ! grep -qE '^## Step 3a:' "$how_to_run_skill" 2>/dev/null; then
+    wiring_errors+="  $how_to_run_skill missing walkthrough heading: ^## Step 3a:\n"
   fi
   # Step 6 is the jump target for: Step 3 Skip route, Step 3a walkthrough
   # completion, and guided-walkthrough.md's "return control to SKILL.md Step 6"
   # closing line. A silent renumber would dangle all three control-flow jumps.
-  if ! grep -qE '^## Step 6\b' "$how_to_run_skill_md" 2>/dev/null; then
-    wiring_errors+="  $how_to_run_skill_md missing jump target: ^## Step 6\n"
+  if ! grep -qE '^## Step 6\b' "$how_to_run_skill" 2>/dev/null; then
+    wiring_errors+="  $how_to_run_skill missing jump target: ^## Step 6\n"
   fi
   # Step 3 option labels — silent rename in SKILL.md without matching update in
   # the per-answer routing block would silently send the user down the wrong
@@ -748,8 +747,8 @@ if [ -f "$how_to_run_skill_md" ]; then
   # The frontmatter discoverability phrase 'guided in-chat walkthrough'
   # is also load-bearing for users finding this option.
   for literal_trigger in 'Walk through it' 'Regenerate' '**Skip**' 'Stop the walkthrough' 'guided-walkthrough.md' 'guided in-chat walkthrough' 'How to Run Documentation' 'jump to Step 3a'; do
-    if ! grep -qF "$literal_trigger" "$how_to_run_skill_md" 2>/dev/null; then
-      wiring_errors+="  $how_to_run_skill_md missing walkthrough trigger: $literal_trigger\n"
+    if ! grep -qF "$literal_trigger" "$how_to_run_skill" 2>/dev/null; then
+      wiring_errors+="  $how_to_run_skill missing walkthrough trigger: $literal_trigger\n"
     fi
   done
 fi
@@ -773,7 +772,7 @@ if [ -f "$walkthrough_ref" ]; then
   # ("Stop the walkthrough" is the exit string SKILL.md Step 3a directs the
   # user to and the per-step loop step 7 offers as an option label). Neither
   # is caught by the heading or option-label checks above.
-  for safety_msg in 'Remote code executor' 'Destructive command. Read it carefully' 'long-running process' 'Stop the walkthrough' 'SKILL.md Step 6'; do
+  for safety_msg in 'Remote code executor' 'Destructive command. Read it carefully' 'long-running process' 'Stop the walkthrough' 'SKILL.md Step 6' '**Regenerate**'; do
     if ! grep -qF "$safety_msg" "$walkthrough_ref" 2>/dev/null; then
       wiring_errors+="  $walkthrough_ref missing safety message: $safety_msg\n"
     fi

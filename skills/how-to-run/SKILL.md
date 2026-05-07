@@ -20,7 +20,7 @@ disable-model-invocation: true
 
 Generate or update a `HOW-TO-RUN.md` at the project (or workspace) root that teaches a new developer who has just cloned the repo how to set up their environment and run the project locally — covering OS/hardware prerequisites, toolchain & SDKs, source dependencies (submodules, sibling repos), language-level install, external services, env config, build, run, and tests.
 
-**Write scope:** The only file this skill is ever permitted to create or modify is `HOW-TO-RUN.md`. It never modifies `README.md`, `CONTRIBUTING.md`, `docs/*`, `BUILDING.md`, `INSTALL.md`, or any other file — not even to add a link. Existing docs are *input only*: the skill learns from them but always verifies every fact against the actual codebase before using it. The optional guided walkthrough (Step 3a) executes commands; its safety rules live in `references/guided-walkthrough.md`.
+**Write scope:** The only file this skill is ever permitted to create or modify is `HOW-TO-RUN.md`. It never modifies `README.md`, `CONTRIBUTING.md`, `docs/*`, `BUILDING.md`, `INSTALL.md`, or any other file — not even to add a link. Existing docs are *input only*: the skill learns from them but always verifies every fact against the actual codebase before using it. The optional guided in-chat walkthrough (Step 3a) executes commands; its safety rules live in `references/guided-walkthrough.md`.
 
 ## Step 1: Detect Full Project Context (agent-assisted)
 

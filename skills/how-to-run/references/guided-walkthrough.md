@@ -72,7 +72,7 @@ options:
 - Escape every `[` as `\[` and every `]` as `\]`.
 - Truncate the command to 60 characters; truncate the section heading to 80.
 
-These same transformations also apply to the section heading printed by per-step loop step 1 (rendering as prose). The [Per-item unverifiable prompts paragraph in SKILL.md Step 3](../SKILL.md) follows the same pattern for README/CONTRIBUTING attributions.
+These same transformations also apply to the section heading printed by per-step loop step 1 (rendering as prose). The [Per-item unverifiable prompts paragraph in SKILL.md Step 3](../SKILL.md#step-3-present-assessment-and-plan) follows the same pattern for README/CONTRIBUTING attributions.
 
 ## Override rules
 
@@ -151,17 +151,17 @@ Each line below is one regex (case-insensitive, word-boundary-anchored). Trigger
 
 Each line below is one regex. Word-boundary-anchored unless noted; treat `"`, `'`, `(`, `)`, `;`, `=`, start-of-string, and whitespace as word boundaries. Triggering any one matches row 3.
 
-- `\brm\s+-[rRfF]+\b`
+- `\brm\s+-[a-zA-Z]*[rRfF][a-zA-Z]*\b`  (covers combined short flags like `-rfv` / `-Rfv` / `-rfd` where the listed destructive flag is bundled with non-destructive letters; bare `-r` / `-f` / `-rf` still match because the surrounding `[a-zA-Z]*` accepts zero characters)
 - `(?i)\b(DROP|TRUNCATE|DELETE\s+FROM)\b`  (case-insensitive — SQL is case-insensitive to engines)
 - `\bgit\s+reset\s+--hard\b`
-- `\bgit\s+clean\s+-[fdx]+\b`
-- `\bgit\s+checkout\s+--force\b`
+- `\bgit\s+clean\s+(-[a-zA-Z]*[fdx][a-zA-Z]*|--force|--recurse-submodules)\b`  (covers combined short flags like `-fdv` / `-fdq`, the long-form `--force`, and `--recurse-submodules` which extends the destruction into nested checkouts)
+- `\bgit\s+checkout\s+(--force|-f)\b`
 - `\bgit\s+push\s+(--force|-f)(?!-with-lease|-if-includes)\b`
 - `\bgit\s+(branch\s+-D|push\s+--delete)\b`
 - `\bdocker\s+(system\s+prune|volume\s+rm|image\s+prune\s+-a)\b`
 - `\bkubectl\s+delete\b`
 - `\bhelm\s+(uninstall|delete)\b`
-- `\bdd\s+(if=|of=)`
+- `\bdd(\s+[A-Za-z]+=\S+)*\s+(if=|of=)`  (the `(\s+[A-Za-z]+=\S+)*` allows other dd operands like `bs=1M`, `count=N`, `status=progress`, `conv=fsync` to appear between `dd` and the destination operand — `dd` accepts options in any order, so anchoring the rule to require `if=`/`of=` immediately after `dd ` would miss the canonical `dd bs=4M if=/dev/zero of=/dev/sda` form)
 - `\bmkfs(\.|\b)`
 - `\b(fdisk|parted)\b`
 - `\b(shutdown|reboot|halt)\b`
@@ -199,13 +199,13 @@ Each line below is one regex (after `<EXECUTOR>` substitution). Triggering any o
 - `\b(npm|pnpm|yarn)\s+(install|i|add)\s+(\S+\s+)*?https?://`
 - `\bcargo\s+install\s+(\S+\s+)*?--git\b`
 - `\bgo\s+install\s+\S+@`
-- `\bcurl\b.*(>\s*|\s-o\s+|\s--output\s+)\S+\s*[;&|]+\s*((sudo|doas|pkexec|run0|su\s+-c|gosu|setpriv|nsenter|unshare|env|runuser|machinectl\s+shell|time|nice|ionice|chroot)[^;&|]*?\s+)?<EXECUTOR>\b`  (`curl … > /tmp/x ; sh /tmp/x`, `curl -o /tmp/x && bash /tmp/x`, with an optional leading wrapper from any of three categories: privilege escalation (`sudo`/`doas`/`pkexec`/`run0`/`su -c`/`gosu`/`setpriv`/`nsenter`/`unshare`), environment prefix (`env DEBUG=1`/`runuser -u app`/`machinectl shell`), or measurement / scheduler / chroot (`time`/`nice`/`ionice`/`chroot`). The lazy `[^;&|]*?\s+` consumes intermediate tokens within the same chained piece without crossing into the next joiner.)
-- `\bwget\b.*(\s-O\s+|\s--output-document\s+)\S+\s*[;&|]+\s*((sudo|doas|pkexec|run0|su\s+-c|gosu|setpriv|nsenter|unshare|env|runuser|machinectl\s+shell|time|nice|ionice|chroot)[^;&|]*?\s+)?<EXECUTOR>\b`  (`wget URL -O /tmp/x && bash /tmp/x`; same wrapper categories as the curl rule above.)
+- `\bcurl\b.*(>\s*|\s-o\s+|\s--output\s+)\S+\s*[;&|]+\s*((sudo|doas|pkexec|run0|su\s+-c|gosu|setpriv|nsenter|unshare|env|runuser|machinectl\s+shell|time|nice|ionice|chroot|xargs(\s+-\S+)*(\s+-[IJ]\s+\S+)?|parallel(\s+-\S+)*)[^;&|]*?\s+)?<EXECUTOR>\b`  (`curl … > /tmp/x ; sh /tmp/x`, `curl -o /tmp/x && bash /tmp/x`, with an optional leading wrapper from four categories: privilege escalation (`sudo`/`doas`/`pkexec`/`run0`/`su -c`/`gosu`/`setpriv`/`nsenter`/`unshare`), environment prefix (`env DEBUG=1`/`runuser -u app`/`machinectl shell`), measurement / scheduler / chroot (`time`/`nice`/`ionice`/`chroot`), and stdin-driver tools (`xargs`/`parallel`) — kept in sync with the pipe-form rule at the start of this section so `curl URL > /tmp/x ; xargs -I {} bash -c '{}' < /tmp/x` is caught here too. The lazy `[^;&|]*?\s+` consumes intermediate tokens within the same chained piece without crossing into the next joiner.)
+- `\bwget\b.*(\s-O\s+|\s--output-document\s+)\S+\s*[;&|]+\s*((sudo|doas|pkexec|run0|su\s+-c|gosu|setpriv|nsenter|unshare|env|runuser|machinectl\s+shell|time|nice|ionice|chroot|xargs(\s+-\S+)*(\s+-[IJ]\s+\S+)?|parallel(\s+-\S+)*)[^;&|]*?\s+)?<EXECUTOR>\b`  (`wget URL -O /tmp/x && bash /tmp/x`; same wrapper categories as the curl rule above.)
 - `\b(irm|iwr|invoke-webrequest|invoke-restmethod)\b.*(\s-OutFile\s+|>\s*)\S+\s*[;&|]+\s*(\b(iex|invoke-expression|gc|get-content|cat)\b|&\s|\.[\s\\/])[^;&|]*\S+`  (PowerShell two-step download-then-execute via filesystem: `irm URL -OutFile /tmp/x.ps1 ; iex (gc /tmp/x.ps1)`, `iwr URL > $tmp ; & $tmp`, `Invoke-RestMethod URL -OutFile path ; . path`, `irm URL -OutFile script.ps1 ; .\script.ps1`. The `\.[\s\\/]` form catches both PowerShell dot-source operator (`. path`) and relative-path execution (`.\script.ps1`, `./script.ps1`). Parallel to the curl/wget rules above but for PowerShell cmdlets and PowerShell-specific re-execution forms (`iex`/`Invoke-Expression`/`gc`/`Get-Content`/`cat`/`&`/`.`).)
 - `<EXECUTOR>\s+(-\S+\s+)*<<-?['"\\]?\w+`  (executor consuming a heredoc: `bash <<EOF … EOF`, `python3 <<'PY' … PY` — the body is arbitrary code piped to the executor, equivalent in effect to `curl|bash`)
 - `<EXECUTOR>(\s+\S+){0,4}?\s+<<<\s*["']?(\$\(|\x60)\s*\b<DOWNLOADER>\b`  (here-string with command substitution: `bash <<<"$(curl URL)"` and `bash <<<\`curl URL\`` — used in install docs where pipes are blocked by network policy)
 
-**Newline-only download-then-execute defense.** A doc that uses newlines instead of `;` between download and execute (e.g. a multi-line fenced block of `curl URL > /tmp/x.sh` then `chmod +x /tmp/x.sh` then `/tmp/x.sh`) collapses to a single space-separated line via the [Matching rule](#override-rules)'s whitespace collapse before evaluation. The two-step regex above requires `[;&|]` joiners and would miss this. To catch it, also evaluate this regex against the *unsplit* command: `\b(curl|wget|irm|iwr|invoke-webrequest|invoke-restmethod)\b[^|]*(?:>\s*|\s-o\s+|\s-O\s+|\s--output(?:-document)?\s+|\s-OutFile\s+)(\S*/\S+|\S{4,})(?=\s)[^|]*(?:\s|^)\2(?=\s|$)` — if the same path token (must contain `/` OR be ≥ 4 chars to avoid backtracking onto short generic words) appears after a `>` redirect, `-o`/`--output` (curl), `-O`/`--output-document` (wget), or `-OutFile` (PowerShell) flag AND later in the line, treat as a remote-fetch executor and apply row 1.
+**Newline-only download-then-execute defense.** A doc that uses newlines instead of `;` between download and execute (e.g. a multi-line fenced block of `curl URL > /tmp/x.sh` then `chmod +x /tmp/x.sh` then `/tmp/x.sh`) collapses to a single space-separated line via the [Matching rule](#override-rules)'s whitespace collapse before evaluation. The two-step regex above requires `[;&|]` joiners and would miss this. To catch it, also evaluate this regex against the *unsplit* command: `\b<DOWNLOADER>\b[^|]*(?:>\s*|\s-o\s+|\s-O\s+|\s--output(?:-document)?\s+|\s-OutFile\s+)(\S*/\S+|\S{4,})(?=\s)[^|]*(?:\s|^)\2(?=\s|$)` — if the same path token (must contain `/` OR be ≥ 4 chars to avoid backtracking onto short generic words) appears after a `>` redirect, `-o`/`--output` (curl), `-O`/`--output-document` (wget), or `-OutFile` (PowerShell) flag AND later in the line, treat as a remote-fetch executor and apply row 1. Uses the canonical `<DOWNLOADER>` macro so coverage stays in sync with the pipe form at the start of this section — `xh URL -o /tmp/x.sh` followed by `bash /tmp/x.sh`, or `aria2c -o ./x.sh URL` followed by `sh ./x.sh`, are caught here.
 
 **Function/alias limitation.** Function and alias bodies are not regex-inspectable; the override evaluator sees only the call site. Pre-flight step 6 already warns the user.
 
