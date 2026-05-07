@@ -735,6 +735,12 @@ if [ -f "$how_to_run_skill_md" ]; then
   if ! grep -qE '^## Step 3a:' "$how_to_run_skill_md" 2>/dev/null; then
     wiring_errors+="  $how_to_run_skill_md missing walk-through heading: ^## Step 3a:\n"
   fi
+  # Step 6 is the jump target for: Step 3 Skip route, Step 3a walkthrough
+  # completion, and guided-walkthrough.md's "return control to SKILL.md Step 6"
+  # closing line. A silent renumber would dangle all three control-flow jumps.
+  if ! grep -qE '^## Step 6\b' "$how_to_run_skill_md" 2>/dev/null; then
+    wiring_errors+="  $how_to_run_skill_md missing jump target: ^## Step 6\n"
+  fi
   # Step 3 option labels — silent rename in SKILL.md without matching update in
   # the per-answer routing block would silently send the user down the wrong
   # branch. '**Skip**' uses bold form because bare 'Skip' would also match
@@ -762,9 +768,12 @@ if [ -f "$walkthrough_ref" ]; then
       wiring_errors+="  $walkthrough_ref missing option label: $option_label\n"
     fi
   done
-  # User-facing safety messaging — silent rename or deletion is a safety
-  # regression with no other check catching it.
-  for safety_msg in 'Remote code executor' 'Destructive command. Read it carefully' 'long-running process'; do
+  # User-facing safety / control strings — silent rename or deletion is a
+  # safety regression (override prepend/append text) or a control-flow break
+  # ("Stop the walkthrough" is the exit string SKILL.md Step 3a directs the
+  # user to and the per-step loop step 7 offers as an option label). Neither
+  # is caught by the heading or option-label checks above.
+  for safety_msg in 'Remote code executor' 'Destructive command. Read it carefully' 'long-running process' 'Stop the walkthrough'; do
     if ! grep -qF "$safety_msg" "$walkthrough_ref" 2>/dev/null; then
       wiring_errors+="  $walkthrough_ref missing safety message: $safety_msg\n"
     fi
@@ -777,12 +786,6 @@ if [ -f "$walkthrough_ref" ]; then
       wiring_errors+="  $walkthrough_ref missing audit verdict: $verdict\n"
     fi
   done
-  # The walkthrough's own exit string must match the one SKILL.md Step 3a
-  # references; SKILL.md tells the user to choose "Stop the walkthrough" and
-  # the per-step loop step 7 offers it as an option label.
-  if ! grep -qF 'Stop the walkthrough' "$walkthrough_ref" 2>/dev/null; then
-    wiring_errors+="  $walkthrough_ref missing exit string: Stop the walkthrough\n"
-  fi
 fi
 # Auditor verdict contract — producer side; checked independently of
 # walkthrough_ref so a missing/renamed walkthrough_ref cannot mask a verdict
