@@ -707,6 +707,42 @@ if [ -f "$scenario_style" ]; then
   done
 fi
 
+# Trigger-key contract for the Walk-through branch added by the guided
+# walkthrough feature. SKILL.md Step 3 routes on the literal "Walk through it"
+# AskUserQuestion option string and jumps to the "## Step 3a" heading; Step 3a
+# loads guided-walkthrough.md by path. The walkthrough's own "Stop the
+# walkthrough" exit string is referenced from SKILL.md Step 3a. If any of these
+# strings drifts, the entire branch silently dies — the generic cross-ref
+# check (check 8) only validates path resolution, not these textual contracts.
+how_to_run_skill_md="skills/how-to-run/SKILL.md"
+walkthrough_ref="skills/how-to-run/references/guided-walkthrough.md"
+if [ -f "$how_to_run_skill_md" ]; then
+  # Heading anchor uses regex; literal triggers use fixed-string match so a
+  # typo like 'guided-walkthroughxmd' (where . matches any char in regex mode)
+  # cannot satisfy the wiring contract.
+  if ! grep -qE '^## Step 3a:' "$how_to_run_skill_md" 2>/dev/null; then
+    wiring_errors+="  $how_to_run_skill_md missing walk-through heading: ^## Step 3a:\n"
+  fi
+  for literal_trigger in 'Walk through it' 'Stop the walkthrough' 'guided-walkthrough.md'; do
+    if ! grep -qF "$literal_trigger" "$how_to_run_skill_md" 2>/dev/null; then
+      wiring_errors+="  $how_to_run_skill_md missing walk-through trigger: $literal_trigger\n"
+    fi
+  done
+fi
+if [ -f "$walkthrough_ref" ]; then
+  for heading in '^## Pre-flight' '^## Per-step loop' '^## Per-step AskUserQuestion' '^## Override rules' '^## Cross-platform detection' '^## Heavy-staleness handling' '^## Completion summary'; do
+    if ! grep -qE "$heading" "$walkthrough_ref" 2>/dev/null; then
+      wiring_errors+="  $walkthrough_ref missing heading matching: $heading\n"
+    fi
+  done
+  # The walkthrough's own exit string must match the one SKILL.md Step 3a
+  # references; SKILL.md tells the user to choose "Stop the walkthrough" and
+  # the per-step loop step 7 offers it as an option label.
+  if ! grep -qF 'Stop the walkthrough' "$walkthrough_ref" 2>/dev/null; then
+    wiring_errors+="  $walkthrough_ref missing exit string: Stop the walkthrough\n"
+  fi
+fi
+
 check "Load-bearing wiring intact" test -z "$wiring_errors"
 if [ -n "$wiring_errors" ]; then
   printf "       Wiring issues:\n%b" "$wiring_errors"
