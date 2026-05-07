@@ -716,6 +716,7 @@ fi
 # check (check 8) only validates path resolution, not these textual contracts.
 how_to_run_skill_md="skills/how-to-run/SKILL.md"
 walkthrough_ref="skills/how-to-run/references/guided-walkthrough.md"
+auditor_agent="skills/how-to-run/agents/how-to-run-auditor.md"
 if [ -f "$how_to_run_skill_md" ]; then
   # Heading anchor uses regex; literal triggers use fixed-string match so a
   # typo like 'guided-walkthroughxmd' (where . matches any char in regex mode)
@@ -723,16 +724,48 @@ if [ -f "$how_to_run_skill_md" ]; then
   if ! grep -qE '^## Step 3a:' "$how_to_run_skill_md" 2>/dev/null; then
     wiring_errors+="  $how_to_run_skill_md missing walk-through heading: ^## Step 3a:\n"
   fi
-  for literal_trigger in 'Walk through it' 'Stop the walkthrough' 'guided-walkthrough.md'; do
+  # Step 3 option labels — silent rename in SKILL.md without matching update in
+  # the per-answer routing block would silently send the user down the wrong
+  # branch. The frontmatter discoverability phrase 'guided in-chat walkthrough'
+  # is also load-bearing for users finding this option.
+  for literal_trigger in 'Walk through it' 'Regenerate' 'Stop the walkthrough' 'guided-walkthrough.md' 'guided in-chat walkthrough'; do
     if ! grep -qF "$literal_trigger" "$how_to_run_skill_md" 2>/dev/null; then
       wiring_errors+="  $how_to_run_skill_md missing walk-through trigger: $literal_trigger\n"
     fi
   done
 fi
 if [ -f "$walkthrough_ref" ]; then
-  for heading in '^## Pre-flight' '^## Per-step loop' '^## Per-step AskUserQuestion' '^## Override rules' '^## Cross-platform detection' '^## Heavy-staleness handling' '^## Completion summary'; do
+  for heading in '^## Pre-flight' '^## Per-step loop' '^## Per-step AskUserQuestion' '^## Override rules' '^## Cross-platform detection' '^## Heavy-staleness handling' '^## Completion summary' '^## Secret redaction patterns' '^## What this walkthrough never modifies' '^### Long-running service patterns' '^### Destructive verb patterns' '^### Remote-fetch executor patterns' '^### Platform-mismatch constructs' '^### Two-step download-then-execute defense' '^### Audit-verdict prepend \(additive\)'; do
     if ! grep -qE "$heading" "$walkthrough_ref" 2>/dev/null; then
       wiring_errors+="  $walkthrough_ref missing heading matching: $heading\n"
+    fi
+  done
+  # Option labels — the override rules in the table are written in terms of
+  # *dropping or renaming* these literal strings. A silent rename here desyncs
+  # the override rules from the rendered options and makes the safety gates
+  # inert.
+  for option_label in '"Run it"' '"I'"'"'ll run it"' '"Skip"' '"Run it (destructive)"'; do
+    if ! grep -qF "$option_label" "$walkthrough_ref" 2>/dev/null; then
+      wiring_errors+="  $walkthrough_ref missing option label: $option_label\n"
+    fi
+  done
+  # User-facing safety messaging — silent rename or deletion is a safety
+  # regression with no other check catching it.
+  for safety_msg in 'Remote code executor' 'Destructive command. Read it carefully' 'long-running process'; do
+    if ! grep -qF "$safety_msg" "$walkthrough_ref" 2>/dev/null; then
+      wiring_errors+="  $walkthrough_ref missing safety message: $safety_msg\n"
+    fi
+  done
+  # Audit verdicts — producer/consumer contract between Step 2 auditor agent,
+  # SKILL.md, and the walkthrough's per-step Audit: prefix + Audit-verdict
+  # prepend. A silent rename on either side leaves the per-step audit prepend
+  # never firing.
+  for verdict in 'Found & accurate' 'Found but outdated' 'Partial' 'Documented but unverifiable' 'Missing'; do
+    if ! grep -qF "$verdict" "$walkthrough_ref" 2>/dev/null; then
+      wiring_errors+="  $walkthrough_ref missing audit verdict: $verdict\n"
+    fi
+    if [ -f "$auditor_agent" ] && ! grep -qF "$verdict" "$auditor_agent" 2>/dev/null; then
+      wiring_errors+="  $auditor_agent missing audit verdict: $verdict\n"
     fi
   done
   # The walkthrough's own exit string must match the one SKILL.md Step 3a

@@ -117,7 +117,7 @@ For the **External Services** aspect, expand it into a sub-table with columns **
 
 ## Step 3a: Guided Walkthrough
 
-Read `$CLAUDE_PLUGIN_ROOT/skills/how-to-run/references/guided-walkthrough.md` for the per-step procedure, override rules, sanitization, and completion summary, then follow it. When the walkthrough finishes (or the user chooses **Stop the walkthrough**), jump to Step 6 — this branch does not write to `HOW-TO-RUN.md`.
+Read `$CLAUDE_PLUGIN_ROOT/skills/how-to-run/references/guided-walkthrough.md` for the per-step procedure, override rules, sanitization, and completion summary, then follow it. When the walkthrough finishes (or the user chooses **Stop the walkthrough**), jump to Step 6.
 
 ## Step 4: Generate Content
 
