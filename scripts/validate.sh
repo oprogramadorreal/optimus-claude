@@ -707,7 +707,7 @@ if [ -f "$scenario_style" ]; then
   done
 fi
 
-# Trigger-key contract for the Walk-through branch added by the guided
+# Trigger-key contract for the walkthrough branch added by the guided
 # walkthrough feature. SKILL.md Step 3 routes on the literal "Walk through it"
 # AskUserQuestion option string and jumps to the "## Step 3a" heading; Step 3a
 # loads guided-walkthrough.md by path. The walkthrough's own "Stop the
@@ -727,13 +727,13 @@ audit_verdicts=('Found & accurate' 'Found but outdated' 'Partial' 'Documented bu
 # on `[ -f "$auditor_agent" ]` and would silently no-op if the file went
 # missing or moved. Assert presence as a first-class check rather than a
 # guard, mirroring how other validate.sh checks bind file existence.
-check "auditor_agent file present" test -f "$auditor_agent"
+check "how-to-run auditor agent present" test -f "$auditor_agent"
 if [ -f "$how_to_run_skill_md" ]; then
   # Heading anchor uses regex; literal triggers use fixed-string match so a
   # typo like 'guided-walkthroughxmd' (where . matches any char in regex mode)
   # cannot satisfy the wiring contract.
   if ! grep -qE '^## Step 3a:' "$how_to_run_skill_md" 2>/dev/null; then
-    wiring_errors+="  $how_to_run_skill_md missing walk-through heading: ^## Step 3a:\n"
+    wiring_errors+="  $how_to_run_skill_md missing walkthrough heading: ^## Step 3a:\n"
   fi
   # Step 6 is the jump target for: Step 3 Skip route, Step 3a walkthrough
   # completion, and guided-walkthrough.md's "return control to SKILL.md Step 6"
@@ -747,9 +747,9 @@ if [ -f "$how_to_run_skill_md" ]; then
   # 'skipped' / 'Skip the prompt' in unrelated prose elsewhere in SKILL.md.
   # The frontmatter discoverability phrase 'guided in-chat walkthrough'
   # is also load-bearing for users finding this option.
-  for literal_trigger in 'Walk through it' 'Regenerate' '**Skip**' 'Stop the walkthrough' 'guided-walkthrough.md' 'guided in-chat walkthrough'; do
+  for literal_trigger in 'Walk through it' 'Regenerate' '**Skip**' 'Stop the walkthrough' 'guided-walkthrough.md' 'guided in-chat walkthrough' 'How to Run Documentation' 'jump to Step 3a'; do
     if ! grep -qF "$literal_trigger" "$how_to_run_skill_md" 2>/dev/null; then
-      wiring_errors+="  $how_to_run_skill_md missing walk-through trigger: $literal_trigger\n"
+      wiring_errors+="  $how_to_run_skill_md missing walkthrough trigger: $literal_trigger\n"
     fi
   done
 fi
@@ -773,7 +773,7 @@ if [ -f "$walkthrough_ref" ]; then
   # ("Stop the walkthrough" is the exit string SKILL.md Step 3a directs the
   # user to and the per-step loop step 7 offers as an option label). Neither
   # is caught by the heading or option-label checks above.
-  for safety_msg in 'Remote code executor' 'Destructive command. Read it carefully' 'long-running process' 'Stop the walkthrough'; do
+  for safety_msg in 'Remote code executor' 'Destructive command. Read it carefully' 'long-running process' 'Stop the walkthrough' 'SKILL.md Step 6'; do
     if ! grep -qF "$safety_msg" "$walkthrough_ref" 2>/dev/null; then
       wiring_errors+="  $walkthrough_ref missing safety message: $safety_msg\n"
     fi
@@ -789,14 +789,15 @@ if [ -f "$walkthrough_ref" ]; then
 fi
 # Auditor verdict contract — producer side; checked independently of
 # walkthrough_ref so a missing/renamed walkthrough_ref cannot mask a verdict
-# drift in the auditor agent.
-if [ -f "$auditor_agent" ]; then
-  for verdict in "${audit_verdicts[@]}"; do
-    if ! grep -qF "$verdict" "$auditor_agent" 2>/dev/null; then
-      wiring_errors+="  $auditor_agent missing audit verdict: $verdict\n"
-    fi
-  done
-fi
+# drift in the auditor agent. The "how-to-run auditor agent present" check
+# above already gates file existence — when the file is missing, the loop
+# below produces one error per verdict, which is more informative than a
+# silent skip.
+for verdict in "${audit_verdicts[@]}"; do
+  if ! grep -qF "$verdict" "$auditor_agent" 2>/dev/null; then
+    wiring_errors+="  $auditor_agent missing audit verdict: $verdict\n"
+  fi
+done
 
 check "Load-bearing wiring intact" test -z "$wiring_errors"
 if [ -n "$wiring_errors" ]; then
