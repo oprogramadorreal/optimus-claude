@@ -100,7 +100,8 @@ When `HOW-TO-RUN.md` already exists, the skill offers three choices: a guided in
 | `agents/how-to-run-auditor.md` | Agent for scanning existing docs as hypotheses and classifying them against detected state |
 | `agents/shared-constraints.md` | Skill-specific read-only analysis constraints for both agents |
 | `references/how-to-run-sections.md` | Section templates, signal-to-section mapping, build-system/source-dependency detection, PM command tables |
-| `references/external-services-docker.md` | Service classification tables, decision heuristics for Docker vs. local install vs. shared-cloud per service, web-search recipe for vendor images, canonical image catalogue (seeds), snippet templates, citation format, and registry allowlist |
+| `references/external-services-docker.md` | Service classification tables, decision heuristics for Docker vs. local install vs. shared-cloud per service, web-search recipe for vendor images, canonical image catalogue (seeds), verify commands (seeds), snippet templates, Pre-Conditions Block format, citation format, and registry allowlist |
+| `references/gui-client-service-catalog.md` | GUI client × service cross-product catalogue, rendering rule, and Web-Search re-validation for the `#### Connecting from <tool>` H4 emitted inside External Services H3s |
 | `references/guided-walkthrough.md` | Display-only walkthrough procedure when the user picks **Walk through it** at Step 3: per-step `AskUserQuestion` (Done / Skip / Stop), audit-verdict surface, destructive and remote-fetch advisories, completion summary. The user runs every command locally — the skill never executes anything. |
 | *(shared)* `init/references/readme-section-detection.md` | Algorithm for finding existing setup instructions in documentation |
 | *(shared)* `init/references/tech-stack-detection.md` | Manifest → tech stack and package manager detection tables |

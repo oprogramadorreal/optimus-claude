@@ -434,6 +434,8 @@ if [ -f "$esd_file" ]; then
     '^## Service Classification Tables' \
     '^## Decision Heuristics' \
     '^## Web-Search Recipe' \
+    '^## Verify Commands \(seeds\)' \
+    '^## Pre-Conditions Block' \
     '^## Citation Format' \
     '^## Registry Allowlist' \
     '^### Docker-preferred' \
@@ -484,6 +486,8 @@ if [ -f "$detector_file" ]; then
     '| Confidence |' \
     '| Format |' \
     '| Invocation hint |' \
+    '| Endpoint semantics |' \
+    '| Bootstrap mechanism |' \
     '`confirmed`' \
     '`candidate`' \
     'Format: dotenv' \
@@ -528,6 +532,9 @@ if [ -f "$sections_file" ]; then
     '**Per-service "Update `<key>` in `<config file>`" consolidation.**' \
     '## Source Dependencies / Clone All' \
     '## Running Everything' \
+    '## Schema Bootstrap' \
+    '## Section Depends-On Graph' \
+    '## Diagnostic Ladders' \
     'Default skeleton — multi-configuration build systems' \
     'Single-configuration skeleton — Cargo / Go / single-output build systems' \
     '| 3-5 |' \
@@ -591,7 +598,10 @@ if [ -f "$how_to_run_skill" ]; then
     'Never assert an unobserved path' \
     'Never guess runtime ports' \
     'grounded-tokens' \
-    'Runtime Ports table'; do
+    'Runtime Ports table' \
+    'Section ordering audit' \
+    'Connection-string-shift audit' \
+    'In-container path audit'; do
     if ! grep -qF "$token" "$how_to_run_skill" 2>/dev/null; then
       wiring_errors+="  $how_to_run_skill missing token-audit wiring token: $token\n"
     fi

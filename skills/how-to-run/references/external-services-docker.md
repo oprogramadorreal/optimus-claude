@@ -154,7 +154,7 @@ Seed verify commands for catalogue services, used by Step 4 when emitting "Verif
 
 When a catalogue row has no entry above, no "Verify <service>" bullet is emitted for that service — the table's coverage is the gate, not the catalogue's.
 
-**Stale-tag re-validation rule.** When the resolved image tag matches `^([0-9]{4}-)?(latest|stable|edge|nightly|canary|main|current|rolling)$` (bare moving labels OR year-versioned-latest patterns like `2022-latest` that pass §Web-Search Recipe step 6's regex but still float to whatever the vendor publishes), Step 4 MUST WebFetch the catalogue row's `Canonical source` URL before emitting the verify command and confirm every absolute in-container path it references — paths matching `^/opt/[a-z][a-z0-9-]+(/[a-z0-9_.-]+)+$` or `^/usr/local/(bin|lib|share)/[a-z0-9_.-]+(/[a-z0-9_.-]+)*$` — appears verbatim on the page. If any path fails verification, or WebFetch fails, Step 4 drops the verify command (no bullet emitted) and records the failure in the Step 3 assessment table for audit.
+**Stale-tag re-validation rule.** When the resolved image tag matches `^([0-9]{4}-)?(latest|stable|edge|nightly|canary|main|current|rolling)$` (bare moving labels OR year-versioned-latest patterns like `2022-latest` that pass §Web-Search Recipe step 6's regex but still float to whatever the vendor publishes), Step 4 MUST WebFetch the catalogue row's `Canonical source` URL before emitting the verify command and confirm every absolute in-container path it references — paths matching `^/opt/[a-z][a-z0-9-]+(/[a-z0-9_.-]+)+$` or `^/usr/local/(bin|lib|share)/[a-z0-9_.-]+(/[a-z0-9_.-]+)*$`, AND with no `.` or `..` segment after splitting on `/` (defense in depth — the regex's per-segment class permits literal dots, so a `/opt/foo/../etc/passwd` shape would pass the regex without this post-check) — appears verbatim on the page. If any path fails verification, or WebFetch fails, Step 4 drops the verify command (no bullet emitted) and records the failure in the Step 3 assessment table for audit.
 
 For fully-pinned numeric tags (`postgres:16-alpine`, `mongo:7.0.5`, `redis:7.4.1-bookworm`), re-validation is optional at Step 4 — Step 6's in-container path audit is the safety net (it rejects any path the audit cannot trace to either this seed table or a Step-4-recorded WebFetch validation).
 
@@ -200,7 +200,7 @@ Consumed by §Decision Heuristics rule 2. Non-exhaustive — add a row when a ne
 
 ## Snippet Templates
 
-Render **one** of these templates per service, chosen by the heuristics. Keep all service subsections under a single `## External Services` H2; each service is an H3.
+Render **one** of these templates per service, chosen by the heuristics. Keep all service subsections under the same External Services container — each per-service heading is one level deeper than its container (H3 in multi-repo where External Services is `## External Services` H2, H4 in single-project / monorepo where External Services is `### External Services` H3). The template snippets below show the multi-repo H3 form; substitute one heading level deeper in single-project / monorepo.
 
 **Env-var rule (applies to both Docker templates below):** include one `-e '<VAR>=<placeholder>'` line per env var the vendor page marks as required (e.g., `POSTGRES_PASSWORD`; `ACCEPT_EULA=Y` + `MSSQL_SA_PASSWORD` for SQL Server). Omit the `-e` line entirely for images with no required env vars (e.g., `redis`).
 
@@ -306,7 +306,7 @@ Skip the block in every other case — `docker-compose` (the project is already 
 
 ### Block format
 
-```markdown
+````markdown
 > **Pre-condition — update before running Setup or starting the backend.** The committed `<config-key>` in `<config-file>` uses <one-sentence summary of the incompatibility — e.g., "Windows authentication", "a SQL Server named instance", "a Unix socket transport", "host port `<old-port>` instead of the published `<new-port>`">. Replace it with the form below; the change must precede any command that opens a connection to <Service>.
 
 ```diff
@@ -314,14 +314,16 @@ Skip the block in every other case — `docker-compose` (the project is already 
 + <required-connection-string-built-from-snippet>
 ```
 
-> See [Environment Setup](#environment-setup) for the canonical place to keep this override (drop the new value into the project's local-only env file or per-machine config — never commit it to source control if it carries a real password).
-```
+> See the *Environment Setup* section for the canonical place to keep this override (drop the new value into the project's local-only env file or per-machine config — never commit it to source control if it carries a real password).
+````
 
-The block is rendered as the FIRST element inside the service's `### <Service name>` H3 — above the existing `**Recommended: Docker.**` paragraph and snippet. When this block renders, also DROP the existing `- Connection details for <…>` bullet from the snippet template's bullet list (the diff inside this block subsumes it). The Step 6 audit treats a Pre-Conditions block plus a `Connection details` bullet on the same H3 as a duplication and rejects it.
+The block is rendered as the FIRST element inside the service's per-service heading (H3 in multi-repo, H4 in single-project / monorepo — see [§Snippet Templates](#snippet-templates)) — above the existing `**Recommended: Docker.**` paragraph and snippet. When this block renders, also DROP the existing `- Connection details for <…>` bullet from the snippet template's bullet list (the diff inside this block subsumes it). The Step 6 audit treats a Pre-Conditions block plus a `Connection details` bullet on the same per-service heading as a duplication and rejects it.
 
 ### Substitution rules
 
-- **`<committed-connection-string-from-source-config>`** — read verbatim from the row's `Source` file, scoped to the matching `<config-key>`. Apply [§Web-Search Recipe](#web-search-recipe) step 5's free-text sanitization (strip backticks, brackets, parens, angle brackets, control chars; truncate to 240 chars) before rendering. When the committed string contains a real-looking password (per the same `(?i)password|secret|token|credential|key` regex used elsewhere), redact the password segment as `<REDACTED — see source>` so the rendered diff doesn't echo a secret committed to source control.
+- **`<config-file>`** — the row's `Source` field with all trailing `:<digits>` line-suffixes stripped (e.g., `src/Api/appsettings.json:14:5` → `src/Api/appsettings.json:14` → `src/Api/appsettings.json`; strip the suffix repeatedly until no `:[0-9]+$` match remains). Then validate the path: it MUST match `^[A-Za-z0-9][A-Za-z0-9._/-]{0,128}$`, and after splitting on `/` no segment may be empty, `.`, or `..`. Skip the block render if either check fails (this rejects UNC paths, leading-`-` segments, control characters, and traversal sequences).
+- **`<config-key>`** — the dotted-path key whose value is the committed connection string, derived by re-reading `<config-file>` at the cited line. For JSON / YAML, render the dotted path from the document root (e.g., `ConnectionStrings:DefaultConnection`, `spring.datasource.url`); for `.properties` files, the literal property name; for `.env*` files, the variable name. Sanitize against the shared top-level-section-name allowlist `^:?[A-Za-z_][A-Za-z0-9_.:-]{0,127}$` (the `:` is permitted to allow JSON-config dotted-with-colon forms like `ConnectionStrings:DefaultConnection`); skip the block render if the key fails the allowlist.
+- **`<committed-connection-string-from-source-config>`** — read verbatim from `<config-file>`, scoped to the value of `<config-key>`. Apply [§Web-Search Recipe](#web-search-recipe) step 5's free-text sanitization (strip backticks, brackets, parens, angle brackets, control chars; truncate to 240 chars) before rendering. **Redact unconditionally by structural parsing**, not by substring search — value-based heuristics miss real passwords whenever the surrounding key happens not to contain a `password`/`secret`/`token` token (e.g., `Pwd=hunter2`, `pwd=…`, `pass=…`, `auth=…`, or a URI userinfo segment like `mongodb://admin:hunter2@host/db`). For each syntactic family the rendered `+` line covers: ADO.NET — replace the value of any case-insensitive `Password=` / `Pwd=` segment up to the next `;` with `<REDACTED — see source>`; libpq KV — replace any `password=<value>` up to the next whitespace with `password=<REDACTED — see source>`; URIs — replace the userinfo password segment after the first `:` and before `@` with `<REDACTED — see source>`. If the committed string's family cannot be identified (no `;`-separated, no `:` `//` URI, no whitespace-separated key=value pairs), refuse to render the diff and fall back to the snippet's `- Connection details for <…>` bullet — never echo an unparsed connection string verbatim.
 - **`<required-connection-string-built-from-snippet>`** — assembled from the rendered snippet's substituted values. Per service kind:
   - **SQL Server:** `Server=<host>,<host-port>;Database=<db-name>;User Id=<sa-or-from-user-env>;Password=<password-placeholder>;TrustServerCertificate=True`
   - **PostgreSQL:** `Host=<host>;Port=<host-port>;Database=<db-name>;Username=<from-POSTGRES_USER-env-or-postgres>;Password=<POSTGRES_PASSWORD-placeholder>` (or the equivalent `host=… port=… dbname=… user=… password=…` libpq-style form when the committed string used libpq)
