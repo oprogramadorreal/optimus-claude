@@ -162,8 +162,6 @@ When a catalogue row has no entry above, no "Verify <service>" bullet is emitted
 
 For fully-pinned numeric tags (`postgres:16-alpine`, `mongo:7.0.5`, `redis:7.4.1-bookworm`), re-validation is optional at Step 4 — Step 6's in-container path audit is the safety net (it rejects any path the audit cannot trace to either this seed table or a Step-4-recorded WebFetch validation).
 
-**Where this differs from §Web-Search Recipe.** The Web-Search Recipe validates the `docker run` snippet's metadata (image reference, ports, volumes, env vars). This rule validates the verify command's in-container paths — a separate concern, because the recipe never sees `/opt/mssql-tools18/...` (it lives only in the verify command, not the `docker run` invocation). The two sets of paths fail differently: image references rot when registries reorganise; verify-command paths rot when vendors rename binaries. Both kinds of rot motivated this skill change.
-
 ## Vendor-Service → Emulator Index
 
 Synonym lookup consumed by §Decision Heuristics rules 2 and 3 — some target services have vendor-branded aliases (`AWS S3` vs bare `S3`, `Azure Cosmos DB` vs `Cosmos`) that would not match a table row by exact name. Each row lists the detected synonyms in the left column and the backing row in the right column.
@@ -238,7 +236,7 @@ docker run -d --name <project-slug>-<service-slug> \
 - <Windows / ARM caveat if applicable — render from the shared Windows-caveats note when `<host-arch>` or `<host-os>` matches.>
 - Connection details for <relevant config file / env var>: `<connection string template with the placeholder values>`.
 
-**Alternative: local install.** <One-sentence reason to pick local — e.g., "if you already use <related GUI tool>" or "for Windows-auth connection strings".> Install from [<vendor page>](<vendor page URL>).
+**Alternative: local install.** <One-sentence reason to pick local — e.g., "if you already use <related GUI client>" or "for Windows-auth connection strings".> Install from [<vendor page>](<vendor page URL>).
 ````
 
 ### Shared-cloud primary (Docker optional)
@@ -279,7 +277,7 @@ Use when the heuristic resolves to **Shared-cloud primary** AND (a) the service 
 
 ### Local install only
 
-Use when the heuristic resolves to **Local install only** (GUI tool, no official image, or web-search fallback).
+Use when the heuristic resolves to **Local install only** (GUI client, no official image, or web-search fallback).
 
 ```markdown
 ### <Service name>
@@ -347,7 +345,7 @@ The block is rendered as the FIRST element inside the service's per-service head
   - **PostgreSQL:** `Host=<host>;Port=<host-port>;Database=<db-name>;Username=<from-POSTGRES_USER-env-or-postgres>;Password=<POSTGRES_PASSWORD-placeholder>` (or the equivalent `host=… port=… dbname=… user=… password=…` libpq-style form when the committed string used libpq)
   - **MySQL/MariaDB:** `Server=<host>;Port=<host-port>;Database=<db-name>;Uid=root;Pwd=<MYSQL_ROOT_PASSWORD-placeholder>`
   - **MongoDB:** `mongodb://<from-root-username>:<root-password-placeholder>@<host>:<host-port>/<db-name>?authSource=admin`
-- **`<host>`** — `127.0.0.1` when *Hardware / OS Requirements* contains `Windows 10`, `Windows 11`, or `Windows` (per the IPv4/IPv6 caveat in `how-to-run-sections.md` §Common Issues); else `localhost`.
+- **`<host>`** — `127.0.0.1` when *Hardware / OS Requirements* contains `Windows 10`, `Windows 11`, or `Windows` (Windows resolves `localhost` to IPv6 first; the snippet's `-p 127.0.0.1:…` form is IPv4-only); else `localhost`.
 - **Match the committed string's syntactic family** — when the committed string is ADO.NET-style (semicolon-separated keyvalue), the new form is also ADO.NET-style. When it's libpq-style or a URI, match that. The diff should differ only in semantics (`Server`, `Port`, auth flags), not in syntax shape.
 
 ### Step 6 audit

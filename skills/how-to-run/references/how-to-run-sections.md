@@ -33,7 +33,7 @@ Section templates and signal-to-content mapping for generating `HOW-TO-RUN.md`. 
 | `platformio.ini`, `.ino` files | Toolchain & SDKs (PlatformIO / Arduino, target board), Prerequisites (target MCU hardware), Build, Running in Development (flash) |
 | Vulkan / CUDA / Qt / JDK / .NET SDK / MSVC references in build files or existing READMEs | Toolchain & SDKs (SDK install) |
 | GPU / USB / serial / specific OS hints in existing READMEs or build files | Prerequisites (hardware / OS) |
-| README mentions of browsers (Chrome/Chromium), IDEs (Visual Studio, VS Code, IntelliJ family), DB GUIs (SSMS, DBeaver, pgAdmin), API tools (Postman, ngrok) — see detector Task 0d2 | Prerequisites (recommended developer tools — bullet list separate from hardware/OS requirements) |
+| README mentions of browsers (Chrome/Chromium), IDEs (Visual Studio, VS Code, IntelliJ family), DB GUI clients (SSMS, DBeaver, pgAdmin), API tools (Postman, ngrok) — see detector Task 0d2 | Prerequisites (recommended developer tools — bullet list separate from hardware/OS requirements) |
 | `docker-compose.yml` / `compose.yml` with infrastructure services | External Services (docker compose up) |
 | External service detected but no `docker-compose.yml` covers it | External Services (per-service Docker-vs-local decision via [`external-services-docker.md`](external-services-docker.md)) |
 | Framework config file with service-shaped sections (`appsettings*.json`, `application.yml`, `config/*.exs`, `config/*.yml`, `config.yaml`, etc. — see detector Task 5b) | External Services (Branch B per-service subsections, rendered with a `(candidate)` marker; user can drop via Step 1 "Correct first") |
@@ -228,7 +228,7 @@ Generate code:
 Initialize database schema:
 
 - **Primary:** `<primary-invocation>`.
-- [Optional: when ≥2 mechanisms detected, render the demoted one(s) as a `> **Legacy alternative:** <demoted-invocation> — pre-dates the migration tooling above and applying both can conflict; use only when explicitly instructed by the project's docs.` blockquote line directly under the Primary bullet.]
+- [Optional: when ≥2 mechanisms detected, render the demoted one(s) as a 2-space-indented `  > **Legacy alternative:** <demoted-invocation> — pre-dates the migration tooling above and applying both can conflict; use only when explicitly instructed by the project's docs.` blockquote directly under the Primary bullet — the 2-space indent keeps the blockquote inside the Primary bullet's list item; an unindented `>` would terminate the list.]
 - [If seed / fixture-load rows exist alongside an ORM or raw-SQL primary — they never compete with schema mechanisms — render them as a follow-up bullet: "After the schema is in place, populate seed data: `<seed-invocation>`".]
 ```
 
@@ -658,9 +658,9 @@ ORM migrate-command catalog (consumed by precedence rule 1):
 | `rails` | `bundle exec rails db:migrate` |
 | `phoenix-ecto` | `mix ecto.migrate` |
 
-Demoted mechanisms render as a blockquote under the primary bullet using this exact form:
+Demoted mechanisms render as a 2-space-indented blockquote directly under the primary bullet (the 2-space indent keeps the blockquote inside the Primary bullet's list item; an unindented `>` would terminate the list) using this exact form:
 
-> **Legacy alternative:** `<demoted-invocation>` — pre-dates the migration tooling above and applying both can conflict; use only when explicitly instructed by the project's docs.
+  > **Legacy alternative:** `<demoted-invocation>` — pre-dates the migration tooling above and applying both can conflict; use only when explicitly instructed by the project's docs.
 
 ### Connection-mode-aware invocation
 
@@ -669,7 +669,7 @@ When the destination DB row's *Recommended runtime* (per the Step 3 assessment t
 | CLI | Bare form (Local install only) | Docker-preferred / Docker (offline) form |
 |---|---|---|
 | `sqlcmd` (SQL Server) | `sqlcmd -i <file>` | `sqlcmd -S "<host>,<host-port>" -U <user> -P '<password-placeholder>' -C [-d <db>] -i <file>` |
-| `psql` (PostgreSQL) | `psql -f <file>` | `psql -h <host> -p <host-port> -U <user> -d <db> -f <file>` — pass the password via `PGPASSWORD='<password-placeholder>'` exported in the surrounding shell, or pass `-W` to force an interactive prompt |
+| `psql` (PostgreSQL) | `psql -f <file>` | `psql -h <host> -p <host-port> -U <user> -d <db> -f <file>` — pass the password via the `PGPASSWORD` env var in the surrounding shell (`export PGPASSWORD='<password-placeholder>'` in bash/zsh; `$env:PGPASSWORD = '<password-placeholder>'` in PowerShell), or pass `-W` to force an interactive prompt |
 | `mysql` (MySQL/MariaDB) | `mysql < <file>` | `mysql -h <host> -P <host-port> -u <user> -p'<password-placeholder>' <db> < <file>` |
 | `mongosh` (MongoDB) | `mongosh --file <file>` | `mongosh "mongodb://<user>:<password-placeholder>@<host>:<host-port>/<db>?authSource=admin" --file <file>` |
 
@@ -712,10 +712,6 @@ The Pre-condition callouts the audit auto-renders are **idempotent** — a secon
      - **Surface-to-user** rows: report the conflict via the standard Step 6 fix-up flow with no auto-rewrite — reordering a topology template's section layout is an editorial decision the user needs to make.
 3. Include any auto-rendered callouts in Step 6's "what was created/updated" report under a "Pre-condition callouts" sub-section.
 
-### Why the Multi-Repo template reorder and the depends-on graph coexist
-
-The Multi-Repo template's `## Environment Setup`-before-`## Setup` reorder (see [§Multi-Repo Workspace HOW-TO-RUN Template](#multi-repo-workspace-how-to-run-template)) is unconditional — workspace-level Setup typically aggregates per-repo migration commands across multiple language stacks, so the precondition risk is high enough to warrant the order change for every multi-repo project. The depends-on graph here is conditional and project-specific — it catches single-project / monorepo cases where a particular Trigger condition (private-registry creds, connection-string shift, schema-bootstrap-on-Docker-DB) creates a precondition that the catalog order doesn't anticipate. Both mechanisms cover the same shape of bug; together they form a defense-in-depth layer.
-
 ## Diagnostic Ladders
 
 For multi-layer failure modes that don't fit the single-sentence preventive bullet form of [§Common Issues](#common-issues) — typically "container is up but host can't connect", "tests pass locally but fail in CI", "auth flow returns 200 but the session is empty" — render a *diagnostic ladder*: a numbered list of symptom→check→action steps the reader walks top-down until one matches. Ladders fire conditionally on the detector's outputs and never replace the single-bullet form for simple gotchas (a `.nvmrc` ladder would be overkill for "run `nvm use`").
@@ -757,7 +753,7 @@ Substitute `<Service>`, `<host>`, `<host-port>`, `<project-slug>-<service-slug>`
   1. **Is the DB container running?** `docker ps --filter name=<project-slug>-<db-service-slug>`. The test run typically expects the same DB container as the dev environment; start it via the External Services snippet first if missing.
   2. **Did you apply schema bootstrap?** Tests run against either an empty schema or a seeded one — see Installation §Schema Bootstrap for the project's primary bootstrap command. Missing tables / fixtures often surface as authentication errors or `relation does not exist` rather than "table missing", because the framework's connection check runs before the query.
   3. **Does the test config override the dev connection string?** Frameworks commonly carry a separate test profile (Spring `application-test.yml`, Rails `database.yml` test env, ASP.NET `appsettings.Test.json`, Django `DATABASES['test']`). Verify it points at the same host:port as the rendered snippet — when the test profile inherits the committed default (e.g., `localhost\SQLEXPRESS` Windows-auth), apply the same connection-string change the External Services Pre-Conditions block describes for the dev profile.
-  4. **(Docker-preferred DB) Did the bootstrap run with the host-side flags, not the bare form?** Per the host-side schema-bootstrap invocation in Installation, the destination DB in Docker requires `<tool> -h <host> -p <host-port> -U <user> -P '<password-placeholder>' …` rather than `<tool> -i <file>`; if the bootstrap silently used the bare form, it created the schema in a different DB (or failed silently against the local default instance) and the test connect doesn't see it.
+  4. **(Docker-preferred DB) Did the bootstrap run with the host-side flags, not the bare form?** Per the host-side schema-bootstrap invocation in Installation, the destination DB in Docker requires the per-CLI full-flag form from §Schema Bootstrap §Connection-mode-aware invocation (`sqlcmd -S "<host>,<host-port>" …`, `psql -h <host> -p <host-port> …`, `mysql -h <host> -P <host-port> …`, or `mongosh "mongodb://…@<host>:<host-port>/…"`), not the bare `<tool> -i <file>` / `<tool> -f <file>` form; if the bootstrap silently used the bare form, it created the schema in a different DB (or failed silently against the local default instance) and the test connect doesn't see it.
 ```
 
 Substitute `<test command>` from the detector's *Commands* table `test` row, `<project-slug>-<db-service-slug>` from the External Services row whose `Type` is `database` (kebab-cased per the slug rules in [`SKILL.md`](../SKILL.md) Step 4 item 5), and `<tool>` / `<host>` / `<host-port>` / `<user>` / `<password-placeholder>` from the matching [§Schema Bootstrap](#schema-bootstrap) §Connection-mode-aware invocation row already rendered in Installation. The ladder's step 3 references the Pre-Conditions block from [`external-services-docker.md`](external-services-docker.md) §Pre-Conditions Block; step 4 references the connection-mode-aware invocation table from §Schema Bootstrap above. Both are conditional renders driven by detector signals, so the ladder coheres with the rest of the rendered file.
