@@ -260,9 +260,9 @@ docker compose ps
 \`\`\`
 ```
 
-**Branch B — no compose file:** render a per-service overview table, then an H3 subsection per service using the templates in [`external-services-docker.md`](external-services-docker.md) — *Docker-preferred*, *Shared-cloud primary (Docker optional)*, *Shared-cloud, no Docker alternative*, or *Local install only*.
+**Branch B — no compose file:** render a per-service overview table, then a per-service subsection per service using the templates in [`external-services-docker.md`](external-services-docker.md) — *Docker-preferred*, *Shared-cloud primary (Docker optional)*, *Shared-cloud, no Docker alternative*, or *Local install only*.
 
-**Hybrid — compose covers only some services:** render Branch A (the `docker compose up -d` block) for the services the compose file includes, listing those services in the Service/Port/Purpose table. Then append Branch B (overview table + per-service H3 subsections) scoped to the uncovered services only. Do not duplicate a compose-covered service as a standalone H3 subsection.
+**Hybrid — compose covers only some services:** render Branch A (the `docker compose up -d` block) for the services the compose file includes, listing those services in the Service/Port/Purpose table. Then append Branch B (overview table + per-service subsections) scoped to the uncovered services only. Do not duplicate a compose-covered service as a standalone subsection.
 
 ```markdown
 ### External Services
@@ -281,8 +281,8 @@ Rules that apply to both branches:
 - The detector's *External Services* table is the source of truth for which services exist.
 - Service classification (Docker-preferred / Shared-cloud primary / Local install only) is owned by the Decision Heuristics in [`external-services-docker.md`](external-services-docker.md). Apply those rules; do not re-derive them here.
 - For credentials, note that the service uses defaults from docker-compose or shared-cloud config — never copy actual password values into the file.
-- **All-candidate compression.** When ≥3 services in the External Services table share `Confidence: candidate` AND no row is `confirmed`, drop the `(candidate)` marker from the per-service H3 headings and from the *Service* column of the overview table. Render a single overview sentence at the top of *External Services* instead — for example: "Services below were detected from `<config file>` rather than a compose file. Drop any incorrect rows via *Correct first* in Step 1." The marker discriminates only when mixed with confirmed rows; in an all-candidate table it conveys no signal.
-- **Per-service "Update `<key>` in `<config file>`" consolidation.** When ≥3 shared-cloud services in this section share the same source config file, do NOT emit the per-service "Update `<ConfigKey>` in `<config file>` when pointing at a different environment" line under each H3. Instead, render a single overview sentence at the top of *External Services*: "The shared-cloud endpoints below come from `<config-file>`; swap them per environment by editing the matching config key listed in [Environment Setup](#environment-setup)." Keep the per-service line only when there are ≤2 services or when the services span multiple config files.
+- **All-candidate compression.** When ≥3 services in the External Services table share `Confidence: candidate` AND no row is `confirmed`, drop the `(candidate)` marker from the per-service subsection headings and from the *Service* column of the overview table. Render a single overview sentence at the top of *External Services* instead — for example: "Services below were detected from `<config file>` rather than a compose file. Drop any incorrect rows via *Correct first* in Step 1." The marker discriminates only when mixed with confirmed rows; in an all-candidate table it conveys no signal.
+- **Per-service "Update `<key>` in `<config file>`" consolidation.** When ≥3 shared-cloud services in this section share the same source config file, do NOT emit the per-service "Update `<ConfigKey>` in `<config file>` when pointing at a different environment" line under each per-service subsection. Instead, render a single overview sentence at the top of *External Services*: "The shared-cloud endpoints below come from `<config-file>`; swap them per environment by editing the matching config key listed in [Environment Setup](#environment-setup)." Keep the per-service line only when there are ≤2 services or when the services span multiple config files.
 
 ### Environment Setup
 
@@ -627,7 +627,7 @@ Patterns to detect source dependencies that must be cloned or initialized before
 
 ## Schema Bootstrap
 
-Precedence rule and connection-mode-aware invocation forms for the Installation H3's Schema Bootstrap sub-block. Two principles drive the design: (a) **Pick exactly one mechanism as primary** — applying two schema-creating mechanisms against the same database usually produces conflicting schemas (a hand-maintained `DatabaseNew.sql` and an ORM migration history rarely produce the same shape, and re-running an ORM migration after the SQL bootstrap leaves the migration table out of sync). (b) **Connection-mode-aware invocation** — the detector's bare `<tool> -i <file>` hint defaults to the local-default-instance + Windows-auth / peer-auth path, which is the wrong default when the destination DB lives in Docker.
+Precedence rule and connection-mode-aware invocation forms for the Installation section's Schema Bootstrap sub-block. Two principles drive the design: (a) **Pick exactly one mechanism as primary** — applying two schema-creating mechanisms against the same database usually produces conflicting schemas (a hand-maintained `DatabaseNew.sql` and an ORM migration history rarely produce the same shape, and re-running an ORM migration after the SQL bootstrap leaves the migration table out of sync). (b) **Connection-mode-aware invocation** — the detector's bare `<tool> -i <file>` hint defaults to the local-default-instance + Windows-auth / peer-auth path, which is the wrong default when the destination DB lives in Docker.
 
 ### Pick-one rule
 
@@ -640,7 +640,7 @@ Precedence (apply in order; first match selects the **primary** mechanism):
 
 1. **ORM migration tool detected.** When *Database migrations* is set to a recognized tool, render the ORM's migrate command from the table below as the primary mechanism. Demote any `raw-sql` rows in *Schema Bootstrap* to a "Legacy / alternative — superseded by ORM migrations" callout.
 2. **Raw-SQL bootstrap detected (no ORM).** When *Schema Bootstrap* contains `raw-sql` rows and no ORM is detected, the first row by detector report order is primary. Demote any further `raw-sql` rows to "Alternative bootstrap script" callouts.
-3. **Seed / fixture only.** When only `seed-script` / `fixture-load` rows exist, render them as the primary "after schema is in place, populate seed data: …" step. Seeds populate data, not schema, so they never compete with ORM/raw-SQL mechanisms — when both seeds AND a schema mechanism exist, render the schema mechanism first and the seed step as a follow-up bullet (the Installation H3 template already shows this two-bullet layout).
+3. **Seed / fixture only.** When only `seed-script` / `fixture-load` rows exist, render them as the primary "after schema is in place, populate seed data: …" step. Seeds populate data, not schema, so they never compete with ORM/raw-SQL mechanisms — when both seeds AND a schema mechanism exist, render the schema mechanism first and the seed step as a follow-up bullet (the Installation template already shows this two-bullet layout).
 
 ORM migrate-command catalog (consumed by precedence rule 1):
 
@@ -669,13 +669,15 @@ When the destination DB row's *Recommended runtime* (per the Step 3 assessment t
 | CLI | Bare form (Local install only) | Docker-preferred / Docker (offline) form |
 |---|---|---|
 | `sqlcmd` (SQL Server) | `sqlcmd -i <file>` | `sqlcmd -S "<host>,<host-port>" -U <user> -P '<password-placeholder>' -C [-d <db>] -i <file>` |
-| `psql` (PostgreSQL) | `psql -f <file>` | `psql -h <host> -p <host-port> -U <user> -d <db> -f <file>` (set `PGPASSWORD='<password-placeholder>'` in the surrounding shell or pass `--password` for interactive prompt) |
+| `psql` (PostgreSQL) | `psql -f <file>` | `psql -h <host> -p <host-port> -U <user> -d <db> -f <file>` — pass the password via `PGPASSWORD='<password-placeholder>'` exported in the surrounding shell, or pass `-W` to force an interactive prompt |
 | `mysql` (MySQL/MariaDB) | `mysql < <file>` | `mysql -h <host> -P <host-port> -u <user> -p'<password-placeholder>' <db> < <file>` |
 | `mongosh` (MongoDB) | `mongosh --file <file>` | `mongosh "mongodb://<user>:<password-placeholder>@<host>:<host-port>/<db>?authSource=admin" --file <file>` |
 
+The `sqlcmd`, `mysql`, and `mongosh` forms put the password on the command line, so the substituted value is visible in the host's process listing (`ps -ef`, `Get-Process | Select-Object CommandLine`) for the duration of the command. On shared dev hosts (CI runners, multi-user VMs) prefer the per-tool secure-credential mechanisms — `~/.pgpass` (mode `0600`) for `psql` per [libpq docs](https://www.postgresql.org/docs/current/libpq-pgpass.html), `~/.my.cnf` (mode `0600`) for `mysql`, the `SQLCMDPASSWORD` environment variable for `sqlcmd`. The env-var form is narrower than the command-line form (visible only in `/proc/<pid>/environ` on Linux, not in `ps`), but the credential-file form is narrower still.
+
 ORM migrate commands from the catalog above are NOT enriched with connection flags — ORM tools read their connection details from the project's config files (`prisma/schema.prisma`, `alembic.ini`, `appsettings.json`, etc.) which Step 6's connection-string-shift audit already verifies match the recommended runtime. Substituting host/port into an ORM command would conflict with the ORM's own config-file connection.
 
-Substitute every placeholder from the matching External Services snippet (the same snippet the External Services H3 already rendered):
+Substitute every placeholder from the matching External Services snippet (the same snippet the External Services per-service subsection already rendered):
 
 - `<host>` → `127.0.0.1` when the detector's *Hardware / OS Requirements* table contains `Windows 10`, `Windows 11`, or `Windows` (per [§Common Issues](#common-issues) IPv4/IPv6 caveat); else `localhost`.
 - `<host-port>` → the port from the snippet's `-p <host>:<host-port>:<container-port>` line.
@@ -738,7 +740,7 @@ Render the ladder as a top-level bullet under `### Common Issues`, sharing the b
 ```markdown
 - **Host can't connect to <Service> on `<host>:<host-port>` but `docker ps` shows the container as `Up`?** Walk down this ladder:
   1. **Did the container actually finish starting?** `docker logs --tail 50 <project-slug>-<service-slug>`. First-boot for `<Service>` typically takes 10–20s; if the log shows recent startup messages but no readiness signal yet, wait 10s and retry the host connection.
-  2. **Does the connection work from inside the container?** Run the verify command shown in the External Services entry for `<Service>` (`docker exec <project-slug>-<service-slug> <verify-cmd>`). If it succeeds inside but the host still fails, the container is up — the problem is between the host and the published port (steps 3–5 below).
+  2. **Does the connection work from inside the container?** Run the `**Verify <Service> is reachable.**` bullet from this section above (`docker exec <project-slug>-<service-slug> <verify-cmd>`). If it succeeds inside but the host still fails, the container is up — the problem is between the host and the published port (steps 3–5 below).
   3. **(Windows hosts) Is `localhost` resolving to IPv6?** Replace `localhost` with `127.0.0.1` explicitly in your client / connection string. The snippet publishes the container as `-p 127.0.0.1:<host-port>:<container-port>` (IPv4-only); Windows resolves `localhost` to `::1` (IPv6) first and the IPv6 lookup times out before falling back. (Render this step only when the detector's *Hardware / OS Requirements* table contains Windows.)
   4. **Is the host port actually mapped?** `docker port <project-slug>-<service-slug>`. The output should include `<container-port>/tcp -> 127.0.0.1:<host-port>` (or `0.0.0.0:<host-port>` if the snippet was rebound). If the listed mapping doesn't match what your connection string uses, recreate the container with the correct `-p`.
   5. **Is a non-Docker process holding the port?** `Get-NetTCPConnection -LocalPort <host-port>` (PowerShell) / `lsof -i :<host-port>` (macOS / Linux) / `netstat -ano | findstr :<host-port>` (Windows cmd). If the port is bound by a non-Docker process (e.g., a local install of `<Service>`), stop that process or republish the container on a different host-port.
@@ -759,10 +761,6 @@ Substitute `<Service>`, `<host>`, `<host-port>`, `<project-slug>-<service-slug>`
 ```
 
 Substitute `<test command>` from the detector's *Commands* table `test` row, `<project-slug>-<db-service-slug>` from the External Services row whose `Type` is `database` (kebab-cased per the slug rules in [`SKILL.md`](../SKILL.md) Step 4 item 5), and `<tool>` / `<host>` / `<host-port>` / `<user>` / `<password-placeholder>` from the matching [§Schema Bootstrap](#schema-bootstrap) §Connection-mode-aware invocation row already rendered in Installation. The ladder's step 3 references the Pre-Conditions block from [`external-services-docker.md`](external-services-docker.md) §Pre-Conditions Block; step 4 references the connection-mode-aware invocation table from §Schema Bootstrap above. Both are conditional renders driven by detector signals, so the ladder coheres with the rest of the rendered file.
-
-### Adding new ladders
-
-Future contributors extending this library should respect three rules: (a) every ladder must have an explicit *Trigger* — no "always-render" ladders; (b) every step must be a concrete diagnostic command, not a question; (c) the ladder format above is required (Markdown numbered list inside a top-level bullet) so Step 6's audits can identify ladder steps for grounded-token validation. The Specific-Token Audit in SKILL.md Step 6 already audits all rendered ports, paths, versions, and counts — ladders are subject to the same checks.
 
 ## Multi-Repo Workspace HOW-TO-RUN Template
 
