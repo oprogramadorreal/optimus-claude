@@ -35,7 +35,7 @@ git log --no-merges --oneline --extended-regexp --grep="^fix[(: ]|^revert[(: ]|b
 
 ## Focus Areas
 
-- **Intent mismatch (highest priority when an intent source is present)** — when the prompt includes a PR/MR Context Block, a User Intent Block, or an unambiguous in-diff comment / commit subject stating what the change should do, check whether the diff actually accomplishes it. Flag a finding when the stated intent has a missed sub-requirement, an inverted behavior (does X when intent says do not-X), or a partially applied change (intent describes editing N call sites; only K < N were edited, leaving the rest divergent). Cite the specific intent fragment that the code contradicts. **If no intent source is present in the prompt, skip this category entirely — do not speculate about intent.**
+- **Intent mismatch (highest priority when an intent source is present)** — when the prompt includes a PR/MR Context Block or a User Intent Block, flag where the diff fails to deliver that stated intent (missing, inverted, or partially applied — e.g., 4 of 5 call sites edited). Cite the specific intent fragment the code contradicts. If neither block is present in the prompt, skip this category entirely — do not speculate from pre-scan commit subjects or diff comments.
 - Null/undefined access without checks
 - Off-by-one errors
 - Race conditions in async code
@@ -50,7 +50,7 @@ git log --no-merges --oneline --extended-regexp --grep="^fix[(: ]|^revert[(: ]|b
 For each finding report in this exact format:
 
 - **File:** file:line
-- **Category:** Bug | Logic Error
+- **Category:** Bug | Logic Error | Intent Mismatch
 - **Confidence:** High | Medium
 - **Issue:** [concrete description]
 - **Code:** [relevant snippet — max 5 lines]

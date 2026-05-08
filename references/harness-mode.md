@@ -104,7 +104,9 @@ If `scope_files.current` is non-empty, use it as the file list for agents — th
 
 After reading the progress file, proceed through the skill's Step 3, Step 4, and Step 5 in order. Skip only the Step 2 user confirmation. Under harness mode, Step 3 must use the "no local changes → branch-diff" path automatically: the harness requires a clean working tree, so local changes will always be empty. Skip the interactive scope offers, the scope summary presentation, and the large-diff warning.
 
-If `config.pr_description` is non-null, treat it as equivalent to the `pr-description` that interactive Step 3 captures from `gh pr view`: inject it into agent prompts per Step 5 "PR/MR context injection" and apply the Step 6 "PR/MR description as intent signal" soft-confidence adjustment during validation. Do not re-fetch via `gh pr view` — the harness already captured it, and skipping the extra fetch keeps the Claude session turn budget lean.
+If `config.pr_description` is non-null and its `body` is non-empty after trimming whitespace, treat it as equivalent to the `pr-description` that interactive Step 3 captures from `gh pr view`: inject it into agent prompts per Step 5 "PR/MR context injection" and apply the Step 6 "Author intent as a signal" soft-confidence adjustment during validation. Do not re-fetch via `gh pr view` — the harness already captured it.
+
+If no PR/MR Context Block was injected (either `config.pr_description` is null or its `body` is empty/whitespace-only) and the calling skill defines author-intent capture for the no-PR path, follow Step 3's branch-intent capture to populate `branch-intent-text`, then inject the User Intent Block per Step 5 "User-intent injection". For the base ref: use `config.pr_description.base_ref` when `config.pr_description` is non-null and its `base_ref` is set; otherwise apply default-branch detection per Step 3.
 
 ### 2. Build iteration context (iterations 2+)
 

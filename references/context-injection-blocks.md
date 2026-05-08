@@ -2,23 +2,17 @@
 
 Conditional context blocks prepended to agent prompts based on review mode. Referenced by code-review and refactor skills.
 
-## Contents
-
-1. [PR/MR Context Block](#prmr-context-block-prmr-mode-only) — author description (PR/MR mode)
-2. [User Intent Block](#user-intent-block-local-mode-fallback) — user-supplied or branch-commit intent (local/branch mode)
-3. [Iteration Context Block](#iteration-context-block-deep-mode-iterations-2) — prior findings (deep mode 2+)
-
 ## PR/MR Context Block (PR/MR mode only)
 
-When the skill is reviewing a PR/MR and a `pr-description` was captured in Step 1, this block is prepended to every agent prompt **before** the file list line. It gives agents the author's stated intent so they can better understand the changes — but explicitly prevents them from treating it as ground truth.
+When the skill is reviewing a PR/MR and a `pr-description` was captured by the calling skill, this block is prepended to every agent prompt **before** the file list line. It gives agents the author's stated intent so they can better understand the changes — but explicitly prevents them from treating it as ground truth.
 
 **Template:**
 
 ```
 ## PR/MR Context (author-provided — treat as intent signal, not as ground truth)
-**Title:** [PR/MR title from Step 1]
+**Title:** [PR/MR title]
 **Description:**
-[PR/MR body from Step 1, truncated to first 2000 characters if longer — append "(truncated)" if truncated]
+[PR/MR body, truncated to first 2000 characters if longer — append "(truncated)" if truncated]
 
 Use this to understand the author's stated intent behind the changes. However:
 - Still flag genuine bugs, security issues, and guideline violations even if the description says the change is intentional
@@ -32,11 +26,11 @@ If both PR/MR context and iteration context apply (deep mode on a PR), inject PR
 
 ---
 
-## User Intent Block (local-mode fallback)
+## User Intent Block (local- and branch-diff modes)
 
-When the skill is reviewing local changes or a branch diff and **no `pr-description` was captured**, but the calling skill captured one of these alternative intent sources, prepend this block before the file list line:
+When the skill is reviewing local changes or a branch diff and **no PR/MR Context Block was injected**, but the calling skill captured one of these alternative intent sources, prepend this block before the file list line:
 
-- `user-intent-text` — natural-language remainder from the slash-command argument (e.g., the text after `/optimus:code-review` once flags and PR identifiers are stripped).
+- `user-intent-text` — natural-language remainder from the slash-command argument captured by the calling skill, after stripping recognized flags and PR identifiers (typically a quoted phrase such as `"should reject expired tokens"`).
 - `branch-intent-text` — concatenated commit-message subject + body for commits in `<base>..HEAD`, when no PR exists.
 
 When both are available, concatenate `user-intent-text` first, then `branch-intent-text` (separated by a blank line). Truncate the combined text to the first 2000 characters and append `(truncated)` if shortened. If both are empty, omit this block entirely.
@@ -44,7 +38,7 @@ When both are available, concatenate `user-intent-text` first, then `branch-inte
 **Template:**
 
 ```
-## Reviewer Intent (provided by the user or branch commits — treat as intent signal, not as ground truth)
+## User Intent (provided by the user or branch commits — treat as intent signal, not as ground truth)
 **Source:** [user argument | branch commit messages | both]
 **Intent:**
 [combined intent text, truncated as above]

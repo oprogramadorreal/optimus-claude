@@ -1,5 +1,5 @@
 ---
-description: Reviews local changes, PRs/MRs, or branch diffs against project coding guidelines using 5 to 7 parallel review agents (bug detection, security/logic, guideline compliance x2, code simplification, test coverage, contract quality). Use before committing, on open PRs/MRs, or to review any branch diff. HIGH SIGNAL only: real bugs, logic errors, security concerns, and guideline violations. Supports a "deep" mode for iterative auto-fix — reviews and fixes code in a loop until clean.
+description: Reviews local changes, PRs/MRs, or branch diffs against project coding guidelines using 5 to 7 parallel review agents (bug detection, security/logic, guideline compliance x2, code simplification, test coverage, contract quality). Use before committing, on open PRs/MRs, or to review any branch diff. HIGH SIGNAL only: real bugs, logic errors, security concerns, guideline violations, and intent-mismatch bugs (where code is internally correct but does not deliver what the user, PR description, or commit messages stated as intent). Supports a "deep" mode for iterative auto-fix — reviews and fixes code in a loop until clean.
 disable-model-invocation: true
 ---
 
@@ -15,7 +15,7 @@ Extract from the user's arguments:
 1. `deep` flag (present/absent)
 2. `harness` keyword after `deep` (present/absent)
 3. `--branch` flag (present/absent) — overrides Step 3's PR auto-route. Has no effect when local changes are present or when an explicit PR is requested (`--pr N`, `#N`, or a PR URL). Recorded as `force-branch-diff` for Step 3.
-4. Everything else → scope/focus instructions (natural language, including PR numbers, paths, refs). Also store the same free-text as `user-intent-text` (may be empty) — Step 5 injects it as a User Intent Block when no PR description is available, so reviewer-supplied phrasing like *"should now reject expired tokens"* reaches the agents instead of being dropped after path filtering.
+4. Everything else → scope/focus instructions (natural language, including PR numbers, paths, refs). After stripping recognized PR identifiers (`--pr <N>` as a pair, `#N`, PR URLs) and the `--branch` flag from the remainder, store the rest as `user-intent-text` (may be empty). Quoted phrases such as `"should reject expired tokens"` are the typical form.
 
 Examples:
 - `/optimus:code-review` → local changes, normal mode
@@ -77,7 +77,7 @@ Tell the user: *Tip: For large codebases or extended sessions, re-run with `/opt
 
 If the user did not invoke with `deep`, skip this step.
 
-If the user selects **Normal mode**, continue with the standard single-pass flow. Record the user's choice as a `deep-mode` flag for subsequent steps. If deep mode is confirmed, initialize `iteration-count` to 1, `total-fixed` to 0, `total-reverted` to 0, and `accumulated-findings` to an empty list. Each entry in `accumulated-findings` tracks: **file** (with line), **category** (Bug, Security, Guideline Violation, Code Quality, Test Coverage Gap, Contract Quality), **guideline** (the specific project rule, or "General: bug/security/contract quality"), **summary** (one-sentence description of the issue), **fix description** (brief description of the fix applied or attempted), **iteration** (which iteration discovered it), and **status** (updated through apply/test phases).
+If the user selects **Normal mode**, continue with the standard single-pass flow. Record the user's choice as a `deep-mode` flag for subsequent steps. If deep mode is confirmed, initialize `iteration-count` to 1, `total-fixed` to 0, `total-reverted` to 0, and `accumulated-findings` to an empty list. Each entry in `accumulated-findings` tracks: **file** (with line), **category** (Bug, Security, Guideline Violation, Code Quality, Test Coverage Gap, Contract Quality, Intent Mismatch), **guideline** (the specific project rule, or "General: bug/security/contract quality"), **summary** (one-sentence description of the issue), **fix description** (brief description of the fix applied or attempted), **iteration** (which iteration discovered it), and **status** (updated through apply/test phases).
 
 ## Step 3: Determine Review Scope
 
@@ -141,7 +141,7 @@ When the user says "review PR #42", passes `--pr`, `#123`, or a PR URL:
 When the user says "review changes since main" or a similar reference:
 - Use `git diff <ref>...HEAD` for the diff
 - Use `git diff --name-only <ref>...HEAD` for the file list
-- If no `pr-description` was captured (i.e., this is a true branch-diff route, not the auto-PR fallback), also run `git log --no-merges --format="%h %s%n%b" <ref>..HEAD` and store the concatenated subject + body lines as `branch-intent-text`. Truncate to the first 2000 characters. Skip gracefully on shallow clones or empty ranges. Step 5 uses this with `user-intent-text` to build the User Intent Block when no PR description exists.
+- Also run `git log --no-merges --format="%h %s%n%b" <ref>..HEAD` and store the concatenated subject + body as `branch-intent-text`, truncated to 2000 characters. Skip gracefully on shallow clones or empty ranges.
 
 ### Path filter
 
@@ -201,21 +201,21 @@ Read the agent prompt files from `$CLAUDE_PLUGIN_ROOT/skills/code-review/agents/
 
 ### PR/MR context injection (PR/MR mode only)
 
-If a `pr-description` was captured in Step 3 and its body is non-empty, prepend the PR/MR context block to every agent prompt before the file list. Read `$CLAUDE_PLUGIN_ROOT/skills/code-review/agents/context-blocks.md` for the template, truncation rule, and guardrail language.
+If a `pr-description` was captured in Step 3 and its body is non-empty after trimming whitespace, prepend the PR/MR Context Block to every agent prompt before the file list. Read `$CLAUDE_PLUGIN_ROOT/skills/code-review/agents/context-blocks.md` for the template, truncation rule, and guardrail language.
 
-### User-intent injection (local / branch-diff mode, no PR description)
+### User-intent injection (no-PR mode)
 
-If no `pr-description` was captured AND at least one of `user-intent-text` (from Step 1) or `branch-intent-text` (from Step 3) is non-empty, prepend the User Intent Block to every agent prompt before the file list. The same `agents/context-blocks.md` reference covers concatenation order, truncation, and guardrails. Skip silently when both sources are empty. Never inject both this block and the PR/MR Context Block — they are mutually exclusive.
+If no PR/MR Context Block was injected AND at least one of `user-intent-text` (from Step 1) or `branch-intent-text` (from Step 3) is non-empty after trimming whitespace, prepend the User Intent Block to every agent prompt before the file list. See `agents/context-blocks.md` for concatenation, truncation, and guardrails. Skip silently when both sources are empty.
 
 ### Iteration context injection (deep mode, iterations 2+)
 
-If deep mode is active and `iteration-count` > 1, prepend the iteration context block to every agent prompt before the file list (after whichever intent block applies — PR/MR or User Intent — if present). Read `$CLAUDE_PLUGIN_ROOT/skills/code-review/agents/context-blocks.md` for the template and format.
+If deep mode is active and `iteration-count` > 1, prepend the Iteration Context Block to every agent prompt before the file list. See `agents/context-blocks.md` for ordering when an intent block (PR/MR or User Intent) and the Iteration Context Block both apply.
 
 ### Agent overview
 
 | Agent | Role | Prompt file |
 |-------|------|-------------|
-| 1 — Bug Detector | Null access, off-by-one, race conditions, resource leaks, type mismatches | `bug-detector.md` |
+| 1 — Bug Detector | Intent-mismatch bugs (when an intent block is injected), null access, off-by-one, race conditions, resource leaks, type mismatches | `bug-detector.md` |
 | 2 — Security & Logic | SQL injection, XSS, hardcoded secrets, missing auth, security-relevant API violations | `security-reviewer.md` |
 | 3 — Guideline Compliance A | Explicit violations of project docs with exact rule citations | `guideline-reviewer.md` |
 | 4 — Guideline Compliance B | Same task as Agent 3 — independent review reduces false negatives | `guideline-reviewer.md` |
@@ -268,9 +268,11 @@ Whichever intent source applies — `pr-description` (PR/MR mode), `user-intent-
 - If the intent text claims intent but git history contradicts it or shows no supporting evidence → trust git history over the description (code over claims)
 - If the intent text is silent about a finding → no adjustment (absence of explanation is not evidence of intent)
 
+When the User Intent Block contains `branch-intent-text` (alone or concatenated with `user-intent-text`), the change-intent awareness check above already inspected the same git history. Apply the soft reduction at most once per finding — do not double-reduce on shared commit-message evidence.
+
 This is a **soft adjustment only** — it never hard-filters a finding. It reduces the chance of undoing deliberate previous work while still allowing genuinely problematic code to be flagged. The intent text and git history are complementary signals — neither alone can suppress a finding.
 
-Use the **opposite direction** of the same signal to *boost* confidence when the intent text describes what the change was *supposed* to do and the diff plainly fails to deliver it (e.g., the user says "reject expired tokens" but the relevant branch on `validateToken` still returns true). The bug-detector agent already owns this "intent mismatch" finding class — this validation step's role is only to keep its confidence intact rather than soften it. Do not invent intent-mismatch findings here; only preserve those an agent already produced.
+Findings that the bug-detector categorizes as "Intent Mismatch" (the diff fails to deliver what the intent text states) are exempt from the soft reduction — keep their confidence intact.
 
 Skip gracefully if `git log` fails or returns no results (e.g., shallow clone, newly created file, or file outside the repository).
 
@@ -330,9 +332,9 @@ Maximum **15 findings** across all sources, prioritized by severity then confide
 
 ### Findings
 
-**[N]. [Finding title]** (Critical/Warning/Suggestion — [Bug/Security/Guideline/Quality/Test Gap/Contract])
+**[N]. [Finding title]** (Critical/Warning/Suggestion — [Bug/Security/Guideline/Quality/Test Gap/Contract/Intent Mismatch])
 - **File:** `file:line`
-- **Category:** [Bug | Security | Guideline Violation | Code Quality | Test Coverage Gap | Contract Quality]
+- **Category:** [Bug | Security | Guideline Violation | Code Quality | Test Coverage Gap | Contract Quality | Intent Mismatch]
 - **Guideline:** [which project guideline, or "General: bug/security/contract quality"]
 - **Issue:** [concrete description]
 - **Current:**
@@ -423,7 +425,7 @@ Column definitions:
 - **File** — `file:line`
 - **What Changed** — Brief description of the fix applied or attempted
 - **Reason** — Why the change was needed (the issue/problem)
-- **Guideline / Category** — The specific project guideline violated (or "General: bug/security/contract quality" for non-guideline findings), plus the category (Bug, Security, Guideline Violation, Code Quality, Test Coverage Gap, Contract Quality)
+- **Guideline / Category** — The specific project guideline violated (or "General: bug/security/contract quality" for non-guideline findings), plus the category (Bug, Security, Guideline Violation, Code Quality, Test Coverage Gap, Contract Quality, Intent Mismatch)
 - **Status** — `fixed`, `reverted — test failure`, `reverted — attempt 2`, or `persistent — fix failed`
 
 For condition 4 (continue), after presenting the iteration report also show the progress summary: "Iteration [N] of up to 8 — [total-fixed] findings fixed so far, [total-reverted] reverted. Starting next pass..." If the **next** iteration will be 3 or higher, append to the progress summary: "Note: context is accumulating — if output quality degrades, consider finishing remaining findings in a fresh conversation." Then increment `iteration-count` and **return to Step 5** for the next analysis pass. When returning to Step 5, re-gather the current diff (the codebase has changed due to applied fixes) and focus agents on files that had findings in any previous iteration plus any newly modified files.

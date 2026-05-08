@@ -35,6 +35,7 @@ In Claude Code, use any of these:
 - `/optimus:code-review` "review PR #42"
 - `/optimus:code-review` "review changes since main"
 - `/optimus:code-review` "focus on src/auth"
+- `/optimus:code-review` "should reject expired tokens" — supply free-text intent so bug-detector flags code that fails to deliver it
 - `/optimus:code-review --branch` — force branch diff against the detected base, skipping PR auto-route
 - `/optimus:code-review deep` — iterative review-fix until clean (max 8 passes)
 - `/optimus:code-review deep` "review PR #42" — deep mode on a PR

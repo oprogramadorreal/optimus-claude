@@ -26,11 +26,11 @@ Each skill-level agent directory typically contains:
 
 - **Individual agent prompts** — one `.md` file per agent
 - **`shared-constraints.md`** — skill-specific addendums to the base constraints in `references/shared-agent-constraints.md`
-- **`context-blocks.md`** (optional) — conditional context injection templates for PR/MR context and iteration context
+- **`context-blocks.md`** (optional) — conditional context injection templates for PR/MR context, user-intent, and iteration context
 
 | Skill | Agents | Notes |
 |-------|--------|-------|
-| code-review | bug-detector, code-simplifier, contracts-reviewer, guideline-reviewer, security-reviewer, test-guardian | + context-blocks.md for PR/MR and iteration context |
+| code-review | bug-detector, code-simplifier, contracts-reviewer, guideline-reviewer, security-reviewer, test-guardian | + context-blocks.md for PR/MR, user-intent, and iteration context |
 | refactor | code-simplifier, consistency-analyzer, guideline-reviewer, testability-analyzer | + context-blocks.md for iteration context |
 | tdd | code-simplifier, test-guardian | Quality gate after each TDD cycle |
 | init | project-analyzer, documentation-auditor | Project analysis during setup |
@@ -66,6 +66,6 @@ Base constraints and context templates that apply across all skill-level agents 
 | File | Purpose |
 |------|---------|
 | `shared-agent-constraints.md` | Read-only analysis rules, quality bar (High/Medium only), exclusion rules, false-positive guidance |
-| `context-injection-blocks.md` | PR/MR context and iteration context templates used by code-review and refactor |
+| `context-injection-blocks.md` | PR/MR context, user-intent, and iteration context templates used by code-review and refactor |
 
 Review-oriented skills (code-review, refactor, tdd) have their `shared-constraints.md` read the base constraints and add skill-specific addendums (e.g., TDD limits findings to 5 per agent and scopes to changed files only). Other skills define standalone constraints tailored to their detection roles.
