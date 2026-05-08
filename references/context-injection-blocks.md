@@ -31,7 +31,7 @@ If both PR/MR context and iteration context apply (deep mode on a PR), inject PR
 When the skill is reviewing local changes or a branch diff and **no PR/MR Context Block was injected**, but the calling skill captured one of these alternative intent sources, prepend this block before the file list line:
 
 - `user-intent-text` — natural-language remainder from the slash-command argument captured by the calling skill, after stripping recognized flags and PR identifiers (typically a quoted phrase such as `"should reject expired tokens"`).
-- `branch-intent-text` — concatenated commit-message subject + body for commits in `<base>..HEAD`, when no PR exists.
+- `branch-intent-text` — concatenated commit-message subject + body for the most recent 10 commits in `<base>..HEAD`, when no PR exists.
 
 When both are available, concatenate `user-intent-text` first, then `branch-intent-text` (separated by a blank line). Truncate the combined text to the first 2000 characters and append `(truncated)` if shortened. If both are empty, omit this block entirely.
 

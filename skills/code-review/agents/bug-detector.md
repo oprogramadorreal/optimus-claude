@@ -35,7 +35,7 @@ git log --no-merges --oneline --extended-regexp --grep="^fix[(: ]|^revert[(: ]|b
 
 ## Focus Areas
 
-- **Intent mismatch (highest priority when an intent source is present)** — when the prompt includes a PR/MR Context Block or a User Intent Block, flag where the diff fails to deliver that stated intent (missing, inverted, or partially applied — e.g., 4 of 5 call sites edited). Cite the specific intent fragment the code contradicts. If neither block is present in the prompt, skip this category entirely — do not speculate from pre-scan commit subjects or diff comments.
+- **Intent mismatch (highest priority when an intent source is present)** — when the prompt includes a PR/MR Context Block or a User Intent Block, flag where the diff fails to deliver that stated intent (missing, inverted, or partially applied — e.g., 4 of 5 call sites edited). Cite the specific intent fragment the code contradicts. If neither block is present in the prompt, skip this category entirely — do not speculate from pre-scan commit subjects or diff comments. Additionally, skip when the intent text is too vague to anchor a specific finding: shorter than ~20 characters, or composed only of generic phrasing such as "cleanup", "improve X", "refactor", "polish", or "quick fix" with no concrete object/verb pair. Vague intent provides no falsifiable predicate to compare the diff against — speculative matching produces low-quality findings.
 - Null/undefined access without checks
 - Off-by-one errors
 - Race conditions in async code

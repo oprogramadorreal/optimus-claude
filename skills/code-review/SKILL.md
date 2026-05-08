@@ -141,7 +141,7 @@ When the user says "review PR #42", passes `--pr`, `#123`, or a PR URL:
 When the user says "review changes since main" or a similar reference:
 - Use `git diff <ref>...HEAD` for the diff
 - Use `git diff --name-only <ref>...HEAD` for the file list
-- Also run `git log --no-merges --format="%h %s%n%b" <ref>..HEAD` and store the concatenated subject + body as `branch-intent-text`, truncated to 2000 characters. Skip gracefully on shallow clones or empty ranges.
+- Also run `git log --no-merges -10 --format="%h %s%n%b" <ref>..HEAD` (cap at 10 most recent commits) and store the concatenated subject + body as `branch-intent-text`, truncated to 2000 characters. The 10-commit cap reduces stale-intent noise on long-lived branches where early commits no longer reflect the current state. Skip gracefully on shallow clones or empty ranges.
 
 ### Path filter
 
@@ -206,6 +206,8 @@ If a `pr-description` was captured in Step 3 and its body is non-empty after tri
 ### User-intent injection (no-PR mode)
 
 If no PR/MR Context Block was injected AND at least one of `user-intent-text` (from Step 1) or `branch-intent-text` (from Step 3) is non-empty after trimming whitespace, prepend the User Intent Block to every agent prompt before the file list. See `agents/context-blocks.md` for concatenation, truncation, and guardrails. Skip silently when both sources are empty.
+
+If a PR/MR Context Block was injected AND `user-intent-text` is non-empty after trimming whitespace, tell the user in one line: *"Free-text intent was supplied alongside `--pr` / `#N` — using the PR description as the primary intent source; free-text ignored. Drop the PR identifier to use the free-text instead."* This surfaces what would otherwise be a silent input drop under the mutual-exclusion rule.
 
 ### Iteration context injection (deep mode, iterations 2+)
 

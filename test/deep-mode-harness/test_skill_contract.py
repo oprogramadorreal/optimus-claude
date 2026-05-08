@@ -280,6 +280,61 @@ class TestCodeReviewAutoRouteContract:
         assert "If a `pr-description` was captured in Step" in text
 
 
+class TestCodeReviewIntentSourcesContract:
+    """Locks the user-intent-text / branch-intent-text / User Intent Block
+    cross-step bindings introduced for intent-mismatch detection. A rename
+    or section reorder without coordinated edits would silently disable the
+    feature — the existing Python harness tests do not cover the
+    markdown-only cross-step bindings these assertions guard."""
+
+    def test_user_intent_capture_step1_locked(self):
+        text = _read("skills/code-review/SKILL.md")
+        # Cross-step binding: Step 1 captures the slash-command remainder as
+        # `user-intent-text`; Step 5's User-intent injection consumes it. A
+        # rename would silently disable the user-supplied free-text path.
+        assert "store the rest as `user-intent-text`" in text
+
+    def test_branch_intent_capture_step3_locked(self):
+        text = _read("skills/code-review/SKILL.md")
+        # Step 3's branch-diff path captures `branch-intent-text` from a
+        # bounded git log. Drift in the command (lost `-10` cap, missing
+        # `--no-merges`, or rename of the binding) would break the no-PR
+        # intent source — and the 10-commit cap (R2 mitigation) could
+        # regress unnoticed without this assertion.
+        assert (
+            'git log --no-merges -10 --format="%h %s%n%b" <ref>..HEAD' in text
+        )
+        assert "`branch-intent-text`" in text
+
+    def test_user_intent_injection_step5_locked(self):
+        text = _read("skills/code-review/SKILL.md")
+        # Step 5's User-intent injection trigger and mutual-exclusion gate.
+        # A reorder would silently double-inject or never inject.
+        assert "If no PR/MR Context Block was injected AND" in text
+        assert "prepend the User Intent Block" in text
+
+    def test_pr_plus_freetext_notice_locked(self):
+        text = _read("skills/code-review/SKILL.md")
+        # Surfaces the silent input drop when `--pr` / `#N` is combined with
+        # free-text intent and PR mode wins mutual exclusion. Removal would
+        # restore the silent UX defect.
+        assert "Free-text intent was supplied alongside" in text
+
+    def test_intent_mismatch_guard_in_bug_detector_locked(self):
+        text = _read("skills/code-review/agents/bug-detector.md")
+        # The "skip if no intent source" guard is the load-bearing bound on
+        # false positives — its removal would let bug-detector speculate
+        # from pre-scan commit subjects, producing low-quality findings.
+        assert "skip this category entirely — do not speculate" in text
+
+    def test_intent_mismatch_specificity_guard_locked(self):
+        text = _read("skills/code-review/agents/bug-detector.md")
+        # The specificity guard suppresses speculative matching on vague
+        # intent ("cleanup", "improve X"). Removal would reopen the
+        # false-positive surface for aspirational free-text.
+        assert "too vague to anchor a specific finding" in text
+
+
 class TestRefactorHarnessContract:
     def test_refactor_harness_section_does_not_skip_scope_resolution(self):
         text = _read("skills/refactor/SKILL.md")
