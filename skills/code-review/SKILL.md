@@ -15,7 +15,7 @@ Extract from the user's arguments:
 1. `deep` flag (present/absent)
 2. `harness` keyword after `deep` (present/absent)
 3. `--branch` flag (present/absent) — overrides Step 3's PR auto-route. Has no effect when local changes are present or when an explicit PR is requested (`--pr N`, `#N`, or a PR URL). Recorded as `force-branch-diff` for Step 3.
-4. Everything else → scope/focus instructions (natural language, including PR numbers, paths, refs)
+4. Everything else → scope/focus instructions (natural language, including PR numbers, paths, refs). Also store the same free-text as `user-intent-text` (may be empty) — Step 5 injects it as a User Intent Block when no PR description is available, so reviewer-supplied phrasing like *"should now reject expired tokens"* reaches the agents instead of being dropped after path filtering.
 
 Examples:
 - `/optimus:code-review` → local changes, normal mode
@@ -141,6 +141,7 @@ When the user says "review PR #42", passes `--pr`, `#123`, or a PR URL:
 When the user says "review changes since main" or a similar reference:
 - Use `git diff <ref>...HEAD` for the diff
 - Use `git diff --name-only <ref>...HEAD` for the file list
+- If no `pr-description` was captured (i.e., this is a true branch-diff route, not the auto-PR fallback), also run `git log --no-merges --format="%h %s%n%b" <ref>..HEAD` and store the concatenated subject + body lines as `branch-intent-text`. Truncate to the first 2000 characters. Skip gracefully on shallow clones or empty ranges. Step 5 uses this with `user-intent-text` to build the User Intent Block when no PR description exists.
 
 ### Path filter
 
@@ -202,9 +203,13 @@ Read the agent prompt files from `$CLAUDE_PLUGIN_ROOT/skills/code-review/agents/
 
 If a `pr-description` was captured in Step 3 and its body is non-empty, prepend the PR/MR context block to every agent prompt before the file list. Read `$CLAUDE_PLUGIN_ROOT/skills/code-review/agents/context-blocks.md` for the template, truncation rule, and guardrail language.
 
+### User-intent injection (local / branch-diff mode, no PR description)
+
+If no `pr-description` was captured AND at least one of `user-intent-text` (from Step 1) or `branch-intent-text` (from Step 3) is non-empty, prepend the User Intent Block to every agent prompt before the file list. The same `agents/context-blocks.md` reference covers concatenation order, truncation, and guardrails. Skip silently when both sources are empty. Never inject both this block and the PR/MR Context Block — they are mutually exclusive.
+
 ### Iteration context injection (deep mode, iterations 2+)
 
-If deep mode is active and `iteration-count` > 1, prepend the iteration context block to every agent prompt before the file list (after the PR/MR context block, if present). Read `$CLAUDE_PLUGIN_ROOT/skills/code-review/agents/context-blocks.md` for the template and format.
+If deep mode is active and `iteration-count` > 1, prepend the iteration context block to every agent prompt before the file list (after whichever intent block applies — PR/MR or User Intent — if present). Read `$CLAUDE_PLUGIN_ROOT/skills/code-review/agents/context-blocks.md` for the template and format.
 
 ### Agent overview
 
@@ -255,15 +260,17 @@ If a recent commit message clearly indicates deliberate code introduction (e.g.,
 
 For uninformative commit messages (fewer than 15 characters, or generic like "fix", "update", "changes"), run `git show <sha> -- <file>` to examine the actual diff for intent patterns: added null checks, validation logic, error handling, or security measures. Apply the same confidence reduction if the diff shows deliberate defensive code that a finding wants to remove.
 
-### PR/MR description as intent signal
+### Author intent as a signal
 
-If a `pr-description` was captured in Step 3 (PR/MR mode), use it as an additional intent signal during validation:
+Whichever intent source applies — `pr-description` (PR/MR mode), `user-intent-text` (Step 1 free-text), or `branch-intent-text` (Step 3 branch-commit messages) — use it as an additional signal during validation:
 
-- If the PR/MR description explicitly explains **why** a flagged change was made (e.g., "moved validation to middleware" explains removed validation) **and** git history corroborates it → apply one confidence reduction (same as change-intent above)
-- If the PR/MR description claims intent but git history contradicts it or shows no supporting evidence → trust git history over the description (code over claims)
-- If the PR/MR description is silent about a finding → no adjustment (absence of explanation is not evidence of intent)
+- If the intent text explicitly explains **why** a flagged change was made (e.g., "moved validation to middleware" explains removed validation) **and** git history corroborates it → apply one confidence reduction (same as change-intent above)
+- If the intent text claims intent but git history contradicts it or shows no supporting evidence → trust git history over the description (code over claims)
+- If the intent text is silent about a finding → no adjustment (absence of explanation is not evidence of intent)
 
-This is a **soft adjustment only** — it never hard-filters a finding. It reduces the chance of undoing deliberate previous work while still allowing genuinely problematic code to be flagged. The PR/MR description and git history are complementary signals — neither alone can suppress a finding.
+This is a **soft adjustment only** — it never hard-filters a finding. It reduces the chance of undoing deliberate previous work while still allowing genuinely problematic code to be flagged. The intent text and git history are complementary signals — neither alone can suppress a finding.
+
+Use the **opposite direction** of the same signal to *boost* confidence when the intent text describes what the change was *supposed* to do and the diff plainly fails to deliver it (e.g., the user says "reject expired tokens" but the relevant branch on `validateToken` still returns true). The bug-detector agent already owns this "intent mismatch" finding class — this validation step's role is only to keep its confidence intact rather than soften it. Do not invent intent-mismatch findings here; only preserve those an agent already produced.
 
 Skip gracefully if `git log` fails or returns no results (e.g., shallow clone, newly created file, or file outside the repository).
 

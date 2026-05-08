@@ -11,7 +11,7 @@ Well-maintained code has [30%+ fewer AI-introduced defects](https://arxiv.org/ab
 - **Project-aware** — evaluates against your coding-guidelines.md, testing.md, architecture.md, and styling.md. For projects with a skill-authoring stack, markdown instruction files under `skills/`, `agents/`, `prompts/`, `commands/`, or `instructions/` are evaluated against `skill-writing-guidelines.md` instead of `coding-guidelines.md` — both lenses apply side-by-side on mixed changes, each to its own files.
 - **High signal only** — bugs, security issues, logic errors, explicit guideline violations; excludes style concerns and subjective suggestions
 - **Change-intent awareness** — checks recent git history and PR/MR descriptions to avoid flagging code that was deliberately introduced (e.g., a null check added for a bug fix), reducing false positives
-- **PR/MR context awareness** — in PR/MR mode, agents receive the author's description as an intent signal (with explicit guardrails against bias) so they understand the "why" behind changes without suppressing genuine findings
+- **Author-intent context** — agents receive the author's stated intent so they can detect *intent-mismatch bugs* (the code is internally correct but doesn't do what was asked). Sources, in priority order: PR/MR description (PR mode), free-text after the slash command (e.g., `/optimus:code-review "should reject expired tokens"`), and the concatenated commit messages on the branch (when no PR exists). All carry explicit guardrails against treating intent as ground truth — genuine bugs and guideline violations are still flagged regardless of what the intent says
 - **Validation step** — each finding is independently verified (context check, intent check, pre-existing check, cross-agent consensus, runtime assumption check) using an evidence-based verification protocol before reporting
 - **Contradiction resolution** — cross-agent contradictions (e.g., "add more validation" vs. "simplify this validation") are detected and resolved by severity to prevent circular fix loops
 - **Deep mode** — iterative review-fix loop (max 8 iterations) with automatic fix application and test verification; catches issues that single-pass review misses due to LLM attention limitations. Each sub-agent surfaces up to 15 distinct findings per pass, and structural-neighbor expansion lets agents catch consistency gaps in sibling files before they leak into later iterations
@@ -204,7 +204,7 @@ This is followed by the full detailed findings with code snippets (same format a
 
 ## How It Works
 
-1. Gathers local changes (or PR diff) via git commands; in PR/MR mode, captures the author's description for intent context
+1. Gathers local changes (or PR diff) via git commands. Captures author intent from whichever source is available: PR/MR description (PR mode), free-text after the slash command (any mode), or commit messages on the branch (no-PR branch-diff mode). The bug-detector uses this to flag intent-mismatch bugs in addition to mechanical defects
 2. Loads project docs (CLAUDE.md, coding-guidelines.md, skill-writing-guidelines.md (if present), testing.md, etc.) with fallbacks for missing docs. In skill-authoring projects, the shared `constraint-doc-loading.md` reference automatically routes markdown instruction files through the skill-writing lens.
 3. Activates deep mode if requested (requires test command, confirms with user)
 4. Launches 5 to 7 parallel review agents (bug detection, security/logic, guideline compliance x2, code-simplifier, test-guardian, contracts-reviewer)
