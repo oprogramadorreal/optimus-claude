@@ -334,6 +334,27 @@ class TestCodeReviewIntentSourcesContract:
         # false-positive surface for aspirational free-text.
         assert "too vague to anchor a specific finding" in text
 
+    def test_step1_excludes_scope_only_remainders(self):
+        text = _read("skills/code-review/SKILL.md")
+        # Step 1 must classify path-like and scope-keyword remainders as
+        # scope-only (so they do not become `user-intent-text`). Removing
+        # this filter would let `/optimus:code-review src/auth` or
+        # `/optimus:code-review "focus on src/auth"` flow as intent and
+        # produce speculative intent-mismatch findings against scope text —
+        # the bug-detector specificity guard alone is heuristic.
+        assert "Scope-only remainders" in text
+        assert "`focus on`, `scope to`, `review`, `only`" in text
+        assert "leave `user-intent-text` empty" in text
+
+    def test_harness_branch_intent_skip_notice_locked(self):
+        text = _read("references/harness-mode.md")
+        # Under harness mode, branch-intent capture is in-session and silent
+        # on shallow clones. The `[branch-intent] skipped — <reason>` notice
+        # makes the drop observable in the harness log without changing the
+        # JSON schema. Removal would restore the silent failure mode.
+        assert "[branch-intent] skipped" in text
+        assert "before** the JSON block" in text
+
 
 class TestRefactorHarnessContract:
     def test_refactor_harness_section_does_not_skip_scope_resolution(self):

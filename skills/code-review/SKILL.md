@@ -15,7 +15,9 @@ Extract from the user's arguments:
 1. `deep` flag (present/absent)
 2. `harness` keyword after `deep` (present/absent)
 3. `--branch` flag (present/absent) — overrides Step 3's PR auto-route. Has no effect when local changes are present or when an explicit PR is requested (`--pr N`, `#N`, or a PR URL). Recorded as `force-branch-diff` for Step 3.
-4. Everything else → scope/focus instructions (natural language, including PR numbers, paths, refs). After stripping recognized PR identifiers (`--pr <N>` as a pair, `#N`, PR URLs) and the `--branch` flag from the remainder, store the rest as `user-intent-text` (may be empty). Quoted phrases such as `"should reject expired tokens"` are the typical form.
+4. Everything else → scope/focus instructions (natural language, including PR numbers, paths, refs). After stripping recognized PR identifiers (`--pr <N>` as a pair, `#N`, PR URLs) and the `--branch` flag from the remainder, classify what remains:
+   - **Scope-only remainders** — a single path-like token (contains `/`, or matches a relative path such as `src/auth`), or text starting with a recognized scope keyword (`focus on`, `scope to`, `review`, `only`) → leave `user-intent-text` empty; the text still flows as scope/focus guidance for Step 3 and the agents. This prevents path and scope phrases from being misread as author intent by the bug-detector's intent-mismatch check.
+   - **Otherwise** → store the rest as `user-intent-text` (may be empty). Quoted phrases such as `"should reject expired tokens"` are the typical form.
 
 Examples:
 - `/optimus:code-review` → local changes, normal mode

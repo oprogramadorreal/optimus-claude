@@ -108,6 +108,8 @@ If `config.pr_description` is non-null and its `body` is non-empty after trimmin
 
 If no PR/MR Context Block was injected (either `config.pr_description` is null or its `body` is empty/whitespace-only) and the calling skill defines author-intent capture for the no-PR path, follow Step 3's branch-intent capture to populate `branch-intent-text`, then inject the User Intent Block per Step 5 "User-intent injection". For the base ref: use `config.pr_description.base_ref` when `config.pr_description` is non-null and its `base_ref` is set; otherwise apply default-branch detection per Step 3.
 
+If branch-intent capture is skipped (shallow clone, empty range, or `git log` failure) or returns empty text after trimming, emit a one-line notice in the response markdown **before** the JSON block: `[branch-intent] skipped — <reason>`. The harness JSON parser ignores text outside the `json:harness-output` fence, so this does not change the schema — but it makes the otherwise-silent drop visible in the harness log.
+
 ### 2. Build iteration context (iterations 2+)
 
 If `iteration-count` > 1, construct the Iteration Context Block from the accumulated findings using the same template as `$CLAUDE_PLUGIN_ROOT/references/context-injection-blocks.md`:
