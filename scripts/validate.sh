@@ -773,16 +773,10 @@ for safety_msg in 'Remote code executor' 'Destructive command. Read it carefully
     wiring_errors+="  $walkthrough_ref missing safety message: $safety_msg\n"
   fi
 done
-# Audit verdicts — applied independently to each side of the contract. When
-# a file is missing the loop below produces one error per verdict, which is
-# more informative than a silent skip; the file-presence `check` lines above
-# also fire so the build still fails on the missing file.
 for verdict in "${audit_verdicts[@]}"; do
   if ! grep -qF "$verdict" "$walkthrough_ref" 2>/dev/null; then
     wiring_errors+="  $walkthrough_ref missing audit verdict: $verdict\n"
   fi
-done
-for verdict in "${audit_verdicts[@]}"; do
   if ! grep -qF "$verdict" "$auditor_agent" 2>/dev/null; then
     wiring_errors+="  $auditor_agent missing audit verdict: $verdict\n"
   fi
