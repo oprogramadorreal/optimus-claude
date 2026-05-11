@@ -732,21 +732,34 @@ check "how-to-run auditor agent present" test -f "$auditor_agent"
 if ! grep -qE '^## Step 3a:' "$how_to_run_skill" 2>/dev/null; then
   wiring_errors+="  $how_to_run_skill missing walkthrough heading: ^## Step 3a:\n"
 fi
-# Step 6 is the jump target for: Step 3 Skip route, Step 3a walkthrough
-# completion, and guided-walkthrough.md's "return control to SKILL.md Step 6"
-# closing line. A silent renumber would dangle all three control-flow jumps.
+# Step 6 is the jump target for Step 3 Skip and Step 3a completion; ensure
+# the heading exists. The textual 'jump to Step 6' references are validated
+# below in the control-flow phrases loop.
 if ! grep -qE '^## Step 6\b' "$how_to_run_skill" 2>/dev/null; then
   wiring_errors+="  $how_to_run_skill missing jump target: ^## Step 6\n"
 fi
-# Step 3 option labels — silent rename in SKILL.md without matching update in
-# the per-answer routing block would silently send the user down the wrong
+# Step 3 option labels — silent rename without matching update in the
+# per-answer routing block would silently send the user down the wrong
 # branch. '**Skip**' uses bold form because bare 'Skip' would also match
 # 'skipped' / 'Skip the prompt' in unrelated prose elsewhere in SKILL.md.
-# The frontmatter discoverability phrase 'guided in-chat walkthrough'
-# is also load-bearing for users finding this option.
-for literal_trigger in 'Walk through it' 'Regenerate' '**Skip**' 'Stop the walkthrough' 'guided-walkthrough.md' 'guided in-chat walkthrough' 'How to Run Documentation' 'jump to Step 3a' 'jump to Step 6'; do
-  if ! grep -qF "$literal_trigger" "$how_to_run_skill" 2>/dev/null; then
-    wiring_errors+="  $how_to_run_skill missing walkthrough trigger: $literal_trigger\n"
+for option_label in 'Walk through it' 'Regenerate' '**Skip**'; do
+  if ! grep -qF "$option_label" "$how_to_run_skill" 2>/dev/null; then
+    wiring_errors+="  $how_to_run_skill missing Step 3 option label: $option_label\n"
+  fi
+done
+# Control-flow phrases — exit strings and cross-step jump targets. A silent
+# rename here dangles the SKILL→walkthrough→SKILL handoff.
+for control_phrase in 'Stop the walkthrough' 'jump to Step 3a' 'jump to Step 6'; do
+  if ! grep -qF "$control_phrase" "$how_to_run_skill" 2>/dev/null; then
+    wiring_errors+="  $how_to_run_skill missing control-flow phrase: $control_phrase\n"
+  fi
+done
+# Discoverability strings — the AskUserQuestion header that the user sees,
+# the reference file path SKILL.md loads, and the frontmatter phrase that
+# surfaces this option in skill descriptions.
+for discoverability_string in 'guided-walkthrough.md' 'guided in-chat walkthrough' 'How to Run Documentation'; do
+  if ! grep -qF "$discoverability_string" "$how_to_run_skill" 2>/dev/null; then
+    wiring_errors+="  $how_to_run_skill missing discoverability string: $discoverability_string\n"
   fi
 done
 for heading in '^## Pre-flight' '^## Per-step loop' '^## Advisory flags' '^## Display sanitization' '^## Heavy-staleness handling' '^## Completion summary' '^## What this walkthrough never modifies'; do
@@ -762,18 +775,30 @@ for option_label in '"Done"' '"Skip"' '"Stop the walkthrough"'; do
     wiring_errors+="  $walkthrough_ref missing option label: $option_label\n"
   fi
 done
-# User-facing advisory / control strings — load-bearing prose whose silent
-# rename creates a real gap:
-#   - Advisory prepends: 'Remote code executor', 'Destructive command' —
-#     rename silently drops the warning surface.
-#   - Control flow / exit: 'Stop the walkthrough', 'SKILL.md Step 6',
-#     '**Regenerate**' — rename dangles the SKILL→walkthrough→SKILL jump
-#     and the recovery-recommendation cross-reference.
-for safety_msg in 'Remote code executor' 'Destructive command' 'Stop the walkthrough' 'SKILL.md Step 6' '**Regenerate**'; do
-  if ! grep -qF "$safety_msg" "$walkthrough_ref" 2>/dev/null; then
-    wiring_errors+="  $walkthrough_ref missing safety message: $safety_msg\n"
+# Advisory prepends in the walkthrough — silent rename drops the warning
+# surface the user sees before each per-step prompt.
+for advisory_string in 'Remote code executor' 'Destructive command'; do
+  if ! grep -qF "$advisory_string" "$walkthrough_ref" 2>/dev/null; then
+    wiring_errors+="  $walkthrough_ref missing advisory string: $advisory_string\n"
   fi
 done
+# Control-flow / exit strings — 'SKILL.md Step 6' is the post-walkthrough
+# jump target, '**Regenerate**' is the recovery recommendation. Silent
+# rename dangles the SKILL→walkthrough→SKILL handoff or the recovery
+# cross-reference. ('Stop the walkthrough' is covered by the option_label
+# loop above — the quoted form there is a strict superset of the bare form.)
+for control_phrase in 'SKILL.md Step 6' '**Regenerate**'; do
+  if ! grep -qF "$control_phrase" "$walkthrough_ref" 2>/dev/null; then
+    wiring_errors+="  $walkthrough_ref missing control-flow phrase: $control_phrase\n"
+  fi
+done
+# Per-step audit-verdict prefix — the literal label ('Audit:') that ties
+# the rendered verdict to its auditor source. A silent rename to 'Verdict:'
+# or 'Status:' would still pass the verdict-string check below but would
+# disconnect the rendered prefix from the audit surface.
+if ! grep -qF 'Audit:' "$walkthrough_ref" 2>/dev/null; then
+  wiring_errors+="  $walkthrough_ref missing audit-verdict prefix: Audit:\n"
+fi
 for verdict in "${audit_verdicts[@]}"; do
   if ! grep -qF "$verdict" "$walkthrough_ref" 2>/dev/null; then
     wiring_errors+="  $walkthrough_ref missing audit verdict: $verdict\n"
@@ -800,15 +825,17 @@ fi
 # `|| true` lets the count=0 case reach the threshold comparison instead
 # of aborting the script under `set -euo pipefail` — count=0 is exactly
 # the failure mode this check is designed to catch.
-for cross_step_spec in 'approved-unverifiable-items:4' 'rendered_line:3'; do
-  identifier="${cross_step_spec%:*}"
-  expected_count="${cross_step_spec##*:}"
-  actual_count=$(grep -cF "$identifier" "$how_to_run_skill" 2>/dev/null || true)
-  [ -z "$actual_count" ] && actual_count=0
-  if [ "$actual_count" -lt "$expected_count" ]; then
-    wiring_errors+="  $how_to_run_skill cross-step identifier '$identifier' appears $actual_count times, expected >=$expected_count\n"
+check_cross_step_identifier() {
+  local identifier=$1 expected=$2 file=$3
+  local actual
+  actual=$(grep -cF "$identifier" "$file" 2>/dev/null || true)
+  [ -z "$actual" ] && actual=0
+  if [ "$actual" -lt "$expected" ]; then
+    wiring_errors+="  $file cross-step identifier '$identifier' appears $actual times, expected >=$expected\n"
   fi
-done
+}
+check_cross_step_identifier 'approved-unverifiable-items' 4 "$how_to_run_skill"
+check_cross_step_identifier 'rendered_line' 3 "$how_to_run_skill"
 # Stale-info report identifiers — Step 4/5 prose references the Step 6
 # "Outdated info" report by name; a silent rename of either side breaks
 # the path from principle to report. Each side is checked independently

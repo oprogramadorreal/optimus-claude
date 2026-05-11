@@ -13,7 +13,7 @@ description: >-
   Handles single projects, monorepos, and multi-repo workspaces. When the
   file already exists, also offers a guided in-chat walkthrough where the
   user runs each documented step locally — the skill never executes
-  commands itself.
+  commands itself. Use the walkthrough when onboarding a new developer.
 disable-model-invocation: true
 ---
 
@@ -106,7 +106,7 @@ For the **External Services** aspect, expand it into a sub-table with columns **
 - **If `HOW-TO-RUN.md` does NOT exist:** skip the 3-option question below and proceed directly to the per-item unverifiable prompts paragraph, then Step 4. Step 5 writes directly without re-asking — the user already approved the plan in Step 3.
 - **If `HOW-TO-RUN.md` exists** (whether all aspects are "Found & accurate", partial, or stale): use `AskUserQuestion` — header "How to Run Documentation", question "HOW-TO-RUN.md already exists (audit findings above). How would you like to proceed?":
   - **Walk through it** — "I'll guide you through each step in-chat — show each command, what it does, and the audit verdict. You run the commands locally; I never execute anything for you."
-  - **Regenerate** — "Show the diff and rewrite HOW-TO-RUN.md to match the current project state. (Default for stale or partial docs.)"
+  - **Regenerate** — "Show the diff and rewrite HOW-TO-RUN.md to match the current project state."
   - **Skip** — "No changes. Print the audit findings and stop."
 
   Route on the answer:

@@ -31,7 +31,7 @@ Walk the steps in document order. For each step:
 5. Check the command against the [Advisory flags](#advisory-flags) below. If any matches, prepend its advisory text to the question.
 6. Use `AskUserQuestion`:
    - header: `Step <n>`
-   - question: ``Run this step in your shell when you're ready. What did you do? (Section: <section heading>; Audit: <verdict>)``
+   - question: `Run this step in your shell when you're ready. What did you do? (Section: <section heading>; Audit: <verdict>)`
    - options:
      - `"Done"`                 → `"I ran it. Move to the next step."`
      - `"Skip"`                 → `"I'm not running this one. Move to the next step."`
