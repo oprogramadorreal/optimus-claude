@@ -17,7 +17,7 @@ Per-service decision logic, web-search recipe, and snippet templates for the *Ex
 - [Pre-Conditions Block](#pre-conditions-block)
   - [Trigger](#trigger)
   - [Block format](#block-format)
-  - [Substitution rules](#substitution-rules)
+  - [Substitution](#substitution)
   - [Step 6 audit](#step-6-audit)
 - [Citation Format](#citation-format)
 - [Windows / Docker Desktop Caveats](#windows--docker-desktop-caveats)
@@ -207,13 +207,9 @@ Render **one** of these templates per service, chosen by the heuristics. Keep al
 
 **Env-var rule (applies to both Docker templates below):** include one `-e '<VAR>=<placeholder>'` line per env var the vendor page marks as required (e.g., `POSTGRES_PASSWORD`; `ACCEPT_EULA=Y` + `MSSQL_SA_PASSWORD` for SQL Server). Omit the `-e` line entirely for images with no required env vars (e.g., `redis`).
 
-**Per-shell rendering (Windows host).** When the detector's *Hardware / OS Requirements* table contains `Windows 10`, `Windows 11`, or `Windows`, render every `docker run` snippet in BOTH shell variants — first as the existing `bash` fence, immediately followed by an equivalent `powershell` fence with `\` line continuations replaced by backticks (`` ` ``). Single-quoted `-e '<VAR>=<placeholder>'` args work identically in both shells, so no other text changes between variants. The two fences appear back-to-back under the per-service heading with no intervening prose; the bash fence comes first regardless of the project's primary OS, because the bullets that cite the snippet (`- Source: …`, `- <required-env-var note>`) reference the snippet just above and reading them under a shell that the reader doesn't use is the lesser evil. Pure-Unix projects (no Windows in the OS list) render the bash variant only. The `Hardware / OS Requirements` field is a project-required-OS signal — not a host-OS-of-the-runner detection — and is the right driver here: team-shared docs target the project's audience, not the dev currently running this skill.
+**PowerShell caveat (Windows host).** When the detector's *Hardware / OS Requirements* table contains `Windows 10`, `Windows 11`, or `Windows`, append one caveat bullet once per External Services section: *PowerShell users: replace `\` line continuations with backtick (`` ` ``); single-quoted `-e '…'` args render verbatim. For password / secret / token values, keep them in single quotes — PowerShell expands `$` and backtick inside `"…"` strings, so the container would store a different value than you typed and authentication fails silently.* The bash fences render verbatim under Git Bash, WSL, macOS, and Linux.
 
-**Shell-quoting hazard caveat (passwords, secrets, tokens).** When ANY rendered `-e` line's env-var name matches `(?i)password|secret|token|credential|key` AND the snippet rendered a PowerShell variant per the rule above, append a one-line caveat to the snippet's bullet list:
-
-> **PowerShell users:** when choosing a value for `<env-var-name>`, prefer single-quoted forms (`'…'`) — PowerShell expands `$` (variable reference) and backtick (escape character) inside double-quoted strings, an embedded `"` terminates a double-quoted string, and an embedded `'` terminates a single-quoted string (escape it by doubling: `''`). A value containing these characters stored via `$env:<VAR> = "…"` or pasted into a `"…"`-quoted argument will reach the container as a different string than you typed, and authentication will fail silently.
-
-Render the caveat exactly once per service subsection, listing every matched env-var name in `<env-var-name>` (comma-separated when more than one); do not duplicate per env var.
+**GUI-client connect note.** When the detector's *Recommended Developer Tools* table contains a known DB GUI client (SSMS, Azure Data Studio, pgAdmin, DBeaver, MongoDB Compass, Studio 3T, RedisInsight, MySQL Workbench, DataGrip) AND the per-service heading is a matching DB, append one bullet under the snippet: `- From <tool>: connect to <host>:<host-port> using the username / password from the -e lines above. Accept the self-signed certificate when prompted (the official image uses one).` Substitute `<host>` per the rule in [§Pre-Conditions Block](#pre-conditions-block); the reader maps the fields onto their tool's connection dialog themselves — do not fabricate vendor-specific field labels.
 
 ### Docker-preferred
 
@@ -292,7 +288,7 @@ Install from [<vendor page>](<vendor page URL>).
 
 ## Pre-Conditions Block
 
-When the committed connection string in the project's config file uses a transport / auth mode that the recommended Docker runtime cannot reproduce, the dev hits a wall the moment any Setup-time command (schema bootstrap, migration, dev server) tries to connect: their connection string is still pointing at the wrong place. The Pre-Conditions block surfaces the required override at the top of the service's subsection, with a generated before/after diff, so the change is visible *before* the reader runs anything.
+When the committed connection string in the project's config file uses a transport / auth mode the recommended Docker runtime cannot reproduce, the dev hits a wall the moment any Setup-time command (schema bootstrap, migration, dev server) tries to connect: their connection string still points at the wrong place. The Pre-Conditions Block surfaces the required override at the top of the service's subsection so the change is visible *before* the reader runs anything.
 
 ### Trigger
 
@@ -303,54 +299,27 @@ Render the block when both conditions hold:
   - `local-windows-auth` — committed config uses Windows authentication; Linux containers cannot honor it.
   - `local-named-instance` — committed config references a SQL Server named instance (`localhost\SQLEXPRESS`); the named-instance + SQL Browser flow is Windows-host-only.
   - `local-socket` — committed config uses a Unix socket / Windows named pipe / Mongo direct-connection; the standard Docker publish form cannot reproduce these.
-  - `local-default` AND the rendered snippet's host-port differs from the port encoded in the committed connection string (e.g., committed `localhost:5432` but snippet publishes `5433` to avoid collision with a local Postgres install).
 
 ### Block format
 
-````markdown
-> **Pre-condition — update before running Setup or starting the backend.** The committed `<config-key>` in `<config-file>` uses <one-sentence summary of the incompatibility — e.g., "Windows authentication", "a SQL Server named instance", "a Unix socket transport", "host port `<old-port>` instead of the published `<new-port>`">. Replace it with the form below; the change must precede any command that opens a connection to <Service>.
+Render as the FIRST element inside the service's per-service heading (H3 in multi-repo, H4 in single-project / monorepo — see [§Snippet Templates](#snippet-templates)), above the existing `**Recommended: Docker.**` paragraph and snippet:
 
-```diff
-- <committed-connection-string-from-source-config>
-+ <required-connection-string-built-from-snippet>
-```
+> **Pre-condition — update before running Setup or starting the backend.** The committed `<config-key>` in `<config-file>` uses <one-sentence summary of the incompatibility — e.g., "Windows authentication", "a SQL Server named instance", "a Unix socket transport">. Replace it with a connection string that points at `<host>:<host-port>` and uses the username / password from the snippet's `-e` lines below; the change must precede any command that opens a connection to <Service>.
 
-> See the *Environment Setup* section for the canonical place to keep this override (drop the new value into the project's local-only env file or per-machine config — never commit it to source control if it carries a real password).
-````
+When this block renders, also DROP the existing `- Connection details for <…>` bullet from the snippet template's bullet list — the block subsumes it.
 
-The block is rendered as the FIRST element inside the service's per-service heading (H3 in multi-repo, H4 in single-project / monorepo — see [§Snippet Templates](#snippet-templates)) — above the existing `**Recommended: Docker.**` paragraph and snippet. When this block renders, also DROP the existing `- Connection details for <…>` bullet from the snippet template's bullet list (the diff inside this block subsumes it). The audit-side rejection rule for this case lives in [§Step 6 audit](#step-6-audit).
+### Substitution
 
-### Substitution rules
-
-- **`<config-file>`** — the row's `Source` field with all trailing `:<digits>` line-suffixes stripped (e.g., `src/Api/appsettings.json:14:5` → `src/Api/appsettings.json:14` → `src/Api/appsettings.json`; strip the suffix repeatedly until no `:[0-9]+$` match remains). Then validate the path: it MUST match `^[A-Za-z0-9][A-Za-z0-9._/-]{0,128}$`, and after splitting on `/` no segment may be empty, `.`, or `..`. Skip the block render if either check fails (this rejects UNC paths, leading-`-` segments, control characters, and traversal sequences).
-- **`<config-key>`** — the dotted-path key whose value is the committed connection string, derived by re-reading `<config-file>` at the cited line. For JSON / YAML, render the dotted path from the document root (e.g., `ConnectionStrings:DefaultConnection`, `spring.datasource.url`); for `.properties` files, the literal property name; for `.env*` files, the variable name. Sanitize against the shared top-level-section-name allowlist `^:?[A-Za-z_][A-Za-z0-9_.:-]{0,127}$` (the `:` is permitted to allow JSON-config dotted-with-colon forms like `ConnectionStrings:DefaultConnection`); skip the block render if the key fails the allowlist.
-- **`<committed-connection-string-from-source-config>`** — read verbatim from `<config-file>`, scoped to the value of `<config-key>`. The redaction marker is the literal string `***REDACTED-see-source***` (alphanumerics + hyphens + asterisks only — no characters from the sanitization strip-list, so the marker survives free-text sanitization unchanged). Apply structural redaction FIRST, then free-text sanitization (the order matters: free-text sanitization strips brackets / parens / control chars, which would otherwise mangle IPv6 userinfo URIs like `mongodb://user:pass@[::1]:27017/db` or named-instance forms like `(local)\SQLEXPRESS` before structural parsing can find the password boundary). Redaction is unconditional and value-based heuristics are NOT used. Classify the syntactic family with this strict precedence:
-  1. Starts with `jdbc:`: strip the `jdbc:` prefix. If the residual sub-scheme is `sqlserver`, `db2`, or `as400` (drivers that carry config via `;`-separated post-host properties rather than URI query string), re-classify as ADO.NET. Otherwise re-classify the remainder per the URI / libpq / refuse rules below.
-  2. Starts with `<scheme>://`: URI.
-  3. Else contains `;`: ADO.NET (whether or not it also contains a `password=`-shape — passwordless ADO.NET like `Server=host;Trusted_Connection=True` is a valid local-Windows-auth shape that needs no redaction).
-  4. Else matches case-insensitive `(?i)\b(password|user|host|dbname|port)\s*=`: libpq KV.
-  5. Else: refuse to render the diff and fall back to the snippet's `- Connection details for <…>` bullet — never echo an unparsed connection string verbatim.
-
-  Then redact per family (each family no-ops gracefully when the password keyword is absent — passwordless connection strings like Windows-auth pass through unchanged):
-  - **ADO.NET** — match `(?i)\b(Password|Pwd|User Password|Proxy Password|ProxyPassword|AccessToken|Jet OLEDB:Database Password)\s*=\s*`. If the next character is `'` or `"`, redact through the matching closing quote (handle the doubled-quote escape `''` / `""` per ADO.NET grammar). Otherwise redact up to the next `;` (or end-of-string). The space-tolerant `\s*=\s*` matches forms like `Password = hunter2;` that strict-equals misses.
-  - **libpq KV** — match `(?i)\bpassword\s*=\s*`. If the next character is `'`, redact through the next `'` not preceded by an odd number of `\` (libpq honours `\'` as a literal apostrophe and `\\` as a literal backslash per [PostgreSQL libpq docs](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNSTRING-KEYWORD-VALUE) §Connection-String Keyword/Value). Otherwise redact up to the next ASCII whitespace character (`[ \t\r\n]`) or end-of-string, whichever comes first.
-  - **URIs** — apply two passes:
-    - **Userinfo pass.** Locate `://`, then within the substring up to the next `/`, `?`, `#`, or end-of-string, find an `@`. If `@` is found, locate the FIRST `:` between `://` and that `@`. If found, the password is the substring from that `:` to the `@`; replace it with `***REDACTED-see-source***`. If no `:` precedes the `@` (URI carries username only) OR no `@` exists (URI carries no userinfo), this pass is a no-op. (RFC 3986: the userinfo split is at the FIRST `:` because the username token cannot contain `:`.)
-    - **Query-string pass.** If a `?` is present, scan the substring after the FIRST `?` for case-insensitive `(?:^|[&;])password\s*=` (JDBC drivers accept both `&` and `;` as query-parameter separators). When matched, redact the value from after `=` through the next `&`, `;`, `#`, or end-of-string with `***REDACTED-see-source***`. This catches JDBC connection-string forms like `jdbc:postgresql://host:5432/db?user=foo&password=secret` that route the password through the query string rather than the userinfo segment.
-
-  After redaction, apply [§Web-Search Recipe](#web-search-recipe) step 5's free-text sanitization (strip backticks, brackets, parens, angle brackets, control chars; truncate to 240 chars). Truncation is safe because redaction (when applicable) has already replaced password segments with the sanitization-safe marker before truncation runs; passwordless strings have nothing to leak.
-- **`<required-connection-string-built-from-snippet>`** — assembled from the rendered snippet's substituted values. Per service kind:
-  - **SQL Server:** `Server=<host>,<host-port>;Database=<db-name>;User Id=sa;Password=<password-placeholder>;TrustServerCertificate=True` — the official `mcr.microsoft.com/mssql/server` image only supports the built-in `sa` user out of the box. `TrustServerCertificate=True` is required to talk to the dev image's self-signed cert; the `<config-key>` may need to be reverted (or the cert validated against a real CA) before pointing the same key at any non-local server.
-  - **PostgreSQL:** `Host=<host>;Port=<host-port>;Database=<db-name>;Username=<from-POSTGRES_USER-env-or-postgres>;Password=<POSTGRES_PASSWORD-placeholder>` (or the equivalent `host=… port=… dbname=… user=… password=…` libpq-style form when the committed string used libpq)
-  - **MySQL/MariaDB:** `Server=<host>;Port=<host-port>;Database=<db-name>;Uid=root;Pwd=<MYSQL_ROOT_PASSWORD-placeholder>`
-  - **MongoDB:** `mongodb://<from-root-username>:<root-password-placeholder>@<host>:<host-port>/<db-name>?authSource=admin`
+- **`<config-file>`** — the row's `Source` field with any trailing `:<digits>` line-suffix stripped. The path must match `^[A-Za-z0-9][A-Za-z0-9._/-]{0,128}$` with no empty / `.` / `..` segments after splitting on `/`; skip the block render if the check fails (rejects UNC paths, traversal sequences, control characters).
+- **`<config-key>`** — the dotted-path key whose value is the committed connection string. For JSON / YAML, the dotted path from the document root (e.g., `ConnectionStrings:DefaultConnection`); for `.properties` files, the literal property name; for `.env*` files, the variable name. When the source format is unfamiliar, render the key as `<config-key>` and let the reader fill it in.
 - **`<host>`** — `127.0.0.1` when *Hardware / OS Requirements* contains `Windows 10`, `Windows 11`, or `Windows` (Windows resolves `localhost` to IPv6 first; the snippet's `-p 127.0.0.1:…` form is IPv4-only); else `localhost`.
-- **Match the committed string's syntactic family** — when the committed string is ADO.NET-style (semicolon-separated keyvalue), the new form is also ADO.NET-style. When it's libpq-style or a URI, match that. The diff should differ only in semantics (`Server`, `Port`, auth flags), not in syntax shape.
+- **`<host-port>`** — the host-port from the snippet's `-p <host>:<host-port>:<container-port>` line.
+
+The skill does NOT echo the committed connection string verbatim or reconstruct the new one — that risks leaking a real password from a misclassified source file. The reader knows their own config layout and can build the new string from the snippet's `-e` lines.
 
 ### Step 6 audit
 
-- The connection-string-shift audit re-derives the `+` line from the snippet's `-e`/`-p` substituted values combined with the matching per-service-kind template in §Substitution rules (the template supplies literals like `TrustServerCertificate=True`, `?authSource=admin`, the `sa` username, etc., which are not in the snippet's `-e`/`-p` lines), then rejects any rendered `+` line that doesn't match byte-for-byte (modulo the diff marker prefix).
-- The audit rejects a per-service heading (H3 in multi-repo, H4 in single-project / monorepo — see [§Snippet Templates](#snippet-templates)) that contains BOTH a Pre-Conditions block AND a `- Connection details for …` bullet — duplication is a Step-4 logic bug.
+- The audit rejects a per-service heading that contains BOTH a Pre-Conditions block AND a `- Connection details for …` bullet — duplication is a Step-4 logic bug.
 - The audit verifies the Pre-Conditions block is the FIRST element of the per-service heading's body (no intervening prose, no snippet); a misplaced block is rejected with a "render order" failure.
 
 ## Citation Format

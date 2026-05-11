@@ -660,13 +660,13 @@ ORM migrate-command catalog (consumed by precedence rule 1):
 
 Demoted mechanisms render as a 2-space-indented blockquote directly under the primary bullet (the 2-space indent keeps the blockquote inside the Primary bullet's list item; an unindented `>` would terminate the list) using this exact form:
 
-  > **Legacy alternative:** `<demoted-invocation>` — pre-dates the migration tooling above and applying both can conflict; use only when explicitly instructed by the project's docs.
+  > **Alternative bootstrap script:** `<demoted-invocation>` — apply only if the primary leaves required tables missing (some projects split schema across an ORM history and hand-maintained SQL for legacy / auth tables). Otherwise running both can conflict.
 
 ### Connection-mode-aware invocation
 
 When the destination DB row's *Recommended runtime* (per the Step 3 assessment table; see [`external-services-docker.md`](external-services-docker.md) §Decision Heuristics) is `Docker-preferred` OR `Shared-cloud primary` with the *Docker (offline)* alternative kept by the user via the Step 4 multi-select downgrade prompt, replace the detector's bare invocation hint with the full host-side form below. For *Local install only* services, keep the bare form — the local default-instance + Windows-auth / peer-auth path is correct in those cases.
 
-**Password handling (Docker-preferred / Docker (offline) forms below).** Each `sqlcmd` / `psql` / `mysql` row takes its password via the per-tool env var named in the *Password env var* column below; export it in the surrounding shell (`export <VAR>='<password-placeholder>'` in bash/zsh; `$env:<VAR> = '<password-placeholder>'` in PowerShell) before running the command. Use the per-tool command-line fallback flag (`sqlcmd -P`, `psql -W` interactive prompt, `mysql -p<pass>`) only when an env-var-based flow is not viable. `mongosh` keeps the password inside the connection URI — no env-var alternative.
+**Password handling (Docker-preferred / Docker (offline) forms below).** Each `sqlcmd` / `psql` / `mysql` row takes its password via the per-tool env var named in the *Password env var* column below; export it in the surrounding shell (`export <VAR>='<password-placeholder>'` in bash/zsh; `$env:<VAR> = '<password-placeholder>'` in PowerShell) before running the command. `mongosh` keeps the password inside the connection URI — no env-var alternative.
 
 | CLI | Bare form (Local install only) | Docker-preferred / Docker (offline) form | Password env var |
 |---|---|---|---|
@@ -675,9 +675,7 @@ When the destination DB row's *Recommended runtime* (per the Step 3 assessment t
 | `mysql` (MySQL/MariaDB) | `mysql < <file>` | `mysql -h <host> -P <host-port> -u <user> <db> < <file>` | `MYSQL_PWD` |
 | `mongosh` (MongoDB) | `mongosh --file <file>` | `mongosh "mongodb://<user>:<password-placeholder>@<host>:<host-port>/<db>?authSource=admin" --file <file>` | (password in URI) |
 
-The `mongosh` form keeps the password inside the connection URI, which is visible in the host's process listing (`ps -ef`, `Get-Process | Select-Object CommandLine`) for the duration of the command — there is no env-var alternative the `mongosh` URI shape supports. On shared dev hosts (CI runners, multi-user VMs) prefer the per-tool secure-credential mechanisms even for the `psql` / `sqlcmd` / `mysql` env-var forms above — `~/.pgpass` (mode `0600`) for `psql` per [libpq docs](https://www.postgresql.org/docs/current/libpq-pgpass.html), `~/.my.cnf` (mode `0600`) for `mysql`, an `.sqlcmdrc` or shell-profile-scoped `SQLCMDPASSWORD` for `sqlcmd`. The env-var form is narrower than the command-line form (visible only in `/proc/<pid>/environ` on Linux, not in `ps`), but the credential-file form is narrower still.
-
-ORM migrate commands from the catalog above are NOT enriched with connection flags — ORM tools read their connection details from the project's config files (`prisma/schema.prisma`, `alembic.ini`, `appsettings.json`, etc.) which Step 6's connection-string-shift audit already verifies match the recommended runtime. Substituting host/port into an ORM command would conflict with the ORM's own config-file connection.
+ORM migrate commands from the catalog above are NOT enriched with connection flags — ORM tools read their connection details from the project's config files (`prisma/schema.prisma`, `alembic.ini`, `appsettings.json`, etc.). Substituting host/port into an ORM command would conflict with the ORM's own config-file connection.
 
 Substitute every placeholder from the matching External Services snippet (the same snippet the External Services per-service subsection already rendered):
 
@@ -691,41 +689,26 @@ The Step 6 audit re-checks every rendered invocation: flags must come from the p
 
 ## Section Depends-On Graph
 
-Cross-section dependency edges consumed by Step 6's *Section ordering audit*. Each edge says "the dependent section's actionable content must NOT appear before the prerequisite section's content in the rendered file when the trigger condition fires." The audit walks the file's catalog headings in render order — H3 in single-project / monorepo, H2 in multi-repo workspace (same topology-aware aliasing the TOC count rule uses) — and applies the row's *Resolution* on violation.
+Cross-section dependency edges consumed by Step 6's *Section ordering audit*. Each edge says "the dependent section's actionable content must NOT appear before the prerequisite section's content in the rendered file when the trigger condition fires." The audit walks the file's catalog headings in render order — H3 in single-project / monorepo, H2 in multi-repo workspace (same topology-aware aliasing the TOC count rule uses) — and surfaces violations to the user for editorial review.
 
-| Dependent | Prerequisite | Trigger condition | Resolution |
-|---|---|---|---|
-| Installation (Schema Bootstrap sub-block — ORM migrate, `<tool> -i <file>` / `<tool> -f <file>` / equivalent) | External Services | Destination DB row's Recommended runtime is `Docker-preferred` (or *Docker (offline)* was kept by the user) | **Auto-callout.** The DB container must be running before the bootstrap connects. When the rendered section order has Installation before External Services (the catalog default for single-project / monorepo, where item 4 precedes item 5), emit a `> **Pre-condition:** start the External Services Docker containers below before running the schema bootstrap commands above.` blockquote above the Schema Bootstrap sub-block. |
-| Installation (Schema Bootstrap sub-block) | External Services (Pre-Conditions Block) | Destination DB row's Recommended runtime is `Docker-preferred` (or *Docker (offline)* was kept by the user) AND (`Endpoint semantics` is in `{local-windows-auth, local-named-instance, local-socket}` OR (`local-default` with the snippet's host-port differing from the committed port)) — mirrors `external-services-docker.md` §Pre-Conditions Block §Trigger | **Auto-callout.** The committed connection-string change must precede any schema-bootstrap command that connects to the DB. Emit a `> **Pre-condition:** apply the connection-string change shown in the External Services Pre-Conditions block before running the schema bootstrap commands above.` blockquote above the Schema Bootstrap sub-block. |
-| Installation (language-level install commands — `npm install`, `pip install`, `dotnet restore`, `bundle install`, etc.) | Environment Setup | Detector's *Private registry* signal is set (`.npmrc`, `pip.conf`, `.pypirc`, Maven `settings.xml`) OR detector's *Local TLS cert* signal is `mkcert` | **Auto-callout.** Some installs require credentials or trusted root certs to be present first. Emit a `> **Pre-condition:** complete the auth / cert steps in Environment Setup before running the install commands above.` blockquote above the install commands. |
-| Running in Development | Setup / Installation, External Services | Always | **Surface-to-user.** Dev server cannot start without deps installed and services running. Catalog order (item 8 follows items 4 and 5) enforces this in single-project / monorepo templates, so violations only fire when a topology template reorders sections. Surfacing avoids an auto-rewrite that could break the topology layout. |
-| Build | Installation | Always | **Surface-to-user.** Compile / link needs dependencies installed. Catalog order (item 7 follows item 4) enforces this; violations are topology-driven. |
-| Build | Source Dependencies | Detector's *Source Dependencies* table has submodules / FetchContent / approved sibling-repo rows | **Surface-to-user.** Submodule contents and sibling repos must be present before compile. Catalog order (item 7 follows item 3) enforces this; violations are topology-driven. |
+| Dependent | Prerequisite | Trigger condition |
+|---|---|---|
+| Installation (Schema Bootstrap sub-block) | External Services | Destination DB row's Recommended runtime is `Docker-preferred` (or *Docker (offline)* was kept). The DB container must be running before the bootstrap connects. |
+| Installation (Schema Bootstrap sub-block) | External Services (Pre-Conditions Block) | Destination DB row's Recommended runtime is `Docker-preferred` (or *Docker (offline)* was kept) AND `Endpoint semantics ∈ {local-windows-auth, local-named-instance, local-socket}`. The connection-string change must precede any bootstrap command that opens a connection. |
+| Installation (language-level install) | Environment Setup | Detector's *Private registry* signal is set, OR detector's *Local TLS cert* signal is `mkcert`. Some installs require credentials or trusted root certs to be present first. |
+| Running in Development | Setup / Installation, External Services | Always. Catalog order enforces this in single-project / monorepo templates; violations only fire when a topology template reorders sections. |
+| Build | Installation | Always. Catalog order enforces this; violations are topology-driven. |
+| Build | Source Dependencies | Detector's *Source Dependencies* table has submodules / FetchContent / approved sibling-repo rows. |
 
-The Pre-condition callouts the audit auto-renders are **idempotent** — a second audit pass on the same file detects an existing matching `> **Pre-condition:** …` line directly above the dependent's actionable content (line-after-trim equality match against the auto-callout text recorded in the audit's working set) and skips re-emitting it. This lets the audit re-run after a user fix-up without producing duplicate callouts.
+The Multi-Repo Workspace template (below) already places Environment Setup before Setup unconditionally, so violations of the connection-string-precondition edge in that topology are rare in practice.
 
 ### Audit-flow summary
 
-1. Walk the rendered file's catalog headings in document order at the topology-appropriate level (H3 in single-project / monorepo, H2 in multi-repo workspace); build a `section-position` map (`<section-name> → integer index`).
-2. For each row in the table above whose *Trigger condition* is satisfied by the detector's outputs:
-   - Resolve the *Dependent* and *Prerequisite* sections to their positions.
-   - When the dependent's position ≤ the prerequisite's position (i.e., dependent appears at or before prerequisite), fire the row's *Resolution*:
-     - **Auto-callout** rows: emit (or verify the presence of) a `> **Pre-condition:** …` blockquote directly above the dependent's first actionable line. Record the callout text in the audit's working set so a re-run is idempotent.
-     - **Surface-to-user** rows: report the conflict via the standard Step 6 fix-up flow with no auto-rewrite — reordering a topology template's section layout is an editorial decision the user needs to make.
-3. Include any auto-rendered callouts in Step 6's "what was created/updated" report under a "Pre-condition callouts" sub-section.
+Walk the rendered file's catalog headings in document order; build a `section-position` map. For each row above whose *Trigger condition* is satisfied by the detector's outputs, resolve the *Dependent* and *Prerequisite* positions. When the dependent appears at or before the prerequisite, surface the conflict to the user via the standard Step 6 fix-up flow with no auto-rewrite — reordering a topology template's layout is an editorial decision.
 
 ## Diagnostic Ladders
 
-For multi-layer failure modes that don't fit the single-sentence preventive bullet form of [§Common Issues](#common-issues) — typically "container is up but host can't connect", "tests pass locally but fail in CI", "auth flow returns 200 but the session is empty" — render a *diagnostic ladder*: a numbered list of symptom→check→action steps the reader walks top-down until one matches. Ladders fire conditionally on the detector's outputs and never replace the single-bullet form for simple gotchas (a `.nvmrc` ladder would be overkill for "run `nvm use`").
-
-### Format
-
-```markdown
-- **<Symptom sentence ending with a question mark — what the reader observes>** Walk down this ladder:
-  1. **<Check 1 — most common cause first>** — `<concrete diagnostic command>`. If <observable result>, <concrete action>.
-  2. **<Check 2>** — `<command>`. If <result>, <action>.
-  3. **<Check 3>** — `<command>`. If <result>, <action>.
-```
+For multi-layer failure modes that don't fit the single-sentence preventive bullet form of [§Common Issues](#common-issues), render a *diagnostic ladder*: a numbered list of symptom→check→action steps the reader walks top-down until one matches. Ladders fire conditionally on the detector's outputs and never replace the single-bullet form for simple gotchas (a `.nvmrc` ladder would be overkill for "run `nvm use`").
 
 Render the ladder as a top-level bullet under `### Common Issues`, sharing the bullet list with single-line entries. Every step's *check* must be a concrete diagnostic command (not a leading question), every *result* must be observable from the command's output, every *action* must be specific (not "investigate further").
 
@@ -737,28 +720,12 @@ Render the ladder as a top-level bullet under `### Common Issues`, sharing the b
 
 ```markdown
 - **Host can't connect to <Service> on `<host>:<host-port>` but `docker ps` shows the container as `Up`?** Walk down this ladder:
-  1. **Did the container actually finish starting?** `docker logs --tail 50 <project-slug>-<service-slug>`. First-boot for `<Service>` typically takes 10–20s; if the log shows recent startup messages but no readiness signal yet, wait 10s and retry the host connection.
-  2. **Does the connection work from inside the container?** Run the `**Verify <service> is reachable.**` bullet from this section above. If it succeeds inside but the host still fails, the container is up — the problem is between the host and the published port (steps 3–5 below).
-  3. **(Windows hosts) Is `localhost` resolving to IPv6?** Replace `localhost` with `127.0.0.1` explicitly in your client / connection string. The snippet publishes the container as `-p 127.0.0.1:<host-port>:<container-port>` (IPv4-only); Windows resolves `localhost` to `::1` (IPv6) first and the IPv6 lookup times out before falling back. (Render this step only when the detector's *Hardware / OS Requirements* table contains Windows.)
-  4. **Is the host port actually mapped?** `docker port <project-slug>-<service-slug>`. The output should include `<container-port>/tcp -> 127.0.0.1:<host-port>` (or `0.0.0.0:<host-port>` if the snippet was rebound). If the listed mapping doesn't match what your connection string uses, recreate the container with the correct `-p`.
-  5. **Is a non-Docker process holding the port?** `Get-NetTCPConnection -LocalPort <host-port>` (PowerShell) / `lsof -i :<host-port>` (macOS / Linux) / `netstat -ano | findstr :<host-port>` (Windows cmd). If the port is bound by a non-Docker process (e.g., a local install of `<Service>`), stop that process or republish the container on a different host-port.
+  1. **Does the connection work from inside the container?** Run the `**Verify <service> is reachable.**` bullet from this section above. If it succeeds inside but the host still fails, the container is up — the problem is between the host and the published port.
+  2. **(Windows hosts) Is `localhost` resolving to IPv6?** Replace `localhost` with `127.0.0.1` explicitly in your client / connection string. The snippet publishes the container as `-p 127.0.0.1:<host-port>:<container-port>` (IPv4-only); Windows resolves `localhost` to `::1` (IPv6) first and the IPv6 lookup times out before falling back. (Render this step only when the detector's *Hardware / OS Requirements* table contains Windows.)
+  3. **Is the host port actually mapped?** `docker port <project-slug>-<service-slug>`. The output should include `<container-port>/tcp -> 127.0.0.1:<host-port>` (or `0.0.0.0:<host-port>` if the snippet was rebound). If the listed mapping doesn't match what your connection string uses, recreate the container with the correct `-p`.
 ```
 
-Substitute `<service>`, `<host>`, `<host-port>`, `<project-slug>-<service-slug>`, and the per-Windows step from the rendered snippet's values. Step 2's *Verify* pointer references the bullet rendered earlier in the section (rendered from the matching §Verify Commands seed, which includes the `-e` env-var prefix when one applies — e.g., `-e SQLCMDPASSWORD='<password>'` for SQL Server); no command is re-rendered inside the ladder, so the env-var prefix is preserved by reference. Step 3 is rendered only when *Hardware / OS Requirements* contains Windows; on pure-Unix projects, drop step 3 and renumber.
-
-#### Test command fails with database connection / authentication error
-
-**Trigger.** External Services has at least one row whose `Type` is `database` AND the detector's *Commands* table has a non-empty `test` row (so a `<test command>` exists to render).
-
-```markdown
-- **`<test command>` fails with a database connection / authentication error?** Walk down this ladder:
-  1. **Is the DB container running?** `docker ps --filter name=<project-slug>-<db-service-slug>`. The test run typically expects the same DB container as the dev environment; start it via the External Services snippet first if missing.
-  2. **Did you apply schema bootstrap?** Tests run against either an empty schema or a seeded one — see Installation §Schema Bootstrap for the project's primary bootstrap command. Missing tables / fixtures often surface as authentication errors or `relation does not exist` rather than "table missing", because the framework's connection check runs before the query.
-  3. **Does the test config override the dev connection string?** Frameworks commonly carry a separate test profile (Spring `application-test.yml`, Rails `database.yml` test env, ASP.NET `appsettings.Test.json`, Django `DATABASES['test']`). Verify it points at the same host:port as the rendered snippet — when the test profile inherits the committed default (e.g., `localhost\SQLEXPRESS` Windows-auth), apply the same connection-string change the External Services Pre-Conditions block describes for the dev profile.
-  4. **(Docker-preferred DB) Did the bootstrap run with the host-side flags, not the bare form?** Per the host-side schema-bootstrap invocation in Installation, the destination DB in Docker requires the per-CLI full-flag form from §Schema Bootstrap §Connection-mode-aware invocation (`sqlcmd -S "<host>,<host-port>" …`, `psql -h <host> -p <host-port> …`, `mysql -h <host> -P <host-port> …`, or `mongosh "mongodb://…@<host>:<host-port>/…"`), not the bare `<tool> -i <file>` / `<tool> -f <file>` form; if the bootstrap silently used the bare form, it created the schema in a different DB (or failed silently against the local default instance) and the test connect doesn't see it.
-```
-
-Substitute `<test command>` from the detector's *Commands* table `test` row, `<project-slug>-<db-service-slug>` from the External Services row whose `Type` is `database` (kebab-cased per the slug rules in [`SKILL.md`](../SKILL.md) Step 4 item 5), and `<tool>` / `<host>` / `<host-port>` / `<user>` / `<password-placeholder>` from the matching [§Schema Bootstrap](#schema-bootstrap) §Connection-mode-aware invocation row already rendered in Installation. The ladder's step 3 references the Pre-Conditions block from [`external-services-docker.md`](external-services-docker.md) §Pre-Conditions Block; step 4 references the connection-mode-aware invocation table from §Schema Bootstrap above. Both are conditional renders driven by detector signals, so the ladder coheres with the rest of the rendered file.
+Substitute `<service>`, `<host>`, `<host-port>`, and `<project-slug>-<service-slug>` from the rendered snippet's values. Step 1's *Verify* pointer references the bullet rendered earlier in the section (from the matching §Verify Commands seed). Step 2 is rendered only when *Hardware / OS Requirements* contains Windows; on pure-Unix projects, drop step 2 and renumber.
 
 ## Multi-Repo Workspace HOW-TO-RUN Template
 

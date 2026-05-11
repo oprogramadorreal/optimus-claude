@@ -114,8 +114,6 @@ Grep existing docs (`README.md`, `CONTRIBUTING.md`, `BUILDING.md`, `INSTALL.md`,
 
 Record each match as the canonical token from the list above plus a source `<file>:<line>` reference. Sanitize the token with the same allowlist regex as Task 0c package tokens: `^[A-Za-z0-9][A-Za-z0-9._+:@/ -]{0,99}$` (space permitted because canonical tokens like `Google Chrome`, `Azure Data Studio`, `AWS CLI` contain spaces). Reject tokens containing `://`. Drop any match whose token is not in the list above. This is a recommendation signal, not a hard requirement — the main skill renders a *Recommended developer tools* bullet list under Prerequisites, distinct from the *Hardware / OS Requirements* section. Cap the emitted list at 12 unique tokens; additional matches are collapsed into a single "+N more" note.
 
-**Cross-reference for downstream rendering.** Database / cache GUI clients in this allowlist (SSMS, Azure Data Studio, DBeaver, pgAdmin, MySQL Workbench, MongoDB Compass, Studio 3T, RedisInsight, DataGrip) are also consumed by the main skill's [GUI Client × Service Catalog](../references/gui-client-service-catalog.md) rendering rule, which emits a `Connecting from <tool>` heading one level deeper than the External Services per-service heading (H4 in multi-repo, H5 in single-project / monorepo) when both the tool and a matching service are detected.
-
 #### Task 0e — Unsupported-Stack Fallback detection
 
 For unsupported stacks, detect and gather evidence only — do NOT propose install/build/test commands. The parent SKILL runs the fallback procedure.
