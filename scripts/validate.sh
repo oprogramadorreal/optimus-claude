@@ -744,7 +744,7 @@ fi
 # 'skipped' / 'Skip the prompt' in unrelated prose elsewhere in SKILL.md.
 # The frontmatter discoverability phrase 'guided in-chat walkthrough'
 # is also load-bearing for users finding this option.
-for literal_trigger in 'Walk through it' 'Regenerate' '**Skip**' 'Stop the walkthrough' 'guided-walkthrough.md' 'guided in-chat walkthrough' 'How to Run Documentation' 'jump to Step 3a'; do
+for literal_trigger in 'Walk through it' 'Regenerate' '**Skip**' 'Stop the walkthrough' 'guided-walkthrough.md' 'guided in-chat walkthrough' 'How to Run Documentation' 'jump to Step 3a' 'jump to Step 6'; do
   if ! grep -qF "$literal_trigger" "$how_to_run_skill" 2>/dev/null; then
     wiring_errors+="  $how_to_run_skill missing walkthrough trigger: $literal_trigger\n"
   fi
@@ -768,7 +768,7 @@ done
 # ("Stop the walkthrough" is the exit string SKILL.md Step 3a directs the
 # user to and the per-step loop step 7 offers as an option label). Neither
 # is caught by the heading or option-label checks above.
-for safety_msg in 'Remote code executor' 'Destructive command. Read it carefully' 'long-running process' 'Stop the walkthrough' 'SKILL.md Step 6' '**Regenerate**'; do
+for safety_msg in 'Remote code executor' 'Destructive command. Read it carefully' 'long-running process' "I won't auto-translate" 'Audit flagged this step as' 'heavily out of date' '<redacted>' 'Try again' "I'll fix it manually" 'Audit:' 'Stop the walkthrough' 'SKILL.md Step 6' '**Regenerate**'; do
   if ! grep -qF "$safety_msg" "$walkthrough_ref" 2>/dev/null; then
     wiring_errors+="  $walkthrough_ref missing safety message: $safety_msg\n"
   fi
@@ -779,6 +779,39 @@ for verdict in "${audit_verdicts[@]}"; do
   fi
   if ! grep -qF "$verdict" "$auditor_agent" 2>/dev/null; then
     wiring_errors+="  $auditor_agent missing audit verdict: $verdict\n"
+  fi
+done
+# Cross-file return-format header — auditor agent emits this section header
+# and SKILL.md Steps 2/3 consume it by name. A silent rename in either file
+# would break the Step 2 → Step 3 handoff that feeds the walkthrough's audit
+# verdict surfaces.
+for return_format in 'How-to-Run Audit Results'; do
+  if ! grep -qF "$return_format" "$auditor_agent" 2>/dev/null; then
+    wiring_errors+="  $auditor_agent missing return-format header: $return_format\n"
+  fi
+  if ! grep -qF "$return_format" "$how_to_run_skill" 2>/dev/null; then
+    wiring_errors+="  $how_to_run_skill missing return-format consumer: $return_format\n"
+  fi
+done
+# Cross-step identifiers within SKILL.md — these list/field names are
+# referenced from multiple Steps (3 record, 4 populate, 6 exempt); a silent
+# rename in only one location would silently disable the cross-step contract
+# (e.g., Step 6 would reject legitimately approved unverifiable items).
+# Threshold = current occurrence count; one location renamed = check fails.
+for cross_step_spec in 'approved-unverifiable-items:3' 'rendered_line:3'; do
+  identifier="${cross_step_spec%:*}"
+  expected_count="${cross_step_spec##*:}"
+  actual_count=$(grep -cF "$identifier" "$how_to_run_skill" 2>/dev/null || echo 0)
+  if [ "$actual_count" -lt "$expected_count" ]; then
+    wiring_errors+="  $how_to_run_skill cross-step identifier '$identifier' appears $actual_count times, expected >=$expected_count\n"
+  fi
+done
+# Stale-info report identifiers — Step 4/5 prose references the Step 6
+# "Outdated info" report by name; a silent rename of the Step 6 report
+# header breaks the path from principle to report.
+for stale_report_token in 'Outdated info elsewhere' 'Outdated info found in other files'; do
+  if ! grep -qF "$stale_report_token" "$how_to_run_skill" 2>/dev/null; then
+    wiring_errors+="  $how_to_run_skill missing stale-info report identifier: $stale_report_token\n"
   fi
 done
 
