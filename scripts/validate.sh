@@ -707,6 +707,146 @@ if [ -f "$scenario_style" ]; then
   done
 fi
 
+# Trigger-key contract for the walkthrough branch added by the guided
+# walkthrough feature. SKILL.md Step 3 routes on the literal "Walk through it"
+# AskUserQuestion option string and jumps to the "## Step 3a" heading; Step 3a
+# loads guided-walkthrough.md by path. The walkthrough's own "Stop the
+# walkthrough" exit string is referenced from SKILL.md Step 3a. If any of these
+# strings drifts, the entire branch silently dies — the generic cross-ref
+# check (check 8) only validates path resolution, not these textual contracts.
+walkthrough_ref="skills/how-to-run/references/guided-walkthrough.md"
+auditor_agent="skills/how-to-run/agents/how-to-run-auditor.md"
+# Audit verdict list — producer/consumer contract between Step 2 auditor
+# agent (producer) and the walkthrough's per-step Audit: prefix (consumer).
+# Applied to each side independently below.
+audit_verdicts=('Found & accurate' 'Found but outdated' 'Partial' 'Documented but unverifiable' 'Missing')
+# Assert file presence as first-class checks (not `if [ -f ]` guards) so a
+# rename or deletion fails the build instead of silently skipping the
+# downstream wiring loops.
+check "how-to-run SKILL.md present" test -f "$how_to_run_skill"
+check "how-to-run guided-walkthrough.md present" test -f "$walkthrough_ref"
+check "how-to-run auditor agent present" test -f "$auditor_agent"
+# Heading anchor uses regex; literal triggers use fixed-string match so a
+# typo like 'guided-walkthroughxmd' (where . matches any char in regex mode)
+# cannot satisfy the wiring contract.
+if ! grep -qE '^## Step 3a:' "$how_to_run_skill" 2>/dev/null; then
+  wiring_errors+="  $how_to_run_skill missing walkthrough heading: ^## Step 3a:\n"
+fi
+# Step 6 is the jump target for Step 3 Skip and Step 3a completion; ensure
+# the heading exists. The textual 'jump to Step 6' references are validated
+# below in the control-flow phrases loop.
+if ! grep -qE '^## Step 6\b' "$how_to_run_skill" 2>/dev/null; then
+  wiring_errors+="  $how_to_run_skill missing jump target: ^## Step 6\n"
+fi
+# Step 3 option labels — silent rename without matching update in the
+# per-answer routing block would silently send the user down the wrong
+# branch. '**Skip**' uses bold form because bare 'Skip' would also match
+# 'skipped' / 'Skip the prompt' in unrelated prose elsewhere in SKILL.md.
+for option_label in 'Walk through it' 'Regenerate' '**Skip**'; do
+  if ! grep -qF "$option_label" "$how_to_run_skill" 2>/dev/null; then
+    wiring_errors+="  $how_to_run_skill missing Step 3 option label: $option_label\n"
+  fi
+done
+# Control-flow phrases — exit strings and cross-step jump targets. A silent
+# rename here dangles the SKILL→walkthrough→SKILL handoff.
+for control_phrase in 'Stop the walkthrough' 'jump to Step 3a' 'jump to Step 6'; do
+  if ! grep -qF "$control_phrase" "$how_to_run_skill" 2>/dev/null; then
+    wiring_errors+="  $how_to_run_skill missing control-flow phrase: $control_phrase\n"
+  fi
+done
+# Discoverability strings — the AskUserQuestion header that the user sees,
+# the reference file path SKILL.md loads, and the frontmatter phrase that
+# surfaces this option in skill descriptions.
+for discoverability_string in 'guided-walkthrough.md' 'guided in-chat walkthrough' 'How to Run Documentation'; do
+  if ! grep -qF "$discoverability_string" "$how_to_run_skill" 2>/dev/null; then
+    wiring_errors+="  $how_to_run_skill missing discoverability string: $discoverability_string\n"
+  fi
+done
+for heading in '^## Pre-flight' '^## Per-step loop' '^## Advisory flags' '^## Display sanitization' '^## Heavy-staleness handling' '^## Completion summary' '^## What this walkthrough never modifies'; do
+  if ! grep -qE "$heading" "$walkthrough_ref" 2>/dev/null; then
+    wiring_errors+="  $walkthrough_ref missing heading matching: $heading\n"
+  fi
+done
+# Option labels — the per-step loop renders these via AskUserQuestion.
+# Silent rename desyncs the rendered options from the SKILL.md routing
+# contract (Step 3a jumps back to Step 6 on "Stop the walkthrough").
+for option_label in '"Done"' '"Skip"' '"Stop the walkthrough"'; do
+  if ! grep -qF "$option_label" "$walkthrough_ref" 2>/dev/null; then
+    wiring_errors+="  $walkthrough_ref missing option label: $option_label\n"
+  fi
+done
+# Advisory prepends in the walkthrough — silent rename drops the warning
+# surface the user sees before each per-step prompt.
+for advisory_string in 'Remote code executor' 'Destructive command'; do
+  if ! grep -qF "$advisory_string" "$walkthrough_ref" 2>/dev/null; then
+    wiring_errors+="  $walkthrough_ref missing advisory string: $advisory_string\n"
+  fi
+done
+# Control-flow / exit strings — 'SKILL.md Step 6' is the post-walkthrough
+# jump target, '**Regenerate**' is the recovery recommendation. Silent
+# rename dangles the SKILL→walkthrough→SKILL handoff or the recovery
+# cross-reference. ('Stop the walkthrough' is covered by the option_label
+# loop above — the quoted form there is a strict superset of the bare form.)
+for control_phrase in 'SKILL.md Step 6' '**Regenerate**'; do
+  if ! grep -qF "$control_phrase" "$walkthrough_ref" 2>/dev/null; then
+    wiring_errors+="  $walkthrough_ref missing control-flow phrase: $control_phrase\n"
+  fi
+done
+# Per-step audit-verdict prefix — the literal label ('Audit:') that ties
+# the rendered verdict to its auditor source. A silent rename to 'Verdict:'
+# or 'Status:' would still pass the verdict-string check below but would
+# disconnect the rendered prefix from the audit surface.
+if ! grep -qF 'Audit:' "$walkthrough_ref" 2>/dev/null; then
+  wiring_errors+="  $walkthrough_ref missing audit-verdict prefix: Audit:\n"
+fi
+for verdict in "${audit_verdicts[@]}"; do
+  if ! grep -qF "$verdict" "$walkthrough_ref" 2>/dev/null; then
+    wiring_errors+="  $walkthrough_ref missing audit verdict: $verdict\n"
+  fi
+  if ! grep -qF "$verdict" "$auditor_agent" 2>/dev/null; then
+    wiring_errors+="  $auditor_agent missing audit verdict: $verdict\n"
+  fi
+done
+# Cross-file return-format header — auditor agent emits this section header
+# and SKILL.md Steps 2/3 consume it by name. A silent rename in either file
+# would break the Step 2 → Step 3 handoff that feeds the walkthrough's audit
+# verdict surfaces.
+if ! grep -qF 'How-to-Run Audit Results' "$auditor_agent" 2>/dev/null; then
+  wiring_errors+="  $auditor_agent missing return-format header: How-to-Run Audit Results\n"
+fi
+if ! grep -qF 'How-to-Run Audit Results' "$how_to_run_skill" 2>/dev/null; then
+  wiring_errors+="  $how_to_run_skill missing return-format consumer: How-to-Run Audit Results\n"
+fi
+# Cross-step identifiers within SKILL.md — these list/field names are
+# referenced from multiple Steps (3 record, 4 populate, 6 exempt); a silent
+# rename in only one location would silently disable the cross-step contract
+# (e.g., Step 6 would reject legitimately approved unverifiable items).
+# Threshold = current occurrence count; one location renamed = check fails.
+# `|| true` lets the count=0 case reach the threshold comparison instead
+# of aborting the script under `set -euo pipefail` — count=0 is exactly
+# the failure mode this check is designed to catch.
+check_cross_step_identifier() {
+  local identifier=$1 expected=$2 file=$3
+  local actual
+  actual=$(grep -cF "$identifier" "$file" 2>/dev/null || true)
+  [ -z "$actual" ] && actual=0
+  if [ "$actual" -lt "$expected" ]; then
+    wiring_errors+="  $file cross-step identifier '$identifier' appears $actual times, expected >=$expected\n"
+  fi
+}
+check_cross_step_identifier 'approved-unverifiable-items' 4 "$how_to_run_skill"
+check_cross_step_identifier 'rendered_line' 3 "$how_to_run_skill"
+# Stale-info report identifiers — Step 4/5 prose references the Step 6
+# "Outdated info" report by name; a silent rename of either side breaks
+# the path from principle to report. Each side is checked independently
+# so the failure message identifies which surface drifted.
+if ! grep -qF 'Outdated info found in other files' "$how_to_run_skill" 2>/dev/null; then
+  wiring_errors+="  $how_to_run_skill missing Step 6 stale-info report heading: Outdated info found in other files\n"
+fi
+if ! grep -qF 'Outdated info elsewhere' "$how_to_run_skill" 2>/dev/null; then
+  wiring_errors+="  $how_to_run_skill missing Step 4/5 cross-reference to stale-info report: Outdated info elsewhere\n"
+fi
+
 check "Load-bearing wiring intact" test -z "$wiring_errors"
 if [ -n "$wiring_errors" ]; then
   printf "       Wiring issues:\n%b" "$wiring_errors"
