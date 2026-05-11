@@ -717,8 +717,8 @@ fi
 walkthrough_ref="skills/how-to-run/references/guided-walkthrough.md"
 auditor_agent="skills/how-to-run/agents/how-to-run-auditor.md"
 # Audit verdict list — producer/consumer contract between Step 2 auditor
-# agent (producer) and the walkthrough's per-step Audit: prefix +
-# Audit-verdict prepend (consumer). Applied to each side independently below.
+# agent (producer) and the walkthrough's per-step Audit: prefix (consumer).
+# Applied to each side independently below.
 audit_verdicts=('Found & accurate' 'Found but outdated' 'Partial' 'Documented but unverifiable' 'Missing')
 # Assert file presence as first-class checks (not `if [ -f ]` guards) so a
 # rename or deletion fails the build instead of silently skipping the
@@ -749,38 +749,27 @@ for literal_trigger in 'Walk through it' 'Regenerate' '**Skip**' 'Stop the walkt
     wiring_errors+="  $how_to_run_skill missing walkthrough trigger: $literal_trigger\n"
   fi
 done
-for heading in '^## Pre-flight' '^## Per-step loop' '^## Per-step AskUserQuestion' '^## Override rules' '^## Cross-platform detection' '^## Heavy-staleness handling' '^## Completion summary' '^## Secret redaction patterns' '^## What this walkthrough never modifies' '^### Long-running service patterns' '^### Destructive verb patterns' '^### Remote-fetch executor patterns' '^### Platform-mismatch constructs' '^### Two-step download-then-execute defense' '^### Audit-verdict prepend \(additive\)'; do
+for heading in '^## Pre-flight' '^## Per-step loop' '^## Advisory flags' '^## Display sanitization' '^## Heavy-staleness handling' '^## Completion summary' '^## What this walkthrough never modifies'; do
   if ! grep -qE "$heading" "$walkthrough_ref" 2>/dev/null; then
     wiring_errors+="  $walkthrough_ref missing heading matching: $heading\n"
   fi
 done
-# Option labels — the override rules in the table are written in terms of
-# *dropping or renaming* these literal strings. A silent rename here desyncs
-# the override rules from the rendered options and makes the safety gates
-# inert.
-for option_label in '"Run it"' '"I'"'"'ll run it"' '"Skip"' '"Run it (destructive)"'; do
+# Option labels — the per-step loop renders these via AskUserQuestion.
+# Silent rename desyncs the rendered options from the SKILL.md routing
+# contract (Step 3a jumps back to Step 6 on "Stop the walkthrough").
+for option_label in '"Done"' '"Skip"' '"Stop the walkthrough"'; do
   if ! grep -qF "$option_label" "$walkthrough_ref" 2>/dev/null; then
     wiring_errors+="  $walkthrough_ref missing option label: $option_label\n"
   fi
 done
-# User-facing safety / control strings — each entry below fails the build
-# on silent rename. Failure mode per category:
-#   - Override prepend/append text (rows 1-4): 'Remote code executor',
-#     'Destructive command. Read it carefully', 'long-running process',
-#     "I won't auto-translate" — rename silently inerts the safety message
-#     while the gate still fires.
-#   - Audit-verdict surface: 'Audit flagged this step as', 'Audit:' —
-#     rename desyncs the prepend from the per-step verdict line.
-#   - Heavy-staleness banner: 'heavily out of date' — rename silently
-#     drops the pre-loop staleness warning.
-#   - Secret-redaction marker: '<redacted>' — rename silently disables
-#     the user-visible note that redaction occurred.
-#   - Per-step failure-recovery options: 'Try again', "I'll fix it
-#     manually" — rename silently strips the post-failure recovery menu.
+# User-facing advisory / control strings — load-bearing prose whose silent
+# rename creates a real gap:
+#   - Advisory prepends: 'Remote code executor', 'Destructive command' —
+#     rename silently drops the warning surface.
 #   - Control flow / exit: 'Stop the walkthrough', 'SKILL.md Step 6',
 #     '**Regenerate**' — rename dangles the SKILL→walkthrough→SKILL jump
 #     and the recovery-recommendation cross-reference.
-for safety_msg in 'Remote code executor' 'Destructive command. Read it carefully' 'long-running process' "I won't auto-translate" 'Audit flagged this step as' 'heavily out of date' '<redacted>' 'Try again' "I'll fix it manually" 'Audit:' 'Stop the walkthrough' 'SKILL.md Step 6' '**Regenerate**'; do
+for safety_msg in 'Remote code executor' 'Destructive command' 'Stop the walkthrough' 'SKILL.md Step 6' '**Regenerate**'; do
   if ! grep -qF "$safety_msg" "$walkthrough_ref" 2>/dev/null; then
     wiring_errors+="  $walkthrough_ref missing safety message: $safety_msg\n"
   fi
@@ -791,31 +780,6 @@ for verdict in "${audit_verdicts[@]}"; do
   fi
   if ! grep -qF "$verdict" "$auditor_agent" 2>/dev/null; then
     wiring_errors+="  $auditor_agent missing audit verdict: $verdict\n"
-  fi
-done
-# Remote-fetch executor sink tokens and .NET-class load-method names — each
-# token below appears inside an alternation branch of a row-1 regex in
-# guided-walkthrough.md's "Remote-fetch executor patterns" section. A
-# future "consolidation" PR that drops one branch would compile fine and
-# the gate would silently lose coverage of that PowerShell RCE form
-# (e.g., dropping `winhttprequest` re-opens the ComObject WinHttp bypass;
-# dropping `appdomain` re-opens AppDomain.Load(byte[]); dropping `addscript`
-# re-opens the PowerShell SDK runspace-host form).
-for sink_token in 'downloaddata' 'webclient' 'httpclient' 'getstringasync' 'xmlhttp' 'winhttprequest' 'loadfile' 'loadfrom' 'loadwithpartialname' 'reflectiononlyload' 'unsafeloadfrom' 'appdomain' 'currentdomain' 'addscript'; do
-  if ! grep -qF "$sink_token" "$walkthrough_ref" 2>/dev/null; then
-    wiring_errors+="  $walkthrough_ref missing remote-exec sink/method token: $sink_token\n"
-  fi
-done
-# Executor tokens in the `<EXECUTOR>` macro — each token below appears
-# exactly once (inside the macro definition) and is substituted into every
-# `<EXECUTOR>`-based row 1 regex. Silent deletion of any one re-opens
-# `curl URL | <executor>` and `<executor> -c "$(curl URL)"` coverage for
-# that runtime (e.g., dropping `tcc` re-opens `curl URL | tcc -run -` for
-# C-toolchain install docs; dropping `bun`/`lua` re-opens the modern
-# JS/Lua install-script shapes).
-for executor_token in 'pwsh' 'bun' 'deno' 'php' 'lua' 'tcc'; do
-  if ! grep -qF "$executor_token" "$walkthrough_ref" 2>/dev/null; then
-    wiring_errors+="  $walkthrough_ref missing <EXECUTOR> token: $executor_token\n"
   fi
 done
 # Cross-file return-format header — auditor agent emits this section header

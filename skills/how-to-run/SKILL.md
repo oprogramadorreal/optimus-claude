@@ -11,8 +11,9 @@ description: >-
   those files — any outdated info found elsewhere is reported to the user at
   the end. Use after /optimus:init or standalone when onboarding feels broken.
   Handles single projects, monorepos, and multi-repo workspaces. When the
-  file already exists, also offers a guided in-chat walkthrough of the
-  documented steps with per-step user approval.
+  file already exists, also offers a guided in-chat walkthrough where the
+  user runs each documented step locally — the skill never executes
+  commands itself.
 disable-model-invocation: true
 ---
 
@@ -20,7 +21,7 @@ disable-model-invocation: true
 
 Generate or update a `HOW-TO-RUN.md` at the project (or workspace) root that teaches a new developer who has just cloned the repo how to set up their environment and run the project locally — covering OS/hardware prerequisites, toolchain & SDKs, source dependencies (submodules, sibling repos), language-level install, external services, env config, build, run, and tests.
 
-**Write scope:** The only file this skill is ever permitted to create or modify is `HOW-TO-RUN.md`. It never modifies `README.md`, `CONTRIBUTING.md`, `docs/*`, `BUILDING.md`, `INSTALL.md`, or any other file — not even to add a link. Existing docs are *input only*: the skill learns from them but always verifies every fact against the actual codebase before using it. The optional guided in-chat walkthrough (Step 3a) executes commands; its safety rules live in `references/guided-walkthrough.md`.
+**Write scope:** The only file this skill is ever permitted to create or modify is `HOW-TO-RUN.md`. It never modifies `README.md`, `CONTRIBUTING.md`, `docs/*`, `BUILDING.md`, `INSTALL.md`, or any other file — not even to add a link. Existing docs are *input only*: the skill learns from them but always verifies every fact against the actual codebase before using it. The optional guided in-chat walkthrough (Step 3a) is display-only — it never executes commands; the user runs every step locally. The walkthrough procedure lives in `references/guided-walkthrough.md`.
 
 ## Step 1: Detect Full Project Context (agent-assisted)
 
@@ -104,7 +105,7 @@ For the **External Services** aspect, expand it into a sub-table with columns **
 
 - **If `HOW-TO-RUN.md` does NOT exist:** skip the 3-option question below and proceed directly to the per-item unverifiable prompts paragraph, then Step 4. Step 5 writes directly without re-asking — the user already approved the plan in Step 3.
 - **If `HOW-TO-RUN.md` exists** (whether all aspects are "Found & accurate", partial, or stale): use `AskUserQuestion` — header "How to Run Documentation", question "HOW-TO-RUN.md already exists (audit findings above). How would you like to proceed?":
-  - **Walk through it** — "I'll guide you through each step in-chat. For each command I'll show what it does and ask before running it; you can also run it yourself."
+  - **Walk through it** — "I'll guide you through each step in-chat — show each command, what it does, and the audit verdict. You run the commands locally; I never execute anything for you."
   - **Regenerate** — "Show the diff and rewrite HOW-TO-RUN.md to match the current project state. (Default for stale or partial docs.)"
   - **Skip** — "No changes. Print the audit findings and stop."
 
@@ -117,7 +118,7 @@ For the **External Services** aspect, expand it into a sub-table with columns **
 
 ## Step 3a: Guided Walkthrough
 
-Read `$CLAUDE_PLUGIN_ROOT/skills/how-to-run/references/guided-walkthrough.md` for the per-step procedure, override rules, sanitization, and completion summary, then follow it. When the walkthrough finishes (or the user chooses **Stop the walkthrough**), jump to Step 6 — this branch does not write to `HOW-TO-RUN.md`.
+Read `$CLAUDE_PLUGIN_ROOT/skills/how-to-run/references/guided-walkthrough.md` for the per-step procedure and follow it. The walkthrough is display-only — the user runs each command locally. When it finishes (or the user chooses **Stop the walkthrough**), jump to Step 6 — this branch does not write to `HOW-TO-RUN.md` and does not execute commands.
 
 ## Step 4: Generate Content
 

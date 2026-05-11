@@ -40,7 +40,7 @@ In Claude Code:
 
 The skill analyzes your project, scans existing documentation as hypotheses, and proposes a `HOW-TO-RUN.md`. First-run writes go through directly; updates to an existing `HOW-TO-RUN.md` require your approval.
 
-When `HOW-TO-RUN.md` already exists, the skill offers three choices: a guided in-chat walkthrough of the documented steps with per-step user approval before any command runs, regenerate the doc, or skip. The walkthrough applies safety overrides (long-running services, destructive verbs, remote-fetch executors, platform mismatches) that drop or rename "Run it" — see [`references/guided-walkthrough.md`](references/guided-walkthrough.md) for the exact rules. It never modifies `HOW-TO-RUN.md` or any other file in the project.
+When `HOW-TO-RUN.md` already exists, the skill offers three choices: a guided in-chat walkthrough of the documented steps (display-only — the user runs each command locally; the skill never executes anything), regenerate the doc, or skip. The walkthrough surfaces the audit verdict per step and flags destructive or remote-fetch commands as advisories — see [`references/guided-walkthrough.md`](references/guided-walkthrough.md). It never modifies `HOW-TO-RUN.md` or any other file in the project.
 
 ## When to Run
 
@@ -101,7 +101,7 @@ When `HOW-TO-RUN.md` already exists, the skill offers three choices: a guided in
 | `agents/shared-constraints.md` | Skill-specific read-only analysis constraints for both agents |
 | `references/how-to-run-sections.md` | Section templates, signal-to-section mapping, build-system/source-dependency detection, PM command tables |
 | `references/external-services-docker.md` | Service classification tables, decision heuristics for Docker vs. local install vs. shared-cloud per service, web-search recipe for vendor images, canonical image catalogue (seeds), snippet templates, citation format, and registry allowlist |
-| `references/guided-walkthrough.md` | Interactive walkthrough procedure when the user picks **Walk through it** at Step 3: per-step `AskUserQuestion`, override rules for long-running services / destructive verbs / remote-fetch executors / platform-mismatched commands, secret-redaction patterns, cross-platform shell detection, completion summary |
+| `references/guided-walkthrough.md` | Display-only walkthrough procedure when the user picks **Walk through it** at Step 3: per-step `AskUserQuestion` (Done / Skip / Stop), audit-verdict surface, destructive and remote-fetch advisories, completion summary. The user runs every command locally — the skill never executes anything. |
 | *(shared)* `init/references/readme-section-detection.md` | Algorithm for finding existing setup instructions in documentation |
 | *(shared)* `init/references/tech-stack-detection.md` | Manifest → tech stack and package manager detection tables |
 | *(shared)* `init/references/project-detection.md` | Monorepo/single-project detection algorithm |
