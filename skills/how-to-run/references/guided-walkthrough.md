@@ -93,10 +93,10 @@ These are best-effort safety gates. They do NOT bypass user judgment, and they o
 
 | # | Trigger | How to detect | Override |
 |---|---|---|---|
-| 1 | **Remote-fetch executor** | Any pattern in [Remote-fetch executor patterns](#remote-fetch-executor-patterns) matches. | Drop `"Run it"`. Show only `"I'll run it"` and `"Skip"`. Prepend to question text: _"Remote code executor — fetches and runs code from a URL. Read the URL before approving."_ |
-| 2 | **Long-running service** | Any pattern in [Long-running service patterns](#long-running-service-patterns) matches. | Drop `"Run it"`. Show only `"I'll run it"` and `"Skip"`. Append to question text: _"This starts a long-running process; I won't run it for you."_ |
+| 1 | **Remote-fetch executor** | Any pattern in [Remote-fetch executor patterns](#remote-fetch-executor-patterns) matches. | Drop `"Run it"`. Show only `"I'll run it"`, `"Skip"`, and `"Stop the walkthrough"`. Prepend to question text: _"Remote code executor — fetches and runs code from a URL. Read the URL before approving."_ |
+| 2 | **Long-running service** | Any pattern in [Long-running service patterns](#long-running-service-patterns) matches. | Drop `"Run it"`. Show only `"I'll run it"`, `"Skip"`, and `"Stop the walkthrough"`. Append to question text: _"This starts a long-running process; I won't run it for you."_ |
 | 3 | **Destructive verb** | Any pattern in [Destructive verb patterns](#destructive-verb-patterns) matches. | Keep all options but rename `"Run it"` to `"Run it (destructive)"`. Prepend to question text: _"Destructive command. Read it carefully before approving."_ |
-| 4 | **Platform mismatch** | A pattern from [Platform-mismatch constructs](#platform-mismatch-constructs) matches the current shell tag. | Drop `"Run it"`. Show only `"I'll run it"` and `"Skip"`. Append to question text: _"This command is `<other-platform>`-only; the current shell is `<current-platform>`. I won't auto-translate."_ When in doubt about platform compatibility, prefer dropping `"Run it"`. |
+| 4 | **Platform mismatch** | A pattern from [Platform-mismatch constructs](#platform-mismatch-constructs) matches the current shell tag. | Drop `"Run it"`. Show only `"I'll run it"`, `"Skip"`, and `"Stop the walkthrough"`. Append to question text: _"This command is `<other-platform>`-only; the current shell is `<current-platform>`. I won't auto-translate."_ When in doubt about platform compatibility, prefer dropping `"Run it"`. |
 
 ### Two-step download-then-execute defense
 
