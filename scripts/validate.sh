@@ -763,11 +763,23 @@ for option_label in '"Run it"' '"I'"'"'ll run it"' '"Skip"' '"Run it (destructiv
     wiring_errors+="  $walkthrough_ref missing option label: $option_label\n"
   fi
 done
-# User-facing safety / control strings — silent rename or deletion is a
-# safety regression (override prepend/append text) or a control-flow break
-# ("Stop the walkthrough" is the exit string SKILL.md Step 3a directs the
-# user to and the per-step loop step 7 offers as an option label). Neither
-# is caught by the heading or option-label checks above.
+# User-facing safety / control strings — each entry below fails the build
+# on silent rename. Failure mode per category:
+#   - Override prepend/append text (rows 1-4): 'Remote code executor',
+#     'Destructive command. Read it carefully', 'long-running process',
+#     "I won't auto-translate" — rename silently inerts the safety message
+#     while the gate still fires.
+#   - Audit-verdict surface: 'Audit flagged this step as', 'Audit:' —
+#     rename desyncs the prepend from the per-step verdict line.
+#   - Heavy-staleness banner: 'heavily out of date' — rename silently
+#     drops the pre-loop staleness warning.
+#   - Secret-redaction marker: '<redacted>' — rename silently disables
+#     the user-visible note that redaction occurred.
+#   - Per-step failure-recovery options: 'Try again', "I'll fix it
+#     manually" — rename silently strips the post-failure recovery menu.
+#   - Control flow / exit: 'Stop the walkthrough', 'SKILL.md Step 6',
+#     '**Regenerate**' — rename dangles the SKILL→walkthrough→SKILL jump
+#     and the recovery-recommendation cross-reference.
 for safety_msg in 'Remote code executor' 'Destructive command. Read it carefully' 'long-running process' "I won't auto-translate" 'Audit flagged this step as' 'heavily out of date' '<redacted>' 'Try again' "I'll fix it manually" 'Audit:' 'Stop the walkthrough' 'SKILL.md Step 6' '**Regenerate**'; do
   if ! grep -qF "$safety_msg" "$walkthrough_ref" 2>/dev/null; then
     wiring_errors+="  $walkthrough_ref missing safety message: $safety_msg\n"
@@ -781,39 +793,68 @@ for verdict in "${audit_verdicts[@]}"; do
     wiring_errors+="  $auditor_agent missing audit verdict: $verdict\n"
   fi
 done
+# Remote-fetch executor sink tokens and .NET-class load-method names — each
+# token below appears inside an alternation branch of a row-1 regex in
+# guided-walkthrough.md's "Remote-fetch executor patterns" section. A
+# future "consolidation" PR that drops one branch would compile fine and
+# the gate would silently lose coverage of that PowerShell RCE form
+# (e.g., dropping `winhttprequest` re-opens the ComObject WinHttp bypass;
+# dropping `appdomain` re-opens AppDomain.Load(byte[]); dropping `addscript`
+# re-opens the PowerShell SDK runspace-host form).
+for sink_token in 'downloaddata' 'webclient' 'httpclient' 'getstringasync' 'xmlhttp' 'winhttprequest' 'loadfile' 'loadfrom' 'loadwithpartialname' 'reflectiononlyload' 'unsafeloadfrom' 'appdomain' 'currentdomain' 'addscript'; do
+  if ! grep -qF "$sink_token" "$walkthrough_ref" 2>/dev/null; then
+    wiring_errors+="  $walkthrough_ref missing remote-exec sink/method token: $sink_token\n"
+  fi
+done
+# Executor tokens in the `<EXECUTOR>` macro — each token below appears
+# exactly once (inside the macro definition) and is substituted into every
+# `<EXECUTOR>`-based row 1 regex. Silent deletion of any one re-opens
+# `curl URL | <executor>` and `<executor> -c "$(curl URL)"` coverage for
+# that runtime (e.g., dropping `tcc` re-opens `curl URL | tcc -run -` for
+# C-toolchain install docs; dropping `bun`/`lua` re-opens the modern
+# JS/Lua install-script shapes).
+for executor_token in 'pwsh' 'bun' 'deno' 'php' 'lua' 'tcc'; do
+  if ! grep -qF "$executor_token" "$walkthrough_ref" 2>/dev/null; then
+    wiring_errors+="  $walkthrough_ref missing <EXECUTOR> token: $executor_token\n"
+  fi
+done
 # Cross-file return-format header — auditor agent emits this section header
 # and SKILL.md Steps 2/3 consume it by name. A silent rename in either file
 # would break the Step 2 → Step 3 handoff that feeds the walkthrough's audit
 # verdict surfaces.
-for return_format in 'How-to-Run Audit Results'; do
-  if ! grep -qF "$return_format" "$auditor_agent" 2>/dev/null; then
-    wiring_errors+="  $auditor_agent missing return-format header: $return_format\n"
-  fi
-  if ! grep -qF "$return_format" "$how_to_run_skill" 2>/dev/null; then
-    wiring_errors+="  $how_to_run_skill missing return-format consumer: $return_format\n"
-  fi
-done
+if ! grep -qF 'How-to-Run Audit Results' "$auditor_agent" 2>/dev/null; then
+  wiring_errors+="  $auditor_agent missing return-format header: How-to-Run Audit Results\n"
+fi
+if ! grep -qF 'How-to-Run Audit Results' "$how_to_run_skill" 2>/dev/null; then
+  wiring_errors+="  $how_to_run_skill missing return-format consumer: How-to-Run Audit Results\n"
+fi
 # Cross-step identifiers within SKILL.md — these list/field names are
 # referenced from multiple Steps (3 record, 4 populate, 6 exempt); a silent
 # rename in only one location would silently disable the cross-step contract
 # (e.g., Step 6 would reject legitimately approved unverifiable items).
 # Threshold = current occurrence count; one location renamed = check fails.
-for cross_step_spec in 'approved-unverifiable-items:3' 'rendered_line:3'; do
+# `|| true` lets the count=0 case reach the threshold comparison instead
+# of aborting the script under `set -euo pipefail` — count=0 is exactly
+# the failure mode this check is designed to catch.
+for cross_step_spec in 'approved-unverifiable-items:4' 'rendered_line:3'; do
   identifier="${cross_step_spec%:*}"
   expected_count="${cross_step_spec##*:}"
-  actual_count=$(grep -cF "$identifier" "$how_to_run_skill" 2>/dev/null || echo 0)
+  actual_count=$(grep -cF "$identifier" "$how_to_run_skill" 2>/dev/null || true)
+  [ -z "$actual_count" ] && actual_count=0
   if [ "$actual_count" -lt "$expected_count" ]; then
     wiring_errors+="  $how_to_run_skill cross-step identifier '$identifier' appears $actual_count times, expected >=$expected_count\n"
   fi
 done
 # Stale-info report identifiers — Step 4/5 prose references the Step 6
-# "Outdated info" report by name; a silent rename of the Step 6 report
-# header breaks the path from principle to report.
-for stale_report_token in 'Outdated info elsewhere' 'Outdated info found in other files'; do
-  if ! grep -qF "$stale_report_token" "$how_to_run_skill" 2>/dev/null; then
-    wiring_errors+="  $how_to_run_skill missing stale-info report identifier: $stale_report_token\n"
-  fi
-done
+# "Outdated info" report by name; a silent rename of either side breaks
+# the path from principle to report. Each side is checked independently
+# so the failure message identifies which surface drifted.
+if ! grep -qF 'Outdated info found in other files' "$how_to_run_skill" 2>/dev/null; then
+  wiring_errors+="  $how_to_run_skill missing Step 6 stale-info report heading: Outdated info found in other files\n"
+fi
+if ! grep -qF 'Outdated info elsewhere' "$how_to_run_skill" 2>/dev/null; then
+  wiring_errors+="  $how_to_run_skill missing Step 4/5 cross-reference to stale-info report: Outdated info elsewhere\n"
+fi
 
 check "Load-bearing wiring intact" test -z "$wiring_errors"
 if [ -n "$wiring_errors" ]; then

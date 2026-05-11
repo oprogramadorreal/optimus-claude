@@ -40,7 +40,7 @@ In Claude Code:
 
 The skill analyzes your project, scans existing documentation as hypotheses, and proposes a `HOW-TO-RUN.md`. First-run writes go through directly; updates to an existing `HOW-TO-RUN.md` require your approval.
 
-When `HOW-TO-RUN.md` already exists, the skill offers three choices: walk through the documented setup in-chat with per-step approval before any command runs, regenerate the doc, or skip. The walkthrough applies safety overrides (long-running services, destructive verbs, remote-fetch executors, platform mismatches) that drop or rename "Run it" — see [`references/guided-walkthrough.md`](references/guided-walkthrough.md) for the exact rules. It never modifies `HOW-TO-RUN.md` or any other file in the project.
+When `HOW-TO-RUN.md` already exists, the skill offers three choices: a guided in-chat walkthrough of the documented steps with per-step user approval before any command runs, regenerate the doc, or skip. The walkthrough applies safety overrides (long-running services, destructive verbs, remote-fetch executors, platform mismatches) that drop or rename "Run it" — see [`references/guided-walkthrough.md`](references/guided-walkthrough.md) for the exact rules. It never modifies `HOW-TO-RUN.md` or any other file in the project.
 
 ## When to Run
 

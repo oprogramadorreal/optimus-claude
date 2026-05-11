@@ -4,12 +4,12 @@ description: >-
   teaches a new developer how to set up their environment and run the project
   locally. Detects build system, toolchain, SDKs, source dependencies (git
   submodules, sibling repos), external services, environment config, and
-  hardware/OS requirements. Works for web apps, C++ desktop apps, native
-  mobile, game engines, embedded/firmware, and backend services. Audits an
-  existing HOW-TO-RUN.md against actual project state. Learns from setup
-  info found in README.md / CONTRIBUTING.md / docs but never modifies those
-  files — any outdated info found elsewhere is reported to the user at the
-  end. Use after /optimus:init or standalone when onboarding feels broken.
+  hardware/OS requirements. Works for web apps, C/C++ desktop apps, native
+  mobile, JVM/Android, game engines, embedded/firmware, and backend services.
+  Audits an existing HOW-TO-RUN.md against actual project state. Learns from
+  setup info found in README.md / CONTRIBUTING.md / docs but never modifies
+  those files — any outdated info found elsewhere is reported to the user at
+  the end. Use after /optimus:init or standalone when onboarding feels broken.
   Handles single projects, monorepos, and multi-repo workspaces. When the
   file already exists, also offers a guided in-chat walkthrough of the
   documented steps with per-step user approval.
@@ -102,8 +102,8 @@ For the **External Services** aspect, expand it into a sub-table with columns **
 
 **Branching on whether `HOW-TO-RUN.md` exists:**
 
-- **If `HOW-TO-RUN.md` does NOT exist:** skip the 3-option question below and proceed directly to the per-item unverifiable prompts paragraph, then Step 4. Step 5 writes directly without re-asking — the user already approved the assessment by being here.
-- **If `HOW-TO-RUN.md` exists** (whether all aspects are "Found & accurate", partial, or stale): use `AskUserQuestion` — header "How to Run Documentation", question "HOW-TO-RUN.md already exists (audit summary above). How would you like to proceed?":
+- **If `HOW-TO-RUN.md` does NOT exist:** skip the 3-option question below and proceed directly to the per-item unverifiable prompts paragraph, then Step 4. Step 5 writes directly without re-asking — the user already approved the plan in Step 3.
+- **If `HOW-TO-RUN.md` exists** (whether all aspects are "Found & accurate", partial, or stale): use `AskUserQuestion` — header "How to Run Documentation", question "HOW-TO-RUN.md already exists (audit findings above). How would you like to proceed?":
   - **Walk through it** — "I'll guide you through each step in-chat. For each command I'll show what it does and ask before running it; you can also run it yourself."
   - **Regenerate** — "Show the diff and rewrite HOW-TO-RUN.md to match the current project state. (Default for stale or partial docs.)"
   - **Skip** — "No changes. Print the audit findings and stop."
@@ -113,7 +113,7 @@ For the **External Services** aspect, expand it into a sub-table with columns **
   - **Regenerate** → show current content vs proposed correction for each outdated item, then run the per-item unverifiable prompts paragraph below, then continue with Step 4.
   - **Skip** → jump to Step 6 (report only).
 
-**Per-item unverifiable prompts (Regenerate path or fresh write only).** Skip these per-item prompts on the Walk-through and Skip branches — no file is written there, so there is nothing to include. For each "Documented but unverifiable" item from the audit, use `AskUserQuestion` to ask whether to include it in `HOW-TO-RUN.md`. Show the source file and heading so the user can judge. When the user approves an item, record it in an in-memory `approved-unverifiable-items` list as `{aspect, source_file, source_heading, text, rendered_line}`. Validate `source_file` strictly against `^[A-Za-z0-9][A-Za-z0-9._/-]{0,128}$`, then split on `/` and drop the entry if any resulting segment is empty, `.`, or `..` — mirrors the submodule/sibling path validation in project-environment-detector.md Task 0b so `docs/../etc/passwd` cannot render as a plausible-looking attribution. Sanitize `source_heading`: truncate to 80 chars; strip backtick, `` ` ``, `<`, `>`, `\`, `&`, newline, carriage return, NUL, and any Cc/Cf character; then escape every remaining `[` as `\[` and every `]` as `\]` before rendering, so a heading like `[Source](javascript:alert(1))` cannot form a clickable link inside the attribution preamble `Per <source_file> "<source_heading>": ...`. `&` is stripped for the same reason it is stripped from `text` in Step 4 — CommonMark numeric-character-reference decoding would otherwise resurrect a heading like `&#x5B;docs&#x5D;(javascript:alert(1))` (no literal brackets to escape) into `[docs](javascript:alert(1))` at render time, bypassing the bracket escape entirely. `\` is stripped (not escaped) because stacked backslashes combined with bracket escapes can produce unclosed link labels that confuse downstream markdown consumers. Do not whitelist heading characters — legitimate markdown headings routinely contain `:`, `'`, `!`, `?`, `+`, `#`, en/em dashes, and other punctuation. `rendered_line` is populated in Step 4 (it is the exact line Step 6 will exempt).
+**Per-item unverifiable prompts (Regenerate path or fresh write only).** For each "Documented but unverifiable" item from the audit, use `AskUserQuestion` to ask whether to include it in `HOW-TO-RUN.md`. Show the source file and heading so the user can judge. When the user approves an item, record it in an in-memory `approved-unverifiable-items` list as `{aspect, source_file, source_heading, text, rendered_line}`. Validate `source_file` strictly against `^[A-Za-z0-9][A-Za-z0-9._/-]{0,128}$`, then split on `/` and drop the entry if any resulting segment is empty, `.`, or `..` — mirrors the submodule/sibling path validation in project-environment-detector.md Task 0b so `docs/../etc/passwd` cannot render as a plausible-looking attribution. Sanitize `source_heading`: truncate to 80 chars; strip backtick, `` ` ``, `<`, `>`, `\`, `&`, newline, carriage return, NUL, and any Cc/Cf character; then escape every remaining `[` as `\[` and every `]` as `\]` before rendering, so a heading like `[Source](javascript:alert(1))` cannot form a clickable link inside the attribution preamble `Per <source_file> "<source_heading>": ...`. `&` is stripped for the same reason it is stripped from `text` in Step 4 — CommonMark numeric-character-reference decoding would otherwise resurrect a heading like `&#x5B;docs&#x5D;(javascript:alert(1))` (no literal brackets to escape) into `[docs](javascript:alert(1))` at render time, bypassing the bracket escape entirely. `\` is stripped (not escaped) because stacked backslashes combined with bracket escapes can produce unclosed link labels that confuse downstream markdown consumers. Do not whitelist heading characters — legitimate markdown headings routinely contain `:`, `'`, `!`, `?`, `+`, `#`, en/em dashes, and other punctuation. `rendered_line` is populated in Step 4 (it is the exact line Step 6 will exempt).
 
 ## Step 3a: Guided Walkthrough
 
