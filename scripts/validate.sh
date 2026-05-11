@@ -436,6 +436,8 @@ if [ -f "$esd_file" ]; then
     '^## Web-Search Recipe' \
     '^## Verify Commands \(seeds\)' \
     '^## Pre-Conditions Block' \
+    '^### Substitution rules' \
+    '^### Step 6 audit' \
     '^## Citation Format' \
     '^## Registry Allowlist' \
     '^### Docker-preferred' \
@@ -448,9 +450,52 @@ if [ -f "$esd_file" ]; then
     '### Shared-cloud primary (Docker optional)' \
     '### Shared-cloud, no Docker alternative' \
     '### Known Vendor Emulators' \
-    '## Vendor-Service → Emulator Index'; do
-    if ! grep -qF "$fixed_heading" "$esd_file" 2>/dev/null; then
+    '## Vendor-Service → Emulator Index' \
+    '**Per-shell rendering (Windows host).**' \
+    '**Shell-quoting hazard caveat' \
+    'SQLCMDPASSWORD' \
+    'MYSQL_PWD' \
+    '--authenticationDatabase admin' \
+    'MONGO_INITDB_ROOT_USERNAME' \
+    '***REDACTED-see-source***' \
+    'Stale-tag re-validation' \
+    '```diff' \
+    'TrustServerCertificate=True' \
+    '?authSource=admin' \
+    'User Id=sa;Password=' \
+    '**ADO.NET**' \
+    '**libpq KV**' \
+    '**Userinfo pass.**' \
+    '**Query-string pass.**' \
+    'Starts with `jdbc:`'; do
+    if ! grep -qF -- "$fixed_heading" "$esd_file" 2>/dev/null; then
       wiring_errors+="  $esd_file missing heading: $fixed_heading\n"
+    fi
+  done
+fi
+
+# GUI client × Service catalog wiring: SKILL.md Step 4 item 5 and Step 6
+# reach this reference by section anchor (Catalog, Rendering rule,
+# Web-Search Recipe re-validation). A silent rename of any anchor would
+# silently drop the `Connecting from <tool>` rendering path.
+gui_catalog_file="skills/how-to-run/references/gui-client-service-catalog.md"
+if [ -f "$gui_catalog_file" ]; then
+  for heading in \
+    '^## Catalog' \
+    '^## Rendering rule' \
+    '^## Web-Search Recipe re-validation'; do
+    if ! grep -qE "$heading" "$gui_catalog_file" 2>/dev/null; then
+      wiring_errors+="  $gui_catalog_file missing heading matching: $heading\n"
+    fi
+  done
+  for token in \
+    '| GUI client | Matched service tokens | Connection schema | Canonical source |' \
+    'GUI-client docs allowlist' \
+    '<heading-prefix>' \
+    'pgadmin.org' \
+    'learn.microsoft.com'; do
+    if ! grep -qF -- "$token" "$gui_catalog_file" 2>/dev/null; then
+      wiring_errors+="  $gui_catalog_file missing catalog token: $token\n"
     fi
   done
 fi
@@ -488,6 +533,14 @@ if [ -f "$detector_file" ]; then
     '| Invocation hint |' \
     '| Endpoint semantics |' \
     '| Bootstrap mechanism |' \
+    '`local-windows-auth`' \
+    '`local-named-instance`' \
+    '`local-socket`' \
+    '`local-default`' \
+    '`docker-compose`' \
+    '`raw-sql`' \
+    '`seed-script`' \
+    '`fixture-load`' \
     '`confirmed`' \
     '`candidate`' \
     'Format: dotenv' \
@@ -533,8 +586,16 @@ if [ -f "$sections_file" ]; then
     '## Source Dependencies / Clone All' \
     '## Running Everything' \
     '## Schema Bootstrap' \
+    '### Pick-one rule' \
+    '### Connection-mode-aware invocation' \
     '## Section Depends-On Graph' \
+    '### Audit-flow summary' \
+    'Auto-callout' \
+    '> **Pre-condition:**' \
+    'Pre-condition callouts' \
     '## Diagnostic Ladders' \
+    '#### Container running but host can'"'"'t connect' \
+    '#### Test command fails with database connection / authentication error' \
     'Default skeleton — multi-configuration build systems' \
     'Single-configuration skeleton — Cargo / Go / single-output build systems' \
     '| 3-5 |' \
@@ -601,7 +662,11 @@ if [ -f "$how_to_run_skill" ]; then
     'Runtime Ports table' \
     'Section ordering audit' \
     'Connection-string-shift audit' \
-    'In-container path audit'; do
+    'In-container path audit' \
+    'Heading-prefix substitution audit' \
+    'GUI-client docs allowlist' \
+    'Stale-tag re-validation' \
+    'Pre-condition callouts'; do
     if ! grep -qF "$token" "$how_to_run_skill" 2>/dev/null; then
       wiring_errors+="  $how_to_run_skill missing token-audit wiring token: $token\n"
     fi

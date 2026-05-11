@@ -148,13 +148,14 @@ Seed verify commands for catalogue services, used by Step 4 when emitting "Verif
 
 | Service | Verify command (seed) |
 |---|---|
-| SQL Server | `docker exec <name> /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P '<password>' -C -Q "SELECT 1"` |
+| SQL Server | `docker exec -e SQLCMDPASSWORD='<password>' <name> /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -C -Q "SELECT 1"` |
 | PostgreSQL | `docker exec <name> pg_isready -U postgres` |
-| MongoDB | `docker exec <name> mongosh --eval "db.adminCommand('ping')"` |
+| MongoDB (no auth) | `docker exec <name> mongosh --eval "db.adminCommand('ping')"` |
+| MongoDB (root credentials set) | `docker exec <name> mongosh -u '<user>' -p '<password>' --authenticationDatabase admin --eval "db.adminCommand('ping')"` |
 | Redis | `docker exec <name> redis-cli ping` |
-| MySQL / MariaDB | `docker exec <name> mysqladmin -u root -p'<password>' ping` |
+| MySQL / MariaDB | `docker exec -e MYSQL_PWD='<password>' <name> mysqladmin -u root ping` |
 
-`<name>` is the rendered container name (`<project-slug>-<service-slug>` per §Snippet Templates). `<password>` is substituted with the same placeholder used in the snippet's `-e` line for the password env var; verify commands for services without a password env var omit the `-P` / `-p` flag entirely. The SQL Server and MySQL forms put the password on the `docker exec` command line — the substituted value is briefly visible in both the host's and the container's process listing while the verify command runs.
+`<name>` is the rendered container name (`<project-slug>-<service-slug>` per §Snippet Templates). `<password>` (and `<user>` for the MongoDB auth-enabled variant) is substituted with the same placeholder used in the snippet's `-e` line for the password / username env var; verify commands for services without a password env var omit the credential flags entirely. Select the MongoDB row by snippet shape: use *MongoDB (root credentials set)* when the snippet sets `MONGO_INITDB_ROOT_USERNAME` / `MONGO_INITDB_ROOT_PASSWORD` (the auth-less ping fails with `Unauthorized` against an auth-enabled container); use *MongoDB (no auth)* otherwise. The SQL Server and MySQL forms pass the password via `-e SQLCMDPASSWORD='…'` / `-e MYSQL_PWD='…'` to keep it out of the host's `ps` listing; the MongoDB auth-enabled form keeps credentials on argv because `mongosh` has no env-var alternative. See [`how-to-run-sections.md`](how-to-run-sections.md#connection-mode-aware-invocation) §Connection-mode-aware invocation for the full credential-handling model (shared-host caveats, `/proc/<pid>/environ` visibility, per-tool credential-file alternatives).
 
 When a catalogue row has no entry above, no "Verify <service>" bullet is emitted for that service — the table's coverage is the gate, not the catalogue's.
 
@@ -304,8 +305,6 @@ Render the block when both conditions hold:
   - `local-socket` — committed config uses a Unix socket / Windows named pipe / Mongo direct-connection; the standard Docker publish form cannot reproduce these.
   - `local-default` AND the rendered snippet's host-port differs from the port encoded in the committed connection string (e.g., committed `localhost:5432` but snippet publishes `5433` to avoid collision with a local Postgres install).
 
-Skip the block in every other case — `docker-compose` (the project is already Docker-aware), `remote` (already pointing at a real endpoint), `ambiguous` (the detector couldn't classify; the Step 3 caution covers this case), and `local-default` with matching ports (the connection string still works as-committed).
-
 ### Block format
 
 ````markdown
@@ -319,7 +318,7 @@ Skip the block in every other case — `docker-compose` (the project is already 
 > See the *Environment Setup* section for the canonical place to keep this override (drop the new value into the project's local-only env file or per-machine config — never commit it to source control if it carries a real password).
 ````
 
-The block is rendered as the FIRST element inside the service's per-service heading (H3 in multi-repo, H4 in single-project / monorepo — see [§Snippet Templates](#snippet-templates)) — above the existing `**Recommended: Docker.**` paragraph and snippet. When this block renders, also DROP the existing `- Connection details for <…>` bullet from the snippet template's bullet list (the diff inside this block subsumes it). The Step 6 audit treats a Pre-Conditions block plus a `Connection details` bullet on the same per-service heading as a duplication and rejects it.
+The block is rendered as the FIRST element inside the service's per-service heading (H3 in multi-repo, H4 in single-project / monorepo — see [§Snippet Templates](#snippet-templates)) — above the existing `**Recommended: Docker.**` paragraph and snippet. When this block renders, also DROP the existing `- Connection details for <…>` bullet from the snippet template's bullet list (the diff inside this block subsumes it). The audit-side rejection rule for this case lives in [§Step 6 audit](#step-6-audit).
 
 ### Substitution rules
 
