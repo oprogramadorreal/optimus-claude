@@ -436,6 +436,8 @@ if [ -f "$esd_file" ]; then
     '^## Web-Search Recipe' \
     '^## Verify Commands \(seeds\)' \
     '^## Pre-Conditions Block' \
+    '^### Trigger' \
+    '^### Block format' \
     '^### Substitution' \
     '^### Step 6 audit' \
     '^## Citation Format' \
@@ -501,6 +503,8 @@ if [ -f "$detector_file" ]; then
     '`local-named-instance`' \
     '`local-socket`' \
     '`local-default`' \
+    '`remote`' \
+    '`ambiguous`' \
     '`docker-compose`' \
     '`raw-sql`' \
     '`seed-script`' \
@@ -553,9 +557,8 @@ if [ -f "$sections_file" ]; then
     '### Pick-one rule' \
     '### Connection-mode-aware invocation' \
     '## Section Depends-On Graph' \
-    '### Audit-flow summary' \
     '## Diagnostic Ladders' \
-    '#### Container running but host can'"'"'t connect' \
+    '### Container running but host can'"'"'t connect' \
     'Default skeleton — multi-configuration build systems' \
     'Single-configuration skeleton — Cargo / Go / single-output build systems' \
     '| 3-5 |' \
@@ -621,7 +624,10 @@ if [ -f "$how_to_run_skill" ]; then
     'grounded-tokens' \
     'Runtime Ports table' \
     'Section ordering audit' \
-    'Pre-Conditions block audit' \
+    'Pre-Conditions Block audit' \
+    'Reconcile rendered commands against project script runners' \
+    '**Verify bullets:**' \
+    '**Diagnostic ladders:**' \
     'Stale-tag re-validation'; do
     if ! grep -qF "$token" "$how_to_run_skill" 2>/dev/null; then
       wiring_errors+="  $how_to_run_skill missing token-audit wiring token: $token\n"

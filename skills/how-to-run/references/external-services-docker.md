@@ -209,7 +209,7 @@ Render **one** of these templates per service, chosen by the heuristics. Keep al
 
 **PowerShell caveat (Windows host).** When the detector's *Hardware / OS Requirements* table contains `Windows 10`, `Windows 11`, or `Windows`, append one caveat bullet once per External Services section: *PowerShell users: replace `\` line continuations with backtick (`` ` ``); single-quoted `-e '…'` args render verbatim. For password / secret / token values, keep them in single quotes — PowerShell expands `$` and backtick inside `"…"` strings, so the container would store a different value than you typed and authentication fails silently.* The bash fences render verbatim under Git Bash, WSL, macOS, and Linux.
 
-**GUI-client connect note.** When the detector's *Recommended Developer Tools* table contains a known DB GUI client (SSMS, Azure Data Studio, pgAdmin, DBeaver, MongoDB Compass, Studio 3T, RedisInsight, MySQL Workbench, DataGrip) AND the per-service heading is a matching DB, append one bullet under the snippet: `- From <tool>: connect to <host>:<host-port> using the username / password from the -e lines above. Accept the self-signed certificate when prompted (the official image uses one).` Substitute `<host>` per the rule in [§Pre-Conditions Block](#pre-conditions-block); the reader maps the fields onto their tool's connection dialog themselves — do not fabricate vendor-specific field labels.
+**GUI-client connect note.** When the detector's *Recommended Developer Tools* table contains a known DB GUI client (SSMS, Azure Data Studio, pgAdmin, DBeaver, MongoDB Compass, Studio 3T, RedisInsight, MySQL Workbench, DataGrip) AND the per-service heading is a matching DB, append one bullet under the snippet: `- From <tool>: connect to <host>:<host-port> using the username / password from the -e lines above.` For SQL Server only, append a second sentence to the same bullet: `Accept the self-signed certificate when prompted — the official image enables TLS by default.` Other catalogue images (postgres, mysql/mariadb, mongo, redis) accept plaintext by default, so no certificate prompt fires; the cert sentence is rendered only when the per-service heading is SQL Server / Azure SQL. Substitute `<host>` per the rule in [§Pre-Conditions Block](#pre-conditions-block); the reader maps the fields onto their tool's connection dialog themselves — do not fabricate vendor-specific field labels.
 
 ### Docker-preferred
 
@@ -288,7 +288,7 @@ Install from [<vendor page>](<vendor page URL>).
 
 ## Pre-Conditions Block
 
-When the committed connection string in the project's config file uses a transport / auth mode the recommended Docker runtime cannot reproduce, the dev hits a wall the moment any Setup-time command (schema bootstrap, migration, dev server) tries to connect: their connection string still points at the wrong place. The Pre-Conditions Block surfaces the required override at the top of the service's subsection so the change is visible *before* the reader runs anything.
+Surfaces a required connection-string override at the top of a service's subsection when the committed config can't reach the Docker runtime.
 
 ### Trigger
 
@@ -296,9 +296,9 @@ Render the block when both conditions hold:
 
 - The matching External Services row's `Recommended runtime` (per Step 3 assessment) is `Docker-preferred`, OR its Alternative is `Docker (offline)` and the user kept the Docker alternative via the Step 4 multi-select downgrade prompt.
 - One of these is true about the row's `Endpoint semantics` (set by the detector — see [`project-environment-detector.md`](../agents/project-environment-detector.md) §External Services return format):
-  - `local-windows-auth` — committed config uses Windows authentication; Linux containers cannot honor it.
-  - `local-named-instance` — committed config references a SQL Server named instance (`localhost\SQLEXPRESS`); the named-instance + SQL Browser flow is Windows-host-only.
-  - `local-socket` — committed config uses a Unix socket / Windows named pipe / Mongo direct-connection; the standard Docker publish form cannot reproduce these.
+  - `local-windows-auth` — committed config uses Windows authentication.
+  - `local-named-instance` — committed config references a SQL Server named instance (e.g., `localhost\SQLEXPRESS`).
+  - `local-socket` — committed config uses a Unix socket, Windows named pipe, or MongoDB Unix-socket URI.
 
 ### Block format
 
@@ -311,16 +311,17 @@ When this block renders, also DROP the existing `- Connection details for <…>`
 ### Substitution
 
 - **`<config-file>`** — the row's `Source` field with any trailing `:<digits>` line-suffix stripped. The path must match `^[A-Za-z0-9][A-Za-z0-9._/-]{0,128}$` with no empty / `.` / `..` segments after splitting on `/`; skip the block render if the check fails (rejects UNC paths, traversal sequences, control characters).
-- **`<config-key>`** — the dotted-path key whose value is the committed connection string. For JSON / YAML, the dotted path from the document root (e.g., `ConnectionStrings:DefaultConnection`); for `.properties` files, the literal property name; for `.env*` files, the variable name. When the source format is unfamiliar, render the key as `<config-key>` and let the reader fill it in.
+- **`<config-key>`** — the dotted-path key whose value is the committed connection string. For JSON / YAML, the dotted path from the document root (e.g., `ConnectionStrings:DefaultConnection`); for `.properties` files, the literal property name; for `.env*` files, the variable name. When the source format is unfamiliar, render the key as `<config-key>` and let the reader fill it in. **Sanitize before substituting:** validate the full path against `^[A-Za-z_][A-Za-z0-9_.:-]{0,127}$` (permits `.` for nested JSON / YAML keys and `:` for ASP.NET Core's `ConnectionStrings:DefaultConnection` form, while still rejecting backticks, angle brackets, parentheses, brackets, whitespace, and control characters); split on `.` and `:` and reject any empty segment; skip the block render if the check fails. Step 6 re-applies the same regex on read-back as part of the *Re-validate detector-sourced tokens* audit.
 - **`<host>`** — `127.0.0.1` when *Hardware / OS Requirements* contains `Windows 10`, `Windows 11`, or `Windows` (Windows resolves `localhost` to IPv6 first; the snippet's `-p 127.0.0.1:…` form is IPv4-only); else `localhost`.
 - **`<host-port>`** — the host-port from the snippet's `-p <host>:<host-port>:<container-port>` line.
+- **`<Service>`** — the per-service heading text (the service name as rendered in the External Services overview table's *Service* column, with any trailing `(candidate)` marker stripped).
 
 The skill does NOT echo the committed connection string verbatim or reconstruct the new one — that risks leaking a real password from a misclassified source file. The reader knows their own config layout and can build the new string from the snippet's `-e` lines.
 
 ### Step 6 audit
 
-- The audit rejects a per-service heading that contains BOTH a Pre-Conditions block AND a `- Connection details for …` bullet — duplication is a Step-4 logic bug.
-- The audit verifies the Pre-Conditions block is the FIRST element of the per-service heading's body (no intervening prose, no snippet); a misplaced block is rejected with a "render order" failure.
+- The audit rejects a per-service heading that contains BOTH a Pre-Conditions Block AND a `- Connection details for …` bullet — duplication is a Step-4 logic bug.
+- The audit verifies the Pre-Conditions Block is the FIRST element of the per-service heading's body (no intervening prose, no snippet); a misplaced block is rejected with a "render order" failure.
 
 ## Citation Format
 

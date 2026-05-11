@@ -518,9 +518,8 @@ Only include if clear signals exist. Examples:
 - Sibling repos → "Build will fail if the expected sibling repo is not cloned at the documented path."
 - Multiple build configurations (C/C++, .NET) → "Use `--config Debug` for development or `--config Release` for optimized builds."
 - Python virtualenv → "Activate the virtual environment before running commands: `source .venv/bin/activate` (Linux/macOS) or `.venv\Scripts\activate` (Windows)."
-- Windows host + Docker service published with `-p 127.0.0.1:<port>:<port>` → "Host can't reach `localhost:<port>` but `docker exec` works. Windows resolves `localhost` to `::1` (IPv6); the container is bound to `127.0.0.1` (IPv4) only. Use `127.0.0.1` explicitly in connection strings, or rebind the container with `-p <port>:<port>` to drop the IPv4-only restriction." Render this single-bullet form only when (a) the detector's *Hardware / OS Requirements* table contains `Windows 10`, `Windows 11`, or `Windows`, AND (b) at least one service in External Services rendered a Docker snippet using the `-p 127.0.0.1:<host-port>:<container-port>` form (the §Snippet Templates default for both *Docker-preferred* and *Shared-cloud primary (Docker optional)* templates), AND (c) the [§Diagnostic Ladders](#diagnostic-ladders) "Container running but host can't connect" ladder did NOT fire (when the ladder fires, its step 3 already covers the same IPv4/IPv6 advice — emitting both produces duplicate bullets in Common Issues). The rule fires once per project regardless of how many services use the form — list affected service names parenthetically when more than one.
 
-For multi-layer failure modes that benefit from a symptom→layered-checks playbook (e.g., "container running but host can't connect" — single-bullet preventive form is too thin), render a [diagnostic ladder](#diagnostic-ladders) instead of a single-line bullet. Ladders fire conditionally on the detector's outputs (Docker-mapped service, schema-bootstrap row, etc.) per §Diagnostic Ladders.
+For multi-layer failure modes that benefit from a symptom→layered-checks playbook (e.g., "container running but host can't connect"), render a [diagnostic ladder](#diagnostic-ladders) instead of a single-line bullet. Ladders fire conditionally on the detector's outputs per §Diagnostic Ladders — the Windows IPv4/IPv6 fix lives in the ladder's step 2.
 
 ## Scaling Guidance
 
@@ -627,7 +626,7 @@ Patterns to detect source dependencies that must be cloned or initialized before
 
 ## Schema Bootstrap
 
-Precedence rule and connection-mode-aware invocation forms for the Installation section's Schema Bootstrap sub-block. Two principles drive the design: (a) **Pick exactly one mechanism as primary** — applying two schema-creating mechanisms against the same database usually produces conflicting schemas (a hand-maintained `DatabaseNew.sql` and an ORM migration history rarely produce the same shape, and re-running an ORM migration after the SQL bootstrap leaves the migration table out of sync). (b) **Connection-mode-aware invocation** — the detector's bare `<tool> -i <file>` hint defaults to the local-default-instance + Windows-auth / peer-auth path, which is the wrong default when the destination DB lives in Docker.
+Precedence rule and connection-mode-aware invocation forms for the Installation section's Schema Bootstrap sub-block. Two principles drive the design: (a) pick exactly one mechanism as primary; (b) the detector's bare `<tool> -i <file>` hint defaults to the local-default-instance + Windows-auth / peer-auth path, which is the wrong default when the destination DB lives in Docker.
 
 ### Pick-one rule
 
@@ -673,13 +672,16 @@ When the destination DB row's *Recommended runtime* (per the Step 3 assessment t
 | `sqlcmd` (SQL Server) | `sqlcmd -i <file>` | `sqlcmd -S "<host>,<host-port>" -U <user> -C [-d <db>] -i <file>` | `SQLCMDPASSWORD` |
 | `psql` (PostgreSQL) | `psql -f <file>` | `psql -h <host> -p <host-port> -U <user> -d <db> -f <file>` | `PGPASSWORD` |
 | `mysql` (MySQL/MariaDB) | `mysql < <file>` | `mysql -h <host> -P <host-port> -u <user> <db> < <file>` | `MYSQL_PWD` |
-| `mongosh` (MongoDB) | `mongosh --file <file>` | `mongosh "mongodb://<user>:<password-placeholder>@<host>:<host-port>/<db>?authSource=admin" --file <file>` | (password in URI) |
+| `mongosh` (MongoDB, no auth) | `mongosh --file <file>` | `mongosh "mongodb://<host>:<host-port>/<db>" --file <file>` | — |
+| `mongosh` (MongoDB, root credentials set) | `mongosh --file <file>` | `mongosh "mongodb://<user>:<password-placeholder>@<host>:<host-port>/<db>?authSource=admin" --file <file>` | (password in URI) |
 
 ORM migrate commands from the catalog above are NOT enriched with connection flags — ORM tools read their connection details from the project's config files (`prisma/schema.prisma`, `alembic.ini`, `appsettings.json`, etc.). Substituting host/port into an ORM command would conflict with the ORM's own config-file connection.
 
+Select the matching `mongosh` row by snippet shape — same rule as `external-services-docker.md` §Verify Commands (seeds): use *no auth* when the snippet does NOT set `MONGO_INITDB_ROOT_USERNAME`; use *root credentials set* when it does.
+
 Substitute every placeholder from the matching External Services snippet (the same snippet the External Services per-service subsection already rendered):
 
-- `<host>` → `127.0.0.1` when the detector's *Hardware / OS Requirements* table contains `Windows 10`, `Windows 11`, or `Windows` (per [§Common Issues](#common-issues) IPv4/IPv6 caveat); else `localhost`.
+- `<host>` → `127.0.0.1` when the detector's *Hardware / OS Requirements* table contains `Windows 10`, `Windows 11`, or `Windows` (Windows resolves `localhost` to IPv6 first; the snippet's `-p 127.0.0.1:…` form is IPv4-only); else `localhost`.
 - `<host-port>` → the port from the snippet's `-p <host>:<host-port>:<container-port>` line.
 - `<user>` → the username from the snippet's matching `-e '<USER_VAR>=<value>'` line, OR the image's documented default — `sa` for SQL Server, `postgres` for Postgres, `root` for MySQL/MariaDB, the value of `MONGO_INITDB_ROOT_USERNAME` for MongoDB.
 - `<password-placeholder>` → the placeholder from the snippet's matching `-e '<PASSWORD_VAR>=<placeholder>'` line, kept as a placeholder (`<MSSQL_SA_PASSWORD>`, `<POSTGRES_PASSWORD>`, etc.) — do NOT substitute a real value, since `HOW-TO-RUN.md` is committed.
@@ -693,28 +695,21 @@ Cross-section dependency edges consumed by Step 6's *Section ordering audit*. Ea
 
 | Dependent | Prerequisite | Trigger condition |
 |---|---|---|
-| Installation (Schema Bootstrap sub-block) | External Services | Destination DB row's Recommended runtime is `Docker-preferred` (or *Docker (offline)* was kept). The DB container must be running before the bootstrap connects. |
 | Installation (Schema Bootstrap sub-block) | External Services (Pre-Conditions Block) | Destination DB row's Recommended runtime is `Docker-preferred` (or *Docker (offline)* was kept) AND `Endpoint semantics ∈ {local-windows-auth, local-named-instance, local-socket}`. The connection-string change must precede any bootstrap command that opens a connection. |
 | Installation (language-level install) | Environment Setup | Detector's *Private registry* signal is set, OR detector's *Local TLS cert* signal is `mkcert`. Some installs require credentials or trusted root certs to be present first. |
-| Running in Development | Setup / Installation, External Services | Always. Catalog order enforces this in single-project / monorepo templates; violations only fire when a topology template reorders sections. |
-| Build | Installation | Always. Catalog order enforces this; violations are topology-driven. |
 | Build | Source Dependencies | Detector's *Source Dependencies* table has submodules / FetchContent / approved sibling-repo rows. |
+
+Edges enforced by the canonical catalog order (single-project / monorepo: Installation precedes External Services precedes Build precedes Running in Development) are NOT listed above — document order is execution order for the reader, who runs the External Services snippet as part of *running* Installation's commands. The audit fires only on edges whose trigger conditions express a precondition the catalog order cannot enforce by itself.
 
 The Multi-Repo Workspace template (below) already places Environment Setup before Setup unconditionally, so violations of the connection-string-precondition edge in that topology are rare in practice.
 
-### Audit-flow summary
-
-Walk the rendered file's catalog headings in document order; build a `section-position` map. For each row above whose *Trigger condition* is satisfied by the detector's outputs, resolve the *Dependent* and *Prerequisite* positions. When the dependent appears at or before the prerequisite, surface the conflict to the user via the standard Step 6 fix-up flow with no auto-rewrite — reordering a topology template's layout is an editorial decision.
-
 ## Diagnostic Ladders
 
-For multi-layer failure modes that don't fit the single-sentence preventive bullet form of [§Common Issues](#common-issues), render a *diagnostic ladder*: a numbered list of symptom→check→action steps the reader walks top-down until one matches. Ladders fire conditionally on the detector's outputs and never replace the single-bullet form for simple gotchas (a `.nvmrc` ladder would be overkill for "run `nvm use`").
+For multi-layer failure modes that don't fit the single-sentence preventive bullet form of [§Common Issues](#common-issues), render a *diagnostic ladder*: a numbered list of symptom→check→action steps the reader walks top-down until one matches. Ladders fire conditionally on the detector's outputs.
 
 Render the ladder as a top-level bullet under `### Common Issues`, sharing the bullet list with single-line entries. Every step's *check* must be a concrete diagnostic command (not a leading question), every *result* must be observable from the command's output, every *action* must be specific (not "investigate further").
 
-### Library
-
-#### Container running but host can't connect
+### Container running but host can't connect
 
 **Trigger.** External Services has at least one service whose Recommended runtime is `Docker-preferred` (or *Docker (offline)* was kept).
 
