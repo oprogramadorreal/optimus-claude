@@ -459,7 +459,14 @@ if [ -f "$esd_file" ]; then
     'MYSQL_PWD' \
     '--authenticationDatabase admin' \
     'MONGO_INITDB_ROOT_USERNAME' \
-    'Stale-tag re-validation'; do
+    'Stale-tag re-validation' \
+    '^[A-Za-z_][A-Za-z0-9_.:-]{0,127}$' \
+    '**Pre-condition — update before running Setup or starting the backend.**' \
+    '^([0-9]{4}-)?(latest|stable|edge|nightly|canary|main|current|rolling)$' \
+    'pg_isready -U postgres' \
+    'redis-cli ping' \
+    '/opt/mssql-tools18/bin/sqlcmd' \
+    'mongosh'; do
     if ! grep -qF -- "$fixed_heading" "$esd_file" 2>/dev/null; then
       wiring_errors+="  $esd_file missing heading: $fixed_heading\n"
     fi
@@ -516,7 +523,12 @@ if [ -f "$detector_file" ]; then
     '#### Task 5d' \
     'No bound runtime ports detected.' \
     'No runnable components detected.' \
-    '| Requires (services) | Requires (components) |'; do
+    '| Requires (services) | Requires (components) |' \
+    'Integrated Security=(True|Yes|SSPI)' \
+    'Trusted_Connection=(Yes|True|1)' \
+    'mongodb://%2Ftmp%2F' \
+    'mongodb+unix://' \
+    '\(local\)\\[A-Za-z0-9_-]+'; do
     if ! grep -qF "$detector_token" "$detector_file" 2>/dev/null; then
       wiring_errors+="  $detector_file missing return-format token: $detector_token\n"
     fi
@@ -558,6 +570,18 @@ if [ -f "$sections_file" ]; then
     '### Connection-mode-aware invocation' \
     '## Section Depends-On Graph' \
     '## Diagnostic Ladders' \
+    'PGPASSWORD' \
+    'alembic upgrade head' \
+    'npx prisma migrate deploy' \
+    'dotnet ef database update' \
+    'bundle exec rails db:migrate' \
+    'mix ecto.migrate' \
+    'flyway migrate' \
+    'liquibase update' \
+    'npx knex migrate:latest' \
+    'npx sequelize db:migrate' \
+    'npm run typeorm migration:run' \
+    'AutoMigrate function — there is no separate migrate command' \
     '### Container running but host can'"'"'t connect' \
     'Default skeleton — multi-configuration build systems' \
     'Single-configuration skeleton — Cargo / Go / single-output build systems' \

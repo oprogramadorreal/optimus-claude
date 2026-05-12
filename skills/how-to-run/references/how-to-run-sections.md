@@ -12,9 +12,9 @@ Section templates and signal-to-content mapping for generating `HOW-TO-RUN.md`. 
 - [Additional Detection Hints](#additional-detection-hints)
 - [Build System Detection](#build-system-detection)
 - [Source Dependencies Detection](#source-dependencies-detection)
-- [Schema Bootstrap](#schema-bootstrap)
+- [Schema Bootstrap](#schema-bootstrap) (Pick-one rule, Connection-mode-aware invocation)
 - [Section Depends-On Graph](#section-depends-on-graph)
-- [Diagnostic Ladders](#diagnostic-ladders)
+- [Diagnostic Ladders](#diagnostic-ladders) (Container running but host can't connect)
 - [Multi-Repo Workspace HOW-TO-RUN Template](#multi-repo-workspace-how-to-run-template)
 
 ## Signal → Section Mapping
@@ -223,12 +223,12 @@ Generate code:
 <codegen command>
 \`\`\`
 
-[If ORM migration tooling, raw SQL bootstrap scripts, or seed files detected — emit the Schema Bootstrap sub-block shown below inside the Installation section (no sub-heading; the block lives under Installation's H3). **Pick exactly one mechanism as primary** per the [§Schema Bootstrap](#schema-bootstrap) precedence rule and render the matching invocation. Demote any other detected mechanisms to a "Legacy / alternative" callout — never present two schema-creating mechanisms as fungible (applying both an ORM migration history and a hand-maintained `DatabaseNew.sql` against the same database usually produces a conflicting schema). For *Docker-preferred* destination DBs, render the **full host-side invocation** per [§Schema Bootstrap](#schema-bootstrap) §Connection-mode-aware invocation rather than the detector's bare hint.]
+[If ORM migration tooling, raw SQL bootstrap scripts, or seed files detected — emit the Schema Bootstrap sub-block shown below inside the Installation section (no sub-heading; the block lives under Installation's H3). **Pick exactly one mechanism as primary** per the [§Schema Bootstrap](#schema-bootstrap) precedence rule and render the matching invocation. Demote any other detected mechanisms to an "Alternative bootstrap script" callout — never present two schema-creating mechanisms as fungible (applying both an ORM migration history and a hand-maintained `DatabaseNew.sql` against the same database usually produces a conflicting schema). For *Docker-preferred* destination DBs, render the **full host-side invocation** per [§Schema Bootstrap](#schema-bootstrap) §Connection-mode-aware invocation rather than the detector's bare hint.]
 
 Initialize database schema:
 
 - **Primary:** `<primary-invocation>`.
-- [Optional: when ≥2 mechanisms detected, render the demoted one(s) as a 2-space-indented `  > **Legacy alternative:** <demoted-invocation> — pre-dates the migration tooling above and applying both can conflict; use only when explicitly instructed by the project's docs.` blockquote directly under the Primary bullet — the 2-space indent keeps the blockquote inside the Primary bullet's list item; an unindented `>` would terminate the list.]
+- [Optional: when ≥2 mechanisms detected, render the demoted one(s) per [§Schema Bootstrap](#schema-bootstrap) — that section owns the canonical "Alternative bootstrap script" blockquote form and the 2-space-indent placement rule.]
 - [If seed / fixture-load rows exist alongside an ORM or raw-SQL primary — they never compete with schema mechanisms — render them as a follow-up bullet: "After the schema is in place, populate seed data: `<seed-invocation>`".]
 ```
 
@@ -637,9 +637,9 @@ Inputs:
 
 Precedence (apply in order; first match selects the **primary** mechanism):
 
-1. **ORM migration tool detected.** When *Database migrations* is set to a recognized tool, render the ORM's migrate command from the table below as the primary mechanism. Demote any `raw-sql` rows in *Schema Bootstrap* to a "Legacy / alternative — superseded by ORM migrations" callout.
+1. **ORM migration tool detected.** When *Database migrations* is set to a recognized tool, render the ORM's migrate command from the table below as the primary mechanism. Demote any `raw-sql` rows in *Schema Bootstrap* to an "Alternative bootstrap script" callout.
 2. **Raw-SQL bootstrap detected (no ORM).** When *Schema Bootstrap* contains `raw-sql` rows and no ORM is detected, the first row by detector report order is primary. Demote any further `raw-sql` rows to "Alternative bootstrap script" callouts.
-3. **Seed / fixture only.** When only `seed-script` / `fixture-load` rows exist, render them as the primary "after schema is in place, populate seed data: …" step. Seeds populate data, not schema, so they never compete with ORM/raw-SQL mechanisms — when both seeds AND a schema mechanism exist, render the schema mechanism first and the seed step as a follow-up bullet (the Installation template already shows this two-bullet layout).
+3. **Seed / fixture only.** When only `seed-script` / `fixture-load` rows exist, render them as the primary "populate seed data: …" step. Seeds populate data, not schema, so they never compete with ORM/raw-SQL mechanisms — when both seeds AND a schema mechanism exist, render the schema mechanism first and the seed step as a follow-up bullet "after schema is in place, populate seed data: …" (the Installation template already shows this two-bullet layout).
 
 ORM migrate-command catalog (consumed by precedence rule 1):
 
@@ -653,7 +653,7 @@ ORM migrate-command catalog (consumed by precedence rule 1):
 | `knex` | `npx knex migrate:latest` |
 | `sequelize` | `npx sequelize db:migrate` |
 | `typeorm` | `npm run typeorm migration:run` (or the project's `package.json` script that wraps `typeorm migration:run`) |
-| `gorm` | (no CLI — schema is migrated in code via `db.AutoMigrate(...)`; render the callout `> Schema is migrated in application code via GORM \`AutoMigrate\` — there is no separate migrate command.` instead of an invocation) |
+| `gorm` | (no CLI — schema is migrated in code via `db.AutoMigrate(...)`. Render the callout `> Schema is migrated in application code via GORM's AutoMigrate function — there is no separate migrate command.` instead of an invocation.) |
 | `rails` | `bundle exec rails db:migrate` |
 | `phoenix-ecto` | `mix ecto.migrate` |
 
@@ -677,11 +677,11 @@ When the destination DB row's *Recommended runtime* (per the Step 3 assessment t
 
 ORM migrate commands from the catalog above are NOT enriched with connection flags — ORM tools read their connection details from the project's config files (`prisma/schema.prisma`, `alembic.ini`, `appsettings.json`, etc.). Substituting host/port into an ORM command would conflict with the ORM's own config-file connection.
 
-Select the matching `mongosh` row by snippet shape — same rule as `external-services-docker.md` §Verify Commands (seeds): use *no auth* when the snippet does NOT set `MONGO_INITDB_ROOT_USERNAME`; use *root credentials set* when it does.
+Select the matching `mongosh` row by snippet shape per [`external-services-docker.md`](external-services-docker.md#verify-commands-seeds) §Verify Commands (seeds).
 
 Substitute every placeholder from the matching External Services snippet (the same snippet the External Services per-service subsection already rendered):
 
-- `<host>` → `127.0.0.1` when the detector's *Hardware / OS Requirements* table contains `Windows 10`, `Windows 11`, or `Windows` (Windows resolves `localhost` to IPv6 first; the snippet's `-p 127.0.0.1:…` form is IPv4-only); else `localhost`.
+- `<host>` → `127.0.0.1` on Windows, else `localhost`. See [`external-services-docker.md`](external-services-docker.md#substitution) §Pre-Conditions Block §Substitution for the full rule and IPv6 rationale.
 - `<host-port>` → the port from the snippet's `-p <host>:<host-port>:<container-port>` line.
 - `<user>` → the username from the snippet's matching `-e '<USER_VAR>=<value>'` line, OR the image's documented default — `sa` for SQL Server, `postgres` for Postgres, `root` for MySQL/MariaDB, the value of `MONGO_INITDB_ROOT_USERNAME` for MongoDB.
 - `<password-placeholder>` → the placeholder from the snippet's matching `-e '<PASSWORD_VAR>=<placeholder>'` line, kept as a placeholder (`<MSSQL_SA_PASSWORD>`, `<POSTGRES_PASSWORD>`, etc.) — do NOT substitute a real value, since `HOW-TO-RUN.md` is committed.
@@ -697,7 +697,6 @@ Cross-section dependency edges consumed by Step 6's *Section ordering audit*. Ea
 |---|---|---|
 | Installation (Schema Bootstrap sub-block) | External Services (Pre-Conditions Block) | Destination DB row's Recommended runtime is `Docker-preferred` (or *Docker (offline)* was kept) AND `Endpoint semantics ∈ {local-windows-auth, local-named-instance, local-socket}`. The connection-string change must precede any bootstrap command that opens a connection. |
 | Installation (language-level install) | Environment Setup | Detector's *Private registry* signal is set, OR detector's *Local TLS cert* signal is `mkcert`. Some installs require credentials or trusted root certs to be present first. |
-| Build | Source Dependencies | Detector's *Source Dependencies* table has submodules / FetchContent / approved sibling-repo rows. |
 
 Edges enforced by the canonical catalog order (single-project / monorepo: Installation precedes External Services precedes Build precedes Running in Development) are NOT listed above — document order is execution order for the reader, who runs the External Services snippet as part of *running* Installation's commands. The audit fires only on edges whose trigger conditions express a precondition the catalog order cannot enforce by itself.
 
@@ -711,7 +710,7 @@ Render the ladder as a top-level bullet under `### Common Issues`, sharing the b
 
 ### Container running but host can't connect
 
-**Trigger.** External Services has at least one service whose Recommended runtime is `Docker-preferred` (or *Docker (offline)* was kept).
+**Trigger.** External Services has at least one service whose Recommended runtime is `Docker-preferred` (or *Docker (offline)* was kept) AND that service has a corresponding `**Verify <service> is reachable.**` bullet rendered in §Common Issues (per SKILL.md Step 4 item 10's *Verify bullets* rule). If the Verify bullet was dropped (stale-tag re-validation failed or no catalogue seed), drop the ladder too — step 1 cross-references the Verify bullet by name.
 
 ```markdown
 - **Host can't connect to <Service> on `<host>:<host-port>` but `docker ps` shows the container as `Up`?** Walk down this ladder:
