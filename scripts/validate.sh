@@ -448,7 +448,7 @@ if [ -f "$esd_file" ]; then
       wiring_errors+="  $esd_file missing heading matching: $heading\n"
     fi
   done
-  for fixed_heading in \
+  for esd_token in \
     '### Shared-cloud primary (Docker optional)' \
     '### Shared-cloud, no Docker alternative' \
     '### Known Vendor Emulators' \
@@ -466,9 +466,14 @@ if [ -f "$esd_file" ]; then
     'pg_isready -U postgres' \
     'redis-cli ping' \
     '/opt/mssql-tools18/bin/sqlcmd' \
-    'mongosh'; do
-    if ! grep -qF -- "$fixed_heading" "$esd_file" 2>/dev/null; then
-      wiring_errors+="  $esd_file missing heading: $fixed_heading\n"
+    'mongosh' \
+    'mysqladmin -u root ping' \
+    'SSMS' \
+    'pgAdmin' \
+    '- Connection details for' \
+    'the block subsumes it'; do
+    if ! grep -qF -- "$esd_token" "$esd_file" 2>/dev/null; then
+      wiring_errors+="  $esd_file missing wiring token: $esd_token\n"
     fi
   done
 fi
@@ -570,6 +575,8 @@ if [ -f "$sections_file" ]; then
     '### Connection-mode-aware invocation' \
     '## Section Depends-On Graph' \
     '## Diagnostic Ladders' \
+    '## Environment Setup' \
+    '**Alternative bootstrap script:**' \
     'PGPASSWORD' \
     'alembic upgrade head' \
     'npx prisma migrate deploy' \
@@ -603,7 +610,8 @@ if [ -f "$detector_file" ]; then
     '- **Setup scripts:**' \
     '- **Pre-commit hooks:**' \
     '- **direnv:**' \
-    '- **Local TLS cert:**'; do
+    '- **Local TLS cert:**' \
+    '- **Database migrations:**'; do
     if ! grep -qF -- "$dws_token" "$detector_file" 2>/dev/null; then
       wiring_errors+="  $detector_file missing Dev Workflow Signals field: $dws_token\n"
     fi

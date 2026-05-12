@@ -653,9 +653,10 @@ ORM migrate-command catalog (consumed by precedence rule 1):
 | `knex` | `npx knex migrate:latest` |
 | `sequelize` | `npx sequelize db:migrate` |
 | `typeorm` | `npm run typeorm migration:run` (or the project's `package.json` script that wraps `typeorm migration:run`) |
-| `gorm` | (no CLI — schema is migrated in code via `db.AutoMigrate(...)`. Render the callout `> Schema is migrated in application code via GORM's AutoMigrate function — there is no separate migrate command.` instead of an invocation.) |
 | `rails` | `bundle exec rails db:migrate` |
 | `phoenix-ecto` | `mix ecto.migrate` |
+
+**In-code migrations (e.g., `gorm`).** Some ORMs have no CLI — schema is migrated in application code (GORM's `db.AutoMigrate(...)` is the canonical example). When detected, skip the migrate-command bullet entirely and render this callout instead: `> Schema is migrated in application code via GORM's AutoMigrate function — there is no separate migrate command.`
 
 Demoted mechanisms render as a 2-space-indented blockquote directly under the primary bullet (the 2-space indent keeps the blockquote inside the Primary bullet's list item; an unindented `>` would terminate the list) using this exact form:
 
@@ -686,6 +687,7 @@ Substitute every placeholder from the matching External Services snippet (the sa
 - `<user>` → the username from the snippet's matching `-e '<USER_VAR>=<value>'` line, OR the image's documented default — `sa` for SQL Server, `postgres` for Postgres, `root` for MySQL/MariaDB, the value of `MONGO_INITDB_ROOT_USERNAME` for MongoDB.
 - `<password-placeholder>` → the placeholder from the snippet's matching `-e '<PASSWORD_VAR>=<placeholder>'` line, kept as a placeholder (`<MSSQL_SA_PASSWORD>`, `<POSTGRES_PASSWORD>`, etc.) — do NOT substitute a real value, since `HOW-TO-RUN.md` is committed.
 - `<db>` → the schema-bootstrap target DB. Render as a placeholder `<db-name>` and let the reader fill it in; the bootstrap file's content (which the detector never reads) determines what's correct.
+- `<file>` → the row's *File* column from the detector's Schema Bootstrap table. The *File* column already contains the full relative-to-repo-root path (e.g., `db/seeds.rb`, `fixtures/initial_data.json`); the *Directory* column is informational only and must NOT be re-joined.
 
 The Step 6 audit re-checks every rendered invocation: flags must come from the per-tool flag set above; placeholders must match the snippet's `-e` lines verbatim; `<host>` must follow the OS-aware substitution rule.
 
@@ -695,12 +697,11 @@ Cross-section dependency edges consumed by Step 6's *Section ordering audit*. Ea
 
 | Dependent | Prerequisite | Trigger condition |
 |---|---|---|
-| Installation (Schema Bootstrap sub-block) | External Services (Pre-Conditions Block) | Destination DB row's Recommended runtime is `Docker-preferred` (or *Docker (offline)* was kept) AND `Endpoint semantics ∈ {local-windows-auth, local-named-instance, local-socket}`. The connection-string change must precede any bootstrap command that opens a connection. |
 | Installation (language-level install) | Environment Setup | Detector's *Private registry* signal is set, OR detector's *Local TLS cert* signal is `mkcert`. Some installs require credentials or trusted root certs to be present first. |
 
 Edges enforced by the canonical catalog order (single-project / monorepo: Installation precedes External Services precedes Build precedes Running in Development) are NOT listed above — document order is execution order for the reader, who runs the External Services snippet as part of *running* Installation's commands. The audit fires only on edges whose trigger conditions express a precondition the catalog order cannot enforce by itself.
 
-The Multi-Repo Workspace template (below) already places Environment Setup before Setup unconditionally, so violations of the connection-string-precondition edge in that topology are rare in practice.
+The connection-string-precondition case (Docker-preferred destination DB with `local-windows-auth` / `local-named-instance` / `local-socket` endpoint semantics) is NOT an ordering edge — Installation always precedes External Services in catalog order, so this audit could never resolve to a clean fix. The Pre-Conditions Block's FIRST-element placement inside each per-service heading is the substantive guard: the reader hits it as soon as they navigate to the affected service's subsection.
 
 ## Diagnostic Ladders
 
@@ -754,7 +755,7 @@ git clone --recursive <meta-repo-url>
 
 ## Environment Setup
 
-[Per-repo env files and shared config keys to set before running Setup. Override any committed defaults that conflict with External Services choices (e.g., connection strings when a service runs in Docker but the committed default points at a local daemon).]
+[Per-repo env files and shared config keys to set before running Setup. Override any committed defaults that conflict with External Services choices below — see [§External Services](#external-services) Pre-Conditions Blocks for the specific keys to change when a service runs in Docker but the committed default points at a local daemon, a Windows-auth string, a SQL Server named instance, or a Unix socket.]
 
 ## Setup
 

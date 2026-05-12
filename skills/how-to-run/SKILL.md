@@ -44,7 +44,7 @@ Wait for the agent to complete. Use the agent's **Context Detection Results** to
 
 ### Step 1 Checkpoint
 
-Print a **Context Summary** from the agent's Context Detection Results. For the External-service-default-endpoints bullet, read each config file the agent flagged as the service source (e.g., `docker-compose.yml`, `.env.example`, `appsettings.json`, `application.yml`) and derive the endpoint label yourself before printing — the detector does not produce this field.
+Print a **Context Summary** from the agent's Context Detection Results. For the External-service-default-endpoints bullet, derive the endpoint label per service: for non-`database`-type services, read each config file the agent flagged as the service source (e.g., `docker-compose.yml`, `.env.example`, `appsettings.json`, `application.yml`) and derive the `local-endpoint` / `remote-endpoint` / `ambiguous` label yourself before printing. For `database`-type services, use the detector's `Endpoint semantics` column directly — the detector emits that column only for database rows.
 
 - **Build system & toolchain** (e.g., CMake >= 3.20 with MSVC, cargo, npm scripts, Gradle 8.x)
 - **Tech stack(s)** and **package manager(s)**
@@ -135,7 +135,7 @@ Before generating content, run `external-services-docker.md` §Web-Search Recipe
 - Checked services render the Docker alternative template; unchecked render the [Shared-cloud, no Docker alternative](references/external-services-docker.md#shared-cloud-no-docker-alternative) template.
 - Skip the prompt entirely if no services failed validation.
 
-Generate only sections with at least one detected signal. Default order is fixed (catalog below); only inclusion varies. Step 6's *Section ordering audit* may surface editorial reorder needs per `how-to-run-sections.md` §Section Depends-On Graph — the audit surfaces conflicts to the user; reordering is not auto-applied. Full catalog:
+Generate only sections with at least one detected signal. Default order is the catalog below; Step 6's *Section ordering audit* may surface editorial reorder needs per `how-to-run-sections.md` §Section Depends-On Graph (the user resolves the conflict — no auto-rewrite). Full catalog:
 
 1. **Prerequisites** — OS version constraints, hardware requirements (GPU, USB, serial), system tools (docker, make, etc.), version managers (nvm, pyenv, rustup) if config files detected. When the detector's *Hardware / OS Requirements* table contains an OS-version token, render it as the first bullet — see `how-to-run-sections.md` §Prerequisites for the rule (Step 6's *Template-shape audit* enforces it).
 2. **Toolchain & SDKs** — compiler, build-tool, language SDK, and domain SDK requirements. See *Additional Detection Hints* in `how-to-run-sections.md` for additional detection signals and the *Build System Detection* table below it for per-file extraction rules. Group per-OS install commands (Windows / macOS / Linux) when multiple OSes are plausible.
