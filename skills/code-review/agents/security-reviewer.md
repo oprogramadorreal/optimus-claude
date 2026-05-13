@@ -51,7 +51,7 @@ Out of scope for *this agent* (other agents cover these):
 - Pattern / convention claims (e.g., "uses the standard auth middleware") — guideline-reviewer handles those.
 - Test-coverage claims about security tests — test-guardian handles those.
 
-Report Intent Mismatch findings using the **same output format below** with **Category: `Intent Mismatch`** and populate the **`Intent claim:`** field with the specific security-related claim from `## Intent`. The +5 per-pass budget for Intent Mismatch is separate from the 15-cap on Security / Logic findings. Remember: the fix must edit code (or config / tests), never the PR description — see `shared-constraints.md` "Fix the code, never the PR description".
+Report Intent Mismatch findings using the **same output format below** with **Category: `Intent Mismatch`** and populate the **`Intent claim:`** field with the specific security-related claim from `## Intent`. Set the `Guideline:` field to the literal string `Intent (see Intent claim)`. For the `Severity:` field, apply the canonical mapping from `shared-constraints.md` "Severity". The +5 per-pass budget for Intent Mismatch is separate from the 15-cap on Security / Logic findings.
 
 ## Output Format
 
@@ -60,7 +60,8 @@ For each finding report in this exact format:
 - **File:** file:line
 - **Category:** Security | Logic | Intent Mismatch
 - **Confidence:** High | Medium
-- **Severity:** Critical | Warning
+- **Severity:** Critical | Warning | Suggestion
+- **Guideline:** [only for Intent Mismatch — the literal string `Intent (see Intent claim)`]
 - **Intent claim:** [only for Intent Mismatch — quoted claim from `## Intent`]
 - **Issue:** [concrete description]
 - **Code:** [relevant snippet — max 5 lines]

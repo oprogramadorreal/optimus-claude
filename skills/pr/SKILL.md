@@ -110,10 +110,10 @@ Before generating PR content, determine whether author intent is recoverable. Th
 
 State 3 handling — tell the user explicitly:
 
-> "No implementation intent detected in this conversation, and the existing PR description has no `## Intent` section. I can either: (a) skip the Intent section entirely, or (b) ask you the four sub-prompts now (Problem, Scope, Non-goals, Key decisions) and add what you provide. For the strongest downstream review, re-run `/optimus:pr` from the conversation where the implementation happened."
+> "No implementation context detected in this conversation, and the existing PR description has no `## Intent` section. I can either: (a) skip the Intent section entirely, or (b) ask you the four sub-prompts now (Problem, Scope, Non-goals, Key decisions) and add what you provide. For the strongest downstream review, re-run `/optimus:pr` from the conversation where the implementation happened."
 
 Then use `AskUserQuestion` — header "Intent capture", question "No intent context detected. How would you like to handle the `## Intent` section?":
-- **Add intent now** — prompt the user for Problem / Scope / Non-goals / Key decisions via a follow-up `AskUserQuestion` (each sub-field optional, blank means "skip this sub-field"), and populate the section from their answers.
+- **Add intent now** — Claude will ask the user to reply with Problem / Scope / Non-goals / Key decisions on separate lines (blank lines skip the sub-field) in a plain message exchange, then populate the section from the reply.
 - **Skip** — omit the section entirely. Do not stub it.
 
 Suppress this prompt entirely in state 1 or state 2 (no friction on the happy paths).
@@ -123,10 +123,9 @@ Suppress this prompt entirely in state 1 or state 2 (no friction on the happy pa
 Read the Conventional PR template: `$CLAUDE_PLUGIN_ROOT/skills/pr/references/pr-template.md`
 
 Generate a title and body following the template. When filling in the sections:
-- Populate the **`## Intent`** section based on the classification above:
+- Populate the **`## Intent`** section based on the classification above (state 2 only applies in the Update Flow — Step 6 handles it):
   - State 1 (conversation context) → populate Problem / Scope / Non-goals / Key decisions from the conversation. Use only what the conversation actually answered; omit a sub-field if it has no clear answer.
-  - State 2 (existing PR Intent) → handled by Step 6 Phase 2 preservation; nothing to do here.
-  - State 3 with "Add intent now" → populate from the user's `AskUserQuestion` answers.
+  - State 3 with "Add intent now" → populate from the user's reply to the plain-message follow-up.
   - State 3 with "Skip" → omit the section entirely (no stub, no placeholder).
   - **Never infer Intent from commit messages or the diff alone.** A fabricated Intent section creates false `Intent Mismatch` findings in `/optimus:code-review`.
 - Synthesize the **Summary** from commit messages, changed files, and the diff
@@ -189,7 +188,7 @@ Use `AskUserQuestion` — header "Update PR", question "A PR/MR already exists f
 
 If the user chooses **Cancel** → report the existing PR/MR URL and stop.
 
-If the user chooses **Regenerate Intent only** → run the "Detect intent context" sub-step from Step 5 (states 1, 2, 3) but treat state 2 (existing PR Intent) as *replaceable* in this path only — the user explicitly asked to regenerate it. Then replace the `## Intent` section in the existing body with the freshly populated one (or insert it before `## Summary` if missing). Skip Phase 1 (do not regenerate other sections) and Phase 2 (no preservation pass needed). Jump to Phase 3 (preview).
+If the user chooses **Regenerate Intent only** → re-detect intent context but treat state 2 (existing PR Intent) as *replaceable* — the user explicitly asked to regenerate it. Populate the new `## Intent` from the highest available signal: state 1 (conversation context) when present, otherwise prompt the user directly for Problem / Scope / Non-goals / Key decisions via a plain-message reply (do NOT re-emit the state-3 "How would you like to handle Intent?" meta-prompt — the user has already opted in). If the user provides no reply or all sub-fields are blank, leave the existing Intent unchanged and report that. Then replace the `## Intent` section in the existing body with the freshly populated one (or insert it before `## Summary` if missing). Skip Phase 1 (do not regenerate other sections) and Phase 2 (no preservation pass needed). Jump to Phase 3 (preview).
 
 ### Regenerate content
 

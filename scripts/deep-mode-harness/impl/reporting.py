@@ -76,16 +76,17 @@ def print_report(progress, current_branch=None, _get_branch=None):
             f"commit message. Other downstream skills (/optimus:code-review, "
             f"etc.) should still run in fresh conversations."
         )
+    elif termination["reason"] in ("parse-failure", "crash"):
+        print(
+            f"{PREFIX} No fixes were retained. Check the test output above for details."
+        )
+        print(f"{PREFIX} To rollback everything: git reset --hard {base[:8]}")
+        print(
+            f"{PREFIX} Tip: start a fresh conversation for the next skill "
+            f"— each skill gathers its own context from scratch."
+        )
     else:
-        if termination["reason"] in ("parse-failure", "crash"):
-            print(
-                f"{PREFIX} No fixes were retained. Check the test output above for details."
-            )
-            print(f"{PREFIX} To rollback everything: git reset --hard {base[:8]}")
-        else:
-            print(
-                f"{PREFIX} No issues found — the codebase looks clean for this skill."
-            )
+        print(f"{PREFIX} No issues found — the codebase looks clean for this skill.")
         print(
             f"{PREFIX} Tip: start a fresh conversation for the next skill "
             f"— each skill gathers its own context from scratch."

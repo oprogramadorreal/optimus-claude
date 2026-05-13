@@ -35,6 +35,12 @@ When a PR/MR Context Block is present in your prompt **and** the description inc
 - **High** — the Intent claim is specific and testable, and the diff clearly does not deliver it (or actively contradicts it).
 - **Medium** — the Intent claim is approximate, or the diff partially delivers it.
 
+**Severity** (for agents whose output format includes a `Severity:` field — currently security-reviewer and contracts-reviewer):
+
+- **Critical** — a stated non-goal is contradicted by the diff (e.g., Non-goals says "no public API change" but the diff renames a public endpoint).
+- **Warning** — a stated scope claim has no supporting code (e.g., Scope says "adds `OrderResponse` type" but no such type exists).
+- **Suggestion** — the implementation only partially matches the claim.
+
 **Skip silently** when:
 
 - The PR has no `## Intent` section, or the section is empty. **Never invent intent** from the Summary, commit messages, or diff to manufacture a mismatch.

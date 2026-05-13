@@ -49,6 +49,8 @@ class TestPrintReport:
         assert "Iterations:    1" in output
         assert "Fixed:         0" in output
         assert "codebase looks clean" in output
+        assert "start a fresh conversation" in output
+        assert "stay in this conversation" not in output
 
     def test_report_with_findings(self, sample_progress, tmp_path, capsys):
         sample_progress["config"]["project_root"] = str(tmp_path)
@@ -131,17 +133,6 @@ class TestPrintReport:
         assert "stay in this conversation" in output
         assert "/optimus:commit" in output
         assert "start a fresh conversation" not in output
-
-    def test_fresh_conversation_tip_when_no_fixes(self, sample_progress, capsys):
-        sample_progress["termination"] = {
-            "reason": "convergence",
-            "message": "No new findings",
-        }
-        sample_progress["iteration"]["completed"] = 1
-        print_report(sample_progress)
-        output = capsys.readouterr().out
-        assert "start a fresh conversation" in output
-        assert "stay in this conversation" not in output
 
     def test_crash_termination_branch(self, sample_progress, capsys):
         sample_progress["termination"] = {

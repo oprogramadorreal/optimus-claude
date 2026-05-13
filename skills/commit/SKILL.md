@@ -134,3 +134,4 @@ If a feature branch was created, inform the user: "You are now on `<branch-name>
 
 Otherwise, recommend the next step based on readiness:
 - If a pull request is needed → `/optimus:pr` to create or update a PR. Tell the user: **Tip:** stay in this conversation when running `/optimus:pr` so it can capture the implementation context into the PR description. Other downstream skills (`/optimus:code-review`, etc.) should still run in fresh conversations.
+- Otherwise → the commit is complete; suggest continuing work on this branch (or running `/optimus:code-review` once more changes accumulate). Tell the user: **Tip:** for `/optimus:code-review` or any other downstream skill, start a fresh conversation — each gathers its own context from scratch.

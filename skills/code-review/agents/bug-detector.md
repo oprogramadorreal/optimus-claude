@@ -60,7 +60,7 @@ Out of scope for *this agent* (other agents cover these):
 - Security claims ("token rotated on logout") — security-reviewer handles these.
 - Test-coverage claims ("adds tests for the new flow") — test-guardian handles these.
 
-Report Intent Mismatch findings using the **same output format below** with **Category: `Intent Mismatch`** and populate the **`Intent claim:`** field with the specific claim from `## Intent` you are matching against. The +5 per-pass budget for Intent Mismatch is separate from the 15-cap on Bug / Logic Error findings.
+Report Intent Mismatch findings using the **same output format below** with **Category: `Intent Mismatch`**, **Guideline: `Intent (see Intent claim)`**, and populate the **`Intent claim:`** field with the specific claim from `## Intent` you are matching against. The +5 per-pass budget for Intent Mismatch is separate from the 15-cap on Bug / Logic Error findings.
 
 ## Output Format
 
@@ -69,6 +69,7 @@ For each finding report in this exact format:
 - **File:** file:line
 - **Category:** Bug | Logic Error | Intent Mismatch
 - **Confidence:** High | Medium
+- **Guideline:** [only for Intent Mismatch — the literal string `Intent (see Intent claim)`]
 - **Intent claim:** [only for Intent Mismatch — quoted claim from `## Intent`]
 - **Issue:** [concrete description]
 - **Code:** [relevant snippet — max 5 lines]
