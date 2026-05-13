@@ -46,7 +46,7 @@ git log --no-merges --oneline --extended-regexp --grep="^fix[(: ]|^revert[(: ]|b
 
 ## PR/MR mode addendum — Intent-vs-Implementation Check
 
-This addendum applies **only** when a PR/MR Context Block is present in your prompt and that block contains a populated `## Intent` section. Read `shared-constraints.md` "Intent-vs-Implementation Check (PR/MR mode only)" for the canonical rules — the section here scopes the check to this agent's domain.
+Read `shared-constraints.md` "Intent-vs-Implementation Check (PR/MR mode only)" for the canonical rules, "Stay in your lane" for cross-agent scope assignments, and "Severity" for the field mapping (this agent has no Severity field).
 
 Within your domain (bugs, logic errors, behavior/correctness), check whether the diff delivers the **behavioral** claims in `## Intent`:
 
@@ -54,13 +54,7 @@ Within your domain (bugs, logic errors, behavior/correctness), check whether the
 - Claims about what the code *prevents* — guards against null, validates input, handles a race. Example: Intent says "validate the email format before sending" — does the diff include the validation?
 - Claims about behavioral non-goals — "no behavior change," "preserves existing X." Example: Intent says "internal refactor; no API change" but the diff changes a public function signature.
 
-Out of scope for *this agent* (other agents cover these):
-
-- Pattern / guideline claims ("follows the existing handler pattern", "uses the standard error type") — guideline-reviewer handles these.
-- Security claims ("token rotated on logout") — security-reviewer handles these.
-- Test-coverage claims ("adds tests for the new flow") — test-guardian handles these.
-
-Report Intent Mismatch findings using the **same output format below** with **Category: `Intent Mismatch`**, **Guideline: `Intent (see Intent claim)`**, and populate the **`Intent claim:`** field with the specific claim from `## Intent` you are matching against. The +5 per-pass budget for Intent Mismatch is separate from the 15-cap on Bug / Logic Error findings.
+Report findings using the **same output format below** with **Category: `Intent Mismatch`**, **Guideline: `Intent (see Intent claim)`**, and the **`Intent claim:`** field populated with the specific quoted claim.
 
 ## Output Format
 

@@ -19,7 +19,7 @@ Analyze ONLY the provided changed files. Apply the focus areas from your role de
 
 ## PR/MR mode addendum — Intent-vs-Implementation Check
 
-This addendum applies **only** when a PR/MR Context Block is present in your prompt and that block contains a populated `## Intent` section. Read `shared-constraints.md` "Intent-vs-Implementation Check (PR/MR mode only)" for the canonical rules — the section here scopes the check to this agent's domain.
+Read `shared-constraints.md` "Intent-vs-Implementation Check (PR/MR mode only)" for the canonical rules and "Stay in your lane" for cross-agent scope assignments.
 
 Within your domain (test coverage, test structure, testability), check whether the diff delivers the **test-related** claims in `## Intent`:
 
@@ -28,13 +28,7 @@ Within your domain (test coverage, test structure, testability), check whether t
 - Claims about test-coverage non-goals. Example: Intent's Non-goals says "no integration tests in this PR; unit tests only" but the diff adds end-to-end tests.
 - Claims about test refactoring. Example: Intent says "consolidates the three duplicate auth-test setups into a shared fixture" — does the diff actually consolidate them, or does it leave them in place?
 
-Out of scope for *this agent* (other agents cover these):
-
-- Behavioral correctness of *production* code — bug-detector handles those.
-- Whether tests themselves are well-styled or follow project conventions — guideline-reviewer handles those.
-- Security-test coverage gaps where the issue is the missing security control, not the missing test — security-reviewer handles those.
-
-Report Intent Mismatch findings using the **same output format below** with **Category: `Intent Mismatch`**, **Guideline: `Intent (see Intent claim)`**, and populate the **`Intent claim:`** field with the specific test-related claim from `## Intent`. The +5 per-pass budget for Intent Mismatch is separate from the 15-cap on Test Gap / Structural Barrier findings.
+Report findings using the **same output format below** with **Category: `Intent Mismatch`**, **Guideline: `Intent (see Intent claim)`**, and the **`Intent claim:`** field populated with the specific quoted claim.
 
 ## Output Format
 

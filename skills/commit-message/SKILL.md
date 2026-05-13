@@ -33,4 +33,4 @@ Recommend the next step based on readiness:
 - If the user wants to commit now → `/optimus:commit` to commit (and optionally push)
 - If the feature is ready → `/optimus:pr` to create a pull request
 
-Tell the user: **Tip:** stay in this conversation when running `/optimus:commit` or `/optimus:pr` so they can capture the implementation context into the commit message and PR description. Other downstream skills (`/optimus:code-review`, `/optimus:unit-test`, etc.) should still run in fresh conversations.
+Tell the user the closing tip per `$CLAUDE_PLUGIN_ROOT/references/skill-handoff.md` "Closing tip wording" — use **Variant B** with `<continuation-skills>` = `` `/optimus:commit` and `/optimus:pr` `` and `<non-continuation-examples>` = `/optimus:code-review`, `/optimus:unit-test`, etc.

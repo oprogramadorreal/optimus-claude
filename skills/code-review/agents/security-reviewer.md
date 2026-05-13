@@ -35,7 +35,7 @@ When reviewing defensive patterns (blocklists, allowlists, input validation):
 
 ## PR/MR mode addendum — Intent-vs-Implementation Check
 
-This addendum applies **only** when a PR/MR Context Block is present in your prompt and that block contains a populated `## Intent` section. Read `shared-constraints.md` "Intent-vs-Implementation Check (PR/MR mode only)" for the canonical rules — the section here scopes the check to this agent's domain.
+Read `shared-constraints.md` "Intent-vs-Implementation Check (PR/MR mode only)" for the canonical rules, "Stay in your lane" for cross-agent scope assignments, and "Severity" for the Severity field mapping.
 
 Within your domain (security, authn/authz, secrets, injection, data integrity), check whether the diff delivers the **security-related** claims in `## Intent`:
 
@@ -45,13 +45,7 @@ Within your domain (security, authn/authz, secrets, injection, data integrity), 
 - Claims about rate-limiting or abuse prevention with security framing. Example: Intent says "lock account after 5 failed login attempts" — does the diff implement the counter and lockout, including the persistence layer?
 - Claims about security-related non-goals. Example: Intent says "no new secrets in environment variables" but the diff adds a hardcoded credential or a new env var read.
 
-Out of scope for *this agent* (other agents cover these):
-
-- Generic behavioral claims that are not security-relevant — bug-detector handles those.
-- Pattern / convention claims (e.g., "uses the standard auth middleware") — guideline-reviewer handles those.
-- Test-coverage claims about security tests — test-guardian handles those.
-
-Report Intent Mismatch findings using the **same output format below** with **Category: `Intent Mismatch`** and populate the **`Intent claim:`** field with the specific security-related claim from `## Intent`. Set the `Guideline:` field to the literal string `Intent (see Intent claim)`. For the `Severity:` field, apply the canonical mapping from `shared-constraints.md` "Severity". The +5 per-pass budget for Intent Mismatch is separate from the 15-cap on Security / Logic findings.
+Report findings using the **same output format below** with **Category: `Intent Mismatch`**, **Guideline: `Intent (see Intent claim)`**, the **`Intent claim:`** field populated with the specific quoted claim, and **Severity** assigned per the canonical mapping.
 
 ## Output Format
 

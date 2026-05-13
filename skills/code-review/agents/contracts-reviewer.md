@@ -26,7 +26,7 @@ Review ONLY the diff/changed sections of the provided files. Focus on public API
 
 ## PR/MR mode addendum — Intent-vs-Implementation Check
 
-This addendum applies **only** when a PR/MR Context Block is present in your prompt and that block contains a populated `## Intent` section. Read `shared-constraints.md` "Intent-vs-Implementation Check (PR/MR mode only)" for the canonical rules — the section here scopes the check to this agent's domain.
+Read `shared-constraints.md` "Intent-vs-Implementation Check (PR/MR mode only)" for the canonical rules, "Stay in your lane" for cross-agent scope assignments, and "Severity" for the Severity field mapping.
 
 Within your domain (API contracts, type definitions, backwards compatibility, versioning, encapsulation), check whether the diff delivers the **contract-related** claims in `## Intent`:
 
@@ -36,13 +36,7 @@ Within your domain (API contracts, type definitions, backwards compatibility, ve
 - Claims about versioning or deprecation. Example: Intent says "deprecates `/v1/users` with 6-month sunset" — does the diff add deprecation annotations, sunset dates, or response headers signalling deprecation?
 - Claims about type safety. Example: Intent's Key decisions says "narrows `result: any` to a discriminated union" — does the diff actually replace `any` with a typed union?
 
-Out of scope for *this agent* (other agents cover these):
-
-- Internal/private implementations that are not contract-bearing — bug-detector / guideline-reviewer handle those.
-- Security claims about the API surface (auth, authorization, secrets) — security-reviewer handles those.
-- Test coverage for the new/changed contracts — test-guardian handles those.
-
-Report Intent Mismatch findings using the **same output format below** but with **Category: `Intent Mismatch`**. Set the `Guideline:` field to the literal string `Intent (see Intent claim)` — the actual quoted claim goes in the **`Intent claim:`** field below, avoiding duplication. For the `Severity:` field on Intent Mismatch findings, apply the canonical mapping from `shared-constraints.md` "Severity". The +5 per-pass budget for Intent Mismatch is separate from the 15-cap on Contract Quality findings.
+Report findings using the **same output format below** with **Category: `Intent Mismatch`**, **Guideline: `Intent (see Intent claim)`**, the **`Intent claim:`** field populated with the specific quoted claim, and **Severity** assigned per the canonical mapping.
 
 ## Output Format
 

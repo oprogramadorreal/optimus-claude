@@ -130,8 +130,8 @@ Present a summary of what was done (in a multi-repo workspace, show a combined s
 - Committed: `<short-hash> <commit message>` (per repo in multi-repo)
 - Pushed to: `origin/<branch>` (if push was performed)
 
-If a feature branch was created, inform the user: "You are now on `<branch-name>`. You can keep working on this branch, or use `/optimus:pr` to create a pull request. **Tip:** stay in this conversation when running `/optimus:pr` so it can capture the implementation context into the PR description. Other downstream skills (`/optimus:code-review`, etc.) should still run in fresh conversations."
+If a feature branch was created, inform the user: "You are now on `<branch-name>`. You can keep working on this branch, or use `/optimus:pr` to create a pull request." Then emit the closing tip per `$CLAUDE_PLUGIN_ROOT/references/skill-handoff.md` "Closing tip wording" — use **Variant A** with `<continuation-skill>` = `/optimus:pr` and `<non-continuation-examples>` = `/optimus:code-review`, etc.
 
 Otherwise, recommend the next step based on readiness:
-- If a pull request is needed → `/optimus:pr` to create or update a PR. Tell the user: **Tip:** stay in this conversation when running `/optimus:pr` so it can capture the implementation context into the PR description. Other downstream skills (`/optimus:code-review`, etc.) should still run in fresh conversations.
-- Otherwise → the commit is complete; suggest continuing work on this branch (or running `/optimus:code-review` once more changes accumulate). Tell the user: **Tip:** for `/optimus:code-review` or any other downstream skill, start a fresh conversation — each gathers its own context from scratch.
+- If a pull request is needed → `/optimus:pr` to create or update a PR. Then emit the closing tip per `$CLAUDE_PLUGIN_ROOT/references/skill-handoff.md` "Closing tip wording" — use **Variant A** with `<continuation-skill>` = `/optimus:pr` and `<non-continuation-examples>` = `/optimus:code-review`, etc.
+- Otherwise → the commit is complete; suggest continuing work on this branch (or running `/optimus:code-review` once more changes accumulate). Then emit the closing tip per `$CLAUDE_PLUGIN_ROOT/references/skill-handoff.md` "Closing tip wording" — use **Variant C** (default).

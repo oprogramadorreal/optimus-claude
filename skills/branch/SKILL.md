@@ -103,7 +103,7 @@ Recommend the next step based on context:
 - If parallel work is needed → `/optimus:worktree` for an isolated workspace
 - Default → `/optimus:commit` when ready
 
-Tell the user: **Tip:** for `/optimus:commit`, stay in this conversation so it can capture the implementation context into the commit message. For other downstream skills (`/optimus:tdd`, `/optimus:worktree`, etc.), start a fresh conversation — each gathers its own context from scratch.
+Tell the user the closing tip per `$CLAUDE_PLUGIN_ROOT/references/skill-handoff.md` "Closing tip wording" — use **Variant B** with `<continuation-skills>` = `/optimus:commit` and `<non-continuation-examples>` = `/optimus:tdd`, `/optimus:worktree`, etc.
 
 ## Important
 

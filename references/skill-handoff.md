@@ -24,13 +24,29 @@ The canonical implementation chain is **implement → `/optimus:commit` → `/op
 
 ### Closing tip wording
 
-When the recommended next skill is one of the continuation skills (and is the **only** recommendation), replace the default tip with:
+Skills that emit a closing tip must use one of the variants below **verbatim** (substituting only the explicit placeholders). Drift is the failure mode this section exists to prevent — never paraphrase to skill-specific wording like "refactor's rationale", "deliverable's rationale", or "fix context". The umbrella term **"implementation context"** is intentional and covers design decisions, refactor rationale, fix context, and deliverable rationale.
 
-> **Tip:** stay in this conversation when running `<next-skill>` so it can capture the implementation context. Other downstream skills (`/optimus:code-review`, `/optimus:unit-test`, etc.) should still run in fresh conversations.
+#### Variant A — Single continuation skill
 
-When the closing block recommends a **mix** of continuation and non-continuation skills (e.g., `/optimus:code-review` recommends `/optimus:commit` to commit fixes and `/optimus:unit-test` to strengthen coverage), differentiate explicitly:
+When the closing block recommends **one** continuation skill, emit:
 
-> **Tip:** for `/optimus:commit` and `/optimus:pr`, stay in this conversation so they can capture the implementation context. For other downstream skills (`/optimus:unit-test`, etc.), start a fresh conversation — each gathers its own context from scratch.
+> **Tip:** stay in this conversation when running `<continuation-skill>` so it can capture the implementation context. Other downstream skills (`<non-continuation-examples>`) should still run in fresh conversations.
+
+Substitute `<continuation-skill>` with the actual skill (e.g., `/optimus:pr`). Substitute `<non-continuation-examples>` with the relevant examples (e.g., `/optimus:code-review`, `/optimus:unit-test`, etc.).
+
+#### Variant B — Mixed (continuation + non-continuation)
+
+When the closing block recommends **two or more** skills with a mix of continuation and non-continuation paths, emit:
+
+> **Tip:** for `<continuation-skills>`, stay in this conversation so they can capture the implementation context. For other downstream skills (`<non-continuation-examples>`), start a fresh conversation — each gathers its own context from scratch.
+
+Use commas + "and" for multiple continuation skills (e.g., `` `/optimus:commit` and `/optimus:pr` ``).
+
+#### Variant C — Default (no continuation skill recommended)
+
+When the closing block recommends only non-continuation skills, emit the plain default:
+
+> **Tip:** for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch.
 
 ### Adding a future continuation skill
 
