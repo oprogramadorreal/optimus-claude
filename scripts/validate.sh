@@ -121,12 +121,15 @@ else
   fi
 fi
 
-# --- 7. No hardcoded /tmp in SKILL.md ---
+# --- 7. No /tmp temp paths in SKILL.md ---
+# Windows-native gh.exe / glab.exe cannot see /tmp paths created via Git Bash —
+# they silently submit an empty body / comment. Use `mktemp --tmpdir=. <template>`
+# instead (CWD is visible to both POSIX shells and Windows binaries).
 echo "[Portability]"
-tmp_hits=$(grep -rn 'mktemp /tmp/' skills/*/SKILL.md 2>/dev/null || true)
-check "No hardcoded mktemp /tmp/ in skills" test -z "$tmp_hits"
+tmp_hits=$(grep -rnE 'mktemp[^\n]*[/"](tmp|TMPDIR:-/tmp)/' skills/*/SKILL.md 2>/dev/null || true)
+check "No /tmp-based mktemp in skills (use --tmpdir=. for Windows portability)" test -z "$tmp_hits"
 if [ -n "$tmp_hits" ]; then
-  printf "       Hardcoded /tmp:\n%s\n" "$tmp_hits"
+  printf "       /tmp-based mktemp (Windows-incompatible):\n%s\n" "$tmp_hits"
 fi
 
 # --- 8. Cross-reference integrity ---
