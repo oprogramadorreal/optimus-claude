@@ -158,6 +158,16 @@ Present a brief summary before proceeding:
 - Lines: +[added] / -[removed]
 ```
 
+### Intent-context check (PR/MR mode only)
+
+If PR/MR mode is active, inspect the captured `pr-description` body and append a note to the Scope summary based on what's there:
+
+- Body is empty → append: *"Note: PR description is empty. Intent-vs-implementation checks will be skipped. Run `/optimus:pr` in the implementation conversation to add intent metadata."*
+- Body is non-empty but contains no `## Intent` heading (case-insensitive match on a line starting with `## Intent`) → append: *"Note: PR description has no `## Intent` section. Intent-vs-implementation checks will be skipped. Re-running `/optimus:pr` in the implementation conversation can add intent metadata."*
+- Body contains a `## Intent` heading → no note (the intent-vs-implementation check will run).
+
+This is a soft warning — review proceeds normally either way.
+
 ### Large diff warning
 
 If more than 50 files or 3000 lines are changed, warn the user and suggest narrowing the scope (e.g., specific path or directory).
@@ -475,5 +485,5 @@ After the review is complete, recommend the next step based on the outcome:
 
 Tell the user:
 
-- **Tip:** for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch.
+- **Tip:** for `/optimus:commit` and `/optimus:pr`, stay in this conversation so they can capture the fix context into the commit message and PR description. For `/optimus:unit-test` (or any other downstream skill), start a fresh conversation — each gathers its own context from scratch.
 - **Tip (normal mode only):** Single-pass review can miss issues due to LLM attention limits. Run `/optimus:code-review deep` to iterate automatically — it fixes, tests, and repeats until clean (max 8 passes). Requires a test command in `.claude/CLAUDE.md`.

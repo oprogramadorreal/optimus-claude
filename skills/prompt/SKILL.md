@@ -182,7 +182,7 @@ Recommend the next step based on context:
 - If the user might need another prompt → "Need a prompt for another tool or task? Just describe what you need." If there are pending code changes, also suggest `/optimus:commit`.
 - Default → offer to craft another prompt or refine the current one. If the project lacks setup, suggest `/optimus:init`.
 
-Tell the user: **Tip:** for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch.
+Tell the user: **Tip:** for `/optimus:commit`, stay in this conversation so it can capture the prompt's context into the commit message. For `/optimus:tdd`, `/optimus:init`, or any other downstream skill, start a fresh conversation — each gathers its own context from scratch.
 
 ---
 

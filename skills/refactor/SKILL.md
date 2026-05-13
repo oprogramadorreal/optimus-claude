@@ -415,5 +415,5 @@ After the refactoring is complete, recommend the next step based on the outcome:
 
 Tell the user:
 
-- **Tip:** for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch.
+- **Tip:** for `/optimus:commit`, stay in this conversation so it can capture the refactor's rationale into the commit message. For `/optimus:unit-test`, start a fresh conversation — it gathers its own context from scratch.
 - **Tip (normal mode only):** Single-pass analysis can miss issues due to LLM attention limits. Run `/optimus:refactor deep` to iterate automatically — it applies, tests, and repeats until clean (max 8 passes by default, configurable up to 10). Requires a test command in `.claude/CLAUDE.md`.

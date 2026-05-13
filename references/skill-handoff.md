@@ -10,6 +10,32 @@ Closing tip (append verbatim whenever recommending a next skill):
 
 > **Tip:** for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch.
 
+## Continuation skills — exception to fresh-conversation
+
+The default tip above applies when the next skill **gathers its own context**. Some skills instead **capture** the current conversation's context (design decisions, non-goals, trade-offs discussed during implementation) into a durable artifact. For those skills, a fresh conversation strips the very context they need. Override the default tip when the next skill is one of these.
+
+The continuation skills are:
+
+- **`/optimus:commit`** — captures the conversation's understanding of *why* the changes were made into the commit message body. A commit message generated from the diff alone records *what* changed; a commit message generated in the implementation conversation also records *why*.
+- **`/optimus:commit-message`** — same intent capture as `/optimus:commit`, but read-only (suggests a message without committing). Same continuation rationale.
+- **`/optimus:pr`** — captures the conversation's intent (problem, scope, non-goals, key decisions) into the PR description. `/optimus:code-review` later consumes that description as author intent context.
+
+The canonical implementation chain is **implement → `/optimus:commit` → `/optimus:pr` → `/optimus:code-review`**. The first three should run in the same conversation as the implementation (or, after `/optimus:code-review` applies fixes, in the code-review conversation). `/optimus:code-review` itself, and other downstream skills like `/optimus:unit-test`, run in fresh conversations because they gather their own context.
+
+### Closing tip wording
+
+When the recommended next skill is one of the continuation skills (and is the **only** recommendation), replace the default tip with:
+
+> **Tip:** stay in this conversation when running `<next-skill>` so it can capture the implementation context. Other downstream skills (`/optimus:code-review`, `/optimus:unit-test`, etc.) should still run in fresh conversations.
+
+When the closing block recommends a **mix** of continuation and non-continuation skills (e.g., `/optimus:code-review` recommends `/optimus:commit` to commit fixes and `/optimus:unit-test` to strengthen coverage), differentiate explicitly:
+
+> **Tip:** for `/optimus:commit` and `/optimus:pr`, stay in this conversation so they can capture the implementation context. For other downstream skills (`/optimus:unit-test`, etc.), start a fresh conversation — each gathers its own context from scratch.
+
+### Adding a future continuation skill
+
+The criterion: the skill's primary value comes from reading the current conversation, not from independent context gathering. Skills that load docs, run pre-flight checks, or analyze code from scratch are **not** continuation skills.
+
 ## Plan mode
 
 Claude Code's plan mode has built-in semantics the plugin cannot change: **approving a plan executes it immediately in the same conversation.** That conflicts with skills that route to `/optimus:tdd` afterwards, because plan-mode execution bypasses TDD's Red-Green-Refactor discipline (the Iron Law, verification protocol, circuit breaker).
@@ -27,3 +53,5 @@ When a skill recommends plan mode as a handoff step:
 ## Why fresh conversations
 
 Each skill gathers its own context (doc loads, pre-flight checks, suitability analysis). Reusing a conversation mixes unrelated context and can bias the new skill's decisions. A fresh conversation keeps every skill's Step 1 honest.
+
+The exception is continuation skills (see "Continuation skills — exception to fresh-conversation" above), where the current conversation **is** the context. For those, staying in the conversation is the honest choice.

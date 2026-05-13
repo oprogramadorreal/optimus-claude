@@ -8,6 +8,19 @@ Well-structured PR descriptions aren't just for human reviewers — they give Cl
 
 The **Conventional PR** format mirrors [Conventional Commits](https://www.conventionalcommits.org/) — standardized structure that's easy to read, easy to generate, and easy to review.
 
+## Recommended Workflow — run pr in the implementation conversation
+
+`/optimus:pr` is a **continuation skill** (see [`references/skill-handoff.md`](../../references/skill-handoff.md) under "Continuation skills"). It produces the highest-fidelity PR description when run in the same conversation as the implementation — the conversation contains the decisions, non-goals, and trade-offs that led to the diff. `/optimus:code-review` then reads the resulting PR description as author intent context.
+
+The canonical chain — all three continuation steps in the same conversation, then `/optimus:code-review` in a fresh conversation:
+
+1. **Implement** your changes (TDD, brainstorm-driven, or freeform).
+2. **Stay in the implementation conversation** and run `/optimus:commit` — captures the *why* into the commit message body.
+3. **Still in the same conversation**, run `/optimus:pr` — captures intent into the PR description. Upstream skills like `/optimus:commit` already nudge you to do this when they recommend pr.
+4. Switch to a **fresh conversation** and run `/optimus:code-review`. It reads the PR description you just wrote to check whether the implementation delivers what was supposed to be built.
+
+**Standalone updates (fresh conversation is fine):** if you only need to refresh a PR's title or description after a rebase — and the existing PR description already carries the original intent — you can re-run `/optimus:pr` from a fresh conversation. The Update Flow preserves the existing intent record while regenerating the diff-derived sections.
+
 ## Features
 
 - **Platform detection** — automatically detects GitHub or GitLab from remote URLs, with CI file fallback
@@ -169,7 +182,14 @@ The template is shared with `/optimus:tdd` via `references/pr-template.md`.
 |---|---|---|
 | Purpose | Create/update the PR | Review the PR |
 | Timing | Before review | After PR exists |
+| Conversation | Run in the **same conversation** as the implementation (so it can capture intent) | Run in a **fresh conversation** (so it reads intent only from the PR description, not from chat noise) |
 | Workflow | Run `/optimus:pr` first, then `/optimus:code-review` |
+
+| | `/optimus:pr` | `/optimus:commit` |
+|---|---|---|
+| Scope | PR title + description | Local commits (stage + commit + optional push) |
+| Timing | After commits exist, branch is pushed | Before pr — to land changes locally |
+| Conversation | Same conversation as implementation (preserves intent) | Same conversation as implementation; recommends `/optimus:pr` afterwards with stay-in-conversation guidance |
 
 | | `/optimus:pr` | `/optimus:commit-message` |
 |---|---|---|

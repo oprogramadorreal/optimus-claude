@@ -122,6 +122,7 @@ Every skill must end with a recommendation for the next logical optimus skill. T
 - Choose the next skill based on the outcome (e.g., after fixing issues → commit; after committing → PR).
 - If multiple paths are possible, present them conditionally (e.g., "if X → skill A; if Y → skill B").
 - Always include the fresh-conversation tip as part of the recommendation to the user — e.g., "Recommend running `/optimus:X` to do Y. **Tip:** for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch." The tip must be clearly scoped under a "Recommend" / "Tell the user" verb so Claude treats it as output, not as an internal instruction.
+- **Exception — continuation skills.** When the recommended next skill captures the current conversation into a durable artifact, override the default tip with the stay-in-conversation wording from `references/skill-handoff.md` under "Continuation skills — exception to fresh-conversation". The current continuation skills are `/optimus:commit`, `/optimus:commit-message`, and `/optimus:pr` — all three preserve implementation context (commit message body, PR description). When the closing block recommends a **mix** of continuation and non-continuation skills, differentiate explicitly per the wording template in that doc. Sending the user to a fresh conversation for a continuation skill strips the very context it was meant to capture.
 
 ## Examples
 

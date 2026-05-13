@@ -223,4 +223,4 @@ In a multi-repo workspace where multiple repos were processed, show a combined s
 
 Recommend running `/optimus:code-review` for quality review before merging.
 
-Tell the user: **Tip:** for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch.
+Tell the user: **Tip:** for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch. (`/optimus:code-review` reads intent from the PR description you just wrote, so a fresh conversation gives the cleanest read.)

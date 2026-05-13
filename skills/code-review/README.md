@@ -50,6 +50,21 @@ In Claude Code, use any of these:
 - **After major changes** — verify new code follows project patterns
 - **For thorough cleanup** — use `deep` mode to catch issues that single-pass review misses
 
+## Recommended Workflow — the implement → commit → pr → code-review chain
+
+This skill produces the strongest intent-aware findings when paired with the **continuation skills** (`/optimus:commit`, `/optimus:pr`) — they capture the implementation intent into commit messages and the PR description, and code-review reads those artifacts to ground its review against the *why*, not just the *what*. See [`references/skill-handoff.md`](../../references/skill-handoff.md) under "Continuation skills" for the rationale.
+
+The canonical sequence:
+
+1. **Implement** your changes in a conversation.
+2. **Stay in that conversation** and run [`/optimus:commit`](../commit/README.md) — it captures the *why* into the commit message body.
+3. **Still in the same conversation**, run [`/optimus:pr`](../pr/README.md) — it captures decisions, scope, non-goals, and trade-offs into the PR description.
+4. **Switch to a fresh conversation** and run `/optimus:code-review` — it auto-detects the open PR and uses the description as author intent context. A fresh conversation keeps the review uncontaminated by the implementation discussion; intent travels via the PR description, not via chat history.
+
+When a PR exists but has no intent context in its description (empty body, or no captured decisions), code-review notes this in the scope summary and the review proceeds without the intent-vs-implementation check.
+
+**Pre-commit self-review (optional):** you can also run `/optimus:code-review` on local uncommitted changes before committing — it catches bugs and guideline violations without needing a PR. The post-PR review remains the canonical intent-vs-implementation check.
+
 ## Deep Mode
 
 Deep mode addresses a fundamental limitation of single-pass LLM review: attention saturation on large diffs causes issues to be missed. Running the same review multiple times consistently finds new issues — deep mode automates this iteration.
@@ -122,10 +137,10 @@ The skill presents a structured review report:
 ## Code Review
 
 ### Summary
-- Scope: Local changes
+- Scope: PR #42
 - Files reviewed: 5
 - Lines changed: +142 / -28
-- Findings: 3 (Critical: 1, Warning: 1, Suggestion: 1)
+- Findings: 4 (Critical: 1, Warning: 2, Suggestion: 1)
 - Docs used: CLAUDE.md, coding-guidelines.md, testing.md (plus skill-writing-guidelines.md in skill-authoring projects)
 - Agents: bug-detector, security-reviewer, guideline-A, guideline-B, code-simplifier, test-guardian
 - Verdict: ISSUES FOUND
@@ -164,6 +179,23 @@ The skill presents a structured review report:
 - Category: Test Coverage Gap
 - What to test: Edge cases for zero amount, negative values, expired coupons
 - Test location: src/pricing/__tests__/discount.test.ts
+
+**4. Rate limiting claimed in PR Intent but not implemented** (Warning — Intent Mismatch)
+- File: src/routes/auth.ts:23
+- Category: Intent Mismatch
+- Confidence: High
+- Intent claim: PR description `## Intent` says "rate-limit reset requests to 3 per hour per email"
+- Issue: The new POST /auth/reset-password handler adds validation and email send but no rate-limiting middleware or counter. The Intent claim has no supporting code.
+- Current:
+  router.post('/reset-password', validate, async (req, res) => {
+    await sendReset(req.body.email);
+    res.status(200).json({ ok: true });
+  });
+- Suggested:
+  router.post('/reset-password', validate, rateLimit({ max: 3, windowMs: 3600_000 }), async (req, res) => {
+    await sendReset(req.body.email);
+    res.status(200).json({ ok: true });
+  });
 ```
 
 You then choose: **Fix issues**, **Post comment** (PR mode), or **Skip**.
