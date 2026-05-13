@@ -41,6 +41,8 @@ For each finding report in this exact format:
 - **Intent claim:** [only for Intent Mismatch — quoted claim from `## Intent`]
 - **Issue:** [what should be tested or what barrier prevents testing]
 - **Test file:** [recommended test file path, if applicable]
+- **Current:** [only for Intent Mismatch — relevant snippet, max 5 lines]
+- **Suggested:** [only for Intent Mismatch — recommended test or fix, max 5 lines]
 
 ## Exclusions
 

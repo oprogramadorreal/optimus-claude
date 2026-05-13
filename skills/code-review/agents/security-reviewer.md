@@ -54,7 +54,7 @@ For each finding report in this exact format:
 - **File:** file:line
 - **Category:** Security | Logic | Intent Mismatch
 - **Confidence:** High | Medium
-- **Severity:** Critical | Warning | Suggestion
+- **Severity:** Critical | Warning (Intent Mismatch findings may additionally use Suggestion per `shared-constraints.md` "Severity")
 - **Guideline:** [only for Intent Mismatch — the literal string `Intent (see Intent claim)`]
 - **Intent claim:** [only for Intent Mismatch — quoted claim from `## Intent`]
 - **Issue:** [concrete description]

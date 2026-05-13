@@ -255,4 +255,4 @@ In a multi-repo workspace where multiple repos were processed, show a combined s
 
 Recommend running `/optimus:code-review` for quality review before merging.
 
-Tell the user: **Tip:** for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch.
+Tell the user the closing tip per `$CLAUDE_PLUGIN_ROOT/references/skill-handoff.md` "Closing tip wording" — use **Variant C** (default — `/optimus:code-review` is non-continuation).

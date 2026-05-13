@@ -488,5 +488,5 @@ After the review is complete, recommend the next step based on the outcome:
 
 Tell the user:
 
-- Tell the user the closing tip per `$CLAUDE_PLUGIN_ROOT/references/skill-handoff.md` "Closing tip wording" — use **Variant B** with `<continuation-skills>` = `` `/optimus:commit` and `/optimus:pr` `` and `<non-continuation-examples>` = `/optimus:unit-test`, etc.
+- The closing tip per `$CLAUDE_PLUGIN_ROOT/references/skill-handoff.md` "Closing tip wording" — use **Variant B** with `<continuation-skills>` = `` `/optimus:commit` and `/optimus:pr` `` and `<non-continuation-examples>` = `/optimus:unit-test`, etc.
 - **Tip (normal mode only):** Single-pass review can miss issues due to LLM attention limits. Run `/optimus:code-review deep` to iterate automatically — it fixes, tests, and repeats until clean (max 8 passes). Requires a test command in `.claude/CLAUDE.md`.

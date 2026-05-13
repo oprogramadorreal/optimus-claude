@@ -132,6 +132,7 @@ class TestPrintReport:
         output = capsys.readouterr().out
         assert "stay in this conversation" in output
         assert "/optimus:commit" in output
+        assert "implementation context" in output
         assert "start a fresh conversation" not in output
 
     def test_crash_termination_branch(self, sample_progress, capsys):

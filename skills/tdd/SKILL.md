@@ -414,4 +414,4 @@ If a worktree was used (Step 3), read `$CLAUDE_PLUGIN_ROOT/skills/tdd/references
 
 Recommend running `/optimus:code-review` to review the PR/MR before merging.
 
-Tell the user: **Tip:** for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch.
+Tell the user the closing tip per `$CLAUDE_PLUGIN_ROOT/references/skill-handoff.md` "Closing tip wording" — use **Variant C** (default — `/optimus:code-review` is non-continuation).
