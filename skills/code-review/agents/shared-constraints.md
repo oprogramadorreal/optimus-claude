@@ -43,4 +43,13 @@ When a PR/MR Context Block is present in your prompt **and** the description inc
 
 **Finding budget:** Intent Mismatch findings do NOT count against the per-agent 15-finding cap. Each agent that runs this check gets an additional **+5 Intent Mismatch findings per pass**. See `$CLAUDE_PLUGIN_ROOT/references/shared-agent-constraints.md` "Per-category budget exceptions" for the canonical rule.
 
-**Stay in your lane:** Each agent reports Intent Mismatch findings only within its existing domain. Read each agent's `PR/MR mode addendum` (in `bug-detector.md`, `guideline-reviewer.md`) for the specific scope (behavior/correctness claims vs. pattern/guideline claims). Agents whose prompts have no PR/MR mode addendum (security, simplifier, test-guardian, contracts) do not run this check in this release.
+**Fix the code, never the PR description.** When suggesting a fix for an Intent Mismatch, the fix MUST edit code (or tests, or config — anything that ships in the diff) to deliver the stated intent. Do NOT propose "update the PR description to match the code" as a fix — that would silently rewrite the author's stated intent and defeat the entire intent-vs-implementation check. If the implementation deliberately diverges from the stated intent and you are confident the intent itself is wrong, flag the finding with a `Suggested:` note saying *"the author should reconsider the stated intent"* rather than emitting a description-rewriting fix. The harness will auto-apply any fix you emit; emitting a PR-description fix would silently destroy the intent record.
+
+**Stay in your lane:** Each agent reports Intent Mismatch findings only within its existing domain. Read each agent's `PR/MR mode addendum` for the specific scope:
+
+- **bug-detector** — behavior / correctness claims (e.g., "rate-limits", "validates input", "handles null").
+- **guideline-reviewer** — pattern / guideline / convention claims (e.g., "follows repository pattern", "uses standard error shape").
+- **security-reviewer** — security claims (e.g., "rotated tokens on logout", "validates authorization on protected endpoints").
+- **test-guardian** — test-coverage claims (e.g., "tests for the new flow", "covers edge case X").
+- **contracts-reviewer** — API / contract claims (e.g., "preserves backwards compat", "no public API change", stated contract non-goals).
+- **code-simplifier** — *does not run* the Intent Mismatch check in this release (simplicity intent claims are rarely specific enough to flag mechanically).

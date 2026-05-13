@@ -69,18 +69,30 @@ def print_report(progress, current_branch=None, _get_branch=None):
             print(f"{PREFIX} To push checkpoint branch:    git push -u origin {branch}")
         print(f"{PREFIX}")
         print(f"{PREFIX} Next: run /optimus:commit to commit the fixes.")
+        # Continuation-skill exception: /optimus:commit captures conversation
+        # context into the commit message body, so it should run in the same
+        # conversation. See references/skill-handoff.md "Continuation skills".
+        print(
+            f"{PREFIX} Tip: stay in this conversation when running "
+            f"/optimus:commit so it can capture the fix context into the "
+            f"commit message. Other downstream skills (/optimus:code-review, "
+            f"etc.) should still run in fresh conversations."
+        )
     elif termination["reason"] in ("parse-failure", "crash"):
         print(
             f"{PREFIX} No fixes were retained. Check the test output above for details."
         )
         print(f"{PREFIX} To rollback everything: git reset --hard {base[:8]}")
+        print(
+            f"{PREFIX} Tip: start a fresh conversation for the next skill "
+            f"— each skill gathers its own context from scratch."
+        )
     else:
         print(f"{PREFIX} No issues found — the codebase looks clean for this skill.")
-
-    print(
-        f"{PREFIX} Tip: start a fresh conversation for the next skill "
-        f"— each skill gathers its own context from scratch."
-    )
+        print(
+            f"{PREFIX} Tip: start a fresh conversation for the next skill "
+            f"— each skill gathers its own context from scratch."
+        )
 
 
 def _format_finding_line(finding):

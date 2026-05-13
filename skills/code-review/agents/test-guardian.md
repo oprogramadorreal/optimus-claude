@@ -17,13 +17,33 @@ Apply shared constraints from `shared-constraints.md`.
 
 Analyze ONLY the provided changed files. Apply the focus areas from your role definition and the project's testing conventions.
 
+## PR/MR mode addendum — Intent-vs-Implementation Check
+
+This addendum applies **only** when a PR/MR Context Block is present in your prompt and that block contains a populated `## Intent` section. Read `shared-constraints.md` "Intent-vs-Implementation Check (PR/MR mode only)" for the canonical rules — the section here scopes the check to this agent's domain.
+
+Within your domain (test coverage, test structure, testability), check whether the diff delivers the **test-related** claims in `## Intent`:
+
+- Claims about adding tests for the new flow. Example: Intent's Scope says "tests for happy-path and 4xx error responses" — does the diff include tests covering both, or only the happy path?
+- Claims about specific edge cases. Example: Intent's Key decisions says "covers expired-token and rate-limit edge cases" — does the diff include tests for those specific cases?
+- Claims about test-coverage non-goals. Example: Intent's Non-goals says "no integration tests in this PR; unit tests only" but the diff adds end-to-end tests.
+- Claims about test refactoring. Example: Intent says "consolidates the three duplicate auth-test setups into a shared fixture" — does the diff actually consolidate them, or does it leave them in place?
+
+Out of scope for *this agent* (other agents cover these):
+
+- Behavioral correctness of *production* code — bug-detector handles those.
+- Whether tests themselves are well-styled or follow project conventions — guideline-reviewer handles those.
+- Security-test coverage gaps where the issue is the missing security control, not the missing test — security-reviewer handles those.
+
+Report Intent Mismatch findings using the **same output format below** but with **Category: `Intent Mismatch`** and add **`Intent claim:`** quoting the specific test-related claim from `## Intent`. The +5 per-pass budget for Intent Mismatch is separate from the 15-cap on Test Gap / Structural Barrier findings. The fix must add or modify test code, never the PR description — see `shared-constraints.md` "Fix the code, never the PR description".
+
 ## Output Format
 
 For each finding report in this exact format:
 
 - **File:** source file and function name
-- **Category:** Test Gap | Structural Barrier | Code Quality
+- **Category:** Test Gap | Structural Barrier | Code Quality | Intent Mismatch
 - **Confidence:** High | Medium
+- **Intent claim:** [only for Intent Mismatch — quoted claim from `## Intent`]
 - **Issue:** [what should be tested or what barrier prevents testing]
 - **Test file:** [recommended test file path, if applicable]
 

@@ -388,6 +388,14 @@ If there are commits on the branch:
 
    Follow the Conventional PR template, incorporating TDD-specific data: include how many behaviors were implemented via TDD in the **Summary**, use `git diff --stat <original-branch>..HEAD` for **Changes**, and list each behavior as a verification item in the **Test plan** with coverage delta if available (e.g., "Coverage: [X]% → [Y]% (+[Z]%)").
 
+   **Populate the `## Intent` section** from the TDD cycle data. The TDD conversation has rich, structured intent information that maps cleanly onto the four sub-prompts — use it instead of leaving the section to be inferred. Map the fields as follows:
+   - **Problem** — from the task / design source. If a design doc was auto-detected (`docs/design/<task>.md` with a "Refined plan" section) or a JIRA task file (`docs/jira/<ISSUE-KEY>.md`), quote or summarize its problem statement / context section. If no design doc exists, summarize the brief that initiated this TDD session in 1–2 sentences (what the user asked to build).
+   - **Scope** — the behaviors that were actually implemented in this TDD run (each Red-Green-Refactor cycle's behavior name). One bullet per behavior. Pull from the behaviors list maintained during the session.
+   - **Non-goals** — behaviors that were intentionally deferred. Sources: behaviors listed in the design doc but not in the implemented set; explicit "Out of scope" sections in the design doc; any "we decided against X" discussions from the TDD session.
+   - **Key decisions** — design choices made during the TDD run. Sources: the design doc's "Refined plan" section (architecture decisions, pattern choices, trade-offs accepted); refactor-step decisions where a non-obvious shape was chosen over an alternative.
+
+   **Omit any sub-prompt that has no clear answer** (do not stub with placeholder text). If no design doc or task file exists AND the TDD session has no captured decisions / non-goals, omit the `## Intent` section entirely rather than fabricating one — `/optimus:code-review` is stricter about contradictions in a stated intent than about a missing intent section. See `$CLAUDE_PLUGIN_ROOT/skills/pr/references/pr-template.md` for the section format.
+
 4. **Report** to the user:
 
 ```
