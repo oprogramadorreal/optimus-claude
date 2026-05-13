@@ -45,7 +45,7 @@ Within your domain (security, authn/authz, secrets, injection, data integrity), 
 - Claims about rate-limiting or abuse prevention with security framing. Example: Intent says "lock account after 5 failed login attempts" — does the diff implement the counter and lockout, including the persistence layer?
 - Claims about security-related non-goals. Example: Intent says "no new secrets in environment variables" but the diff adds a hardcoded credential or a new env var read.
 
-Report findings using the **same output format below** with **Category: `Intent Mismatch`**, **Guideline: `Intent (see Intent claim)`**, the **`Intent claim:`** field populated with the specific quoted claim, and **Severity** assigned per the canonical mapping.
+Report findings using the **same output format below** with **Category: `Intent Mismatch`**, **Guideline: `Intent (see Intent claim)`**, the **`Intent claim:`** field populated with the specific quoted claim, and **Severity** assigned per the canonical mapping. For Intent Mismatch findings, use the field names **`Current:`** (in place of `Code:`) and **`Suggested:`** (in place of `Fix:`) to match the aggregator's expected shape — see `skills/code-review/SKILL.md` "Output format".
 
 ## Output Format
 
@@ -54,7 +54,7 @@ For each finding report in this exact format:
 - **File:** file:line
 - **Category:** Security | Logic | Intent Mismatch
 - **Confidence:** High | Medium
-- **Severity:** Critical | Warning (Intent Mismatch findings may additionally use Suggestion per `shared-constraints.md` "Severity")
+- **Severity:** Critical | Warning | Suggestion (Suggestion applies to Intent Mismatch only — see `shared-constraints.md` "Severity")
 - **Guideline:** [only for Intent Mismatch — the literal string `Intent (see Intent claim)`]
 - **Intent claim:** [only for Intent Mismatch — quoted claim from `## Intent`]
 - **Issue:** [concrete description]

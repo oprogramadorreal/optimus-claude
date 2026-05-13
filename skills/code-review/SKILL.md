@@ -305,6 +305,7 @@ Before presenting findings, write a concise summary (2–4 sentences) of what th
 - **Critical** — Bugs, security vulnerabilities, runtime failures
 - **Warning** — Guideline violations, missing error handling, test coverage gaps for critical paths, backward-incompatible contract changes
 - **Suggestion** — Code quality improvements, minor guideline drift, test coverage gaps for non-critical paths, minor contract quality issues
+- **Intent Mismatch** — Critical when a stated non-goal is contradicted by the diff; Warning for unsupported scope claims; Suggestion for partial matches (see `agents/shared-constraints.md` "Severity" for the canonical mapping)
 
 ### Finding cap
 
@@ -429,7 +430,7 @@ Column definitions:
 - **File** — `file:line`
 - **What Changed** — Brief description of the fix applied or attempted
 - **Reason** — Why the change was needed (the issue/problem)
-- **Guideline / Category** — The specific project guideline violated (or "General: bug/security/contract quality" for non-guideline findings), plus the category (Bug, Security, Guideline Violation, Code Quality, Test Coverage Gap, Contract Quality)
+- **Guideline / Category** — The specific project guideline violated (or "General: bug/security/contract quality" for non-guideline findings, or `Intent (see Intent claim)` for Intent Mismatch), plus the category (Bug, Security, Guideline Violation, Code Quality, Test Coverage Gap, Contract Quality, Intent Mismatch)
 - **Status** — `fixed`, `reverted — test failure`, `reverted — attempt 2`, or `persistent — fix failed`
 
 For condition 4 (continue), after presenting the iteration report also show the progress summary: "Iteration [N] of up to 8 — [total-fixed] findings fixed so far, [total-reverted] reverted. Starting next pass..." If the **next** iteration will be 3 or higher, append to the progress summary: "Note: context is accumulating — if output quality degrades, consider finishing remaining findings in a fresh conversation." Then increment `iteration-count` and **return to Step 5** for the next analysis pass. When returning to Step 5, re-gather the current diff (the codebase has changed due to applied fixes) and focus agents on files that had findings in any previous iteration plus any newly modified files.

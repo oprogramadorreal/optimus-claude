@@ -69,7 +69,7 @@ def print_report(progress, current_branch=None, _get_branch=None):
             print(f"{PREFIX} To push checkpoint branch:    git push -u origin {branch}")
         print(f"{PREFIX}")
         print(f"{PREFIX} Next: run /optimus:commit to commit the fixes.")
-        # Continuation-skill exception — see references/skill-handoff.md "Continuation skills".
+        # See references/skill-handoff.md "Continuation skills" for wording.
         print(
             f"{PREFIX} Tip: stay in this conversation when running "
             f"/optimus:commit so it can capture the implementation context. "

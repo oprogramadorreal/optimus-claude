@@ -158,18 +158,18 @@ A PR/MR already exists for this branch. What would you like to do?
 
 ## Conventional PR Format
 
-The skill uses a structured template inspired by Conventional Commits, with a deliberate extension — an `## Intent` section that `/optimus:code-review` reads to check the implementation against author intent:
+The skill uses a structured template inspired by Conventional Commits:
 
 | Section | Required | Content |
 |---------|----------|---------|
 | **Title** | Yes | `type(scope): description` — conventional commit format |
-| **Intent** | When context available | Problem, scope, non-goals, key decisions captured from the implementation conversation (or preserved from the existing PR body during an update). Omitted entirely when no intent context is detectable. |
+| **Intent** | When context available | Problem, scope, non-goals, key decisions captured from the implementation conversation (or preserved from the existing PR body during an update). Omitted entirely when no intent context is detectable. `/optimus:code-review` reads it back as author intent. |
 | **Summary** | Yes | 2–4 sentences on what and why |
 | **Changes** | Yes | Bulleted file list with descriptions |
 | **Rationale** | No | Design decisions and trade-offs (omit for straightforward changes) |
 | **Test plan** | Yes | Verification checklist |
 
-The template is shared with `/optimus:tdd` via `references/pr-template.md`. The `## Intent` section is the load-bearing handoff between `/optimus:pr` (writer) and `/optimus:code-review` (reader).
+The template is shared with `/optimus:tdd` via `references/pr-template.md`.
 
 ## Relationship to Other Skills
 

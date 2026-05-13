@@ -26,13 +26,13 @@ The canonical implementation chain is **implement → `/optimus:commit` → `/op
 
 Skills that emit a closing tip must use one of the variants below **verbatim** (substituting only the explicit placeholders). Drift is the failure mode this section exists to prevent — never paraphrase to skill-specific wording like "refactor's rationale", "deliverable's rationale", or "fix context". The umbrella term **"implementation context"** is intentional and covers design decisions, refactor rationale, fix context, and deliverable rationale.
 
-#### Variant A — Single continuation skill
+#### Variant A — Continuation skill(s) only
 
-When the closing block recommends **one** continuation skill, emit:
+When the closing block recommends one or more continuation skills (and no non-continuation skill is recommended as an immediate next step), emit:
 
-> **Tip:** stay in this conversation when running `<continuation-skill>` so it can capture the implementation context. Other downstream skills (`<non-continuation-examples>`) should still run in fresh conversations.
+> **Tip:** stay in this conversation when running `<continuation-skill(s)>` so it can capture the implementation context. Other downstream skills (`<non-continuation-examples>`) should still run in fresh conversations.
 
-Substitute `<continuation-skill>` with the actual skill (e.g., `/optimus:pr`). Substitute `<non-continuation-examples>` with the relevant examples (e.g., `/optimus:code-review`, `/optimus:unit-test`, etc.).
+Substitute `<continuation-skill(s)>` with the actual skill(s) — one (e.g., `/optimus:pr`) or several joined by "or"/"and" when the recommendation offers alternatives (e.g., `/optimus:commit` or `/optimus:pr`). Substitute `<non-continuation-examples>` with the relevant examples (e.g., `/optimus:code-review`, `/optimus:unit-test`, etc.).
 
 #### Variant B — Mixed (continuation + non-continuation)
 

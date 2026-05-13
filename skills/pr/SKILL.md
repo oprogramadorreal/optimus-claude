@@ -108,13 +108,9 @@ Before generating PR content, determine whether author intent is recoverable. Th
 2. **Intent available from existing PR body** (Update Flow only — Step 6) — the existing PR body contains an `## Intent` section. Detection: see `$CLAUDE_PLUGIN_ROOT/skills/pr/references/pr-template.md` "Detecting `## Intent` in an existing PR body" for the canonical heuristic (shared with `/optimus:code-review`).
 3. **No intent context found** — neither of the above. Default classification when in doubt: if the heuristic is uncertain, prefer state 3 over fabricating an Intent section.
 
-State 3 handling — tell the user explicitly:
-
-> "No implementation context detected in this conversation, and the existing PR description has no `## Intent` section. I can either: (a) skip the Intent section entirely, or (b) ask you the four sub-prompts now (Problem, Scope, Non-goals, Key decisions) and add what you provide. For the strongest downstream review, re-run `/optimus:pr` from the conversation where the implementation happened."
-
-Then use `AskUserQuestion` — header "Intent capture", question "No intent context detected. How would you like to handle the `## Intent` section?":
+State 3 handling — use `AskUserQuestion` — header "Intent capture", question "No implementation context detected in this conversation and the existing PR has no `## Intent` section. How would you like to handle the `## Intent` section?":
 - **Add intent now** — Claude will ask the user to reply with Problem / Scope / Non-goals / Key decisions on separate lines (blank lines skip the sub-field) in a plain message exchange, then populate the section from the reply.
-- **Skip** — omit the section entirely. Do not stub it.
+- **Skip** — omit the section entirely. Do not stub it. For the strongest downstream review on a future run, re-run `/optimus:pr` from the conversation where the implementation happened.
 
 Suppress this prompt entirely in state 1 or state 2 (no friction on the happy paths).
 
@@ -198,7 +194,7 @@ Gather change data using the existing PR/MR's **target branch** (saved in Step 4
 
 #### Phase 2 — Scan existing content for non-diff information
 
-Review the existing PR/MR title and body (saved from Step 4) for information that **cannot be derived from code changes**. Examples: issue/ticket references (`#45`, `JIRA-123`), deployment instructions, external links, reviewer-directed notes, follow-up tasks, **and the `## Intent` section** (author intent captured at PR creation — see below for special handling).
+Review the existing PR/MR title and body (saved from Step 4) for information that **cannot be derived from code changes**. Examples: issue/ticket references (`#45`, `JIRA-123`), deployment instructions, external links, reviewer-directed notes, follow-up tasks, and the `## Intent` section.
 
 **Never preserve facts that are derivable from the current diff** — version numbers, file counts, function/class/symbol names, path names, line counts, or changed-file lists. These must come from Phase 1's fresh content. If the existing body contains such a fact (for example, "plugin version incremented from 1.56.1 to 1.59.0"), discard the old value and use the one re-derived from the current diff, even if the old value was correct when the PR was first opened. Rebases and force-pushes can change any of these, so the description must always match what reviewers see in "Files changed".
 
@@ -209,7 +205,7 @@ Discard anything that is outdated, factually wrong based on current diffs, or al
 3. **Non-standard sections**: If the existing body has sections outside the four standard ones (e.g., `## Deployment notes`, `## Related issues`) that contain non-diff information still relevant, preserve them after `## Test plan`.
 4. **Title**: Only when regenerating the title — if the existing title contains an issue reference or similar non-diff context, incorporate it into the new title while keeping Conventional Commit format.
 
-**Friction floor for the standalone-update flow:** if the existing body has an `## Intent` section AND the conversation has no implementation context (no Edit/Write/NotebookEdit touching the current diff), the regeneration must succeed **without prompting** the user — preserve Intent as above and refresh the other sections. The user came here to fix the description after a rebase, not to re-litigate intent.
+**Friction floor for the standalone-update flow:** if the existing body has an `## Intent` section AND the conversation has no implementation context (no Edit/Write/NotebookEdit touching the current diff), the regeneration must succeed **without prompting** the user. The user came here to fix the description after a rebase, not to re-litigate intent.
 
 #### Phase 3 — Preview
 

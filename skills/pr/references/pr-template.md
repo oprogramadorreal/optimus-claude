@@ -48,6 +48,7 @@ Both `/optimus:pr` (Update Flow preservation) and `/optimus:code-review` (Intent
 
 A line is a real `## Intent` heading when **all** of these hold:
 - It starts at column 0 with `## Intent` (case-insensitive).
+- The character immediately after `Intent` is end-of-line, whitespace, or a trailing-anchor punctuation character (e.g., `{`, `<`) — **not** another word character. This rejects `## Intentional X`, `## Intent and rationale`, `## Intents`, etc.
 - It is **not** inside a fenced code block (between matching ` ``` ` or `~~~` fences).
 - It is **not** a blockquote line (prefixed with `>`).
 

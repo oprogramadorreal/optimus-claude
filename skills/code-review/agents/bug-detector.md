@@ -54,7 +54,7 @@ Within your domain (bugs, logic errors, behavior/correctness), check whether the
 - Claims about what the code *prevents* — guards against null, validates input, handles a race. Example: Intent says "validate the email format before sending" — does the diff include the validation?
 - Claims about behavioral non-goals — "no behavior change," "preserves existing X." Example: Intent says "internal refactor; no API change" but the diff changes a public function signature.
 
-Report findings using the **same output format below** with **Category: `Intent Mismatch`**, **Guideline: `Intent (see Intent claim)`**, and the **`Intent claim:`** field populated with the specific quoted claim.
+Report findings using the **same output format below** with **Category: `Intent Mismatch`**, **Guideline: `Intent (see Intent claim)`**, and the **`Intent claim:`** field populated with the specific quoted claim. For Intent Mismatch findings, use the field names **`Current:`** (in place of `Code:`) and **`Suggested:`** (in place of `Fix:`) to match the aggregator's expected shape — see `skills/code-review/SKILL.md` "Output format".
 
 ## Output Format
 

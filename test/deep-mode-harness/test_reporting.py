@@ -159,3 +159,29 @@ class TestPrintReport:
         assert "No fixes were retained" in output
         assert "start a fresh conversation" in output
         assert "stay in this conversation" not in output
+
+    def test_continuation_skill_tip_overrides_crash_termination(
+        self, sample_progress, tmp_path, capsys
+    ):
+        sample_progress["config"]["project_root"] = str(tmp_path)
+        sample_progress["findings"] = [
+            {
+                "file": "a.js",
+                "line": 1,
+                "category": "bug",
+                "summary": "Fix",
+                "status": "fixed",
+                "iteration_discovered": 1,
+            }
+        ]
+        sample_progress["termination"] = {
+            "reason": "crash",
+            "message": "Unexpected error",
+        }
+        sample_progress["iteration"]["completed"] = 1
+        print_report(sample_progress)
+        output = capsys.readouterr().out
+        assert "stay in this conversation" in output
+        assert "/optimus:commit" in output
+        assert "No fixes were retained" not in output
+        assert "start a fresh conversation" not in output

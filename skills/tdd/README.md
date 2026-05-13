@@ -27,7 +27,7 @@ The [2025 DORA report](https://cloud.google.com/discover/how-test-driven-develop
 - **Git worktree isolation** — optionally creates a git worktree for the feature branch, keeping the main workspace clean and enabling parallel work. Automatically detects if already inside a worktree (e.g., created by `/optimus:worktree`) and skips to prevent recursive worktrees
 - **Bug-fix regression gate** — for bug fixes, verifies the red-green cycle is genuine: reverts the fix to confirm the test fails, then restores to confirm it passes
 - **Feature branch workflow** — creates a dedicated `<type>/<slug>` branch (e.g., `feat/add-auth`, `fix/login-email`), commits after each cycle, pushes and creates a PR/MR at the end
-- **Automatic PR/MR creation** — detects GitHub/GitLab and creates a pull/merge request using the [Conventional PR](../pr/README.md) format (structured summary, changes, rationale, test plan). Suggests `/optimus:pr` if the CLI is missing
+- **Automatic PR/MR creation** — detects GitHub/GitLab and creates a pull/merge request using the [Conventional PR](../pr/README.md) format (structured summary, changes, rationale, test plan). The PR's `## Intent` section is populated from TDD cycle data (design/JIRA doc → Problem, implemented behaviors → Scope, deferred behaviors → Non-goals, refactor-step choices → Key decisions) so `/optimus:code-review` can later check the diff against author intent. Suggests `/optimus:pr` if the CLI is missing
 - **Coverage tracking** — detects coverage commands from testing.md, test runner flags, or package scripts; reports delta
 - **Multi-repo workspace support** — targets specific repos in multi-repo setups
 - **Submodule exclusion** — skips git submodule directories
