@@ -103,7 +103,7 @@ Recommend the next step based on context:
 - If parallel work is needed → `/optimus:worktree` for an isolated workspace
 - Default → `/optimus:commit` when ready
 
-Tell the user the closing tip per `$CLAUDE_PLUGIN_ROOT/references/skill-handoff.md` "Closing tip wording" — use **Variant B** with `<continuation-skills>` = `/optimus:commit` and `<non-continuation-examples>` = `/optimus:tdd`, `/optimus:worktree`, etc.
+Tell the user the closing tip per `$CLAUDE_PLUGIN_ROOT/references/skill-handoff.md` "Closing tip wording" — use **Variant B** with `<continuation-skill(s)>` = `/optimus:commit` and `<non-continuation-examples>` = `/optimus:tdd`, `/optimus:worktree`, etc.
 
 ## Important
 
