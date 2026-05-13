@@ -184,7 +184,8 @@ The template is shared with `/optimus:tdd` via `references/pr-template.md`. The 
 | Purpose | Create/update the PR | Review the PR |
 | Timing | Before review | After PR exists |
 | Conversation | Run in the **same conversation** as the implementation (so it can capture intent) | Run in a **fresh conversation** (so it reads intent only from the PR description, not from chat noise) |
-| Workflow | Run `/optimus:pr` first, then `/optimus:code-review` |
+
+Workflow: run `/optimus:pr` first, then `/optimus:code-review`.
 
 | | `/optimus:pr` | `/optimus:commit` |
 |---|---|---|

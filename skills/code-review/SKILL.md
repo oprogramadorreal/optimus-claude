@@ -163,8 +163,10 @@ Present a brief summary before proceeding:
 If PR/MR mode is active, inspect the captured `pr-description` body and append a note to the Scope summary based on what's there:
 
 - Body is empty → append: *"Note: PR description is empty. Intent-vs-implementation checks will be skipped. Run `/optimus:pr` in the implementation conversation to add intent metadata."*
-- Body is non-empty but contains no `## Intent` heading (case-insensitive match on a line starting with `## Intent`) → append: *"Note: PR description has no `## Intent` section. Intent-vs-implementation checks will be skipped. Re-running `/optimus:pr` in the implementation conversation can add intent metadata."*
+- Body is non-empty but contains no `## Intent` heading → append: *"Note: PR description has no `## Intent` section. Intent-vs-implementation checks will be skipped. Re-running `/optimus:pr` in the implementation conversation can add intent metadata."*
 - Body contains a `## Intent` heading → no note (the intent-vs-implementation check will run).
+
+**`## Intent` detection heuristic** (used by both bullets above; not output text): a line that starts at column 0 with `## Intent` (case-insensitive), AND is not inside a fenced code block (between matching ` ``` ` or `~~~` fences) AND is not a blockquote line (prefixed with `>`). This avoids false positives when the body quotes another PR's `## Intent` or shows it inside a code example.
 
 This is a soft warning — review proceeds normally either way.
 
@@ -306,11 +308,11 @@ Before presenting findings, write a concise summary (2–4 sentences) of what th
 
 ### Finding cap
 
-Maximum **15 findings** across all sources, prioritized by severity then confidence. If more issues exist, note the count (e.g., "15 of ~24 findings shown") and suggest re-running with a narrower scope or using `/optimus:code-review deep` for exhaustive review.
+Maximum **15 findings** across all sources, prioritized by severity then confidence. `Intent Mismatch` findings have a separate +5 budget per agent per pass (see `$CLAUDE_PLUGIN_ROOT/references/shared-agent-constraints.md` "Per-category budget exceptions") and are not crowded out by the 15-cap on domain findings. If more issues exist, note the count (e.g., "15 of ~24 findings shown") and suggest re-running with a narrower scope or using `/optimus:code-review deep` for exhaustive review.
 
 ### Deep mode accumulation
 
-**Deep mode:** Instead of presenting the output format below, append this iteration's validated findings to `accumulated-findings`. For each appended finding, record the current `iteration-count` as the finding's iteration number, and preserve the agent's guideline citation and issue description as the finding's guideline and summary fields. Deduplicate against previous iterations: if a finding matches an existing entry by file + line range + category, skip it if the existing entry is marked "(fixed)". If the existing entry is marked "(persistent — fix failed)", annotate the new entry as "(persistent — fix failed)". If the existing entry is marked "(reverted — test failure)", keep the new entry as "(reverted — attempt 2)" so Step 9 retries the fix once more; only promote to "(persistent — fix failed)" if it is reverted again. Then proceed directly to Step 9.
+**Deep mode:** Instead of presenting the output format below, append this iteration's validated findings to `accumulated-findings`. Each entry tracks: **file** (with line), **category** (Bug, Security, Guideline Violation, Code Quality, Test Coverage Gap, Contract Quality, Intent Mismatch), **guideline** (the specific project rule, or the matched `## Intent` claim for Intent Mismatch findings), **summary** (one-sentence description of the issue), **fix description** (brief description of the fix applied or attempted), **iteration** (which iteration discovered it), and **status** (updated through apply/test phases). For each appended finding, record the current `iteration-count` as the finding's iteration number, and preserve the agent's guideline citation and issue description as the finding's guideline and summary fields. Deduplicate against previous iterations: if a finding matches an existing entry by file + line range + category, skip it if the existing entry is marked "(fixed)". If the existing entry is marked "(persistent — fix failed)", annotate the new entry as "(persistent — fix failed)". If the existing entry is marked "(reverted — test failure)", keep the new entry as "(reverted — attempt 2)" so Step 9 retries the fix once more; only promote to "(persistent — fix failed)" if it is reverted again. Then proceed directly to Step 9.
 
 **Normal mode:** Present findings using the output format below, then proceed to Step 8.
 
@@ -333,10 +335,11 @@ Maximum **15 findings** across all sources, prioritized by severity then confide
 
 ### Findings
 
-**[N]. [Finding title]** (Critical/Warning/Suggestion — [Bug/Security/Guideline/Quality/Test Gap/Contract])
+**[N]. [Finding title]** (Critical/Warning/Suggestion — [Bug/Security/Guideline/Quality/Test Gap/Contract/Intent Mismatch])
 - **File:** `file:line`
-- **Category:** [Bug | Security | Guideline Violation | Code Quality | Test Coverage Gap | Contract Quality]
-- **Guideline:** [which project guideline, or "General: bug/security/contract quality"]
+- **Category:** [Bug | Security | Guideline Violation | Code Quality | Test Coverage Gap | Contract Quality | Intent Mismatch]
+- **Guideline:** [which project guideline, or "General: bug/security/contract quality" — for Intent Mismatch, the literal string "Intent (see Intent claim)"]
+- **Intent claim:** [only for Intent Mismatch — the quoted claim from `## Intent`]
 - **Issue:** [concrete description]
 - **Current:**
   ```

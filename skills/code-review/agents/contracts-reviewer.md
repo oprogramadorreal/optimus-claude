@@ -42,7 +42,7 @@ Out of scope for *this agent* (other agents cover these):
 - Security claims about the API surface (auth, authorization, secrets) — security-reviewer handles those.
 - Test coverage for the new/changed contracts — test-guardian handles those.
 
-Report Intent Mismatch findings using the **same output format below** but with **Category: `Intent Mismatch`**. The `Guideline:` field should quote the matched claim from `## Intent` (instead of citing a project guideline). Add **`Intent claim:`** restating the matched claim for clarity. The +5 per-pass budget for Intent Mismatch is separate from the 15-cap on Contract Quality findings. The fix must edit code (the contract or its implementation), never the PR description — see `shared-constraints.md` "Fix the code, never the PR description".
+Report Intent Mismatch findings using the **same output format below** but with **Category: `Intent Mismatch`**. Set the `Guideline:` field to the literal string `Intent (see Intent claim)` — the actual quoted claim goes in the **`Intent claim:`** field below, avoiding duplication. For the `Severity:` field on Intent Mismatch findings: **Critical** when a stated non-goal is contradicted by the diff (e.g., "no public API change" but the diff renames a public endpoint); **Warning** when a stated scope claim has no supporting code (e.g., "adds `OrderResponse` type" but no such type exists in the diff); **Suggestion** when the implementation only partially matches the claim. The +5 per-pass budget for Intent Mismatch is separate from the 15-cap on Contract Quality findings. The fix must edit code (the contract or its implementation), never the PR description — see `shared-constraints.md` "Fix the code, never the PR description".
 
 ## Output Format
 
@@ -52,8 +52,8 @@ For each finding report in this exact format:
 - **Category:** Contract Quality | Intent Mismatch
 - **Confidence:** High | Medium
 - **Severity:** Critical | Warning | Suggestion
-- **Guideline:** [which project guideline, or "General: contract quality" — for Intent Mismatch, quote the claim from `## Intent`]
-- **Intent claim:** [only for Intent Mismatch — restate the matched claim from `## Intent`]
+- **Guideline:** [which project guideline, or "General: contract quality" — for Intent Mismatch, write "Intent (see Intent claim)"]
+- **Intent claim:** [only for Intent Mismatch — the quoted claim from `## Intent`]
 - **Issue:** [concrete description]
 - **Current:**
   ```

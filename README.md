@@ -111,7 +111,9 @@ Each skill recommends the next step based on task complexity — you don't need 
 
 **Before merging — keep intent flowing from implementation to review:**
 
-The canonical chain is **implement → `/optimus:commit` → `/optimus:pr` → `/optimus:code-review`**. The first three are *continuation skills* — they capture the implementation conversation's context into durable artifacts (commit messages, PR description). The last gathers its own context from a fresh conversation.
+The canonical chain is **implement → `/optimus:commit` → `/optimus:pr` → `/optimus:code-review`**. `/optimus:commit` and `/optimus:pr` are *continuation skills* — they capture the implementation conversation's context into durable artifacts (commit messages, PR description). `/optimus:code-review` gathers its own context from a fresh conversation.
+
+`/optimus:commit-message` is the read-only sibling of `/optimus:commit` and is also a continuation skill; see [`references/skill-handoff.md`](references/skill-handoff.md) for the full list.
 
 1. **Implement** your changes in a conversation (TDD, brainstorm-driven, or freeform).
 2. **Stay in the implementation conversation** and run `/optimus:commit` — it can capture the "why" from the conversation into the commit message body, not just summarize the diff.

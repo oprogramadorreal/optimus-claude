@@ -133,6 +133,4 @@ Present a summary of what was done (in a multi-repo workspace, show a combined s
 If a feature branch was created, inform the user: "You are now on `<branch-name>`. You can keep working on this branch, or use `/optimus:pr` to create a pull request. **Tip:** stay in this conversation when running `/optimus:pr` so it can capture the implementation intent into the PR description. Other downstream skills (`/optimus:code-review`, etc.) should still run in fresh conversations."
 
 Otherwise, recommend the next step based on readiness:
-- If a pull request is needed → `/optimus:pr` to create or update a PR
-
-Tell the user: **Tip:** stay in this conversation when running `/optimus:pr` so it can capture the implementation intent into the PR description. Other downstream skills (`/optimus:code-review`, etc.) should still run in fresh conversations.
+- If a pull request is needed → `/optimus:pr` to create or update a PR. Tell the user: **Tip:** stay in this conversation when running `/optimus:pr` so it can capture the implementation intent into the PR description. Other downstream skills (`/optimus:code-review`, etc.) should still run in fresh conversations.

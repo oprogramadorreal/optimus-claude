@@ -44,9 +44,10 @@ Within your domain (project guidelines, conventions, architectural boundaries), 
 Out of scope for *this agent* (other agents cover these):
 
 - Behavioral / correctness claims ("rate-limits", "validates input") — bug-detector handles these.
-- Security claims, test-coverage claims — not in this release; skip.
+- Security claims — security-reviewer handles these.
+- Test-coverage claims — test-guardian handles these.
 
-For an Intent Mismatch finding, **`Guideline:`** cites the `## Intent` claim itself (quoted) — not a rule from project docs — because the "rule" being violated is the author's own stated intent. Add an extra **`Intent claim:`** field below `Guideline:` for clarity. The +5 per-pass budget for Intent Mismatch is separate from the 15-cap on Guideline Violation findings.
+For an Intent Mismatch finding, set **`Guideline:`** to the literal string `Intent (see Intent claim)` — the actual quoted claim goes in the **`Intent claim:`** field below, avoiding duplication. The "rule" being checked is the author's own stated intent, but the canonical record of the rule is the `Intent claim:` field. The +5 per-pass budget for Intent Mismatch is separate from the 15-cap on Guideline Violation findings.
 
 ## Output Format
 
@@ -55,8 +56,8 @@ For each finding report in this exact format:
 - **File:** file:line
 - **Category:** Guideline Violation | Intent Mismatch
 - **Confidence:** High | Medium
-- **Guideline:** [exact quote or reference from project docs — or, for Intent Mismatch, the quoted claim from `## Intent`]
-- **Intent claim:** [only for Intent Mismatch — restate the matched claim from `## Intent`]
+- **Guideline:** [exact quote or reference from project docs — or, for Intent Mismatch, write "Intent (see Intent claim)"]
+- **Intent claim:** [only for Intent Mismatch — the quoted claim from `## Intent`]
 - **Issue:** [how the code violates the rule or contradicts the intent]
 - **Current:**
   ```
