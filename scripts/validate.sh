@@ -471,7 +471,11 @@ if [ -f "$esd_file" ]; then
     'SSMS' \
     'pgAdmin' \
     '- Connection details for' \
-    'the block subsumes it'; do
+    'the block subsumes it' \
+    'GUI-client → supported-DB mapping' \
+    '| Matches per-service heading |' \
+    'DBeaver' \
+    'DataGrip'; do
     if ! grep -qF -- "$esd_token" "$esd_file" 2>/dev/null; then
       wiring_errors+="  $esd_file missing wiring token: $esd_token\n"
     fi

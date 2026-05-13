@@ -65,10 +65,10 @@ If the image pattern does not match any row above, fall through to the service-n
 Inputs (all derivable at Step 3 without extending the detector schema):
 
 - **Service name** — from the detector's *External Services* table.
-- **Default endpoint** — from the config file the detector flagged for that service, plus the `local-endpoint` / `remote-endpoint` / `ambiguous` label recorded in the Step 1 Checkpoint.
+- **Default endpoint** — from the config file the detector flagged for that service, plus the `Endpoint semantics` label recorded in the Step 1 Checkpoint (one of `local-default` / `local-windows-auth` / `local-named-instance` / `local-socket` / `remote` / `ambiguous` / `docker-compose`).
 - **Docker suitability** (`daemon` / `gui-client` / `cli-tool` / `cloud-native-only` / `unknown`) — derived at heuristic-evaluation time by matching the service name / image pattern against the [Service Classification Tables](#service-classification-tables) above. The detector does not emit this field; every rule below that references `Docker suitability resolves to X` looks it up at evaluation time.
 
-**Label normalization.** Before evaluating the rules, treat any `ambiguous` endpoint label as `local-endpoint` and append a caution to the Step 3 assessment table row noting the endpoint could not be verified.
+**Label normalization.** Before evaluating the rules, treat any `ambiguous` endpoint label as `local-default` and append a caution to the Step 3 assessment table row noting the endpoint could not be verified. The four "local-style" labels — `local-default`, `local-windows-auth`, `local-named-instance`, `local-socket` — all resolve to "local-style" for rule 4's daemon check; the Pre-Conditions Block separately handles the windows-auth / named-instance / socket sub-cases.
 
 Apply in order and stop at the first match:
 
@@ -79,7 +79,7 @@ Apply in order and stop at the first match:
    - **Step 4 finalisation.** Run the web-search recipe and apply its result as a gate:
      - If every §Web-Search Recipe validation passes → render the [Shared-cloud primary (Docker optional)](#shared-cloud-primary-docker-optional) template.
      - On any validation failure → treat the service as a rule-5 downgrade candidate; the Step 4 multi-select downgrade prompt decides per-service whether to keep the Docker alternative or render the [Shared-cloud, no Docker alternative](#shared-cloud-no-docker-alternative) template.
-4. **Local-endpoint daemon.** Endpoint label is `local-endpoint` AND Docker suitability resolves to `daemon`. → **Docker-preferred.** Local install stays as alternative.
+4. **Local-style daemon.** Endpoint label is one of `local-default` / `local-windows-auth` / `local-named-instance` / `local-socket` AND Docker suitability resolves to `daemon`. → **Docker-preferred.** Local install stays as alternative.
 5. **Web-search recipe fails to find a canonical image** (including services whose suitability resolves to `unknown`). → **Local install only.** The final gate is the Step 4 multi-select downgrade prompt (header/question/option shape specified in SKILL.md Step 4). The failure reason attached to each option comes from the specific validation that tripped — e.g., port/volume not in structured form and not in canonical catalogue, only pro-tier tag returned, image reference failed regex, registry not in allowlist. Services the user keeps are written with the Docker alternative; the rest render the [Shared-cloud, no Docker alternative](#shared-cloud-no-docker-alternative) template.
 
 Rules 1–4 are evaluated in Step 3 (provisional verdict). Rule 5 is finalised in Step 4 — the one exception to Step 3's no-per-service-prompt rule. Write `recommended`, `alternative`, `reason` into the Step 3 assessment table; a user who disagrees with a verdict corrects the endpoint label or service classification via Step 1's "Correct first" path, or selects **Skip** at Step 3 and re-runs the skill.
@@ -209,7 +209,23 @@ Render **one** of these templates per service, chosen by the heuristics. Keep al
 
 **PowerShell caveat (Windows host).** When the detector's *Hardware / OS Requirements* table contains `Windows 10`, `Windows 11`, or `Windows`, append one caveat bullet once per External Services section: *PowerShell users: replace `\` line continuations with backtick (`` ` ``); single-quoted `-e '…'` args render verbatim. For password / secret / token values, keep them in single quotes — PowerShell expands `$` and backtick inside `"…"` strings, so the container would store a different value than you typed and authentication fails silently.* The bash fences render verbatim under Git Bash, WSL, macOS, and Linux.
 
-**GUI-client connect note.** When the detector's *Recommended Developer Tools* table contains a known DB GUI client (SSMS, Azure Data Studio, pgAdmin, DBeaver, MongoDB Compass, Studio 3T, RedisInsight, MySQL Workbench, DataGrip) AND the per-service heading is a matching DB, append one bullet under the snippet: `- From <tool>: connect to <host>:<host-port> using the username / password from the -e lines above.` For SQL Server only, append a second sentence to the same bullet: `Accept the self-signed certificate when prompted — the official image enables TLS by default.` Other catalogue images (postgres, mysql/mariadb, mongo, redis) accept plaintext by default, so no certificate prompt fires; the cert sentence is rendered only when the per-service heading is SQL Server / Azure SQL. Substitute `<host>` per the rule in [§Pre-Conditions Block](#pre-conditions-block); the reader maps the fields onto their tool's connection dialog themselves — do not fabricate vendor-specific field labels.
+**GUI-client connect note.** When the detector's *Recommended Developer Tools* table contains a known DB GUI client AND the per-service heading matches one of the client's supported DBs (per the mapping table below), append one bullet under the snippet: `- From <tool>: connect to <host>:<host-port> using the username / password from the -e lines above.` For SQL Server only, append a second sentence to the same bullet: `Accept the self-signed certificate when prompted — the official image enables TLS by default.` Other catalogue images (postgres, mysql/mariadb, mongo, redis) accept plaintext by default, so no certificate prompt fires; the cert sentence is rendered only when the per-service heading is SQL Server / Azure SQL. Substitute `<host>` per the rule in [§Pre-Conditions Block](#pre-conditions-block); the reader maps the fields onto their tool's connection dialog themselves — do not fabricate vendor-specific field labels.
+
+GUI-client → supported-DB mapping:
+
+| GUI client | Matches per-service heading |
+|---|---|
+| `SSMS` | SQL Server / Azure SQL |
+| `Azure Data Studio` | SQL Server / Azure SQL, PostgreSQL |
+| `pgAdmin` | PostgreSQL |
+| `MySQL Workbench` | MySQL, MariaDB |
+| `MongoDB Compass` | MongoDB |
+| `Studio 3T` | MongoDB |
+| `RedisInsight` | Redis |
+| `DBeaver` | SQL Server / Azure SQL, PostgreSQL, MySQL, MariaDB, MongoDB |
+| `DataGrip` | SQL Server / Azure SQL, PostgreSQL, MySQL, MariaDB, MongoDB, Redis |
+
+For multi-DB clients (DBeaver, DataGrip, Azure Data Studio), emit one bullet per matching service heading. For unlisted client / service combinations, omit the bullet.
 
 ### Docker-preferred
 
@@ -295,7 +311,7 @@ Surfaces a required connection-string override at the top of a service's subsect
 Render the block when both conditions hold:
 
 - The matching External Services row's `Recommended runtime` (per Step 3 assessment) is `Docker-preferred`, OR its Alternative is `Docker (offline)` and the user kept the Docker alternative via the Step 4 multi-select downgrade prompt.
-- One of these is true about the row's `Endpoint semantics` (set by the detector — see [`project-environment-detector.md`](../agents/project-environment-detector.md) §External Services return format):
+- One of these is true about the row's `Endpoint semantics` (set by the detector — see [`project-environment-detector.md`](../agents/project-environment-detector.md) §External Services):
   - `local-windows-auth` — committed config uses Windows authentication.
   - `local-named-instance` — committed config references a SQL Server named instance (e.g., `localhost\SQLEXPRESS`).
   - `local-socket` — committed config uses a Unix socket, Windows named pipe, or MongoDB Unix-socket URI.

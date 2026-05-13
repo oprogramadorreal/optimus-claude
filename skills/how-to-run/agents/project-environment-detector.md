@@ -108,7 +108,7 @@ Grep existing docs (`README.md`, `CONTRIBUTING.md`, `BUILDING.md`, `INSTALL.md`,
 
 - Browsers (test runners / headless browsers): `Chrome`, `Chromium`, `Google Chrome`, `Firefox`, `Edge`, `WebKit`, `Playwright`
 - IDEs: `Visual Studio` (whole phrase), `VS Code`, `VSCode`, `IntelliJ`, `PyCharm`, `GoLand`, `WebStorm`, `Rider`, `RustRover`, `CLion`, `Android Studio`, `Xcode`
-- Database / cache GUIs: `SSMS`, `Azure Data Studio`, `DBeaver`, `pgAdmin`, `MySQL Workbench`, `MongoDB Compass`, `Studio 3T`, `RedisInsight`, `DataGrip`
+- Database / cache GUI clients: `SSMS`, `Azure Data Studio`, `DBeaver`, `pgAdmin`, `MySQL Workbench`, `MongoDB Compass`, `Studio 3T`, `RedisInsight`, `DataGrip`
 - API / debugging utilities: `Postman`, `Insomnia`, `Bruno`, `ngrok`, `mkcert`
 - Cloud CLIs (document only if also referenced as a dev-time dependency, not deploy-only): `AWS CLI`, `Azure CLI`, `gcloud CLI`
 

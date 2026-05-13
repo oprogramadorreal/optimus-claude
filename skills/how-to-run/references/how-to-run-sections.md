@@ -228,8 +228,8 @@ Generate code:
 Initialize database schema:
 
 - **Primary:** `<primary-invocation>`.
-- [Optional: when ≥2 mechanisms detected, render the demoted one(s) per [§Schema Bootstrap](#schema-bootstrap) — that section owns the canonical "Alternative bootstrap script" blockquote form and the 2-space-indent placement rule.]
-- [If seed / fixture-load rows exist alongside an ORM or raw-SQL primary — they never compete with schema mechanisms — render them as a follow-up bullet: "After the schema is in place, populate seed data: `<seed-invocation>`".]
+  > [When ≥2 mechanisms detected, render the demoted one(s) here as a 2-space-indented blockquote — see [§Schema Bootstrap](#schema-bootstrap) for the canonical "Alternative bootstrap script" form.]
+- [If seed / fixture-load rows exist alongside an ORM or raw-SQL primary, render them as a follow-up bullet: "After the schema is in place, populate seed data: `<seed-invocation>`".]
 ```
 
 ### External Services
@@ -658,7 +658,7 @@ ORM migrate-command catalog (consumed by precedence rule 1):
 
 **In-code migrations (e.g., `gorm`).** Some ORMs have no CLI — schema is migrated in application code (GORM's `db.AutoMigrate(...)` is the canonical example). When detected, skip the migrate-command bullet entirely and render this callout instead: `> Schema is migrated in application code via GORM's AutoMigrate function — there is no separate migrate command.`
 
-Demoted mechanisms render as a 2-space-indented blockquote directly under the primary bullet (the 2-space indent keeps the blockquote inside the Primary bullet's list item; an unindented `>` would terminate the list) using this exact form:
+Demoted mechanisms render as a 2-space-indented blockquote directly under the primary bullet, using this exact form:
 
   > **Alternative bootstrap script:** `<demoted-invocation>` — apply only if the primary leaves required tables missing (some projects split schema across an ORM history and hand-maintained SQL for legacy / auth tables). Otherwise running both can conflict.
 
@@ -676,7 +676,7 @@ When the destination DB row's *Recommended runtime* (per the Step 3 assessment t
 | `mongosh` (MongoDB, no auth) | `mongosh --file <file>` | `mongosh "mongodb://<host>:<host-port>/<db>" --file <file>` | — |
 | `mongosh` (MongoDB, root credentials set) | `mongosh --file <file>` | `mongosh "mongodb://<user>:<password-placeholder>@<host>:<host-port>/<db>?authSource=admin" --file <file>` | (password in URI) |
 
-ORM migrate commands from the catalog above are NOT enriched with connection flags — ORM tools read their connection details from the project's config files (`prisma/schema.prisma`, `alembic.ini`, `appsettings.json`, etc.). Substituting host/port into an ORM command would conflict with the ORM's own config-file connection.
+ORM migrate commands from the catalog above are NOT enriched with connection flags — ORM tools read their connection details from their own config files.
 
 Select the matching `mongosh` row by snippet shape per [`external-services-docker.md`](external-services-docker.md#verify-commands-seeds) §Verify Commands (seeds).
 
@@ -693,15 +693,13 @@ The Step 6 audit re-checks every rendered invocation: flags must come from the p
 
 ## Section Depends-On Graph
 
-Cross-section dependency edges consumed by Step 6's *Section ordering audit*. Each edge says "the dependent section's actionable content must NOT appear before the prerequisite section's content in the rendered file when the trigger condition fires." The audit walks the file's catalog headings in render order — H3 in single-project / monorepo, H2 in multi-repo workspace (same topology-aware aliasing the TOC count rule uses) — and surfaces violations to the user for editorial review.
+Cross-section dependency edges consumed by Step 6's *Section ordering audit*. The audit walks the file's catalog headings in render order — H3 in single-project / monorepo, H2 in multi-repo workspace (same topology-aware aliasing the TOC count rule uses).
 
 | Dependent | Prerequisite | Trigger condition |
 |---|---|---|
 | Installation (language-level install) | Environment Setup | Detector's *Private registry* signal is set, OR detector's *Local TLS cert* signal is `mkcert`. Some installs require credentials or trusted root certs to be present first. |
 
-Edges enforced by the canonical catalog order (single-project / monorepo: Installation precedes External Services precedes Build precedes Running in Development) are NOT listed above — document order is execution order for the reader, who runs the External Services snippet as part of *running* Installation's commands. The audit fires only on edges whose trigger conditions express a precondition the catalog order cannot enforce by itself.
-
-The connection-string-precondition case (Docker-preferred destination DB with `local-windows-auth` / `local-named-instance` / `local-socket` endpoint semantics) is NOT an ordering edge — Installation always precedes External Services in catalog order, so this audit could never resolve to a clean fix. The Pre-Conditions Block's FIRST-element placement inside each per-service heading is the substantive guard: the reader hits it as soon as they navigate to the affected service's subsection.
+Edges already enforced by the canonical catalog order (Installation → External Services → Build → Running in Development) are not listed above — the audit fires only on edges whose trigger conditions express a precondition the catalog order cannot enforce by itself.
 
 ## Diagnostic Ladders
 
@@ -716,7 +714,7 @@ Render the ladder as a top-level bullet under `### Common Issues`, sharing the b
 ```markdown
 - **Host can't connect to <Service> on `<host>:<host-port>` but `docker ps` shows the container as `Up`?** Walk down this ladder:
   1. **Does the connection work from inside the container?** Run the `**Verify <service> is reachable.**` bullet from this section above. If it succeeds inside but the host still fails, the container is up — the problem is between the host and the published port.
-  2. **(Windows hosts) Is `localhost` resolving to IPv6?** Replace `localhost` with `127.0.0.1` explicitly in your client / connection string. The snippet publishes the container as `-p 127.0.0.1:<host-port>:<container-port>` (IPv4-only); Windows resolves `localhost` to `::1` (IPv6) first and the IPv6 lookup times out before falling back. (Render this step only when the detector's *Hardware / OS Requirements* table contains Windows.)
+  2. **(Windows hosts) Does your application's connection string or client still use `localhost`?** Replace `localhost` with `127.0.0.1` explicitly in your client / connection string. The snippet publishes the container as `-p 127.0.0.1:<host-port>:<container-port>` (IPv4-only); Windows resolves `localhost` to `::1` (IPv6) first and the IPv6 lookup times out before falling back. (Render this step only when the detector's *Hardware / OS Requirements* table contains Windows.)
   3. **Is the host port actually mapped?** `docker port <project-slug>-<service-slug>`. The output should include `<container-port>/tcp -> 127.0.0.1:<host-port>` (or `0.0.0.0:<host-port>` if the snippet was rebound). If the listed mapping doesn't match what your connection string uses, recreate the container with the correct `-p`.
 ```
 
