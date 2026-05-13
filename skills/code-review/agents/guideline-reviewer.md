@@ -30,15 +30,34 @@ Review ONLY the diff/changed sections of the provided files.
 
 Every finding MUST cite the specific rule from the project docs.
 
+## PR/MR mode addendum — Intent-vs-Implementation Check
+
+This addendum applies **only** when a PR/MR Context Block is present in your prompt and that block contains a populated `## Intent` section. Read `shared-constraints.md` "Intent-vs-Implementation Check (PR/MR mode only)" for the canonical rules — the section here scopes the check to this agent's domain.
+
+Within your domain (project guidelines, conventions, architectural boundaries), check whether the diff delivers the **pattern / guideline** claims in `## Intent`:
+
+- Claims about which pattern the implementation follows. Example: Intent's Key decisions says "follows the existing repository pattern in `src/repositories/`" — does the diff actually match that pattern, or does it introduce a parallel approach?
+- Claims about staying within architectural boundaries. Example: Intent says "API layer only; no DB access in handlers" but the diff has SQL queries in a route handler.
+- Claims about convention compliance. Example: Intent says "uses the standard error response shape from `errors.md`" — does the diff use that shape?
+- Claims about deliberate deviations from defaults. Example: Intent's Non-goals says "no styling changes" but the diff modifies SCSS/Tailwind classes.
+
+Out of scope for *this agent* (other agents cover these):
+
+- Behavioral / correctness claims ("rate-limits", "validates input") — bug-detector handles these.
+- Security claims, test-coverage claims — not in this release; skip.
+
+For an Intent Mismatch finding, **`Guideline:`** cites the `## Intent` claim itself (quoted) — not a rule from project docs — because the "rule" being violated is the author's own stated intent. Add an extra **`Intent claim:`** field below `Guideline:` for clarity. The +5 per-pass budget for Intent Mismatch is separate from the 15-cap on Guideline Violation findings.
+
 ## Output Format
 
 For each finding report in this exact format:
 
 - **File:** file:line
-- **Category:** Guideline Violation
+- **Category:** Guideline Violation | Intent Mismatch
 - **Confidence:** High | Medium
-- **Guideline:** [exact quote or reference from project docs]
-- **Issue:** [how the code violates the rule]
+- **Guideline:** [exact quote or reference from project docs — or, for Intent Mismatch, the quoted claim from `## Intent`]
+- **Intent claim:** [only for Intent Mismatch — restate the matched claim from `## Intent`]
+- **Issue:** [how the code violates the rule or contradicts the intent]
 - **Current:**
   ```
   [relevant snippet — max 5 lines]

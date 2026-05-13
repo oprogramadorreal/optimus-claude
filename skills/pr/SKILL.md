@@ -97,11 +97,38 @@ git diff origin/<default-branch>..HEAD
 
 If there are no commits ahead of the default branch → inform the user: "This branch has no changes compared to `<default-branch>`." Stop.
 
+### Detect intent context
+
+Before generating PR content, determine whether author intent is recoverable. This classification drives whether the `## Intent` section is populated, preserved, prompted for, or omitted. Classify into one of three states:
+
+1. **Intent available from conversation** — the current conversation contains implementation context for this branch. Signals:
+   - Prior Edit / Write / NotebookEdit tool calls in the conversation touched files that appear in `git diff --stat origin/<default-branch>..HEAD`.
+   - The conversation discussed design decisions, non-goals, trade-offs, or "decided against" language relative to the changes.
+   - The conversation explicitly stated the problem being solved or the scope of the change.
+2. **Intent available from existing PR body** (Update Flow only — Step 6) — the existing PR body contains an `## Intent` section. Detection: a line that matches `## Intent` (case-insensitive) at the start of a line.
+3. **No intent context found** — neither of the above. Default classification when in doubt: if the heuristic is uncertain, prefer state 3 over fabricating an Intent section.
+
+State 3 handling — tell the user explicitly:
+
+> "No implementation intent detected in this conversation, and the existing PR description has no `## Intent` section. I can either: (a) skip the Intent section entirely, or (b) ask you the four sub-prompts now (Problem, Scope, Non-goals, Key decisions) and add what you provide. For the strongest downstream review, re-run `/optimus:pr` from the conversation where the implementation happened."
+
+Then use `AskUserQuestion` — header "Intent capture", question "No intent context detected. How would you like to handle the `## Intent` section?":
+- **Add intent now** — prompt the user for Problem / Scope / Non-goals / Key decisions via a follow-up `AskUserQuestion` (each sub-field optional, blank means "skip this sub-field"), and populate the section from their answers.
+- **Skip** — omit the section entirely. Do not stub it.
+
+Suppress this prompt entirely in state 1 or state 2 (no friction on the happy paths).
+
 ### Generate PR content
 
 Read the Conventional PR template: `$CLAUDE_PLUGIN_ROOT/skills/pr/references/pr-template.md`
 
 Generate a title and body following the template. When filling in the sections:
+- Populate the **`## Intent`** section based on the classification above:
+  - State 1 (conversation context) → populate Problem / Scope / Non-goals / Key decisions from the conversation. Use only what the conversation actually answered; omit a sub-field if it has no clear answer.
+  - State 2 (existing PR Intent) → handled by Step 6 Phase 2 preservation; nothing to do here.
+  - State 3 with "Add intent now" → populate from the user's `AskUserQuestion` answers.
+  - State 3 with "Skip" → omit the section entirely (no stub, no placeholder).
+  - **Never infer Intent from commit messages or the diff alone.** A fabricated Intent section creates false `Intent Mismatch` findings in `/optimus:code-review`.
 - Synthesize the **Summary** from commit messages, changed files, and the diff
 - Use `git diff --stat` output as a starting point for **Changes**, then describe what each file change accomplishes
 - For the **Test plan**, look for: test files in the diff → "Run `<test command>` to verify"; CI configuration → "CI pipeline will run automatically"; manual verification → describe what to check
@@ -155,11 +182,14 @@ Display the current title and body to the user:
 ### Ask what to update
 
 Use `AskUserQuestion` — header "Update PR", question "A PR/MR already exists for this branch. What would you like to do?":
-- **Regenerate title and description** — "Regenerate both using the Conventional PR format based on current branch changes"
-- **Regenerate description only** — "Keep the current title, regenerate the description"
+- **Regenerate title and description** — "Regenerate both using the Conventional PR format based on current branch changes. Existing `## Intent` is preserved verbatim."
+- **Regenerate description only** — "Keep the current title, regenerate the description. Existing `## Intent` is preserved verbatim."
+- **Regenerate Intent only** — "Replace just the `## Intent` section (or add one if missing). Use when the implementation scope has changed and the existing Intent is stale. Keeps title, Summary, Changes, and Test plan untouched unless they explicitly contradict the new Intent."
 - **Cancel** — "Keep the current PR/MR as-is"
 
 If the user chooses **Cancel** → report the existing PR/MR URL and stop.
+
+If the user chooses **Regenerate Intent only** → run the "Detect intent context" sub-step from Step 5 (states 1, 2, 3) but treat state 2 (existing PR Intent) as *replaceable* in this path only — the user explicitly asked to regenerate it. Then replace the `## Intent` section in the existing body with the freshly populated one (or insert it before `## Summary` if missing). Skip Phase 1 (do not regenerate other sections) and Phase 2 (no preservation pass needed). Jump to Phase 3 (preview).
 
 ### Regenerate content
 
@@ -169,15 +199,18 @@ Gather change data using the existing PR/MR's **target branch** (saved in Step 4
 
 #### Phase 2 — Scan existing content for non-diff information
 
-Review the existing PR/MR title and body (saved from Step 4) for information that **cannot be derived from code changes**. Examples: issue/ticket references (`#45`, `JIRA-123`), deployment instructions, external links, reviewer-directed notes, or follow-up tasks.
+Review the existing PR/MR title and body (saved from Step 4) for information that **cannot be derived from code changes**. Examples: issue/ticket references (`#45`, `JIRA-123`), deployment instructions, external links, reviewer-directed notes, follow-up tasks, **and the `## Intent` section** (author intent captured at PR creation — see below for special handling).
 
 **Never preserve facts that are derivable from the current diff** — version numbers, file counts, function/class/symbol names, path names, line counts, or changed-file lists. These must come from Phase 1's fresh content. If the existing body contains such a fact (for example, "plugin version incremented from 1.56.1 to 1.59.0"), discard the old value and use the one re-derived from the current diff, even if the old value was correct when the PR was first opened. Rebases and force-pushes can change any of these, so the description must always match what reviewers see in "Files changed".
 
 Discard anything that is outdated, factually wrong based on current diffs, or already covered by the freshly generated content. If useful non-diff information is found:
 
-1. **Standard sections**: Integrate at a natural position within the matching section of the new content (e.g., issue references in Summary, manual verification steps in Test plan).
-2. **Non-standard sections**: If the existing body has sections outside the four standard ones (e.g., `## Deployment notes`, `## Related issues`) that contain non-diff information still relevant, preserve them after `## Test plan`.
-3. **Title**: Only when regenerating the title — if the existing title contains an issue reference or similar non-diff context, incorporate it into the new title while keeping Conventional Commit format.
+1. **`## Intent` section (load-bearing handoff to `/optimus:code-review`)** — if the existing body has an `## Intent` section, **always preserve it verbatim** and re-insert it at the top of the new body (before `## Summary`), matching the template's section order. This is the most critical preservation in the Update Flow: a fresh-conversation update run (no implementation context — e.g., refreshing the PR after a rebase) has no way to recover the original intent, so a silent overwrite would destroy the only record. **Never silently overwrite an existing `## Intent` section** with a fresh inference from commits/diff. If both an existing `## Intent` AND a populated conversation context exist, the existing section wins by default; surface a one-line note in the Phase 3 preview — *"Existing `## Intent` section preserved. The current conversation suggests possible updates — choose 'Regenerate Intent only' if you want to revise."* — and continue.
+2. **Standard sections**: Integrate at a natural position within the matching section of the new content (e.g., issue references in Summary, manual verification steps in Test plan).
+3. **Non-standard sections**: If the existing body has sections outside the four standard ones (e.g., `## Deployment notes`, `## Related issues`) that contain non-diff information still relevant, preserve them after `## Test plan`.
+4. **Title**: Only when regenerating the title — if the existing title contains an issue reference or similar non-diff context, incorporate it into the new title while keeping Conventional Commit format.
+
+**Friction floor for the standalone-update flow:** if the existing body has an `## Intent` section AND the conversation has no implementation context (no Edit/Write/NotebookEdit touching the current diff), the regeneration must succeed **without prompting** the user — preserve Intent as above and refresh the other sections. The user came here to fix the description after a rebase, not to re-litigate intent.
 
 #### Phase 3 — Preview
 

@@ -19,3 +19,28 @@ The following addendums are specific to code-review agents:
 Read `$CLAUDE_PLUGIN_ROOT/references/scope-expansion-rule.md` for the shared procedure, including the sibling/import heuristics and the 3-file-per-finding limit.
 
 **Code-review carve-out:** Cross-file consistency findings are allowed **even when the related file is outside the original scope** — this is an explicit carve-out from the "pre-existing issues in unchanged code" exclusion above. Consistency gaps that span files are a valid finding category. **However**, if the consistency fix would *add* a pattern to the related file (rather than remove one), the Add-complexity exclusion above still applies — and you must verify that the target file's APIs/dependencies actually support the pattern before reporting (for example, do not propose "use flag `--X` on tool `Y`" without evidence that `Y` accepts `--X`).
+
+## Intent-vs-Implementation Check (PR/MR mode only)
+
+When a PR/MR Context Block is present in your prompt **and** the description includes a populated `## Intent` section (with one or more of Problem / Scope / Non-goals / Key decisions filled in), you must also check whether the diff delivers each claim. Findings of this kind go under a new category — `Intent Mismatch`.
+
+**What to flag:**
+
+- A claim in `## Intent` that has no supporting code change. Example: Intent says "rate-limit reset requests to 3 per hour per email" but the diff has no rate-limiting middleware or counter.
+- A code change that **contradicts a stated non-goal**. Example: Intent's Non-goals says "no schema migration in this PR" but the diff adds a migration file.
+- An implementation that delivers the wrong shape of the stated intent. Example: Intent says "validate email format" but the code only checks for non-empty string.
+
+**Confidence:**
+
+- **High** — the Intent claim is specific and testable, and the diff clearly does not deliver it (or actively contradicts it).
+- **Medium** — the Intent claim is approximate, or the diff partially delivers it.
+
+**Skip silently** when:
+
+- The PR has no `## Intent` section, or the section is empty. **Never invent intent** from the Summary, commit messages, or diff to manufacture a mismatch.
+- The Intent claim is ambiguous or aspirational (e.g., "improve performance" with no specific metric). When ambiguous, omit rather than flag.
+- The Intent claim is already satisfied elsewhere in the codebase (not in the diff) — verify with `Grep` / `Read` before flagging.
+
+**Finding budget:** Intent Mismatch findings do NOT count against the per-agent 15-finding cap. Each agent that runs this check gets an additional **+5 Intent Mismatch findings per pass**. See `$CLAUDE_PLUGIN_ROOT/references/shared-agent-constraints.md` "Per-category budget exceptions" for the canonical rule.
+
+**Stay in your lane:** Each agent reports Intent Mismatch findings only within its existing domain. Read each agent's `PR/MR mode addendum` (in `bug-detector.md`, `guideline-reviewer.md`) for the specific scope (behavior/correctness claims vs. pattern/guideline claims). Agents whose prompts have no PR/MR mode addendum (security, simplifier, test-guardian, contracts) do not run this check in this release.

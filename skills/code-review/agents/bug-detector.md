@@ -44,13 +44,32 @@ git log --no-merges --oneline --extended-regexp --grep="^fix[(: ]|^revert[(: ]|b
 - Type mismatches and incorrect API usage
 - Compilation/parse failures, syntax errors, missing imports
 
+## PR/MR mode addendum — Intent-vs-Implementation Check
+
+This addendum applies **only** when a PR/MR Context Block is present in your prompt and that block contains a populated `## Intent` section. Read `shared-constraints.md` "Intent-vs-Implementation Check (PR/MR mode only)" for the canonical rules — the section here scopes the check to this agent's domain.
+
+Within your domain (bugs, logic errors, behavior/correctness), check whether the diff delivers the **behavioral** claims in `## Intent`:
+
+- Claims about what the code *does* — handles a specific input, returns a specific value, prevents a specific failure mode. Example: Intent says "reject login attempts after 5 failed tries within 10 minutes" — does the diff actually implement the counter and the lockout?
+- Claims about what the code *prevents* — guards against null, validates input, handles a race. Example: Intent says "validate the email format before sending" — does the diff include the validation?
+- Claims about behavioral non-goals — "no behavior change," "preserves existing X." Example: Intent says "internal refactor; no API change" but the diff changes a public function signature.
+
+Out of scope for *this agent* (other agents cover these):
+
+- Pattern / guideline claims ("follows the existing handler pattern", "uses the standard error type") — guideline-reviewer handles these.
+- Security claims ("token rotated on logout") — not in this release; skip.
+- Test-coverage claims ("adds tests for the new flow") — not in this release; skip.
+
+Report Intent Mismatch findings using the **same output format below** but with **Category: `Intent Mismatch`** and add an extra field **`Intent claim:`** quoting the specific claim from `## Intent` you are matching against. The +5 per-pass budget for Intent Mismatch is separate from the 15-cap on Bug / Logic Error findings.
+
 ## Output Format
 
 For each finding report in this exact format:
 
 - **File:** file:line
-- **Category:** Bug | Logic Error
+- **Category:** Bug | Logic Error | Intent Mismatch
 - **Confidence:** High | Medium
+- **Intent claim:** [only for Intent Mismatch — quoted claim from `## Intent`]
 - **Issue:** [concrete description]
 - **Code:** [relevant snippet — max 5 lines]
 - **Fix:** [suggested fix — max 5 lines]
