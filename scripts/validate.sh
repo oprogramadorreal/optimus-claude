@@ -434,6 +434,12 @@ if [ -f "$esd_file" ]; then
     '^## Service Classification Tables' \
     '^## Decision Heuristics' \
     '^## Web-Search Recipe' \
+    '^## Verify Commands \(seeds\)' \
+    '^## Pre-Conditions Block' \
+    '^### Trigger' \
+    '^### Block format' \
+    '^### Substitution' \
+    '^### Step 6 audit' \
     '^## Citation Format' \
     '^## Registry Allowlist' \
     '^### Docker-preferred' \
@@ -442,13 +448,36 @@ if [ -f "$esd_file" ]; then
       wiring_errors+="  $esd_file missing heading matching: $heading\n"
     fi
   done
-  for fixed_heading in \
+  for esd_token in \
     '### Shared-cloud primary (Docker optional)' \
     '### Shared-cloud, no Docker alternative' \
     '### Known Vendor Emulators' \
-    '## Vendor-Service → Emulator Index'; do
-    if ! grep -qF "$fixed_heading" "$esd_file" 2>/dev/null; then
-      wiring_errors+="  $esd_file missing heading: $fixed_heading\n"
+    '## Vendor-Service → Emulator Index' \
+    '**PowerShell caveat (Windows host).**' \
+    '**GUI-client connect note.**' \
+    'SQLCMDPASSWORD' \
+    'MYSQL_PWD' \
+    '--authenticationDatabase admin' \
+    'MONGO_INITDB_ROOT_USERNAME' \
+    'Stale-tag re-validation' \
+    '^[A-Za-z_][A-Za-z0-9_.:-]{0,127}$' \
+    '**Pre-condition — update before running Setup or starting the backend.**' \
+    '^([0-9]{4}-)?(latest|stable|edge|nightly|canary|main|current|rolling)$' \
+    'pg_isready -U postgres' \
+    'redis-cli ping' \
+    '/opt/mssql-tools18/bin/sqlcmd' \
+    'mongosh' \
+    'mysqladmin -u root ping' \
+    'SSMS' \
+    'pgAdmin' \
+    '- Connection details for' \
+    'the block subsumes it' \
+    'GUI-client → supported-DB mapping' \
+    '| Matches per-service heading |' \
+    'DBeaver' \
+    'DataGrip'; do
+    if ! grep -qF -- "$esd_token" "$esd_file" 2>/dev/null; then
+      wiring_errors+="  $esd_file missing wiring token: $esd_token\n"
     fi
   done
 fi
@@ -484,6 +513,18 @@ if [ -f "$detector_file" ]; then
     '| Confidence |' \
     '| Format |' \
     '| Invocation hint |' \
+    '| Endpoint semantics |' \
+    '| Bootstrap mechanism |' \
+    '`local-windows-auth`' \
+    '`local-named-instance`' \
+    '`local-socket`' \
+    '`local-default`' \
+    '`remote`' \
+    '`ambiguous`' \
+    '`docker-compose`' \
+    '`raw-sql`' \
+    '`seed-script`' \
+    '`fixture-load`' \
     '`confirmed`' \
     '`candidate`' \
     'Format: dotenv' \
@@ -491,7 +532,12 @@ if [ -f "$detector_file" ]; then
     '#### Task 5d' \
     'No bound runtime ports detected.' \
     'No runnable components detected.' \
-    '| Requires (services) | Requires (components) |'; do
+    '| Requires (services) | Requires (components) |' \
+    'Integrated Security=(True|Yes|SSPI)' \
+    'Trusted_Connection=(Yes|True|1)' \
+    'mongodb://%2Ftmp%2F' \
+    'mongodb+unix://' \
+    '\(local\)\\[A-Za-z0-9_-]+'; do
     if ! grep -qF "$detector_token" "$detector_file" 2>/dev/null; then
       wiring_errors+="  $detector_file missing return-format token: $detector_token\n"
     fi
@@ -528,6 +574,26 @@ if [ -f "$sections_file" ]; then
     '**Per-service "Update `<key>` in `<config file>`" consolidation.**' \
     '## Source Dependencies / Clone All' \
     '## Running Everything' \
+    '## Schema Bootstrap' \
+    '### Pick-one rule' \
+    '### Connection-mode-aware invocation' \
+    '## Section Depends-On Graph' \
+    '## Diagnostic Ladders' \
+    '## Environment Setup' \
+    '**Alternative bootstrap script:**' \
+    'PGPASSWORD' \
+    'alembic upgrade head' \
+    'npx prisma migrate deploy' \
+    'dotnet ef database update' \
+    'bundle exec rails db:migrate' \
+    'mix ecto.migrate' \
+    'flyway migrate' \
+    'liquibase update' \
+    'npx knex migrate:latest' \
+    'npx sequelize db:migrate' \
+    'npm run typeorm migration:run' \
+    'AutoMigrate function — there is no separate migrate command' \
+    '### Container running but host can'"'"'t connect' \
     'Default skeleton — multi-configuration build systems' \
     'Single-configuration skeleton — Cargo / Go / single-output build systems' \
     '| 3-5 |' \
@@ -548,7 +614,8 @@ if [ -f "$detector_file" ]; then
     '- **Setup scripts:**' \
     '- **Pre-commit hooks:**' \
     '- **direnv:**' \
-    '- **Local TLS cert:**'; do
+    '- **Local TLS cert:**' \
+    '- **Database migrations:**'; do
     if ! grep -qF -- "$dws_token" "$detector_file" 2>/dev/null; then
       wiring_errors+="  $detector_file missing Dev Workflow Signals field: $dws_token\n"
     fi
@@ -591,7 +658,13 @@ if [ -f "$how_to_run_skill" ]; then
     'Never assert an unobserved path' \
     'Never guess runtime ports' \
     'grounded-tokens' \
-    'Runtime Ports table'; do
+    'Runtime Ports table' \
+    'Section ordering audit' \
+    'Pre-Conditions Block audit' \
+    'Reconcile rendered commands against project script runners' \
+    '**Verify bullets:**' \
+    '**Diagnostic ladders:**' \
+    'Stale-tag re-validation'; do
     if ! grep -qF "$token" "$how_to_run_skill" 2>/dev/null; then
       wiring_errors+="  $how_to_run_skill missing token-audit wiring token: $token\n"
     fi

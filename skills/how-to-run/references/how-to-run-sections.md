@@ -12,6 +12,9 @@ Section templates and signal-to-content mapping for generating `HOW-TO-RUN.md`. 
 - [Additional Detection Hints](#additional-detection-hints)
 - [Build System Detection](#build-system-detection)
 - [Source Dependencies Detection](#source-dependencies-detection)
+- [Schema Bootstrap](#schema-bootstrap) (Pick-one rule, Connection-mode-aware invocation)
+- [Section Depends-On Graph](#section-depends-on-graph)
+- [Diagnostic Ladders](#diagnostic-ladders) (Container running but host can't connect)
 - [Multi-Repo Workspace HOW-TO-RUN Template](#multi-repo-workspace-how-to-run-template)
 
 ## Signal → Section Mapping
@@ -30,7 +33,7 @@ Section templates and signal-to-content mapping for generating `HOW-TO-RUN.md`. 
 | `platformio.ini`, `.ino` files | Toolchain & SDKs (PlatformIO / Arduino, target board), Prerequisites (target MCU hardware), Build, Running in Development (flash) |
 | Vulkan / CUDA / Qt / JDK / .NET SDK / MSVC references in build files or existing READMEs | Toolchain & SDKs (SDK install) |
 | GPU / USB / serial / specific OS hints in existing READMEs or build files | Prerequisites (hardware / OS) |
-| README mentions of browsers (Chrome/Chromium), IDEs (Visual Studio, VS Code, IntelliJ family), DB GUIs (SSMS, DBeaver, pgAdmin), API tools (Postman, ngrok) — see detector Task 0d2 | Prerequisites (recommended developer tools — bullet list separate from hardware/OS requirements) |
+| README mentions of browsers (Chrome/Chromium), IDEs (Visual Studio, VS Code, IntelliJ family), DB GUI clients (SSMS, DBeaver, pgAdmin), API tools (Postman, ngrok) — see detector Task 0d2 | Prerequisites (recommended developer tools — bullet list separate from hardware/OS requirements) |
 | `docker-compose.yml` / `compose.yml` with infrastructure services | External Services (docker compose up) |
 | External service detected but no `docker-compose.yml` covers it | External Services (per-service Docker-vs-local decision via [`external-services-docker.md`](external-services-docker.md)) |
 | Framework config file with service-shaped sections (`appsettings*.json`, `application.yml`, `config/*.exs`, `config/*.yml`, `config.yaml`, etc. — see detector Task 5b) | External Services (Branch B per-service subsections, rendered with a `(candidate)` marker; user can drop via Step 1 "Correct first") |
@@ -220,13 +223,13 @@ Generate code:
 <codegen command>
 \`\`\`
 
-[If ORM migration tooling, raw SQL bootstrap scripts, or seed files detected — emit the Schema Bootstrap sub-block shown below inside the Installation section (no sub-heading; the block lives under Installation's H3). Render the lead-in paragraph and one bullet per detected option, in the detector's report order. The bullet order is not a recommendation — when multiple options render, the reader picks whichever matches their stack.]
+[If ORM migration tooling, raw SQL bootstrap scripts, or seed files detected — emit the Schema Bootstrap sub-block shown below inside the Installation section (no sub-heading; the block lives under Installation's H3). **Pick exactly one mechanism as primary** per the [§Schema Bootstrap](#schema-bootstrap) precedence rule and render the matching invocation. Demote any other detected mechanisms to an "Alternative bootstrap script" callout — never present two schema-creating mechanisms as fungible (applying both an ORM migration history and a hand-maintained `DatabaseNew.sql` against the same database usually produces a conflicting schema). For *Docker-preferred* destination DBs, render the **full host-side invocation** per [§Schema Bootstrap](#schema-bootstrap) §Connection-mode-aware invocation rather than the detector's bare hint.]
 
-Initialize database schema (apply the matching option below for this project's stack):
+Initialize database schema:
 
-- [If ORM migration tooling detected:] Apply migrations: `<migration command>`.
-- [If raw SQL bootstrap scripts detected:] Execute the bootstrap script against the database: `<invocation-hint from detector>` (e.g., `sqlcmd -i db/DatabaseNew.sql`, `psql -f db/schema.sql`, `mysql < db/schema.sql`).
-- [If seed scripts detected:] Run the seed script: `<invocation-hint from detector>` (the detector substitutes `<file>` with the actual fixture filename, e.g., `rails db:seed`, `mix ecto.seed`, `tsx prisma/seed.ts`, `python manage.py loaddata fixtures/initial_data.json`).
+- **Primary:** `<primary-invocation>`.
+  > [When ≥2 mechanisms detected, render the demoted one(s) here as a 2-space-indented blockquote — see [§Schema Bootstrap](#schema-bootstrap) for the canonical "Alternative bootstrap script" form.]
+- [If seed / fixture-load rows exist alongside an ORM or raw-SQL primary, render them as a follow-up bullet: "After the schema is in place, populate seed data: `<seed-invocation>`".]
 ```
 
 ### External Services
@@ -257,9 +260,9 @@ docker compose ps
 \`\`\`
 ```
 
-**Branch B — no compose file:** render a per-service overview table, then an H3 subsection per service using the templates in [`external-services-docker.md`](external-services-docker.md) — *Docker-preferred*, *Shared-cloud primary (Docker optional)*, *Shared-cloud, no Docker alternative*, or *Local install only*.
+**Branch B — no compose file:** render a per-service overview table, then a per-service subsection per service using the templates in [`external-services-docker.md`](external-services-docker.md) — *Docker-preferred*, *Shared-cloud primary (Docker optional)*, *Shared-cloud, no Docker alternative*, or *Local install only*.
 
-**Hybrid — compose covers only some services:** render Branch A (the `docker compose up -d` block) for the services the compose file includes, listing those services in the Service/Port/Purpose table. Then append Branch B (overview table + per-service H3 subsections) scoped to the uncovered services only. Do not duplicate a compose-covered service as a standalone H3 subsection.
+**Hybrid — compose covers only some services:** render Branch A (the `docker compose up -d` block) for the services the compose file includes, listing those services in the Service/Port/Purpose table. Then append Branch B (overview table + per-service subsections) scoped to the uncovered services only. Do not duplicate a compose-covered service as a standalone subsection.
 
 ```markdown
 ### External Services
@@ -278,8 +281,8 @@ Rules that apply to both branches:
 - The detector's *External Services* table is the source of truth for which services exist.
 - Service classification (Docker-preferred / Shared-cloud primary / Local install only) is owned by the Decision Heuristics in [`external-services-docker.md`](external-services-docker.md). Apply those rules; do not re-derive them here.
 - For credentials, note that the service uses defaults from docker-compose or shared-cloud config — never copy actual password values into the file.
-- **All-candidate compression.** When ≥3 services in the External Services table share `Confidence: candidate` AND no row is `confirmed`, drop the `(candidate)` marker from the per-service H3 headings and from the *Service* column of the overview table. Render a single overview sentence at the top of *External Services* instead — for example: "Services below were detected from `<config file>` rather than a compose file. Drop any incorrect rows via *Correct first* in Step 1." The marker discriminates only when mixed with confirmed rows; in an all-candidate table it conveys no signal.
-- **Per-service "Update `<key>` in `<config file>`" consolidation.** When ≥3 shared-cloud services in this section share the same source config file, do NOT emit the per-service "Update `<ConfigKey>` in `<config file>` when pointing at a different environment" line under each H3. Instead, render a single overview sentence at the top of *External Services*: "The shared-cloud endpoints below come from `<config-file>`; swap them per environment by editing the matching config key listed in [Environment Setup](#environment-setup)." Keep the per-service line only when there are ≤2 services or when the services span multiple config files.
+- **All-candidate compression.** When ≥3 services in the External Services table share `Confidence: candidate` AND no row is `confirmed`, drop the `(candidate)` marker from the per-service subsection headings and from the *Service* column of the overview table. Render a single overview sentence at the top of *External Services* instead — for example: "Services below were detected from `<config file>` rather than a compose file. Drop any incorrect rows via *Correct first* in Step 1." The marker discriminates only when mixed with confirmed rows; in an all-candidate table it conveys no signal.
+- **Per-service "Update `<key>` in `<config file>`" consolidation.** When ≥3 shared-cloud services in this section share the same source config file, do NOT emit the per-service "Update `<ConfigKey>` in `<config file>` when pointing at a different environment" line under each per-service subsection. Instead, render a single overview sentence at the top of *External Services*: "The shared-cloud endpoints below come from `<config-file>`; swap them per environment by editing the matching config key listed in [Environment Setup](#environment-setup)." Keep the per-service line only when there are ≤2 services or when the services span multiple config files.
 
 ### Environment Setup
 
@@ -516,6 +519,8 @@ Only include if clear signals exist. Examples:
 - Multiple build configurations (C/C++, .NET) → "Use `--config Debug` for development or `--config Release` for optimized builds."
 - Python virtualenv → "Activate the virtual environment before running commands: `source .venv/bin/activate` (Linux/macOS) or `.venv\Scripts\activate` (Windows)."
 
+For multi-layer failure modes that benefit from a symptom→layered-checks playbook (e.g., "container running but host can't connect"), render a [diagnostic ladder](#diagnostic-ladders) instead of a single-line bullet. Ladders fire conditionally on the detector's outputs per §Diagnostic Ladders — the Windows IPv4/IPv6 fix lives in the ladder's step 2.
+
 ## Scaling Guidance
 
 Quick-reference table skeleton for the 6+ row case selected by *Component count → layout* above — replaces inline per-component listings entirely (no H4 subsections, no per-component bullets).
@@ -619,6 +624,102 @@ Patterns to detect source dependencies that must be cloned or initialized before
 
 **Precision rule:** Sibling-repo detection from a `../[A-Za-z0-9_][A-Za-z0-9._-]*` path grep WILL produce false positives (e.g., `../node_modules/...`, `../dist/`). Report findings as *candidates* in the detector's Source Dependencies table with their source line and let the user confirm via Step 3's assessment — do not treat them as facts without cross-file corroboration.
 
+## Schema Bootstrap
+
+Precedence rule and connection-mode-aware invocation forms for the Installation section's Schema Bootstrap sub-block. Two principles drive the design: (a) pick exactly one mechanism as primary; (b) the detector's bare `<tool> -i <file>` hint defaults to the local-default-instance + Windows-auth / peer-auth path, which is the wrong default when the destination DB lives in Docker.
+
+### Pick-one rule
+
+Inputs:
+
+- Detector's *Database migrations* row in *Dev Workflow Signals* (e.g., `prisma`, `alembic`, `flyway`, `ef`, `liquibase`, `knex`, `sequelize`, `typeorm`, `gorm`, `rails`, `phoenix-ecto`).
+- Detector's *Schema Bootstrap* table rows, with their `Bootstrap mechanism` field set to `raw-sql`, `seed-script`, or `fixture-load`.
+
+Precedence (apply in order; first match selects the **primary** mechanism):
+
+1. **ORM migration tool detected.** When *Database migrations* is set to a recognized tool, render the ORM's migrate command from the table below as the primary mechanism. Demote any `raw-sql` rows in *Schema Bootstrap* to an "Alternative bootstrap script" callout.
+2. **Raw-SQL bootstrap detected (no ORM).** When *Schema Bootstrap* contains `raw-sql` rows and no ORM is detected, the first row by detector report order is primary. Demote any further `raw-sql` rows to "Alternative bootstrap script" callouts.
+3. **Seed / fixture only.** When only `seed-script` / `fixture-load` rows exist, render them as the primary "populate seed data: …" step. Seeds populate data, not schema, so they never compete with ORM/raw-SQL mechanisms — when both seeds AND a schema mechanism exist, render the schema mechanism first and the seed step as a follow-up bullet "after schema is in place, populate seed data: …" (the Installation template already shows this two-bullet layout).
+
+ORM migrate-command catalog (consumed by precedence rule 1):
+
+| ORM tool | Migrate command |
+|---|---|
+| `prisma` | `npx prisma migrate deploy` |
+| `alembic` | `alembic upgrade head` |
+| `flyway` | `flyway migrate` |
+| `ef` / Entity Framework Core | `dotnet ef database update` |
+| `liquibase` | `liquibase update` |
+| `knex` | `npx knex migrate:latest` |
+| `sequelize` | `npx sequelize db:migrate` |
+| `typeorm` | `npm run typeorm migration:run` (or the project's `package.json` script that wraps `typeorm migration:run`) |
+| `rails` | `bundle exec rails db:migrate` |
+| `phoenix-ecto` | `mix ecto.migrate` |
+
+**In-code migrations (e.g., `gorm`).** Some ORMs have no CLI — schema is migrated in application code (GORM's `db.AutoMigrate(...)` is the canonical example). When detected, skip the migrate-command bullet entirely and render this callout instead: `> Schema is migrated in application code via GORM's AutoMigrate function — there is no separate migrate command.`
+
+Demoted mechanisms render as a 2-space-indented blockquote directly under the primary bullet, using this exact form:
+
+  > **Alternative bootstrap script:** `<demoted-invocation>` — apply only if the primary leaves required tables missing (some projects split schema across an ORM history and hand-maintained SQL for legacy / auth tables). Otherwise running both can conflict.
+
+### Connection-mode-aware invocation
+
+When the destination DB row's *Recommended runtime* (per the Step 3 assessment table; see [`external-services-docker.md`](external-services-docker.md) §Decision Heuristics) is `Docker-preferred` OR `Shared-cloud primary` with the *Docker (offline)* alternative kept by the user via the Step 4 multi-select downgrade prompt, replace the detector's bare invocation hint with the full host-side form below. For *Local install only* services, keep the bare form — the local default-instance + Windows-auth / peer-auth path is correct in those cases.
+
+**Password handling (Docker-preferred / Docker (offline) forms below).** Each `sqlcmd` / `psql` / `mysql` row takes its password via the per-tool env var named in the *Password env var* column below; export it in the surrounding shell (`export <VAR>='<password-placeholder>'` in bash/zsh; `$env:<VAR> = '<password-placeholder>'` in PowerShell) before running the command. `mongosh` keeps the password inside the connection URI — no env-var alternative.
+
+| CLI | Bare form (Local install only) | Docker-preferred / Docker (offline) form | Password env var |
+|---|---|---|---|
+| `sqlcmd` (SQL Server) | `sqlcmd -i <file>` | `sqlcmd -S "<host>,<host-port>" -U <user> -C [-d <db>] -i <file>` | `SQLCMDPASSWORD` |
+| `psql` (PostgreSQL) | `psql -f <file>` | `psql -h <host> -p <host-port> -U <user> -d <db> -f <file>` | `PGPASSWORD` |
+| `mysql` (MySQL/MariaDB) | `mysql < <file>` | `mysql -h <host> -P <host-port> -u <user> <db> < <file>` | `MYSQL_PWD` |
+| `mongosh` (MongoDB, no auth) | `mongosh --file <file>` | `mongosh "mongodb://<host>:<host-port>/<db>" --file <file>` | — |
+| `mongosh` (MongoDB, root credentials set) | `mongosh --file <file>` | `mongosh "mongodb://<user>:<password-placeholder>@<host>:<host-port>/<db>?authSource=admin" --file <file>` | (password in URI) |
+
+ORM migrate commands from the catalog above are NOT enriched with connection flags — ORM tools read their connection details from their own config files.
+
+Select the matching `mongosh` row by snippet shape per [`external-services-docker.md`](external-services-docker.md#verify-commands-seeds) §Verify Commands (seeds).
+
+Substitute every placeholder from the matching External Services snippet (the same snippet the External Services per-service subsection already rendered):
+
+- `<host>` → `127.0.0.1` on Windows, else `localhost`. See [`external-services-docker.md`](external-services-docker.md#substitution) §Pre-Conditions Block §Substitution for the full rule and IPv6 rationale.
+- `<host-port>` → the port from the snippet's `-p <host>:<host-port>:<container-port>` line.
+- `<user>` → the username from the snippet's matching `-e '<USER_VAR>=<value>'` line, OR the image's documented default — `sa` for SQL Server, `postgres` for Postgres, `root` for MySQL/MariaDB, the value of `MONGO_INITDB_ROOT_USERNAME` for MongoDB.
+- `<password-placeholder>` → the placeholder from the snippet's matching `-e '<PASSWORD_VAR>=<placeholder>'` line, kept as a placeholder (`<MSSQL_SA_PASSWORD>`, `<POSTGRES_PASSWORD>`, etc.) — do NOT substitute a real value, since `HOW-TO-RUN.md` is committed.
+- `<db>` → the schema-bootstrap target DB. Render as a placeholder `<db-name>` and let the reader fill it in; the bootstrap file's content (which the detector never reads) determines what's correct.
+- `<file>` → the row's *File* column from the detector's Schema Bootstrap table. The *File* column already contains the full relative-to-repo-root path (e.g., `db/seeds.rb`, `fixtures/initial_data.json`); the *Directory* column is informational only and must NOT be re-joined.
+
+The Step 6 audit re-checks every rendered invocation: flags must come from the per-tool flag set above; placeholders must match the snippet's `-e` lines verbatim; `<host>` must follow the OS-aware substitution rule.
+
+## Section Depends-On Graph
+
+Cross-section dependency edges consumed by Step 6's *Section ordering audit*. The audit walks the file's catalog headings in render order — H3 in single-project / monorepo, H2 in multi-repo workspace (same topology-aware aliasing the TOC count rule uses).
+
+| Dependent | Prerequisite | Trigger condition |
+|---|---|---|
+| Installation (language-level install) | Environment Setup | Detector's *Private registry* signal is set, OR detector's *Local TLS cert* signal is `mkcert`. Some installs require credentials or trusted root certs to be present first. |
+
+Edges already enforced by the canonical catalog order (Installation → External Services → Build → Running in Development) are not listed above — the audit fires only on edges whose trigger conditions express a precondition the catalog order cannot enforce by itself.
+
+## Diagnostic Ladders
+
+For multi-layer failure modes that don't fit the single-sentence preventive bullet form of [§Common Issues](#common-issues), render a *diagnostic ladder*: a numbered list of symptom→check→action steps the reader walks top-down until one matches. Ladders fire conditionally on the detector's outputs.
+
+Render the ladder as a top-level bullet under `### Common Issues`, sharing the bullet list with single-line entries. Every step's *check* must be a concrete diagnostic command (not a leading question), every *result* must be observable from the command's output, every *action* must be specific (not "investigate further").
+
+### Container running but host can't connect
+
+**Trigger.** External Services has at least one service whose Recommended runtime is `Docker-preferred` (or *Docker (offline)* was kept) AND that service has a corresponding `**Verify <service> is reachable.**` bullet rendered in §Common Issues (per SKILL.md Step 4 item 10's *Verify bullets* rule). If the Verify bullet was dropped (stale-tag re-validation failed or no catalogue seed), drop the ladder too — step 1 cross-references the Verify bullet by name.
+
+```markdown
+- **Host can't connect to <Service> on `<host>:<host-port>` but `docker ps` shows the container as `Up`?** Walk down this ladder:
+  1. **Does the connection work from inside the container?** Run the `**Verify <service> is reachable.**` bullet from this section above. If it succeeds inside but the host still fails, the container is up — the problem is between the host and the published port.
+  2. **(Windows hosts) Does your application's connection string or client still use `localhost`?** Replace `localhost` with `127.0.0.1` explicitly in your client / connection string. The snippet publishes the container as `-p 127.0.0.1:<host-port>:<container-port>` (IPv4-only); Windows resolves `localhost` to `::1` (IPv6) first and the IPv6 lookup times out before falling back. (Render this step only when the detector's *Hardware / OS Requirements* table contains Windows.)
+  3. **Is the host port actually mapped?** `docker port <project-slug>-<service-slug>`. The output should include `<container-port>/tcp -> 127.0.0.1:<host-port>` (or `0.0.0.0:<host-port>` if the snippet was rebound). If the listed mapping doesn't match what your connection string uses, recreate the container with the correct `-p`.
+```
+
+Substitute `<service>`, `<host>`, `<host-port>`, and `<project-slug>-<service-slug>` from the rendered snippet's values. Step 1's *Verify* pointer references the bullet rendered earlier in the section (from the matching §Verify Commands seed). Step 2 is rendered only when *Hardware / OS Requirements* contains Windows; on pure-Unix projects, drop step 2 and renumber.
+
 ## Multi-Repo Workspace HOW-TO-RUN Template
 
 For workspace root (not version-controlled):
@@ -650,6 +751,10 @@ git clone --recursive <meta-repo-url>
 
 [Aggregated from all repos — OS, hardware, toolchain & SDKs]
 
+## Environment Setup
+
+[Per-repo env files and shared config keys to set before running Setup. Override any committed defaults that conflict with External Services choices below — see [§External Services](#external-services) Pre-Conditions Blocks for the specific keys to change when a service runs in Docker but the committed default points at a local daemon, a Windows-auth string, a SQL Server named instance, or a Unix socket.]
+
 ## Setup
 
 [Per-repo install commands, or a setup script if one exists]
@@ -662,3 +767,5 @@ git clone --recursive <meta-repo-url>
 
 [How to start all services/apps together]
 ```
+
+The catalog order (single-project / monorepo: items 1-10 in `SKILL.md` Step 4) places Environment Setup AFTER Installation and External Services. The multi-repo template intentionally lifts Environment Setup BEFORE Setup because per-repo Setup commands (language-level install, schema migrations, seed scripts, asset compilation) frequently read connection strings and credentials whose committed defaults must be overridden first — e.g., a private-registry token for `npm install`, a connection string for `dotnet ef database update` or `rails db:migrate`, an OAuth client secret for a build-time codegen step. The [§Section Depends-On Graph](#section-depends-on-graph) above catches the analogous case for single-project / monorepo templates without reordering them; in multi-repo the reorder is unconditional because workspace-level Setup typically aggregates per-repo migration commands across multiple language stacks, so the precondition risk is high enough to warrant the order change by default.

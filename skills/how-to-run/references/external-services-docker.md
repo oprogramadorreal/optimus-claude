@@ -10,9 +10,15 @@ Per-service decision logic, web-search recipe, and snippet templates for the *Ex
 - [Decision Heuristics](#decision-heuristics)
 - [Web-Search Recipe](#web-search-recipe)
 - [Canonical Image Catalogue (seeds)](#canonical-image-catalogue-seeds)
+- [Verify Commands (seeds)](#verify-commands-seeds)
 - [Vendor-Service → Emulator Index](#vendor-service--emulator-index)
   - [Known Vendor Emulators](#known-vendor-emulators)
 - [Snippet Templates](#snippet-templates)
+- [Pre-Conditions Block](#pre-conditions-block)
+  - [Trigger](#trigger)
+  - [Block format](#block-format)
+  - [Substitution](#substitution)
+  - [Step 6 audit](#step-6-audit)
 - [Citation Format](#citation-format)
 - [Windows / Docker Desktop Caveats](#windows--docker-desktop-caveats)
 - [Registry Allowlist](#registry-allowlist)
@@ -59,10 +65,10 @@ If the image pattern does not match any row above, fall through to the service-n
 Inputs (all derivable at Step 3 without extending the detector schema):
 
 - **Service name** — from the detector's *External Services* table.
-- **Default endpoint** — from the config file the detector flagged for that service, plus the `local-endpoint` / `remote-endpoint` / `ambiguous` label recorded in the Step 1 Checkpoint.
+- **Default endpoint** — from the config file the detector flagged for that service, plus the `Endpoint semantics` label recorded in the Step 1 Checkpoint (one of `local-default` / `local-windows-auth` / `local-named-instance` / `local-socket` / `remote` / `ambiguous` / `docker-compose`).
 - **Docker suitability** (`daemon` / `gui-client` / `cli-tool` / `cloud-native-only` / `unknown`) — derived at heuristic-evaluation time by matching the service name / image pattern against the [Service Classification Tables](#service-classification-tables) above. The detector does not emit this field; every rule below that references `Docker suitability resolves to X` looks it up at evaluation time.
 
-**Label normalization.** Before evaluating the rules, treat any `ambiguous` endpoint label as `local-endpoint` and append a caution to the Step 3 assessment table row noting the endpoint could not be verified.
+**Label normalization.** Before evaluating the rules, treat any `ambiguous` endpoint label as `local-default` and append a caution to the Step 3 assessment table row noting the endpoint could not be verified. The four "local-style" labels — `local-default`, `local-windows-auth`, `local-named-instance`, `local-socket` — all resolve to "local-style" for rule 4's daemon check; the Pre-Conditions Block separately handles the windows-auth / named-instance / socket sub-cases.
 
 Apply in order and stop at the first match:
 
@@ -73,7 +79,7 @@ Apply in order and stop at the first match:
    - **Step 4 finalisation.** Run the web-search recipe and apply its result as a gate:
      - If every §Web-Search Recipe validation passes → render the [Shared-cloud primary (Docker optional)](#shared-cloud-primary-docker-optional) template.
      - On any validation failure → treat the service as a rule-5 downgrade candidate; the Step 4 multi-select downgrade prompt decides per-service whether to keep the Docker alternative or render the [Shared-cloud, no Docker alternative](#shared-cloud-no-docker-alternative) template.
-4. **Local-endpoint daemon.** Endpoint label is `local-endpoint` AND Docker suitability resolves to `daemon`. → **Docker-preferred.** Local install stays as alternative.
+4. **Local-style daemon.** Endpoint label is one of `local-default` / `local-windows-auth` / `local-named-instance` / `local-socket` AND Docker suitability resolves to `daemon`. → **Docker-preferred.** Local install stays as alternative.
 5. **Web-search recipe fails to find a canonical image** (including services whose suitability resolves to `unknown`). → **Local install only.** The final gate is the Step 4 multi-select downgrade prompt (header/question/option shape specified in SKILL.md Step 4). The failure reason attached to each option comes from the specific validation that tripped — e.g., port/volume not in structured form and not in canonical catalogue, only pro-tier tag returned, image reference failed regex, registry not in allowlist. Services the user keeps are written with the Docker alternative; the rest render the [Shared-cloud, no Docker alternative](#shared-cloud-no-docker-alternative) template.
 
 Rules 1–4 are evaluated in Step 3 (provisional verdict). Rule 5 is finalised in Step 4 — the one exception to Step 3's no-per-service-prompt rule. Write `recommended`, `alternative`, `reason` into the Step 3 assessment table; a user who disagrees with a verdict corrects the endpoint label or service classification via Step 1's "Correct first" path, or selects **Skip** at Step 3 and re-runs the skill.
@@ -136,6 +142,27 @@ Run this recipe in Step 4 for every service classified as **Docker-preferred** (
 - **Firebase / Firestore** — no vendor-maintained Docker image. The Firebase Local Emulator Suite runs via `firebase emulators:start` (Node-based). When detected, render the [Local install only template](#local-install-only) pointing at the emulator docs.
 - **Vendor-internal / proprietary APIs** (e.g., licence managers, in-house identity providers). These are shared-cloud only; render using the [Shared-cloud, no Docker alternative](#shared-cloud-no-docker-alternative) template.
 
+## Verify Commands (seeds)
+
+Seed verify commands for catalogue services, used by Step 4 when emitting "Verify <service>" bullets in Common Issues and re-checked by Step 6's in-container path audit. Like the [Canonical Image Catalogue](#canonical-image-catalogue-seeds), **not authoritative** — vendor binary renames across major versions are the exact failure mode the validation rules below guard against (the canonical example: `/opt/mssql-tools/bin/sqlcmd` was renamed to `/opt/mssql-tools18/bin/sqlcmd` and now requires `-C`; the deprecated `mongo` shell was replaced by `mongosh`).
+
+| Service | Verify command (seed) |
+|---|---|
+| SQL Server | `docker exec -e SQLCMDPASSWORD='<password>' <name> /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -C -Q "SELECT 1"` |
+| PostgreSQL | `docker exec <name> pg_isready -U postgres` |
+| MongoDB (no auth) | `docker exec <name> mongosh --eval "db.adminCommand('ping')"` |
+| MongoDB (root credentials set) | `docker exec <name> mongosh -u '<user>' -p '<password>' --authenticationDatabase admin --eval "db.adminCommand('ping')"` |
+| Redis | `docker exec <name> redis-cli ping` |
+| MySQL / MariaDB | `docker exec -e MYSQL_PWD='<password>' <name> mysqladmin -u root ping` |
+
+`<name>` is the rendered container name (`<project-slug>-<service-slug>` per §Snippet Templates). `<password>` (and `<user>` for the MongoDB auth-enabled variant) is substituted with the same placeholder used in the snippet's `-e` line for the password / username env var — the angle-bracket form remains in the rendered output as a deliberate signal for the reader to substitute their actual value before running the command. Verify commands for services without a password env var omit the credential flags entirely. Select the MongoDB row by snippet shape: use *MongoDB (root credentials set)* when the snippet sets `MONGO_INITDB_ROOT_USERNAME` / `MONGO_INITDB_ROOT_PASSWORD` (the auth-less ping fails with `Unauthorized` against an auth-enabled container); use *MongoDB (no auth)* otherwise. The SQL Server and MySQL forms pass the password via `-e SQLCMDPASSWORD='…'` / `-e MYSQL_PWD='…'` to keep it out of the host's `ps` listing; the MongoDB auth-enabled form keeps credentials on argv because `mongosh` has no env-var alternative.
+
+When a catalogue row has no entry above, no "Verify <service>" bullet is emitted for that service — the table's coverage is the gate, not the catalogue's.
+
+**Stale-tag re-validation rule.** When the resolved image tag matches `^([0-9]{4}-)?(latest|stable|edge|nightly|canary|main|current|rolling)$` (bare moving labels OR year-versioned-latest patterns like `2022-latest` that pass §Web-Search Recipe step 6's regex but still float to whatever the vendor publishes), Step 4 MUST WebFetch the catalogue row's `Canonical source` URL before emitting the verify command and confirm every absolute in-container path it references — paths matching `^/opt/[a-z][a-z0-9-]+(/[a-z0-9_.-]+)+$` or `^/usr/local/(bin|lib|share)/[a-z0-9_.-]+(/[a-z0-9_.-]+)*$`, AND with no `.` or `..` segment after splitting on `/` (defense in depth — the regex's per-segment class permits literal dots, so a `/opt/foo/../etc/passwd` shape would pass the regex without this post-check) — appears verbatim on the page. If any path fails verification, or WebFetch fails, Step 4 drops the verify command (no bullet emitted) and records the failure in the Step 3 assessment table for audit.
+
+For fully-pinned numeric tags (`postgres:16-alpine`, `mongo:7.0.5`, `redis:7.4.1-bookworm`), re-validation is optional at Step 4 — Step 6's in-container path audit is the safety net (it rejects any path the audit cannot trace to either this seed table or a Step-4-recorded WebFetch validation).
+
 ## Vendor-Service → Emulator Index
 
 Synonym lookup consumed by §Decision Heuristics rules 2 and 3 — some target services have vendor-branded aliases (`AWS S3` vs bare `S3`, `Azure Cosmos DB` vs `Cosmos`) that would not match a table row by exact name. Each row lists the detected synonyms in the left column and the backing row in the right column.
@@ -176,9 +203,29 @@ Consumed by §Decision Heuristics rule 2. Non-exhaustive — add a row when a ne
 
 ## Snippet Templates
 
-Render **one** of these templates per service, chosen by the heuristics. Keep all service subsections under a single `## External Services` H2; each service is an H3.
+Render **one** of these templates per service, chosen by the heuristics. Keep all service subsections under the same External Services container. The template snippets below show the multi-repo H3 form (External Services as `## External Services`); in single-project / monorepo (External Services as `### External Services`), demote every heading line in the rendered template by one level (`###` → `####`).
 
 **Env-var rule (applies to both Docker templates below):** include one `-e '<VAR>=<placeholder>'` line per env var the vendor page marks as required (e.g., `POSTGRES_PASSWORD`; `ACCEPT_EULA=Y` + `MSSQL_SA_PASSWORD` for SQL Server). Omit the `-e` line entirely for images with no required env vars (e.g., `redis`).
+
+**PowerShell caveat (Windows host).** When the detector's *Hardware / OS Requirements* table contains `Windows 10`, `Windows 11`, or `Windows`, append one caveat bullet once per External Services section: *PowerShell users: replace `\` line continuations with backtick (`` ` ``); single-quoted `-e '…'` args render verbatim. For password / secret / token values, keep them in single quotes — PowerShell expands `$` and backtick inside `"…"` strings, so the container would store a different value than you typed and authentication fails silently.* The bash fences render verbatim under Git Bash, WSL, macOS, and Linux.
+
+**GUI-client connect note.** When the detector's *Recommended Developer Tools* table contains a known DB GUI client AND the per-service heading matches one of the client's supported DBs (per the mapping table below), append one bullet under the snippet: `- From <tool>: connect to <host>:<host-port> using the username / password from the -e lines above.` For SQL Server only, append a second sentence to the same bullet: `Accept the self-signed certificate when prompted — the official image enables TLS by default.` Other catalogue images (postgres, mysql/mariadb, mongo, redis) accept plaintext by default, so no certificate prompt fires; the cert sentence is rendered only when the per-service heading is SQL Server / Azure SQL. Substitute `<host>` per the rule in [§Pre-Conditions Block](#pre-conditions-block); the reader maps the fields onto their tool's connection dialog themselves — do not fabricate vendor-specific field labels.
+
+GUI-client → supported-DB mapping:
+
+| GUI client | Matches per-service heading |
+|---|---|
+| `SSMS` | SQL Server / Azure SQL |
+| `Azure Data Studio` | SQL Server / Azure SQL, PostgreSQL |
+| `pgAdmin` | PostgreSQL |
+| `MySQL Workbench` | MySQL, MariaDB |
+| `MongoDB Compass` | MongoDB |
+| `Studio 3T` | MongoDB |
+| `RedisInsight` | Redis |
+| `DBeaver` | SQL Server / Azure SQL, PostgreSQL, MySQL, MariaDB, MongoDB |
+| `DataGrip` | SQL Server / Azure SQL, PostgreSQL, MySQL, MariaDB, MongoDB, Redis |
+
+For multi-DB clients (DBeaver, DataGrip, Azure Data Studio), emit one bullet per matching service heading. For unlisted client / service combinations, omit the bullet.
 
 ### Docker-preferred
 
@@ -202,7 +249,7 @@ docker run -d --name <project-slug>-<service-slug> \
 - <Windows / ARM caveat if applicable — render from the shared Windows-caveats note when `<host-arch>` or `<host-os>` matches.>
 - Connection details for <relevant config file / env var>: `<connection string template with the placeholder values>`.
 
-**Alternative: local install.** <One-sentence reason to pick local — e.g., "if you already use <related GUI tool>" or "for Windows-auth connection strings".> Install from [<vendor page>](<vendor page URL>).
+**Alternative: local install.** <One-sentence reason to pick local — e.g., "if you already use <related GUI client>" or "for Windows-auth connection strings".> Install from [<vendor page>](<vendor page URL>).
 ````
 
 ### Shared-cloud primary (Docker optional)
@@ -243,7 +290,7 @@ Use when the heuristic resolves to **Shared-cloud primary** AND (a) the service 
 
 ### Local install only
 
-Use when the heuristic resolves to **Local install only** (GUI tool, no official image, or web-search fallback).
+Use when the heuristic resolves to **Local install only** (GUI client, no official image, or web-search fallback).
 
 ```markdown
 ### <Service name>
@@ -254,6 +301,43 @@ Install from [<vendor page>](<vendor page URL>).
 
 [Optional: one-line note on a CLI alternative that ships inside a related container, or on the vendor's own local-emulator tool.]
 ```
+
+## Pre-Conditions Block
+
+Surfaces a required connection-string override at the top of a service's subsection when the committed config can't reach the Docker runtime.
+
+### Trigger
+
+Render the block when both conditions hold:
+
+- The matching External Services row's `Recommended runtime` (per Step 3 assessment) is `Docker-preferred`, OR its Alternative is `Docker (offline)` and the user kept the Docker alternative via the Step 4 multi-select downgrade prompt.
+- One of these is true about the row's `Endpoint semantics` (set by the detector — see [`project-environment-detector.md`](../agents/project-environment-detector.md) §External Services):
+  - `local-windows-auth` — committed config uses Windows authentication.
+  - `local-named-instance` — committed config references a SQL Server named instance (e.g., `localhost\SQLEXPRESS`).
+  - `local-socket` — committed config uses a Unix socket, Windows named pipe, or MongoDB Unix-socket URI.
+
+### Block format
+
+Render as the FIRST element inside the service's per-service heading (H3 in multi-repo, H4 in single-project / monorepo — see [§Snippet Templates](#snippet-templates)), above the existing `**Recommended: Docker.**` paragraph and snippet:
+
+> **Pre-condition — update before running Setup or starting the backend.** The committed `<config-key>` in `<config-file>` uses <one-sentence summary of the incompatibility — e.g., "Windows authentication", "a SQL Server named instance", "a Unix socket transport">. Replace it with a connection string that points at `<host>:<host-port>` and uses the username / password from the snippet's `-e` lines below; the change must precede any command that opens a connection to <Service>.
+
+When this block renders, also DROP the existing `- Connection details for <…>` bullet from the snippet template's bullet list — the block subsumes it.
+
+### Substitution
+
+- **`<config-file>`** — the row's `Source` field with any trailing `:<digits>` line-suffix stripped. The path must match `^[A-Za-z0-9][A-Za-z0-9._/-]{0,128}$` with no empty / `.` / `..` segments after splitting on `/`; skip the block render if the check fails (rejects UNC paths, traversal sequences, control characters).
+- **`<config-key>`** — the dotted-path key whose value is the committed connection string. For JSON / YAML, the dotted path from the document root (e.g., `ConnectionStrings:DefaultConnection`); for `.properties` files, the literal property name; for `.env*` files, the variable name. When the source format is unfamiliar, render the key as `<config-key>` and let the reader fill it in. **Sanitize before substituting:** validate the full path against `^[A-Za-z_][A-Za-z0-9_.:-]{0,127}$` (permits `.` for nested JSON / YAML keys and `:` for ASP.NET Core's `ConnectionStrings:DefaultConnection` form, while still rejecting backticks, angle brackets, parentheses, brackets, whitespace, and control characters); split on `.` and `:` and reject any empty segment; skip the block render if the check fails.
+- **`<host>`** — `127.0.0.1` when *Hardware / OS Requirements* contains `Windows 10`, `Windows 11`, or `Windows` (Windows resolves `localhost` to IPv6 first; the snippet's `-p 127.0.0.1:…` form is IPv4-only); else `localhost`.
+- **`<host-port>`** — the host-port from the snippet's `-p <host>:<host-port>:<container-port>` line.
+- **`<Service>`** — the per-service heading text (the service name as rendered in the External Services overview table's *Service* column, with any trailing `(candidate)` marker stripped).
+
+The skill does NOT echo the committed connection string verbatim or reconstruct the new one — that risks leaking a real password from a misclassified source file. The reader knows their own config layout and can build the new string from the snippet's `-e` lines.
+
+### Step 6 audit
+
+- The audit rejects a per-service heading that contains BOTH a Pre-Conditions Block AND a `- Connection details for …` bullet — duplication is a Step-4 logic bug.
+- The audit verifies the Pre-Conditions Block is the FIRST element of the per-service heading's body (no intervening prose, no snippet); a misplaced block is rejected with a "render order" failure.
 
 ## Citation Format
 
