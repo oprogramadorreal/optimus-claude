@@ -51,7 +51,7 @@ Out of scope for *this agent* (other agents cover these):
 - Pattern / convention claims (e.g., "uses the standard auth middleware") — guideline-reviewer handles those.
 - Test-coverage claims about security tests — test-guardian handles those.
 
-Report Intent Mismatch findings using the **same output format below** but with **Category: `Intent Mismatch`** and add **`Intent claim:`** quoting the specific security-related claim from `## Intent`. The +5 per-pass budget for Intent Mismatch is separate from the 15-cap on Security / Logic findings. Remember: the fix must edit code (or config / tests), never the PR description — see `shared-constraints.md` "Fix the code, never the PR description".
+Report Intent Mismatch findings using the **same output format below** with **Category: `Intent Mismatch`** and populate the **`Intent claim:`** field with the specific security-related claim from `## Intent`. The +5 per-pass budget for Intent Mismatch is separate from the 15-cap on Security / Logic findings. Remember: the fix must edit code (or config / tests), never the PR description — see `shared-constraints.md` "Fix the code, never the PR description".
 
 ## Output Format
 

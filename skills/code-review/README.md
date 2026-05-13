@@ -52,7 +52,7 @@ In Claude Code, use any of these:
 
 ## Recommended Workflow — the implement → commit → pr → code-review chain
 
-This skill produces the strongest intent-aware findings when paired with the **continuation skills** (`/optimus:commit`, `/optimus:pr`) — they capture the implementation intent into commit messages and the PR description, and code-review reads those artifacts to ground its review against the *why*, not just the *what*. See [`references/skill-handoff.md`](../../references/skill-handoff.md) under "Continuation skills" for the rationale.
+This skill produces the strongest intent-aware findings when paired with the **continuation skills** (`/optimus:commit`, `/optimus:pr`) — they capture the implementation context into commit messages and the PR description, and code-review reads those artifacts to ground its review against the *why*, not just the *what*. See [`references/skill-handoff.md`](../../references/skill-handoff.md) under "Continuation skills" for the rationale.
 
 The canonical sequence:
 
@@ -183,7 +183,7 @@ The skill presents a structured review report:
 **4. Rate limiting claimed in PR Intent but not implemented** (Warning — Intent Mismatch)
 - File: src/routes/auth.ts:23
 - Category: Intent Mismatch
-- Confidence: High
+- Guideline: Intent (see Intent claim)
 - Intent claim: PR description `## Intent` says "rate-limit reset requests to 3 per hour per email"
 - Issue: The new POST /auth/reset-password handler adds validation and email send but no rate-limiting middleware or counter. The Intent claim has no supporting code.
 - Current:

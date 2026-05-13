@@ -42,6 +42,17 @@ Example:
 - **Key decisions:** Time-limited token in URL rather than session cookie (stateless reset); link expires in 30 min (chosen over 24h to limit attack window).
 ```
 
+#### Detecting `## Intent` in an existing PR body
+
+Both `/optimus:pr` (Update Flow preservation) and `/optimus:code-review` (Intent-context check) need to detect whether a PR body already carries an `## Intent` section. Use this single heuristic — both halves of the handoff must agree on what counts:
+
+A line is a real `## Intent` heading when **all** of these hold:
+- It starts at column 0 with `## Intent` (case-insensitive).
+- It is **not** inside a fenced code block (between matching ` ``` ` or `~~~` fences).
+- It is **not** a blockquote line (prefixed with `>`).
+
+This avoids false positives when the body quotes another PR's `## Intent`, embeds the template inside a code example, or shows it as a blockquoted reference.
+
 ### `## Summary`
 
 2–4 sentences describing what the PR does and why. Focus on the **what** and **why**, not the **how** (the diff shows the how). Start with a verb: "Adds…", "Fixes…", "Refactors…".

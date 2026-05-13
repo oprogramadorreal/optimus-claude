@@ -105,7 +105,7 @@ Before generating PR content, determine whether author intent is recoverable. Th
    - Prior Edit / Write / NotebookEdit tool calls in the conversation touched files that appear in `git diff --stat origin/<default-branch>..HEAD`.
    - The conversation discussed design decisions, non-goals, trade-offs, or "decided against" language relative to the changes.
    - The conversation explicitly stated the problem being solved or the scope of the change.
-2. **Intent available from existing PR body** (Update Flow only — Step 6) — the existing PR body contains an `## Intent` section. Detection: a line that matches `## Intent` (case-insensitive) at the start of a line.
+2. **Intent available from existing PR body** (Update Flow only — Step 6) — the existing PR body contains an `## Intent` section. Detection: see `$CLAUDE_PLUGIN_ROOT/skills/pr/references/pr-template.md` "Detecting `## Intent` in an existing PR body" for the canonical heuristic (shared with `/optimus:code-review`).
 3. **No intent context found** — neither of the above. Default classification when in doubt: if the heuristic is uncertain, prefer state 3 over fabricating an Intent section.
 
 State 3 handling — tell the user explicitly:

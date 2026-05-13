@@ -8,7 +8,7 @@ Well-structured PR descriptions aren't just for human reviewers — they give Cl
 
 The **Conventional PR** format mirrors [Conventional Commits](https://www.conventionalcommits.org/) — standardized structure that's easy to read, easy to generate, and easy to review.
 
-## Recommended Workflow — run pr in the implementation conversation
+## Recommended Workflow — run `/optimus:pr` in the implementation conversation
 
 `/optimus:pr` is a **continuation skill** (see [`references/skill-handoff.md`](../../references/skill-handoff.md) under "Continuation skills"). It produces the highest-fidelity PR description when run in the same conversation as the implementation — the conversation contains the decisions, non-goals, and trade-offs that led to the diff. `/optimus:code-review` then reads the resulting PR description as author intent context.
 
@@ -16,7 +16,7 @@ The canonical chain — all three continuation steps in the same conversation, t
 
 1. **Implement** your changes (TDD, brainstorm-driven, or freeform).
 2. **Stay in the implementation conversation** and run `/optimus:commit` — captures the *why* into the commit message body.
-3. **Still in the same conversation**, run `/optimus:pr` — captures intent into the PR description. Upstream skills like `/optimus:commit` already nudge you to do this when they recommend pr.
+3. **Still in the same conversation**, run `/optimus:pr` — captures intent into the PR description. Upstream skills like `/optimus:commit` already nudge you to do this when they recommend `/optimus:pr`.
 4. Switch to a **fresh conversation** and run `/optimus:code-review`. It reads the PR description you just wrote to check whether the implementation delivers what was supposed to be built.
 
 **Standalone updates (fresh conversation is fine):** if you only need to refresh a PR's title or description after a rebase — and the existing PR description already carries the original intent — you can re-run `/optimus:pr` from a fresh conversation. The Update Flow preserves the existing intent record while regenerating the diff-derived sections.
@@ -28,7 +28,8 @@ The canonical chain — all three continuation steps in the same conversation, t
 - **Existing PR/MR detection** — checks if the current branch already has an open PR/MR before creating a duplicate
 - **Create flow** — generates a Conventional PR from branch changes (commits, diff, file list) and previews before creating
 - **Update flow** — regenerates title and/or description for an existing PR/MR with current branch state, preserving manually-added content (issue references, deployment notes, etc.) that can't be derived from code changes
-- **Conventional PR format** — structured sections: Summary, Changes, Rationale (optional), Test plan
+- **Conventional PR format** — structured sections: Intent (when context available), Summary, Changes, Rationale (optional), Test plan
+- **Intent capture** — populates `## Intent` (Problem, Scope, Non-goals, Key decisions) from the implementation conversation when context is available, omits it otherwise; `/optimus:code-review` reads it back as author intent
 - **Default branch targeting** — new PRs target the repo's default branch (main/master); updates preserve the PR's existing target branch
 - **Ready to merge** — PRs/MRs are created as ready (not draft)
 - **User preview** — shows generated content before creating or updating, with option to adjust

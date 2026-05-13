@@ -370,7 +370,7 @@ If there are commits on the branch:
 
 1. **Push** the feature branch: `git push -u origin <branch-name>`
 
-2. **Detect the hosting platform** — read `$CLAUDE_PLUGIN_ROOT/skills/pr/references/platform-detection.md` and use the **origin URL check** and **CI file fallback** from the **Platform Detection Algorithm**. Skip multi-remote disambiguation — if ambiguous or unknown, skip PR/MR creation, report the push and suggest running `/optimus:pr` **in this same conversation** to create one (staying here lets `/optimus:pr` capture the implementation intent into the PR description)
+2. **Detect the hosting platform** — read `$CLAUDE_PLUGIN_ROOT/skills/pr/references/platform-detection.md` and use the **origin URL check** and **CI file fallback** from the **Platform Detection Algorithm**. Skip multi-remote disambiguation — if ambiguous or unknown, skip PR/MR creation, report the push and suggest running `/optimus:pr` **in this same conversation** to create one (staying here lets `/optimus:pr` capture the implementation context into the PR description)
 
 3. **Create a PR/MR** using the Conventional PR format:
 
@@ -379,11 +379,11 @@ If there are commits on the branch:
    Write the body to a temp file in the current working directory: `TMPFILE=$(mktemp ./pr-body-XXXXXX.md)`. Clean up after the creation attempt: `rm -f "$TMPFILE"`. (Use a relative path, not `/tmp` — on Windows, Git Bash's `/tmp` mount is unresolvable by the native `gh.exe`/`glab.exe`, which would silently submit an empty body.)
 
    **GitHub** (requires `gh` CLI):
-   - Verify `gh` is available: `gh --version`. If not, skip and tell the user to run `/optimus:pr` **in this same conversation** to create the PR (it can install the CLI, and staying here lets it capture the implementation intent into the PR description)
+   - Verify `gh` is available: `gh --version`. If not, skip and tell the user to run `/optimus:pr` **in this same conversation** to create the PR (it can install the CLI, and staying here lets it capture the implementation context into the PR description)
    - `gh pr create --title "<conventional title>" --body-file "$TMPFILE" --base <original-branch>`
 
    **GitLab** (requires `glab` CLI):
-   - Verify `glab` is available: `glab --version`. If not, skip and tell the user to run `/optimus:pr` **in this same conversation** to create the MR (it can install the CLI, and staying here lets it capture the implementation intent into the MR description)
+   - Verify `glab` is available: `glab --version`. If not, skip and tell the user to run `/optimus:pr` **in this same conversation** to create the MR (it can install the CLI, and staying here lets it capture the implementation context into the MR description)
    - `glab mr create --title "<conventional title>" --description "$(cat "$TMPFILE")" --target-branch <original-branch>`
 
    Follow the Conventional PR template, incorporating TDD-specific data: include how many behaviors were implemented via TDD in the **Summary**, use `git diff --stat <original-branch>..HEAD` for **Changes**, and list each behavior as a verification item in the **Test plan** with coverage delta if available (e.g., "Coverage: [X]% → [Y]% (+[Z]%)").

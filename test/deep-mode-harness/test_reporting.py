@@ -110,6 +110,39 @@ class TestPrintReport:
         output = capsys.readouterr().out
         assert "git push -u origin feat/my-branch" in output
 
+    def test_continuation_skill_tip_when_fixes_present(
+        self, sample_progress, tmp_path, capsys
+    ):
+        sample_progress["config"]["project_root"] = str(tmp_path)
+        sample_progress["findings"] = [
+            {
+                "file": "a.js",
+                "line": 1,
+                "category": "bug",
+                "summary": "Fix",
+                "status": "fixed",
+                "iteration_discovered": 1,
+            }
+        ]
+        sample_progress["termination"] = {"reason": "convergence", "message": "Done"}
+        sample_progress["iteration"]["completed"] = 1
+        print_report(sample_progress)
+        output = capsys.readouterr().out
+        assert "stay in this conversation" in output
+        assert "/optimus:commit" in output
+        assert "start a fresh conversation" not in output
+
+    def test_fresh_conversation_tip_when_no_fixes(self, sample_progress, capsys):
+        sample_progress["termination"] = {
+            "reason": "convergence",
+            "message": "No new findings",
+        }
+        sample_progress["iteration"]["completed"] = 1
+        print_report(sample_progress)
+        output = capsys.readouterr().out
+        assert "start a fresh conversation" in output
+        assert "stay in this conversation" not in output
+
     def test_crash_termination_branch(self, sample_progress, capsys):
         sample_progress["termination"] = {
             "reason": "crash",
@@ -120,6 +153,8 @@ class TestPrintReport:
         output = capsys.readouterr().out
         assert "No fixes were retained" in output
         assert "git reset --hard" in output
+        assert "start a fresh conversation" in output
+        assert "stay in this conversation" not in output
 
     def test_parse_failure_termination_branch(self, sample_progress, capsys):
         sample_progress["termination"] = {
@@ -130,3 +165,5 @@ class TestPrintReport:
         print_report(sample_progress)
         output = capsys.readouterr().out
         assert "No fixes were retained" in output
+        assert "start a fresh conversation" in output
+        assert "stay in this conversation" not in output

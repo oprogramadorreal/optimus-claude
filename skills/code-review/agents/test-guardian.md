@@ -34,7 +34,7 @@ Out of scope for *this agent* (other agents cover these):
 - Whether tests themselves are well-styled or follow project conventions — guideline-reviewer handles those.
 - Security-test coverage gaps where the issue is the missing security control, not the missing test — security-reviewer handles those.
 
-Report Intent Mismatch findings using the **same output format below** but with **Category: `Intent Mismatch`** and add **`Intent claim:`** quoting the specific test-related claim from `## Intent`. The +5 per-pass budget for Intent Mismatch is separate from the 15-cap on Test Gap / Structural Barrier findings. The fix must add or modify test code, never the PR description — see `shared-constraints.md` "Fix the code, never the PR description".
+Report Intent Mismatch findings using the **same output format below** with **Category: `Intent Mismatch`** and populate the **`Intent claim:`** field with the specific test-related claim from `## Intent`. The +5 per-pass budget for Intent Mismatch is separate from the 15-cap on Test Gap / Structural Barrier findings. The fix must add or modify test code, never the PR description — see `shared-constraints.md` "Fix the code, never the PR description".
 
 ## Output Format
 

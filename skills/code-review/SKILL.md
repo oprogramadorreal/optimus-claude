@@ -166,7 +166,7 @@ If PR/MR mode is active, inspect the captured `pr-description` body and append a
 - Body is non-empty but contains no `## Intent` heading → append: *"Note: PR description has no `## Intent` section. Intent-vs-implementation checks will be skipped. Re-running `/optimus:pr` in the implementation conversation can add intent metadata."*
 - Body contains a `## Intent` heading → no note (the intent-vs-implementation check will run).
 
-**`## Intent` detection heuristic** (used by both bullets above; not output text): a line that starts at column 0 with `## Intent` (case-insensitive), AND is not inside a fenced code block (between matching ` ``` ` or `~~~` fences) AND is not a blockquote line (prefixed with `>`). This avoids false positives when the body quotes another PR's `## Intent` or shows it inside a code example.
+**`## Intent` detection heuristic** (used by both bullets above; not output text): see `$CLAUDE_PLUGIN_ROOT/skills/pr/references/pr-template.md` "Detecting `## Intent` in an existing PR body" for the canonical heuristic (shared with `/optimus:pr`).
 
 This is a soft warning — review proceeds normally either way.
 

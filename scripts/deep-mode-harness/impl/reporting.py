@@ -69,9 +69,7 @@ def print_report(progress, current_branch=None, _get_branch=None):
             print(f"{PREFIX} To push checkpoint branch:    git push -u origin {branch}")
         print(f"{PREFIX}")
         print(f"{PREFIX} Next: run /optimus:commit to commit the fixes.")
-        # Continuation-skill exception: /optimus:commit captures conversation
-        # context into the commit message body, so it should run in the same
-        # conversation. See references/skill-handoff.md "Continuation skills".
+        # Continuation-skill exception — see references/skill-handoff.md "Continuation skills".
         print(
             f"{PREFIX} Tip: stay in this conversation when running "
             f"/optimus:commit so it can capture the fix context into the "
