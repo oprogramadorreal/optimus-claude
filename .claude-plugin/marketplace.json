@@ -12,7 +12,8 @@
       "name": "optimus",
       "source": {
         "source": "url",
-        "url": "https://github.com/oprogramadorreal/optimus-claude.git"
+        "url": "https://github.com/oprogramadorreal/optimus-claude.git",
+        "ref": "feat/improve-pr-skill"
       },
       "description": "Sets up your project for effective AI-assisted development — optimized CLAUDE.md files, effective coding guidelines, formatter hooks, built-in code-quality agents, TDD and test coverage, all tailored to your actual codebase."
     }
