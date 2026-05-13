@@ -191,7 +191,7 @@ Workflow: run `/optimus:pr` first, then `/optimus:code-review`.
 | | `/optimus:pr` | `/optimus:commit` |
 |---|---|---|
 | Scope | PR title + description | Local commits (stage + commit + optional push) |
-| Timing | After commits exist, branch is pushed | Before pr — to land changes locally |
+| Timing | After commits exist, branch is pushed | Before `/optimus:pr` — to land changes locally |
 | Conversation | Same conversation as implementation (preserves intent) | Same conversation as implementation; recommends `/optimus:pr` afterwards with stay-in-conversation guidance |
 
 | | `/optimus:pr` | `/optimus:commit-message` |

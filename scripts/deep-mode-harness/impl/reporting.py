@@ -72,8 +72,8 @@ def print_report(progress, current_branch=None, _get_branch=None):
         # See references/skill-handoff.md "Continuation skills" for wording.
         print(
             f"{PREFIX} Tip: stay in this conversation when running "
-            f"/optimus:commit so it can capture the implementation context. "
-            f"Other downstream skills (/optimus:code-review, etc.) should "
+            f"`/optimus:commit` so the implementation context is captured. "
+            f"Other downstream skills (`/optimus:code-review`, etc.) should "
             f"still run in fresh conversations."
         )
         return

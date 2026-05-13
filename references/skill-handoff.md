@@ -30,7 +30,7 @@ Skills that emit a closing tip must use one of the variants below **verbatim** (
 
 When the closing block recommends one or more continuation skills (and no non-continuation skill is recommended as an immediate next step), emit:
 
-> **Tip:** stay in this conversation when running `<continuation-skill(s)>` so it can capture the implementation context. Other downstream skills (`<non-continuation-examples>`) should still run in fresh conversations.
+> **Tip:** stay in this conversation when running `<continuation-skill(s)>` so the implementation context is captured. Other downstream skills (`<non-continuation-examples>`) should still run in fresh conversations.
 
 Substitute `<continuation-skill(s)>` with the actual skill(s) — one (e.g., `/optimus:pr`) or several joined by "or"/"and" when the recommendation offers alternatives (e.g., `/optimus:commit` or `/optimus:pr`). Substitute `<non-continuation-examples>` with the relevant examples (e.g., `/optimus:code-review`, `/optimus:unit-test`, etc.).
 
