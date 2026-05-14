@@ -121,15 +121,18 @@ else
   fi
 fi
 
-# --- 7. No /tmp temp paths in SKILL.md ---
+# --- 7. Portable mktemp invocation in SKILL.md ---
 # Windows-native gh.exe / glab.exe cannot see /tmp paths created via Git Bash —
-# they silently submit an empty body / comment. Use `mktemp --tmpdir=. <template>`
-# instead (CWD is visible to both POSIX shells and Windows binaries).
+# they silently submit an empty body / comment. Use `mktemp ./<template>` (a
+# bare relative template path) so the file lands in CWD, which is visible to
+# both POSIX shells and Windows binaries. The `--tmpdir` flag is rejected
+# here because it is a GNU coreutils extension that BSD mktemp on macOS does
+# not accept.
 echo "[Portability]"
-tmp_hits=$(grep -rnE 'mktemp.*(/tmp/|TMPDIR:-/tmp)' skills/*/SKILL.md 2>/dev/null || true)
-check "No /tmp-based mktemp in skills (use --tmpdir=. for Windows portability)" test -z "$tmp_hits"
+tmp_hits=$(grep -rnE 'mktemp.*(/tmp/|TMPDIR:-/tmp|--tmpdir)' skills/*/SKILL.md 2>/dev/null || true)
+check "Portable mktemp in skills (use mktemp ./<template> for Win+macOS portability)" test -z "$tmp_hits"
 if [ -n "$tmp_hits" ]; then
-  printf "       /tmp-based mktemp (Windows-incompatible):\n%s\n" "$tmp_hits"
+  printf "       Non-portable mktemp (Windows- or BSD-incompatible):\n%s\n" "$tmp_hits"
 fi
 
 # --- 8. Cross-reference integrity ---
