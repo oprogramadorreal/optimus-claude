@@ -1,6 +1,6 @@
 # Body-File Temp File Pattern
 
-Used by `pr`, `tdd`, and `code-review` to materialize a body/description on disk for `gh pr create --body-file` / `gh pr comment --body-file` / `glab api -F body=@…`.
+Used by `pr`, `tdd`, and `code-review` to materialize a body/description on disk for `gh pr create --body-file` / `gh pr comment --body-file` / `glab mr create --description-file` / `glab api -F body=@…`.
 
 ## Canonical pattern
 
@@ -24,4 +24,4 @@ The `&& <gh-or-glab-command>` on the same line as the heredoc opener is valid ba
 
 ## Validator contract
 
-`scripts/validate.sh` section 7 forbids non-portable mktemp invocations in `skills/*/SKILL.md` (`/tmp/`, `${TMPDIR:-/tmp}`, `--tmpdir`, `-p`, `-t`). Section 17 pins the consumer references to this file so a silent revert is caught.
+`scripts/validate.sh` forbids non-portable mktemp invocations in `skills/*/SKILL.md` (`/tmp/`, `${TMPDIR:-/tmp}`, `--tmpdir`, `-p`, `-t`) and pins consumer references to this file so a silent revert is caught.

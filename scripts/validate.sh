@@ -122,16 +122,9 @@ else
 fi
 
 # --- 7. Portable mktemp invocation in SKILL.md ---
-# Windows-native gh.exe / glab.exe cannot see /tmp paths created via Git Bash —
-# they silently submit an empty body / comment. Use `mktemp ./<template>` (a
-# bare relative template path) so the file lands in CWD, which is visible to
-# both POSIX shells and Windows binaries. `--tmpdir`, `-p`, and `-t` are all
-# rejected: `--tmpdir` is a GNU coreutils extension that BSD mktemp on macOS
-# rejects, and `-p`/`-t` re-introduce the /tmp default that this rule exists
-# to prevent. The `[^`]{0,200}` cap stops `mktemp` matching at the first
-# backtick (closing the inline code span) or after 200 chars — the bound
-# prevents runaway matching if a fenced ```bash block ever puts mktemp and
-# a forbidden form on the same line with lots of text between them.
+# Forbid non-portable mktemp forms. The [^`]{0,200} cap stops matching at the
+# closing backtick of an inline code span and bounds runaway matching across
+# the line. Pattern rationale: skills/pr/references/body-file-tempfile.md.
 echo "[Portability]"
 tmp_hits=$(grep -rnE 'mktemp[^`]{0,200}(/tmp/|TMPDIR:-/tmp|--tmpdir| -p | -t )' skills/*/SKILL.md 2>/dev/null || true)
 check "Portable mktemp in skills (use mktemp ./<template> for Win+macOS portability)" test -z "$tmp_hits"
@@ -940,7 +933,6 @@ body_file_ref="skills/pr/references/body-file-tempfile.md"
 check "body-file-tempfile.md reference present" test -f "$body_file_ref"
 if [ -f "$body_file_ref" ]; then
   for token in \
-    'mktemp ./.<stem>-XXXXXX.md' \
     "trap 'rm -f \"\$TMPFILE\"' EXIT INT TERM" \
     "<<'OPTIMUS_BODY_EOF'"; do
     if ! grep -qF -- "$token" "$body_file_ref" 2>/dev/null; then

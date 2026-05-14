@@ -141,7 +141,7 @@ Write the body via the canonical pattern in `$CLAUDE_PLUGIN_ROOT/skills/pr/refer
 - **GitLab:**
 
   ```bash
-  TMPFILE=$(mktemp ./.pr-body-XXXXXX.md) && trap 'rm -f "$TMPFILE"' EXIT INT TERM && cat > "$TMPFILE" <<'OPTIMUS_BODY_EOF' && glab mr create --title "<title>" --description "$(cat "$TMPFILE")" --target-branch <default-branch>
+  TMPFILE=$(mktemp ./.pr-body-XXXXXX.md) && trap 'rm -f "$TMPFILE"' EXIT INT TERM && cat > "$TMPFILE" <<'OPTIMUS_BODY_EOF' && glab mr create --title "<title>" --description-file "$TMPFILE" --target-branch <default-branch>
   <body>
   OPTIMUS_BODY_EOF
   ```
@@ -202,25 +202,10 @@ Use `AskUserQuestion` — header "Update preview", question "Review the updated 
 
 ### Apply update
 
-Apply the canonical pattern from `$CLAUDE_PLUGIN_ROOT/skills/pr/references/body-file-tempfile.md` (stem `pr-body`). Use the same chained heredoc form as Step 5 so `$TMPFILE` and the cleanup trap stay in scope across the create/edit step:
+Apply the Step 5 pattern, substituting the final command (omit `--title` to keep the existing title):
 
-- **GitHub:**
-
-  ```bash
-  TMPFILE=$(mktemp ./.pr-body-XXXXXX.md) && trap 'rm -f "$TMPFILE"' EXIT INT TERM && cat > "$TMPFILE" <<'OPTIMUS_BODY_EOF' && gh pr edit <number> --title "<title>" --body-file "$TMPFILE"
-  <body>
-  OPTIMUS_BODY_EOF
-  ```
-
-  Drop `--title "<title>"` if keeping the existing title.
-
-- **GitLab:**
-
-  ```bash
-  TMPFILE=$(mktemp ./.pr-body-XXXXXX.md) && trap 'rm -f "$TMPFILE"' EXIT INT TERM && cat > "$TMPFILE" <<'OPTIMUS_BODY_EOF' && glab mr update <number> --title "<title>" --description "$(cat "$TMPFILE")"
-  <body>
-  OPTIMUS_BODY_EOF
-  ```
+- **GitHub:** `gh pr edit <number> --title "<title>" --body-file "$TMPFILE"`
+- **GitLab:** `glab mr update <number> --title "<title>" --description-file "$TMPFILE"`
 
 Proceed to Step 7.
 
