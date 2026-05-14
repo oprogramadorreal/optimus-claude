@@ -376,7 +376,7 @@ If there are commits on the branch:
 
    Read `$CLAUDE_PLUGIN_ROOT/skills/pr/references/pr-template.md` for the Conventional PR format. Generate the PR title and body following this template.
 
-   Write the body to a temp file **inside the current working directory** (so the path resolves identically for the POSIX shell and the Windows-native `gh`/`glab` binary — `/tmp` paths from Git Bash are not visible to `gh.exe`/`glab.exe` and result in a silently-empty body): `TMPFILE=$(mktemp --tmpdir=. pr-body-XXXXXX.md)`. Always clean up after the creation attempt: `rm -f "$TMPFILE"`.
+   Write the body to a secure temp file **inside the current working directory** (so the path resolves identically for the POSIX shell and the Windows-native `gh`/`glab` binary — `/tmp` paths from Git Bash are not visible to `gh.exe`/`glab.exe` and result in a silently-empty body): `TMPFILE=$(mktemp --tmpdir=. pr-body-XXXXXX.md)`. Always clean up after the attempt (success or failure): `rm -f "$TMPFILE"`.
 
    **GitHub** (requires `gh` CLI):
    - Verify `gh` is available: `gh --version`. If not, skip and tell the user to run `/optimus:pr` to create the PR (it can install the CLI)

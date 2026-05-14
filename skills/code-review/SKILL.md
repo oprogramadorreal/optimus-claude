@@ -368,7 +368,7 @@ Use `AskUserQuestion` — header "Action", question "How would you like to proce
 - **Post comment** — "Post the review summary as a PR/MR comment"
 - **Skip** — "Keep the report as reference only"
 
-Write the review summary to a temp file **inside the current working directory** (so the path resolves identically for the POSIX shell and the Windows-native `gh`/`glab` binary — `/tmp` paths from Git Bash are not visible to `gh.exe`/`glab.exe` and result in a silently-empty comment): `TMPFILE=$(mktemp --tmpdir=. review-summary-XXXXXX.md)`. Always clean up after the posting attempt (whether it succeeds or fails): `rm -f "$TMPFILE"`.
+Write the review summary to a secure temp file **inside the current working directory** (so the path resolves identically for the POSIX shell and the Windows-native `gh`/`glab` binary — `/tmp` paths from Git Bash are not visible to `gh.exe`/`glab.exe` and result in a silently-empty comment): `TMPFILE=$(mktemp --tmpdir=. review-summary-XXXXXX.md)`. Always clean up after the attempt (success or failure): `rm -f "$TMPFILE"`.
 
 For GitHub PRs: `gh pr comment <N> --body-file "$TMPFILE"`
 For GitLab MRs: `glab api -X POST "projects/:id/merge_requests/<N>/notes" -F body=@"$TMPFILE"` — this avoids shell metacharacter issues that `glab mr note --message "$(cat ...)"` would have with code snippets in the summary

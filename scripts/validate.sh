@@ -126,7 +126,7 @@ fi
 # they silently submit an empty body / comment. Use `mktemp --tmpdir=. <template>`
 # instead (CWD is visible to both POSIX shells and Windows binaries).
 echo "[Portability]"
-tmp_hits=$(grep -rnE 'mktemp[^\n]*[/"](tmp|TMPDIR:-/tmp)/' skills/*/SKILL.md 2>/dev/null || true)
+tmp_hits=$(grep -rnE 'mktemp.*(/tmp/|TMPDIR:-/tmp)' skills/*/SKILL.md 2>/dev/null || true)
 check "No /tmp-based mktemp in skills (use --tmpdir=. for Windows portability)" test -z "$tmp_hits"
 if [ -n "$tmp_hits" ]; then
   printf "       /tmp-based mktemp (Windows-incompatible):\n%s\n" "$tmp_hits"
