@@ -393,7 +393,7 @@ If there are commits on the branch:
    - Run:
 
      ```bash
-     TMPFILE=$(mktemp ./.pr-body-XXXXXX.md) && trap 'rm -f "$TMPFILE"' EXIT INT TERM && cat > "$TMPFILE" <<'OPTIMUS_BODY_EOF' && glab mr create --title "<conventional title>" --description-file "$TMPFILE" --target-branch <original-branch>
+     TMPFILE=$(mktemp ./.pr-body-XXXXXX.md) && trap 'rm -f "$TMPFILE"' EXIT INT TERM && cat > "$TMPFILE" <<'OPTIMUS_BODY_EOF' && glab mr create --title "<conventional title>" --description "$(cat "$TMPFILE")" --target-branch <original-branch>
      <body>
      OPTIMUS_BODY_EOF
      ```

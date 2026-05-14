@@ -141,7 +141,7 @@ Write the body via the canonical pattern in `$CLAUDE_PLUGIN_ROOT/skills/pr/refer
 - **GitLab:**
 
   ```bash
-  TMPFILE=$(mktemp ./.pr-body-XXXXXX.md) && trap 'rm -f "$TMPFILE"' EXIT INT TERM && cat > "$TMPFILE" <<'OPTIMUS_BODY_EOF' && glab mr create --title "<title>" --description-file "$TMPFILE" --target-branch <default-branch>
+  TMPFILE=$(mktemp ./.pr-body-XXXXXX.md) && trap 'rm -f "$TMPFILE"' EXIT INT TERM && cat > "$TMPFILE" <<'OPTIMUS_BODY_EOF' && glab mr create --title "<title>" --description "$(cat "$TMPFILE")" --target-branch <default-branch>
   <body>
   OPTIMUS_BODY_EOF
   ```
@@ -205,7 +205,7 @@ Use `AskUserQuestion` — header "Update preview", question "Review the updated 
 Apply the Step 5 pattern, substituting the final command (omit `--title` to keep the existing title):
 
 - **GitHub:** `gh pr edit <number> --title "<title>" --body-file "$TMPFILE"`
-- **GitLab:** `glab mr update <number> --title "<title>" --description-file "$TMPFILE"`
+- **GitLab:** `glab mr update <number> --title "<title>" --description "$(cat "$TMPFILE")"`
 
 Proceed to Step 7.
 

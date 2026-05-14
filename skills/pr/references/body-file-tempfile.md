@@ -1,6 +1,6 @@
 # Body-File Temp File Pattern
 
-Used by `pr`, `tdd`, and `code-review` to materialize a body/description on disk for `gh pr create --body-file` / `gh pr comment --body-file` / `glab mr create --description-file` / `glab api -F body=@…`.
+Used by `pr`, `tdd`, and `code-review` to materialize a body/description on disk for `gh pr create --body-file` / `gh pr comment --body-file` / `glab mr create --description "$(cat …)"` / `glab api -F body=@…`. (`glab mr create`/`mr update` accept only `-d/--description` for the description input — no `--description-file` flag exists; piping the file content through command substitution is the file-equivalent form on glab.)
 
 ## Canonical pattern
 
