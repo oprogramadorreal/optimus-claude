@@ -128,10 +128,10 @@ If the user chooses **Adjust**, ask what to change, apply modifications, and pre
 
 ### Create PR/MR
 
-Write the body to a secure temp file **inside the current working directory** (so the path resolves identically for the POSIX shell and the Windows-native `gh`/`glab` binary — `/tmp` paths from Git Bash are not visible to `gh.exe`/`glab.exe` and result in a silently-empty body): `TMPFILE=$(mktemp ./pr-body-XXXXXX.md)`. Always clean up after the attempt (success or failure): `rm -f "$TMPFILE"`.
+Write the body to a temp file using the portable pattern in `$CLAUDE_PLUGIN_ROOT/skills/pr/references/body-file-tempfile.md` with stem `pr-body`. Chain the create command into the same bash invocation so the cleanup trap stays in scope:
 
-- **GitHub:** `gh pr create --title "<title>" --body-file "$TMPFILE" --base <default-branch>`
-- **GitLab:** `glab mr create --title "<title>" --description "$(cat "$TMPFILE")" --target-branch <default-branch>`
+- **GitHub:** `TMPFILE=$(mktemp ./.pr-body-XXXXXX.md) && trap 'rm -f "$TMPFILE"' EXIT INT TERM && printf '%s' "<body>" > "$TMPFILE" && gh pr create --title "<title>" --body-file "$TMPFILE" --base <default-branch>`
+- **GitLab:** `TMPFILE=$(mktemp ./.pr-body-XXXXXX.md) && trap 'rm -f "$TMPFILE"' EXIT INT TERM && printf '%s' "<body>" > "$TMPFILE" && glab mr create --title "<title>" --description "$(cat "$TMPFILE")" --target-branch <default-branch>`
 
 Proceed to Step 7.
 

@@ -125,11 +125,12 @@ fi
 # Windows-native gh.exe / glab.exe cannot see /tmp paths created via Git Bash —
 # they silently submit an empty body / comment. Use `mktemp ./<template>` (a
 # bare relative template path) so the file lands in CWD, which is visible to
-# both POSIX shells and Windows binaries. The `--tmpdir` flag is rejected
-# here because it is a GNU coreutils extension that BSD mktemp on macOS does
-# not accept.
+# both POSIX shells and Windows binaries. `--tmpdir`, `-p`, and `-t` are all
+# rejected: `--tmpdir` is a GNU coreutils extension that BSD mktemp on macOS
+# rejects, and `-p`/`-t` re-introduce the /tmp default that this rule exists
+# to prevent.
 echo "[Portability]"
-tmp_hits=$(grep -rnE 'mktemp.*(/tmp/|TMPDIR:-/tmp|--tmpdir)' skills/*/SKILL.md 2>/dev/null || true)
+tmp_hits=$(grep -rnE 'mktemp[^`]*(/tmp/|TMPDIR:-/tmp|--tmpdir| -p | -t )' skills/*/SKILL.md 2>/dev/null || true)
 check "Portable mktemp in skills (use mktemp ./<template> for Win+macOS portability)" test -z "$tmp_hits"
 if [ -n "$tmp_hits" ]; then
   printf "       Non-portable mktemp (Windows- or BSD-incompatible):\n%s\n" "$tmp_hits"
@@ -925,6 +926,33 @@ fi
 if ! grep -qF 'Outdated info elsewhere' "$how_to_run_skill" 2>/dev/null; then
   wiring_errors+="  $how_to_run_skill missing Step 4/5 cross-reference to stale-info report: Outdated info elsewhere\n"
 fi
+
+# Body-file temp-file pattern: section 7 above is a negative check (bad mktemp
+# forms absent). The positive contract — that each consumer SKILL.md still
+# uses the portable pattern and references body-file-tempfile.md — is pinned
+# here so a silent revert (dropping the mktemp line or routing back to
+# `--body "$(cat ...)"`) is caught.
+body_file_ref="skills/pr/references/body-file-tempfile.md"
+check "body-file-tempfile.md reference present" test -f "$body_file_ref"
+if [ -f "$body_file_ref" ]; then
+  for token in 'mktemp ./.<stem>-XXXXXX.md' "trap 'rm -f \"\$TMPFILE\"' EXIT INT TERM"; do
+    if ! grep -qF -- "$token" "$body_file_ref" 2>/dev/null; then
+      wiring_errors+="  $body_file_ref missing pattern token: $token\n"
+    fi
+  done
+fi
+for pair in \
+  'skills/pr/SKILL.md:mktemp ./.pr-body-' \
+  'skills/tdd/SKILL.md:mktemp ./.pr-body-' \
+  'skills/code-review/SKILL.md:mktemp ./.review-summary-'; do
+  f="${pair%%:*}"; tok="${pair#*:}"
+  if ! grep -qF -- "$tok" "$f" 2>/dev/null; then
+    wiring_errors+="  $f missing portable mktemp invocation: $tok\n"
+  fi
+  if ! grep -qF 'skills/pr/references/body-file-tempfile.md' "$f" 2>/dev/null; then
+    wiring_errors+="  $f missing reference to body-file-tempfile.md\n"
+  fi
+done
 
 check "Load-bearing wiring intact" test -z "$wiring_errors"
 if [ -n "$wiring_errors" ]; then
