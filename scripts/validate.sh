@@ -923,40 +923,6 @@ if ! grep -qF 'Outdated info elsewhere' "$how_to_run_skill" 2>/dev/null; then
   wiring_errors+="  $how_to_run_skill missing Step 4/5 cross-reference to stale-info report: Outdated info elsewhere\n"
 fi
 
-# Body-file temp-file pattern: section 7 above is a negative check (bad mktemp
-# forms absent). The positive contract — that each consumer SKILL.md still
-# uses the portable pattern, the quoted heredoc (so body content can never be
-# shell-interpolated), and references body-file-tempfile.md — is pinned here
-# so a silent revert (dropping the mktemp line, dropping the heredoc, or
-# routing back to `--body "$(cat ...)"`) is caught.
-body_file_ref="skills/pr/references/body-file-tempfile.md"
-check "body-file-tempfile.md reference present" test -f "$body_file_ref"
-if [ -f "$body_file_ref" ]; then
-  for token in \
-    "trap 'rm -f \"\$TMPFILE\"' EXIT INT TERM" \
-    "<<'OPTIMUS_BODY_EOF'"; do
-    if ! grep -qF -- "$token" "$body_file_ref" 2>/dev/null; then
-      wiring_errors+="  $body_file_ref missing pattern token: $token\n"
-    fi
-  done
-fi
-
-check_body_file_consumer() {  # <skill-file> <required mktemp prefix>
-  local f="$1" mktemp_prefix="$2"
-  if ! grep -qF -- "$mktemp_prefix" "$f" 2>/dev/null; then
-    wiring_errors+="  $f missing portable mktemp invocation: $mktemp_prefix\n"
-  fi
-  if ! grep -qF 'skills/pr/references/body-file-tempfile.md' "$f" 2>/dev/null; then
-    wiring_errors+="  $f missing reference to body-file-tempfile.md\n"
-  fi
-  if ! grep -qF "<<'OPTIMUS_BODY_EOF'" "$f" 2>/dev/null; then
-    wiring_errors+="  $f missing quoted heredoc body wrapper: <<'OPTIMUS_BODY_EOF'\n"
-  fi
-}
-check_body_file_consumer skills/pr/SKILL.md          'mktemp ./.pr-body-'
-check_body_file_consumer skills/tdd/SKILL.md         'mktemp ./.pr-body-'
-check_body_file_consumer skills/code-review/SKILL.md 'mktemp ./.review-summary-'
-
 check "Load-bearing wiring intact" test -z "$wiring_errors"
 if [ -n "$wiring_errors" ]; then
   printf "       Wiring issues:\n%b" "$wiring_errors"

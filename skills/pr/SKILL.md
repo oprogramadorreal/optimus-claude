@@ -128,23 +128,10 @@ If the user chooses **Adjust**, ask what to change, apply modifications, and pre
 
 ### Create PR/MR
 
-Write the body via the canonical pattern in `$CLAUDE_PLUGIN_ROOT/skills/pr/references/body-file-tempfile.md` (stem `pr-body`). The heredoc keeps body content out of shell expansion; chain the create command into the same bash invocation so the cleanup trap stays in scope:
+Write the body to a temp file in the current working directory: `TMPFILE=$(mktemp ./pr-body-XXXXXX.md)`. Clean up after the creation attempt: `rm -f "$TMPFILE"`. (Use a relative path, not `/tmp` — on Windows, Git Bash's `/tmp` mount is unresolvable by the native `gh.exe`/`glab.exe`, which would silently submit an empty body.)
 
-- **GitHub:**
-
-  ```bash
-  TMPFILE=$(mktemp ./.pr-body-XXXXXX.md) && trap 'rm -f "$TMPFILE"' EXIT INT TERM && cat > "$TMPFILE" <<'OPTIMUS_BODY_EOF' && gh pr create --title "<title>" --body-file "$TMPFILE" --base <default-branch>
-  <body>
-  OPTIMUS_BODY_EOF
-  ```
-
-- **GitLab:**
-
-  ```bash
-  TMPFILE=$(mktemp ./.pr-body-XXXXXX.md) && trap 'rm -f "$TMPFILE"' EXIT INT TERM && cat > "$TMPFILE" <<'OPTIMUS_BODY_EOF' && glab mr create --title "<title>" --description "$(cat "$TMPFILE")" --target-branch <default-branch>
-  <body>
-  OPTIMUS_BODY_EOF
-  ```
+- **GitHub:** `gh pr create --title "<title>" --body-file "$TMPFILE" --base <default-branch>`
+- **GitLab:** `glab mr create --title "<title>" --description "$(cat "$TMPFILE")" --target-branch <default-branch>`
 
 Proceed to Step 7.
 
@@ -202,9 +189,9 @@ Use `AskUserQuestion` — header "Update preview", question "Review the updated 
 
 ### Apply update
 
-Apply the Step 5 pattern, substituting the final command (omit `--title` to keep the existing title):
+Write the body to a temp file (same pattern as Step 5). Clean up after the update attempt.
 
-- **GitHub:** `gh pr edit <number> --title "<title>" --body-file "$TMPFILE"`
+- **GitHub:** `gh pr edit <number> --title "<title>" --body-file "$TMPFILE"`  (or `--body-file` only if keeping the title)
 - **GitLab:** `glab mr update <number> --title "<title>" --description "$(cat "$TMPFILE")"`
 
 Proceed to Step 7.

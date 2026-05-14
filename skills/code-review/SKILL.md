@@ -368,25 +368,10 @@ Use `AskUserQuestion` — header "Action", question "How would you like to proce
 - **Post comment** — "Post the review summary as a PR/MR comment"
 - **Skip** — "Keep the report as reference only"
 
-Write the review summary via the canonical pattern in `$CLAUDE_PLUGIN_ROOT/skills/pr/references/body-file-tempfile.md` (stem `review-summary`). The heredoc keeps summary content out of shell expansion (review summaries quote diff snippets that may contain `$(...)` or backticks); chain the post command into the same bash invocation so the cleanup trap stays in scope:
+Write the review summary to a temp file in the current working directory: `TMPFILE=$(mktemp ./review-summary-XXXXXX.md)`. Always clean up after the posting attempt (whether it succeeds or fails): `rm -f "$TMPFILE"`. (Use a relative path, not `/tmp` — on Windows, Git Bash's `/tmp` mount is unresolvable by the native `gh.exe`/`glab.exe`, which would silently submit an empty comment.)
 
-- **GitHub PRs:**
-
-  ```bash
-  TMPFILE=$(mktemp ./.review-summary-XXXXXX.md) && trap 'rm -f "$TMPFILE"' EXIT INT TERM && cat > "$TMPFILE" <<'OPTIMUS_BODY_EOF' && gh pr comment <N> --body-file "$TMPFILE"
-  <summary>
-  OPTIMUS_BODY_EOF
-  ```
-
-- **GitLab MRs:**
-
-  ```bash
-  TMPFILE=$(mktemp ./.review-summary-XXXXXX.md) && trap 'rm -f "$TMPFILE"' EXIT INT TERM && cat > "$TMPFILE" <<'OPTIMUS_BODY_EOF' && glab api -X POST "projects/:id/merge_requests/<N>/notes" -F body=@"$TMPFILE"
-  <summary>
-  OPTIMUS_BODY_EOF
-  ```
-
-  `-F body=@…` avoids shell metacharacter issues that `glab mr note --message "$(cat ...)"` would have with code snippets in the summary.
+For GitHub PRs: `gh pr comment <N> --body-file "$TMPFILE"`
+For GitLab MRs: `glab api -X POST "projects/:id/merge_requests/<N>/notes" -F body=@"$TMPFILE"` — this avoids shell metacharacter issues that `glab mr note --message "$(cat ...)"` would have with code snippets in the summary
 
 ## Step 9: Apply and Iterate (Deep Mode)
 

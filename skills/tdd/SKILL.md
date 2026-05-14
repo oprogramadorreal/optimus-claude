@@ -376,27 +376,15 @@ If there are commits on the branch:
 
    Read `$CLAUDE_PLUGIN_ROOT/skills/pr/references/pr-template.md` for the Conventional PR format. Generate the PR title and body following this template.
 
-   Write the body via the canonical pattern in `$CLAUDE_PLUGIN_ROOT/skills/pr/references/body-file-tempfile.md` (stem `pr-body`). The heredoc keeps body content out of shell expansion; chain the create command into the same bash invocation so the cleanup trap stays in scope:
+   Write the body to a temp file in the current working directory: `TMPFILE=$(mktemp ./pr-body-XXXXXX.md)`. Clean up after the creation attempt: `rm -f "$TMPFILE"`. (Use a relative path, not `/tmp` — on Windows, Git Bash's `/tmp` mount is unresolvable by the native `gh.exe`/`glab.exe`, which would silently submit an empty body.)
 
    **GitHub** (requires `gh` CLI):
    - Verify `gh` is available: `gh --version`. If not, skip and tell the user to run `/optimus:pr` to create the PR (it can install the CLI)
-   - Run:
-
-     ```bash
-     TMPFILE=$(mktemp ./.pr-body-XXXXXX.md) && trap 'rm -f "$TMPFILE"' EXIT INT TERM && cat > "$TMPFILE" <<'OPTIMUS_BODY_EOF' && gh pr create --title "<conventional title>" --body-file "$TMPFILE" --base <original-branch>
-     <body>
-     OPTIMUS_BODY_EOF
-     ```
+   - `gh pr create --title "<conventional title>" --body-file "$TMPFILE" --base <original-branch>`
 
    **GitLab** (requires `glab` CLI):
    - Verify `glab` is available: `glab --version`. If not, skip and tell the user to run `/optimus:pr` to create the MR (it can install the CLI)
-   - Run:
-
-     ```bash
-     TMPFILE=$(mktemp ./.pr-body-XXXXXX.md) && trap 'rm -f "$TMPFILE"' EXIT INT TERM && cat > "$TMPFILE" <<'OPTIMUS_BODY_EOF' && glab mr create --title "<conventional title>" --description "$(cat "$TMPFILE")" --target-branch <original-branch>
-     <body>
-     OPTIMUS_BODY_EOF
-     ```
+   - `glab mr create --title "<conventional title>" --description "$(cat "$TMPFILE")" --target-branch <original-branch>`
 
    Follow the Conventional PR template, incorporating TDD-specific data: include how many behaviors were implemented via TDD in the **Summary**, use `git diff --stat <original-branch>..HEAD` for **Changes**, and list each behavior as a verification item in the **Test plan** with coverage delta if available (e.g., "Coverage: [X]% → [Y]% (+[Z]%)").
 

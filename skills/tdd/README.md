@@ -308,7 +308,6 @@ The user's original branch is never modified. All code review happens through th
 | *(shared)* `worktree/references/worktree-setup.md` | Worktree setup procedure and recursive guard |
 | *(shared)* `commit-message/references/conventional-commit-format.md` | Conventional commit message format |
 | *(shared)* `pr/references/platform-detection.md` | Platform detection and CLI management |
-| *(shared)* `pr/references/body-file-tempfile.md` | Portable mktemp + quoted-heredoc pattern for `gh pr create --body-file` / `glab mr create` |
 
 ## Requirements
 
