@@ -121,12 +121,15 @@ else
   fi
 fi
 
-# --- 7. No hardcoded /tmp in SKILL.md ---
+# --- 7. Portable mktemp invocation in SKILL.md ---
+# Forbid non-portable mktemp forms. The [^`]{0,200} cap stops matching at the
+# closing backtick of an inline code span and bounds runaway matching across
+# the line. Pattern rationale: skills/pr/references/body-file-tempfile.md.
 echo "[Portability]"
-tmp_hits=$(grep -rn 'mktemp /tmp/' skills/*/SKILL.md 2>/dev/null || true)
-check "No hardcoded mktemp /tmp/ in skills" test -z "$tmp_hits"
+tmp_hits=$(grep -rnE 'mktemp[^`]{0,200}(/tmp/|TMPDIR:-/tmp|--tmpdir| -p | -t )' skills/*/SKILL.md 2>/dev/null || true)
+check "Portable mktemp in skills (use mktemp ./<template> for Win+macOS portability)" test -z "$tmp_hits"
 if [ -n "$tmp_hits" ]; then
-  printf "       Hardcoded /tmp:\n%s\n" "$tmp_hits"
+  printf "       Non-portable mktemp (Windows- or BSD-incompatible):\n%s\n" "$tmp_hits"
 fi
 
 # --- 8. Cross-reference integrity ---
