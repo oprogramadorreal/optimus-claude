@@ -128,9 +128,12 @@ fi
 # both POSIX shells and Windows binaries. `--tmpdir`, `-p`, and `-t` are all
 # rejected: `--tmpdir` is a GNU coreutils extension that BSD mktemp on macOS
 # rejects, and `-p`/`-t` re-introduce the /tmp default that this rule exists
-# to prevent.
+# to prevent. The `[^`]{0,200}` cap stops `mktemp` matching at the first
+# backtick (closing the inline code span) or after 200 chars — the bound
+# prevents runaway matching if a fenced ```bash block ever puts mktemp and
+# a forbidden form on the same line with lots of text between them.
 echo "[Portability]"
-tmp_hits=$(grep -rnE 'mktemp[^`]*(/tmp/|TMPDIR:-/tmp|--tmpdir| -p | -t )' skills/*/SKILL.md 2>/dev/null || true)
+tmp_hits=$(grep -rnE 'mktemp[^`]{0,200}(/tmp/|TMPDIR:-/tmp|--tmpdir| -p | -t )' skills/*/SKILL.md 2>/dev/null || true)
 check "Portable mktemp in skills (use mktemp ./<template> for Win+macOS portability)" test -z "$tmp_hits"
 if [ -n "$tmp_hits" ]; then
   printf "       Non-portable mktemp (Windows- or BSD-incompatible):\n%s\n" "$tmp_hits"
@@ -929,30 +932,38 @@ fi
 
 # Body-file temp-file pattern: section 7 above is a negative check (bad mktemp
 # forms absent). The positive contract — that each consumer SKILL.md still
-# uses the portable pattern and references body-file-tempfile.md — is pinned
-# here so a silent revert (dropping the mktemp line or routing back to
-# `--body "$(cat ...)"`) is caught.
+# uses the portable pattern, the quoted heredoc (so body content can never be
+# shell-interpolated), and references body-file-tempfile.md — is pinned here
+# so a silent revert (dropping the mktemp line, dropping the heredoc, or
+# routing back to `--body "$(cat ...)"`) is caught.
 body_file_ref="skills/pr/references/body-file-tempfile.md"
 check "body-file-tempfile.md reference present" test -f "$body_file_ref"
 if [ -f "$body_file_ref" ]; then
-  for token in 'mktemp ./.<stem>-XXXXXX.md' "trap 'rm -f \"\$TMPFILE\"' EXIT INT TERM"; do
+  for token in \
+    'mktemp ./.<stem>-XXXXXX.md' \
+    "trap 'rm -f \"\$TMPFILE\"' EXIT INT TERM" \
+    "<<'OPTIMUS_BODY_EOF'"; do
     if ! grep -qF -- "$token" "$body_file_ref" 2>/dev/null; then
       wiring_errors+="  $body_file_ref missing pattern token: $token\n"
     fi
   done
 fi
-for pair in \
-  'skills/pr/SKILL.md:mktemp ./.pr-body-' \
-  'skills/tdd/SKILL.md:mktemp ./.pr-body-' \
-  'skills/code-review/SKILL.md:mktemp ./.review-summary-'; do
-  f="${pair%%:*}"; tok="${pair#*:}"
-  if ! grep -qF -- "$tok" "$f" 2>/dev/null; then
-    wiring_errors+="  $f missing portable mktemp invocation: $tok\n"
+
+check_body_file_consumer() {  # <skill-file> <required mktemp prefix>
+  local f="$1" mktemp_prefix="$2"
+  if ! grep -qF -- "$mktemp_prefix" "$f" 2>/dev/null; then
+    wiring_errors+="  $f missing portable mktemp invocation: $mktemp_prefix\n"
   fi
   if ! grep -qF 'skills/pr/references/body-file-tempfile.md' "$f" 2>/dev/null; then
     wiring_errors+="  $f missing reference to body-file-tempfile.md\n"
   fi
-done
+  if ! grep -qF "<<'OPTIMUS_BODY_EOF'" "$f" 2>/dev/null; then
+    wiring_errors+="  $f missing quoted heredoc body wrapper: <<'OPTIMUS_BODY_EOF'\n"
+  fi
+}
+check_body_file_consumer skills/pr/SKILL.md          'mktemp ./.pr-body-'
+check_body_file_consumer skills/tdd/SKILL.md         'mktemp ./.pr-body-'
+check_body_file_consumer skills/code-review/SKILL.md 'mktemp ./.review-summary-'
 
 check "Load-bearing wiring intact" test -z "$wiring_errors"
 if [ -n "$wiring_errors" ]; then

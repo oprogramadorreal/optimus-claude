@@ -128,10 +128,23 @@ If the user chooses **Adjust**, ask what to change, apply modifications, and pre
 
 ### Create PR/MR
 
-Write the body to a temp file using the portable pattern in `$CLAUDE_PLUGIN_ROOT/skills/pr/references/body-file-tempfile.md` with stem `pr-body`. Chain the create command into the same bash invocation so the cleanup trap stays in scope:
+Write the body via the canonical pattern in `$CLAUDE_PLUGIN_ROOT/skills/pr/references/body-file-tempfile.md` (stem `pr-body`). The heredoc keeps body content out of shell expansion; chain the create command into the same bash invocation so the cleanup trap stays in scope:
 
-- **GitHub:** `TMPFILE=$(mktemp ./.pr-body-XXXXXX.md) && trap 'rm -f "$TMPFILE"' EXIT INT TERM && printf '%s' "<body>" > "$TMPFILE" && gh pr create --title "<title>" --body-file "$TMPFILE" --base <default-branch>`
-- **GitLab:** `TMPFILE=$(mktemp ./.pr-body-XXXXXX.md) && trap 'rm -f "$TMPFILE"' EXIT INT TERM && printf '%s' "<body>" > "$TMPFILE" && glab mr create --title "<title>" --description "$(cat "$TMPFILE")" --target-branch <default-branch>`
+- **GitHub:**
+
+  ```bash
+  TMPFILE=$(mktemp ./.pr-body-XXXXXX.md) && trap 'rm -f "$TMPFILE"' EXIT INT TERM && cat > "$TMPFILE" <<'OPTIMUS_BODY_EOF' && gh pr create --title "<title>" --body-file "$TMPFILE" --base <default-branch>
+  <body>
+  OPTIMUS_BODY_EOF
+  ```
+
+- **GitLab:**
+
+  ```bash
+  TMPFILE=$(mktemp ./.pr-body-XXXXXX.md) && trap 'rm -f "$TMPFILE"' EXIT INT TERM && cat > "$TMPFILE" <<'OPTIMUS_BODY_EOF' && glab mr create --title "<title>" --description "$(cat "$TMPFILE")" --target-branch <default-branch>
+  <body>
+  OPTIMUS_BODY_EOF
+  ```
 
 Proceed to Step 7.
 
@@ -189,10 +202,25 @@ Use `AskUserQuestion` — header "Update preview", question "Review the updated 
 
 ### Apply update
 
-Write the body to a secure temp file (same pattern as Step 5). Clean up after the update attempt.
+Apply the canonical pattern from `$CLAUDE_PLUGIN_ROOT/skills/pr/references/body-file-tempfile.md` (stem `pr-body`). Use the same chained heredoc form as Step 5 so `$TMPFILE` and the cleanup trap stay in scope across the create/edit step:
 
-- **GitHub:** `gh pr edit <number> --title "<title>" --body-file "$TMPFILE"`  (or `--body-file` only if keeping the title)
-- **GitLab:** `glab mr update <number> --title "<title>" --description "$(cat "$TMPFILE")"`
+- **GitHub:**
+
+  ```bash
+  TMPFILE=$(mktemp ./.pr-body-XXXXXX.md) && trap 'rm -f "$TMPFILE"' EXIT INT TERM && cat > "$TMPFILE" <<'OPTIMUS_BODY_EOF' && gh pr edit <number> --title "<title>" --body-file "$TMPFILE"
+  <body>
+  OPTIMUS_BODY_EOF
+  ```
+
+  Drop `--title "<title>"` if keeping the existing title.
+
+- **GitLab:**
+
+  ```bash
+  TMPFILE=$(mktemp ./.pr-body-XXXXXX.md) && trap 'rm -f "$TMPFILE"' EXIT INT TERM && cat > "$TMPFILE" <<'OPTIMUS_BODY_EOF' && glab mr update <number> --title "<title>" --description "$(cat "$TMPFILE")"
+  <body>
+  OPTIMUS_BODY_EOF
+  ```
 
 Proceed to Step 7.
 

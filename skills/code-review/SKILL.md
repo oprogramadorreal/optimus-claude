@@ -368,10 +368,25 @@ Use `AskUserQuestion` — header "Action", question "How would you like to proce
 - **Post comment** — "Post the review summary as a PR/MR comment"
 - **Skip** — "Keep the report as reference only"
 
-Write the review summary to a temp file using the portable pattern in `$CLAUDE_PLUGIN_ROOT/skills/pr/references/body-file-tempfile.md` with stem `review-summary`. Chain the post command into the same bash invocation so the cleanup trap stays in scope:
+Write the review summary via the canonical pattern in `$CLAUDE_PLUGIN_ROOT/skills/pr/references/body-file-tempfile.md` (stem `review-summary`). The heredoc keeps summary content out of shell expansion (review summaries quote diff snippets that may contain `$(...)` or backticks); chain the post command into the same bash invocation so the cleanup trap stays in scope:
 
-- For GitHub PRs: `TMPFILE=$(mktemp ./.review-summary-XXXXXX.md) && trap 'rm -f "$TMPFILE"' EXIT INT TERM && printf '%s' "<summary>" > "$TMPFILE" && gh pr comment <N> --body-file "$TMPFILE"`
-- For GitLab MRs: `TMPFILE=$(mktemp ./.review-summary-XXXXXX.md) && trap 'rm -f "$TMPFILE"' EXIT INT TERM && printf '%s' "<summary>" > "$TMPFILE" && glab api -X POST "projects/:id/merge_requests/<N>/notes" -F body=@"$TMPFILE"` — `-F body=@…` avoids shell metacharacter issues that `glab mr note --message "$(cat ...)"` would have with code snippets in the summary
+- **GitHub PRs:**
+
+  ```bash
+  TMPFILE=$(mktemp ./.review-summary-XXXXXX.md) && trap 'rm -f "$TMPFILE"' EXIT INT TERM && cat > "$TMPFILE" <<'OPTIMUS_BODY_EOF' && gh pr comment <N> --body-file "$TMPFILE"
+  <summary>
+  OPTIMUS_BODY_EOF
+  ```
+
+- **GitLab MRs:**
+
+  ```bash
+  TMPFILE=$(mktemp ./.review-summary-XXXXXX.md) && trap 'rm -f "$TMPFILE"' EXIT INT TERM && cat > "$TMPFILE" <<'OPTIMUS_BODY_EOF' && glab api -X POST "projects/:id/merge_requests/<N>/notes" -F body=@"$TMPFILE"
+  <summary>
+  OPTIMUS_BODY_EOF
+  ```
+
+  `-F body=@…` avoids shell metacharacter issues that `glab mr note --message "$(cat ...)"` would have with code snippets in the summary.
 
 ## Step 9: Apply and Iterate (Deep Mode)
 

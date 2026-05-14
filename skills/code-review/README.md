@@ -259,6 +259,7 @@ Anthropic's official [code-review](https://github.com/anthropics/claude-code/tre
 | *(shared)* `init/references/constraint-doc-loading.md` | Constraint doc loading (single project, monorepo) |
 | *(shared)* `pr/references/platform-detection.md` | Platform detection and CLI management |
 | *(shared)* `pr/references/default-branch-detection.md` | Default branch detection fallback |
+| *(shared)* `pr/references/body-file-tempfile.md` | Portable mktemp + quoted-heredoc pattern for posting review comments via `gh`/`glab` |
 | *(shared)* `references/harness-mode.md` | Harness mode single-iteration execution protocol |
 
 ## Requirements
