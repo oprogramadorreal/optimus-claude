@@ -58,8 +58,8 @@ For each finding report in this exact format:
 - **Guideline:** [only for Intent Mismatch — the literal string `Intent (see Intent claim)`]
 - **Intent claim:** [only for Intent Mismatch — quoted claim from `## Intent`]
 - **Issue:** [concrete description]
-- **Code:** [relevant snippet — max 5 lines]
-- **Fix:** [suggested fix — max 5 lines]
+- **Code:** [relevant snippet — max 5 lines] (for Intent Mismatch findings, rename this field to `Current:`)
+- **Fix:** [suggested fix — max 5 lines] (for Intent Mismatch findings, rename this field to `Suggested:`)
 
 ## Exclusions
 

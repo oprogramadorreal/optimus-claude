@@ -1,6 +1,6 @@
 # optimus:pr
 
-A [Claude Code](https://docs.anthropic.com/en/docs/claude-code) skill that creates or updates pull requests (GitHub) and merge requests (GitLab) using the **Conventional PR** format — a structured template with summary, changes, rationale, and test plan sections.
+A [Claude Code](https://docs.anthropic.com/en/docs/claude-code) skill that creates or updates pull requests (GitHub) and merge requests (GitLab) using the **Conventional PR** format — a structured template with optional intent, summary, changes, rationale, and test plan sections.
 
 ## Why Structured PRs Matter
 
@@ -121,7 +121,7 @@ Recommend running `/optimus:code-review` for quality review before merging.
 ---
 
 A PR/MR already exists for this branch. What would you like to do?
-[Regenerate title and description / Regenerate description only / Cancel]
+[Regenerate title and description / Regenerate description only / Regenerate Intent only / Cancel]
 
 > Regenerate description only
 
