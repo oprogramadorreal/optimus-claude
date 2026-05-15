@@ -7,7 +7,7 @@ Shared reference for analyzing changes and generating conventional commit messag
 Review the gathered git diff information to understand:
 
 - **What changed**: Files added, modified, or deleted
-- **Why it changed**: Infer purpose from code context (new feature, bug fix, refactor, etc.). When the conversation carries implementation context — design decisions, non-goals, trade-offs, "we decided against X" discussions — capture that context in the commit body (see "Capture implementation context" below). This is the load-bearing reason `/optimus:commit` and `/optimus:commit-message` are continuation skills.
+- **Why it changed**: Infer purpose from code context (new feature, bug fix, refactor, etc.). When the conversation carries implementation context — design decisions, non-goals, trade-offs, "we decided against X" discussions — capture that context in the commit body (see "Capture implementation context" below).
 - **Scope**: Identify the affected component or area of the codebase
 
 In a multi-repo workspace, analyze each repo's changes independently — each repo may have different types, scopes, and purposes.

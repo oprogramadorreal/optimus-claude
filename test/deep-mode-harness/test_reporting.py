@@ -133,6 +133,8 @@ class TestPrintReport:
         assert "stay in this conversation" in output
         assert "/optimus:commit" in output
         assert "implementation context" in output
+        assert "Other downstream skills" in output
+        assert "fresh conversations" in output
         assert "start a fresh conversation" not in output
 
     def test_crash_termination_branch(self, sample_progress, capsys):
@@ -183,5 +185,7 @@ class TestPrintReport:
         output = capsys.readouterr().out
         assert "stay in this conversation" in output
         assert "/optimus:commit" in output
+        assert "Other downstream skills" in output
+        assert "fresh conversations" in output
         assert "No fixes were retained" not in output
         assert "start a fresh conversation" not in output
