@@ -18,6 +18,7 @@ Use this to understand the author's stated intent behind the changes. However:
 - Still flag genuine bugs, security issues, and guideline violations even if the description says the change is intentional
 - The description explains "why" but does not excuse "how" — incorrect implementations of a correct intent are still findings
 - Do NOT reduce confidence or skip findings just because the description mentions them
+- If the description includes a `## Intent` section with specific claims (problem, scope, non-goals, key decisions) AND your output format includes the `Intent Mismatch` category (see your per-agent PR/MR-mode addendum), check whether the diff delivers each claim. A claim with no supporting code change, or a code change that contradicts a stated non-goal, is a finding — report it under category `Intent Mismatch`. Agents without a PR/MR-mode addendum (e.g., `code-simplifier`) skip this check entirely. If no `## Intent` section is present, skip this check; never invent intent.
 ```
 
 If the PR/MR has no description (empty body), omit this block entirely — do not inject an empty context section.

@@ -77,7 +77,7 @@ Tell the user: *Tip: For large codebases or extended sessions, re-run with `/opt
 
 If the user did not invoke with `deep`, skip this step.
 
-If the user selects **Normal mode**, continue with the standard single-pass flow. Record the user's choice as a `deep-mode` flag for subsequent steps. If deep mode is confirmed, initialize `iteration-count` to 1, `total-fixed` to 0, `total-reverted` to 0, and `accumulated-findings` to an empty list. Each entry in `accumulated-findings` tracks: **file** (with line), **category** (Bug, Security, Guideline Violation, Code Quality, Test Coverage Gap, Contract Quality), **guideline** (the specific project rule, or "General: bug/security/contract quality"), **summary** (one-sentence description of the issue), **fix description** (brief description of the fix applied or attempted), **iteration** (which iteration discovered it), and **status** (updated through apply/test phases).
+If the user selects **Normal mode**, continue with the standard single-pass flow. Record the user's choice as a `deep-mode` flag for subsequent steps. If deep mode is confirmed, initialize `iteration-count` to 1, `total-fixed` to 0, `total-reverted` to 0, and `accumulated-findings` to an empty list. Each entry in `accumulated-findings` tracks: **file** (with line), **category** (Bug, Security, Guideline Violation, Code Quality, Test Coverage Gap, Contract Quality, Intent Mismatch), **guideline** (the specific project rule, or "General: bug/security/contract quality"; for Intent Mismatch findings the literal string `Intent (see Intent claim)`), **intent claim** (only for Intent Mismatch — the quoted claim from `## Intent`), **summary** (one-sentence description of the issue), **fix description** (brief description of the fix applied or attempted), **iteration** (which iteration discovered it), and **status** (updated through apply/test phases). See Step 7 "Deep mode accumulation" for the canonical entry-shape spec.
 
 ## Step 3: Determine Review Scope
 
@@ -157,6 +157,18 @@ Present a brief summary before proceeding:
 - Files changed: [N]
 - Lines: +[added] / -[removed]
 ```
+
+### Intent-context check (PR/MR mode only)
+
+If PR/MR mode is active, inspect the captured `pr-description` body and append a note to the Scope summary based on what's there:
+
+- Body is empty → append: *"Note: PR description is empty. Intent-vs-implementation checks will be skipped. Run `/optimus:pr` in the implementation conversation to add intent metadata."*
+- Body is non-empty but contains no `## Intent` heading → append: *"Note: PR description has no `## Intent` section. Intent-vs-implementation checks will be skipped. Re-running `/optimus:pr` in the implementation conversation can add intent metadata."*
+- Body contains a `## Intent` heading → no note (the intent-vs-implementation check will run).
+
+**`## Intent` detection heuristic** (used by both bullets above; not output text): see `$CLAUDE_PLUGIN_ROOT/skills/pr/references/pr-template.md` "Detecting `## Intent` in an existing PR body" for the canonical heuristic (shared with `/optimus:pr`).
+
+This is a soft warning — review proceeds normally either way.
 
 ### Large diff warning
 
@@ -290,17 +302,19 @@ Before presenting findings, write a concise summary (2–4 sentences) of what th
 
 ### Severity
 
-- **Critical** — Bugs, security vulnerabilities, runtime failures
-- **Warning** — Guideline violations, missing error handling, test coverage gaps for critical paths, backward-incompatible contract changes
-- **Suggestion** — Code quality improvements, minor guideline drift, test coverage gaps for non-critical paths, minor contract quality issues
+- **Critical** — Bugs, security vulnerabilities, runtime failures, Intent Mismatch contradicting a stated non-goal
+- **Warning** — Guideline violations, missing error handling, test coverage gaps for critical paths, backward-incompatible contract changes, Intent Mismatch for unsupported scope claims
+- **Suggestion** — Code quality improvements, minor guideline drift, test coverage gaps for non-critical paths, minor contract quality issues, Intent Mismatch for partial matches
+
+See `agents/shared-constraints.md` "Severity" for the canonical Intent Mismatch mapping.
 
 ### Finding cap
 
-Maximum **15 findings** across all sources, prioritized by severity then confidence. If more issues exist, note the count (e.g., "15 of ~24 findings shown") and suggest re-running with a narrower scope or using `/optimus:code-review deep` for exhaustive review.
+Maximum **15 domain findings** across all sources (Bug / Security / Guideline / Code Quality / Test Gap / Contract Quality), prioritized by severity then confidence. **`Intent Mismatch` findings are surfaced on top of the 15-cap, up to 5 in the aggregated report** — deduplicated across the emitting agents (each agent's per-pass +5 budget is registered canonically in `$CLAUDE_PLUGIN_ROOT/references/shared-agent-constraints.md` "Per-category budget exceptions"), sorted by severity, and presented after the domain findings. If more issues exist, note the count (e.g., "15 of ~24 findings shown") and suggest re-running with a narrower scope or using `/optimus:code-review deep` for exhaustive review.
 
 ### Deep mode accumulation
 
-**Deep mode:** Instead of presenting the output format below, append this iteration's validated findings to `accumulated-findings`. For each appended finding, record the current `iteration-count` as the finding's iteration number, and preserve the agent's guideline citation and issue description as the finding's guideline and summary fields. Deduplicate against previous iterations: if a finding matches an existing entry by file + line range + category, skip it if the existing entry is marked "(fixed)". If the existing entry is marked "(persistent — fix failed)", annotate the new entry as "(persistent — fix failed)". If the existing entry is marked "(reverted — test failure)", keep the new entry as "(reverted — attempt 2)" so Step 9 retries the fix once more; only promote to "(persistent — fix failed)" if it is reverted again. Then proceed directly to Step 9.
+**Deep mode:** Instead of presenting the output format below, append this iteration's validated findings to `accumulated-findings`. Each entry tracks: **file** (with line), **category** (Bug, Security, Guideline Violation, Code Quality, Test Coverage Gap, Contract Quality, Intent Mismatch), **guideline** (the specific project rule; for Intent Mismatch findings the literal string `Intent (see Intent claim)`), **intent claim** (only for Intent Mismatch — the quoted claim from `## Intent`), **summary** (one-sentence description of the issue), **fix description** (brief description of the fix applied or attempted), **iteration** (which iteration discovered it), and **status** (updated through apply/test phases). For each appended finding, record the current `iteration-count` as the finding's iteration number, and preserve the agent's guideline citation, intent claim (when present), and issue description as the finding's guideline, intent claim, and summary fields. Deduplicate against previous iterations: if a finding matches an existing entry by file + line range + category, skip it if the existing entry is marked "(fixed)". If the existing entry is marked "(persistent — fix failed)", annotate the new entry as "(persistent — fix failed)". If the existing entry is marked "(reverted — test failure)", keep the new entry as "(reverted — attempt 2)" so Step 9 retries the fix once more; only promote to "(persistent — fix failed)" if it is reverted again. Then proceed directly to Step 9.
 
 **Normal mode:** Present findings using the output format below, then proceed to Step 8.
 
@@ -323,10 +337,11 @@ Maximum **15 findings** across all sources, prioritized by severity then confide
 
 ### Findings
 
-**[N]. [Finding title]** (Critical/Warning/Suggestion — [Bug/Security/Guideline/Quality/Test Gap/Contract])
+**[N]. [Finding title]** (Critical/Warning/Suggestion — [Bug/Security/Guideline/Quality/Test Gap/Contract/Intent Mismatch])
 - **File:** `file:line`
-- **Category:** [Bug | Security | Guideline Violation | Code Quality | Test Coverage Gap | Contract Quality]
-- **Guideline:** [which project guideline, or "General: bug/security/contract quality"]
+- **Category:** [Bug | Security | Guideline Violation | Code Quality | Test Coverage Gap | Contract Quality | Intent Mismatch]
+- **Guideline:** [which project guideline, or "General: bug/security/contract quality" — for Intent Mismatch, the literal string "Intent (see Intent claim)"]
+- **Intent claim:** [only for Intent Mismatch — the quoted claim from `## Intent`]
 - **Issue:** [concrete description]
 - **Current:**
   ```
@@ -416,7 +431,7 @@ Column definitions:
 - **File** — `file:line`
 - **What Changed** — Brief description of the fix applied or attempted
 - **Reason** — Why the change was needed (the issue/problem)
-- **Guideline / Category** — The specific project guideline violated (or "General: bug/security/contract quality" for non-guideline findings), plus the category (Bug, Security, Guideline Violation, Code Quality, Test Coverage Gap, Contract Quality)
+- **Guideline / Category** — The specific project guideline violated (or "General: bug/security/contract quality" for non-guideline findings, or `Intent (see Intent claim)` for Intent Mismatch), plus the category (Bug, Security, Guideline Violation, Code Quality, Test Coverage Gap, Contract Quality, Intent Mismatch)
 - **Status** — `fixed`, `reverted — test failure`, `reverted — attempt 2`, or `persistent — fix failed`
 
 For condition 4 (continue), after presenting the iteration report also show the progress summary: "Iteration [N] of up to 8 — [total-fixed] findings fixed so far, [total-reverted] reverted. Starting next pass..." If the **next** iteration will be 3 or higher, append to the progress summary: "Note: context is accumulating — if output quality degrades, consider finishing remaining findings in a fresh conversation." Then increment `iteration-count` and **return to Step 5** for the next analysis pass. When returning to Step 5, re-gather the current diff (the codebase has changed due to applied fixes) and focus agents on files that had findings in any previous iteration plus any newly modified files.
@@ -475,5 +490,5 @@ After the review is complete, recommend the next step based on the outcome:
 
 Tell the user:
 
-- **Tip:** for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch.
+- The closing tip per `$CLAUDE_PLUGIN_ROOT/references/skill-handoff.md` "Closing tip wording" — if the "issues found and fixed" bullet fires, use **Variant A** with `<continuation-skill(s)>` = `/optimus:commit`. If the "deep mode" bullet fires, use **Variant B** with `<continuation-skill(s)>` = `/optimus:commit` and `<non-continuation-examples>` = `/optimus:unit-test`, etc. If the "no issues / fixes skipped" bullet fires, use **Variant A** with `<continuation-skill(s)>` = `/optimus:pr`.
 - **Tip (normal mode only):** Single-pass review can miss issues due to LLM attention limits. Run `/optimus:code-review deep` to iterate automatically — it fixes, tests, and repeats until clean (max 8 passes). Requires a test command in `.claude/CLAUDE.md`.

@@ -30,15 +30,29 @@ Review ONLY the diff/changed sections of the provided files.
 
 Every finding MUST cite the specific rule from the project docs.
 
+## PR/MR mode addendum — Intent-vs-Implementation Check
+
+Read `shared-constraints.md` "Intent-vs-Implementation Check (PR/MR mode only)" for the canonical rules and "Stay in your lane" for cross-agent scope assignments.
+
+Within your domain (project guidelines, conventions, architectural boundaries), check whether the diff delivers the **pattern / guideline** claims in `## Intent`:
+
+- Claims about which pattern the implementation follows. Example: Intent's Key decisions says "follows the existing repository pattern in `src/repositories/`" — does the diff actually match that pattern, or does it introduce a parallel approach?
+- Claims about staying within architectural boundaries. Example: Intent says "API layer only; no DB access in handlers" but the diff has SQL queries in a route handler.
+- Claims about convention compliance. Example: Intent says "uses the standard error response shape from `errors.md`" — does the diff use that shape?
+- Claims about deliberate deviations from defaults. Example: Intent's Non-goals says "no styling changes" but the diff modifies SCSS/Tailwind classes.
+
+For an Intent Mismatch finding, set **`Guideline:`** to the literal string `Intent (see Intent claim)` — the actual quoted claim goes in the **`Intent claim:`** field below, avoiding duplication. The "rule" being checked is the author's own stated intent, but the canonical record of the rule is the `Intent claim:` field.
+
 ## Output Format
 
 For each finding report in this exact format:
 
 - **File:** file:line
-- **Category:** Guideline Violation
+- **Category:** Guideline Violation | Intent Mismatch
 - **Confidence:** High | Medium
-- **Guideline:** [exact quote or reference from project docs]
-- **Issue:** [how the code violates the rule]
+- **Guideline:** [exact quote or reference from project docs — or, for Intent Mismatch, write "Intent (see Intent claim)"]
+- **Intent claim:** [only for Intent Mismatch — the quoted claim from `## Intent`]
+- **Issue:** [how the code violates the rule or contradicts the intent]
 - **Current:**
   ```
   [relevant snippet — max 5 lines]

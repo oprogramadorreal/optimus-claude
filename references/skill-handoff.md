@@ -10,6 +10,48 @@ Closing tip (append verbatim whenever recommending a next skill):
 
 > **Tip:** for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch.
 
+## Continuation skills — exception to fresh-conversation
+
+The default tip above applies when the next skill **gathers its own context**. Some skills instead **capture** the current conversation's context (design decisions, non-goals, trade-offs discussed during implementation) into a durable artifact. For those skills, a fresh conversation strips the very context they need. Override the default tip when the next skill is one of these.
+
+The continuation skills are:
+
+- **`/optimus:commit`** — captures the conversation's understanding of *why* the changes were made into the commit message body. A commit message generated from the diff alone records *what* changed; a commit message generated in the implementation conversation also records *why*.
+- **`/optimus:commit-message`** — same intent capture as `/optimus:commit`, but read-only (suggests a message without committing). Same continuation rationale.
+- **`/optimus:pr`** — captures the conversation's intent (problem, scope, non-goals, key decisions) into the PR description. `/optimus:code-review` later consumes that description as author intent context.
+
+The canonical implementation chain is **implement → `/optimus:commit` → `/optimus:pr` → `/optimus:code-review`**. The first three should run in the same conversation as the implementation (or, after `/optimus:code-review` applies fixes, in the code-review conversation). `/optimus:code-review` itself, and other downstream skills like `/optimus:unit-test`, run in fresh conversations because they gather their own context.
+
+### Closing tip wording
+
+Skills that emit a closing tip must use one of the variants below **verbatim** (substituting only the explicit placeholders). Drift is the failure mode this section exists to prevent — never paraphrase to skill-specific wording like "refactor's rationale", "deliverable's rationale", or "fix context". The umbrella term **"implementation context"** is intentional and covers design decisions, refactor rationale, fix context, and deliverable rationale.
+
+#### Variant A — Continuation skill(s) only
+
+When the closing block recommends one or more continuation skills (and no non-continuation skill is recommended as an immediate next step), emit:
+
+> **Tip:** stay in this conversation when running `<continuation-skill(s)>` so the implementation context is captured. Other downstream skills (`<non-continuation-examples>`) should still run in fresh conversations.
+
+Substitute `<continuation-skill(s)>` with the actual skill(s) — one (e.g., `/optimus:pr`) or several joined by "or"/"and" when the recommendation offers alternatives (e.g., `/optimus:commit` or `/optimus:pr`). Substitute `<non-continuation-examples>` with the relevant examples (e.g., `/optimus:code-review`, `/optimus:unit-test`, etc.).
+
+#### Variant B — Mixed (continuation + non-continuation)
+
+When the closing block recommends **two or more** skills with a mix of continuation and non-continuation paths, emit:
+
+> **Tip:** for `<continuation-skill(s)>`, stay in this conversation so they can capture the implementation context. For other downstream skills (`<non-continuation-examples>`), start a fresh conversation — each gathers its own context from scratch.
+
+Use commas + "and" for multiple continuation skills (e.g., `` `/optimus:commit` and `/optimus:pr` ``).
+
+#### Variant C — Default (no continuation skill recommended)
+
+When the closing block recommends only non-continuation skills, emit the plain default:
+
+> **Tip:** for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch.
+
+### Adding a future continuation skill
+
+The criterion: the skill's primary value comes from reading the current conversation, not from independent context gathering. Skills that load docs, run pre-flight checks, or analyze code from scratch are **not** continuation skills.
+
 ## Plan mode
 
 Claude Code's plan mode has built-in semantics the plugin cannot change: **approving a plan executes it immediately in the same conversation.** That conflicts with skills that route to `/optimus:tdd` afterwards, because plan-mode execution bypasses TDD's Red-Green-Refactor discipline (the Iron Law, verification protocol, circuit breaker).
@@ -27,3 +69,5 @@ When a skill recommends plan mode as a handoff step:
 ## Why fresh conversations
 
 Each skill gathers its own context (doc loads, pre-flight checks, suitability analysis). Reusing a conversation mixes unrelated context and can bias the new skill's decisions. A fresh conversation keeps every skill's Step 1 honest.
+
+The exception is continuation skills (see "Continuation skills — exception to fresh-conversation" above), where the current conversation **is** the context. For those, staying in the conversation is the honest choice.

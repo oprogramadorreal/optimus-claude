@@ -24,15 +24,30 @@ Review ONLY the diff/changed sections of the provided files. Focus on public API
 - Serialization mismatches — field name differences between API layer and persistence layer, missing serialization attributes, enum value mapping gaps
 - Encapsulation leaks — internal implementation details exposed through public APIs, mutable collections returned without defensive copies
 
+## PR/MR mode addendum — Intent-vs-Implementation Check
+
+Read `shared-constraints.md` "Intent-vs-Implementation Check (PR/MR mode only)" for the canonical rules, "Stay in your lane" for cross-agent scope assignments, and "Severity" for the Severity field mapping.
+
+Within your domain (API contracts, type definitions, backwards compatibility, versioning, encapsulation), check whether the diff delivers the **contract-related** claims in `## Intent`:
+
+- Claims about backwards compatibility. Example: Intent says "preserves the existing `/v1/users` response shape" — does the diff actually preserve every field, or does it remove/rename one?
+- Claims about API non-changes. Example: Intent's Non-goals says "no public API change; internal refactor only" but the diff changes a public function signature, removes an exported type, or renames a route.
+- Claims about new contracts. Example: Intent's Scope says "adds POST /v2/orders with `OrderRequest`/`OrderResponse` types" — does the diff add the endpoint AND both types with the documented shape?
+- Claims about versioning or deprecation. Example: Intent says "deprecates `/v1/users` with 6-month sunset" — does the diff add deprecation annotations, sunset dates, or response headers signalling deprecation?
+- Claims about type safety. Example: Intent's Key decisions says "narrows `result: any` to a discriminated union" — does the diff actually replace `any` with a typed union?
+
+Report findings using the **same output format below** with **Category: `Intent Mismatch`**, **Guideline: `Intent (see Intent claim)`**, the **`Intent claim:`** field populated with the specific quoted claim, and **Severity** assigned per the canonical mapping.
+
 ## Output Format
 
 For each finding report in this exact format:
 
 - **File:** file:line
-- **Category:** Contract Quality
+- **Category:** Contract Quality | Intent Mismatch
 - **Confidence:** High | Medium
 - **Severity:** Critical | Warning | Suggestion
-- **Guideline:** [which project guideline, or "General: contract quality"]
+- **Guideline:** [which project guideline, or "General: contract quality" — for Intent Mismatch, write "Intent (see Intent claim)"]
+- **Intent claim:** [only for Intent Mismatch — the quoted claim from `## Intent`]
 - **Issue:** [concrete description]
 - **Current:**
   ```

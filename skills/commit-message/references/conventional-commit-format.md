@@ -7,10 +7,28 @@ Shared reference for analyzing changes and generating conventional commit messag
 Review the gathered git diff information to understand:
 
 - **What changed**: Files added, modified, or deleted
-- **Why it changed**: Infer purpose from code context (new feature, bug fix, refactor, etc.)
+- **Why it changed**: Infer purpose from code context (new feature, bug fix, refactor, etc.). When the conversation carries implementation context — design decisions, non-goals, trade-offs, "we decided against X" discussions — capture that context in the commit body (see "Capture implementation context" below).
 - **Scope**: Identify the affected component or area of the codebase
 
 In a multi-repo workspace, analyze each repo's changes independently — each repo may have different types, scopes, and purposes.
+
+## Capture implementation context
+
+When this skill runs in the conversation where the implementation happened, the conversation carries implementation context the diff alone cannot record — *why* a design was chosen, what alternatives were considered, what was deliberately left out of scope. Translate that into the commit body so the message records both *what* and *why*.
+
+What to inspect for implementation context:
+- Prior user messages stating the problem being solved, constraints, or success criteria.
+- Prior Claude responses where alternatives were proposed and a decision was made (favored or rejected).
+- Edit / Write / NotebookEdit tool calls that touch the staged files — the surrounding discussion often explains *why* that specific change was chosen over alternatives.
+- Explicit non-goals, follow-ups deferred, or trade-offs accepted.
+
+What to omit:
+- Step-by-step narration of how the change was developed (commit messages record decisions, not process).
+- Conversation context unrelated to the staged files.
+- Re-statement of what the diff already shows clearly.
+- Speculative or unverified context.
+
+If no implementation context is available (e.g., invoked in a fresh conversation against pre-existing local changes), skip this step and rely on the diff alone — never fabricate context.
 
 ## Generate Conventional Commit Message
 

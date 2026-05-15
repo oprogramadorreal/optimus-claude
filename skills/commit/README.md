@@ -2,6 +2,12 @@
 
 A [Claude Code](https://docs.anthropic.com/en/docs/claude-code) skill that stages, commits, and optionally pushes your local git changes with a [conventional commit](https://www.conventionalcommits.org/) message — all in one step.
 
+## Conversation discipline — run in the implementation conversation
+
+`/optimus:commit` is a **continuation skill** (see [`references/skill-handoff.md`](../../references/skill-handoff.md) under "Continuation skills"). It produces the highest-fidelity commit message when run in the same conversation as the implementation — the conversation contains the *why* behind the changes, which the skill can capture into the message body alongside the *what* synthesized from the diff. A fresh conversation strips that context and limits the message to mechanical diff summarization.
+
+Upstream skills like `/optimus:branch`, `/optimus:refactor`, `/optimus:code-review`, and `/optimus:prompt` already nudge you to stay in the implementation conversation when they recommend `/optimus:commit` — follow that nudge.
+
 ## Features
 
 - Analyzes staged, unstaged, and untracked changes to generate a conventional commit message
@@ -71,9 +77,14 @@ The skill runs `git diff` (staged and unstaged) and `git status` to collect all 
 |---|---|---|
 | Scope | Individual commit(s) | Pull request creation |
 | Complement | Commit first, then create PR | Expects changes already committed |
+| Conversation | Same conversation as implementation (continuation skill) | Same conversation as implementation (continuation skill) |
 | Workflow | Run `/optimus:commit` first, then `/optimus:pr` | |
 
-**Recommended sequence**: `/optimus:code-review` first (catch issues), then `/optimus:commit` (commit and push), then `/optimus:pr` (create a pull request). Use `/optimus:commit-message` if you only want to preview the message without committing.
+**Canonical sequence**: **implement → `/optimus:commit` → `/optimus:pr` → `/optimus:code-review`**. Steps 1–3 run in the same conversation as the implementation (continuation skills); `/optimus:code-review` runs in a fresh conversation and reads the PR description as author intent context.
+
+**Optional pre-commit self-review**: you can also run `/optimus:code-review` on local uncommitted changes *before* committing — it catches bugs and guideline violations without needing a PR. The post-PR review remains the canonical intent-vs-implementation check.
+
+Use `/optimus:commit-message` if you only want to preview the message without committing.
 
 ## Skill Structure
 

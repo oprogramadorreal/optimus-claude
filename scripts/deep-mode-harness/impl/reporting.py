@@ -69,14 +69,21 @@ def print_report(progress, current_branch=None, _get_branch=None):
             print(f"{PREFIX} To push checkpoint branch:    git push -u origin {branch}")
         print(f"{PREFIX}")
         print(f"{PREFIX} Next: run /optimus:commit to commit the fixes.")
-    elif termination["reason"] in ("parse-failure", "crash"):
+        # See references/skill-handoff.md "Continuation skills" for wording.
+        print(
+            f"{PREFIX} Tip: stay in this conversation when running "
+            f"`/optimus:commit` so the implementation context is captured. "
+            f"Other downstream skills (`/optimus:code-review`, etc.) should "
+            f"still run in fresh conversations."
+        )
+        return
+    if termination["reason"] in ("parse-failure", "crash"):
         print(
             f"{PREFIX} No fixes were retained. Check the test output above for details."
         )
         print(f"{PREFIX} To rollback everything: git reset --hard {base[:8]}")
     else:
         print(f"{PREFIX} No issues found — the codebase looks clean for this skill.")
-
     print(
         f"{PREFIX} Tip: start a fresh conversation for the next skill "
         f"— each skill gathers its own context from scratch."

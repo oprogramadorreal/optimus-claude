@@ -26,6 +26,14 @@ Common constraints, quality bar, exclusion rules, and false-positive guidance fo
 
 Up to **15** findings — only when each is a distinct root cause with supporting evidence. Do NOT pad to reach the cap: 3 strong findings are preferred over 15 weak ones.
 
+### Per-category budget exceptions
+
+Some categories defined in skill-specific `shared-constraints.md` files have **separate per-pass budgets** that compose *on top of* the 15 cap above — they are not crowded out by domain findings. Currently the only such category is:
+
+- **`Intent Mismatch`** (code-review, PR/MR mode only) — up to **5** additional findings per agent per pass. Defined in `skills/code-review/agents/shared-constraints.md`. The rationale is in that file; the cap exception lives here so it composes correctly with the 15-cap rule and is visible to any agent that reads this file.
+
+Skill-specific `shared-constraints.md` files MAY define additional per-category exceptions, but each must be listed here so the composition is explicit. Do not introduce hidden per-category budgets in skill-specific files.
+
 ## False Positives to Avoid
 
 - Apparently incorrect or unusual-looking but actually correct code (intentional deviations) — when evidence of intent is ambiguous, prefer to omit the finding rather than flag the deviation. This does not override flagging of genuine bugs, security issues, or guideline violations.
