@@ -38,7 +38,7 @@ Substitute `<continuation-skill(s)>` with the actual skill(s) — one (e.g., `/o
 
 When the closing block recommends **two or more** skills with a mix of continuation and non-continuation paths, emit:
 
-> **Tip:** for `<continuation-skills>`, stay in this conversation so they can capture the implementation context. For other downstream skills (`<non-continuation-examples>`), start a fresh conversation — each gathers its own context from scratch.
+> **Tip:** for `<continuation-skill(s)>`, stay in this conversation so they can capture the implementation context. For other downstream skills (`<non-continuation-examples>`), start a fresh conversation — each gathers its own context from scratch.
 
 Use commas + "and" for multiple continuation skills (e.g., `` `/optimus:commit` and `/optimus:pr` ``).
 
