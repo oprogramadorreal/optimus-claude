@@ -1,3 +1,4 @@
+import json
 import subprocess
 
 from .constants import BACKUP_SUFFIX
@@ -194,3 +195,147 @@ def restore_working_tree(stash_sha, head_commit, cwd, _run=None):
         if git_restore_snapshot(stash_sha, cwd, _run=_run):
             return
     git_restore_to(head_commit, cwd, _run=_run)
+
+
+def _verify_ref(cwd_str, ref):
+    """Return True if ``ref`` resolves locally via ``git rev-parse --verify``."""
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--verify", ref],
+            capture_output=True,
+            text=True,
+            cwd=cwd_str,
+            timeout=10,
+        )
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        return False
+    return result.returncode == 0
+
+
+def _fetch_open_pr_data(cwd_str):
+    """Return the parsed open-PR metadata dict, or ``None``."""
+    try:
+        result = subprocess.run(
+            ["gh", "pr", "view", "--json", "title,body,baseRefName,state"],
+            capture_output=True,
+            text=True,
+            cwd=cwd_str,
+            timeout=10,
+        )
+        if result.returncode != 0:
+            return None
+        pr_info = json.loads(result.stdout)
+    except (
+        subprocess.TimeoutExpired,
+        FileNotFoundError,
+        ValueError,
+        UnicodeDecodeError,
+    ):
+        return None
+    if not (isinstance(pr_info, dict) and pr_info.get("state") == "OPEN"):
+        return None
+    return pr_info
+
+
+def _base_from_open_pr(cwd_str):
+    """Return the open PR's base ref (e.g. ``origin/main``) if it exists locally."""
+    pr_info = _fetch_open_pr_data(cwd_str)
+    if not (pr_info and pr_info.get("baseRefName")):
+        return None
+    pr_base = f"origin/{pr_info['baseRefName']}"
+    return pr_base if _verify_ref(cwd_str, pr_base) else None
+
+
+def _base_from_symbolic_ref(cwd_str):
+    """Return the base ref from ``git symbolic-ref refs/remotes/origin/HEAD``."""
+    try:
+        result = subprocess.run(
+            ["git", "symbolic-ref", "refs/remotes/origin/HEAD"],
+            capture_output=True,
+            text=True,
+            cwd=cwd_str,
+            timeout=10,
+        )
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        return None
+    if result.returncode != 0:
+        return None
+    ref = result.stdout.strip()
+    if ref.startswith("refs/remotes/"):
+        return ref[len("refs/remotes/") :]
+    return None
+
+
+def _base_from_default_branches(cwd_str):
+    """Return the first of ``origin/main`` / ``origin/master`` that exists."""
+    for fallback in ("origin/main", "origin/master"):
+        if _verify_ref(cwd_str, fallback):
+            return fallback
+    return None
+
+
+def _detect_base_branch(cwd):
+    """Detect the base branch for the current feature branch."""
+    cwd_str = str(cwd)
+    return (
+        _base_from_open_pr(cwd_str)
+        or _base_from_symbolic_ref(cwd_str)
+        or _base_from_default_branches(cwd_str)
+    )
+
+
+def git_discover_branch_files(cwd, path_filter=None):
+    """Discover all files changed in the current feature branch vs. the base branch.
+
+    Returns ``(files, base_ref)`` — ``files`` is a list of repo-relative paths;
+    ``base_ref`` is the detected base (e.g. ``"origin/main"``) or ``None`` when
+    detection fails.
+    """
+    cwd_str = str(cwd)
+    base = _detect_base_branch(cwd)
+    if not base:
+        return [], None
+    cmd = ["git", "diff", "--name-only", f"{base}...HEAD"]
+    if path_filter:
+        cmd.extend(["--", path_filter])
+    try:
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            cwd=cwd_str,
+            timeout=30,
+        )
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        return [], base
+    if result.returncode != 0:
+        return [], base
+    files = [f for f in result.stdout.strip().splitlines() if f]
+    return files, base
+
+
+_PR_BODY_TRUNCATE_LIMIT = 4000
+_PR_TITLE_TRUNCATE_LIMIT = 500
+
+
+def git_fetch_open_pr_description(cwd):
+    """Return metadata for the current branch's open PR, or ``None``.
+
+    Returns ``{"title": str, "body": str, "base_ref": str | None}`` when an
+    open PR exists. Returns ``None`` for any failure mode (closed PR, no PR,
+    ``gh`` missing, timeout, malformed or non-UTF-8 output).
+    """
+    cwd_str = str(cwd)
+    pr_info = _fetch_open_pr_data(cwd_str)
+    if not pr_info:
+        return None
+    title = (pr_info.get("title") or "")[:_PR_TITLE_TRUNCATE_LIMIT]
+    body = pr_info.get("body") or ""
+    if len(body) > _PR_BODY_TRUNCATE_LIMIT:
+        body = body[:_PR_BODY_TRUNCATE_LIMIT] + "\n\n[...truncated...]"
+    base_ref_name = pr_info.get("baseRefName")
+    return {
+        "title": title,
+        "body": body,
+        "base_ref": f"origin/{base_ref_name}" if base_ref_name else None,
+    }
