@@ -55,7 +55,7 @@ from impl.constants import (
     PREFIX,
     PROGRESS_FILE_NAME,
 )
-from impl.convergence import (
+from harness_common.convergence import (
     check_coverage_plateau,
     check_refactor_convergence,
     check_unit_test_convergence,

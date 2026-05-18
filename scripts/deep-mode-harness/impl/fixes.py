@@ -7,8 +7,9 @@ from harness_common.fixes import (  # noqa: F401
     revert_single_fix,
 )
 
+from harness_common.findings import mark_finding_status
+
 from .constants import PREFIX
-from .findings import mark_finding_status
 from .runner import run_tests
 
 # Map shared bisect outcome strings to deep-mode finding statuses + default

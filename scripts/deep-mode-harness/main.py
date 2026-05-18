@@ -60,7 +60,7 @@ from impl.constants import (
     REVERTED_STATUSES,
     VALID_FOCUS_MODES,
 )
-from impl.findings import (
+from harness_common.findings import (
     finding_key,
     finding_matches,
     mark_all_fixed,

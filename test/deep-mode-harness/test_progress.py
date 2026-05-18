@@ -1,7 +1,7 @@
 import json
 from unittest.mock import patch
 
-from impl.findings import generate_finding_id
+from harness_common.findings import generate_finding_id
 from impl.progress import (
     make_initial_progress,
     migrate_progress,

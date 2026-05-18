@@ -1,4 +1,4 @@
-"""Convergence detection for the test-coverage harness."""
+"""Convergence detection for the coverage-paired orchestrator (unit-test + refactor)."""
 
 
 def check_unit_test_convergence(unit_test_output):

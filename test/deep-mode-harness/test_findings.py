@@ -1,5 +1,5 @@
 import pytest
-from impl.findings import (
+from harness_common.findings import (
     _escalate_revert_status,
     _truncate_failure_hint,
     finding_matches,

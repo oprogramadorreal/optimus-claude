@@ -1,4 +1,4 @@
-from .constants import FAILURE_STATUSES, PERSISTENT_STATUS, normalize_path
+from harness_common.constants import FAILURE_STATUSES, PERSISTENT_STATUS, normalize_path
 
 
 def generate_finding_id(progress):
@@ -75,7 +75,6 @@ def _escalate_revert_status(new_status, old_status):
 
 def mark_finding_status(progress, fix, status, detail):
     """Update a finding's status in the progress file."""
-    # Try to find existing finding by file+line+category match
     for existing in progress["findings"]:
         if finding_matches(existing, fix):
             effective_status = _escalate_revert_status(status, existing["status"])
@@ -89,14 +88,12 @@ def mark_finding_status(progress, fix, status, detail):
                     "detail": detail,
                 }
             )
-            # Store compact failure context for the next iteration's prompt
             if effective_status in FAILURE_STATUSES:
                 existing["last_failure_hint"] = _truncate_failure_hint(detail)
             elif effective_status == "fixed":
                 existing.pop("last_failure_hint", None)
             return
 
-    # Not found — add as new finding
     new_finding = _new_finding_from_fix(fix, progress, status, detail)
     progress["findings"].append(new_finding)
 
@@ -126,7 +123,6 @@ def update_scope(progress, result):
         if fix_file:
             finding_files.add(fix_file)
 
-    # Merge with existing scope
     current = set(progress["scope_files"]["current"])
     current.update(finding_files)
     progress["scope_files"]["current"] = sorted(current)
