@@ -219,6 +219,8 @@ def _fetch_open_pr_data(cwd_str):
             ["gh", "pr", "view", "--json", "title,body,baseRefName,state"],
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             cwd=cwd_str,
             timeout=10,
         )

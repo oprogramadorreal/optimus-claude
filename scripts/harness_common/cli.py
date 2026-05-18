@@ -144,6 +144,7 @@ def _make_coverage_progress(scope, max_cycles, test_command, project_root, base_
         "refactor_findings": [],
         "bugs_discovered": [],
         "cycle_history": [],
+        "scope_files": {"current": []},
         "test_results": {"last_full_run": None, "last_run_output_summary": None},
         "termination": {"reason": None, "message": None},
     }
@@ -534,19 +535,21 @@ def cmd_snapshot(args):
     if not head:
         print("ERROR: Cannot determine HEAD commit", file=sys.stderr)
         return 1
-    stash_sha = None
-    if args.include_stash:
-        stash_sha = git_stash_snapshot(project_root)
     progress.setdefault("_snapshot", {})
     progress["_snapshot"]["pre_head"] = head
-    progress["_snapshot"]["pre_stash"] = stash_sha
+    if args.include_stash:
+        progress["_snapshot"]["pre_stash"] = git_stash_snapshot(project_root)
     write_progress(progress_path, progress)
     print(head)
     return 0
 
 
 def cmd_parse(args):
-    raw = Path(args.input_file).read_text(encoding="utf-8")
+    try:
+        raw = Path(args.input_file).read_text(encoding="utf-8", errors="replace")
+    except OSError as exc:
+        print(f"ERROR: Cannot read {args.input_file}: {exc}", file=sys.stderr)
+        return 1
     parsed = parse_harness_output(raw)
     if parsed is None:
         print(
@@ -628,8 +631,6 @@ def cmd_deep_step(args):
         progress, iteration, new_count, fixed, reverted, test_passed
     )
     update_scope(progress, result)
-    write_progress(progress_path, progress)
-
     if all_reverted:
         progress["termination"] = {
             "reason": "all-reverted",
@@ -638,6 +639,7 @@ def cmd_deep_step(args):
         write_progress(progress_path, progress)
         print("all-reverted")
         return 0
+    write_progress(progress_path, progress)
     print(f"applied fixed={fixed} reverted={reverted} test_passed={int(test_passed)}")
     return 0
 
@@ -703,15 +705,35 @@ def cmd_unit_test_step(args):
     passed, summary = run_tests(test_command, project_root)
     record_test_result(progress, passed, summary)
 
+    # Refresh refactor-phase scope from pending untestable items so the refactor
+    # subagent's harness-mode protocol sees the items via scope_files.current
+    # (per references/coverage-harness-mode.md "Refactor Phase Execution").
+    pending_files = sorted(
+        {
+            normalize_path(item["file"])
+            for item in progress["untestable_code"]
+            if item.get("status") == "pending" and item.get("file")
+        }
+    )
+    progress.setdefault("scope_files", {"current": []})
+    progress["scope_files"]["current"] = pending_files
+
     progress["phase"] = "unit-test"
-    write_progress(progress_path, progress)
 
     converged, reason = check_unit_test_convergence(result)
     if converged:
+        # Record the cycle that just ran before terminating — the orchestrator
+        # loop skips step 10 (record-cycle) on the converged path, so the
+        # final report would otherwise miss this cycle in cycle_history.
+        progress["cycle_history"].append(
+            {"cycle": cycle, "unit_test": {"converged": True}}
+        )
+        progress["cycle"]["completed"] = cycle
         progress["termination"] = {"reason": "convergence", "message": reason}
         write_progress(progress_path, progress)
         print("converged")
         return 0
+    write_progress(progress_path, progress)
     print("continue")
     return 0
 
@@ -720,7 +742,7 @@ def cmd_refactor_step(args):
     """Process the refactor (testability) phase of a unit-test-deep cycle.
 
     Inputs: progress file path, result file path (refactor phase JSON).
-    Output: one of converged | applied | no-actionable | continue
+    Output: one of converged | applied
     """
     progress_path = Path(args.progress_file)
     progress = read_progress(progress_path)
@@ -794,7 +816,7 @@ def cmd_refactor_step(args):
                             finding.get("cycle") == cycle
                             and finding.get("status") in FIXED_STATUSES
                         ):
-                            finding["status"] = "reverted — combined regression"
+                            finding["status"] = "reverted — test failure"
                             fixed_count -= 1
                             reverted_count += 1
             test_passed = passed
@@ -807,14 +829,27 @@ def cmd_refactor_step(args):
                 item["refactor_attempt_cycle"] = cycle
 
     progress["phase"] = "refactor"
-    write_progress(progress_path, progress)
 
     converged, reason = check_refactor_convergence(result)
     if converged:
+        # Record the cycle that just ran before terminating — the orchestrator
+        # loop skips step 10 (record-cycle) on the converged path.
+        progress["cycle_history"].append(
+            {
+                "cycle": cycle,
+                "refactor": {
+                    "converged": True,
+                    "fixed": fixed_count,
+                    "reverted": reverted_count,
+                },
+            }
+        )
+        progress["cycle"]["completed"] = cycle
         progress["termination"] = {"reason": "convergence", "message": reason}
         write_progress(progress_path, progress)
         print("converged")
         return 0
+    write_progress(progress_path, progress)
     # Coverage plateau check happens at cycle boundary via check-termination
     print(
         f"applied fixed={fixed_count} reverted={reverted_count} test_passed={int(test_passed)}"

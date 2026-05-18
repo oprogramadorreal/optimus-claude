@@ -1,5 +1,5 @@
 ---
-description: Iterative auto-fix code review — runs `/optimus:code-review` in a fresh subagent context per iteration, applies fixes, runs tests, bisects failures, and continues until convergence or the iteration cap (default 8, hard cap 20). Each iteration runs in an isolated subagent so context does not accumulate. Requires a test command in .claude/CLAUDE.md. Use when single-pass review leaves issues, for thorough cleanup before a release, or when context-bloat is degrading deep-mode output quality.
+description: Iterative auto-fix code review — runs `/optimus:code-review` in a fresh subagent context per iteration, applies fixes, runs tests, bisects failures, and continues until convergence or the iteration cap (default 8, hard cap 20). Each iteration runs in an isolated subagent so context does not accumulate. Requires a test command in .claude/CLAUDE.md. Use when single-pass review leaves issues or for thorough cleanup before a release.
 disable-model-invocation: true
 ---
 
@@ -19,8 +19,7 @@ Extract from the user's arguments:
 1. `--resume` flag (present/absent)
 2. `--no-commit` flag (present/absent)
 3. `--max-iterations N` (optional, default 8, hard cap 20)
-4. `--branch` flag (present/absent) — passed through to the base skill as scope-discovery hint
-5. Everything else → scope text (natural-language description or path; e.g., `"focus on src/auth"`)
+4. Everything else → scope text (natural-language description or path; e.g., `"focus on src/auth"`)
 
 Examples:
 - `/optimus:code-review-deep` → 8 iterations on the branch diff
@@ -120,14 +119,7 @@ The orchestrator skill applies fixes automatically across all iterations; user a
 
 Recommend the user run `/optimus:commit` next. Tell the user: **Tip:** stay in this conversation when running `/optimus:commit` so the implementation context is captured. Other downstream skills (`/optimus:pr`, `/optimus:code-review`, `/optimus:unit-test`) should still run in fresh conversations.
 
-## When a base skill's harness-mode output cannot be parsed
-
-If the CLI's `parse` subcommand exits non-zero, the subagent emitted no `json:harness-output` block. Common causes:
-- The subagent hit its tool budget or token limit and stopped mid-response.
-- The base SKILL.md does not detect `HARNESS_MODE_INLINE` in the prompt body (regression — see `references/harness-mode.md`).
-- The subagent fell into interactive mode and hung on `AskUserQuestion`.
-
-When this happens once: warn the user but continue (the iteration is a no-op, the loop moves on). When this happens twice in a row: stop, mark the termination reason as `parse-failure`, and surface the error for the user to investigate.
+Parse-failure recovery (when the subagent emits no `json:harness-output` block) is handled per `$CLAUDE_PLUGIN_ROOT/references/orchestrator-loop-single.md` "Parse-failure recovery".
 
 ## Tip
 

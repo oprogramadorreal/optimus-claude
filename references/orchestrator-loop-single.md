@@ -3,7 +3,8 @@
 ## Contents
 1. [Per-iteration body](#per-iteration-body) — steps 1–8
 2. [Loop control invariants](#loop-control-invariants)
-3. [After the loop](#after-the-loop)
+3. [Parse-failure recovery](#parse-failure-recovery)
+4. [After the loop](#after-the-loop)
 
 Shared iteration template for `/optimus:code-review-deep` and `/optimus:refactor-deep`. Each orchestrator skill dispatches its base skill into a fresh subagent context per iteration, parses the structured JSON the base skill emits, and uses the harness CLI to manage state, test/bisect, and decide termination.
 
@@ -117,6 +118,15 @@ Increments `iteration.current`. Then loop back to step 1.
 - **Slice-only progress reads.** Do not read the full progress file's `findings` array between iterations in the orchestrator's own context. The CLI's `check-termination` returns a single word; trust it.
 - **Subagent output is text, not state.** Treat each subagent's return as a one-time payload. Save it to a temp file, parse it, then forget it. Do not keep the raw output in the orchestrator's conversation.
 - **Re-entry guard.** If the orchestrator's own invocation prompt already contains `HARNESS_MODE_INLINE`, stop with `"Deep mode cannot run inside deep mode"`. This prevents a misbehaving subagent from triggering recursion.
+
+## Parse-failure recovery
+
+If the CLI's `parse` subcommand exits non-zero, the subagent emitted no `json:harness-output` block. Common causes:
+- The subagent hit its tool budget or token limit and stopped mid-response.
+- The base SKILL.md does not detect `HARNESS_MODE_INLINE` in the prompt body (regression — see `references/harness-mode.md`).
+- The subagent fell into interactive mode and hung on `AskUserQuestion`.
+
+When this happens once: warn the user but continue (the iteration is a no-op, the loop moves on). When this happens twice in a row: stop, mark the termination reason as `parse-failure`, and surface the error for the user to investigate.
 
 ## After the loop
 

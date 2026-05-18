@@ -1,4 +1,9 @@
-from harness_common.constants import FAILURE_STATUSES, PERSISTENT_STATUS, normalize_path
+from harness_common.constants import (
+    APPLIED_PENDING_TEST,
+    FAILURE_STATUSES,
+    PERSISTENT_STATUS,
+    normalize_path,
+)
 
 
 def generate_finding_id(progress):
@@ -65,6 +70,13 @@ def _escalate_revert_status(new_status, old_status):
     """Escalate repeated test-failure reverts: failure → attempt 2 → persistent."""
     if old_status == PERSISTENT_STATUS:
         return PERSISTENT_STATUS
+    # Preserve revert-counter state across the APPLIED_PENDING_TEST write so a
+    # subsequent "reverted — test failure" can escalate to "attempt 2" / persistent.
+    if new_status == APPLIED_PENDING_TEST and old_status in {
+        "reverted — test failure",
+        "reverted — attempt 2",
+    }:
+        return old_status
     if new_status == "reverted — test failure":
         if old_status == "reverted — test failure":
             return "reverted — attempt 2"

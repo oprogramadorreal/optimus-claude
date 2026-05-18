@@ -168,3 +168,4 @@ python -m harness_common.cli final-report \
 - Tests written by the unit-test phase that fail are recorded with status `fail-fixed` or `fail-abandoned` by the base skill; the CLI does not retest them.
 - Coverage delta is computed from `coverage.before` and `coverage.after` reported by the unit-test subagent. The CLI records the history; the orchestrator skill does not need to inspect it directly.
 - The orchestrator skill never reads the full `untestable_code` array between cycles — only `pending-refactor-count` decides whether to dispatch the refactor phase.
+- **Parse-failure recovery:** identical to the single-loop variant — see `orchestrator-loop-single.md` "Parse-failure recovery". The rule applies to both phase dispatches (unit-test and refactor); a parse failure in either phase counts toward the two-consecutive-failures threshold.
