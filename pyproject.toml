@@ -1,4 +1,4 @@
 [tool.pytest.ini_options]
-# importlib mode allows test files with the same name across different directories
-# (e.g., test/deep-mode-harness/test_git.py and test/harness-common/test_git.py)
+# importlib mode allows test files with the same name across different test trees
+# without sys.modules collisions. Kept for general robustness.
 addopts = "--import-mode=importlib"

@@ -3,7 +3,7 @@
 </div>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-1.83.0-blue" alt="Version">
+  <img src="https://img.shields.io/badge/version-2.0.0-blue" alt="Version">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
   <img src="https://img.shields.io/badge/Claude_Code-1.0.33+-blueviolet" alt="Claude Code">
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey" alt="Platform">
@@ -98,8 +98,8 @@ The result: consistent patterns, meaningful names, and lean context across every
 
 1. **Safety guardrails** — `/optimus:permissions` for branch protection, precious file safety, and streamlined tool permissions
 2. **Initial setup** — `/optimus:init` to generate project context and set up test infrastructure (audits and updates if already present)
-3. **Test coverage** — `/optimus:unit-test` to write tests and improve coverage (or `/optimus:unit-test deep harness` for automated multi-cycle coverage + testability refactoring with fresh context per phase)
-4. **Code quality** — `/optimus:refactor` for full codebase refactoring against your coding guidelines and testability (if unit-test flagged untestable code, use `/optimus:refactor testability` then re-run `/optimus:unit-test` after refactoring — or use `/optimus:unit-test deep harness` which automates this cycle)
+3. **Test coverage** — `/optimus:unit-test` to write tests and improve coverage (or `/optimus:unit-test-deep` for an automated multi-cycle coverage + testability refactoring loop with fresh context per phase)
+4. **Code quality** — `/optimus:refactor` for full codebase refactoring against your coding guidelines and testability (if unit-test flagged untestable code, use `/optimus:refactor testability` then re-run `/optimus:unit-test` after refactoring — or use `/optimus:unit-test-deep` which automates this cycle)
 
 **During development:**
 

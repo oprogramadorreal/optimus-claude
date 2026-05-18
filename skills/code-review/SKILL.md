@@ -1,5 +1,5 @@
 ---
-description: Reviews local changes, PRs/MRs, or branch diffs against project coding guidelines using 5 to 7 parallel review agents (bug detection, security/logic, guideline compliance x2, code simplification, test coverage, contract quality). Use before committing, on open PRs/MRs, or to review any branch diff. HIGH SIGNAL only: real bugs, logic errors, security concerns, and guideline violations. Supports a "deep" mode for iterative auto-fix — reviews and fixes code in a loop until clean.
+description: Reviews local changes, PRs/MRs, or branch diffs against project coding guidelines using 5 to 7 parallel review agents (bug detection, security/logic, guideline compliance x2, code simplification, test coverage, contract quality). Use before committing, on open PRs/MRs, or to review any branch diff. HIGH SIGNAL only: real bugs, logic errors, security concerns, and guideline violations. For iterative auto-fix in a loop, use `/optimus:code-review-deep`.
 disable-model-invocation: true
 ---
 
@@ -12,21 +12,17 @@ Analyze local git changes (or a PR/MR) against the project's coding guidelines, 
 ### Parse invocation arguments
 
 Extract from the user's arguments:
-1. `deep` flag (present/absent)
-2. `harness` keyword after `deep` (present/absent)
-3. `--branch` flag (present/absent) — overrides Step 3's PR auto-route. Has no effect when local changes are present or when an explicit PR is requested (`--pr N`, `#N`, or a PR URL). Recorded as `force-branch-diff` for Step 3.
-4. Everything else → scope/focus instructions (natural language, including PR numbers, paths, refs)
+1. `--branch` flag (present/absent) — overrides Step 3's PR auto-route. Has no effect when local changes are present or when an explicit PR is requested (`--pr N`, `#N`, or a PR URL). Recorded as `force-branch-diff` for Step 3.
+2. Everything else → scope/focus instructions (natural language, including PR numbers, paths, refs)
 
 Examples:
-- `/optimus:code-review` → local changes, normal mode
-- `/optimus:code-review src/auth` → scope to path, normal mode
-- `/optimus:code-review --pr 42` or `/optimus:code-review #42` → PR mode, normal
+- `/optimus:code-review` → local changes
+- `/optimus:code-review src/auth` → scope to path
+- `/optimus:code-review --pr 42` or `/optimus:code-review #42` → PR mode
 - `/optimus:code-review --branch` → branch diff against the detected base, skip PR auto-route
-- `/optimus:code-review deep` → local changes, deep mode (8 iterations)
-- `/optimus:code-review deep --branch` → branch diff against the detected base, deep mode
-- `/optimus:code-review deep "focus on src/auth"` → scoped, deep mode
-- `/optimus:code-review deep harness` → harness mode (present command and stop)
-- `/optimus:code-review deep harness "focus on src/auth"` → harness mode, scoped
+- `/optimus:code-review "focus on src/auth"` → scoped
+
+For iterative auto-fix in a loop, use `/optimus:code-review-deep` instead.
 
 ### Multi-repo workspace detection
 
@@ -40,44 +36,11 @@ Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/multi-repo-detection.md` for wo
 
 Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/prerequisite-check.md` and apply the prerequisite check (CLAUDE.md + coding-guidelines.md existence, fallback logic).
 
-## Step 2: Deep Mode Activation
+## Step 2: Inline Harness Mode Detection
 
-### Harness mode detection
+If your invocation prompt body contains `HARNESS_MODE_INLINE`, you are running inside the `/optimus:code-review-deep` orchestrator as a single iteration. Read `$CLAUDE_PLUGIN_ROOT/references/harness-mode.md` and follow its single-iteration execution protocol. The reference covers progress file reading, state initialization, scope and file-list rules, agent-prompt overrides, and the apply/output protocol. Proceed through Steps 3, 4, 5, 6, and 7 — skip the user confirmation in Step 8 (the orchestrator handles iteration approval upfront), apply the fixes mechanically, then emit the structured JSON via the harness-mode output protocol and stop. Do not use `AskUserQuestion`. Do not loop.
 
-If the system prompt contains `HARNESS_MODE_ACTIVE`, read `$CLAUDE_PLUGIN_ROOT/references/harness-mode.md` and follow its single-iteration execution protocol. The reference covers progress file reading, state initialization, scope and file-list rules, Step 3 / Step 4 overrides under harness mode, and the Step 9 apply/output protocol. Then proceed through Step 3, Step 4, and Step 5 — skip only the Step 2 user confirmation.
-
-If `HARNESS_MODE_ACTIVE` is NOT in the system prompt, continue with the standard interactive flow below.
-
-### Skill-triggered harness invocation
-
-If the `harness` keyword was detected in Step 1, read the **Skill-Triggered Invocation** section of `$CLAUDE_PLUGIN_ROOT/references/harness-mode.md` and follow its steps. Pass:
-- `skill_name` = `code-review`
-- `scope` = scope text from Step 1 argument parsing
-- `max_iterations` = not specified (use harness default)
-
-The reference protocol presents the command and stops. Do not proceed to Step 3 or any remaining steps.
-
-### Interactive deep mode
-
-If the `deep` flag was detected in Step 1 (without `harness`), activate deep mode. Deep mode loops review-fix cycles (Steps 5–9) until zero new findings remain or **8 iterations** are reached, then presents a single consolidated report with all fixes already applied as local changes.
-
-Before proceeding, check whether a test command is available (from `.claude/CLAUDE.md`). If no test command exists, deep mode's auto-apply loop has no safety net — fall back to normal mode and warn: "Deep mode requires a test command for safe auto-apply. Falling back to normal mode — re-run `/optimus:init` to set up test infrastructure first." Then continue with the standard single-pass flow.
-
-If a test command is available, warn the user:
-
-> **Deep mode** runs up to 8 iterative review-fix passes. Each iteration is a full multi-agent review cycle — credit and time consumption multiplies with iteration count. Fixes are applied automatically at each iteration without per-change approval. Low test coverage increases the chance of undetected breakage; consider running `/optimus:unit-test` first to strengthen the safety net. Each iteration also accumulates context — on large codebases, output quality may degrade in later iterations.
->
-> Test command: `[test command from CLAUDE.md]`
-
-Then use `AskUserQuestion` — header "Deep mode", question "Proceed with deep mode?":
-- **Start deep mode** — "Run iterative review-fix until clean (max 8 iterations)"
-- **Normal mode** — "Single pass with manual approval instead"
-
-Tell the user: *Tip: For large codebases or extended sessions, re-run with `/optimus:code-review deep harness` to launch the external harness with fresh context per iteration.*
-
-If the user did not invoke with `deep`, skip this step.
-
-If the user selects **Normal mode**, continue with the standard single-pass flow. Record the user's choice as a `deep-mode` flag for subsequent steps. If deep mode is confirmed, initialize `iteration-count` to 1, `total-fixed` to 0, `total-reverted` to 0, and `accumulated-findings` to an empty list. Each entry in `accumulated-findings` tracks: **file** (with line), **category** (Bug, Security, Guideline Violation, Code Quality, Test Coverage Gap, Contract Quality, Intent Mismatch), **guideline** (the specific project rule, or "General: bug/security/contract quality"; for Intent Mismatch findings the literal string `Intent (see Intent claim)`), **intent claim** (only for Intent Mismatch — the quoted claim from `## Intent`), **summary** (one-sentence description of the issue), **fix description** (brief description of the fix applied or attempted), **iteration** (which iteration discovered it), and **status** (updated through apply/test phases). See Step 7 "Deep mode accumulation" for the canonical entry-shape spec.
+If `HARNESS_MODE_INLINE` is NOT present, continue with the standard interactive flow below.
 
 ## Step 3: Determine Review Scope
 
@@ -214,9 +177,9 @@ Read the agent prompt files from `$CLAUDE_PLUGIN_ROOT/skills/code-review/agents/
 
 If a `pr-description` was captured in Step 3 and its body is non-empty, prepend the PR/MR context block to every agent prompt before the file list. Read `$CLAUDE_PLUGIN_ROOT/skills/code-review/agents/context-blocks.md` for the template, truncation rule, and guardrail language.
 
-### Iteration context injection (deep mode, iterations 2+)
+### Iteration context injection (harness mode, iterations 2+)
 
-If deep mode is active and `iteration-count` > 1, prepend the iteration context block to every agent prompt before the file list (after the PR/MR context block, if present). Read `$CLAUDE_PLUGIN_ROOT/skills/code-review/agents/context-blocks.md` for the template and format.
+When running under `HARNESS_MODE_INLINE` and the progress file's `iteration.current` is greater than 1, prepend the iteration context block to every agent prompt before the file list (after the PR/MR context block, if present). Read `$CLAUDE_PLUGIN_ROOT/skills/code-review/agents/context-blocks.md` for the template and format.
 
 ### Agent overview
 
@@ -310,13 +273,9 @@ See `agents/shared-constraints.md` "Severity" for the canonical Intent Mismatch 
 
 ### Finding cap
 
-Maximum **15 domain findings** across all sources (Bug / Security / Guideline / Code Quality / Test Gap / Contract Quality), prioritized by severity then confidence. **`Intent Mismatch` findings are surfaced on top of the 15-cap, up to 5 in the aggregated report** — deduplicated across the emitting agents (each agent's per-pass +5 budget is registered canonically in `$CLAUDE_PLUGIN_ROOT/references/shared-agent-constraints.md` "Per-category budget exceptions"), sorted by severity, and presented after the domain findings. If more issues exist, note the count (e.g., "15 of ~24 findings shown") and suggest re-running with a narrower scope or using `/optimus:code-review deep` for exhaustive review.
+Maximum **15 domain findings** across all sources (Bug / Security / Guideline / Code Quality / Test Gap / Contract Quality), prioritized by severity then confidence. **`Intent Mismatch` findings are surfaced on top of the 15-cap, up to 5 in the aggregated report** — deduplicated across the emitting agents (each agent's per-pass +5 budget is registered canonically in `$CLAUDE_PLUGIN_ROOT/references/shared-agent-constraints.md` "Per-category budget exceptions"), sorted by severity, and presented after the domain findings. If more issues exist, note the count (e.g., "15 of ~24 findings shown") and suggest re-running with a narrower scope or using `/optimus:code-review-deep` for exhaustive review.
 
-### Deep mode accumulation
-
-**Deep mode:** Instead of presenting the output format below, append this iteration's validated findings to `accumulated-findings`. Each entry tracks: **file** (with line), **category** (Bug, Security, Guideline Violation, Code Quality, Test Coverage Gap, Contract Quality, Intent Mismatch), **guideline** (the specific project rule; for Intent Mismatch findings the literal string `Intent (see Intent claim)`), **intent claim** (only for Intent Mismatch — the quoted claim from `## Intent`), **summary** (one-sentence description of the issue), **fix description** (brief description of the fix applied or attempted), **iteration** (which iteration discovered it), and **status** (updated through apply/test phases). For each appended finding, record the current `iteration-count` as the finding's iteration number, and preserve the agent's guideline citation, intent claim (when present), and issue description as the finding's guideline, intent claim, and summary fields. Deduplicate against previous iterations: if a finding matches an existing entry by file + line range + category, skip it if the existing entry is marked "(fixed)". If the existing entry is marked "(persistent — fix failed)", annotate the new entry as "(persistent — fix failed)". If the existing entry is marked "(reverted — test failure)", keep the new entry as "(reverted — attempt 2)" so Step 9 retries the fix once more; only promote to "(persistent — fix failed)" if it is reverted again. Then proceed directly to Step 9.
-
-**Normal mode:** Present findings using the output format below, then proceed to Step 8.
+Present findings using the output format below, then proceed to Step 8.
 
 ### Output format
 
@@ -362,9 +321,7 @@ For PR mode, include full-SHA code links:
 - **GitHub:** `https://github.com/owner/repo/blob/[full-sha]/path#L[start]-L[end]`
 - **GitLab:** Extract the instance URL from `git remote get-url origin` (e.g., `https://gitlab.company.com`), then use: `https://[gitlab-host]/owner/repo/-/blob/[full-sha]/path#L[start]-L[end]`
 
-## Step 8: Offer Actions (Normal Mode)
-
-**Deep mode:** Skip this step — proceed directly to Step 9.
+## Step 8: Offer Actions
 
 If the verdict is **CHANGES LOOK GOOD** (no findings), skip this step — do not present any action prompt. Go directly to the recommendation in the "Important" section below.
 
@@ -388,107 +345,17 @@ Write the review summary to a temp file in the current working directory: `TMPFI
 For GitHub PRs: `gh pr comment <N> --body-file "$TMPFILE"`
 For GitLab MRs: `glab api -X POST "projects/:id/merge_requests/<N>/notes" -F body=@"$TMPFILE"` — this avoids shell metacharacter issues that `glab mr note --message "$(cat ...)"` would have with code snippets in the summary
 
-## Step 9: Apply and Iterate (Deep Mode)
-
-**Normal mode:** Skip this step.
-
-### Convergence check
-
-If zero findings were added to `accumulated-findings` in this iteration (Step 7 found nothing new), deep mode has converged. Report: "Deep mode complete — no new findings on iteration [N]." Skip to the **Consolidated report** below.
-
-### Apply fixes
-
-Apply all validated findings from this iteration using Edit or MultiEdit, skipping any annotated "(persistent — fix failed)" (these have already failed in a prior iteration). For each fix, record which file was modified and what the pre-edit content was (you will need this for revert if tests fail).
-
-### Test and verify
-
-Run the project's test command (from `.claude/CLAUDE.md`). Follow the verification protocol from `$CLAUDE_PLUGIN_ROOT/skills/init/references/verification-protocol.md` — run tests fresh, read complete output, report actual results with evidence.
-
-- **If tests pass** → all fixes are valid. Annotate each applied finding as "(fixed)" in `accumulated-findings`. Add the count of applied fixes to `total-fixed`.
-- **If tests fail** → revert all changes from this iteration, then re-apply fixes one at a time with a test run after each. Keep fixes that pass, skip those that fail. For each failed fix: if the finding is already annotated "(reverted — attempt 2)", promote it to "(persistent — fix failed)"; otherwise record it as "(reverted — test failure)". Add kept fixes to `total-fixed` and failed fixes to `total-reverted`.
-
-### Termination check
-
-After applying fixes and running tests, check termination conditions in order:
-
-1. **All fixes this iteration were reverted** due to test failures → stop to prevent a loop of failed attempts. Report: "Deep mode stopped — all fixes in iteration [N] caused test failures."
-2. **No fixes were applied** (all findings lacked actionable code edits) → stop. Report: "Deep mode stopped — remaining findings require manual review."
-3. **`iteration-count` equals 8** → cap reached. Report: "Deep mode reached the iteration cap (8). Remaining findings may exist — continue in a fresh conversation: re-run `/optimus:code-review deep`, or narrow scope with `/optimus:code-review deep \"focus on <area>\"`."
-4. **Otherwise** → continue to the next pass (iteration report and loop-back below).
-
-**For all four conditions above**, present the iteration report immediately after the termination/continuation message. This report is informational and non-blocking — no user prompt follows:
-
-```
-#### Iteration [N] — Report
-
-| # | File | What Changed | Reason | Guideline / Category | Status |
-|---|------|-------------|--------|---------------------|--------|
-[one row per finding attempted in THIS iteration from accumulated-findings where iteration == current]
-```
-
-Column definitions:
-- **#** — Sequential number within this iteration
-- **File** — `file:line`
-- **What Changed** — Brief description of the fix applied or attempted
-- **Reason** — Why the change was needed (the issue/problem)
-- **Guideline / Category** — The specific project guideline violated (or "General: bug/security/contract quality" for non-guideline findings, or `Intent (see Intent claim)` for Intent Mismatch), plus the category (Bug, Security, Guideline Violation, Code Quality, Test Coverage Gap, Contract Quality, Intent Mismatch)
-- **Status** — `fixed`, `reverted — test failure`, `reverted — attempt 2`, or `persistent — fix failed`
-
-For condition 4 (continue), after presenting the iteration report also show the progress summary: "Iteration [N] of up to 8 — [total-fixed] findings fixed so far, [total-reverted] reverted. Starting next pass..." If the **next** iteration will be 3 or higher, append to the progress summary: "Note: context is accumulating — if output quality degrades, consider finishing remaining findings in a fresh conversation." Then increment `iteration-count` and **return to Step 5** for the next analysis pass. When returning to Step 5, re-gather the current diff (the codebase has changed due to applied fixes) and focus agents on files that had findings in any previous iteration plus any newly modified files.
-
-### Consolidated report
-
-After the loop ends (by convergence, termination, or cap), present the consolidated report in two parts.
-
-**Part 1 — Cumulative summary table:**
-
-```
-## Code Review — Deep Mode Cumulative Report
-
-**Summary:**
-- Total iterations: [N]
-- Total findings fixed: [N]
-- Total findings reverted (test failures): [N]
-- Total findings persistent (fix failed): [N]
-- Final test status: pass / fail / not available
-
-**All Changes:**
-
-| # | Iter | File | What Changed | Reason | Guideline / Category | Status |
-|---|------|------|-------------|--------|---------------------|--------|
-[one row per finding from accumulated-findings, across all iterations, ordered by iteration then sequence]
-```
-
-Column definitions match the per-iteration report table, plus:
-- **Iter** — Which iteration discovered/attempted this finding
-
-The summary statistics provide a quick overview; the detailed table provides full auditability of every change attempted across all iterations.
-
-**Part 2 — Detailed findings:**
-
-After the cumulative table, present ALL `accumulated-findings` using the same detailed output format from Step 7 (with Summary block, Change Summary, and individual Findings with code snippets). Add these fields to the Summary block:
-
-```
-- Total iterations: [N]
-- Total findings fixed: [N]
-- Total findings reverted (test failures): [N]
-- Total findings persistent (fix failed): [N]
-```
-
-Mark each finding's status: "(fixed)", "(reverted — test failure)", "(reverted — attempt 2)", or "(persistent — fix failed)".
-
 ## Important
 
-- Never modify files, commit, push, or post comments without explicit user approval (deep mode has explicit approval via the confirmation step in Step 2 — all changes remain as local modifications for the user to review with `git diff` before committing)
+- Never modify files, commit, push, or post comments without explicit user approval — all changes remain as local modifications for the user to review with `git diff` before committing
 - This skill is read-only by default — it only analyzes and reports
 - When changes are too broad for effective review, recommend narrowing scope
 
 After the review is complete, recommend the next step based on the outcome:
 - If issues were found and fixed → `/optimus:commit` to commit the fixes
-- If deep mode was used → `/optimus:commit` to commit the accumulated fixes, then consider `/optimus:unit-test` to strengthen test coverage
 - If no issues or user skipped fixes → `/optimus:pr` to create a pull request (skip this if already reviewing a PR/MR)
 
 Tell the user:
 
-- The closing tip per `$CLAUDE_PLUGIN_ROOT/references/skill-handoff.md` "Closing tip wording" — if the "issues found and fixed" bullet fires, use **Variant A** with `<continuation-skill(s)>` = `/optimus:commit`. If the "deep mode" bullet fires, use **Variant B** with `<continuation-skill(s)>` = `/optimus:commit` and `<non-continuation-examples>` = `/optimus:unit-test`, etc. If the "no issues / fixes skipped" bullet fires, use **Variant A** with `<continuation-skill(s)>` = `/optimus:pr`.
-- **Tip (normal mode only):** Single-pass review can miss issues due to LLM attention limits. Run `/optimus:code-review deep` to iterate automatically — it fixes, tests, and repeats until clean (max 8 passes). Requires a test command in `.claude/CLAUDE.md`.
+- The closing tip per `$CLAUDE_PLUGIN_ROOT/references/skill-handoff.md` "Closing tip wording" — if the "issues found and fixed" bullet fires, use **Variant A** with `<continuation-skill(s)>` = `/optimus:commit`. If the "no issues / fixes skipped" bullet fires, use **Variant A** with `<continuation-skill(s)>` = `/optimus:pr`.
+- **Tip:** Single-pass review can miss issues due to LLM attention limits. Run `/optimus:code-review-deep` to iterate automatically — it fixes, tests, and repeats until clean (default 8 passes, hard cap 20). Requires a test command in `.claude/CLAUDE.md`.

@@ -13,32 +13,28 @@ Read the root README.md to understand the plugin's full capabilities — skills,
 - `.claude-plugin/` — plugin manifests (plugin.json, marketplace.json)
 - `agents/` — plugin-level agent definitions (code-simplifier, test-guardian)
 - `hooks/` — plugin-level hooks (SessionStart for project state awareness)
-- `references/` — shared reference docs consumed across skills (agent-architecture, shared-agent-constraints, context-injection-blocks, harness-mode, coverage-harness-mode, scope-expansion-rule, sdd-mapping, skill-handoff)
+- `references/` — shared reference docs consumed across skills (agent-architecture, shared-agent-constraints, context-injection-blocks, harness-mode, coverage-harness-mode, orchestrator-loop-single, orchestrator-loop-paired, scope-expansion-rule, sdd-mapping, skill-handoff)
 - `skills/<name>/` — one directory per skill (SKILL.md + README.md + optional agents/, templates/, and references/)
 - `scripts/` — validation and test scripts (CI and local)
-- `scripts/harness_common/` — shared modules used by both harnesses
-- `scripts/deep-mode-harness/` — deep-mode harness orchestrator
-- `scripts/test-coverage-harness/` — test-coverage harness orchestrator
+- `scripts/harness_common/` — shared modules + `cli.py` invoked by the `*-deep` orchestrator skills
 - `test/` — expected outputs and generated fixtures for skill tests
-- `test/harness-common/` — tests for shared harness modules
-- `test/deep-mode-harness/` — tests for the deep-mode harness
-- `test/test-coverage-harness/` — tests for the test-coverage harness
+- `test/harness-common/` — tests for the orchestrator CLI and shared modules
 - `.claude/` — project-level Claude Code settings and hooks
 
 ## Commands
 
 ```bash
-bash scripts/validate.sh && bash scripts/test-hooks.sh && python -m pytest test/harness-common/ test/deep-mode-harness/ test/test-coverage-harness/   # Run tests
+bash scripts/validate.sh && bash scripts/test-hooks.sh && python -m pytest test/harness-common/   # Run tests
 ```
 
-For coverage: `python -m pytest test/harness-common/ test/deep-mode-harness/ test/test-coverage-harness/ --cov scripts/harness_common --cov scripts/deep-mode-harness/impl --cov scripts/test-coverage-harness --cov-report=term-missing`
+For coverage: `python -m pytest test/harness-common/ --cov scripts/harness_common --cov-report=term-missing`
 
 Or use the batch scripts: `test.cmd` (tests), `test-coverage.cmd` (coverage + HTML report in htmlcov/).
 First-time setup: `install.cmd` (creates `.venv` and installs dev dependencies).
 
 ## Skill-writing guidelines
 
-When creating or making non-trivial changes to a skill or agent (any file under `skills/<name>/`, `agents/`, or shared `references/`), read and apply `.claude/docs/skill-writing-guidelines.md` before editing. For non-markdown files (`scripts/`, `hooks/`), apply `.claude/docs/coding-guidelines.md` instead. `.claude/docs/architecture.md` documents the directory map, harness data flow, module dependencies, and skill/agent/reference hierarchy. A `.claude/docs/testing.md` bridge file also exists so that `/optimus:unit-test`, the code-review test-guardian agent, and the SessionStart hook can discover this repo's pytest conventions through the standard doc-loading path.
+When creating or making non-trivial changes to a skill or agent (any file under `skills/<name>/`, `agents/`, or shared `references/`), read and apply `.claude/docs/skill-writing-guidelines.md` before editing. For non-markdown files (`scripts/`, `hooks/`), apply `.claude/docs/coding-guidelines.md` instead. `.claude/docs/architecture.md` documents the directory map, orchestrator data flow and the shared CLI, module dependencies, and skill/agent/reference hierarchy. A `.claude/docs/testing.md` bridge file also exists so that `/optimus:unit-test`, the code-review test-guardian agent, and the SessionStart hook can discover this repo's pytest conventions through the standard doc-loading path.
 
 ## Testing changes
 

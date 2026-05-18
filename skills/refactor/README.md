@@ -18,8 +18,6 @@ Well-maintained code has [30%+ fewer AI-introduced defects](https://arxiv.org/ab
 - **Test verification** — runs the test suite after applying changes with evidence-based verification; reverts any change that causes failures
 - **Conservative by default** — only suggests changes justified by the project's own guidelines
 - **Prioritized findings** — Critical/Warning/Suggestion severity with concrete before/after sketches, capped at 15 per run for focused, manageable output
-- **Deep mode** — iterative refactoring that loops analysis-apply cycles until clean (default 8 iterations, configurable up to 10), with explicit user consent and risk warnings. Each sub-agent surfaces up to 15 distinct findings per pass, and structural-neighbor expansion lets agents catch consistency gaps in sibling files before they leak into later iterations
-- **Deep harness** — `/optimus:refactor deep harness` launches an external orchestrator with fresh `claude -p` sessions per iteration, eliminating context bloat for large codebases
 - **Works without `/optimus:init`** — falls back to generic coding guidelines when project-specific docs aren't available
 - **Multi-repo workspace support** — resolves per-repo documentation when opened from a workspace root containing multiple git repos
 - **Submodule exclusion** — automatically skips files inside git submodules
@@ -37,16 +35,10 @@ In Claude Code, use any of these:
 - `/optimus:refactor backend only` — scope to a specific area
 - `/optimus:refactor "focus on the auth module"` — natural language scoping
 - `/optimus:refactor "review changes since last week"` — incremental review
-- `/optimus:refactor deep` — iterative refactoring (default 8 iterations)
-- `/optimus:refactor deep 8` — deep mode with custom iteration cap
-- `/optimus:refactor deep "focus on src/auth"` — deep mode with scope
 - `/optimus:refactor testability` — prioritize testability improvements
 - `/optimus:refactor guidelines` — prioritize guideline compliance
-- `/optimus:refactor deep testability` — iterative deep mode with testability focus
-- `/optimus:refactor deep guidelines` — iterative deep mode with guidelines focus
-- `/optimus:refactor deep harness` — deep harness mode (8 iterations, fresh context per iteration)
-- `/optimus:refactor deep harness 8 "focus on backend"` — deep harness with options
-- `/optimus:refactor deep harness testability` — deep harness with testability focus
+
+For iterative refactor in a loop, see [`/optimus:refactor-deep`](../refactor-deep/README.md).
 
 ## Focus Mode
 
@@ -56,11 +48,11 @@ By default, refactor balances all analysis categories equally within its 15-find
 - `/optimus:refactor guidelines` — reserve 12 of 15 finding slots for guideline compliance
 - `/optimus:refactor` — balanced across all categories (default)
 
-Combine with scope, deep mode, and harness:
-- `/optimus:refactor deep testability "backend only"`
-- `/optimus:refactor deep guidelines`
-- `/optimus:refactor deep harness testability`
-- `/optimus:refactor deep harness guidelines`
+Combine with scope:
+- `/optimus:refactor testability "backend only"`
+- `/optimus:refactor guidelines`
+
+For iterative refactor with focus, see [`/optimus:refactor-deep testability`](../refactor-deep/README.md).
 
 Focus does NOT skip other categories — high-severity findings from non-focused categories still surface in the remaining 3 slots.
 
@@ -121,83 +113,16 @@ You then choose: **Apply all**, **Selective** (pick by number), or **Skip**.
 ## How It Works
 
 1. Verifies project docs exist (falls back to generic guidelines if missing)
-2. Parses arguments for scope, deep mode flag, and iteration cap
-3. Activates deep mode if requested (iterative refactoring with user consent)
-4. Loads all constraint docs and maps source directories, prioritized by git activity
-5. **Launches 4 parallel agents** — guideline compliance, testability, duplication/consistency, and code simplification
-6. Validates findings independently with evidence-based verification
-7. Presents findings as a prioritized plan (capped at 15 per run)
-8. Applies only user-approved changes, runs tests, reverts any that cause failures
+2. Parses arguments for scope and focus keyword
+3. Loads all constraint docs and maps source directories, prioritized by git activity
+4. **Launches 4 parallel agents** — guideline compliance, testability, duplication/consistency, and code simplification
+5. Validates findings independently with evidence-based verification
+6. Presents findings as a prioritized plan (capped at 15 per run)
+7. Applies only user-approved changes, runs tests, reverts any that cause failures
 
-## Deep Mode
+## Iterative Refactor
 
-By default, the skill caps findings at 15 per run. For exhaustive refactoring, use `deep` to loop automatically:
-
-```
-/optimus:refactor deep
-/optimus:refactor deep 8        # custom iteration cap (default 8, max 10)
-/optimus:refactor deep "backend" # deep mode with scope
-```
-
-### How it works
-
-Deep mode runs the same multi-agent analysis-apply cycle repeatedly (default 8, up to 10 iterations) until clean, with per-mode stop conditions enumerated below. Before starting, it warns about credit/time consumption and breakage risk with low test coverage, and asks for explicit confirmation.
-
-Each iteration:
-1. Launches 4 parallel agents with iteration context (same cap: 15 findings per run)
-2. Auto-applies all findings (test suite validates; failures trigger per-change bisect)
-3. Runs the test suite — reverts any change that causes failures
-4. Presents an **iteration report** — a table showing each finding attempted, what changed, why, and its status (fixed/reverted/persistent)
-5. Loops back for the next pass, or stops when clean
-
-### Key differences from normal mode
-
-| Aspect | Normal mode | Deep mode |
-|--------|-------------|-----------|
-| Iterations | 1 (single pass, 15 findings) | Up to 10 (default 8) |
-| Apply approval | User chooses (Apply all / Selective / Skip) | Automatic (confirmed upfront) |
-| Test verification | After apply phase | After every iteration |
-| Failed fixes | Surfaced in the apply report | Per-change bisect reverts regressions; statuses tracked across iterations |
-| Output | Single plan + summary | Per-iteration report tables + cumulative summary |
-| Requirement | None | Test command in `.claude/CLAUDE.md` |
-
-Deep mode **applies changes automatically** at each iteration — it modifies your code, not just reports findings. It **requires a test command** (from `.claude/CLAUDE.md`) as its safety net; without one, it falls back to normal mode. All changes remain as local modifications — nothing is committed or pushed.
-
-### Iteration context
-
-On iterations 2+, all agents receive a table of prior findings with their status (fixed/reverted/persistent). This prevents circular fixes — agents focus on NEW issues only and do not undo work from previous iterations.
-
-### Stop conditions
-
-Deep mode stops when any of the following conditions is met:
-
-- **Convergence** — zero new findings (code is clean)
-- **All reverted** — every fix in an iteration caused test failures
-- **No actionable fixes** — findings exist but lack concrete code edits
-- **Diminishing returns** *(harness mode)* — yield has plateaued at ≤1 new finding for two consecutive iterations after iter 3, with no reverted fixes in either window iteration; remaining issues may exist and can be resumed in a fresh conversation via `--resume`
-- **Cap reached** — the iteration cap is reached (continue in a fresh conversation)
-
-From iteration 3 onward, a context-accumulation warning appears; if the cap is reached, all continuation options are framed under starting a fresh conversation. All changes remain as local modifications — review the full diff and commit when satisfied. After all iterations complete, a **cumulative report** summarizes every change across all iterations in a single table.
-
-### Deep harness mode
-
-For larger codebases or when context accumulation degrades quality, use deep harness mode. It launches a fresh `claude -p` session per iteration (default 8, max 20) — each runs a normal-mode analysis pass with prior findings injected as context.
-
-```bash
-# Invoke from within a conversation:
-/optimus:refactor deep harness
-/optimus:refactor deep harness 10 "focus on backend"
-
-# Or run the script directly:
-python scripts/deep-mode-harness/main.py --skill refactor --scope "src/api"
-python scripts/deep-mode-harness/main.py --skill refactor --max-iterations 10
-python scripts/deep-mode-harness/main.py --skill refactor --timeout 1200 --scope "src/api"
-python scripts/deep-mode-harness/main.py --skill refactor --resume
-```
-
-The harness handles test execution, fix bisection, checkpoint commits (with detailed per-fix messages), and termination detection externally. Press Ctrl+C at any time to stop safely; resume later with `--resume`.
-
-**Security note:** By default, each `claude -p` session runs with `--dangerously-skip-permissions` because the harness is headless (no terminal for permission prompts). For a safer alternative, use `--allowed-tools` to restrict sessions to a specific tool whitelist. For OS-level isolation, use [built-in sandboxing](https://code.claude.com/docs/en/sandboxing) (macOS/Linux) or [devcontainers](https://code.claude.com/docs/en/devcontainer).
+For exhaustive refactoring that loops automatically, use the dedicated orchestrator skill [`/optimus:refactor-deep`](../refactor-deep/README.md). Each iteration runs in a fresh subagent context, fixes are applied automatically, tests run after every iteration, and failed fixes are reverted via bisection. Supports the same `testability` and `guidelines` focus modes as this skill.
 
 ### Research context
 

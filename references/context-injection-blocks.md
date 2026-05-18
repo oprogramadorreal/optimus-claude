@@ -23,13 +23,13 @@ Use this to understand the author's stated intent behind the changes. However:
 
 If the PR/MR has no description (empty body), omit this block entirely — do not inject an empty context section.
 
-If both PR/MR context and iteration context apply (deep mode on a PR), inject PR/MR context first, then iteration context, both before the file list line.
+If both PR/MR context and iteration context apply (harness mode on a PR), inject PR/MR context first, then iteration context, both before the file list line.
 
 ---
 
-## Iteration Context Block (deep mode, iterations 2+)
+## Iteration Context Block (harness mode, iterations 2+)
 
-When the skill is running in deep mode and `iteration-count` > 1, this block is prepended to every agent prompt **before** the file list line. It provides agents with awareness of prior findings so they focus on NEW issues only.
+When the skill is running under `HARNESS_MODE_INLINE` and the progress file's `iteration.current` is greater than 1, this block is prepended to every agent prompt **before** the file list line. It provides agents with awareness of prior findings so they focus on NEW issues only.
 
 **Template:**
 

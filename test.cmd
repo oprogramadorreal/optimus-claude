@@ -3,10 +3,10 @@ SETLOCAL
 set FAILED=0
 
 echo ========================================
-echo  Running Python tests (harness packages)
+echo  Running Python tests (harness common CLI and modules)
 echo ========================================
 call .venv\Scripts\activate
-python -m pytest test/harness-common/ test/deep-mode-harness/ test/test-coverage-harness/
+python -m pytest test/harness-common/
 IF ERRORLEVEL 1 set FAILED=1
 
 echo.

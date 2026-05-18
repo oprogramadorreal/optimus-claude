@@ -124,8 +124,7 @@ def bisect_fixes(fixes, test_command, cwd, run_tests_fn=None, on_outcome=None):
             if not apply_single_fix(fix, cwd):
                 # File content drifted between first revert and retry — fix
                 # could not be re-applied. This is the same condition as a
-                # first-pass apply failure, so count it as skipped (matches
-                # deep-mode-harness/impl/fixes.py behavior).
+                # first-pass apply failure, so count it as skipped.
                 skipped_count += 1
                 _emit(idx, fix, "skipped")
                 continue
