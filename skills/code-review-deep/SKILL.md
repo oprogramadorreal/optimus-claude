@@ -118,7 +118,7 @@ This prints the cumulative report (fixed / reverted / persistent counts, per-fin
 
 The orchestrator skill applies fixes automatically across all iterations; user approval is recorded once at Step 3 and stands for the whole loop. The base skill's harness-mode protocol is the source of truth for which fixes get applied.
 
-Recommend the user run `/optimus:commit` next (stay in this conversation to capture implementation context — see `references/skill-handoff.md` "Continuation skills").
+Recommend the user run `/optimus:commit` next. Tell the user: **Tip:** stay in this conversation when running `/optimus:commit` so the implementation context is captured. Other downstream skills (`/optimus:pr`, `/optimus:code-review`, `/optimus:unit-test`) should still run in fresh conversations.
 
 ## When a base skill's harness-mode output cannot be parsed
 

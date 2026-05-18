@@ -1,12 +1,17 @@
 # Orchestrator Loop — Single Skill (Deep Variant)
 
+## Contents
+1. [Per-iteration body](#per-iteration-body) — steps 1–8
+2. [Loop control invariants](#loop-control-invariants)
+3. [After the loop](#after-the-loop)
+
 Shared iteration template for `/optimus:code-review-deep` and `/optimus:refactor-deep`. Each orchestrator skill dispatches its base skill into a fresh subagent context per iteration, parses the structured JSON the base skill emits, and uses the harness CLI to manage state, test/bisect, and decide termination.
 
 The orchestrator never holds findings or fixes in conversation prose. All state lives in the progress file. Each Bash invocation of the CLI is a discrete operation; the orchestrator skill reads the CLI's stdout to make decisions.
 
 ## Per-iteration body
 
-The orchestrator skill repeats steps 1–9 below until step 9 returns anything other than `continue`. Steps 1–8 mutate the progress file on disk; step 9 reads it.
+The orchestrator skill repeats steps 1–8 below until step 7 (`check-termination`) returns anything other than `continue`. Steps 1–6 and 8 mutate the progress file on disk; step 7 reads it.
 
 ### 1. Snapshot pre-iteration git state
 

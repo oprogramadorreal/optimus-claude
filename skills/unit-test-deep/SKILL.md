@@ -64,6 +64,8 @@ Use `AskUserQuestion` — header "Deep unit-test", question "Proceed with deep u
 - **Proceed** — "Run the unit-test + refactor cycle loop (max [N] cycles)"
 - **Cancel** — "Don't run deep mode"
 
+If the user selects **Cancel**, stop.
+
 ## Step 4: Initialize or Resume Progress
 
 ### On `--resume`
@@ -116,7 +118,7 @@ The report prints cycles completed, coverage baseline → final, total tests wri
 
 ## Important
 
-User approval recorded at Step 3 stands for the entire loop — tests and refactor fixes are applied without per-change confirmation. Recommend `/optimus:commit` next (stay in this conversation to capture implementation context).
+User approval recorded at Step 3 stands for the entire loop — tests and refactor fixes are applied without per-change confirmation. Recommend `/optimus:commit` next. Tell the user: **Tip:** stay in this conversation when running `/optimus:commit` so the implementation context is captured. Other downstream skills (`/optimus:pr`, `/optimus:code-review`, `/optimus:unit-test`) should still run in fresh conversations.
 
 ## Tip
 

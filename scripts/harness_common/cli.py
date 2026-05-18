@@ -60,9 +60,9 @@ from harness_common.findings import (
     mark_finding_status,
     update_scope,
 )
-from harness_common.fixes import apply_single_fix, bisect_fixes
+from harness_common.fixes import bisect_fixes
+from harness_common.git import commit_checkpoint as git_commit_checkpoint
 from harness_common.git import (
-    commit_checkpoint as git_commit_checkpoint,
     git_current_branch,
     git_diff_has_changes,
     git_discover_branch_files,
@@ -75,7 +75,6 @@ from harness_common.parser import parse_harness_output
 from harness_common.progress import read_progress, record_test_result, write_progress
 from harness_common.reporting import detect_test_command
 from harness_common.runner import run_tests
-
 
 # ---------------------------------------------------------------------------
 # Progress shape helpers
@@ -90,8 +89,9 @@ def _is_coverage(progress):
     return progress.get("harness") == "test-coverage"
 
 
-def _make_deep_progress(skill, scope, max_iterations, test_command, project_root,
-                       focus, base_commit):
+def _make_deep_progress(
+    skill, scope, max_iterations, test_command, project_root, focus, base_commit
+):
     return {
         "schema_version": 1,
         "skill": skill,
@@ -118,8 +118,7 @@ def _make_deep_progress(skill, scope, max_iterations, test_command, project_root
     }
 
 
-def _make_coverage_progress(scope, max_cycles, test_command, project_root,
-                            base_commit):
+def _make_coverage_progress(scope, max_cycles, test_command, project_root, base_commit):
     return {
         "schema_version": 1,
         "harness": "test-coverage",
@@ -158,15 +157,14 @@ def _make_coverage_progress(scope, max_cycles, test_command, project_root,
 def _promote_actionable_fixes(result):
     """Promote findings with valid edit pairs into fixes_applied.
 
-    Defensive guard for the same false-no-actionable case the Python harness
-    handled today — see `references/harness-mode.md` and the inline rationale
-    in the original main.py for the full story.
+    Defensive guard for the false-no-actionable case — see
+    `references/harness-mode.md`.
     """
     if not result.get("no_actionable_fixes", False):
-        return 0
+        return
     new_findings = result.get("new_findings", [])
     if not new_findings:
-        return 0
+        return
     existing_fixes = result.get("fixes_applied", []) or []
     existing_keys = {finding_key(f) for f in existing_fixes}
     promoted = []
@@ -179,10 +177,9 @@ def _promote_actionable_fixes(result):
             continue
         promoted.append(finding)
     if not promoted:
-        return 0
+        return
     result["fixes_applied"] = existing_fixes + promoted
     result["no_actionable_fixes"] = False
-    return len(promoted)
 
 
 def _register_iteration_findings(progress, result, fixes):
@@ -203,13 +200,17 @@ def _mark_combined_regression(fixes, progress):
             status = finding.get("status")
             if status == "fixed":
                 mark_finding_status(
-                    progress, fix, "reverted — test failure",
+                    progress,
+                    fix,
+                    "reverted — test failure",
                     "Interaction bug — combined fixes failed",
                 )
                 reverted += 1
             elif status == "retained — revert failed":
                 mark_finding_status(
-                    progress, fix, "reverted — test failure",
+                    progress,
+                    fix,
+                    "reverted — test failure",
                     "Interaction bug — full working tree restore removed retained fix",
                 )
                 reverted += 1
@@ -218,9 +219,9 @@ def _mark_combined_regression(fixes, progress):
 
 
 _BISECT_OUTCOMES_TO_STATUS = {
-    "fixed": ("fixed", None),
-    "retained": ("retained — revert failed", None),
-    "skipped": ("skipped — apply failed", None),
+    "fixed": "fixed",
+    "retained": "retained — revert failed",
+    "skipped": "skipped — apply failed",
 }
 
 
@@ -229,13 +230,14 @@ def _make_bisect_callback(progress):
         if outcome == "reverted":
             mark_finding_status(progress, fix, "reverted — test failure", detail)
             return
-        status, default_detail = _BISECT_OUTCOMES_TO_STATUS[outcome]
-        mark_finding_status(progress, fix, status, detail or default_detail)
+        mark_finding_status(progress, fix, _BISECT_OUTCOMES_TO_STATUS[outcome], detail)
+
     return _on_outcome
 
 
-def _test_and_reconcile_fixes(fixes, test_command, project_root, progress,
-                              pre_stash, pre_head):
+def _test_and_reconcile_fixes(
+    fixes, test_command, project_root, progress, pre_stash, pre_head
+):
     if not fixes:
         return 0, 0, True, False
     passed, summary = run_tests(test_command, project_root)
@@ -245,7 +247,9 @@ def _test_and_reconcile_fixes(fixes, test_command, project_root, progress,
         return len(fixes), 0, True, False
 
     fixed, reverted, skipped = bisect_fixes(
-        fixes, test_command, project_root,
+        fixes,
+        test_command,
+        project_root,
         on_outcome=_make_bisect_callback(progress),
     )
     if fixed > 0:
@@ -261,21 +265,25 @@ def _test_and_reconcile_fixes(fixes, test_command, project_root, progress,
     return fixed, reverted, passed, all_reverted
 
 
-def _record_iteration_history(progress, iteration, new_count, fixed, reverted,
-                              test_passed):
+def _record_iteration_history(
+    progress, iteration, new_count, fixed, reverted, test_passed
+):
     persistent = sum(
-        1 for f in progress["findings"]
+        1
+        for f in progress["findings"]
         if f["status"] == PERSISTENT_STATUS
         and f.get("iteration_last_attempted") == iteration
     )
-    progress["iteration_history"].append({
-        "iteration": iteration,
-        "new_findings": new_count,
-        "fixed": fixed,
-        "reverted": reverted,
-        "persistent": persistent,
-        "test_passed": test_passed,
-    })
+    progress["iteration_history"].append(
+        {
+            "iteration": iteration,
+            "new_findings": new_count,
+            "fixed": fixed,
+            "reverted": reverted,
+            "persistent": persistent,
+            "test_passed": test_passed,
+        }
+    )
     progress["iteration"]["completed"] = iteration
 
 
@@ -340,9 +348,14 @@ def _build_deep_commit_body(progress, iteration, max_entries=10):
 
 
 def _build_coverage_commit_body(progress, cycle, phase, max_entries=10):
-    lines = ["Coverage orchestrator checkpoint — automated changes applied and tested.", ""]
+    lines = [
+        "Coverage orchestrator checkpoint — automated changes applied and tested.",
+        "",
+    ]
     if phase == "unit-test":
-        tests = [t for t in progress.get("tests_created", []) if t.get("cycle") == cycle]
+        tests = [
+            t for t in progress.get("tests_created", []) if t.get("cycle") == cycle
+        ]
         if tests:
             lines.append("Tests written:")
             for t in tests[:max_entries]:
@@ -399,8 +412,11 @@ def cmd_init(args):
 
     test_command = args.test_command or detect_test_command(project_root)
     if not test_command:
-        print(f"ERROR: No test command found in {project_root}/.claude/CLAUDE.md "
-              "and --test-command not supplied", file=sys.stderr)
+        print(
+            f"ERROR: No test command found in {project_root}/.claude/CLAUDE.md "
+            "and --test-command not supplied",
+            file=sys.stderr,
+        )
         return 1
 
     base_commit = git_rev_parse_head(project_root)
@@ -416,27 +432,41 @@ def cmd_init(args):
         if max_cycles < 1:
             max_cycles = 1
         progress = _make_coverage_progress(
-            args.scope, max_cycles, test_command, project_root, base_commit,
+            args.scope,
+            max_cycles,
+            test_command,
+            project_root,
+            base_commit,
         )
     elif skill in DEEP_VARIANT_SKILLS:
         if args.focus and args.focus not in VALID_FOCUS_MODES:
-            print(f"ERROR: --focus must be one of {sorted(VALID_FOCUS_MODES)}",
-                  file=sys.stderr)
+            print(
+                f"ERROR: --focus must be one of {sorted(VALID_FOCUS_MODES)}",
+                file=sys.stderr,
+            )
             return 1
         if args.focus and skill != "refactor":
-            print("ERROR: --focus is only supported with --skill refactor",
-                  file=sys.stderr)
+            print(
+                "ERROR: --focus is only supported with --skill refactor",
+                file=sys.stderr,
+            )
             return 1
         requested_iter = (
-            args.max_iterations if args.max_iterations is not None
+            args.max_iterations
+            if args.max_iterations is not None
             else DEFAULT_MAX_ITERATIONS
         )
         max_iter = min(requested_iter, MAX_ITERATIONS_HARD_CAP)
         if max_iter < 1:
             max_iter = 1
         progress = _make_deep_progress(
-            skill, args.scope, max_iter, test_command, project_root,
-            args.focus or "", base_commit,
+            skill,
+            args.scope,
+            max_iter,
+            test_command,
+            project_root,
+            args.focus or "",
+            base_commit,
         )
         # Populate scope_files from branch diff (with optional path filter)
         path_filter = args.scope if args.scope else None
@@ -479,14 +509,18 @@ def cmd_resume(args):
         return 1
     for key in ("skill", "config"):
         if key not in progress:
-            print(f"ERROR: Progress file missing required field '{key}'", file=sys.stderr)
+            print(
+                f"ERROR: Progress file missing required field '{key}'", file=sys.stderr
+            )
             return 1
     if args.project_dir:
         expected = Path(args.project_dir).resolve()
         saved = progress["config"].get("project_root")
         if saved and Path(saved).resolve() != expected:
-            print(f"ERROR: project_root mismatch (saved: {saved}, requested: {expected})",
-                  file=sys.stderr)
+            print(
+                f"ERROR: project_root mismatch (saved: {saved}, requested: {expected})",
+                file=sys.stderr,
+            )
             return 1
     print(progress["skill"])
     return 0
@@ -515,11 +549,15 @@ def cmd_parse(args):
     raw = Path(args.input_file).read_text(encoding="utf-8")
     parsed = parse_harness_output(raw)
     if parsed is None:
-        print("ERROR: No json:harness-output block found in subagent output",
-              file=sys.stderr)
+        print(
+            "ERROR: No json:harness-output block found in subagent output",
+            file=sys.stderr,
+        )
         return 1
     if args.output_file:
-        Path(args.output_file).write_text(json.dumps(parsed, indent=2), encoding="utf-8")
+        Path(args.output_file).write_text(
+            json.dumps(parsed, indent=2), encoding="utf-8"
+        )
     print(json.dumps(parsed))
     return 0
 
@@ -579,9 +617,16 @@ def cmd_deep_step(args):
     fixes = result.get("fixes_applied", [])
     _register_iteration_findings(progress, result, fixes)
     fixed, reverted, test_passed, all_reverted = _test_and_reconcile_fixes(
-        fixes, test_command, project_root, progress, pre_stash, pre_head,
+        fixes,
+        test_command,
+        project_root,
+        progress,
+        pre_stash,
+        pre_head,
     )
-    _record_iteration_history(progress, iteration, new_count, fixed, reverted, test_passed)
+    _record_iteration_history(
+        progress, iteration, new_count, fixed, reverted, test_passed
+    )
     update_scope(progress, result)
     write_progress(progress_path, progress)
 
@@ -621,9 +666,14 @@ def cmd_unit_test_step(args):
         progress["coverage"]["baseline"] = before
     if after is not None:
         progress["coverage"]["current"] = after
-    progress["coverage"]["history"].append({
-        "cycle": cycle, "before": before, "after": after, "delta": delta,
-    })
+    progress["coverage"]["history"].append(
+        {
+            "cycle": cycle,
+            "before": before,
+            "after": after,
+            "delta": delta,
+        }
+    )
 
     # Merge tests
     for t in result.get("tests_written", []):
@@ -637,10 +687,14 @@ def cmd_unit_test_step(args):
         key = (item.get("file"), item.get("line"), item.get("function"))
         if key in existing_keys:
             continue
-        progress["untestable_code"].append({
-            **item, "status": "pending", "cycle_reported": cycle,
-            "refactor_attempt_cycle": None,
-        })
+        progress["untestable_code"].append(
+            {
+                **item,
+                "status": "pending",
+                "cycle_reported": cycle,
+                "refactor_attempt_cycle": None,
+            }
+        )
     # Bugs
     for b in result.get("bugs_discovered", []):
         progress["bugs_discovered"].append({**b, "cycle_discovered": cycle})
@@ -683,10 +737,16 @@ def cmd_refactor_step(args):
     applied_keys = {finding_key(f) for f in fixes}
     new_findings = result.get("new_findings", [])
     for finding in new_findings:
-        status = "fixed" if finding_key(finding) in applied_keys else "skipped — not applied"
-        progress["refactor_findings"].append({
-            **finding, "cycle": cycle, "status": status,
-        })
+        status = (
+            "fixed" if finding_key(finding) in applied_keys else "skipped — not applied"
+        )
+        progress["refactor_findings"].append(
+            {
+                **finding,
+                "cycle": cycle,
+                "status": status,
+            }
+        )
 
     # Run tests and bisect on failure (same logic as deep variant, but on
     # refactor_findings instead of findings)
@@ -704,8 +764,7 @@ def cmd_refactor_step(args):
             def _refactor_outcome(_idx, fix, outcome, detail):
                 nonlocal fixed_count, reverted_count
                 for finding in progress["refactor_findings"]:
-                    if (finding.get("cycle") == cycle
-                            and finding_matches(finding, fix)):
+                    if finding.get("cycle") == cycle and finding_matches(finding, fix):
                         if outcome == "fixed":
                             finding["status"] = "fixed"
                             fixed_count += 1
@@ -720,7 +779,9 @@ def cmd_refactor_step(args):
                         break
 
             bisect_fixes(
-                fixes, test_command, project_root,
+                fixes,
+                test_command,
+                project_root,
                 on_outcome=_refactor_outcome,
             )
             if fixed_count > 0:
@@ -729,8 +790,10 @@ def cmd_refactor_step(args):
                 if not passed:
                     restore_working_tree(pre_stash, pre_head, project_root)
                     for finding in progress["refactor_findings"]:
-                        if (finding.get("cycle") == cycle
-                                and finding.get("status") in FIXED_STATUSES):
+                        if (
+                            finding.get("cycle") == cycle
+                            and finding.get("status") in FIXED_STATUSES
+                        ):
                             finding["status"] = "reverted — combined regression"
                             fixed_count -= 1
                             reverted_count += 1
@@ -753,7 +816,9 @@ def cmd_refactor_step(args):
         print("converged")
         return 0
     # Coverage plateau check happens at cycle boundary via check-termination
-    print(f"applied fixed={fixed_count} reverted={reverted_count} test_passed={int(test_passed)}")
+    print(
+        f"applied fixed={fixed_count} reverted={reverted_count} test_passed={int(test_passed)}"
+    )
     return 0
 
 
@@ -762,8 +827,16 @@ def cmd_record_cycle(args):
     progress_path = Path(args.progress_file)
     progress = read_progress(progress_path)
     cycle = progress["cycle"]["current"]
-    ut_summary = json.loads(args.unit_test_summary) if args.unit_test_summary else {}
-    rf_summary = json.loads(args.refactor_summary) if args.refactor_summary else None
+    try:
+        ut_summary = (
+            json.loads(args.unit_test_summary) if args.unit_test_summary else {}
+        )
+        rf_summary = (
+            json.loads(args.refactor_summary) if args.refactor_summary else None
+        )
+    except (ValueError, json.JSONDecodeError) as exc:
+        print(f"ERROR: Invalid cycle summary JSON: {exc}", file=sys.stderr)
+        return 1
     entry = {"cycle": cycle, "unit_test": ut_summary}
     if rf_summary is not None:
         entry["refactor"] = rf_summary
@@ -784,12 +857,17 @@ def cmd_commit_checkpoint(args):
         phase = args.phase or progress.get("phase", "unit-test")
         if phase == "unit-test":
             count = len(
-                [t for t in progress.get("tests_created", []) if t.get("cycle") == cycle]
+                [
+                    t
+                    for t in progress.get("tests_created", [])
+                    if t.get("cycle") == cycle
+                ]
             )
             detail = f"{count} tests written"
         else:
             count = sum(
-                1 for f in progress.get("refactor_findings", [])
+                1
+                for f in progress.get("refactor_findings", [])
                 if f.get("cycle") == cycle and f.get("status") in FIXED_STATUSES
             )
             detail = f"{count} fixed"
@@ -803,7 +881,9 @@ def cmd_commit_checkpoint(args):
         latest = history[-1] if history else {}
         fixed = latest.get("fixed", 0)
         commit_type = SKILL_COMMIT_TYPE.get(skill, "chore")
-        title = f"{commit_type}(deep-orchestrator): iteration {iteration} — {fixed} fixed"
+        title = (
+            f"{commit_type}(deep-orchestrator): iteration {iteration} — {fixed} fixed"
+        )
         body = _build_deep_commit_body(progress, iteration)
 
     commit_message = f"{title}\n\n{body}" if body else title
@@ -812,7 +892,9 @@ def cmd_commit_checkpoint(args):
         print("nothing-to-commit")
         return 0
     ok = git_commit_checkpoint(
-        commit_message, project_root, str(progress_path),
+        commit_message,
+        project_root,
+        str(progress_path),
     )
     print("committed" if ok else "commit-failed")
     return 0 if ok else 1
@@ -890,12 +972,13 @@ def cmd_advance(args):
     return 0
 
 
-def cmd_set_pending_refactor(args):
+def cmd_pending_refactor_count(args):
     """Print the count of pending untestable items (drives refactor-phase dispatch)."""
     progress_path = Path(args.progress_file)
     progress = read_progress(progress_path)
     pending = sum(
-        1 for item in progress.get("untestable_code", [])
+        1
+        for item in progress.get("untestable_code", [])
         if item.get("status") == "pending"
     )
     print(pending)
@@ -940,11 +1023,15 @@ def _print_deep_report(progress):
     print(f"  Final tests:   {last_test}")
     termination = progress.get("termination") or {}
     if termination.get("reason"):
-        print(f"  Stopped:       {termination['reason']} — {termination.get('message', '')}")
+        print(
+            f"  Stopped:       {termination['reason']} — {termination.get('message', '')}"
+        )
     print("=" * 60)
     if findings:
         print()
-        print(f"  {'#':<4} {'Iter':<5} {'File':<40} {'Category':<15} {'Summary':<40} Status")
+        print(
+            f"  {'#':<4} {'Iter':<5} {'File':<40} {'Category':<15} {'Summary':<40} Status"
+        )
         print(f"  {'-'*4} {'-'*5} {'-'*40} {'-'*15} {'-'*40} {'-'*20}")
         for row_num, finding in enumerate(findings, 1):
             file_location = f"{finding['file']}:{finding.get('line', '?')}"
@@ -998,7 +1085,9 @@ def _print_coverage_report(progress):
     print(f"  Final tests:      {last_test}")
     termination = progress.get("termination") or {}
     if termination.get("reason"):
-        print(f"  Stopped:          {termination['reason']} — {termination.get('message', '')}")
+        print(
+            f"  Stopped:          {termination['reason']} — {termination.get('message', '')}"
+        )
     print("=" * 60)
     history = coverage.get("history") or []
     if history:
@@ -1009,7 +1098,9 @@ def _print_coverage_report(progress):
             before = entry.get("before", "?")
             after = entry.get("after", "?")
             delta = entry.get("delta", "?")
-            print(f"  {entry.get('cycle', '?'):<8} {before!s:<10} {after!s:<10} {delta!s:<10}")
+            print(
+                f"  {entry.get('cycle', '?'):<8} {before!s:<10} {after!s:<10} {delta!s:<10}"
+            )
     base = (progress["config"].get("base_commit") or "?")[:8]
     if total_tests > 0 or fixed > 0:
         print()
@@ -1050,15 +1141,24 @@ def _build_parser():
 
     p = sub.add_parser("snapshot")
     p.add_argument("--progress-file", required=True)
-    p.add_argument("--include-stash", action="store_true",
-                   help="Also create a git stash snapshot (use with --no-commit mode)")
+    p.add_argument(
+        "--include-stash",
+        action="store_true",
+        help="Also create a git stash snapshot (use with --no-commit mode)",
+    )
     p.set_defaults(func=cmd_snapshot)
 
     p = sub.add_parser("parse")
-    p.add_argument("--input-file", required=True,
-                   help="Path to a file holding the subagent's raw text output")
-    p.add_argument("--output-file", default=None,
-                   help="If supplied, also write canonical JSON to this path")
+    p.add_argument(
+        "--input-file",
+        required=True,
+        help="Path to a file holding the subagent's raw text output",
+    )
+    p.add_argument(
+        "--output-file",
+        default=None,
+        help="If supplied, also write canonical JSON to this path",
+    )
     p.set_defaults(func=cmd_parse)
 
     p = sub.add_parser("deep-step")
@@ -1078,16 +1178,26 @@ def _build_parser():
 
     p = sub.add_parser("record-cycle")
     p.add_argument("--progress-file", required=True)
-    p.add_argument("--unit-test-summary", default="",
-                   help="JSON-encoded unit-test summary for cycle_history")
-    p.add_argument("--refactor-summary", default="",
-                   help="JSON-encoded refactor summary for cycle_history (optional)")
+    p.add_argument(
+        "--unit-test-summary",
+        default="",
+        help="JSON-encoded unit-test summary for cycle_history",
+    )
+    p.add_argument(
+        "--refactor-summary",
+        default="",
+        help="JSON-encoded refactor summary for cycle_history (optional)",
+    )
     p.set_defaults(func=cmd_record_cycle)
 
     p = sub.add_parser("commit-checkpoint")
     p.add_argument("--progress-file", required=True)
-    p.add_argument("--phase", default=None, choices=["unit-test", "refactor"],
-                   help="Coverage variant only — which phase to record")
+    p.add_argument(
+        "--phase",
+        default=None,
+        choices=["unit-test", "refactor"],
+        help="Coverage variant only — which phase to record",
+    )
     p.set_defaults(func=cmd_commit_checkpoint)
 
     p = sub.add_parser("check-termination")
@@ -1100,12 +1210,15 @@ def _build_parser():
 
     p = sub.add_parser("pending-refactor-count")
     p.add_argument("--progress-file", required=True)
-    p.set_defaults(func=cmd_set_pending_refactor)
+    p.set_defaults(func=cmd_pending_refactor_count)
 
     p = sub.add_parser("final-report")
     p.add_argument("--progress-file", required=True)
-    p.add_argument("--archive", action="store_true",
-                   help="Move progress file to .done.json after printing")
+    p.add_argument(
+        "--archive",
+        action="store_true",
+        help="Move progress file to .done.json after printing",
+    )
     p.set_defaults(func=cmd_final_report)
 
     return parser

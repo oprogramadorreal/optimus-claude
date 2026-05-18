@@ -1,5 +1,10 @@
 # Orchestrator Loop — Paired Cycles (Coverage Variant)
 
+## Contents
+1. [Per-cycle body](#per-cycle-body) — steps 1–11 (unit-test phase, refactor phase, history, termination)
+2. [After the loop](#after-the-loop)
+3. [Per-phase notes](#per-phase-notes)
+
 Shared iteration template for `/optimus:unit-test-deep`. Each **cycle** runs a unit-test phase followed by a conditional refactor-testability phase. The orchestrator skill dispatches `/optimus:unit-test` and `/optimus:refactor` as two distinct subagents per cycle, each in its own fresh context.
 
 The loop control discipline mirrors `references/orchestrator-loop-single.md` (slice-only progress reads, snapshot before dispatch, subagent output is text not state) — see that reference for the rationale. Only the cycle structure differs.

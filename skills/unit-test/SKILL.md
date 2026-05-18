@@ -60,7 +60,7 @@ Read `$CLAUDE_PLUGIN_ROOT/skills/unit-test/agents/test-infrastructure-analyzer.m
 
 ### Iteration context injection (harness mode, iterations 2+)
 
-When running under `HARNESS_MODE_INLINE` and the progress file's `cycle.current` (or `iteration.current`) is greater than 1, prepend a concise context block to the agent prompt before the main instructions. Source the data from the progress file's `tests_created`, `untestable_code`, and `coverage.history`. Include:
+When running under `HARNESS_MODE_INLINE` and the progress file's `cycle.current` is greater than 1, prepend a concise context block to the agent prompt before the main instructions. Source the data from the progress file's `tests_created`, `untestable_code`, and `coverage.history`. Include:
 
 - **Tests already added** — bullet list of `file → target` entries from `tests_created` with status `pass`, so the agent skips re-discovering the same targets.
 - **Items previously reverted, abandoned, or bug-found** — bullet list from `tests_created` with status `fail-abandoned` or similar, so the agent does not re-propose them.
