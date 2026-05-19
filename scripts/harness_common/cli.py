@@ -15,6 +15,8 @@ Subcommand summary:
   commit-checkpoint     — create git checkpoint commit
   check-termination     — print one of continue|convergence|no-actionable|
                           all-reverted|diminishing-returns|cap
+  mark-termination      — record an externally-driven termination reason
+                          (e.g. parse-failure after two consecutive failures)
   final-report          — print the cumulative report
 """
 
@@ -241,7 +243,7 @@ def _test_and_reconcile_fixes(
     fixes, test_command, project_root, progress, pre_stash, pre_head
 ):
     if not fixes:
-        return 0, 0, True, False
+        return 0, 0, None, False
     passed, summary = run_tests(test_command, project_root)
     record_test_result(progress, passed, summary)
     if passed:
@@ -1035,6 +1037,25 @@ def cmd_pending_refactor_count(args):
     return 0
 
 
+def cmd_mark_termination(args):
+    """Write a terminal reason to progress["termination"] without other side effects.
+
+    The orchestrator skill calls this when it must end the loop for a reason
+    the per-iteration steps don't naturally surface — currently the
+    parse-failure recovery path (per references/orchestrator-loop-single.md).
+    Keeps the orchestrator out of the progress file's internals so the
+    "slice-only progress reads" invariant holds.
+    """
+    progress_path = Path(args.progress_file)
+    progress = read_progress(progress_path)
+    progress["termination"] = {
+        "reason": args.reason,
+        "message": args.message or "",
+    }
+    write_progress(progress_path, progress)
+    return 0
+
+
 def cmd_final_report(args):
     progress_path = Path(args.progress_file)
     progress = read_progress(progress_path)
@@ -1051,6 +1072,18 @@ def cmd_final_report(args):
         if backup.exists():
             backup.unlink()
     return 0
+
+
+def _print_rollback_footer(progress, has_changes_to_undo):
+    if not has_changes_to_undo:
+        return
+    base = (progress["config"].get("base_commit") or "?")[:8]
+    print()
+    print(f"To squash checkpoint commits: git rebase -i {base}")
+    print(f"To rollback everything:       git reset --hard {base}")
+    branch = git_current_branch(progress["config"]["project_root"])
+    if branch and branch not in ("main", "master"):
+        print(f"To push checkpoint branch:    git push -u origin {branch}")
 
 
 def _print_deep_report(progress):
@@ -1093,14 +1126,7 @@ def _print_deep_report(progress):
                 f"  {row_num:<4} {iter_num:<5} {file_location:<40} "
                 f"{finding['category']:<15} {summary:<40} {finding['status']}"
             )
-    base = (progress["config"].get("base_commit") or "?")[:8]
-    if total_fixed > 0:
-        print()
-        print(f"To squash checkpoint commits: git rebase -i {base}")
-        print(f"To rollback everything:       git reset --hard {base}")
-        branch = git_current_branch(progress["config"]["project_root"])
-        if branch and branch not in ("main", "master"):
-            print(f"To push checkpoint branch:    git push -u origin {branch}")
+    _print_rollback_footer(progress, total_fixed > 0)
 
 
 def _print_coverage_report(progress):
@@ -1151,14 +1177,7 @@ def _print_coverage_report(progress):
             print(
                 f"  {entry.get('cycle', '?'):<8} {before!s:<10} {after!s:<10} {delta!s:<10}"
             )
-    base = (progress["config"].get("base_commit") or "?")[:8]
-    if total_tests > 0 or fixed > 0:
-        print()
-        print(f"To squash checkpoint commits: git rebase -i {base}")
-        print(f"To rollback everything:       git reset --hard {base}")
-        branch = git_current_branch(progress["config"]["project_root"])
-        if branch and branch not in ("main", "master"):
-            print(f"To push checkpoint branch:    git push -u origin {branch}")
+    _print_rollback_footer(progress, total_tests > 0 or fixed > 0)
 
 
 # ---------------------------------------------------------------------------
@@ -1261,6 +1280,28 @@ def _build_parser():
     p = sub.add_parser("pending-refactor-count")
     p.add_argument("--progress-file", required=True)
     p.set_defaults(func=cmd_pending_refactor_count)
+
+    p = sub.add_parser("mark-termination")
+    p.add_argument("--progress-file", required=True)
+    p.add_argument(
+        "--reason",
+        required=True,
+        choices=[
+            "convergence",
+            "no-actionable",
+            "all-reverted",
+            "diminishing-returns",
+            "cap",
+            "parse-failure",
+        ],
+        help="Termination reason to record in progress[termination]",
+    )
+    p.add_argument(
+        "--message",
+        default="",
+        help="Human-readable detail recorded alongside the reason",
+    )
+    p.set_defaults(func=cmd_mark_termination)
 
     p = sub.add_parser("final-report")
     p.add_argument("--progress-file", required=True)

@@ -66,7 +66,7 @@ Stdout is one of:
 | `converged` | Skill reported plateau (`no_new_tests` + `no_untestable_code` or `no_coverage_gained`) — cycle ends, loop terminates. |
 | `continue` | Unit-test phase complete — proceed to step 5. |
 
-### 5. Commit the unit-test phase checkpoint
+### 5. Commit the unit-test phase checkpoint (skip if `--no-commit`)
 
 ```bash
 PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli commit-checkpoint \
@@ -130,7 +130,7 @@ Stdout is one of:
 | `converged` | Refactor reported no testability findings or none actionable — cycle ends, loop terminates. |
 | `applied fixed=<N> reverted=<N> test_passed=<0\|1>` | Refactor phase complete — proceed to step 9. |
 
-### 9. Commit the refactor phase checkpoint
+### 9. Commit the refactor phase checkpoint (skip if `--no-commit`)
 
 ```bash
 PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli commit-checkpoint \

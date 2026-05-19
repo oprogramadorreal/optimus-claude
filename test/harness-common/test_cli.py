@@ -183,6 +183,42 @@ class TestInit:
         data = _read_progress(progress_path)
         assert data["config"]["pr_description"]["title"] == "Test PR"
 
+    def test_deep_natural_language_scope(self, tmp_path, monkeypatch):
+        # Regression for c53086d: non-existent scope is treated as prose, not
+        # a git pathspec, so config.scope.mode stays "branch-diff" and the
+        # natural-language text is preserved in scope_text.
+        repo = _make_repo(tmp_path)
+        _stub_git(monkeypatch)
+        progress_path = repo / "progress.json"
+        _run(
+            "init", "--skill", "code-review",
+            "--scope", "focus on src/auth",
+            "--progress-file", str(progress_path),
+            "--project-dir", str(repo),
+        )
+        data = _read_progress(progress_path)
+        assert data["config"]["scope"]["mode"] == "branch-diff"
+        assert data["config"]["scope"]["paths"] == []
+        assert data["config"]["scope"]["scope_text"] == "focus on src/auth"
+
+    def test_deep_path_scope_existing(self, tmp_path, monkeypatch):
+        # Complement to test_deep_natural_language_scope: when --scope points
+        # at an existing directory, it is treated as a git pathspec.
+        repo = _make_repo(tmp_path)
+        (repo / "src").mkdir()
+        _stub_git(monkeypatch)
+        progress_path = repo / "progress.json"
+        _run(
+            "init", "--skill", "code-review",
+            "--scope", "src",
+            "--progress-file", str(progress_path),
+            "--project-dir", str(repo),
+        )
+        data = _read_progress(progress_path)
+        assert data["config"]["scope"]["mode"] == "directory"
+        assert data["config"]["scope"]["paths"] == ["src"]
+        assert data["config"]["scope"]["scope_text"] is None
+
 
 # ---------------------------------------------------------------------------
 # resume
@@ -275,6 +311,14 @@ class TestParse:
         _run("parse", "--input-file", str(raw), "--output-file", str(out))
         assert json.loads(out.read_text(encoding="utf-8"))["iteration"] == 1
 
+    def test_missing_input_file_emits_error(self, tmp_path, capsys):
+        # Regression for 9e0553a: read_text wrapped in try/except OSError so
+        # parse-failure recovery sees a clean stderr + exit 1 instead of a raw
+        # traceback.
+        exit_code = _run("parse", "--input-file", str(tmp_path / "no_such.txt"))
+        assert exit_code == 1
+        assert "Cannot read" in capsys.readouterr().err
+
 
 # ---------------------------------------------------------------------------
 # deep-step
@@ -323,6 +367,8 @@ class TestDeepStep:
         assert capsys.readouterr().out.strip() == "converged"
         data = _read_progress(ppath)
         assert data["termination"]["reason"] == "convergence"
+        # No tests ran on this path — test_passed must be None, not True.
+        assert data["iteration_history"][-1]["test_passed"] is None
 
     def test_no_actionable(self, tmp_path, capsys):
         ppath = _seed_deep_progress(tmp_path)
@@ -342,6 +388,7 @@ class TestDeepStep:
         assert capsys.readouterr().out.strip() == "no-actionable"
         data = _read_progress(ppath)
         assert data["termination"]["reason"] == "no-actionable"
+        assert data["iteration_history"][-1]["test_passed"] is None
 
     def test_applied_all_pass(self, tmp_path, capsys, monkeypatch):
         ppath = _seed_deep_progress(tmp_path)
@@ -366,6 +413,38 @@ class TestDeepStep:
         assert out.strip().startswith("applied")
         data = _read_progress(ppath)
         assert data["iteration_history"][-1]["fixed"] == 1
+
+    def test_all_reverted(self, tmp_path, capsys, monkeypatch):
+        # When bisection reverts every fix, deep-step prints "all-reverted"
+        # and records termination.reason accordingly.
+        ppath = _seed_deep_progress(tmp_path)
+        (tmp_path / "a.py").write_text("a", encoding="utf-8")
+        monkeypatch.setattr(cli, "run_tests", lambda *a, **kw: (False, "FAIL"))
+
+        def _stub_bisect(fixes, _tc, _cwd, on_outcome=None):
+            for idx, fix in enumerate(fixes):
+                on_outcome(idx, fix, "reverted", "FAIL")
+            return 0, len(fixes), 0
+
+        monkeypatch.setattr(cli, "bisect_fixes", _stub_bisect)
+        result = tmp_path / "result.json"
+        result.write_text(json.dumps({
+            "iteration": 1,
+            "new_findings": [{"file": "a.py", "line": 1, "category": "x",
+                              "summary": "s", "pre_edit_content": "a",
+                              "post_edit_content": "b"}],
+            "fixes_applied": [{"file": "a.py", "line": 1, "category": "x",
+                               "summary": "s", "pre_edit_content": "a",
+                               "post_edit_content": "b"}],
+            "no_new_findings": False, "no_actionable_fixes": False,
+        }), encoding="utf-8")
+        exit_code = _run(
+            "deep-step", "--progress-file", str(ppath), "--result-file", str(result),
+        )
+        assert exit_code == 0
+        assert capsys.readouterr().out.strip() == "all-reverted"
+        data = _read_progress(ppath)
+        assert data["termination"]["reason"] == "all-reverted"
 
 
 # ---------------------------------------------------------------------------
@@ -659,6 +738,27 @@ class TestCheckTermination:
         assert exit_code == 0
         assert capsys.readouterr().out.strip() == "cap"
 
+    def test_diminishing_returns_coverage(self, tmp_path, capsys, monkeypatch):
+        # Drive check_coverage_plateau via the coverage variant: two
+        # consecutive zero-delta history entries should trigger
+        # diminishing-returns and record the termination reason.
+        ppath = _seed_coverage_progress(tmp_path, cycle=2)
+        data = _read_progress(ppath)
+        data["coverage"]["history"] = [
+            {"cycle": 1, "before": 60, "after": 60, "delta": 0},
+            {"cycle": 2, "before": 60, "after": 60, "delta": 0},
+        ]
+        ppath.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        monkeypatch.setattr(
+            cli, "check_coverage_plateau",
+            lambda _hist: (True, "plateau detected"),
+        )
+        exit_code = _run("check-termination", "--progress-file", str(ppath))
+        assert exit_code == 0
+        assert capsys.readouterr().out.strip() == "diminishing-returns"
+        data = _read_progress(ppath)
+        assert data["termination"]["reason"] == "diminishing-returns"
+
 
 # ---------------------------------------------------------------------------
 # advance
@@ -693,6 +793,35 @@ class TestPendingRefactorCount:
 
 
 # ---------------------------------------------------------------------------
+# mark-termination
+# ---------------------------------------------------------------------------
+
+
+class TestMarkTermination:
+    def test_records_parse_failure(self, tmp_path):
+        # The CLI subcommand the orchestrator uses to record a parse-failure
+        # termination without touching the progress file directly.
+        ppath = _seed_deep_progress(tmp_path)
+        exit_code = _run(
+            "mark-termination", "--progress-file", str(ppath),
+            "--reason", "parse-failure",
+            "--message", "two consecutive iterations produced no JSON",
+        )
+        assert exit_code == 0
+        data = _read_progress(ppath)
+        assert data["termination"]["reason"] == "parse-failure"
+        assert "two consecutive" in data["termination"]["message"]
+
+    def test_rejects_unknown_reason(self, tmp_path):
+        ppath = _seed_deep_progress(tmp_path)
+        with pytest.raises(SystemExit):
+            _run(
+                "mark-termination", "--progress-file", str(ppath),
+                "--reason", "made-up-reason",
+            )
+
+
+# ---------------------------------------------------------------------------
 # commit-checkpoint
 # ---------------------------------------------------------------------------
 
@@ -718,6 +847,63 @@ class TestCommitCheckpoint:
         assert exit_code == 0
         assert capsys.readouterr().out.strip() == "committed"
         assert "deep-orchestrator" in captured["message"]
+
+    def test_commit_success_coverage_unit_test(self, tmp_path, capsys, monkeypatch):
+        # Coverage variant with phase=unit-test: title prefix is "test"
+        # (per PHASE_COMMIT_TYPE) and the body lists the cycle's tests_created.
+        ppath = _seed_coverage_progress(tmp_path)
+        data = _read_progress(ppath)
+        data["tests_created"] = [
+            {"cycle": 1, "file": "t.py", "target_file": "s.py",
+             "target_description": "f", "test_count": 3,
+             "status": "pass", "failure_reason": None},
+        ]
+        ppath.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        monkeypatch.setattr(cli, "git_diff_has_changes", lambda _cwd: True)
+        captured = {}
+
+        def fake_commit(message, cwd, pf, **kw):
+            captured["message"] = message
+            return True
+
+        monkeypatch.setattr(cli, "git_commit_checkpoint", fake_commit)
+        exit_code = _run(
+            "commit-checkpoint", "--progress-file", str(ppath),
+            "--phase", "unit-test",
+        )
+        assert exit_code == 0
+        assert capsys.readouterr().out.strip() == "committed"
+        assert captured["message"].startswith("test(coverage-orchestrator)")
+        assert "1 tests written" in captured["message"]
+        assert "Tests written:" in captured["message"]
+
+    def test_commit_success_coverage_refactor(self, tmp_path, capsys, monkeypatch):
+        # Coverage variant with phase=refactor: title prefix is "refactor"
+        # and the body lists the cycle's fixed refactor_findings.
+        ppath = _seed_coverage_progress(tmp_path)
+        data = _read_progress(ppath)
+        data["refactor_findings"] = [
+            {"cycle": 1, "file": "u.py", "line": 1, "category": "refactor",
+             "summary": "extract", "status": "fixed"},
+        ]
+        ppath.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        monkeypatch.setattr(cli, "git_diff_has_changes", lambda _cwd: True)
+        captured = {}
+
+        def fake_commit(message, cwd, pf, **kw):
+            captured["message"] = message
+            return True
+
+        monkeypatch.setattr(cli, "git_commit_checkpoint", fake_commit)
+        exit_code = _run(
+            "commit-checkpoint", "--progress-file", str(ppath),
+            "--phase", "refactor",
+        )
+        assert exit_code == 0
+        assert capsys.readouterr().out.strip() == "committed"
+        assert captured["message"].startswith("refactor(coverage-orchestrator)")
+        assert "1 fixed" in captured["message"]
+        assert "Testability fixes applied:" in captured["message"]
 
 
 # ---------------------------------------------------------------------------

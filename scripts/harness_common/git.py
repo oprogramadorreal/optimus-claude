@@ -54,15 +54,31 @@ def git_rev_parse_head(cwd):
     return result.stdout.strip()
 
 
+_HARNESS_STATE_EXCLUDES = (
+    ".claude/*-deep-progress.json",
+    ".claude/*-deep-progress.json.bak",
+    ".claude/*-deep-progress.json.done.json",
+    ".claude/.deep-iteration-*",
+    ".claude/.unit-test-deep-*",
+)
+
+
 def _clean_working_tree(cwd, _run=None):
-    """Reset tracked files and remove untracked files/dirs."""
+    """Reset tracked files and remove untracked files/dirs.
+
+    Preserves orchestrator state files (progress JSON, backups, per-iteration
+    temp files) so the user can `--resume` after a clean-triggered restore.
+    """
     _run = _run or subprocess.run
     checkout = _run(
         ["git", "checkout", "."], cwd=str(cwd), capture_output=True, text=True
     )
     if checkout.returncode != 0:
         print(f"{_PREFIX} WARNING: git checkout . failed: {checkout.stderr[:200]}")
-    clean = _run(["git", "clean", "-fd"], cwd=str(cwd), capture_output=True, text=True)
+    clean_cmd = ["git", "clean", "-fd"]
+    for pattern in _HARNESS_STATE_EXCLUDES:
+        clean_cmd.extend(["-e", pattern])
+    clean = _run(clean_cmd, cwd=str(cwd), capture_output=True, text=True)
     if clean.returncode != 0:
         print(f"{_PREFIX} WARNING: git clean -fd failed: {clean.stderr[:200]}")
 
@@ -162,20 +178,12 @@ def git_current_branch(cwd):
 def git_diff_has_changes(cwd):
     """Check if there are any uncommitted changes (staged, unstaged, or untracked)."""
     cwd_str = str(cwd)
-    if (
-        subprocess.run(
-            ["git", "diff", "--quiet"], cwd=cwd_str, capture_output=True
-        ).returncode
-        != 0
+    for args in (
+        ["git", "diff", "--quiet"],
+        ["git", "diff", "--cached", "--quiet"],
     ):
-        return True
-    if (
-        subprocess.run(
-            ["git", "diff", "--cached", "--quiet"], cwd=cwd_str, capture_output=True
-        ).returncode
-        != 0
-    ):
-        return True
+        if subprocess.run(args, cwd=cwd_str, capture_output=True).returncode != 0:
+            return True
     untracked = subprocess.run(
         ["git", "ls-files", "--others", "--exclude-standard"],
         cwd=cwd_str,

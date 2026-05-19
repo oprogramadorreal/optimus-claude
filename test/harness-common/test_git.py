@@ -53,6 +53,22 @@ class TestCleanWorkingTree:
         assert "WARNING" in output
         assert "git checkout" in output
 
+    @patch("harness_common.git.subprocess.run")
+    def test_clean_excludes_harness_state_files(self, mock_run):
+        # Regression: orchestrator progress files / per-iteration temp files
+        # must survive the restore-to-HEAD fallback path so the user can
+        # --resume after a failed iteration.
+        mock_run.return_value = MagicMock(returncode=0, stderr="")
+        _clean_working_tree("/tmp/project")
+        clean_call = mock_run.call_args_list[1]
+        clean_args = clean_call.args[0]
+        # The clean command must carry -e patterns covering the progress file
+        # families and per-iteration temp files.
+        assert "-e" in clean_args
+        joined = " ".join(clean_args)
+        assert "*-deep-progress.json" in joined
+        assert ".deep-iteration-*" in joined
+
 
 class TestGitRestoreTo:
     @patch("harness_common.git._clean_working_tree")
@@ -134,6 +150,15 @@ class TestRestoreWorkingTree:
     def test_no_stash_uses_head(self, mock_restore_to):
         restore_working_tree(None, "head123", "/tmp")
         mock_restore_to.assert_called_once_with("head123", "/tmp", _run=None)
+
+    @patch("harness_common.git.git_restore_to")
+    def test_no_stash_no_head_returns_false(self, mock_restore_to, capsys):
+        # Regression for c53086d: when both inputs are None, restore_working_tree
+        # warns and returns False rather than raising on the missing fallback.
+        result = restore_working_tree(None, None, "/tmp")
+        assert result is False
+        mock_restore_to.assert_not_called()
+        assert "no snapshot to restore from" in capsys.readouterr().out
 
 
 class TestGitStashSnapshot:

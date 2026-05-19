@@ -39,9 +39,9 @@ Initialize from the progress file:
 
 If `scope_files.current` is non-empty, use it as the file list for agents — this overrides the skill's Step 3 file discovery (the orchestrator pre-populated the scope). If `scope_files.current` is empty, fall back to the skill's Step 3 file discovery via git.
 
-### Steps 3, 4, 5 execution under harness mode
+### Skill-step execution under harness mode
 
-After reading the progress file, proceed through the skill's Step 3, Step 4, and Step 5 in order. Skip only the user confirmation step. Under harness mode, Step 3 must use the "no local changes → branch-diff" path automatically: the orchestrator requires a clean working tree, so local changes will always be empty. Skip the interactive scope offers, the scope summary presentation, and the large-diff warning.
+After reading the progress file, proceed through all of the skill's remaining numbered steps in order — skip only the user confirmation step (the orchestrator handles approval upfront). Under harness mode, Step 3 (or its skill-equivalent) must use the "no local changes → branch-diff" path automatically: the orchestrator requires a clean working tree, so local changes will always be empty. Skip the interactive scope offers, the scope summary presentation, and the large-diff warning.
 
 If `config.pr_description` is non-null, treat it as equivalent to the `pr-description` that interactive Step 3 captures from `gh pr view`: inject it into agent prompts per Step 5 "PR/MR context injection" and apply the Step 6 "PR/MR description as intent signal" soft-confidence adjustment during validation. Do not re-fetch via `gh pr view` — the orchestrator already captured it, and skipping the extra fetch keeps the subagent's turn budget lean.
 

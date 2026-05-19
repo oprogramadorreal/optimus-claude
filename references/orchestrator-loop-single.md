@@ -67,7 +67,7 @@ PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli parse \
     --output-file "$TMP_RESULT"
 ```
 
-Errors on missing `json:harness-output` block. If the orchestrator's previous step produced no parseable result, treat this as a fatal iteration crash and stop.
+Errors on missing `json:harness-output` block. Apply the procedure in "Parse-failure recovery" below — a single failure is a no-op and the loop moves on; two consecutive failures terminate the loop.
 
 ### 5. Process the iteration
 
@@ -126,7 +126,14 @@ If the CLI's `parse` subcommand exits non-zero, the subagent emitted no `json:ha
 - The base SKILL.md does not detect `HARNESS_MODE_INLINE` in the prompt body (regression — see `references/harness-mode.md`).
 - The subagent fell into interactive mode and hung on `AskUserQuestion`.
 
-When this happens once: warn the user but continue (the iteration is a no-op, the loop moves on). When this happens twice in a row: stop, mark the termination reason as `parse-failure`, and surface the error for the user to investigate.
+When this happens once: warn the user but continue (the iteration is a no-op, the loop moves on). When this happens twice in a row: stop and surface the error for the user to investigate, recording the termination reason via the CLI:
+
+```bash
+PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli mark-termination \
+    --progress-file "<progress-path>" \
+    --reason parse-failure \
+    --message "<short detail, e.g. 'two consecutive iterations produced no json:harness-output block'>"
+```
 
 ## After the loop
 
