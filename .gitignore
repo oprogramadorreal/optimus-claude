@@ -10,9 +10,6 @@ __pycache__/
 htmlcov/
 .coverage
 *.stackdump
-.claude/deep-mode-progress.json
-.claude/deep-mode-progress.json.bak
-.claude/deep-mode-progress.done.json
 .claude/code-review-deep-progress.json*
 .claude/refactor-deep-progress.json*
 .claude/unit-test-deep-progress.json*

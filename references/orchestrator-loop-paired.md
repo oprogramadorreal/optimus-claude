@@ -17,6 +17,8 @@ The loop control discipline mirrors `references/orchestrator-loop-single.md` (sl
 PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli snapshot --progress-file "<progress-path>"
 ```
 
+Add `--include-stash` if running with `--no-commit` so the working tree can be restored after a failed cycle.
+
 ### 2. Dispatch the unit-test subagent
 
 ```

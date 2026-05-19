@@ -1,7 +1,9 @@
+import json
 from unittest.mock import MagicMock, patch
 
 from harness_common.git import (
     _clean_working_tree,
+    _fetch_open_pr_data,
     git_current_branch,
     git_diff_has_changes,
     git_restore_snapshot,
@@ -184,3 +186,38 @@ class TestGitRestoreSnapshot:
         assert git_restore_snapshot("abc123", "/tmp") is True
         drop_call = mock_run.call_args_list[2]
         assert drop_call[0][0] == ["git", "stash", "drop", "stash@{0}"]
+
+
+class TestFetchOpenPrData:
+    @patch("harness_common.git.subprocess.run")
+    def test_decodes_non_latin1_body(self, mock_run):
+        # Em-dash and accented chars would fail under Windows-default cp1252;
+        # the encoding="utf-8" kwarg is what makes this work cross-platform.
+        body = "Implements — feature: rotación de tokens"
+        pr_json = json.dumps({
+            "title": "feat", "body": body,
+            "baseRefName": "main", "state": "OPEN",
+        })
+        mock_run.return_value = MagicMock(returncode=0, stdout=pr_json)
+        result = _fetch_open_pr_data("/tmp/project")
+        assert result is not None
+        assert result["body"] == body
+        # Regression guard for commit 9e0553a — without these kwargs, Windows
+        # would re-default to cp1252 and silently drop non-Latin-1 PR bodies.
+        _args, kwargs = mock_run.call_args
+        assert kwargs.get("encoding") == "utf-8"
+        assert kwargs.get("errors") == "replace"
+
+    @patch("harness_common.git.subprocess.run")
+    def test_returns_none_when_pr_not_open(self, mock_run):
+        pr_json = json.dumps({
+            "title": "feat", "body": "x",
+            "baseRefName": "main", "state": "CLOSED",
+        })
+        mock_run.return_value = MagicMock(returncode=0, stdout=pr_json)
+        assert _fetch_open_pr_data("/tmp/project") is None
+
+    @patch("harness_common.git.subprocess.run")
+    def test_returns_none_on_gh_failure(self, mock_run):
+        mock_run.return_value = MagicMock(returncode=1, stdout="")
+        assert _fetch_open_pr_data("/tmp/project") is None

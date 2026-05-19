@@ -423,6 +423,10 @@ class TestUnitTestStep:
         assert capsys.readouterr().out.strip() == "converged"
         data = _read_progress(ppath)
         assert data["termination"]["reason"] == "convergence"
+        assert data["cycle_history"] == [
+            {"cycle": 1, "unit_test": {"converged": True}}
+        ]
+        assert data["cycle"]["completed"] == 1
 
     def test_continue_with_pending_untestable(self, tmp_path, capsys, monkeypatch):
         ppath = _seed_coverage_progress(tmp_path)
@@ -450,6 +454,159 @@ class TestUnitTestStep:
         assert len(data["tests_created"]) == 1
         assert len(data["untestable_code"]) == 1
         assert data["untestable_code"][0]["status"] == "pending"
+
+
+# ---------------------------------------------------------------------------
+# refactor-step
+# ---------------------------------------------------------------------------
+
+
+def _seed_coverage_progress_with_untestable(tmp_path, *, files):
+    """Seed a coverage progress with one pending untestable item per file."""
+    ppath = _seed_coverage_progress(tmp_path)
+    data = _read_progress(ppath)
+    for path in files:
+        data["untestable_code"].append({
+            "file": path, "line": 1, "end_line": 2,
+            "function": "g", "barrier": "x", "barrier_description": "y",
+            "suggested_refactoring": "z", "status": "pending",
+        })
+    ppath.write_text(json.dumps(data), encoding="utf-8")
+    return ppath
+
+
+class TestRefactorStep:
+    def test_convergence(self, tmp_path, capsys):
+        ppath = _seed_coverage_progress(tmp_path)
+        result = tmp_path / "result.json"
+        result.write_text(json.dumps({
+            "cycle": 1, "phase": "refactor",
+            "new_findings": [], "fixes_applied": [],
+            "no_new_findings": True, "no_actionable_fixes": False,
+        }), encoding="utf-8")
+        exit_code = _run(
+            "refactor-step", "--progress-file", str(ppath), "--result-file", str(result),
+        )
+        assert exit_code == 0
+        assert capsys.readouterr().out.strip() == "converged"
+        data = _read_progress(ppath)
+        assert data["termination"]["reason"] == "convergence"
+        assert data["cycle_history"] == [
+            {"cycle": 1, "refactor": {"converged": True, "fixed": 0, "reverted": 0}}
+        ]
+        assert data["cycle"]["completed"] == 1
+
+    def test_applied_all_pass_marks_attempted(self, tmp_path, capsys, monkeypatch):
+        ppath = _seed_coverage_progress_with_untestable(tmp_path, files=["u.py"])
+        (tmp_path / "u.py").write_text("a", encoding="utf-8")
+        monkeypatch.setattr(cli, "run_tests", lambda *a, **kw: (True, "ok"))
+        result = tmp_path / "result.json"
+        result.write_text(json.dumps({
+            "cycle": 1, "phase": "refactor",
+            "new_findings": [{"file": "u.py", "line": 1, "category": "refactor",
+                              "summary": "extract", "pre_edit_content": "a",
+                              "post_edit_content": "b"}],
+            "fixes_applied": [{"file": "u.py", "line": 1, "category": "refactor",
+                               "summary": "extract", "pre_edit_content": "a",
+                               "post_edit_content": "b"}],
+            "no_new_findings": False, "no_actionable_fixes": False,
+        }), encoding="utf-8")
+        exit_code = _run(
+            "refactor-step", "--progress-file", str(ppath), "--result-file", str(result),
+        )
+        assert exit_code == 0
+        out = capsys.readouterr().out.strip()
+        assert out.startswith("applied")
+        assert "fixed=1" in out and "reverted=0" in out and "test_passed=1" in out
+        data = _read_progress(ppath)
+        assert len(data["refactor_findings"]) == 1
+        assert data["refactor_findings"][0]["status"] == "fixed"
+        assert data["untestable_code"][0]["status"] == "attempted"
+        assert data["untestable_code"][0]["refactor_attempt_cycle"] == 1
+
+    def test_bisect_reverts_failed_fix(self, tmp_path, capsys, monkeypatch):
+        ppath = _seed_coverage_progress_with_untestable(tmp_path, files=["u.py"])
+        (tmp_path / "u.py").write_text("a", encoding="utf-8")
+        monkeypatch.setattr(cli, "run_tests", lambda *a, **kw: (False, "FAIL"))
+
+        def _stub_bisect(fixes, _tc, _cwd, on_outcome=None):
+            for idx, fix in enumerate(fixes):
+                on_outcome(idx, fix, "reverted", "FAIL")
+            return 0, len(fixes), 0
+
+        monkeypatch.setattr(cli, "bisect_fixes", _stub_bisect)
+        result = tmp_path / "result.json"
+        result.write_text(json.dumps({
+            "cycle": 1, "phase": "refactor",
+            "new_findings": [{"file": "u.py", "line": 1, "category": "refactor",
+                              "summary": "s", "pre_edit_content": "a",
+                              "post_edit_content": "b"}],
+            "fixes_applied": [{"file": "u.py", "line": 1, "category": "refactor",
+                               "summary": "s", "pre_edit_content": "a",
+                               "post_edit_content": "b"}],
+            "no_new_findings": False, "no_actionable_fixes": False,
+        }), encoding="utf-8")
+        exit_code = _run(
+            "refactor-step", "--progress-file", str(ppath), "--result-file", str(result),
+        )
+        assert exit_code == 0
+        out = capsys.readouterr().out.strip()
+        assert "fixed=0" in out and "reverted=1" in out
+        data = _read_progress(ppath)
+        assert data["refactor_findings"][0]["status"] == "reverted — test failure"
+        # No fixed status means no untestable_code item gets "attempted"
+        assert data["untestable_code"][0]["status"] == "pending"
+
+
+# ---------------------------------------------------------------------------
+# record-cycle
+# ---------------------------------------------------------------------------
+
+
+class TestRecordCycle:
+    def test_unit_test_only(self, tmp_path):
+        ppath = _seed_coverage_progress(tmp_path)
+        ut = json.dumps({"fixed": 2, "reverted": 0})
+        exit_code = _run(
+            "record-cycle", "--progress-file", str(ppath),
+            "--unit-test-summary", ut,
+        )
+        assert exit_code == 0
+        data = _read_progress(ppath)
+        assert data["cycle_history"] == [
+            {"cycle": 1, "unit_test": {"fixed": 2, "reverted": 0}}
+        ]
+        assert data["cycle"]["completed"] == 1
+        assert data["cycle"]["current"] == 2
+
+    def test_unit_test_and_refactor(self, tmp_path):
+        ppath = _seed_coverage_progress(tmp_path)
+        exit_code = _run(
+            "record-cycle", "--progress-file", str(ppath),
+            "--unit-test-summary", json.dumps({"fixed": 1}),
+            "--refactor-summary", json.dumps({"fixed": 1, "reverted": 0}),
+        )
+        assert exit_code == 0
+        data = _read_progress(ppath)
+        assert data["cycle_history"] == [{
+            "cycle": 1,
+            "unit_test": {"fixed": 1},
+            "refactor": {"fixed": 1, "reverted": 0},
+        }]
+        assert data["cycle"]["current"] == 2
+
+    def test_invalid_json_exits_one(self, tmp_path, capsys):
+        ppath = _seed_coverage_progress(tmp_path)
+        exit_code = _run(
+            "record-cycle", "--progress-file", str(ppath),
+            "--unit-test-summary", "{not valid json",
+        )
+        assert exit_code == 1
+        assert "Invalid cycle summary JSON" in capsys.readouterr().err
+        # Progress file untouched on parse failure
+        data = _read_progress(ppath)
+        assert data["cycle_history"] == []
+        assert data["cycle"]["current"] == 1
 
 
 # ---------------------------------------------------------------------------

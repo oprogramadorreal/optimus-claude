@@ -783,22 +783,22 @@ def cmd_refactor_step(args):
             fixed_count = len(fixes)
             test_passed = True
         else:
-            # Bisect on refactor_findings via a phase-specific callback
+            # Bisect on refactor_findings via a phase-specific callback.
+            # Reuses _BISECT_OUTCOMES_TO_STATUS so the status strings stay in
+            # one place; can't reuse _make_bisect_callback because that helper
+            # writes to progress["findings"], not progress["refactor_findings"].
             def _refactor_outcome(_idx, fix, outcome, detail):
                 nonlocal fixed_count, reverted_count
+                if outcome == "reverted":
+                    status = "reverted — test failure"
+                    reverted_count += 1
+                else:
+                    status = _BISECT_OUTCOMES_TO_STATUS[outcome]
+                    if outcome != "skipped":
+                        fixed_count += 1
                 for finding in progress["refactor_findings"]:
                     if finding.get("cycle") == cycle and finding_matches(finding, fix):
-                        if outcome == "fixed":
-                            finding["status"] = "fixed"
-                            fixed_count += 1
-                        elif outcome == "retained":
-                            finding["status"] = "retained — revert failed"
-                            fixed_count += 1
-                        elif outcome == "skipped":
-                            finding["status"] = "skipped — apply failed"
-                        elif outcome == "reverted":
-                            finding["status"] = "reverted — test failure"
-                            reverted_count += 1
+                        finding["status"] = status
                         break
 
             bisect_fixes(
