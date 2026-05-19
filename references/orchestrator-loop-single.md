@@ -17,7 +17,7 @@ The orchestrator skill repeats steps 1–8 below until step 7 (`check-terminatio
 ### 1. Snapshot pre-iteration git state
 
 ```bash
-python -m harness_common.cli snapshot --progress-file "<progress-path>"
+PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli snapshot --progress-file "<progress-path>"
 ```
 
 Records `HEAD` into `progress["_snapshot"]["pre_head"]`. Add `--include-stash` if running with `--no-commit` so the working tree can be restored after a failed iteration.
@@ -62,7 +62,7 @@ The exact filenames are an implementation choice — the only requirement is tha
 ### 4. Extract the structured JSON
 
 ```bash
-python -m harness_common.cli parse \
+PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli parse \
     --input-file "$TMP_RAW" \
     --output-file "$TMP_RESULT"
 ```
@@ -72,7 +72,7 @@ Errors on missing `json:harness-output` block. If the orchestrator's previous st
 ### 5. Process the iteration
 
 ```bash
-python -m harness_common.cli deep-step \
+PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli deep-step \
     --progress-file "<progress-path>" \
     --result-file "$TMP_RESULT"
 ```
@@ -89,7 +89,7 @@ This single subcommand: promotes actionable fixes, registers findings, runs test
 ### 6. Checkpoint commit (skip if `--no-commit`)
 
 ```bash
-python -m harness_common.cli commit-checkpoint --progress-file "<progress-path>"
+PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli commit-checkpoint --progress-file "<progress-path>"
 ```
 
 Returns `committed`, `nothing-to-commit`, or `commit-failed`. On `commit-failed`, the orchestrator should warn and switch the remaining iterations to `--no-commit` mode (skip commits going forward).
@@ -97,7 +97,7 @@ Returns `committed`, `nothing-to-commit`, or `commit-failed`. On `commit-failed`
 ### 7. Check termination
 
 ```bash
-TERMINATION=$(python -m harness_common.cli check-termination \
+TERMINATION=$(PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli check-termination \
     --progress-file "<progress-path>")
 ```
 
@@ -106,7 +106,7 @@ Possible values: `continue`, `convergence`, `no-actionable`, `all-reverted`, `ca
 ### 8. Advance the iteration counter
 
 ```bash
-python -m harness_common.cli advance --progress-file "<progress-path>"
+PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli advance --progress-file "<progress-path>"
 ```
 
 Increments `iteration.current`. Then loop back to step 1.
@@ -133,7 +133,7 @@ When this happens once: warn the user but continue (the iteration is a no-op, th
 Print the final report:
 
 ```bash
-python -m harness_common.cli final-report --progress-file "<progress-path>" --archive
+PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli final-report --progress-file "<progress-path>" --archive
 ```
 
 The `--archive` flag moves the progress file to `<path>.done.json` and removes the backup, signaling that this run is complete (a subsequent `--resume` will refuse the archived path).

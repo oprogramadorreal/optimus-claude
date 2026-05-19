@@ -14,7 +14,7 @@ The loop control discipline mirrors `references/orchestrator-loop-single.md` (sl
 ### 1. Snapshot pre-cycle git state
 
 ```bash
-python -m harness_common.cli snapshot --progress-file "<progress-path>"
+PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli snapshot --progress-file "<progress-path>"
 ```
 
 ### 2. Dispatch the unit-test subagent
@@ -44,7 +44,7 @@ Agent tool call:
 ```bash
 TMP_RAW=".claude/.unit-test-deep-raw.txt"
 TMP_RESULT=".claude/.unit-test-deep-result.json"
-python -m harness_common.cli parse \
+PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli parse \
     --input-file "$TMP_RAW" \
     --output-file "$TMP_RESULT"
 ```
@@ -52,7 +52,7 @@ python -m harness_common.cli parse \
 ### 4. Record the unit-test phase
 
 ```bash
-RESULT=$(python -m harness_common.cli unit-test-step \
+RESULT=$(PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli unit-test-step \
     --progress-file "<progress-path>" \
     --result-file "$TMP_RESULT")
 ```
@@ -67,7 +67,7 @@ Stdout is one of:
 ### 5. Commit the unit-test phase checkpoint
 
 ```bash
-python -m harness_common.cli commit-checkpoint \
+PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli commit-checkpoint \
     --progress-file "<progress-path>" --phase unit-test
 ```
 
@@ -76,7 +76,7 @@ python -m harness_common.cli commit-checkpoint \
 Check whether there are pending untestable items:
 
 ```bash
-PENDING=$(python -m harness_common.cli pending-refactor-count \
+PENDING=$(PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli pending-refactor-count \
     --progress-file "<progress-path>")
 ```
 
@@ -106,7 +106,7 @@ Agent tool call:
 ### 7. Extract the refactor JSON
 
 ```bash
-python -m harness_common.cli parse \
+PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli parse \
     --input-file "$TMP_RAW" \
     --output-file "$TMP_RESULT"
 ```
@@ -116,7 +116,7 @@ python -m harness_common.cli parse \
 ### 8. Record the refactor phase
 
 ```bash
-RESULT=$(python -m harness_common.cli refactor-step \
+RESULT=$(PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli refactor-step \
     --progress-file "<progress-path>" \
     --result-file "$TMP_RESULT")
 ```
@@ -131,14 +131,14 @@ Stdout is one of:
 ### 9. Commit the refactor phase checkpoint
 
 ```bash
-python -m harness_common.cli commit-checkpoint \
+PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli commit-checkpoint \
     --progress-file "<progress-path>" --phase refactor
 ```
 
 ### 10. Record the cycle history + advance
 
 ```bash
-python -m harness_common.cli record-cycle \
+PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli record-cycle \
     --progress-file "<progress-path>" \
     --unit-test-summary "<json>" \
     [--refactor-summary "<json>"]
@@ -149,7 +149,7 @@ python -m harness_common.cli record-cycle \
 ### 11. Check termination
 
 ```bash
-TERMINATION=$(python -m harness_common.cli check-termination \
+TERMINATION=$(PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli check-termination \
     --progress-file "<progress-path>")
 ```
 
@@ -158,7 +158,7 @@ Possible values: `continue`, `convergence`, `cap`, `diminishing-returns`. If any
 ## After the loop
 
 ```bash
-python -m harness_common.cli final-report \
+PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli final-report \
     --progress-file "<progress-path>" --archive
 ```
 

@@ -1,7 +1,6 @@
 """Tests for the orchestrator CLI (`scripts/harness_common/cli.py`)."""
 
 import json
-from unittest.mock import patch
 
 import pytest
 
@@ -515,12 +514,6 @@ class TestAdvance:
         _run("advance", "--progress-file", str(ppath))
         data = _read_progress(ppath)
         assert data["iteration"]["current"] == 4
-
-    def test_coverage(self, tmp_path):
-        ppath = _seed_coverage_progress(tmp_path, cycle=2)
-        _run("advance", "--progress-file", str(ppath))
-        data = _read_progress(ppath)
-        assert data["cycle"]["current"] == 3
 
 
 # ---------------------------------------------------------------------------

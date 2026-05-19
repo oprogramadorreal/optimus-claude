@@ -71,7 +71,7 @@ If the user selects **Cancel**, stop.
 ### On `--resume`
 
 ```bash
-python -m harness_common.cli resume \
+PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli resume \
     --progress-file ".claude/code-review-deep-progress.json" \
     --project-dir "."
 ```
@@ -81,7 +81,7 @@ If exit code is non-zero, surface the error and stop.
 ### On fresh run
 
 ```bash
-python -m harness_common.cli init \
+PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli init \
     --skill code-review \
     --max-iterations [N] \
     [--scope "<scope>"] \
@@ -106,7 +106,7 @@ Brief, single-line status updates per iteration are appropriate (e.g., *"Iterati
 ## Step 6: Final Report
 
 ```bash
-python -m harness_common.cli final-report \
+PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli final-report \
     --progress-file ".claude/code-review-deep-progress.json" \
     --archive
 ```

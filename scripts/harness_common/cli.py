@@ -21,13 +21,12 @@ Subcommand summary:
 from __future__ import annotations
 
 import argparse
-import datetime
 import json
 import shutil
 import sys
 from pathlib import Path
 
-from harness_common.constants import (
+from .constants import (
     APPLIED_PENDING_TEST,
     BACKUP_SUFFIX,
     COVERAGE_VARIANT_SKILLS,
@@ -48,21 +47,21 @@ from harness_common.constants import (
     VALID_FOCUS_MODES,
     normalize_path,
 )
-from harness_common.convergence import (
+from .convergence import (
     check_coverage_plateau,
     check_refactor_convergence,
     check_unit_test_convergence,
 )
-from harness_common.findings import (
+from .findings import (
     finding_key,
     finding_matches,
     mark_all_fixed,
     mark_finding_status,
     update_scope,
 )
-from harness_common.fixes import bisect_fixes
-from harness_common.git import commit_checkpoint as git_commit_checkpoint
-from harness_common.git import (
+from .fixes import bisect_fixes
+from .git import commit_checkpoint as git_commit_checkpoint
+from .git import (
     git_current_branch,
     git_diff_has_changes,
     git_discover_branch_files,
@@ -71,18 +70,14 @@ from harness_common.git import (
     git_stash_snapshot,
     restore_working_tree,
 )
-from harness_common.parser import parse_harness_output
-from harness_common.progress import read_progress, record_test_result, write_progress
-from harness_common.reporting import detect_test_command
-from harness_common.runner import run_tests
+from .parser import parse_harness_output
+from .progress import read_progress, record_test_result, write_progress
+from .reporting import detect_test_command
+from .runner import run_tests
 
 # ---------------------------------------------------------------------------
 # Progress shape helpers
 # ---------------------------------------------------------------------------
-
-
-def _now_utc():
-    return datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def _is_coverage(progress):
@@ -90,18 +85,25 @@ def _is_coverage(progress):
 
 
 def _make_deep_progress(
-    skill, scope, max_iterations, test_command, project_root, focus, base_commit
+    skill,
+    scope,
+    max_iterations,
+    test_command,
+    project_root,
+    focus,
+    base_commit,
+    scope_is_path,
 ):
     return {
         "schema_version": 1,
         "skill": skill,
-        "started_at": _now_utc(),
         "config": {
             "max_iterations": max_iterations,
             "test_command": test_command,
             "scope": {
-                "mode": "local-changes" if not scope else "directory",
-                "paths": [scope] if scope else [],
+                "mode": "directory" if scope_is_path else "branch-diff",
+                "paths": [scope] if scope_is_path else [],
+                "scope_text": scope if (scope and not scope_is_path) else None,
                 "base_ref": None,
             },
             "project_root": normalize_path(str(project_root)),
@@ -123,7 +125,6 @@ def _make_coverage_progress(scope, max_cycles, test_command, project_root, base_
         "schema_version": 1,
         "harness": "test-coverage",
         "skill": "unit-test",
-        "started_at": _now_utc(),
         "config": {
             "max_cycles": max_cycles,
             "test_command": test_command,
@@ -460,6 +461,10 @@ def cmd_init(args):
         max_iter = min(requested_iter, MAX_ITERATIONS_HARD_CAP)
         if max_iter < 1:
             max_iter = 1
+        # Treat scope as a git pathspec only when it resolves to an existing
+        # path under project_root. Natural-language scope ("focus on src/auth")
+        # is kept as prose for downstream agent prompts and never passed to git.
+        scope_is_path = bool(args.scope) and (project_root / args.scope).exists()
         progress = _make_deep_progress(
             skill,
             args.scope,
@@ -468,19 +473,15 @@ def cmd_init(args):
             project_root,
             args.focus or "",
             base_commit,
+            scope_is_path,
         )
-        # Populate scope_files from branch diff (with optional path filter)
-        path_filter = args.scope if args.scope else None
+        path_filter = args.scope if scope_is_path else None
         branch_files, base_ref = git_discover_branch_files(
             project_root, path_filter=path_filter
         )
         if branch_files:
             progress["scope_files"]["current"] = branch_files
             progress["config"]["scope"]["base_ref"] = base_ref
-            if path_filter:
-                progress["config"]["scope"]["mode"] = "directory"
-            else:
-                progress["config"]["scope"]["mode"] = "branch-diff"
         # Capture PR description if available
         pr_info = git_fetch_open_pr_description(project_root)
         if pr_info:
@@ -598,7 +599,7 @@ def cmd_deep_step(args):
 
     if result.get("no_new_findings", False):
         _register_iteration_findings(progress, result, fixes=[])
-        _record_iteration_history(progress, iteration, 0, 0, 0, True)
+        _record_iteration_history(progress, iteration, 0, 0, 0, None)
         progress["termination"] = {
             "reason": "convergence",
             "message": f"Zero new findings on iteration {iteration}",
@@ -608,7 +609,7 @@ def cmd_deep_step(args):
         return 0
     if result.get("no_actionable_fixes", False):
         _register_iteration_findings(progress, result, fixes=[])
-        _record_iteration_history(progress, iteration, new_count, 0, 0, True)
+        _record_iteration_history(progress, iteration, new_count, 0, 0, None)
         progress["termination"] = {
             "reason": "no-actionable",
             "message": "Findings exist but none had actionable code edits",
@@ -821,10 +822,23 @@ def cmd_refactor_step(args):
                             reverted_count += 1
             test_passed = passed
 
-    # Mark untestable items "attempted" for any fix that survived
+    # Mark only the untestable items whose file was actually touched by a
+    # surviving fix as "attempted" — unrelated pending items stay pending so
+    # the next cycle can retry them.
     if fixed_count > 0:
+        touched_files = {
+            f["file"]
+            for f in fixes
+            if f.get("file")
+            and any(
+                finding.get("cycle") == cycle
+                and finding_matches(finding, f)
+                and finding.get("status") in FIXED_STATUSES
+                for finding in progress["refactor_findings"]
+            )
+        }
         for item in progress["untestable_code"]:
-            if item.get("status") == "pending":
+            if item.get("status") == "pending" and item.get("file") in touched_files:
                 item["status"] = "attempted"
                 item["refactor_attempt_cycle"] = cycle
 
@@ -996,13 +1010,14 @@ def cmd_check_termination(args):
 
 
 def cmd_advance(args):
-    """Increment iteration.current after a successful iteration."""
+    """Increment iteration.current after a successful iteration (deep variant).
+
+    The paired-cycle loop uses ``record-cycle`` to increment ``cycle.current``;
+    only deep-variant skills call ``advance``.
+    """
     progress_path = Path(args.progress_file)
     progress = read_progress(progress_path)
-    if _is_coverage(progress):
-        progress["cycle"]["current"] += 1
-    else:
-        progress["iteration"]["current"] += 1
+    progress["iteration"]["current"] += 1
     write_progress(progress_path, progress)
     return 0
 

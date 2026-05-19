@@ -1,4 +1,4 @@
-from harness_common.constants import (
+from .constants import (
     APPLIED_PENDING_TEST,
     FAILURE_STATUSES,
     PERSISTENT_STATUS,

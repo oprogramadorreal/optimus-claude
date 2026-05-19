@@ -58,7 +58,7 @@ For each subproject (or the single project):
 Read `$CLAUDE_PLUGIN_ROOT/skills/unit-test/agents/shared-constraints.md` for agent constraints.
 Read `$CLAUDE_PLUGIN_ROOT/skills/unit-test/agents/test-infrastructure-analyzer.md` for the full prompt template, scanning patterns, execution rules, and return format for the Test Infrastructure Analyzer Agent.
 
-### Iteration context injection (harness mode, iterations 2+)
+### Cycle context injection (harness mode, cycles 2+)
 
 When running under `HARNESS_MODE_INLINE` and the progress file's `cycle.current` is greater than 1, prepend a concise context block to the agent prompt before the main instructions. Source the data from the progress file's `tests_created`, `untestable_code`, and `coverage.history`. Include:
 
@@ -223,7 +223,7 @@ If running under `HARNESS_MODE_INLINE`, output structured JSON **instead** of th
 ````
 ```json:harness-output
 {
-  "iteration": <cycle number from progress file>,
+  "cycle": <cycle number from progress file>,
   "phase": "unit-test",
   "coverage": {
     "tool": "<coverage tool name or null>",

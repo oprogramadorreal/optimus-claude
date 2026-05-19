@@ -71,7 +71,7 @@ If the user selects **Cancel**, stop.
 ### On `--resume`
 
 ```bash
-python -m harness_common.cli resume \
+PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli resume \
     --progress-file ".claude/unit-test-deep-progress.json" \
     --project-dir "."
 ```
@@ -79,7 +79,7 @@ python -m harness_common.cli resume \
 ### On fresh run
 
 ```bash
-python -m harness_common.cli init \
+PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli init \
     --skill unit-test \
     --max-cycles [N] \
     [--scope "<scope>"] \
@@ -109,7 +109,7 @@ Brief per-phase status updates are appropriate (e.g., *"Cycle 2/5 unit-test: dis
 ## Step 6: Final Report
 
 ```bash
-python -m harness_common.cli final-report \
+PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli final-report \
     --progress-file ".claude/unit-test-deep-progress.json" \
     --archive
 ```

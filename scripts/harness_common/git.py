@@ -190,11 +190,15 @@ def restore_working_tree(stash_sha, head_commit, cwd, _run=None):
 
     Tries the stash snapshot first (preserves uncommitted work from prior
     --no-commit iterations), falls back to git checkout of the HEAD commit.
+    Returns True on success, False when no usable snapshot is available.
     """
-    if stash_sha:
-        if git_restore_snapshot(stash_sha, cwd, _run=_run):
-            return
+    if stash_sha and git_restore_snapshot(stash_sha, cwd, _run=_run):
+        return True
+    if not head_commit:
+        print(f"{_PREFIX} WARNING: no snapshot to restore from")
+        return False
     git_restore_to(head_commit, cwd, _run=_run)
+    return True
 
 
 def _verify_ref(cwd_str, ref):

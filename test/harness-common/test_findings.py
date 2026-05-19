@@ -1,4 +1,5 @@
 import pytest
+from harness_common.constants import APPLIED_PENDING_TEST
 from harness_common.findings import (
     _escalate_revert_status,
     _truncate_failure_hint,
@@ -80,6 +81,26 @@ class TestMarkFindingStatus:
         mark_finding_status(
             sample_progress, sample_fix, "reverted — test failure", "fail 1"
         )
+        mark_finding_status(
+            sample_progress, sample_fix, "reverted — test failure", "fail 2"
+        )
+        assert sample_progress["findings"][0]["status"] == "reverted — attempt 2"
+
+    def test_revert_escalation_survives_applied_pending_test(
+        self, sample_progress, sample_fix
+    ):
+        """Regression test for 9e0553a: APPLIED_PENDING_TEST writes between
+        revert attempts must not reset the escalation chain. Each new
+        iteration registers findings as ``applied-pending-test`` before
+        bisection writes the terminal status; if escalation only looks at the
+        immediately preceding status, the chain silently resets each iteration.
+        """
+        mark_finding_status(
+            sample_progress, sample_fix, "reverted — test failure", "fail 1"
+        )
+        # Simulate a subsequent iteration re-registering the finding before
+        # bisection produces its final status.
+        mark_finding_status(sample_progress, sample_fix, APPLIED_PENDING_TEST, None)
         mark_finding_status(
             sample_progress, sample_fix, "reverted — test failure", "fail 2"
         )
