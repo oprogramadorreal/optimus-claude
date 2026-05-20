@@ -47,11 +47,11 @@ Before starting TDD cycles, analyze whether the user's task is a good fit for te
 
 ### Gather the task
 
-**Context detection** (runs before the task-gathering prompts below — first match wins):
+**Context detection** (runs at Step 2 entry — items 1–3 are evaluated in order regardless of whether the user provided an inline task description; first match wins):
 
 1. **Explicit reference** — if the user's input references a file path ending in `.md` inside `docs/design/` or `docs/jira/`, read that file and use its Goal section as the task description. Proceed to distillation below if the goal is longer than 2-3 sentences.
 
-2. **Design doc auto-discovery** — if no explicit reference but `docs/design/` exists with `.md` files, check the most recent one (by filename date prefix). If its date is within the last 7 days, mention it: "Found design doc `<path>` — use it as the basis for TDD?" via `AskUserQuestion` — header "Design doc", options "Use it" / "Ignore — describe a different task". If its date is older than 7 days, add a note: "(This design doc is [N] days old — you may want to re-run `/optimus:brainstorm` for a fresh design.)" Design docs contain full approach details from `/optimus:brainstorm` — use Goal, Components, and Interfaces sections as the task description.
+2. **Design doc auto-discovery** — if item 1 did not fire (the user did not reference a `docs/design/` or `docs/jira/` `.md` file path) and `docs/design/` exists with `.md` files, check the most recent one (by filename date prefix). If its date is within the last 7 days, mention it: "Found design doc `<path>` — use it as the basis for TDD?" via `AskUserQuestion` — header "Design doc", options "Use it" / "Ignore — describe a different task". If its date is older than 7 days, add a note: "(This design doc is [N] days old — you may want to re-run `/optimus:brainstorm` for a fresh design.)" Design docs contain full approach details from `/optimus:brainstorm` — use Goal, Components, and Interfaces sections as the task description.
 
 3. **JIRA context auto-discovery** — if no design doc found (or user ignored it) but `docs/jira/` exists with `.md` files, read each file's YAML frontmatter and select the one with the most recent `date` field. If its date is within the last 7 days, mention it: "Found JIRA context `<path>` — use it as the basis for TDD?" via `AskUserQuestion` — header "JIRA context", options "Use it" / "Ignore — describe a different task". If its date is older than 7 days, add a note: "(This context is [N] days old — you may want to re-run `/optimus:jira` for fresh data.)" JIRA context provides Goal and Acceptance Criteria as the task description.
 
