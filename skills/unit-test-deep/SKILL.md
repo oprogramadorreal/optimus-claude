@@ -18,8 +18,9 @@ If your invocation prompt already contains `HARNESS_MODE_INLINE`, stop immediate
 Extract from the user's arguments:
 1. `--resume` flag (present/absent)
 2. `--no-commit` flag (present/absent)
-3. `--max-cycles N` (optional, default 5, hard cap 10)
-4. Everything else → scope text (optional path filter)
+3. `--yes` flag (present/absent) — auto-confirm the Step 3 prompt; required when invoked under `claude -p` or any other non-interactive session that cannot answer `AskUserQuestion`.
+4. `--max-cycles N` (optional, default 5, hard cap 10)
+5. Everything else → scope text (optional path filter)
 
 Examples:
 - `/optimus:unit-test-deep` → 5 cycles, full project
@@ -27,6 +28,7 @@ Examples:
 - `/optimus:unit-test-deep src/api` → scoped
 - `/optimus:unit-test-deep --resume` → continue from existing progress file
 - `/optimus:unit-test-deep --no-commit` → skip per-phase checkpoint commits
+- `claude -p "/optimus:unit-test-deep --yes src/api"` → headless / CI usage; skips the Step 3 confirmation prompt
 
 ## Step 2: Pre-flight Checks
 
@@ -52,7 +54,7 @@ On a fresh (non-`--resume`) run, refuse to proceed if the working tree has uncom
 
 ## Step 3: User Confirmation
 
-Skip this step entirely when `--resume` is given.
+Skip this step entirely when `--resume` is given, or when `--yes` is given (headless / CI: the caller has pre-approved the run).
 
 Warn the user with:
 
@@ -86,6 +88,8 @@ PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli init \
     --progress-file ".claude/unit-test-deep-progress.json" \
     --project-dir "."
 ```
+
+If `init` reports *"progress file already exists"*, a prior un-archived run is on disk. Either run with `--resume` to continue it, or re-invoke `init` with `--force` to discard the prior progress.
 
 ## Step 5: Run the Cycle Loop
 

@@ -57,7 +57,7 @@ def git_rev_parse_head(cwd):
 _HARNESS_STATE_EXCLUDES = (
     ".claude/*-deep-progress.json",
     ".claude/*-deep-progress.json.bak",
-    ".claude/*-deep-progress.json.done.json",
+    ".claude/*-deep-progress.done.json",
     ".claude/.deep-iteration-*",
     ".claude/.unit-test-deep-*",
 )

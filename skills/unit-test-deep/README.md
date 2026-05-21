@@ -26,6 +26,7 @@ This skill is part of the [optimus](https://github.com/oprogramadorreal/optimus-
 /optimus:unit-test-deep src/api                  # Scoped to a path
 /optimus:unit-test-deep --resume                 # Continue from existing progress file
 /optimus:unit-test-deep --no-commit              # Skip per-phase checkpoint commits
+claude -p "/optimus:unit-test-deep --yes src/api"  # Headless / CI; auto-confirms Step 3
 ```
 
 ## Requirements

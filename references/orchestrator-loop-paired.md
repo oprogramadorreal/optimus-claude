@@ -48,8 +48,11 @@ TMP_RAW=".claude/.unit-test-deep-raw.txt"
 TMP_RESULT=".claude/.unit-test-deep-result.json"
 PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli parse \
     --input-file "$TMP_RAW" \
-    --output-file "$TMP_RESULT"
+    --output-file "$TMP_RESULT" \
+    --progress-file "<progress-path>"
 ```
+
+Passing `--progress-file` lets the CLI track consecutive parse failures across cycles (and across `--resume`); a single failure is a no-op and the loop moves on, while two consecutive failures cause step 11 (`check-termination`) to return `parse-failure` and terminate the loop. The counter is shared across both phases — a unit-test parse failure followed by a refactor parse failure counts as two consecutive failures.
 
 ### 4. Record the unit-test phase
 
@@ -110,10 +113,11 @@ Agent tool call:
 ```bash
 PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli parse \
     --input-file "$TMP_RAW" \
-    --output-file "$TMP_RESULT"
+    --output-file "$TMP_RESULT" \
+    --progress-file "<progress-path>"
 ```
 
-(Same temp file shape as step 3, reused.)
+(Same temp file shape as step 3, reused. The `--progress-file` flag continues to update `parse_failure_count` so a refactor-phase parse failure following a unit-test-phase failure triggers `parse-failure` termination.)
 
 ### 8. Record the refactor phase
 
@@ -155,7 +159,7 @@ TERMINATION=$(PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.
     --progress-file "<progress-path>")
 ```
 
-Possible values: `continue`, `convergence`, `cap`, `diminishing-returns`. If anything other than `continue`, exit the loop.
+Possible values: `continue`, `convergence`, `cap`, `diminishing-returns`, `parse-failure`. If anything other than `continue`, exit the loop. (`parse-failure` is surfaced automatically when the CLI's `parse_failure_count` reaches its threshold — see the parse step above.)
 
 ## After the loop
 

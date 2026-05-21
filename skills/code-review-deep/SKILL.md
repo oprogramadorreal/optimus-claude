@@ -18,8 +18,9 @@ If your invocation prompt already contains `HARNESS_MODE_INLINE`, stop immediate
 Extract from the user's arguments:
 1. `--resume` flag (present/absent)
 2. `--no-commit` flag (present/absent)
-3. `--max-iterations N` (optional, default 8, hard cap 20)
-4. Everything else → scope text (natural-language description or path; e.g., `"focus on src/auth"`)
+3. `--yes` flag (present/absent) — auto-confirm the Step 3 prompt; required when invoked under `claude -p` or any other non-interactive session that cannot answer `AskUserQuestion`.
+4. `--max-iterations N` (optional, default 8, hard cap 20)
+5. Everything else → scope text (natural-language description or path; e.g., `"focus on src/auth"`)
 
 Examples:
 - `/optimus:code-review-deep` → 8 iterations on the branch diff
@@ -27,6 +28,7 @@ Examples:
 - `/optimus:code-review-deep "focus on src/auth"` → scoped
 - `/optimus:code-review-deep --resume` → continue from existing progress file
 - `/optimus:code-review-deep --no-commit` → skip per-iteration checkpoint commits
+- `claude -p "/optimus:code-review-deep --yes 'src/auth'"` → headless / CI usage; skips the Step 3 confirmation prompt
 
 ## Step 2: Pre-flight Checks
 
@@ -50,7 +52,7 @@ On `--resume`, the existing progress file's `_snapshot.pre_head` is the recovery
 
 ## Step 3: User Confirmation
 
-Skip this step entirely when `--resume` is given.
+Skip this step entirely when `--resume` is given, or when `--yes` is given (headless / CI: the caller has pre-approved the run).
 
 Warn the user with:
 
@@ -89,9 +91,12 @@ PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli init \
     --project-dir "."
 ```
 
-If exit code is non-zero, surface the error (typically "No test command" or "Cannot determine HEAD commit") and stop.
+If exit code is non-zero, surface the error and stop. Likely errors:
+- *"progress file already exists"* — a prior run has not been archived. Tell the user to either pass `--resume` to continue the prior run, or re-invoke this skill with `--force` to discard the prior progress and start fresh.
+- *"No test command"* — `.claude/CLAUDE.md` does not document a test command. Recommend `/optimus:init`.
+- *"Cannot determine HEAD commit"* — the project is not a git repository or has no commits.
 
-If a progress file already exists from a prior run, the CLI's `init` will overwrite it. If you want to preserve a prior run, recommend the user pass `--resume` or move the existing file first.
+If the user explicitly wants to discard a prior run, pass `--force` to `cli.py init` (no separate user-visible orchestrator flag is needed — the CLI's `--force` is sufficient).
 
 ## Step 5: Run the Iteration Loop
 

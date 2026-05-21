@@ -18,9 +18,10 @@ If your invocation prompt already contains `HARNESS_MODE_INLINE`, stop immediate
 Extract from the user's arguments:
 1. `--resume` flag (present/absent)
 2. `--no-commit` flag (present/absent)
-3. `--max-iterations N` (optional, default 8, hard cap 20)
-4. Focus keyword (standalone unquoted token): `testability` or `guidelines` (the same detection rules as `/optimus:refactor` — see `skills/refactor/SKILL.md` Step 1)
-5. Everything else → scope text
+3. `--yes` flag (present/absent) — auto-confirm the Step 3 prompt; required when invoked under `claude -p` or any other non-interactive session that cannot answer `AskUserQuestion`.
+4. `--max-iterations N` (optional, default 8, hard cap 20)
+5. Focus keyword (standalone unquoted token): `testability` or `guidelines` (the same detection rules as `/optimus:refactor` — see `skills/refactor/SKILL.md` Step 1)
+6. Everything else → scope text
 
 Examples:
 - `/optimus:refactor-deep` → full project, 8 iterations, balanced focus
@@ -29,6 +30,7 @@ Examples:
 - `/optimus:refactor-deep --max-iterations 12` → 12 iterations
 - `/optimus:refactor-deep --resume` → continue from existing progress file
 - `/optimus:refactor-deep --no-commit` → skip per-iteration checkpoint commits
+- `claude -p "/optimus:refactor-deep --yes testability"` → headless / CI usage; skips the Step 3 confirmation prompt
 
 ## Step 2: Pre-flight Checks
 
@@ -50,7 +52,7 @@ On a fresh (non-`--resume`) run, refuse to proceed if the working tree has uncom
 
 ## Step 3: User Confirmation
 
-Skip this step entirely when `--resume` is given.
+Skip this step entirely when `--resume` is given, or when `--yes` is given (headless / CI: the caller has pre-approved the run).
 
 Warn the user with:
 
@@ -88,6 +90,8 @@ PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli init \
 ```
 
 If `--focus` is supplied with anything other than `testability` or `guidelines`, the CLI rejects it.
+
+If `init` reports *"progress file already exists"*, a prior un-archived run is on disk. Either run with `--resume` to continue it, or re-invoke `init` with `--force` to discard the prior progress.
 
 ## Step 5: Run the Iteration Loop
 

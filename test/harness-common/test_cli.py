@@ -3,9 +3,7 @@
 import json
 
 import pytest
-
 from harness_common import cli
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -30,7 +28,8 @@ def _make_repo(tmp_path, *, head="abc1234567890abc", test_command="npm test"):
 def _stub_git(monkeypatch, *, head="abc1234567890abc", branch_files=None, pr=None):
     monkeypatch.setattr(cli, "git_rev_parse_head", lambda _cwd: head)
     monkeypatch.setattr(
-        cli, "git_discover_branch_files",
+        cli,
+        "git_discover_branch_files",
         lambda _cwd, path_filter=None: (branch_files or [], "origin/main"),
     )
     monkeypatch.setattr(cli, "git_fetch_open_pr_description", lambda _cwd: pr)
@@ -51,9 +50,13 @@ class TestInit:
         _stub_git(monkeypatch)
         progress_path = repo / "progress.json"
         exit_code = _run(
-            "init", "--skill", "code-review",
-            "--progress-file", str(progress_path),
-            "--project-dir", str(repo),
+            "init",
+            "--skill",
+            "code-review",
+            "--progress-file",
+            str(progress_path),
+            "--project-dir",
+            str(repo),
         )
         assert exit_code == 0
         data = _read_progress(progress_path)
@@ -68,10 +71,15 @@ class TestInit:
         _stub_git(monkeypatch)
         progress_path = repo / "progress.json"
         exit_code = _run(
-            "init", "--skill", "refactor",
-            "--focus", "testability",
-            "--progress-file", str(progress_path),
-            "--project-dir", str(repo),
+            "init",
+            "--skill",
+            "refactor",
+            "--focus",
+            "testability",
+            "--progress-file",
+            str(progress_path),
+            "--project-dir",
+            str(repo),
         )
         assert exit_code == 0
         data = _read_progress(progress_path)
@@ -82,10 +90,15 @@ class TestInit:
         _stub_git(monkeypatch)
         progress_path = repo / "progress.json"
         exit_code = _run(
-            "init", "--skill", "code-review",
-            "--focus", "testability",
-            "--progress-file", str(progress_path),
-            "--project-dir", str(repo),
+            "init",
+            "--skill",
+            "code-review",
+            "--focus",
+            "testability",
+            "--progress-file",
+            str(progress_path),
+            "--project-dir",
+            str(repo),
         )
         assert exit_code == 1
         captured = capsys.readouterr()
@@ -96,23 +109,34 @@ class TestInit:
         _stub_git(monkeypatch)
         progress_path = repo / "progress.json"
         exit_code = _run(
-            "init", "--skill", "refactor",
-            "--focus", "speedup",
-            "--progress-file", str(progress_path),
-            "--project-dir", str(repo),
+            "init",
+            "--skill",
+            "refactor",
+            "--focus",
+            "speedup",
+            "--progress-file",
+            str(progress_path),
+            "--project-dir",
+            str(repo),
         )
         assert exit_code == 1
 
     def test_no_test_command(self, tmp_path, monkeypatch, capsys):
         repo = tmp_path
         (repo / ".claude").mkdir()
-        (repo / ".claude" / "CLAUDE.md").write_text("# no test command", encoding="utf-8")
+        (repo / ".claude" / "CLAUDE.md").write_text(
+            "# no test command", encoding="utf-8"
+        )
         _stub_git(monkeypatch)
         progress_path = repo / "progress.json"
         exit_code = _run(
-            "init", "--skill", "code-review",
-            "--progress-file", str(progress_path),
-            "--project-dir", str(repo),
+            "init",
+            "--skill",
+            "code-review",
+            "--progress-file",
+            str(progress_path),
+            "--project-dir",
+            str(repo),
         )
         assert exit_code == 1
         assert "No test command" in capsys.readouterr().err
@@ -122,9 +146,13 @@ class TestInit:
         _stub_git(monkeypatch)
         progress_path = repo / "progress.json"
         exit_code = _run(
-            "init", "--skill", "unit-test",
-            "--progress-file", str(progress_path),
-            "--project-dir", str(repo),
+            "init",
+            "--skill",
+            "unit-test",
+            "--progress-file",
+            str(progress_path),
+            "--project-dir",
+            str(repo),
         )
         assert exit_code == 0
         data = _read_progress(progress_path)
@@ -137,10 +165,15 @@ class TestInit:
         _stub_git(monkeypatch)
         progress_path = repo / "progress.json"
         _run(
-            "init", "--skill", "code-review",
-            "--max-iterations", "99",
-            "--progress-file", str(progress_path),
-            "--project-dir", str(repo),
+            "init",
+            "--skill",
+            "code-review",
+            "--max-iterations",
+            "99",
+            "--progress-file",
+            str(progress_path),
+            "--project-dir",
+            str(repo),
         )
         data = _read_progress(progress_path)
         assert data["config"]["max_iterations"] == 20  # hard cap
@@ -150,10 +183,15 @@ class TestInit:
         _stub_git(monkeypatch)
         progress_path = repo / "progress.json"
         _run(
-            "init", "--skill", "unit-test",
-            "--max-cycles", "0",
-            "--progress-file", str(progress_path),
-            "--project-dir", str(repo),
+            "init",
+            "--skill",
+            "unit-test",
+            "--max-cycles",
+            "0",
+            "--progress-file",
+            str(progress_path),
+            "--project-dir",
+            str(repo),
         )
         data = _read_progress(progress_path)
         assert data["config"]["max_cycles"] == 1
@@ -163,9 +201,13 @@ class TestInit:
         _stub_git(monkeypatch, branch_files=["src/a.py", "src/b.py"])
         progress_path = repo / "progress.json"
         _run(
-            "init", "--skill", "code-review",
-            "--progress-file", str(progress_path),
-            "--project-dir", str(repo),
+            "init",
+            "--skill",
+            "code-review",
+            "--progress-file",
+            str(progress_path),
+            "--project-dir",
+            str(repo),
         )
         data = _read_progress(progress_path)
         assert data["scope_files"]["current"] == ["src/a.py", "src/b.py"]
@@ -173,12 +215,19 @@ class TestInit:
 
     def test_deep_pr_description_capture(self, tmp_path, monkeypatch):
         repo = _make_repo(tmp_path)
-        _stub_git(monkeypatch, pr={"title": "Test PR", "body": "Body", "base_ref": "origin/main"})
+        _stub_git(
+            monkeypatch,
+            pr={"title": "Test PR", "body": "Body", "base_ref": "origin/main"},
+        )
         progress_path = repo / "progress.json"
         _run(
-            "init", "--skill", "code-review",
-            "--progress-file", str(progress_path),
-            "--project-dir", str(repo),
+            "init",
+            "--skill",
+            "code-review",
+            "--progress-file",
+            str(progress_path),
+            "--project-dir",
+            str(repo),
         )
         data = _read_progress(progress_path)
         assert data["config"]["pr_description"]["title"] == "Test PR"
@@ -191,10 +240,15 @@ class TestInit:
         _stub_git(monkeypatch)
         progress_path = repo / "progress.json"
         _run(
-            "init", "--skill", "code-review",
-            "--scope", "focus on src/auth",
-            "--progress-file", str(progress_path),
-            "--project-dir", str(repo),
+            "init",
+            "--skill",
+            "code-review",
+            "--scope",
+            "focus on src/auth",
+            "--progress-file",
+            str(progress_path),
+            "--project-dir",
+            str(repo),
         )
         data = _read_progress(progress_path)
         assert data["config"]["scope"]["mode"] == "branch-diff"
@@ -209,15 +263,93 @@ class TestInit:
         _stub_git(monkeypatch)
         progress_path = repo / "progress.json"
         _run(
-            "init", "--skill", "code-review",
-            "--scope", "src",
-            "--progress-file", str(progress_path),
-            "--project-dir", str(repo),
+            "init",
+            "--skill",
+            "code-review",
+            "--scope",
+            "src",
+            "--progress-file",
+            str(progress_path),
+            "--project-dir",
+            str(repo),
         )
         data = _read_progress(progress_path)
         assert data["config"]["scope"]["mode"] == "directory"
         assert data["config"]["scope"]["paths"] == ["src"]
         assert data["config"]["scope"]["scope_text"] is None
+
+    def test_refuses_to_overwrite_existing_progress(
+        self, tmp_path, monkeypatch, capsys
+    ):
+        # Regression: a second `init` without --force must NOT silently wipe
+        # the prior run's findings. The orchestrator must explicitly choose
+        # between --resume (continue) and --force (discard).
+        repo = _make_repo(tmp_path)
+        _stub_git(monkeypatch)
+        progress_path = repo / "progress.json"
+        _run(
+            "init",
+            "--skill",
+            "code-review",
+            "--progress-file",
+            str(progress_path),
+            "--project-dir",
+            str(repo),
+        )
+        # Mark the existing progress so we can confirm it survived.
+        data = _read_progress(progress_path)
+        data["findings"] = [{"sentinel": "prior-run"}]
+        progress_path.write_text(json.dumps(data), encoding="utf-8")
+
+        exit_code = _run(
+            "init",
+            "--skill",
+            "code-review",
+            "--progress-file",
+            str(progress_path),
+            "--project-dir",
+            str(repo),
+        )
+        assert exit_code == 1
+        err = capsys.readouterr().err
+        assert "already exists" in err
+        assert "--resume" in err
+        assert "--force" in err
+        # Prior progress untouched.
+        assert _read_progress(progress_path)["findings"] == [{"sentinel": "prior-run"}]
+
+    def test_force_overwrites_existing_progress(self, tmp_path, monkeypatch):
+        repo = _make_repo(tmp_path)
+        _stub_git(monkeypatch)
+        progress_path = repo / "progress.json"
+        _run(
+            "init",
+            "--skill",
+            "code-review",
+            "--progress-file",
+            str(progress_path),
+            "--project-dir",
+            str(repo),
+        )
+        data = _read_progress(progress_path)
+        data["findings"] = [{"sentinel": "prior-run"}]
+        progress_path.write_text(json.dumps(data), encoding="utf-8")
+
+        exit_code = _run(
+            "init",
+            "--skill",
+            "code-review",
+            "--progress-file",
+            str(progress_path),
+            "--project-dir",
+            str(repo),
+            "--force",
+        )
+        assert exit_code == 0
+        # New progress replaces the old (empty findings, fresh iteration).
+        new_data = _read_progress(progress_path)
+        assert new_data["findings"] == []
+        assert new_data["iteration"]["current"] == 1
 
 
 # ---------------------------------------------------------------------------
@@ -229,19 +361,26 @@ class TestResume:
     def test_success(self, tmp_path, capsys):
         progress_path = tmp_path / "progress.json"
         progress_path.write_text(
-            json.dumps({"skill": "code-review", "config": {"project_root": str(tmp_path)}}),
+            json.dumps(
+                {"skill": "code-review", "config": {"project_root": str(tmp_path)}}
+            ),
             encoding="utf-8",
         )
         exit_code = _run(
-            "resume", "--progress-file", str(progress_path),
-            "--project-dir", str(tmp_path),
+            "resume",
+            "--progress-file",
+            str(progress_path),
+            "--project-dir",
+            str(tmp_path),
         )
         assert exit_code == 0
         assert capsys.readouterr().out.strip() == "code-review"
 
     def test_missing_file(self, tmp_path, capsys):
         exit_code = _run(
-            "resume", "--progress-file", str(tmp_path / "no_such.json"),
+            "resume",
+            "--progress-file",
+            str(tmp_path / "no_such.json"),
         )
         assert exit_code == 1
         assert "No progress file" in capsys.readouterr().err
@@ -253,8 +392,11 @@ class TestResume:
             encoding="utf-8",
         )
         exit_code = _run(
-            "resume", "--progress-file", str(progress_path),
-            "--project-dir", str(tmp_path),
+            "resume",
+            "--progress-file",
+            str(progress_path),
+            "--project-dir",
+            str(tmp_path),
         )
         assert exit_code == 1
 
@@ -262,12 +404,17 @@ class TestResume:
         progress_path = tmp_path / "progress.json"
         backup = tmp_path / "progress.json.bak"
         backup.write_text(
-            json.dumps({"skill": "refactor", "config": {"project_root": str(tmp_path)}}),
+            json.dumps(
+                {"skill": "refactor", "config": {"project_root": str(tmp_path)}}
+            ),
             encoding="utf-8",
         )
         exit_code = _run(
-            "resume", "--progress-file", str(progress_path),
-            "--project-dir", str(tmp_path),
+            "resume",
+            "--progress-file",
+            str(progress_path),
+            "--project-dir",
+            str(tmp_path),
         )
         assert exit_code == 0
         assert progress_path.exists()
@@ -302,9 +449,7 @@ class TestParse:
     def test_output_file(self, tmp_path):
         raw = tmp_path / "raw.txt"
         raw.write_text(
-            "```json:harness-output\n"
-            '{"iteration": 1}\n'
-            "```\n",
+            "```json:harness-output\n" '{"iteration": 1}\n' "```\n",
             encoding="utf-8",
         )
         out = tmp_path / "out.json"
@@ -318,6 +463,86 @@ class TestParse:
         exit_code = _run("parse", "--input-file", str(tmp_path / "no_such.txt"))
         assert exit_code == 1
         assert "Cannot read" in capsys.readouterr().err
+
+    def test_progress_file_increments_failure_counter(self, tmp_path):
+        # When --progress-file is supplied and the parse fails, the CLI must
+        # bump parse_failure_count so cross-iteration "two failures →
+        # terminate" can be detected after --resume.
+        raw = tmp_path / "raw.txt"
+        raw.write_text("No JSON here.", encoding="utf-8")
+        progress_path = tmp_path / "progress.json"
+        progress_path.write_text(
+            json.dumps(
+                {
+                    "schema_version": 1,
+                    "skill": "code-review",
+                    "parse_failure_count": 0,
+                }
+            ),
+            encoding="utf-8",
+        )
+        _run(
+            "parse",
+            "--input-file",
+            str(raw),
+            "--progress-file",
+            str(progress_path),
+        )
+        assert _read_progress(progress_path)["parse_failure_count"] == 1
+        # Second failure increments to 2.
+        _run(
+            "parse",
+            "--input-file",
+            str(raw),
+            "--progress-file",
+            str(progress_path),
+        )
+        assert _read_progress(progress_path)["parse_failure_count"] == 2
+
+    def test_progress_file_resets_counter_on_success(self, tmp_path):
+        # An isolated single failure must not poison a later good iteration:
+        # a successful parse resets parse_failure_count to 0.
+        raw_good = tmp_path / "good.txt"
+        raw_good.write_text(
+            "```json:harness-output\n" '{"iteration": 1}\n' "```\n",
+            encoding="utf-8",
+        )
+        progress_path = tmp_path / "progress.json"
+        progress_path.write_text(
+            json.dumps(
+                {
+                    "schema_version": 1,
+                    "skill": "code-review",
+                    "parse_failure_count": 1,
+                }
+            ),
+            encoding="utf-8",
+        )
+        _run(
+            "parse",
+            "--input-file",
+            str(raw_good),
+            "--progress-file",
+            str(progress_path),
+        )
+        assert _read_progress(progress_path)["parse_failure_count"] == 0
+
+    def test_progress_file_missing_is_tolerated(self, tmp_path):
+        # If --progress-file is supplied but doesn't exist yet, parse still
+        # works — the orchestrator's init step will create it later.
+        raw = tmp_path / "raw.txt"
+        raw.write_text(
+            "```json:harness-output\n" '{"iteration": 1}\n' "```\n",
+            encoding="utf-8",
+        )
+        exit_code = _run(
+            "parse",
+            "--input-file",
+            str(raw),
+            "--progress-file",
+            str(tmp_path / "no_such.json"),
+        )
+        assert exit_code == 0
 
 
 # ---------------------------------------------------------------------------
@@ -356,12 +581,24 @@ class TestDeepStep:
     def test_convergence(self, tmp_path, capsys):
         ppath = _seed_deep_progress(tmp_path)
         result = tmp_path / "result.json"
-        result.write_text(json.dumps({
-            "iteration": 1, "new_findings": [], "fixes_applied": [],
-            "no_new_findings": True, "no_actionable_fixes": False,
-        }), encoding="utf-8")
+        result.write_text(
+            json.dumps(
+                {
+                    "iteration": 1,
+                    "new_findings": [],
+                    "fixes_applied": [],
+                    "no_new_findings": True,
+                    "no_actionable_fixes": False,
+                }
+            ),
+            encoding="utf-8",
+        )
         exit_code = _run(
-            "deep-step", "--progress-file", str(ppath), "--result-file", str(result),
+            "deep-step",
+            "--progress-file",
+            str(ppath),
+            "--result-file",
+            str(result),
         )
         assert exit_code == 0
         assert capsys.readouterr().out.strip() == "converged"
@@ -373,16 +610,33 @@ class TestDeepStep:
     def test_no_actionable(self, tmp_path, capsys):
         ppath = _seed_deep_progress(tmp_path)
         result = tmp_path / "result.json"
-        result.write_text(json.dumps({
-            "iteration": 1,
-            "new_findings": [{"file": "a.py", "line": 1, "category": "x",
-                              "summary": "s", "pre_edit_content": "",
-                              "post_edit_content": ""}],
-            "fixes_applied": [],
-            "no_new_findings": False, "no_actionable_fixes": True,
-        }), encoding="utf-8")
+        result.write_text(
+            json.dumps(
+                {
+                    "iteration": 1,
+                    "new_findings": [
+                        {
+                            "file": "a.py",
+                            "line": 1,
+                            "category": "x",
+                            "summary": "s",
+                            "pre_edit_content": "",
+                            "post_edit_content": "",
+                        }
+                    ],
+                    "fixes_applied": [],
+                    "no_new_findings": False,
+                    "no_actionable_fixes": True,
+                }
+            ),
+            encoding="utf-8",
+        )
         exit_code = _run(
-            "deep-step", "--progress-file", str(ppath), "--result-file", str(result),
+            "deep-step",
+            "--progress-file",
+            str(ppath),
+            "--result-file",
+            str(result),
         )
         assert exit_code == 0
         assert capsys.readouterr().out.strip() == "no-actionable"
@@ -395,18 +649,42 @@ class TestDeepStep:
         # Stub the test runner to always pass
         monkeypatch.setattr(cli, "run_tests", lambda *a, **kw: (True, "ok"))
         result = tmp_path / "result.json"
-        result.write_text(json.dumps({
-            "iteration": 1,
-            "new_findings": [{"file": "a.py", "line": 1, "category": "x",
-                              "summary": "s", "pre_edit_content": "a",
-                              "post_edit_content": "b"}],
-            "fixes_applied": [{"file": "a.py", "line": 1, "category": "x",
-                               "summary": "s", "pre_edit_content": "a",
-                               "post_edit_content": "b"}],
-            "no_new_findings": False, "no_actionable_fixes": False,
-        }), encoding="utf-8")
+        result.write_text(
+            json.dumps(
+                {
+                    "iteration": 1,
+                    "new_findings": [
+                        {
+                            "file": "a.py",
+                            "line": 1,
+                            "category": "x",
+                            "summary": "s",
+                            "pre_edit_content": "a",
+                            "post_edit_content": "b",
+                        }
+                    ],
+                    "fixes_applied": [
+                        {
+                            "file": "a.py",
+                            "line": 1,
+                            "category": "x",
+                            "summary": "s",
+                            "pre_edit_content": "a",
+                            "post_edit_content": "b",
+                        }
+                    ],
+                    "no_new_findings": False,
+                    "no_actionable_fixes": False,
+                }
+            ),
+            encoding="utf-8",
+        )
         exit_code = _run(
-            "deep-step", "--progress-file", str(ppath), "--result-file", str(result),
+            "deep-step",
+            "--progress-file",
+            str(ppath),
+            "--result-file",
+            str(result),
         )
         assert exit_code == 0
         out = capsys.readouterr().out
@@ -428,18 +706,42 @@ class TestDeepStep:
 
         monkeypatch.setattr(cli, "bisect_fixes", _stub_bisect)
         result = tmp_path / "result.json"
-        result.write_text(json.dumps({
-            "iteration": 1,
-            "new_findings": [{"file": "a.py", "line": 1, "category": "x",
-                              "summary": "s", "pre_edit_content": "a",
-                              "post_edit_content": "b"}],
-            "fixes_applied": [{"file": "a.py", "line": 1, "category": "x",
-                               "summary": "s", "pre_edit_content": "a",
-                               "post_edit_content": "b"}],
-            "no_new_findings": False, "no_actionable_fixes": False,
-        }), encoding="utf-8")
+        result.write_text(
+            json.dumps(
+                {
+                    "iteration": 1,
+                    "new_findings": [
+                        {
+                            "file": "a.py",
+                            "line": 1,
+                            "category": "x",
+                            "summary": "s",
+                            "pre_edit_content": "a",
+                            "post_edit_content": "b",
+                        }
+                    ],
+                    "fixes_applied": [
+                        {
+                            "file": "a.py",
+                            "line": 1,
+                            "category": "x",
+                            "summary": "s",
+                            "pre_edit_content": "a",
+                            "post_edit_content": "b",
+                        }
+                    ],
+                    "no_new_findings": False,
+                    "no_actionable_fixes": False,
+                }
+            ),
+            encoding="utf-8",
+        )
         exit_code = _run(
-            "deep-step", "--progress-file", str(ppath), "--result-file", str(result),
+            "deep-step",
+            "--progress-file",
+            str(ppath),
+            "--result-file",
+            str(result),
         )
         assert exit_code == 0
         assert capsys.readouterr().out.strip() == "all-reverted"
@@ -487,45 +789,91 @@ class TestUnitTestStep:
         ppath = _seed_coverage_progress(tmp_path)
         monkeypatch.setattr(cli, "run_tests", lambda *a, **kw: (True, "ok"))
         result = tmp_path / "result.json"
-        result.write_text(json.dumps({
-            "iteration": 1, "phase": "unit-test",
-            "coverage": {"before": 50, "after": 50, "delta": 0, "tool": "pytest-cov"},
-            "tests_written": [],
-            "untestable_code": [],
-            "bugs_discovered": [],
-            "no_new_tests": True, "no_untestable_code": True, "no_coverage_gained": True,
-        }), encoding="utf-8")
+        result.write_text(
+            json.dumps(
+                {
+                    "iteration": 1,
+                    "phase": "unit-test",
+                    "coverage": {
+                        "before": 50,
+                        "after": 50,
+                        "delta": 0,
+                        "tool": "pytest-cov",
+                    },
+                    "tests_written": [],
+                    "untestable_code": [],
+                    "bugs_discovered": [],
+                    "no_new_tests": True,
+                    "no_untestable_code": True,
+                    "no_coverage_gained": True,
+                }
+            ),
+            encoding="utf-8",
+        )
         exit_code = _run(
-            "unit-test-step", "--progress-file", str(ppath), "--result-file", str(result),
+            "unit-test-step",
+            "--progress-file",
+            str(ppath),
+            "--result-file",
+            str(result),
         )
         assert exit_code == 0
         assert capsys.readouterr().out.strip() == "converged"
         data = _read_progress(ppath)
         assert data["termination"]["reason"] == "convergence"
-        assert data["cycle_history"] == [
-            {"cycle": 1, "unit_test": {"converged": True}}
-        ]
+        assert data["cycle_history"] == [{"cycle": 1, "unit_test": {"converged": True}}]
         assert data["cycle"]["completed"] == 1
 
     def test_continue_with_pending_untestable(self, tmp_path, capsys, monkeypatch):
         ppath = _seed_coverage_progress(tmp_path)
         monkeypatch.setattr(cli, "run_tests", lambda *a, **kw: (True, "ok"))
         result = tmp_path / "result.json"
-        result.write_text(json.dumps({
-            "iteration": 1, "phase": "unit-test",
-            "coverage": {"before": 50, "after": 60, "delta": 10, "tool": "pytest-cov"},
-            "tests_written": [{"file": "t.py", "target_file": "s.py",
-                               "target_description": "f()", "test_count": 3,
-                               "status": "pass", "failure_reason": None}],
-            "untestable_code": [{"file": "u.py", "line": 1, "end_line": 2,
-                                  "function": "g", "barrier": "x",
-                                  "barrier_description": "y",
-                                  "suggested_refactoring": "z"}],
-            "bugs_discovered": [],
-            "no_new_tests": False, "no_untestable_code": False, "no_coverage_gained": False,
-        }), encoding="utf-8")
+        result.write_text(
+            json.dumps(
+                {
+                    "iteration": 1,
+                    "phase": "unit-test",
+                    "coverage": {
+                        "before": 50,
+                        "after": 60,
+                        "delta": 10,
+                        "tool": "pytest-cov",
+                    },
+                    "tests_written": [
+                        {
+                            "file": "t.py",
+                            "target_file": "s.py",
+                            "target_description": "f()",
+                            "test_count": 3,
+                            "status": "pass",
+                            "failure_reason": None,
+                        }
+                    ],
+                    "untestable_code": [
+                        {
+                            "file": "u.py",
+                            "line": 1,
+                            "end_line": 2,
+                            "function": "g",
+                            "barrier": "x",
+                            "barrier_description": "y",
+                            "suggested_refactoring": "z",
+                        }
+                    ],
+                    "bugs_discovered": [],
+                    "no_new_tests": False,
+                    "no_untestable_code": False,
+                    "no_coverage_gained": False,
+                }
+            ),
+            encoding="utf-8",
+        )
         exit_code = _run(
-            "unit-test-step", "--progress-file", str(ppath), "--result-file", str(result),
+            "unit-test-step",
+            "--progress-file",
+            str(ppath),
+            "--result-file",
+            str(result),
         )
         assert exit_code == 0
         assert capsys.readouterr().out.strip() == "continue"
@@ -545,11 +893,18 @@ def _seed_coverage_progress_with_untestable(tmp_path, *, files):
     ppath = _seed_coverage_progress(tmp_path)
     data = _read_progress(ppath)
     for path in files:
-        data["untestable_code"].append({
-            "file": path, "line": 1, "end_line": 2,
-            "function": "g", "barrier": "x", "barrier_description": "y",
-            "suggested_refactoring": "z", "status": "pending",
-        })
+        data["untestable_code"].append(
+            {
+                "file": path,
+                "line": 1,
+                "end_line": 2,
+                "function": "g",
+                "barrier": "x",
+                "barrier_description": "y",
+                "suggested_refactoring": "z",
+                "status": "pending",
+            }
+        )
     ppath.write_text(json.dumps(data), encoding="utf-8")
     return ppath
 
@@ -558,13 +913,25 @@ class TestRefactorStep:
     def test_convergence(self, tmp_path, capsys):
         ppath = _seed_coverage_progress(tmp_path)
         result = tmp_path / "result.json"
-        result.write_text(json.dumps({
-            "cycle": 1, "phase": "refactor",
-            "new_findings": [], "fixes_applied": [],
-            "no_new_findings": True, "no_actionable_fixes": False,
-        }), encoding="utf-8")
+        result.write_text(
+            json.dumps(
+                {
+                    "cycle": 1,
+                    "phase": "refactor",
+                    "new_findings": [],
+                    "fixes_applied": [],
+                    "no_new_findings": True,
+                    "no_actionable_fixes": False,
+                }
+            ),
+            encoding="utf-8",
+        )
         exit_code = _run(
-            "refactor-step", "--progress-file", str(ppath), "--result-file", str(result),
+            "refactor-step",
+            "--progress-file",
+            str(ppath),
+            "--result-file",
+            str(result),
         )
         assert exit_code == 0
         assert capsys.readouterr().out.strip() == "converged"
@@ -580,18 +947,43 @@ class TestRefactorStep:
         (tmp_path / "u.py").write_text("a", encoding="utf-8")
         monkeypatch.setattr(cli, "run_tests", lambda *a, **kw: (True, "ok"))
         result = tmp_path / "result.json"
-        result.write_text(json.dumps({
-            "cycle": 1, "phase": "refactor",
-            "new_findings": [{"file": "u.py", "line": 1, "category": "refactor",
-                              "summary": "extract", "pre_edit_content": "a",
-                              "post_edit_content": "b"}],
-            "fixes_applied": [{"file": "u.py", "line": 1, "category": "refactor",
-                               "summary": "extract", "pre_edit_content": "a",
-                               "post_edit_content": "b"}],
-            "no_new_findings": False, "no_actionable_fixes": False,
-        }), encoding="utf-8")
+        result.write_text(
+            json.dumps(
+                {
+                    "cycle": 1,
+                    "phase": "refactor",
+                    "new_findings": [
+                        {
+                            "file": "u.py",
+                            "line": 1,
+                            "category": "refactor",
+                            "summary": "extract",
+                            "pre_edit_content": "a",
+                            "post_edit_content": "b",
+                        }
+                    ],
+                    "fixes_applied": [
+                        {
+                            "file": "u.py",
+                            "line": 1,
+                            "category": "refactor",
+                            "summary": "extract",
+                            "pre_edit_content": "a",
+                            "post_edit_content": "b",
+                        }
+                    ],
+                    "no_new_findings": False,
+                    "no_actionable_fixes": False,
+                }
+            ),
+            encoding="utf-8",
+        )
         exit_code = _run(
-            "refactor-step", "--progress-file", str(ppath), "--result-file", str(result),
+            "refactor-step",
+            "--progress-file",
+            str(ppath),
+            "--result-file",
+            str(result),
         )
         assert exit_code == 0
         out = capsys.readouterr().out.strip()
@@ -615,18 +1007,43 @@ class TestRefactorStep:
 
         monkeypatch.setattr(cli, "bisect_fixes", _stub_bisect)
         result = tmp_path / "result.json"
-        result.write_text(json.dumps({
-            "cycle": 1, "phase": "refactor",
-            "new_findings": [{"file": "u.py", "line": 1, "category": "refactor",
-                              "summary": "s", "pre_edit_content": "a",
-                              "post_edit_content": "b"}],
-            "fixes_applied": [{"file": "u.py", "line": 1, "category": "refactor",
-                               "summary": "s", "pre_edit_content": "a",
-                               "post_edit_content": "b"}],
-            "no_new_findings": False, "no_actionable_fixes": False,
-        }), encoding="utf-8")
+        result.write_text(
+            json.dumps(
+                {
+                    "cycle": 1,
+                    "phase": "refactor",
+                    "new_findings": [
+                        {
+                            "file": "u.py",
+                            "line": 1,
+                            "category": "refactor",
+                            "summary": "s",
+                            "pre_edit_content": "a",
+                            "post_edit_content": "b",
+                        }
+                    ],
+                    "fixes_applied": [
+                        {
+                            "file": "u.py",
+                            "line": 1,
+                            "category": "refactor",
+                            "summary": "s",
+                            "pre_edit_content": "a",
+                            "post_edit_content": "b",
+                        }
+                    ],
+                    "no_new_findings": False,
+                    "no_actionable_fixes": False,
+                }
+            ),
+            encoding="utf-8",
+        )
         exit_code = _run(
-            "refactor-step", "--progress-file", str(ppath), "--result-file", str(result),
+            "refactor-step",
+            "--progress-file",
+            str(ppath),
+            "--result-file",
+            str(result),
         )
         assert exit_code == 0
         out = capsys.readouterr().out.strip()
@@ -647,8 +1064,11 @@ class TestRecordCycle:
         ppath = _seed_coverage_progress(tmp_path)
         ut = json.dumps({"fixed": 2, "reverted": 0})
         exit_code = _run(
-            "record-cycle", "--progress-file", str(ppath),
-            "--unit-test-summary", ut,
+            "record-cycle",
+            "--progress-file",
+            str(ppath),
+            "--unit-test-summary",
+            ut,
         )
         assert exit_code == 0
         data = _read_progress(ppath)
@@ -661,24 +1081,33 @@ class TestRecordCycle:
     def test_unit_test_and_refactor(self, tmp_path):
         ppath = _seed_coverage_progress(tmp_path)
         exit_code = _run(
-            "record-cycle", "--progress-file", str(ppath),
-            "--unit-test-summary", json.dumps({"fixed": 1}),
-            "--refactor-summary", json.dumps({"fixed": 1, "reverted": 0}),
+            "record-cycle",
+            "--progress-file",
+            str(ppath),
+            "--unit-test-summary",
+            json.dumps({"fixed": 1}),
+            "--refactor-summary",
+            json.dumps({"fixed": 1, "reverted": 0}),
         )
         assert exit_code == 0
         data = _read_progress(ppath)
-        assert data["cycle_history"] == [{
-            "cycle": 1,
-            "unit_test": {"fixed": 1},
-            "refactor": {"fixed": 1, "reverted": 0},
-        }]
+        assert data["cycle_history"] == [
+            {
+                "cycle": 1,
+                "unit_test": {"fixed": 1},
+                "refactor": {"fixed": 1, "reverted": 0},
+            }
+        ]
         assert data["cycle"]["current"] == 2
 
     def test_invalid_json_exits_one(self, tmp_path, capsys):
         ppath = _seed_coverage_progress(tmp_path)
         exit_code = _run(
-            "record-cycle", "--progress-file", str(ppath),
-            "--unit-test-summary", "{not valid json",
+            "record-cycle",
+            "--progress-file",
+            str(ppath),
+            "--unit-test-summary",
+            "{not valid json",
         )
         assert exit_code == 1
         assert "Invalid cycle summary JSON" in capsys.readouterr().err
@@ -722,15 +1151,62 @@ class TestCheckTermination:
         data = _read_progress(ppath)
         # Two consecutive iterations with ≤1 new finding and 0 reverted
         data["iteration_history"] = [
-            {"iteration": 4, "new_findings": 1, "fixed": 0, "reverted": 0,
-             "persistent": 0, "test_passed": True},
-            {"iteration": 5, "new_findings": 0, "fixed": 0, "reverted": 0,
-             "persistent": 0, "test_passed": True},
+            {
+                "iteration": 4,
+                "new_findings": 1,
+                "fixed": 0,
+                "reverted": 0,
+                "persistent": 0,
+                "test_passed": True,
+            },
+            {
+                "iteration": 5,
+                "new_findings": 0,
+                "fixed": 0,
+                "reverted": 0,
+                "persistent": 0,
+                "test_passed": True,
+            },
         ]
         ppath.write_text(json.dumps(data, indent=2), encoding="utf-8")
         exit_code = _run("check-termination", "--progress-file", str(ppath))
         assert exit_code == 0
         assert capsys.readouterr().out.strip() == "diminishing-returns"
+
+    def test_parse_failure_threshold_deep(self, tmp_path, capsys):
+        # Two consecutive failed parses → check-termination surfaces
+        # parse-failure (records the reason, no need for mark-termination).
+        ppath = _seed_deep_progress(tmp_path)
+        data = _read_progress(ppath)
+        data["parse_failure_count"] = 2
+        ppath.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        exit_code = _run("check-termination", "--progress-file", str(ppath))
+        assert exit_code == 0
+        assert capsys.readouterr().out.strip() == "parse-failure"
+        assert _read_progress(ppath)["termination"]["reason"] == "parse-failure"
+
+    def test_parse_failure_below_threshold_continues(self, tmp_path, capsys):
+        # A single parse failure (counter == 1) must not terminate; the loop
+        # gets one more chance before parse-failure kicks in.
+        ppath = _seed_deep_progress(tmp_path)
+        data = _read_progress(ppath)
+        data["parse_failure_count"] = 1
+        ppath.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        exit_code = _run("check-termination", "--progress-file", str(ppath))
+        assert exit_code == 0
+        assert capsys.readouterr().out.strip() == "continue"
+        assert _read_progress(ppath)["termination"]["reason"] is None
+
+    def test_parse_failure_threshold_coverage(self, tmp_path, capsys):
+        # Same threshold rule applies to the coverage variant — a unit-test
+        # parse failure followed by a refactor parse failure counts as two.
+        ppath = _seed_coverage_progress(tmp_path)
+        data = _read_progress(ppath)
+        data["parse_failure_count"] = 2
+        ppath.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        exit_code = _run("check-termination", "--progress-file", str(ppath))
+        assert exit_code == 0
+        assert capsys.readouterr().out.strip() == "parse-failure"
 
     def test_cap_coverage(self, tmp_path, capsys):
         ppath = _seed_coverage_progress(tmp_path, cycle=5)
@@ -750,7 +1226,8 @@ class TestCheckTermination:
         ]
         ppath.write_text(json.dumps(data, indent=2), encoding="utf-8")
         monkeypatch.setattr(
-            cli, "check_coverage_plateau",
+            cli,
+            "check_coverage_plateau",
             lambda _hist: (True, "plateau detected"),
         )
         exit_code = _run("check-termination", "--progress-file", str(ppath))
@@ -803,9 +1280,13 @@ class TestMarkTermination:
         # termination without touching the progress file directly.
         ppath = _seed_deep_progress(tmp_path)
         exit_code = _run(
-            "mark-termination", "--progress-file", str(ppath),
-            "--reason", "parse-failure",
-            "--message", "two consecutive iterations produced no JSON",
+            "mark-termination",
+            "--progress-file",
+            str(ppath),
+            "--reason",
+            "parse-failure",
+            "--message",
+            "two consecutive iterations produced no JSON",
         )
         assert exit_code == 0
         data = _read_progress(ppath)
@@ -816,8 +1297,11 @@ class TestMarkTermination:
         ppath = _seed_deep_progress(tmp_path)
         with pytest.raises(SystemExit):
             _run(
-                "mark-termination", "--progress-file", str(ppath),
-                "--reason", "made-up-reason",
+                "mark-termination",
+                "--progress-file",
+                str(ppath),
+                "--reason",
+                "made-up-reason",
             )
 
 
@@ -842,6 +1326,7 @@ class TestCommitCheckpoint:
         def fake_commit(message, cwd, pf, **kw):
             captured["message"] = message
             return True
+
         monkeypatch.setattr(cli, "git_commit_checkpoint", fake_commit)
         exit_code = _run("commit-checkpoint", "--progress-file", str(ppath))
         assert exit_code == 0
@@ -854,9 +1339,15 @@ class TestCommitCheckpoint:
         ppath = _seed_coverage_progress(tmp_path)
         data = _read_progress(ppath)
         data["tests_created"] = [
-            {"cycle": 1, "file": "t.py", "target_file": "s.py",
-             "target_description": "f", "test_count": 3,
-             "status": "pass", "failure_reason": None},
+            {
+                "cycle": 1,
+                "file": "t.py",
+                "target_file": "s.py",
+                "target_description": "f",
+                "test_count": 3,
+                "status": "pass",
+                "failure_reason": None,
+            },
         ]
         ppath.write_text(json.dumps(data, indent=2), encoding="utf-8")
         monkeypatch.setattr(cli, "git_diff_has_changes", lambda _cwd: True)
@@ -868,8 +1359,11 @@ class TestCommitCheckpoint:
 
         monkeypatch.setattr(cli, "git_commit_checkpoint", fake_commit)
         exit_code = _run(
-            "commit-checkpoint", "--progress-file", str(ppath),
-            "--phase", "unit-test",
+            "commit-checkpoint",
+            "--progress-file",
+            str(ppath),
+            "--phase",
+            "unit-test",
         )
         assert exit_code == 0
         assert capsys.readouterr().out.strip() == "committed"
@@ -883,8 +1377,14 @@ class TestCommitCheckpoint:
         ppath = _seed_coverage_progress(tmp_path)
         data = _read_progress(ppath)
         data["refactor_findings"] = [
-            {"cycle": 1, "file": "u.py", "line": 1, "category": "refactor",
-             "summary": "extract", "status": "fixed"},
+            {
+                "cycle": 1,
+                "file": "u.py",
+                "line": 1,
+                "category": "refactor",
+                "summary": "extract",
+                "status": "fixed",
+            },
         ]
         ppath.write_text(json.dumps(data, indent=2), encoding="utf-8")
         monkeypatch.setattr(cli, "git_diff_has_changes", lambda _cwd: True)
@@ -896,8 +1396,11 @@ class TestCommitCheckpoint:
 
         monkeypatch.setattr(cli, "git_commit_checkpoint", fake_commit)
         exit_code = _run(
-            "commit-checkpoint", "--progress-file", str(ppath),
-            "--phase", "refactor",
+            "commit-checkpoint",
+            "--progress-file",
+            str(ppath),
+            "--phase",
+            "refactor",
         )
         assert exit_code == 0
         assert capsys.readouterr().out.strip() == "committed"

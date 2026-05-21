@@ -26,6 +26,7 @@ This skill is part of the [optimus](https://github.com/oprogramadorreal/optimus-
 /optimus:refactor-deep --max-iterations 12            # Raise iteration cap (hard cap 20)
 /optimus:refactor-deep --resume                       # Continue from existing progress file
 /optimus:refactor-deep --no-commit                    # Skip per-iteration checkpoint commits
+claude -p "/optimus:refactor-deep --yes testability"  # Headless / CI; auto-confirms Step 3
 ```
 
 ## Requirements

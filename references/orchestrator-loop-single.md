@@ -64,10 +64,11 @@ The exact filenames are an implementation choice — the only requirement is tha
 ```bash
 PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli parse \
     --input-file "$TMP_RAW" \
-    --output-file "$TMP_RESULT"
+    --output-file "$TMP_RESULT" \
+    --progress-file "<progress-path>"
 ```
 
-Errors on missing `json:harness-output` block. Apply the procedure in "Parse-failure recovery" below — a single failure is a no-op and the loop moves on; two consecutive failures terminate the loop.
+Errors on missing `json:harness-output` block. Passing `--progress-file` lets the CLI track consecutive parse failures across iterations (and across `--resume`); a single failure is a no-op and the loop moves on, while two consecutive failures cause step 7 to return `parse-failure` and terminate the loop. See "Parse-failure recovery" below.
 
 ### 5. Process the iteration
 
@@ -101,7 +102,7 @@ TERMINATION=$(PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.
     --progress-file "<progress-path>")
 ```
 
-Possible values: `continue`, `convergence`, `no-actionable`, `all-reverted`, `cap`, `diminishing-returns`. If the value is anything other than `continue`, exit the loop.
+Possible values: `continue`, `convergence`, `no-actionable`, `all-reverted`, `cap`, `diminishing-returns`, `parse-failure`. If the value is anything other than `continue`, exit the loop. (`parse-failure` is surfaced automatically when the CLI's `parse_failure_count` reaches its threshold — the orchestrator doesn't need to call `mark-termination` for it.)
 
 ### 8. Advance the iteration counter
 
@@ -126,7 +127,11 @@ If the CLI's `parse` subcommand exits non-zero, the subagent emitted no `json:ha
 - The base SKILL.md does not detect `HARNESS_MODE_INLINE` in the prompt body (regression — see `references/harness-mode.md`).
 - The subagent fell into interactive mode and hung on `AskUserQuestion`.
 
-When this happens once: warn the user but continue (the iteration is a no-op, the loop moves on). When this happens twice in a row: stop and surface the error for the user to investigate, recording the termination reason via the CLI:
+When this happens once: warn the user but continue (the iteration is a no-op, the loop moves on — the CLI's `parse_failure_count` is now 1). When this happens twice in a row: `check-termination` at step 7 will return `parse-failure` automatically, and the orchestrator should exit the loop and surface the error for the user to investigate.
+
+The counter lives in the progress file under `parse_failure_count` and is reset to 0 on every successful parse, so an isolated earlier failure cannot poison a later run. The counter also survives `--resume`, so a Ctrl-C between the failed parse and the next iteration's parse doesn't lose state.
+
+If for some reason the orchestrator needs to record `parse-failure` explicitly (e.g., the parse subcommand wasn't called with `--progress-file`), use:
 
 ```bash
 PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli mark-termination \
@@ -134,6 +139,8 @@ PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli mark-termi
     --reason parse-failure \
     --message "<short detail, e.g. 'two consecutive iterations produced no json:harness-output block'>"
 ```
+
+This is an escape hatch — the standard recovery path is the automatic `check-termination` route above.
 
 ## After the loop
 

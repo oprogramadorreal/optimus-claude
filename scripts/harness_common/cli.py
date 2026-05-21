@@ -118,6 +118,7 @@ def _make_deep_progress(
         "scope_files": {"current": []},
         "test_results": {"last_full_run": None, "last_run_output_summary": None},
         "iteration_history": [],
+        "parse_failure_count": 0,
         "termination": {"reason": None, "message": None},
     }
 
@@ -149,6 +150,7 @@ def _make_coverage_progress(scope, max_cycles, test_command, project_root, base_
         "cycle_history": [],
         "scope_files": {"current": []},
         "test_results": {"last_full_run": None, "last_run_output_summary": None},
+        "parse_failure_count": 0,
         "termination": {"reason": None, "message": None},
     }
 
@@ -414,6 +416,15 @@ def cmd_init(args):
     project_root = Path(args.project_dir).resolve()
     progress_path = _progress_path_for_skill(args)
 
+    if progress_path.exists() and not args.force:
+        print(
+            f"ERROR: progress file already exists at {progress_path}. "
+            "Pass --resume to continue the prior run, or --force to overwrite "
+            "(this discards the prior findings).",
+            file=sys.stderr,
+        )
+        return 1
+
     test_command = args.test_command or detect_test_command(project_root)
     if not test_command:
         print(
@@ -548,17 +559,42 @@ def cmd_snapshot(args):
 
 
 def cmd_parse(args):
+    parsed = None
+    error_message = None
     try:
         raw = Path(args.input_file).read_text(encoding="utf-8", errors="replace")
     except OSError as exc:
-        print(f"ERROR: Cannot read {args.input_file}: {exc}", file=sys.stderr)
-        return 1
-    parsed = parse_harness_output(raw)
+        error_message = f"ERROR: Cannot read {args.input_file}: {exc}"
+    else:
+        parsed = parse_harness_output(raw)
+        if parsed is None:
+            error_message = (
+                "ERROR: No json:harness-output block found in subagent output"
+            )
+
+    if args.progress_file:
+        # When the orchestrator passes --progress-file, parse failures are
+        # counted in the progress file so the cross-iteration "two consecutive
+        # failures → terminate" check survives Ctrl-C + --resume. On success,
+        # the counter resets so an isolated earlier failure doesn't poison
+        # later runs.
+        progress_path = Path(args.progress_file)
+        if progress_path.exists():
+            try:
+                progress = read_progress(progress_path)
+            except (ValueError, OSError):
+                progress = None
+            if progress is not None:
+                if parsed is None:
+                    progress["parse_failure_count"] = (
+                        progress.get("parse_failure_count", 0) + 1
+                    )
+                else:
+                    progress["parse_failure_count"] = 0
+                write_progress(progress_path, progress)
+
     if parsed is None:
-        print(
-            "ERROR: No json:harness-output block found in subagent output",
-            file=sys.stderr,
-        )
+        print(error_message, file=sys.stderr)
         return 1
     if args.output_file:
         Path(args.output_file).write_text(
@@ -951,6 +987,9 @@ def cmd_commit_checkpoint(args):
     return 0 if ok else 1
 
 
+PARSE_FAILURE_THRESHOLD = 2
+
+
 def cmd_check_termination(args):
     progress_path = Path(args.progress_file)
     progress = read_progress(progress_path)
@@ -958,6 +997,21 @@ def cmd_check_termination(args):
     reason = termination.get("reason")
     if reason:
         print(reason)
+        return 0
+
+    # Two consecutive subagent dispatches that emitted no parseable
+    # json:harness-output block — terminate. The counter is incremented by
+    # `cmd_parse --progress-file` and reset on every successful parse.
+    if progress.get("parse_failure_count", 0) >= PARSE_FAILURE_THRESHOLD:
+        progress["termination"] = {
+            "reason": "parse-failure",
+            "message": (
+                f"{PARSE_FAILURE_THRESHOLD} consecutive iterations produced no "
+                "json:harness-output block"
+            ),
+        }
+        write_progress(progress_path, progress)
+        print("parse-failure")
         return 0
 
     if _is_coverage(progress):
@@ -1201,6 +1255,11 @@ def _build_parser():
     p.add_argument("--progress-file", default=None)
     p.add_argument("--test-command", default=None)
     p.add_argument("--project-dir", default=".")
+    p.add_argument(
+        "--force",
+        action="store_true",
+        help="Overwrite an existing progress file (discards prior findings)",
+    )
     p.set_defaults(func=cmd_init)
 
     p = sub.add_parser("resume")
@@ -1227,6 +1286,15 @@ def _build_parser():
         "--output-file",
         default=None,
         help="If supplied, also write canonical JSON to this path",
+    )
+    p.add_argument(
+        "--progress-file",
+        default=None,
+        help=(
+            "If supplied, increment parse_failure_count on failure / reset on "
+            "success. Lets `check-termination` surface `parse-failure` after "
+            "two consecutive failed parses, surviving --resume."
+        ),
     )
     p.set_defaults(func=cmd_parse)
 

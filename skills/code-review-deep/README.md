@@ -26,6 +26,7 @@ This skill is part of the [optimus](https://github.com/oprogramadorreal/optimus-
 /optimus:code-review-deep "focus on src/auth"       # Scoped to a path
 /optimus:code-review-deep --resume                  # Continue from existing progress file
 /optimus:code-review-deep --no-commit               # Skip per-iteration checkpoint commits
+claude -p "/optimus:code-review-deep --yes 'src/auth'"   # Headless / CI; auto-confirms Step 3
 ```
 
 ## Requirements

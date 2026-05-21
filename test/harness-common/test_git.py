@@ -65,9 +65,18 @@ class TestCleanWorkingTree:
         # The clean command must carry -e patterns covering the progress file
         # families and per-iteration temp files.
         assert "-e" in clean_args
-        joined = " ".join(clean_args)
-        assert "*-deep-progress.json" in joined
-        assert ".deep-iteration-*" in joined
+        # Each excluded pattern must appear as its own token (so a stale
+        # `.json.done.json` typo cannot pass via substring match).
+        excludes = [
+            arg for arg, prev in zip(clean_args[1:], clean_args) if prev == "-e"
+        ]
+        assert ".claude/*-deep-progress.json" in excludes
+        assert ".claude/*-deep-progress.json.bak" in excludes
+        # The archived filename is `*-deep-progress.done.json` (Path.with_suffix
+        # strips `.json` then appends `.done.json`); the pattern must match it.
+        assert ".claude/*-deep-progress.done.json" in excludes
+        assert ".claude/.deep-iteration-*" in excludes
+        assert ".claude/.unit-test-deep-*" in excludes
 
 
 class TestGitRestoreTo:
@@ -219,10 +228,14 @@ class TestFetchOpenPrData:
         # Em-dash and accented chars would fail under Windows-default cp1252;
         # the encoding="utf-8" kwarg is what makes this work cross-platform.
         body = "Implements — feature: rotación de tokens"
-        pr_json = json.dumps({
-            "title": "feat", "body": body,
-            "baseRefName": "main", "state": "OPEN",
-        })
+        pr_json = json.dumps(
+            {
+                "title": "feat",
+                "body": body,
+                "baseRefName": "main",
+                "state": "OPEN",
+            }
+        )
         mock_run.return_value = MagicMock(returncode=0, stdout=pr_json)
         result = _fetch_open_pr_data("/tmp/project")
         assert result is not None
@@ -235,10 +248,14 @@ class TestFetchOpenPrData:
 
     @patch("harness_common.git.subprocess.run")
     def test_returns_none_when_pr_not_open(self, mock_run):
-        pr_json = json.dumps({
-            "title": "feat", "body": "x",
-            "baseRefName": "main", "state": "CLOSED",
-        })
+        pr_json = json.dumps(
+            {
+                "title": "feat",
+                "body": "x",
+                "baseRefName": "main",
+                "state": "CLOSED",
+            }
+        )
         mock_run.return_value = MagicMock(returncode=0, stdout=pr_json)
         assert _fetch_open_pr_data("/tmp/project") is None
 
