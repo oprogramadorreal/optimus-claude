@@ -1,12 +1,22 @@
 import json
+import subprocess
 from unittest.mock import MagicMock, patch
 
 from harness_common.git import (
+    _PR_BODY_TRUNCATE_LIMIT,
+    _PR_TITLE_TRUNCATE_LIMIT,
+    _base_from_default_branches,
+    _base_from_open_pr,
+    _base_from_symbolic_ref,
     _clean_working_tree,
+    _detect_base_branch,
     _fetch_open_pr_data,
+    _verify_ref,
     commit_checkpoint,
     git_current_branch,
     git_diff_has_changes,
+    git_discover_branch_files,
+    git_fetch_open_pr_description,
     git_restore_snapshot,
     git_restore_to,
     git_rev_parse_head,
@@ -98,12 +108,8 @@ class TestCommitCheckpoint:
     def test_commits_after_unstaging_progress_file(self, tmp_path):
         # Verifies the full dance: git add -A, then `git reset HEAD --`
         # against the progress file and its .bak sibling, then git commit.
-        run, calls = self._make_run(
-            [MagicMock(returncode=0, stdout="", stderr="")] * 5
-        )
-        ok = commit_checkpoint(
-            "feat: x", tmp_path, ".claude/progress.json", _run=run
-        )
+        run, calls = self._make_run([MagicMock(returncode=0, stdout="", stderr="")] * 5)
+        ok = commit_checkpoint("feat: x", tmp_path, ".claude/progress.json", _run=run)
         assert ok is True
         # 1 add + 2 reset HEAD (progress + bak) + 1 commit = 4 calls
         assert calls[0][:2] == ["git", "add"]
@@ -133,18 +139,14 @@ class TestCommitCheckpoint:
                 ),
             ]
         )
-        ok = commit_checkpoint(
-            "feat: x", tmp_path, ".claude/progress.json", _run=run
-        )
+        ok = commit_checkpoint("feat: x", tmp_path, ".claude/progress.json", _run=run)
         assert ok is True
 
     def test_add_failure_returns_false(self, tmp_path, capsys):
         run, _ = self._make_run(
             [MagicMock(returncode=1, stdout="", stderr="permission denied")]
         )
-        ok = commit_checkpoint(
-            "feat: x", tmp_path, ".claude/progress.json", _run=run
-        )
+        ok = commit_checkpoint("feat: x", tmp_path, ".claude/progress.json", _run=run)
         assert ok is False
         assert "git add -A failed" in capsys.readouterr().out
 
@@ -156,14 +158,10 @@ class TestCommitCheckpoint:
                 MagicMock(returncode=0, stdout="", stderr=""),  # add
                 MagicMock(returncode=0, stdout="", stderr=""),  # reset 1
                 MagicMock(returncode=0, stdout="", stderr=""),  # reset 2
-                MagicMock(
-                    returncode=1, stdout="", stderr="pre-commit hook failed"
-                ),
+                MagicMock(returncode=1, stdout="", stderr="pre-commit hook failed"),
             ]
         )
-        ok = commit_checkpoint(
-            "feat: x", tmp_path, ".claude/progress.json", _run=run
-        )
+        ok = commit_checkpoint("feat: x", tmp_path, ".claude/progress.json", _run=run)
         assert ok is False
         out = capsys.readouterr().out
         assert "checkpoint commit failed" in out
@@ -353,3 +351,290 @@ class TestFetchOpenPrData:
     def test_returns_none_on_gh_failure(self, mock_run):
         mock_run.return_value = MagicMock(returncode=1, stdout="")
         assert _fetch_open_pr_data("/tmp/project") is None
+
+
+class TestVerifyRef:
+    @patch("harness_common.git.subprocess.run")
+    def test_returns_true_on_zero_exit(self, mock_run):
+        mock_run.return_value = MagicMock(returncode=0)
+        assert _verify_ref("/tmp", "origin/main") is True
+
+    @patch("harness_common.git.subprocess.run")
+    def test_returns_false_on_non_zero_exit(self, mock_run):
+        mock_run.return_value = MagicMock(returncode=128)
+        assert _verify_ref("/tmp", "origin/nope") is False
+
+    @patch("harness_common.git.subprocess.run")
+    def test_returns_false_on_timeout(self, mock_run):
+        mock_run.side_effect = subprocess.TimeoutExpired(cmd="git", timeout=10)
+        assert _verify_ref("/tmp", "origin/main") is False
+
+    @patch("harness_common.git.subprocess.run")
+    def test_returns_false_when_git_missing(self, mock_run):
+        mock_run.side_effect = FileNotFoundError("git not on PATH")
+        assert _verify_ref("/tmp", "origin/main") is False
+
+
+class TestBaseFromOpenPr:
+    @patch("harness_common.git._verify_ref", return_value=True)
+    @patch("harness_common.git._fetch_open_pr_data")
+    def test_returns_origin_prefixed_base(self, mock_fetch, _mock_verify):
+        mock_fetch.return_value = {
+            "title": "x",
+            "body": "y",
+            "baseRefName": "main",
+            "state": "OPEN",
+        }
+        assert _base_from_open_pr("/tmp") == "origin/main"
+
+    @patch("harness_common.git._fetch_open_pr_data", return_value=None)
+    def test_returns_none_when_no_pr(self, _mock_fetch):
+        assert _base_from_open_pr("/tmp") is None
+
+    @patch("harness_common.git._verify_ref", return_value=False)
+    @patch("harness_common.git._fetch_open_pr_data")
+    def test_returns_none_when_local_ref_missing(self, mock_fetch, _mock_verify):
+        # Open PR exists upstream, but the user has not fetched its base —
+        # so the local `origin/<base>` ref doesn't resolve. Fall through.
+        mock_fetch.return_value = {
+            "title": "x",
+            "body": "y",
+            "baseRefName": "feature/upstream-base-not-fetched",
+            "state": "OPEN",
+        }
+        assert _base_from_open_pr("/tmp") is None
+
+    @patch("harness_common.git._fetch_open_pr_data")
+    def test_returns_none_when_baseref_missing(self, mock_fetch):
+        mock_fetch.return_value = {"title": "x", "body": "y", "state": "OPEN"}
+        assert _base_from_open_pr("/tmp") is None
+
+
+class TestBaseFromSymbolicRef:
+    @patch("harness_common.git.subprocess.run")
+    def test_strips_refs_remotes_prefix(self, mock_run):
+        mock_run.return_value = MagicMock(
+            returncode=0, stdout="refs/remotes/origin/main\n"
+        )
+        assert _base_from_symbolic_ref("/tmp") == "origin/main"
+
+    @patch("harness_common.git.subprocess.run")
+    def test_returns_none_when_unexpected_prefix(self, mock_run):
+        # Should only honour refs/remotes/* output. Anything else is treated
+        # as a malformed result and we fall through.
+        mock_run.return_value = MagicMock(returncode=0, stdout="refs/heads/main\n")
+        assert _base_from_symbolic_ref("/tmp") is None
+
+    @patch("harness_common.git.subprocess.run")
+    def test_returns_none_on_non_zero_exit(self, mock_run):
+        mock_run.return_value = MagicMock(returncode=128, stdout="")
+        assert _base_from_symbolic_ref("/tmp") is None
+
+    @patch("harness_common.git.subprocess.run")
+    def test_returns_none_on_timeout(self, mock_run):
+        mock_run.side_effect = subprocess.TimeoutExpired(cmd="git", timeout=10)
+        assert _base_from_symbolic_ref("/tmp") is None
+
+
+class TestBaseFromDefaultBranches:
+    @patch("harness_common.git._verify_ref")
+    def test_prefers_main_when_both_exist(self, mock_verify):
+        # When both `origin/main` and `origin/master` are present, main wins
+        # — first match in the iteration order.
+        mock_verify.side_effect = lambda _cwd, ref: ref in (
+            "origin/main",
+            "origin/master",
+        )
+        assert _base_from_default_branches("/tmp") == "origin/main"
+
+    @patch("harness_common.git._verify_ref")
+    def test_falls_back_to_master(self, mock_verify):
+        mock_verify.side_effect = lambda _cwd, ref: ref == "origin/master"
+        assert _base_from_default_branches("/tmp") == "origin/master"
+
+    @patch("harness_common.git._verify_ref", return_value=False)
+    def test_returns_none_when_neither_exists(self, _mock_verify):
+        assert _base_from_default_branches("/tmp") is None
+
+
+class TestDetectBaseBranch:
+    @patch("harness_common.git._base_from_default_branches")
+    @patch("harness_common.git._base_from_symbolic_ref")
+    @patch("harness_common.git._base_from_open_pr")
+    def test_open_pr_wins_first(self, mock_open_pr, mock_symbolic, mock_default):
+        mock_open_pr.return_value = "origin/feature-base"
+        assert _detect_base_branch("/tmp") == "origin/feature-base"
+        mock_symbolic.assert_not_called()
+        mock_default.assert_not_called()
+
+    @patch("harness_common.git._base_from_default_branches")
+    @patch("harness_common.git._base_from_symbolic_ref")
+    @patch("harness_common.git._base_from_open_pr", return_value=None)
+    def test_symbolic_ref_wins_second(self, _mock_open_pr, mock_symbolic, mock_default):
+        mock_symbolic.return_value = "origin/develop"
+        assert _detect_base_branch("/tmp") == "origin/develop"
+        mock_default.assert_not_called()
+
+    @patch("harness_common.git._base_from_default_branches")
+    @patch("harness_common.git._base_from_symbolic_ref", return_value=None)
+    @patch("harness_common.git._base_from_open_pr", return_value=None)
+    def test_default_branches_third(self, _mock_open_pr, _mock_symbolic, mock_default):
+        mock_default.return_value = "origin/master"
+        assert _detect_base_branch("/tmp") == "origin/master"
+
+    @patch("harness_common.git._base_from_default_branches", return_value=None)
+    @patch("harness_common.git._base_from_symbolic_ref", return_value=None)
+    @patch("harness_common.git._base_from_open_pr", return_value=None)
+    def test_returns_none_when_all_fail(self, *_mocks):
+        assert _detect_base_branch("/tmp") is None
+
+
+class TestGitDiscoverBranchFiles:
+    @patch("harness_common.git.subprocess.run")
+    @patch("harness_common.git._detect_base_branch", return_value="origin/main")
+    def test_returns_files_and_base(self, _mock_base, mock_run):
+        mock_run.return_value = MagicMock(returncode=0, stdout="src/a.py\nsrc/b.py\n")
+        files, base = git_discover_branch_files("/tmp")
+        assert files == ["src/a.py", "src/b.py"]
+        assert base == "origin/main"
+        # Diff uses three-dot to compare branch vs merge-base.
+        args = mock_run.call_args.args[0]
+        assert args[:3] == ["git", "diff", "--name-only"]
+        assert "origin/main...HEAD" in args
+
+    @patch("harness_common.git.subprocess.run")
+    @patch("harness_common.git._detect_base_branch", return_value="origin/main")
+    def test_path_filter_injects_pathspec(self, _mock_base, mock_run):
+        mock_run.return_value = MagicMock(returncode=0, stdout="src/auth/login.py\n")
+        files, base = git_discover_branch_files("/tmp", path_filter="src/auth")
+        assert files == ["src/auth/login.py"]
+        assert base == "origin/main"
+        args = mock_run.call_args.args[0]
+        # The `--` separator comes after the diff spec so git treats the
+        # next token as a pathspec, never as a ref.
+        assert "--" in args
+        sep_idx = args.index("--")
+        assert args[sep_idx + 1] == "src/auth"
+
+    @patch("harness_common.git.subprocess.run")
+    @patch("harness_common.git._detect_base_branch", return_value=None)
+    def test_returns_empty_and_none_when_no_base_detected(self, _mock_base, mock_run):
+        assert git_discover_branch_files("/tmp") == ([], None)
+        # We must NOT have run git diff when no base could be detected.
+        mock_run.assert_not_called()
+
+    @patch("harness_common.git.subprocess.run")
+    @patch("harness_common.git._detect_base_branch", return_value="origin/main")
+    def test_empty_diff_returns_empty_list(self, _mock_base, mock_run):
+        mock_run.return_value = MagicMock(returncode=0, stdout="\n")
+        files, base = git_discover_branch_files("/tmp")
+        assert files == []
+        assert base == "origin/main"
+
+    @patch("harness_common.git.subprocess.run")
+    @patch("harness_common.git._detect_base_branch", return_value="origin/main")
+    def test_diff_failure_returns_empty(self, _mock_base, mock_run):
+        mock_run.return_value = MagicMock(returncode=128, stdout="")
+        files, base = git_discover_branch_files("/tmp")
+        assert files == []
+        # Base is preserved so the caller can still report which base we tried.
+        assert base == "origin/main"
+
+    @patch("harness_common.git.subprocess.run")
+    @patch("harness_common.git._detect_base_branch", return_value="origin/main")
+    def test_timeout_returns_empty(self, _mock_base, mock_run):
+        mock_run.side_effect = subprocess.TimeoutExpired(cmd="git", timeout=30)
+        files, base = git_discover_branch_files("/tmp")
+        assert files == []
+        assert base == "origin/main"
+
+
+class TestGitFetchOpenPrDescription:
+    @patch("harness_common.git._fetch_open_pr_data")
+    def test_returns_truncated_payload(self, mock_fetch):
+        mock_fetch.return_value = {
+            "title": "feat: x",
+            "body": "Implements x",
+            "baseRefName": "develop",
+            "state": "OPEN",
+        }
+        out = git_fetch_open_pr_description("/tmp")
+        assert out == {
+            "title": "feat: x",
+            "body": "Implements x",
+            "base_ref": "origin/develop",
+        }
+
+    @patch("harness_common.git._fetch_open_pr_data", return_value=None)
+    def test_returns_none_when_no_pr(self, _mock_fetch):
+        assert git_fetch_open_pr_description("/tmp") is None
+
+    @patch("harness_common.git._fetch_open_pr_data")
+    def test_title_truncated_at_limit(self, mock_fetch):
+        long_title = "x" * (_PR_TITLE_TRUNCATE_LIMIT + 50)
+        mock_fetch.return_value = {
+            "title": long_title,
+            "body": "",
+            "baseRefName": "main",
+            "state": "OPEN",
+        }
+        out = git_fetch_open_pr_description("/tmp")
+        assert len(out["title"]) == _PR_TITLE_TRUNCATE_LIMIT
+
+    @patch("harness_common.git._fetch_open_pr_data")
+    def test_title_at_exactly_limit_not_truncated(self, mock_fetch):
+        title = "x" * _PR_TITLE_TRUNCATE_LIMIT
+        mock_fetch.return_value = {
+            "title": title,
+            "body": "",
+            "baseRefName": "main",
+            "state": "OPEN",
+        }
+        out = git_fetch_open_pr_description("/tmp")
+        assert out["title"] == title
+
+    @patch("harness_common.git._fetch_open_pr_data")
+    def test_body_truncated_at_limit_with_marker(self, mock_fetch):
+        body = "y" * (_PR_BODY_TRUNCATE_LIMIT + 100)
+        mock_fetch.return_value = {
+            "title": "x",
+            "body": body,
+            "baseRefName": "main",
+            "state": "OPEN",
+        }
+        out = git_fetch_open_pr_description("/tmp")
+        # Original body is sliced to the limit, then a marker is appended.
+        assert out["body"].startswith("y" * _PR_BODY_TRUNCATE_LIMIT)
+        assert out["body"].endswith("[...truncated...]")
+
+    @patch("harness_common.git._fetch_open_pr_data")
+    def test_body_at_exactly_limit_not_truncated(self, mock_fetch):
+        body = "y" * _PR_BODY_TRUNCATE_LIMIT
+        mock_fetch.return_value = {
+            "title": "x",
+            "body": body,
+            "baseRefName": "main",
+            "state": "OPEN",
+        }
+        out = git_fetch_open_pr_description("/tmp")
+        assert out["body"] == body
+        assert "[...truncated...]" not in out["body"]
+
+    @patch("harness_common.git._fetch_open_pr_data")
+    def test_base_ref_none_when_baseref_absent(self, mock_fetch):
+        mock_fetch.return_value = {
+            "title": "x",
+            "body": "y",
+            "baseRefName": None,
+            "state": "OPEN",
+        }
+        out = git_fetch_open_pr_description("/tmp")
+        assert out["base_ref"] is None
+
+    @patch("harness_common.git._fetch_open_pr_data")
+    def test_missing_title_and_body_default_to_empty(self, mock_fetch):
+        mock_fetch.return_value = {"baseRefName": "main", "state": "OPEN"}
+        out = git_fetch_open_pr_description("/tmp")
+        assert out["title"] == ""
+        assert out["body"] == ""
+        assert out["base_ref"] == "origin/main"

@@ -3,7 +3,7 @@
 import json
 
 import pytest
-from harness_common import cli
+from harness_common import cli, reporting
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -915,9 +915,7 @@ class TestDeepStep:
         assert exit_code == 0
         assert capsys.readouterr().out.strip() == "no-actionable"
 
-    def test_interaction_bug_combined_regression(
-        self, tmp_path, capsys, monkeypatch
-    ):
+    def test_interaction_bug_combined_regression(self, tmp_path, capsys, monkeypatch):
         # Bisect succeeds (one fix kept), but the full re-run after bisect
         # fails — the working tree is restored and the previously-fixed
         # finding is demoted to "reverted — test failure" with the
@@ -1797,9 +1795,7 @@ class TestCommitCheckpoint:
         # untested exit path.
         ppath = _seed_deep_progress(tmp_path)
         monkeypatch.setattr(cli, "git_diff_has_changes", lambda _cwd: True)
-        monkeypatch.setattr(
-            cli, "git_commit_checkpoint", lambda *_a, **_kw: False
-        )
+        monkeypatch.setattr(cli, "git_commit_checkpoint", lambda *_a, **_kw: False)
         exit_code = _run("commit-checkpoint", "--progress-file", str(ppath))
         assert exit_code == 1
         assert capsys.readouterr().out.strip() == "commit-failed"
@@ -1813,7 +1809,7 @@ class TestCommitCheckpoint:
 class TestFinalReport:
     def test_deep_report_prints(self, tmp_path, capsys, monkeypatch):
         ppath = _seed_deep_progress(tmp_path)
-        monkeypatch.setattr(cli, "git_current_branch", lambda _cwd: "feat/x")
+        monkeypatch.setattr(reporting, "git_current_branch", lambda _cwd: "feat/x")
         exit_code = _run("final-report", "--progress-file", str(ppath))
         assert exit_code == 0
         out = capsys.readouterr().out
@@ -1821,7 +1817,7 @@ class TestFinalReport:
 
     def test_coverage_report_prints(self, tmp_path, capsys, monkeypatch):
         ppath = _seed_coverage_progress(tmp_path)
-        monkeypatch.setattr(cli, "git_current_branch", lambda _cwd: "feat/x")
+        monkeypatch.setattr(reporting, "git_current_branch", lambda _cwd: "feat/x")
         exit_code = _run("final-report", "--progress-file", str(ppath))
         assert exit_code == 0
         out = capsys.readouterr().out
@@ -1829,7 +1825,7 @@ class TestFinalReport:
 
     def test_archive_moves_file(self, tmp_path, monkeypatch):
         ppath = _seed_deep_progress(tmp_path)
-        monkeypatch.setattr(cli, "git_current_branch", lambda _cwd: "")
+        monkeypatch.setattr(reporting, "git_current_branch", lambda _cwd: "")
         _run("final-report", "--progress-file", str(ppath), "--archive")
         assert not ppath.exists()
         assert (tmp_path / "progress.done.json").exists()

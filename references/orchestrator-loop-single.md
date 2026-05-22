@@ -57,7 +57,7 @@ TMP_RAW=".claude/.deep-iteration-raw.txt"
 TMP_RESULT=".claude/.deep-iteration-result.json"
 ```
 
-The exact filenames are an implementation choice — the only requirement is that they live in the project directory (cross-platform), are reused per-iteration (not accumulated), and are gitignored or removed at end of run.
+These exact filename prefixes (`.deep-iteration-` and `.unit-test-deep-`) are required — `.gitignore` excludes these patterns so the checkpoint commit's `git add -A` doesn't capture them. Renaming requires synchronized updates to `.gitignore` and `_HARNESS_STATE_EXCLUDES` in `scripts/harness_common/git.py`.
 
 ### 4. Extract the structured JSON
 

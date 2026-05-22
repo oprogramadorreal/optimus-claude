@@ -29,7 +29,7 @@ A Claude Code plugin combining markdown-based skill authoring (22 skills invoked
   3. The subagent emits a `json:harness-output` fenced block in its final message.
   4. The orchestrator saves the subagent's output to a temp file, runs `cli parse` to extract the JSON, then `cli deep-step` (or `unit-test-step` / `refactor-step` for the paired variant) to apply fixes, run tests, bisect on failure, and update statuses.
   5. `cli commit-checkpoint` produces a per-iteration commit.
-  6. `cli check-termination` returns one of `continue | convergence | no-actionable | all-reverted | cap | diminishing-returns`.
+  6. `cli check-termination` returns one of `continue | convergence | no-actionable | all-reverted | cap | diminishing-returns | parse-failure`.
   7. `cli advance` increments the iteration counter; the loop repeats until termination.
 - `cli final-report --archive` prints the cumulative report and moves the progress file to `.done.json`.
 

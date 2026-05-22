@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import shutil
 import sys
 from pathlib import Path
@@ -41,7 +42,6 @@ from .constants import (
     MAX_ITERATIONS_HARD_CAP,
     PERSISTENT_STATUS,
     PHASE_COMMIT_TYPE,
-    REVERTED_STATUSES,
     SKILL_COMMIT_TYPE,
     SOFT_EXIT_LOW_YIELD_THRESHOLD,
     SOFT_EXIT_MIN_ITERATION,
@@ -64,7 +64,6 @@ from .findings import (
 from .fixes import bisect_fixes
 from .git import commit_checkpoint as git_commit_checkpoint
 from .git import (
-    git_current_branch,
     git_diff_has_changes,
     git_discover_branch_files,
     git_fetch_open_pr_description,
@@ -400,7 +399,16 @@ def cmd_init(args):
         # Treat scope as a git pathspec only when it resolves to an existing
         # path under project_root. Natural-language scope ("focus on src/auth")
         # is kept as prose for downstream agent prompts and never passed to git.
-        scope_is_path = bool(args.scope) and (project_root / args.scope).exists()
+        # The containment check also rejects absolute paths (Path semantics:
+        # `project_root / "/etc"` yields `/etc`), which would otherwise be
+        # silently handed to git as a pathspec that matches nothing.
+        if args.scope:
+            candidate = (project_root / args.scope).resolve()
+            scope_is_path = candidate.exists() and (
+                candidate == project_root or project_root in candidate.parents
+            )
+        else:
+            scope_is_path = False
         progress = _make_deep_progress(
             skill,
             args.scope,
@@ -739,7 +747,7 @@ def cmd_refactor_step(args):
     # refactor_findings instead of findings)
     fixed_count = 0
     reverted_count = 0
-    test_passed = True
+    test_passed = None
     if fixes:
         passed, summary = run_tests(test_command, project_root)
         record_test_result(progress, passed, summary)
@@ -809,6 +817,12 @@ def cmd_refactor_step(args):
     progress["phase"] = "refactor"
 
     converged, reason = check_refactor_convergence(result)
+    # Coverage plateau check happens at cycle boundary via check-termination.
+    output_line = (
+        f"applied fixed={fixed_count} reverted={reverted_count} "
+        f"test_passed={_format_test_passed(test_passed)}"
+    )
+
     if converged:
         # Record the cycle that just ran before terminating — the orchestrator
         # loop skips step 10 (record-cycle) on the converged path.
@@ -828,10 +842,7 @@ def cmd_refactor_step(args):
         print("converged")
         return 0
     write_progress(progress_path, progress)
-    # Coverage plateau check happens at cycle boundary via check-termination
-    print(
-        f"applied fixed={fixed_count} reverted={reverted_count} test_passed={int(test_passed)}"
-    )
+    print(output_line)
     return 0
 
 
@@ -847,7 +858,7 @@ def cmd_record_cycle(args):
         rf_summary = (
             json.loads(args.refactor_summary) if args.refactor_summary else None
         )
-    except (ValueError, json.JSONDecodeError) as exc:
+    except ValueError as exc:
         print(f"ERROR: Invalid cycle summary JSON: {exc}", file=sys.stderr)
         return 1
     entry = {"cycle": cycle, "unit_test": ut_summary}
@@ -869,12 +880,8 @@ def cmd_commit_checkpoint(args):
         cycle = progress["cycle"]["current"]
         phase = args.phase or progress.get("phase", "unit-test")
         if phase == "unit-test":
-            count = len(
-                [
-                    t
-                    for t in progress.get("tests_created", [])
-                    if t.get("cycle") == cycle
-                ]
+            count = sum(
+                1 for t in progress.get("tests_created", []) if t.get("cycle") == cycle
             )
             detail = f"{count} tests written"
         else:
@@ -1048,12 +1055,19 @@ def cmd_final_report(args):
         print_deep_report(progress)
     if args.archive:
         done_path = progress_path.with_suffix(".done.json")
-        if done_path.exists():
-            done_path.unlink()
-        shutil.move(str(progress_path), str(done_path))
+        # os.replace is atomic on the same filesystem (progress and archive
+        # both live in .claude/), so a crash mid-archive leaves either the
+        # original progress file or the renamed .done.json — never both gone.
+        try:
+            os.replace(str(progress_path), str(done_path))
+        except OSError as exc:
+            print(f"ERROR: archive failed: {exc}", file=sys.stderr)
+            return 1
         backup = Path(str(progress_path) + BACKUP_SUFFIX)
-        if backup.exists():
+        try:
             backup.unlink()
+        except FileNotFoundError:
+            pass
     return 0
 
 

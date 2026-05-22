@@ -152,6 +152,14 @@ def test_loop_reference_dispatches_via_skill_md_read(loop_ref, expected_paths):
     ), f"{loop_ref} must inject HARNESS_MODE_INLINE in dispatch prompts"
     for path in expected_paths:
         assert path in ref, f"{loop_ref} must reference {path}"
+    # Pin the dispatch *mechanism*, not just the path token. A future loop-ref
+    # edit could keep the SKILL.md path string while dropping the "read from
+    # disk" instruction in favour of an alternative (slash command, cache); the
+    # PR description (#140 Key decisions item d) calls out the read-from-disk
+    # choice explicitly, so the contract must too.
+    assert (
+        "Read the base SKILL.md" in ref
+    ), f"{loop_ref} must instruct the subagent to read the base SKILL.md from disk"
 
 
 # ---------------------------------------------------------------------------

@@ -122,7 +122,7 @@ The report prints cycles completed, coverage baseline → final, total tests wri
 
 ## Important
 
-User approval recorded at Step 3 stands for the entire loop — tests and refactor fixes are applied without per-change confirmation. Recommend `/optimus:commit` next, followed by `/optimus:pr` once the branch is ready. Tell the user: **Tip:** for `/optimus:commit` and `/optimus:pr`, stay in this conversation so they can capture the implementation context. For other downstream skills (`/optimus:code-review`, `/optimus:unit-test`), start a fresh conversation — each gathers its own context from scratch.
+User approval recorded at Step 3 stands for the entire loop — tests and refactor fixes are applied without per-change confirmation. Recommend `/optimus:commit` next, followed by `/optimus:pr` once the branch is ready. Tell the user: **Tip:** stay in this conversation when running `/optimus:commit` and `/optimus:pr` so the implementation context is captured. Other downstream skills (`/optimus:code-review`, `/optimus:unit-test`) should still run in fresh conversations.
 
 ## Tip
 
