@@ -181,6 +181,7 @@ Claude Code includes a builtin `/simplify` command. `/optimus:refactor` is the e
 - [Claude Code](https://docs.anthropic.com/en/docs/claude-code) 1.0.33+ (plugin support)
 - Git
 - Project initialized with `/optimus:init` (recommended, not required)
+- Test command in `.claude/CLAUDE.md` if you want to use `/optimus:refactor-deep`
 
 ## License
 

@@ -131,6 +131,7 @@ The test-guardian agent and this skill are complementary — both use `testing.m
 - [Claude Code](https://docs.anthropic.com/en/docs/claude-code) 1.0.33+ (plugin support)
 - Git
 - Project initialized with `/optimus:init` (required — skill stops if CLAUDE.md is not found)
+- Test command in `.claude/CLAUDE.md` if you want to use `/optimus:unit-test-deep`
 
 ## License
 

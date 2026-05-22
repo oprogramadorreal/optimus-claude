@@ -11,7 +11,7 @@ Orchestrate `/optimus:code-review` in an iterative auto-fix loop. Each iteration
 
 ### Re-entry guard
 
-If your invocation prompt already contains `HARNESS_MODE_INLINE`, stop immediately with: *"Deep mode cannot run inside deep mode."* This prevents a misbehaving subagent from spawning a recursive deep run.
+If your invocation prompt body already contains `HARNESS_MODE_INLINE`, stop immediately with: *"Deep mode cannot run inside deep mode."* This prevents a misbehaving subagent from spawning a recursive deep run.
 
 ### Parse invocation arguments
 
@@ -122,7 +122,7 @@ This prints the cumulative report (fixed / reverted / persistent counts, per-fin
 
 The orchestrator skill applies fixes automatically across all iterations; user approval is recorded once at Step 3 and stands for the whole loop. The base skill's harness-mode protocol is the source of truth for which fixes get applied.
 
-Recommend the user run `/optimus:commit` next. Tell the user: **Tip:** for `/optimus:commit` and `/optimus:pr`, stay in this conversation so they can capture the implementation context. For other downstream skills (`/optimus:code-review`, `/optimus:unit-test`), start a fresh conversation — each gathers its own context from scratch.
+Recommend the user run `/optimus:commit` next, followed by `/optimus:pr` once the branch is ready. Tell the user: **Tip:** for `/optimus:commit` and `/optimus:pr`, stay in this conversation so they can capture the implementation context. For other downstream skills (`/optimus:code-review`, `/optimus:unit-test`), start a fresh conversation — each gathers its own context from scratch.
 
 Parse-failure recovery (when the subagent emits no `json:harness-output` block) is handled per `$CLAUDE_PLUGIN_ROOT/references/orchestrator-loop-single.md` "Parse-failure recovery".
 

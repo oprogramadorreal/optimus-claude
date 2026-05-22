@@ -38,7 +38,7 @@ Gather: tests written (file, target, count, status), coverage change, untestable
 
 ### 5. Output structured JSON
 
-Output the results in a `json:harness-output` fenced block (see Step 6 of SKILL.md for the exact schema). Key fields:
+Output the results in a `json:harness-output` fenced block (see Step 6 of `skills/unit-test/SKILL.md` for the exact schema — this protocol is only used by the unit-test phase). Key fields:
 - `tests_written` — what was generated
 - `coverage` — before/after/delta
 - `untestable_code` — items that need refactoring

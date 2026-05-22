@@ -76,7 +76,8 @@ Press Esc twice in Claude Code to interrupt. The orchestrator writes the progres
 | *(shared)* `references/orchestrator-loop-paired.md` | Per-cycle loop template |
 | *(shared)* `references/coverage-harness-mode.md` | Single-pass protocol for the unit-test phase |
 | *(shared)* `references/harness-mode.md` | Single-pass protocol for the refactor phase |
-| *(shared)* `scripts/harness_common/cli.py` | CLI helper that holds the orchestration logic |
+
+The orchestration loop's primitives (snapshot, parse, unit-test-step, refactor-step, record-cycle, commit-checkpoint, check-termination, final-report) are dispatched via the project-level `scripts/harness_common/cli.py` — see [.claude/docs/architecture.md](../../.claude/docs/architecture.md) for the data flow.
 
 ## License
 

@@ -223,6 +223,31 @@ def test_harness_mode_documented_schema_round_trips_through_cli_parse(tmp_path, 
     assert parsed["no_actionable_fixes"] is False
 
 
+@pytest.mark.parametrize("orchestrator,_loop,_base", ORCHESTRATOR_CONTRACTS)
+def test_orchestrator_documents_yes_flag(orchestrator, _loop, _base):
+    """Each orchestrator SKILL.md must document the --yes flag and its Step 3 bypass.
+
+    The flag is the headless / CI entry point — the only reason the deleted
+    Python harness's CI use case still works under the new orchestrator design.
+    If a future SKILL.md edit silently drops the flag, `claude -p
+    "/optimus:*-deep …"` will hang on Step 3's AskUserQuestion with no test
+    failure to flag the regression.
+    """
+    skill_md = _read(f"skills/{orchestrator}/SKILL.md")
+    assert (
+        "`--yes`" in skill_md
+    ), f"skills/{orchestrator}/SKILL.md must document the --yes flag"
+    # The Step 3 bypass behavior must be explicitly stated — not just the
+    # argparse entry. Headless callers depend on Step 3 being skipped.
+    assert (
+        "Skip this step entirely when `--resume` is given, or when `--yes` is given"
+        in skill_md
+    ), (
+        f"skills/{orchestrator}/SKILL.md must document --yes bypassing the "
+        f"Step 3 confirmation prompt"
+    )
+
+
 def test_harness_mode_documents_all_termination_reasons():
     """The orchestrator dispatches to harness-mode.md for termination semantics.
 

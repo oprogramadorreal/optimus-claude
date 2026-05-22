@@ -419,6 +419,40 @@ class TestResume:
         assert exit_code == 0
         assert progress_path.exists()
 
+    def test_corrupt_progress_file_fails_cleanly(self, tmp_path, capsys):
+        # cmd_resume must surface a readable error (not a raw traceback) when
+        # the progress file is unreadable JSON.
+        progress_path = tmp_path / "progress.json"
+        progress_path.write_text("{not valid json", encoding="utf-8")
+        exit_code = _run(
+            "resume",
+            "--progress-file",
+            str(progress_path),
+            "--project-dir",
+            str(tmp_path),
+        )
+        assert exit_code == 1
+        assert "Cannot read progress file" in capsys.readouterr().err
+
+    def test_missing_required_field_fails(self, tmp_path, capsys):
+        # A progress file missing required `skill` or `config` is malformed —
+        # resume must reject it instead of proceeding with undefined state.
+        progress_path = tmp_path / "progress.json"
+        progress_path.write_text(
+            json.dumps({"skill": "code-review"}),  # no config
+            encoding="utf-8",
+        )
+        exit_code = _run(
+            "resume",
+            "--progress-file",
+            str(progress_path),
+            "--project-dir",
+            str(tmp_path),
+        )
+        assert exit_code == 1
+        err = capsys.readouterr().err
+        assert "missing" in err.lower() or "invalid" in err.lower()
+
 
 # ---------------------------------------------------------------------------
 # parse
@@ -543,6 +577,64 @@ class TestParse:
             str(tmp_path / "no_such.json"),
         )
         assert exit_code == 0
+
+    def test_failure_counter_survives_resume(self, tmp_path, capsys):
+        # End-to-end regression for PR #140's claim: parse_failure_count must
+        # survive a --resume between two failed iterations. Sequence:
+        #   1. parse fails → counter = 1
+        #   2. resume (re-reads progress from disk) — counter must persist
+        #   3. parse fails → counter = 2
+        #   4. check-termination → must surface "parse-failure"
+        raw = tmp_path / "raw.txt"
+        raw.write_text("No JSON block here.", encoding="utf-8")
+        progress_path = tmp_path / "progress.json"
+        progress_path.write_text(
+            json.dumps(
+                {
+                    "schema_version": 1,
+                    "skill": "code-review",
+                    "config": {"project_root": str(tmp_path)},
+                    "parse_failure_count": 0,
+                    "termination": {"reason": None, "message": None},
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        _run(
+            "parse",
+            "--input-file",
+            str(raw),
+            "--progress-file",
+            str(progress_path),
+        )
+        assert _read_progress(progress_path)["parse_failure_count"] == 1
+
+        # Simulate a --resume between failures (the orchestrator was
+        # cancelled and re-launched). Counter must persist across this call.
+        exit_code = _run(
+            "resume",
+            "--progress-file",
+            str(progress_path),
+            "--project-dir",
+            str(tmp_path),
+        )
+        assert exit_code == 0
+        assert _read_progress(progress_path)["parse_failure_count"] == 1
+        capsys.readouterr()  # drain "code-review" line printed by resume
+
+        _run(
+            "parse",
+            "--input-file",
+            str(raw),
+            "--progress-file",
+            str(progress_path),
+        )
+        assert _read_progress(progress_path)["parse_failure_count"] == 2
+
+        exit_code = _run("check-termination", "--progress-file", str(progress_path))
+        assert exit_code == 0
+        assert capsys.readouterr().out.strip() == "parse-failure"
 
 
 # ---------------------------------------------------------------------------
@@ -691,6 +783,214 @@ class TestDeepStep:
         assert out.strip().startswith("applied")
         data = _read_progress(ppath)
         assert data["iteration_history"][-1]["fixed"] == 1
+
+    def test_malformed_empty_fixes_does_not_crash(self, tmp_path, capsys):
+        # Regression: if a subagent reports new_findings but neither
+        # no_actionable_fixes=true nor any fixes_applied entries with valid
+        # edit pairs, the deep-step used to crash on int(None) at the
+        # "applied …" print line. Must instead print "test_passed=-".
+        ppath = _seed_deep_progress(tmp_path)
+        result = tmp_path / "result.json"
+        result.write_text(
+            json.dumps(
+                {
+                    "iteration": 1,
+                    "new_findings": [
+                        {
+                            "file": "a.py",
+                            "line": 1,
+                            "category": "x",
+                            "summary": "s",
+                            "pre_edit_content": "",
+                            "post_edit_content": "",
+                        }
+                    ],
+                    "fixes_applied": [],
+                    "no_new_findings": False,
+                    "no_actionable_fixes": False,
+                }
+            ),
+            encoding="utf-8",
+        )
+        exit_code = _run(
+            "deep-step",
+            "--progress-file",
+            str(ppath),
+            "--result-file",
+            str(result),
+        )
+        assert exit_code == 0
+        out = capsys.readouterr().out.strip()
+        assert out.startswith("applied")
+        assert "test_passed=-" in out
+
+    def test_promote_actionable_fixes_recovers_from_false_flag(
+        self, tmp_path, capsys, monkeypatch
+    ):
+        # When the subagent sets no_actionable_fixes=true but new_findings
+        # carry valid pre/post edit pairs, _promote_actionable_fixes lifts
+        # them into fixes_applied and clears the flag so deep-step proceeds
+        # to the bisect/apply path instead of terminating "no-actionable".
+        ppath = _seed_deep_progress(tmp_path)
+        monkeypatch.setattr(cli, "run_tests", lambda *a, **kw: (True, "ok"))
+        result = tmp_path / "result.json"
+        result.write_text(
+            json.dumps(
+                {
+                    "iteration": 1,
+                    "new_findings": [
+                        {
+                            "file": "a.py",
+                            "line": 1,
+                            "category": "x",
+                            "summary": "s",
+                            "pre_edit_content": "a",
+                            "post_edit_content": "b",
+                        }
+                    ],
+                    "fixes_applied": [],
+                    "no_new_findings": False,
+                    "no_actionable_fixes": True,
+                }
+            ),
+            encoding="utf-8",
+        )
+        exit_code = _run(
+            "deep-step",
+            "--progress-file",
+            str(ppath),
+            "--result-file",
+            str(result),
+        )
+        assert exit_code == 0
+        assert capsys.readouterr().out.strip().startswith("applied")
+        data = _read_progress(ppath)
+        # Promoted finding counts as 1 applied; no early "no-actionable" exit.
+        assert data["iteration_history"][-1]["fixed"] == 1
+        assert data["termination"]["reason"] is None
+
+    def test_promote_skips_when_edit_pair_invalid(self, tmp_path, capsys):
+        # _promote_actionable_fixes must NOT promote a finding whose
+        # pre_edit_content equals post_edit_content (no edit) or whose
+        # post_edit_content is None. Original "no-actionable" termination
+        # must stand.
+        ppath = _seed_deep_progress(tmp_path)
+        result = tmp_path / "result.json"
+        result.write_text(
+            json.dumps(
+                {
+                    "iteration": 1,
+                    "new_findings": [
+                        {
+                            "file": "a.py",
+                            "line": 1,
+                            "category": "x",
+                            "summary": "s",
+                            "pre_edit_content": "a",
+                            "post_edit_content": "a",
+                        },
+                        {
+                            "file": "b.py",
+                            "line": 1,
+                            "category": "x",
+                            "summary": "s",
+                            "pre_edit_content": "a",
+                            "post_edit_content": None,
+                        },
+                    ],
+                    "fixes_applied": [],
+                    "no_new_findings": False,
+                    "no_actionable_fixes": True,
+                }
+            ),
+            encoding="utf-8",
+        )
+        exit_code = _run(
+            "deep-step",
+            "--progress-file",
+            str(ppath),
+            "--result-file",
+            str(result),
+        )
+        assert exit_code == 0
+        assert capsys.readouterr().out.strip() == "no-actionable"
+
+    def test_interaction_bug_combined_regression(
+        self, tmp_path, capsys, monkeypatch
+    ):
+        # Bisect succeeds (one fix kept), but the full re-run after bisect
+        # fails — the working tree is restored and the previously-fixed
+        # finding is demoted to "reverted — test failure" with the
+        # "Interaction bug — combined fixes failed" detail.
+        ppath = _seed_deep_progress(tmp_path)
+        (tmp_path / "a.py").write_text("a", encoding="utf-8")
+        # First run fails, bisect retains one, second full-run also fails.
+        call_count = {"n": 0}
+
+        def _stub_tests(*_a, **_kw):
+            call_count["n"] += 1
+            # n=1 initial fail, n=2 post-bisect fail
+            return False, f"FAIL #{call_count['n']}"
+
+        monkeypatch.setattr(cli, "run_tests", _stub_tests)
+
+        def _stub_bisect(fixes, _tc, _cwd, on_outcome=None):
+            for idx, fix in enumerate(fixes):
+                on_outcome(idx, fix, "fixed", "OK")
+            return len(fixes), 0, 0
+
+        monkeypatch.setattr(cli, "bisect_fixes", _stub_bisect)
+        monkeypatch.setattr(cli, "restore_working_tree", lambda *a, **kw: None)
+        result = tmp_path / "result.json"
+        result.write_text(
+            json.dumps(
+                {
+                    "iteration": 1,
+                    "new_findings": [
+                        {
+                            "file": "a.py",
+                            "line": 1,
+                            "category": "x",
+                            "summary": "s",
+                            "pre_edit_content": "a",
+                            "post_edit_content": "b",
+                        }
+                    ],
+                    "fixes_applied": [
+                        {
+                            "file": "a.py",
+                            "line": 1,
+                            "category": "x",
+                            "summary": "s",
+                            "pre_edit_content": "a",
+                            "post_edit_content": "b",
+                        }
+                    ],
+                    "no_new_findings": False,
+                    "no_actionable_fixes": False,
+                }
+            ),
+            encoding="utf-8",
+        )
+        exit_code = _run(
+            "deep-step",
+            "--progress-file",
+            str(ppath),
+            "--result-file",
+            str(result),
+        )
+        assert exit_code == 0
+        data = _read_progress(ppath)
+        # Finding was promoted from "fixed" to "reverted — test failure"
+        # with the interaction-bug detail.
+        assert len(data["findings"]) == 1
+        f = data["findings"][0]
+        assert f["status"] == "reverted — test failure"
+        latest_detail = f["status_history"][-1]["detail"] or ""
+        assert "Interaction bug" in latest_detail
+        # fixed dropped to 0, reverted bumped to 1.
+        assert data["iteration_history"][-1]["fixed"] == 0
+        assert data["iteration_history"][-1]["reverted"] == 1
 
     def test_all_reverted(self, tmp_path, capsys, monkeypatch):
         # When bisection reverts every fix, deep-step prints "all-reverted"
@@ -1053,6 +1353,77 @@ class TestRefactorStep:
         # No fixed status means no untestable_code item gets "attempted"
         assert data["untestable_code"][0]["status"] == "pending"
 
+    def test_interaction_bug_after_bisect(self, tmp_path, capsys, monkeypatch):
+        # Mirror of TestDeepStep.test_interaction_bug_combined_regression but
+        # for the refactor phase: bisect retains one fix, the full re-run
+        # then fails, the working tree is restored, and the previously-fixed
+        # refactor_findings entry is demoted to "reverted — test failure".
+        ppath = _seed_coverage_progress_with_untestable(tmp_path, files=["u.py"])
+        (tmp_path / "u.py").write_text("a", encoding="utf-8")
+        call_count = {"n": 0}
+
+        def _stub_tests(*_a, **_kw):
+            call_count["n"] += 1
+            return False, f"FAIL #{call_count['n']}"
+
+        monkeypatch.setattr(cli, "run_tests", _stub_tests)
+
+        def _stub_bisect(fixes, _tc, _cwd, on_outcome=None):
+            for idx, fix in enumerate(fixes):
+                on_outcome(idx, fix, "fixed", "OK")
+            return len(fixes), 0, 0
+
+        monkeypatch.setattr(cli, "bisect_fixes", _stub_bisect)
+        monkeypatch.setattr(cli, "restore_working_tree", lambda *a, **kw: None)
+        result = tmp_path / "result.json"
+        result.write_text(
+            json.dumps(
+                {
+                    "cycle": 1,
+                    "phase": "refactor",
+                    "new_findings": [
+                        {
+                            "file": "u.py",
+                            "line": 1,
+                            "category": "refactor",
+                            "summary": "s",
+                            "pre_edit_content": "a",
+                            "post_edit_content": "b",
+                        }
+                    ],
+                    "fixes_applied": [
+                        {
+                            "file": "u.py",
+                            "line": 1,
+                            "category": "refactor",
+                            "summary": "s",
+                            "pre_edit_content": "a",
+                            "post_edit_content": "b",
+                        }
+                    ],
+                    "no_new_findings": False,
+                    "no_actionable_fixes": False,
+                }
+            ),
+            encoding="utf-8",
+        )
+        exit_code = _run(
+            "refactor-step",
+            "--progress-file",
+            str(ppath),
+            "--result-file",
+            str(result),
+        )
+        assert exit_code == 0
+        out = capsys.readouterr().out.strip()
+        # After the restore, the previously-fixed finding is demoted.
+        assert "fixed=0" in out
+        assert "reverted=1" in out
+        data = _read_progress(ppath)
+        assert data["refactor_findings"][0]["status"] == "reverted — test failure"
+        # untestable_code stays pending (no surviving fixed status).
+        assert data["untestable_code"][0]["status"] == "pending"
+
 
 # ---------------------------------------------------------------------------
 # record-cycle
@@ -1209,10 +1580,22 @@ class TestCheckTermination:
         assert capsys.readouterr().out.strip() == "parse-failure"
 
     def test_cap_coverage(self, tmp_path, capsys):
-        ppath = _seed_coverage_progress(tmp_path, cycle=5)
+        # record-cycle pre-increments cycle.current after the last cycle
+        # completes, so cap fires when current > max_cycles (cycle 6 means
+        # cycle 5 just finished with max_cycles=5).
+        ppath = _seed_coverage_progress(tmp_path, cycle=6)
         exit_code = _run("check-termination", "--progress-file", str(ppath))
         assert exit_code == 0
         assert capsys.readouterr().out.strip() == "cap"
+
+    def test_no_cap_coverage_on_final_cycle(self, tmp_path, capsys):
+        # Boundary: when current == max_cycles, the final cycle is still
+        # allowed to run (record-cycle will then bump to max_cycles+1 and
+        # the next check-termination caps).
+        ppath = _seed_coverage_progress(tmp_path, cycle=5)
+        exit_code = _run("check-termination", "--progress-file", str(ppath))
+        assert exit_code == 0
+        assert capsys.readouterr().out.strip() == "continue"
 
     def test_diminishing_returns_coverage(self, tmp_path, capsys, monkeypatch):
         # Drive check_coverage_plateau via the coverage variant: two
@@ -1407,6 +1790,19 @@ class TestCommitCheckpoint:
         assert captured["message"].startswith("refactor(coverage-orchestrator)")
         assert "1 fixed" in captured["message"]
         assert "Testability fixes applied:" in captured["message"]
+
+    def test_commit_failed_exit_code_and_marker(self, tmp_path, capsys, monkeypatch):
+        # The orchestrator depends on the "commit-failed" marker to switch
+        # remaining iterations to --no-commit mode. Regression for an
+        # untested exit path.
+        ppath = _seed_deep_progress(tmp_path)
+        monkeypatch.setattr(cli, "git_diff_has_changes", lambda _cwd: True)
+        monkeypatch.setattr(
+            cli, "git_commit_checkpoint", lambda *_a, **_kw: False
+        )
+        exit_code = _run("commit-checkpoint", "--progress-file", str(ppath))
+        assert exit_code == 1
+        assert capsys.readouterr().out.strip() == "commit-failed"
 
 
 # ---------------------------------------------------------------------------

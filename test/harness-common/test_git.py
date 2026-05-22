@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, patch
 from harness_common.git import (
     _clean_working_tree,
     _fetch_open_pr_data,
+    commit_checkpoint,
     git_current_branch,
     git_diff_has_changes,
     git_restore_snapshot,
@@ -77,6 +78,95 @@ class TestCleanWorkingTree:
         assert ".claude/*-deep-progress.done.json" in excludes
         assert ".claude/.deep-iteration-*" in excludes
         assert ".claude/.unit-test-deep-*" in excludes
+
+
+class TestCommitCheckpoint:
+    # commit_checkpoint takes a `_run` test seam, so we drive it directly
+    # without monkey-patching subprocess.
+
+    def _make_run(self, results):
+        """Build a fake subprocess.run that returns results in order."""
+        calls = []
+
+        def fake_run(cmd, **_kw):
+            calls.append(cmd)
+            i = len(calls) - 1
+            return results[min(i, len(results) - 1)]
+
+        return fake_run, calls
+
+    def test_commits_after_unstaging_progress_file(self, tmp_path):
+        # Verifies the full dance: git add -A, then `git reset HEAD --`
+        # against the progress file and its .bak sibling, then git commit.
+        run, calls = self._make_run(
+            [MagicMock(returncode=0, stdout="", stderr="")] * 5
+        )
+        ok = commit_checkpoint(
+            "feat: x", tmp_path, ".claude/progress.json", _run=run
+        )
+        assert ok is True
+        # 1 add + 2 reset HEAD (progress + bak) + 1 commit = 4 calls
+        assert calls[0][:2] == ["git", "add"]
+        reset_calls = [c for c in calls if c[:3] == ["git", "reset", "HEAD"]]
+        assert len(reset_calls) == 2
+        # The progress file and its .bak sibling are both un-staged.
+        reset_targets = [c[-1] for c in reset_calls]
+        assert ".claude/progress.json" in reset_targets
+        assert ".claude/progress.json.bak" in reset_targets
+        commit_calls = [c for c in calls if c[:2] == ["git", "commit"]]
+        assert len(commit_calls) == 1
+        assert "feat: x" in commit_calls[0]
+
+    def test_nothing_to_commit_is_treated_as_success(self, tmp_path):
+        # When the un-stage step removes every staged path, `git commit`
+        # exits non-zero with "nothing to commit" in its output — this is
+        # a no-op success, not a failure.
+        run, _ = self._make_run(
+            [
+                MagicMock(returncode=0, stdout="", stderr=""),  # add
+                MagicMock(returncode=0, stdout="", stderr=""),  # reset 1
+                MagicMock(returncode=0, stdout="", stderr=""),  # reset 2
+                MagicMock(
+                    returncode=1,
+                    stdout="nothing to commit, working tree clean",
+                    stderr="",
+                ),
+            ]
+        )
+        ok = commit_checkpoint(
+            "feat: x", tmp_path, ".claude/progress.json", _run=run
+        )
+        assert ok is True
+
+    def test_add_failure_returns_false(self, tmp_path, capsys):
+        run, _ = self._make_run(
+            [MagicMock(returncode=1, stdout="", stderr="permission denied")]
+        )
+        ok = commit_checkpoint(
+            "feat: x", tmp_path, ".claude/progress.json", _run=run
+        )
+        assert ok is False
+        assert "git add -A failed" in capsys.readouterr().out
+
+    def test_commit_failure_returns_false(self, tmp_path, capsys):
+        # A genuine commit failure (e.g., pre-commit hook rejection) must
+        # surface as False so the orchestrator can switch to --no-commit.
+        run, _ = self._make_run(
+            [
+                MagicMock(returncode=0, stdout="", stderr=""),  # add
+                MagicMock(returncode=0, stdout="", stderr=""),  # reset 1
+                MagicMock(returncode=0, stdout="", stderr=""),  # reset 2
+                MagicMock(
+                    returncode=1, stdout="", stderr="pre-commit hook failed"
+                ),
+            ]
+        )
+        ok = commit_checkpoint(
+            "feat: x", tmp_path, ".claude/progress.json", _run=run
+        )
+        assert ok is False
+        out = capsys.readouterr().out
+        assert "checkpoint commit failed" in out
 
 
 class TestGitRestoreTo:

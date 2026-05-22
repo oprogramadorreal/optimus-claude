@@ -68,7 +68,8 @@ Press Esc twice in Claude Code to interrupt. The orchestrator writes the progres
 | `SKILL.md` | Orchestrator instructions |
 | *(shared)* `references/orchestrator-loop-single.md` | Per-iteration loop template |
 | *(shared)* `references/harness-mode.md` | Single-iteration protocol for the base `/optimus:refactor` skill |
-| *(shared)* `scripts/harness_common/cli.py` | CLI helper that holds the orchestration logic |
+
+The orchestration loop's primitives (snapshot, parse, deep-step, commit-checkpoint, check-termination, advance, final-report) are dispatched via the project-level `scripts/harness_common/cli.py` — see [.claude/docs/architecture.md](../../.claude/docs/architecture.md) for the data flow.
 
 ## License
 
