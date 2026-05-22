@@ -68,6 +68,30 @@ test('detects duplicate server', async () => {
 
 **Gate question:** "Can this test use the real implementation? Am I mocking for isolation or out of habit?"
 
+## Anti-Pattern 4: Verifying Through Backdoors Instead of the Interface
+
+**Bad** — bypassing the public interface to verify a side effect:
+```
+test('createUser saves to database', async () => {
+  await createUser({ name: 'Alice' })
+  const row = await db.query('SELECT * FROM users WHERE name = ?', ['Alice'])
+  expect(row).toBeDefined()
+})
+```
+
+**Good** — verifying through the interface the system exposes:
+```
+test('createUser makes user retrievable', async () => {
+  const user = await createUser({ name: 'Alice' })
+  const retrieved = await getUser(user.id)
+  expect(retrieved.name).toBe('Alice')
+})
+```
+
+The bad test couples the assertion to an internal storage decision: change the schema, switch databases, or move users into a cache, and the test breaks even though `createUser` still works. The good test asks the system to prove it did the job through the same interface a real caller would use.
+
+**Gate question:** "Am I verifying through the system's public interface, or am I checking internal state through a backdoor?"
+
 ## Quick Reference
 
 | Anti-Pattern | Gate Question | Fix |
@@ -75,6 +99,7 @@ test('detects duplicate server', async () => {
 | Asserting on mock elements | "Am I testing the mock or the code?" | Test real behavior or unmock it |
 | Mocking without understanding deps | "Does this test depend on mocked side effects?" | Mock at lower level, preserve needed behavior |
 | Over-mocking | "Can this test use real code?" | Only mock external services and non-deterministic deps |
+| Verifying through a backdoor | "Am I checking via the public interface or internal state?" | Read back through the system's API; if none exists, that's a design gap |
 | Test-only methods in production | "Is this method only called from tests?" | Move to test utilities |
 | Incomplete mock data | "Does my mock mirror the real data structure?" | Include all fields the real API returns |
 
