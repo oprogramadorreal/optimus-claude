@@ -22,6 +22,8 @@ The continuation skills are:
 
 The canonical implementation chain is **implement → `/optimus:commit` → `/optimus:pr` → `/optimus:code-review`**. The first three should run in the same conversation as the implementation (or, after `/optimus:code-review` applies fixes, in the code-review conversation). `/optimus:code-review` itself, and other downstream skills like `/optimus:unit-test`, run in fresh conversations because they gather their own context.
 
+`/optimus:tdd` is **not** a continuation skill itself (it gathers its own task context from scratch), but its Step 9 summary block is a load-bearing input for the downstream continuation chain. When `/optimus:tdd` finishes, it pushes the branch and recommends `/optimus:pr` in the same conversation; `/optimus:pr` reads the conversation's `## TDD Summary` + `### Behaviors Implemented` table + `### Coverage` delta (the exact heading strings emitted by `skills/tdd/SKILL.md`) to populate the PR description's `## Intent` (Scope, Non-goals, Key decisions) and `## Test plan` (per-behavior items, coverage delta). Inline PR/MR creation from inside `/optimus:tdd` is deliberately not supported — `/optimus:pr` owns default-branch detection, CLI install, existing-PR detection, and preview/confirm UX that the inline path would only duplicate.
+
 ### Closing tip wording
 
 Skills that emit a closing tip must use one of the variants below **verbatim** (substituting only the explicit placeholders). Drift is the failure mode this section exists to prevent — never paraphrase to skill-specific wording like "refactor's rationale", "deliverable's rationale", or "fix context". The umbrella term **"implementation context"** is intentional and covers design decisions, refactor rationale, fix context, and deliverable rationale.

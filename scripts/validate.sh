@@ -772,6 +772,29 @@ if [ -f "$tdd_skill" ]; then
   done
 fi
 
+# TDD-summary handoff contract: /optimus:tdd Step 9 emits a TDD summary block
+# whose heading strings /optimus:pr Step 5 greps to detect the TDD handoff and
+# populate Intent (Scope, Non-goals, Key decisions) and the per-behavior Test
+# plan. Silent rename of either side would silently drop the handoff —
+# /optimus:pr would fall back to the generic state-1 conversation signals and
+# the TDD-specific population rule would never fire. Each side is checked
+# independently so the failure message identifies which surface drifted.
+pr_skill="skills/pr/SKILL.md"
+if [ -f "$tdd_skill" ]; then
+  for tdd_handoff_token in '## TDD Summary' '### Behaviors Implemented' '### Coverage'; do
+    if ! grep -qF -- "$tdd_handoff_token" "$tdd_skill" 2>/dev/null; then
+      wiring_errors+="  $tdd_skill missing TDD-summary handoff token: $tdd_handoff_token\n"
+    fi
+  done
+fi
+if [ -f "$pr_skill" ]; then
+  for tdd_handoff_token in '## TDD Summary' '### Behaviors Implemented' '### Coverage'; do
+    if ! grep -qF -- "$tdd_handoff_token" "$pr_skill" 2>/dev/null; then
+      wiring_errors+="  $pr_skill missing TDD-summary handoff consumer token: $tdd_handoff_token\n"
+    fi
+  done
+fi
+
 # Brainstorm self-review reaches scenario-style.md by section name. Silent
 # rename of either heading would leave the self-review pointer dangling.
 scenario_style="skills/brainstorm/references/scenario-style.md"
