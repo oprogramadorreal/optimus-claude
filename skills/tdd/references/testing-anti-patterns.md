@@ -2,6 +2,17 @@
 
 Load this reference when writing or reviewing tests — especially before adding mocks.
 
+## Contents
+
+- [Core Principle](#core-principle)
+- [The Three Iron Laws of Mocking](#the-three-iron-laws-of-mocking)
+- [Anti-Pattern 1: Testing Mock Behavior Instead of Real Behavior](#anti-pattern-1-testing-mock-behavior-instead-of-real-behavior)
+- [Anti-Pattern 2: Mocking Without Understanding Dependencies](#anti-pattern-2-mocking-without-understanding-dependencies)
+- [Anti-Pattern 3: Over-Mocking When Real Code Works](#anti-pattern-3-over-mocking-when-real-code-works)
+- [Anti-Pattern 4: Verifying Through Backdoors Instead of the Interface](#anti-pattern-4-verifying-through-backdoors-instead-of-the-interface)
+- [Quick Reference](#quick-reference)
+- [Red Flags — Stop and Reconsider](#red-flags--stop-and-reconsider)
+
 ## Core Principle
 
 **Test what the code does, not what the mocks do.** Mocks are a means to isolate; they are never the thing being tested.
@@ -74,8 +85,9 @@ test('detects duplicate server', async () => {
 ```
 test('createUser saves to database', async () => {
   await createUser({ name: 'Alice' })
-  const row = await db.query('SELECT * FROM users WHERE name = ?', ['Alice'])
-  expect(row).toBeDefined()
+  const rows = await db.query('SELECT * FROM users WHERE name = ?', ['Alice'])
+  expect(rows).toHaveLength(1)
+  expect(rows[0].name).toBe('Alice')
 })
 ```
 
@@ -88,7 +100,7 @@ test('createUser makes user retrievable', async () => {
 })
 ```
 
-The bad test couples the assertion to an internal storage decision: change the schema, switch databases, or move users into a cache, and the test breaks even though `createUser` still works. The good test asks the system to prove it did the job through the same interface a real caller would use.
+The bad test couples the assertion to an internal storage decision: change the schema, switch databases, or move users into a cache, and the test breaks even though `createUser` still works.
 
 **Gate question:** "Am I verifying through the system's public interface, or am I checking internal state through a backdoor?"
 

@@ -187,7 +187,7 @@ RIGHT (vertical):
 For the current behavior, write a minimal test that:
 - Follows the project's testing conventions from `testing.md` (framework, file location, naming, mocking patterns)
 - Tests exactly one behavior — clear expected input and output
-- Uses descriptive test names that read as behavior specifications (e.g., `"returns 401 when token is expired"`, not `"test auth"`) — the test name is documentation of what capability exists, so a reader should learn what the system does from the test list alone
+- Uses descriptive test names that read as behavior specifications (e.g., `"returns 401 when token is expired"`, not `"test auth"`) — the test name is documentation of what capability exists
 - Avoids common testing anti-patterns — read `$CLAUDE_PLUGIN_ROOT/skills/tdd/references/testing-anti-patterns.md` before writing mocks; prefer real code over mocks, never assert on mock behavior, mock only external services or non-deterministic dependencies
 
 Place the test file according to the project's convention (from `testing.md`). If adding to an existing test file, append; if the convention calls for a new file, create one.
