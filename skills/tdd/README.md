@@ -26,8 +26,8 @@ The [2025 DORA report](https://cloud.google.com/discover/how-test-driven-develop
 - **Quality gate** — after cycling completes, launches code-simplifier and test-guardian agents in parallel to catch cross-cycle issues (duplication between behaviors, naming drift, edge-case coverage gaps) before pushing
 - **Git worktree isolation** — optionally creates a git worktree for the feature branch, keeping the main workspace clean and enabling parallel work. Automatically detects if already inside a worktree (e.g., created by `/optimus:worktree`) and skips to prevent recursive worktrees
 - **Bug-fix regression gate** — for bug fixes, verifies the red-green cycle is genuine: reverts the fix to confirm the test fails, then restores to confirm it passes
-- **Feature branch workflow** — creates a dedicated `<type>/<slug>` branch (e.g., `feat/add-auth`, `fix/login-email`), commits after each cycle, pushes and creates a PR/MR at the end
-- **Automatic PR/MR creation** — detects GitHub/GitLab and creates a pull/merge request using the [Conventional PR](../pr/README.md) format (structured summary, changes, rationale, test plan). The PR's `## Intent` section is populated from TDD cycle data (design/JIRA doc → Problem, implemented behaviors → Scope, deferred behaviors → Non-goals, refactor-step choices → Key decisions) so `/optimus:code-review` can later check the diff against author intent. Suggests `/optimus:pr` if the CLI is missing
+- **Feature branch workflow** — creates a dedicated `<type>/<slug>` branch (e.g., `feat/add-auth`, `fix/login-email`), commits after each cycle, and pushes at the end
+- **Push and PR/MR handoff** — after the quality gate, TDD pushes the feature branch to `origin` and recommends `/optimus:pr` as the explicit next step in the same conversation. `/optimus:pr` reads the TDD summary block (behaviors, coverage delta, deferred behaviors) from the conversation to populate the [Conventional PR](../pr/README.md) format — `## Intent` (Scope from behaviors, Non-goals from deferred behaviors, Key decisions from refactor reasoning) and the per-behavior `## Test plan` items. Delegating (rather than running `gh pr create` / `glab mr create` inline) gives the PR step default-branch auto-detection, CLI install offers, existing-PR detection, and preview-and-confirm
 - **Coverage tracking** — detects coverage commands from testing.md, test runner flags, or package scripts; reports delta
 - **Multi-repo workspace support** — targets specific repos in multi-repo setups
 - **Submodule exclusion** — skips git submodule directories
@@ -41,7 +41,7 @@ This skill is part of the [optimus](https://github.com/oprogramadorreal/optimus-
 1. **`/optimus:init`** — required. Installs `CLAUDE.md`, `coding-guidelines.md`, test framework, coverage tooling, and `testing.md`
 2. **`/optimus:unit-test`** — recommended. Writes retroactive tests to increase coverage before starting TDD
 3. **`/optimus:permissions`** — recommended. Enables branch-aware git protection so TDD can commit and push to feature branches while protecting main/master
-4. **`gh` or `glab` CLI** — optional. Needed for automatic PR/MR creation (GitHub CLI or GitLab CLI)
+4. **`gh` or `glab` CLI** — optional. Needed when you run `/optimus:pr` after TDD (GitHub CLI or GitLab CLI). `/optimus:pr` offers to install the CLI if it is missing
 
 **Setup workflow**: `/optimus:init` → `/optimus:unit-test` → `/optimus:permissions` → `/optimus:tdd`
 
@@ -220,7 +220,7 @@ The skill produces a structured summary after completing:
 - Branch: `feat/add-password-reset-endpoint` (from `main`)
 - Commits: 3
 - Pushed: ✓
-- PR: https://github.com/owner/repo/pull/42 (Conventional PR format)
+- Next: run `/optimus:pr` in this conversation to create the PR (Conventional PR format)
 ```
 
 ## How It Works
@@ -233,7 +233,7 @@ The skill produces a structured summary after completing:
 6. Runs the full test suite at every transition (Red, Green, Refactor) and lint/type-check during Green and Refactor
 7. Automatically commits on the feature branch after each cycle
 8. Runs code-simplifier and test-guardian agents in parallel as a quality gate
-9. Reports summary, pushes the branch, and creates a PR/MR with task description and coverage delta
+9. Reports summary, pushes the branch, and recommends running `/optimus:pr` in the same conversation to create the PR/MR (with TDD signals captured into Intent and the per-behavior Test plan)
 
 ## Git Workflow
 
@@ -242,12 +242,12 @@ TDD automatically manages a feature branch for all work:
 1. **Branch creation** — Creates `<type>/<slug>` (e.g., `feat/add-password-reset`, `fix/login-uppercase-email`) from the current branch before any code changes. Optionally sets up a git worktree (`.worktrees/<worktree-dir>`, where `<worktree-dir>` is the branch name with `/` replaced by `-`) so the main workspace stays on the original branch
 2. **Auto-commits** — After each completed Red-Green-Refactor cycle, TDD automatically stages and commits with a conventional message
 3. **Final commit** — Any uncommitted work (e.g., stopped mid-cycle) is committed at the end of the session
-4. **Push** — The feature branch is pushed to origin automatically
-5. **PR/MR** — A pull request (GitHub) or merge request (GitLab) is created targeting the original branch
+4. **Push** — The feature branch is pushed to `origin` automatically
+5. **PR/MR handoff** — TDD recommends running `/optimus:pr` in the same conversation to create the PR/MR; the dedicated skill handles default-branch detection, CLI install, existing-PR detection, and preview/confirm
 
 The user's original branch is never modified. All code review happens through the PR/MR.
 
-**Platform detection:** TDD uses the shared platform detection algorithm (origin URL then CI file fallback — see `skills/pr/references/platform-detection.md`). Multi-remote disambiguation is skipped to keep the PR creation step lightweight. Requires `gh` (GitHub CLI) or `glab` (GitLab CLI) for PR/MR creation — if unavailable, TDD pushes the branch and suggests running `/optimus:pr` (which can install the CLI).
+**Platform detection:** TDD does not perform platform detection or PR/MR creation directly — it always pushes the feature branch and delegates PR/MR creation to `/optimus:pr` in the same conversation, which handles platform detection (see `skills/pr/references/platform-detection.md`).
 
 **Works with `/optimus:permissions`:** The permissions skill's branch protection hook ensures git operations on protected branches (master, main, develop, dev, development, staging, stage, prod, production, release) are blocked. TDD always creates a feature branch, so it works seamlessly with branch protection enabled.
 
@@ -275,10 +275,10 @@ The user's original branch is never modified. All code review happens through th
 
 | | `/optimus:tdd` | `/optimus:pr` |
 |---|---|---|
-| PR creation | Automatic — side effect of TDD workflow | Dedicated — full Conventional PR flow |
-| CLI missing | Skips PR, suggests `/optimus:pr` | Offers to install CLI |
-| Update support | No | Yes — regenerate existing PR description |
-| Format | Both use the shared Conventional PR template |
+| PR creation | Delegates — recommends `/optimus:pr` in the same conversation after pushing | Dedicated — full Conventional PR flow with default-branch detection, CLI install, existing-PR detection, preview/confirm |
+| CLI missing | N/A (delegated) | Offers to install CLI |
+| Update support | N/A (delegated) | Yes — regenerate existing PR description |
+| Format | Both rely on the shared Conventional PR template — `/optimus:pr` reads TDD's `## TDD Summary` block from the conversation to populate `## Intent` and the per-behavior `## Test plan` |
 
 | | `/optimus:tdd` | `/optimus:jira` |
 |---|---|---|
@@ -291,7 +291,7 @@ The user's original branch is never modified. All code review happens through th
 | Context flow | TDD auto-detects design docs in `docs/design/` | Brainstorm writes design docs that TDD consumes |
 | When to combine | Complex features — brainstorm first, then TDD implements the design |
 
-**Full workflow**: `/optimus:init` (set up everything including test infrastructure) → `/optimus:unit-test` (retroactive tests to increase coverage) → `/optimus:permissions` (branch-aware git protection) → `/optimus:tdd` (build new features test-first — creates branch, commits, pushes, creates PR/MR) → `/optimus:code-review` (review the PR/MR). For JIRA-tracked work, add `/optimus:jira` before TDD. For complex features, add `/optimus:brainstorm` → plan mode before TDD. Use `/optimus:pr` to update the PR description later or to create PRs for non-TDD work.
+**Full workflow**: `/optimus:init` (set up everything including test infrastructure) → `/optimus:unit-test` (retroactive tests to increase coverage) → `/optimus:permissions` (branch-aware git protection) → `/optimus:tdd` (build new features test-first — creates branch, commits, pushes) → `/optimus:pr` in the same conversation (create the PR/MR with TDD signals captured into Intent and the per-behavior Test plan) → `/optimus:code-review` in a fresh conversation (review the PR/MR). For JIRA-tracked work, add `/optimus:jira` before TDD. For complex features, add `/optimus:brainstorm` → plan mode before TDD. `/optimus:pr` also handles updating an existing PR description and creating PRs for non-TDD work.
 
 ## Skill Structure
 

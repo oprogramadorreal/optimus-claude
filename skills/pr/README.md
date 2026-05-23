@@ -15,7 +15,7 @@ The **Conventional PR** format mirrors [Conventional Commits](https://www.conven
 The canonical chain — all three continuation steps in the same conversation, then `/optimus:code-review` in a fresh conversation:
 
 1. **Implement** your changes (TDD, brainstorm-driven, or freeform).
-2. **Stay in the implementation conversation** and run `/optimus:commit` — captures the *why* into the commit message body.
+2. **Stay in the implementation conversation** and run `/optimus:commit` — captures the *why* into the commit message body. (When the implementation was a `/optimus:tdd` run, the per-cycle auto-commits already populate commit messages and TDD's Step 9 pushes the branch automatically — skip directly to step 3.)
 3. **Still in the same conversation**, run `/optimus:pr` — captures intent into the PR description. Upstream skills like `/optimus:commit` already nudge you to do this when they recommend `/optimus:pr`.
 4. Switch to a **fresh conversation** and run `/optimus:code-review`. It reads the PR description you just wrote to check whether the implementation delivers what was supposed to be built.
 
@@ -137,7 +137,7 @@ A PR/MR already exists for this branch. What would you like to do?
 
 - **After finishing work on a feature branch** — create a well-structured PR before requesting review
 - **After adding commits to an existing PR** — update the description to reflect new changes
-- **After TDD cycles** — `/optimus:tdd` creates PRs automatically, but you can re-run `/optimus:pr` to regenerate the description
+- **After TDD cycles** — `/optimus:tdd` pushes the branch and recommends `/optimus:pr` as the explicit next step; staying in the same conversation lets `/optimus:pr` read the TDD summary block (behaviors, coverage delta, deferred behaviors) for the PR description
 - **Before code review** — a structured PR description helps `/optimus:code-review` understand context
 
 ## When NOT to Run
@@ -175,10 +175,10 @@ The template is shared with `/optimus:tdd` via `references/pr-template.md`.
 
 | | `/optimus:pr` | `/optimus:tdd` |
 |---|---|---|
-| PR creation | Dedicated — full Conventional PR flow | Side effect of TDD workflow |
-| CLI missing | Offers to install | Skips PR, suggests `/optimus:pr` |
-| Update support | Yes — regenerate existing PR description | No |
-| Timing | After all commits are ready | Automatically after TDD cycles |
+| PR creation | Dedicated — full Conventional PR flow with default-branch detection, CLI install, existing-PR detection, preview/confirm | Delegates — pushes the branch and recommends `/optimus:pr` in the same conversation |
+| CLI missing | Offers to install | N/A (delegated) |
+| Update support | Yes — regenerate existing PR description | N/A (delegated) |
+| Timing | After commits are ready and the branch is pushed | TDD itself runs Red-Green-Refactor cycles; `/optimus:pr` runs immediately after, in the same conversation |
 
 | | `/optimus:pr` | `/optimus:code-review` |
 |---|---|---|
