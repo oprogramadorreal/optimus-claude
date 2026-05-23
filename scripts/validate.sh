@@ -779,6 +779,12 @@ fi
 # /optimus:pr would fall back to the generic state-1 conversation signals and
 # the TDD-specific population rule would never fire. Each side is checked
 # independently so the failure message identifies which surface drifted.
+#
+# Scope note: this guards the three detection headings only — the load-bearing
+# trigger. The row-level tokens the population rule reads (Status `✓ Complete` /
+# `Not started`, coverage `Before:`/`After:`/`Delta:` labels) are intentionally
+# not asserted: their drift degrades gracefully (detection still fires, only
+# population is affected), unlike a heading rename, which drops the handoff whole.
 pr_skill="skills/pr/SKILL.md"
 if [ -f "$tdd_skill" ]; then
   for tdd_handoff_token in '## TDD Summary' '### Behaviors Implemented' '### Coverage'; do

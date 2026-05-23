@@ -386,7 +386,7 @@ If no coverage command is found, omit this section entirely.]
 
 If there are commits on the branch:
 
-1. **Push** the feature branch: `git push -u origin <branch-name>`. If the push fails, report the error and stop — the user must resolve the push issue before a PR/MR can be created.
+1. **Push** the feature branch: `git push -u origin <branch-name>`. If the push fails, report the error and stop — skip the remaining Step 9 subsections and leave any worktree in place; the user must resolve the push issue before a PR/MR can be created (re-running `/optimus:tdd` resumes from the existing worktree).
 
 2. **Report** to the user:
 
