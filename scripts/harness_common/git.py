@@ -141,7 +141,13 @@ def git_restore_snapshot(snapshot_sha, cwd, _run=None):
         text=True,
     )
     if result.returncode != 0:
-        print(f"{_PREFIX} WARNING: Could not restore snapshot: {result.stderr[:200]}")
+        print(
+            f"{_PREFIX} WARNING: Could not restore snapshot: {result.stderr[:200]}"
+        )
+        print(
+            f"{_PREFIX} WARNING: untracked files may be missing from the working "
+            f"tree — recover them with: git stash apply {snapshot_sha}"
+        )
         return False
     # Drop the stash entry to avoid accumulating orphaned snapshots.
     # git stash drop requires a stash ref (stash@{N}), not a raw SHA.
@@ -317,6 +323,8 @@ def git_discover_branch_files(cwd, path_filter=None):
             cmd,
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             cwd=cwd_str,
             timeout=30,
         )
