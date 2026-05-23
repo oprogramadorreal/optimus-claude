@@ -32,7 +32,7 @@ If worktree creation fails (e.g., git version too old, filesystem issues), fall 
 
 ## Cleanup
 
-If a worktree was used (see Setup above), offer cleanup after the PR/MR is created:
+If a worktree was used (see Setup above), offer cleanup after pushing the branch (before recommending `/optimus:pr`):
 
 1. Switch to the main workspace directory (parent of `.worktrees/`)
 2. Remove the worktree: `git worktree remove .worktrees/<worktree-dir>`

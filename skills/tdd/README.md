@@ -247,7 +247,7 @@ TDD automatically manages a feature branch for all work:
 
 The user's original branch is never modified. All code review happens through the PR/MR.
 
-**Platform detection:** TDD does not perform platform detection or PR/MR creation directly — it always pushes the feature branch and delegates PR/MR creation to `/optimus:pr` in the same conversation. `/optimus:pr` handles platform detection (see `skills/pr/references/platform-detection.md`), default-branch resolution, CLI install offers, and existing-PR detection.
+**Platform detection:** TDD does not perform platform detection or PR/MR creation directly — it always pushes the feature branch and delegates PR/MR creation to `/optimus:pr` in the same conversation, which handles platform detection (see `skills/pr/references/platform-detection.md`).
 
 **Works with `/optimus:permissions`:** The permissions skill's branch protection hook ensures git operations on protected branches (master, main, develop, dev, development, staging, stage, prod, production, release) are blocked. TDD always creates a feature branch, so it works seamlessly with branch protection enabled.
 
