@@ -952,6 +952,30 @@ if ! grep -qF 'Outdated info elsewhere' "$how_to_run_skill" 2>/dev/null; then
   wiring_errors+="  $how_to_run_skill missing Step 4/5 cross-reference to stale-info report: Outdated info elsewhere\n"
 fi
 
+# Handoff skill: load-bearing tokens. Renaming any silently breaks the
+# emitted-doc shape, the save path, redaction, the unpushed-commit guard,
+# the shared-reference loads, or the enhance/overwrite re-run routing.
+handoff_skill="skills/handoff/SKILL.md"
+if [ -f "$handoff_skill" ]; then
+  for token in \
+    'docs/handoffs/' \
+    '[REDACTED:' \
+    '@{upstream}..HEAD' \
+    '## Goal' \
+    '## Current state' \
+    '## Next steps' \
+    '## Suggested skills' \
+    '## History' \
+    'references/skill-handoff.md' \
+    'multi-repo-detection.md' \
+    'Enhance' \
+    'Overwrite'; do
+    if ! grep -qF -- "$token" "$handoff_skill" 2>/dev/null; then
+      wiring_errors+="  $handoff_skill missing handoff wiring token: $token\n"
+    fi
+  done
+fi
+
 check "Load-bearing wiring intact" test -z "$wiring_errors"
 if [ -n "$wiring_errors" ]; then
   printf "       Wiring issues:\n%b" "$wiring_errors"
