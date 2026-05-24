@@ -71,7 +71,7 @@ Rules:
 
 Scan everything you are about to **inline** (never paths or references) against the **Redaction patterns** table and replace matches with the exact marker `[REDACTED: <kind>]`, preserving structure — e.g. `DATABASE_URL=postgres://app:[REDACTED: password]@db:5432/app`.
 
-A tracked file is referenced, never inlined, so a committed secret is never copied in. If you are about to reference a tracked file whose name looks like a secret (`.env`, `*.key`, `*.pem`, `*.pfx`, `credentials.*`, `secrets.*` — the same set `/optimus:commit` warns about), add a one-line caution but still reference it by path only.
+A tracked-and-pushed file is referenced, never inlined — so a pushed secret is never copied in. Tracked-but-modified or committed-but-unpushed content is inlined (bucket 2) and must be redacted like any other inlined content. If you are about to reference a tracked file whose name looks like a secret (`.env`, `*.key`, `*.pem`, `*.pfx`, `credentials.*`, `secrets.*`, `*.sqlite`, `*.db` — the same set `/optimus:commit` warns about), add a one-line caution but still reference it by path only.
 
 ## Step 6: Build the Suggested skills section
 

@@ -954,7 +954,8 @@ fi
 
 # Handoff skill: load-bearing tokens. Renaming any silently breaks the
 # emitted-doc shape, the save path, redaction, the unpushed-commit guard,
-# the shared-reference loads, or the enhance/overwrite re-run routing.
+# the shared-reference loads, the enhance/overwrite re-run routing, or the
+# Step 8 closing-tip variant selection.
 handoff_skill="skills/handoff/SKILL.md"
 if [ -f "$handoff_skill" ]; then
   for token in \
@@ -969,7 +970,8 @@ if [ -f "$handoff_skill" ]; then
     'references/skill-handoff.md' \
     'multi-repo-detection.md' \
     'Enhance' \
-    'Overwrite'; do
+    'Overwrite' \
+    'Variant B'; do
     if ! grep -qF -- "$token" "$handoff_skill" 2>/dev/null; then
       wiring_errors+="  $handoff_skill missing handoff wiring token: $token\n"
     fi
