@@ -15,11 +15,11 @@ disable-model-invocation: true
 
 Compact the current conversation into one self-contained, tool-agnostic Markdown document under `docs/handoffs/` that any fresh agent can resume from by reading only that file. Reference committed artifacts by path or URL; inline anything not yet pushed; redact secrets and PII.
 
-## Step 1: Determine the focus and slug
+## Step 1: Determine the slug and any focus
 
-If the user passed arguments, treat them verbatim as the next session's focus: echo them into the template's **Focus for next session** line and bias every later section toward that focus. Derive a kebab-case `<slug>` from the focus (e.g., "finish the migration tests" → `migration-tests`).
+Always derive a kebab-case `<slug>` for the filename from the work's topic — from the user's arguments if given (e.g., "finish the migration tests" → `migration-tests`), otherwise from the conversation's most recent active thread. When no arguments were passed, state the inferred topic and slug to the user in one line before continuing.
 
-If no arguments were passed, infer the focus and slug from the conversation's most recent active thread, and state the inferred focus to the user in one line before continuing.
+Record a **Focus for next session** only when the conversation gives a clear signal: if the user passed arguments, treat them verbatim as the focus and bias the relevant sections toward it; if the conversation explicitly states the next objective, you may use that. Otherwise do not manufacture a focus — omit the **Focus for next session** line and leave forward direction to the resumer.
 
 ## Step 2: Locate the doc; decide create, enhance, or overwrite
 
@@ -58,10 +58,11 @@ Qualify paths and SHAs with the repo name in a multi-repo workspace.
 Fill the embedded **Handoff document template** from what was actually discussed in this conversation.
 
 - **New or overwrite** → write fresh.
-- **Enhance** → preserve **Goal** and still-valid content; update **Current state** and **Next steps** to the latest reality (drop completed steps); add new decisions and artifacts; refresh **Last updated**; append one **History** line.
+- **Enhance** → keep still-valid content; update **Current state** (and **Next steps**/**Goal** if present) to the latest reality, dropping completed steps; preserve and extend the recorded decisions and rationale; add new artifacts; refresh **Last updated**; append one **History** line.
 
 Rules:
 
+- Prioritize knowledge a fresh agent could not re-derive from the code or git history — decisions and why, alternatives considered and rejected, constraints, and gotchas. Include **Goal**, **Focus for next session**, and **Next steps** only when the conversation makes them genuinely clear; otherwise omit them and leave forward direction to the resumer.
 - Never duplicate content that lives in a tracked artifact — reference it by path plus a one-line summary. Inline only bucket-2 and bucket-3 content from Step 3.
 - Trust git state (Step 3) over chat memory when they conflict. If the current state is ambiguous, say so in one line rather than guessing.
 - Keep the document tool-agnostic: refer to the resuming actor as "a fresh agent" or "a new session" — never name a specific AI product.
@@ -99,28 +100,30 @@ Either way, omit Step 6's continuation skills (`/optimus:commit`, `/optimus:pr`)
 
 ## Handoff document template
 
-Minimal-but-complete; omit any section with nothing to say. Ordering follows a cold reader's path: orient (Goal, Current state) → act (Next steps) → reference (artifacts, skills).
+Minimal-but-complete. The primary job is capturing knowledge a fresh agent could not re-derive — decisions and why, rejected alternatives, constraints, gotchas, and the current state. Include **Goal**, **Focus for next session**, and **Next steps** only when the conversation makes them genuinely clear; omit them (and any other empty section) otherwise, leaving forward direction to the resumer. Ordering follows a cold reader's path: orient (Current state, decisions) → act (Next steps, if any) → reference (artifacts, skills).
 
 ````markdown
 # Handoff: <short title of the work>
 
 - **Created:** <YYYY-MM-DD> · **Last updated:** <YYYY-MM-DD>
 - **Origin:** <repo> @ `<branch>` · commit `<short-sha>` (<pushed | NOT pushed>)
-- **Focus for next session:** <one line — from the user's args if provided, else inferred>
+- **Focus for next session:** <one line — include only if the user passed args or the conversation states the next objective; otherwise omit this bullet>
 - **How to use this doc:** You are resuming this work cold. Read top to bottom; everything you
-  need is here or linked by repo-relative path. Then begin at Next steps item 1.
+  need is here or linked by repo-relative path. If a Next steps section is present, begin there;
+  otherwise continue from Current state and the decisions below.
 
 ## Goal
-<1-3 sentences: the outcome we are driving toward, and why. The destination, not a task list.>
+<Include only if the conversation establishes a clear objective. 1-3 sentences: the outcome we are driving toward, and why — the destination, not a task list. Omit this section if the goal is not clear from the conversation.>
 
 ## Current state
-<2-6 bullets: what is done, what works, what is in progress, what is blocked.>
+<2-6 bullets: what is done, what works, what is in progress, what is blocked. Prioritize what a fresh agent could not re-derive — decisions made and why, and the current reality.>
 
-**Constraints that gate the next step** (omit if none):
-- <e.g. API contract frozen — see docs/adr/0007-api.md>
-- <e.g. must stay on Node 18; do not bump>
+**Decisions, constraints & gotchas** (omit if none):
+- <A decision made and why — and any alternative considered and rejected, with the reason.>
+- <A non-obvious gotcha, or a constraint that gates the work — e.g. API contract frozen (see docs/adr/0007-api.md); must stay on Node 18.>
 
 ## Next steps
+<Include only if the conversation points to concrete follow-up actions; otherwise omit this section and leave direction to the resumer.>
 1. <Concrete first action — the thing to do on resume.>
 2. <Next action.>
 
@@ -146,7 +149,7 @@ Minimal-but-complete; omit any section with nothing to say. Ordering follows a c
 - <YYYY-MM-DD>: <one-line summary of what this session changed>
 
 ---
-**Resume here:** start a fresh session with any AI agent in this repo, open this file, and begin at Next steps item 1.
+**Resume here:** start a fresh session with any AI agent in this repo and open this file. If it has a Next steps section, begin at item 1; otherwise pick up from Current state and the decisions above.
 ````
 
 ## Suggested skills — selection table
