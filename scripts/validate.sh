@@ -967,6 +967,8 @@ for token in \
   '## Goal' \
   '## Current state' \
   '## Next steps' \
+  '## Relevant files & artifacts' \
+  '### Inlined (not yet on remote)' \
   '## Suggested skills' \
   '## History' \
   'references/skill-handoff.md' \
@@ -975,6 +977,7 @@ for token in \
   'Overwrite' \
   'Continue one' \
   'Create new' \
+  'Variant A' \
   'Variant B'; do
   if ! grep -qF -- "$token" "$handoff_skill" 2>/dev/null; then
     wiring_errors+="  $handoff_skill missing handoff wiring token: $token\n"

@@ -8,7 +8,6 @@ description: >-
   optimus skills to run. Re-running on an existing handoff lets you enhance the shared doc or
   overwrite it. Use when pausing work that someone else or a future session will pick up, or
   when a long conversation needs a durable summary.
-argument-hint: "What will the next session focus on?"
 disable-model-invocation: true
 ---
 
@@ -91,7 +90,12 @@ Write the filled template to `docs/handoffs/<slug>.md` under the root resolved i
 
 Report the written path. Tell the user the document is redacted and safe to commit, that any older handoffs in the folder remain (this is the latest for its topic), and — if Step 7 flagged an untracked workspace root — that the doc is not yet under version control, suggesting they commit it inside a child repo or initialize version control at the root.
 
-Recommend `/optimus:commit` so the handoff reaches the remote and other machines. Then emit the closing tip from `$CLAUDE_PLUGIN_ROOT/references/skill-handoff.md` **Variant B** verbatim, substituting `<continuation-skill(s)>` with `/optimus:commit` and `<non-continuation-examples>` with only the non-continuation resume skills you suggested in Step 6 (e.g. `/optimus:code-review`, `/optimus:unit-test`); omit any continuation skills (`/optimus:commit`, `/optimus:pr`) from that slot.
+Recommend `/optimus:commit` so the handoff reaches the remote and other machines. Then choose the closing tip from `$CLAUDE_PLUGIN_ROOT/references/skill-handoff.md` based on what Step 6 produced:
+
+- **If Step 6 emitted at least one non-continuation skill** → emit **Variant B** verbatim, substituting `<continuation-skill(s)>` with `/optimus:commit` and `<non-continuation-examples>` with those non-continuation skills.
+- **If Step 6 emitted only continuation skills (e.g. `/optimus:commit`, `/optimus:pr`)** → emit **Variant A** verbatim, substituting `<continuation-skill(s)>` with `/optimus:commit` joined to Step 6's continuation skills via "and" (e.g. `` `/optimus:commit` and `/optimus:pr` ``) and `<non-continuation-examples>` with illustrative examples (`/optimus:code-review`, `/optimus:unit-test`).
+
+Either way, omit Step 6's continuation skills (`/optimus:commit`, `/optimus:pr`) from the `<non-continuation-examples>` slot.
 
 ## Handoff document template
 
@@ -181,6 +185,3 @@ Applied only to **inlined** content. Marker format is exactly `[REDACTED: <kind>
 ## Important
 
 - Read-only except for the single file it writes (`docs/handoffs/<slug>.md`). It never stages, commits, or pushes.
-- Keep the document tool-agnostic: "a fresh agent" / "a new session", never a specific AI product.
-- Trust git state over chat memory — Step 3 is authoritative for what is pushed.
-- Reference tracked artifacts by path / URL; inline only uncommitted or unpushed content; redact everything inlined.
