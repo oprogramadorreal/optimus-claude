@@ -957,26 +957,29 @@ fi
 # the shared-reference loads, the enhance/overwrite re-run routing, or the
 # Step 8 closing-tip variant selection.
 handoff_skill="skills/handoff/SKILL.md"
-if [ -f "$handoff_skill" ]; then
-  for token in \
-    'docs/handoffs/' \
-    '[REDACTED:' \
-    '@{upstream}..HEAD' \
-    '## Goal' \
-    '## Current state' \
-    '## Next steps' \
-    '## Suggested skills' \
-    '## History' \
-    'references/skill-handoff.md' \
-    'multi-repo-detection.md' \
-    'Enhance' \
-    'Overwrite' \
-    'Variant B'; do
-    if ! grep -qF -- "$token" "$handoff_skill" 2>/dev/null; then
-      wiring_errors+="  $handoff_skill missing handoff wiring token: $token\n"
-    fi
-  done
-fi
+# Assert presence as a first-class check (not an `if [ -f ]` guard) so a rename
+# or deletion fails the build instead of silently skipping the wiring loop.
+check "handoff SKILL.md present" test -f "$handoff_skill"
+for token in \
+  'docs/handoffs/' \
+  '[REDACTED:' \
+  '@{upstream}..HEAD' \
+  '## Goal' \
+  '## Current state' \
+  '## Next steps' \
+  '## Suggested skills' \
+  '## History' \
+  'references/skill-handoff.md' \
+  'multi-repo-detection.md' \
+  'Enhance' \
+  'Overwrite' \
+  'Continue one' \
+  'Create new' \
+  'Variant B'; do
+  if ! grep -qF -- "$token" "$handoff_skill" 2>/dev/null; then
+    wiring_errors+="  $handoff_skill missing handoff wiring token: $token\n"
+  fi
+done
 
 check "Load-bearing wiring intact" test -z "$wiring_errors"
 if [ -n "$wiring_errors" ]; then

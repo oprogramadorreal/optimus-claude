@@ -91,7 +91,7 @@ Write the filled template to `docs/handoffs/<slug>.md` under the root resolved i
 
 Report the written path. Tell the user the document is redacted and safe to commit, that any older handoffs in the folder remain (this is the latest for its topic), and — if Step 7 flagged an untracked workspace root — that the doc is not yet under version control, suggesting they commit it inside a child repo or initialize version control at the root.
 
-Recommend `/optimus:commit` so the handoff reaches the remote and other machines. Then emit the closing tip from `$CLAUDE_PLUGIN_ROOT/references/skill-handoff.md` **Variant B** verbatim, substituting `<continuation-skill(s)>` with `/optimus:commit` and `<non-continuation-examples>` with the resume skills you suggested in Step 6.
+Recommend `/optimus:commit` so the handoff reaches the remote and other machines. Then emit the closing tip from `$CLAUDE_PLUGIN_ROOT/references/skill-handoff.md` **Variant B** verbatim, substituting `<continuation-skill(s)>` with `/optimus:commit` and `<non-continuation-examples>` with only the non-continuation resume skills you suggested in Step 6 (e.g. `/optimus:code-review`, `/optimus:unit-test`); omit any continuation skills (`/optimus:commit`, `/optimus:pr`) from that slot.
 
 ## Handoff document template
 
@@ -176,7 +176,7 @@ Applied only to **inlined** content. Marker format is exactly `[REDACTED: <kind>
 | Passwords / secrets | `password=`, creds in connection strings, `client_secret`, `-----BEGIN … PRIVATE KEY-----` | `[REDACTED: password]` / `[REDACTED: private key]` |
 | Connection strings | `mongodb+srv://…:…@`, `mssql://…;Password=…` | `[REDACTED: connection string]` |
 | PII | personal emails (keep role addresses like `support@`), phones, addresses, national IDs | `[REDACTED: PII]` |
-| Env/secret files | inlined `.env` / `*.key` / `*.pem` / `credentials.*` bodies | inline variable **names** only, never values |
+| Env/secret files | inlined `.env` / `*.key` / `*.pem` / `credentials.*` / `secrets.*` bodies | inline variable **names** only, never values |
 
 ## Important
 
