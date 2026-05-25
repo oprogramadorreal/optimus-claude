@@ -952,6 +952,41 @@ if ! grep -qF 'Outdated info elsewhere' "$how_to_run_skill" 2>/dev/null; then
   wiring_errors+="  $how_to_run_skill missing Step 4/5 cross-reference to stale-info report: Outdated info elsewhere\n"
 fi
 
+# Handoff skill: load-bearing tokens. Renaming any silently breaks the
+# emitted-doc shape, the save path, redaction, the unpushed-commit guard,
+# the shared-reference loads, the enhance/overwrite re-run routing, or the
+# Step 8 closing-tip variant selection.
+handoff_skill="skills/handoff/SKILL.md"
+# Assert presence as a first-class check (not an `if [ -f ]` guard) so a rename
+# or deletion fails the build instead of silently skipping the wiring loop.
+check "handoff SKILL.md present" test -f "$handoff_skill"
+for token in \
+  'docs/handoffs/' \
+  '[REDACTED:' \
+  '@{upstream}..HEAD' \
+  'origin/HEAD..HEAD' \
+  '## Goal' \
+  '## Current state' \
+  '## Next steps' \
+  '## Relevant files & artifacts' \
+  '### Inlined (not yet on remote)' \
+  '## Suggested skills' \
+  '## History' \
+  '## Handoff document template' \
+  '## Redaction patterns' \
+  'references/skill-handoff.md' \
+  'multi-repo-detection.md' \
+  'Enhance' \
+  'Overwrite' \
+  'Continue one' \
+  'Create new' \
+  'Variant A' \
+  'Variant B'; do
+  if ! grep -qF -- "$token" "$handoff_skill" 2>/dev/null; then
+    wiring_errors+="  $handoff_skill missing handoff wiring token: $token\n"
+  fi
+done
+
 check "Load-bearing wiring intact" test -z "$wiring_errors"
 if [ -n "$wiring_errors" ]; then
   printf "       Wiring issues:\n%b" "$wiring_errors"
