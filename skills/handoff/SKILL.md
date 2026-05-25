@@ -70,7 +70,7 @@ Rules:
 
 Scan everything you are about to **inline** (never paths or references) against the **Redaction patterns** table and replace matches with the exact marker `[REDACTED: <kind>]`, preserving structure — e.g. `DATABASE_URL=postgres://app:[REDACTED: password]@db:5432/app`.
 
-A tracked-and-pushed file is referenced, never inlined — so a pushed secret is never copied in. Tracked-but-modified or committed-but-unpushed content is inlined (bucket 2) and must be redacted like any other inlined content. If you are about to reference a tracked file whose name looks like a secret (`.env`, `*.key`, `*.pem`, `*.pfx`, `credentials.*`, `secrets.*`, `*.sqlite`, `*.db` — the same set `/optimus:commit` warns about), add a one-line caution but still reference it by path only.
+A tracked-and-pushed file is referenced, never inlined — so a pushed secret is never copied in. Tracked-but-modified or committed-but-unpushed content is inlined (bucket 2) and must be redacted like any other inlined content. A file whose name looks like a secret (`.env`, `*.key`, `*.pem`, `*.pfx`, `credentials.*`, `secrets.*`, `*.sqlite`, `*.db` — the same set `/optimus:commit` warns about) is **never inlined with its values**, regardless of tracked state: reference it by path (if tracked) or by name with a "recreate from your secure source" note (if untracked or modified), adding a one-line caution. For text env files you may inline variable **names** only, never values; binary/opaque files (`*.pfx`, `*.sqlite`, `*.db`) are never inlined at all.
 
 ## Step 6: Build the Suggested skills section
 
@@ -180,7 +180,8 @@ Applied only to **inlined** content. Marker format is exactly `[REDACTED: <kind>
 | Passwords / secrets | `password=`, creds in connection strings, `client_secret`, `-----BEGIN … PRIVATE KEY-----` | `[REDACTED: password]` / `[REDACTED: private key]` |
 | Connection strings | `mongodb+srv://…:…@`, `mssql://…;Password=…` | `[REDACTED: connection string]` |
 | PII | personal emails (keep role addresses like `support@`), phones, addresses, national IDs | `[REDACTED: PII]` |
-| Env/secret files | inlined `.env` / `*.key` / `*.pem` / `credentials.*` / `secrets.*` bodies | inline variable **names** only, never values |
+| Env/secret files (text) | inlined `.env` / `*.key` / `*.pem` / `credentials.*` / `secrets.*` bodies | inline variable **names** only, never values |
+| Binary/opaque secret files | `*.pfx` / `*.sqlite` / `*.db` bodies | **never inline** — reference by name with a "recreate from your secure source" note |
 
 ## Important
 

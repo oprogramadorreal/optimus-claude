@@ -964,6 +964,7 @@ for token in \
   'docs/handoffs/' \
   '[REDACTED:' \
   '@{upstream}..HEAD' \
+  'origin/HEAD..HEAD' \
   '## Goal' \
   '## Current state' \
   '## Next steps' \
@@ -971,6 +972,8 @@ for token in \
   '### Inlined (not yet on remote)' \
   '## Suggested skills' \
   '## History' \
+  '## Handoff document template' \
+  '## Redaction patterns' \
   'references/skill-handoff.md' \
   'multi-repo-detection.md' \
   'Enhance' \
