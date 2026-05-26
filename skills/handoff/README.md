@@ -12,8 +12,9 @@ on a different machine — can resume the work by reading only that file.
 
 ## What it does
 
-- Writes `docs/handoffs/<slug>.md` capturing the goal, current state, next steps, relevant
-  files/artifacts, and suggested next skills.
+- Writes `docs/handoffs/<slug>.md` capturing the current state, the decisions and rationale behind
+  the work, and relevant files/artifacts — plus a goal and next steps when the conversation makes
+  them clear.
 - References committed artifacts (PRDs, plans, ADRs, issues, commits) by path or URL; inlines
   anything not yet pushed so it survives on another machine.
 - Redacts secrets and PII so the doc is safe to commit.
@@ -24,8 +25,9 @@ on a different machine — can resume the work by reading only that file.
     /optimus:handoff
     /optimus:handoff finish the migration tests
 
-If you pass arguments, they describe what the next session will focus on, and the document is
-tailored to that focus.
+Arguments are optional: if you pass them, they're recorded as the next session's focus and the
+document is biased toward it. Without arguments, the document captures what happened and why, and
+records a focus or next steps only when the conversation makes them clear.
 
 ## Output
 
