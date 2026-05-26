@@ -1830,6 +1830,29 @@ class TestFinalReport:
         assert not ppath.exists()
         assert (tmp_path / "progress.done.json").exists()
 
+    def test_archive_removes_backup(self, tmp_path, monkeypatch):
+        ppath = _seed_deep_progress(tmp_path)
+        monkeypatch.setattr(reporting, "git_current_branch", lambda _cwd: "")
+        backup = tmp_path / (ppath.name + cli.BACKUP_SUFFIX)
+        backup.write_text("{}", encoding="utf-8")
+        _run("final-report", "--progress-file", str(ppath), "--archive")
+        assert not backup.exists()
+        assert (tmp_path / "progress.done.json").exists()
+
+    def test_archive_oserror_returns_1(self, tmp_path, capsys, monkeypatch):
+        ppath = _seed_deep_progress(tmp_path)
+        monkeypatch.setattr(reporting, "git_current_branch", lambda _cwd: "")
+
+        def _raise_oserror(*_args, **_kwargs):
+            raise OSError("disk full")
+
+        monkeypatch.setattr(cli.os, "replace", _raise_oserror)
+        exit_code = _run("final-report", "--progress-file", str(ppath), "--archive")
+        assert exit_code == 1
+        assert "archive failed" in capsys.readouterr().err
+        # The progress file must survive a failed archive (atomicity contract).
+        assert ppath.exists()
+
 
 # ---------------------------------------------------------------------------
 # snapshot
@@ -1855,3 +1878,10 @@ class TestSnapshot:
         _run("snapshot", "--progress-file", str(ppath), "--include-stash")
         data = _read_progress(ppath)
         assert data["_snapshot"]["pre_stash"] == "stash_sha"
+
+    def test_head_unavailable_returns_error(self, tmp_path, capsys, monkeypatch):
+        ppath = _seed_deep_progress(tmp_path)
+        monkeypatch.setattr(cli, "git_rev_parse_head", lambda _cwd: None)
+        exit_code = _run("snapshot", "--progress-file", str(ppath))
+        assert exit_code == 1
+        assert "Cannot determine HEAD" in capsys.readouterr().err

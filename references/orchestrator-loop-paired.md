@@ -43,6 +43,8 @@ Agent tool call:
 
 ### 3. Save the subagent return + extract JSON
 
+Write the unit-test subagent's final message text to `$TMP_RAW`, then extract the JSON:
+
 ```bash
 TMP_RAW=".claude/.unit-test-deep-raw.txt"
 TMP_RESULT=".claude/.unit-test-deep-result.json"
@@ -108,7 +110,9 @@ Agent tool call:
     fenced block and stop.
 ```
 
-### 7. Extract the refactor JSON
+### 7. Save the refactor return + extract the refactor JSON
+
+Write the **refactor** subagent's final message text to `$TMP_RAW`, overwriting the unit-test phase's output from step 3 — otherwise the parse below re-reads the stale unit-test JSON and the refactor phase records nothing. Then extract:
 
 ```bash
 PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli parse \
@@ -117,7 +121,7 @@ PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli parse \
     --progress-file "<progress-path>"
 ```
 
-(Same temp file shape as step 3, reused. The `--progress-file` flag continues to update `parse_failure_count` so a refactor-phase parse failure following a unit-test-phase failure triggers `parse-failure` termination.)
+(Same temp file paths as step 3, reused. The `--progress-file` flag continues to update `parse_failure_count` so a refactor-phase parse failure following a unit-test-phase failure triggers `parse-failure` termination.)
 
 ### 8. Record the refactor phase
 

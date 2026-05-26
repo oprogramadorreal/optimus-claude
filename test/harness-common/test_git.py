@@ -309,6 +309,22 @@ class TestGitRestoreSnapshot:
         drop_call = mock_run.call_args_list[2]
         assert drop_call[0][0] == ["git", "stash", "drop", "stash@{0}"]
 
+    @patch("harness_common.git.subprocess.run")
+    @patch("harness_common.git._clean_working_tree")
+    def test_failure_prints_recovery_hint_and_keeps_stash(
+        self, mock_clean, mock_run, capsys
+    ):
+        # On a failed `stash apply`, the snapshot must NOT be dropped and the
+        # user must be told how to recover it manually (regression for the
+        # restore-recovery hardening in commit fac1fec).
+        mock_run.return_value = MagicMock(returncode=1, stderr="conflict")
+        assert git_restore_snapshot("abc123", "/tmp") is False
+        assert "git stash apply abc123" in capsys.readouterr().out
+        # The failure path returns before listing/dropping, so the only
+        # subprocess call was the `stash apply` itself — the stash survives.
+        assert mock_run.call_count == 1
+        assert mock_run.call_args.args[0] == ["git", "stash", "apply", "abc123"]
+
 
 class TestFetchOpenPrData:
     @patch("harness_common.git.subprocess.run")
@@ -547,6 +563,19 @@ class TestGitDiscoverBranchFiles:
         files, base = git_discover_branch_files("/tmp")
         assert files == []
         assert base == "origin/main"
+
+    @patch("harness_common.git.subprocess.run")
+    @patch("harness_common.git._detect_base_branch", return_value="origin/main")
+    def test_diff_uses_utf8_encoding(self, _mock_base, mock_run):
+        # Non-ASCII filenames would fail under Windows-default cp1252; the
+        # encoding="utf-8" kwarg keeps branch-file discovery cross-platform
+        # (regression for commit fac1fec, mirrors TestFetchOpenPrData).
+        mock_run.return_value = MagicMock(returncode=0, stdout="src/café.py\n")
+        files, _base = git_discover_branch_files("/tmp")
+        assert files == ["src/café.py"]
+        _args, kwargs = mock_run.call_args
+        assert kwargs.get("encoding") == "utf-8"
+        assert kwargs.get("errors") == "replace"
 
 
 class TestGitFetchOpenPrDescription:
