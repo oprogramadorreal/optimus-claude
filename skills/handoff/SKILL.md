@@ -63,7 +63,7 @@ Recommend `/optimus:commit` so the handoff reaches the remote and other machines
 
 ## Handoff document template
 
-Minimal-but-complete. The primary job is capturing knowledge a fresh agent could not re-derive — decisions and why, rejected alternatives, constraints, gotchas, and the current state. Include **Goal**, **Focus for next session**, and **Next steps** only when the conversation makes them genuinely clear; omit them (and any other empty section) otherwise. Ordering follows a cold reader's path: orient (Goal if present, Current state, decisions) → act (Next steps, if any) → reference (artifacts).
+Minimal-but-complete; omit any section with nothing to say — **Goal**, **Focus for next session**, and **Next steps** included, unless the conversation makes them genuinely clear. Ordering follows a cold reader's path: orient (Goal if present, Current state, decisions) → act (Next steps, if any) → reference (artifacts).
 
 ````markdown
 # Handoff: <short title of the work>
@@ -71,7 +71,7 @@ Minimal-but-complete. The primary job is capturing knowledge a fresh agent could
 - **Created:** <YYYY-MM-DD> · **Last updated:** <YYYY-MM-DD>
 - **Origin:** <repo> @ `<branch>` · commit `<short-sha>` (<pushed | NOT pushed>)
 - **Focus for next session:** <one line — include only if the user passed args or the conversation states the next objective; otherwise omit this bullet>
-- **How to use this doc:** Resume cold; read top to bottom — everything is here or linked by repo-relative path. If a Next steps section is present, begin there; otherwise continue from Current state and the decisions below.
+- **How to use this doc:** Resume cold; read top to bottom — everything is here or linked by repo-relative path.
 
 ## Goal
 <Include only if the conversation establishes a clear objective. 1-3 sentences: the outcome and why. Omit if not clear.>
