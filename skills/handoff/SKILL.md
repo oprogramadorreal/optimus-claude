@@ -100,7 +100,7 @@ Either way, omit Step 6's continuation skills (`/optimus:commit`, `/optimus:pr`)
 
 ## Handoff document template
 
-Minimal-but-complete. The primary job is capturing knowledge a fresh agent could not re-derive — decisions and why, rejected alternatives, constraints, gotchas, and the current state. Include **Goal**, **Focus for next session**, and **Next steps** only when the conversation makes them genuinely clear; omit them (and any other empty section) otherwise, leaving forward direction to the resumer. Ordering follows a cold reader's path: orient (Current state, decisions) → act (Next steps, if any) → reference (artifacts, skills).
+Minimal-but-complete. The primary job is capturing knowledge a fresh agent could not re-derive — decisions and why, rejected alternatives, constraints, gotchas, and the current state. Include **Goal**, **Focus for next session**, and **Next steps** only when the conversation makes them genuinely clear; omit them (and any other empty section) otherwise, leaving forward direction to the resumer. Ordering follows a cold reader's path: orient (Goal if present, Current state, decisions) → act (Next steps, if any) → reference (artifacts, skills).
 
 ````markdown
 # Handoff: <short title of the work>
