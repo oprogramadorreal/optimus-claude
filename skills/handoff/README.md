@@ -13,8 +13,8 @@ on a different machine — can resume the work by reading only that file.
 ## What it does
 
 - Writes `docs/handoffs/<slug>.md` capturing the current state, the decisions and rationale behind
-  the work, and relevant files/artifacts — plus a goal and next steps when the conversation makes
-  them clear.
+  the work, any open questions, and relevant files/artifacts — plus a goal and next steps when the
+  conversation makes them clear.
 - References committed artifacts (PRDs, plans, ADRs, issues, commits) by path or URL; inlines
   anything not yet pushed so it survives on another machine.
 - Redacts secrets and PII so the doc is safe to commit.
