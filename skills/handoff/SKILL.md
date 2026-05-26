@@ -42,9 +42,11 @@ Qualify paths and SHAs with the repo name in a multi-repo workspace.
 
 ## Step 4: Draft or reconcile the document
 
-Fill the **Handoff document template** from what was actually discussed. **New or overwrite** → write fresh. **Enhance** → keep still-valid content; update **Current state** (and **Goal**/**Next steps** if present) to current reality, dropping completed steps; preserve and extend the recorded decisions; add new artifacts; refresh **Last updated**; append one **History** line.
+If the conversation has not already established the codebase's current state, briefly orient in the repo first so the document's factual claims reflect what is actually there — keep it light; this grounds the doc, it is not fresh exploration.
 
-- Prioritize knowledge a fresh agent could not re-derive from the code or git history — decisions and why, alternatives considered and rejected, constraints, and gotchas. Include **Goal**, **Focus for next session**, and **Next steps** only when the conversation makes them genuinely clear; otherwise omit them.
+Fill the **Handoff document template** from what was actually discussed. **New or overwrite** → write fresh. **Enhance** → keep still-valid content; update **Current state** (and **Goal**/**Next steps** if present) to current reality, dropping completed steps; preserve and extend the recorded decisions and open questions, promoting any the new work has resolved; add new artifacts; refresh **Last updated**; append one **History** line.
+
+- Prioritize knowledge a fresh agent could not re-derive from the code or git history — decisions and why, alternatives considered and rejected, constraints, gotchas, and still-open questions. Include **Goal**, **Focus for next session**, and **Next steps** only when the conversation makes them genuinely clear; otherwise omit them.
 - Never duplicate content that lives in a tracked artifact — reference it by path plus a one-line summary. Inline only bucket-2 and bucket-3 content.
 - Trust git state over chat memory when they conflict; if the current state is ambiguous, say so in one line rather than guessing.
 - Keep the document tool-agnostic: refer to the resuming actor as "a fresh agent" or "a new session" — never name a specific AI product.
@@ -83,6 +85,9 @@ Minimal-but-complete; omit any section with nothing to say — **Goal**, **Focus
 - <A decision made and why — and any alternative considered and rejected, with the reason.>
 - <A non-obvious gotcha, or a constraint that gates the work.>
 
+**Open questions** (omit if none):
+- <Something the conversation left unresolved — what is undecided and what depends on it. Distinct from a rejected alternative: no decision was reached.>
+
 ## Next steps
 <Include only if the conversation points to concrete follow-up actions; otherwise omit and leave direction to the resumer.>
 1. <Concrete first action on resume.>
@@ -90,13 +95,14 @@ Minimal-but-complete; omit any section with nothing to say — **Goal**, **Focus
 ## Relevant files & artifacts
 > Committed/tracked → referenced by repo-relative path / SHA / URL.
 > Uncommitted or unpushed → content inlined below (won't exist on another machine).
+> Anchor each reference on a durable identifier (a type / function / config name the resumer can search for) and say why it matters; never cite line numbers — a bare path can move under a refactor.
 
-- `path/to/file.ts` — <why it matters> (tracked)
+- `path/to/file.ts` — `SessionStore`: <why it matters> (tracked)
 - Issue/PR: <URL> — <relevance>
 
 ### Inlined (not yet on remote) — omit if none
 ```diff
-<minimal relevant uncommitted diff / new-file body / unpushed commit message, secrets redacted>
+<the fragment that carries the decision — schema, type shape, state machine, or the changed lines that matter, not a full diff dump; or new-file body / unpushed commit message; secrets redacted>
 ```
 
 ## History (most recent first)
