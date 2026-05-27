@@ -264,7 +264,7 @@ def _test_and_reconcile_fixes(
         mark_all_fixed(progress, fixes)
         return len(fixes), 0, True, False
 
-    fixed, reverted, skipped = bisect_fixes(
+    fixed, reverted, _ = bisect_fixes(
         fixes,
         test_command,
         project_root,

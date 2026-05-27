@@ -10,9 +10,9 @@ __pycache__/
 htmlcov/
 .coverage
 *.stackdump
-.claude/code-review-deep-progress.json*
-.claude/refactor-deep-progress.json*
-.claude/unit-test-deep-progress.json*
+.claude/code-review-deep-progress.*
+.claude/refactor-deep-progress.*
+.claude/unit-test-deep-progress.*
 .claude/.deep-iteration-*.txt
 .claude/.deep-iteration-*.json
 .claude/.unit-test-deep-*.txt

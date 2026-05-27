@@ -80,7 +80,7 @@ def detect_test_command(project_root, content=None):
 
 
 def format_finding_line(finding):
-    location = f"{finding['file']}:{finding.get('line', '?')}"
+    location = f"{finding.get('file', '?')}:{finding.get('line', '?')}"
     category = finding.get("category", "unknown")
     summary = finding.get("summary", "").replace("\n", " ").replace("\r", "")
     if len(summary) > 72:
@@ -145,22 +145,8 @@ def build_coverage_commit_body(progress, cycle, phase, max_entries=10):
         ]
         fixed = [f for f in findings if f.get("status") in FIXED_STATUSES]
         reverted = [f for f in findings if "reverted" in (f.get("status") or "")]
-        if fixed:
-            lines.append("Testability fixes applied:")
-            for f in fixed[:max_entries]:
-                lines.append(
-                    f"- {f.get('file', '?')}:{f.get('line', '?')} "
-                    f"[{f.get('category', '?')}] {(f.get('summary') or '')[:72]}"
-                )
-            lines.append("")
-        if reverted:
-            lines.append("Reverted (test failure):")
-            for f in reverted[:max_entries]:
-                lines.append(
-                    f"- {f.get('file', '?')}:{f.get('line', '?')} "
-                    f"[{f.get('category', '?')}] {(f.get('summary') or '')[:72]}"
-                )
-            lines.append("")
+        lines.extend(format_section("Testability fixes applied:", fixed, max_entries))
+        lines.extend(format_section("Reverted (test failure):", reverted, max_entries))
     return "\n".join(lines)
 
 

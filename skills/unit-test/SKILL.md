@@ -67,11 +67,11 @@ When running under `HARNESS_MODE_INLINE` and the progress file's `cycle.current`
 - **Untestable code already flagged** — bullet list from `untestable_code`, so the agent does not re-flag them; focus new discovery on genuinely new items.
 - **Cumulative coverage delta** — a one-line summary derived from `coverage.history`.
 
-The goal is convergence: each iteration should propose **new** testable items, not duplicates. Keep the block under ~30 lines to limit context drift.
+The goal is convergence: each cycle should propose **new** testable items, not duplicates. Keep the block under ~30 lines to limit context drift.
 
 ### Launch
 
-Launch 1 `general-purpose` Agent tool call using the prompt from test-infrastructure-analyzer.md, prepended with the shared constraints (and the iteration context block, if applicable).
+Launch 1 `general-purpose` Agent tool call using the prompt from test-infrastructure-analyzer.md, prepended with the shared constraints (and the cycle context block, if applicable).
 
 | Agent | Role | Runs when |
 |-------|------|-----------|
