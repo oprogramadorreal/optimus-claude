@@ -23,14 +23,14 @@ A Claude Code plugin combining markdown-based skill authoring (22 skills invoked
 
 - Entry: a `*-deep` skill (`/optimus:code-review-deep`, `/optimus:refactor-deep`, `/optimus:unit-test-deep`) runs in the user's conversation.
 - The orchestrator skill invokes `python -m harness_common.cli init` to create a JSON progress file, then enters a per-iteration loop.
-- Each iteration:
+- Each iteration (deep variant) or cycle (paired variant):
   1. `cli snapshot` records the pre-iteration git HEAD into the progress file.
   2. The skill dispatches the base skill (`/optimus:code-review`, `/optimus:refactor`, or `/optimus:unit-test`) as a fresh `general-purpose` subagent via the Agent tool. The subagent prompt carries `HARNESS_MODE_INLINE`, the absolute progress-file path, and an instruction to read the base SKILL.md and follow `references/harness-mode.md` (or `references/coverage-harness-mode.md`).
   3. The subagent emits a `json:harness-output` fenced block in its final message.
   4. The orchestrator saves the subagent's output to a temp file, runs `cli parse` to extract the JSON, then `cli deep-step` (or `unit-test-step` / `refactor-step` for the paired variant) to apply fixes, run tests, bisect on failure, and update statuses.
   5. `cli commit-checkpoint` produces a per-iteration commit.
   6. `cli check-termination` returns one of `continue | convergence | no-actionable | all-reverted | cap | diminishing-returns | parse-failure`.
-  7. `cli advance` increments the iteration counter; the loop repeats until termination.
+  7. `cli advance` (deep variant) or `cli record-cycle` (paired variant) advances the counter; the loop repeats until termination.
 - `cli final-report --archive` prints the cumulative report and moves the progress file to `.done.json`.
 
 ### Key Patterns

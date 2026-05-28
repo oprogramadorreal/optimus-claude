@@ -124,8 +124,6 @@ The orchestrator skill applies fixes automatically across all iterations; user a
 
 Recommend the user run `/optimus:commit` next, followed by `/optimus:pr` once the branch is ready. Tell the user: **Tip:** stay in this conversation when running `/optimus:commit` and `/optimus:pr` so the implementation context is captured. Other downstream skills (`/optimus:code-review`, `/optimus:unit-test`) should still run in fresh conversations.
 
-Parse-failure recovery (when the subagent emits no `json:harness-output` block) is handled per `$CLAUDE_PLUGIN_ROOT/references/orchestrator-loop-single.md` "Parse-failure recovery".
-
 ## Tip
 
 After completion, if you want a second-opinion pass, run `/optimus:code-review-deep --resume --max-iterations <new-cap>` in the same branch — but only if non-trivial new findings are likely (e.g., after pulling new changes). On clean trees, `--resume` will exit immediately with `convergence`.

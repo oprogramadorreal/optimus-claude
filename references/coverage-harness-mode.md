@@ -38,11 +38,56 @@ Gather: tests written (file, target, count, status), coverage change, untestable
 
 ### 5. Output structured JSON
 
-Output the results in a `json:harness-output` fenced block (see Step 6 of `skills/unit-test/SKILL.md` for the exact schema — this protocol is only used by the unit-test phase). Key fields:
-- `tests_written` — what was generated
-- `coverage` — before/after/delta
-- `untestable_code` — items that need refactoring
-- `no_new_tests`, `no_untestable_code`, `no_coverage_gained` — convergence signals
+Output the results in a `json:harness-output` fenced block:
+
+````
+```json:harness-output
+{
+  "cycle": <cycle number from progress file>,
+  "phase": "unit-test",
+  "coverage": {
+    "tool": "<coverage tool name or null>",
+    "before": <percentage or null>,
+    "after": <percentage or null>,
+    "delta": <percentage or null>
+  },
+  "tests_written": [
+    {
+      "file": "<test file path>",
+      "target_file": "<source file being tested>",
+      "target_description": "<what it tests>",
+      "test_count": <number of test cases>,
+      "status": "<pass | fail-fixed | fail-abandoned>",
+      "failure_reason": "<reason or null>"
+    }
+  ],
+  "untestable_code": [
+    {
+      "file": "<source file path>",
+      "line": <start line>,
+      "end_line": <end line>,
+      "function": "<function or class name>",
+      "barrier": "<hardcoded-dependency | tight-coupling | global-state | ...>",
+      "barrier_description": "<brief explanation>",
+      "suggested_refactoring": "<what refactoring would help>"
+    }
+  ],
+  "bugs_discovered": [
+    {
+      "file": "<path>",
+      "line": <line>,
+      "description": "<bug behavior>",
+      "severity": "<High | Medium | Low>"
+    }
+  ],
+  "no_new_tests": <true if zero new tests were written>,
+  "no_untestable_code": <true if no untestable code was found>,
+  "no_coverage_gained": <true if coverage delta is zero or negative>
+}
+```
+````
+
+Convergence signals (`no_new_tests`, `no_untestable_code`, `no_coverage_gained`) drive the orchestrator's termination check.
 
 ### 6. Exit
 

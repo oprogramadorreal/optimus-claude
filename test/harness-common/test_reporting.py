@@ -144,6 +144,13 @@ class TestFormatFindingLine:
         line = format_finding_line({"file": "f.py", "category": "Bug", "summary": "x"})
         assert "f.py:?" in line
 
+    def test_missing_file_renders_question_mark(self):
+        # Regression for e60aa78: the defensive `finding.get('file', '?')`
+        # branch had no test, so reverting to `finding['file']` would have
+        # passed every other case.
+        line = format_finding_line({"line": 1, "category": "Bug", "summary": "x"})
+        assert "?:1" in line
+
     def test_newlines_in_summary_are_stripped(self):
         # Multi-line summaries must collapse to one line so the commit body
         # stays parseable by tools that split on newlines.

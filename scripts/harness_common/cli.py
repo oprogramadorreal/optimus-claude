@@ -5,19 +5,22 @@ Subcommands compose the per-iteration steps the `/optimus:code-review-deep`,
 The skills hold no state; the CLI reads/writes a JSON progress file on disk.
 
 Subcommand summary:
-  init                  — create initial progress file
-  resume                — validate existing progress file for continuation
-  snapshot              — capture pre-iteration git state into progress
-  parse                 — extract json:harness-output from subagent text
-  deep-step             — apply/test/bisect for code-review-deep / refactor-deep
-  unit-test-step        — record tests + coverage for unit-test-deep
-  refactor-step         — apply/test/bisect for unit-test-deep's refactor phase
-  commit-checkpoint     — create git checkpoint commit
-  check-termination     — print one of continue|convergence|no-actionable|
-                          all-reverted|diminishing-returns|cap
-  mark-termination      — record an externally-driven termination reason
-                          (e.g. parse-failure after two consecutive failures)
-  final-report          — print the cumulative report
+  init                    — create initial progress file
+  resume                  — validate existing progress file for continuation
+  snapshot                — capture pre-iteration git state into progress
+  parse                   — extract json:harness-output from subagent text
+  deep-step               — apply/test/bisect for code-review-deep / refactor-deep
+  unit-test-step          — record tests + coverage for unit-test-deep
+  refactor-step           — apply/test/bisect for unit-test-deep's refactor phase
+  record-cycle            — append cycle_history entry (paired variant)
+  commit-checkpoint       — create git checkpoint commit
+  check-termination       — print one of continue|convergence|no-actionable|
+                            all-reverted|diminishing-returns|cap
+  advance                 — increment iteration counter (deep variant)
+  pending-refactor-count  — count untestable_code items still pending refactor
+  mark-termination        — record an externally-driven termination reason
+                            (e.g. parse-failure after two consecutive failures)
+  final-report            — print the cumulative report
 """
 
 from __future__ import annotations
@@ -136,7 +139,7 @@ def _make_coverage_progress(scope, max_cycles, test_command, project_root, base_
         "config": {
             "max_cycles": max_cycles,
             "test_command": test_command,
-            "scope": scope or "",
+            "scope": scope,
             "project_root": normalize_path(str(project_root)),
             "base_commit": base_commit,
         },
@@ -231,6 +234,7 @@ def _mark_combined_regression(fixes, progress):
 
 _BISECT_OUTCOMES_TO_STATUS = {
     "fixed": "fixed",
+    "reverted": "reverted — test failure",
     "retained": "retained — revert failed",
     "skipped": "skipped — apply failed",
 }
@@ -238,9 +242,6 @@ _BISECT_OUTCOMES_TO_STATUS = {
 
 def _make_bisect_callback(progress):
     def _on_outcome(_idx, fix, outcome, detail):
-        if outcome == "reverted":
-            mark_finding_status(progress, fix, "reverted — test failure", detail)
-            return
         mark_finding_status(progress, fix, _BISECT_OUTCOMES_TO_STATUS[outcome], detail)
 
     return _on_outcome
@@ -281,6 +282,57 @@ def _test_and_reconcile_fixes(
 
     all_reverted = fixed == 0 and reverted > 0
     return fixed, reverted, passed, all_reverted
+
+
+def _make_refactor_bisect_callback(progress, cycle):
+    """Parallel of _make_bisect_callback for the unit-test-deep refactor phase.
+
+    Writes to progress["refactor_findings"] scoped by cycle rather than to
+    progress["findings"], and skips the escalation chain (refactor findings
+    are cycle-local and don't carry status_history).
+    """
+
+    def _on_outcome(_idx, fix, outcome, _detail):
+        status = _BISECT_OUTCOMES_TO_STATUS[outcome]
+        for finding in progress["refactor_findings"]:
+            if finding.get("cycle") == cycle and finding_matches(finding, fix):
+                finding["status"] = status
+                break
+
+    return _on_outcome
+
+
+def _test_and_reconcile_refactor_fixes(
+    fixes, test_command, project_root, progress, cycle, pre_stash, pre_head
+):
+    """Parallel of _test_and_reconcile_fixes for the refactor phase."""
+    if not fixes:
+        return 0, 0, None
+    passed, summary = run_tests(test_command, project_root)
+    record_test_result(progress, passed, summary)
+    if passed:
+        return len(fixes), 0, True
+
+    fixed, reverted, _ = bisect_fixes(
+        fixes,
+        test_command,
+        project_root,
+        on_outcome=_make_refactor_bisect_callback(progress, cycle),
+    )
+    if fixed > 0:
+        passed, summary = run_tests(test_command, project_root)
+        record_test_result(progress, passed, summary)
+        if not passed:
+            restore_working_tree(pre_stash, pre_head, project_root)
+            for finding in progress["refactor_findings"]:
+                if (
+                    finding.get("cycle") == cycle
+                    and finding.get("status") in FIXED_STATUSES
+                ):
+                    finding["status"] = "reverted — test failure"
+                    fixed -= 1
+                    reverted += 1
+    return fixed, reverted, passed
 
 
 def _record_iteration_history(
@@ -333,6 +385,77 @@ def _progress_path_for_skill(args):
     return Path(default)
 
 
+def _init_coverage(args, project_root, test_command, base_commit):
+    """Build the initial progress dict for unit-test-deep (paired variant)."""
+    requested_cycles = (
+        args.max_cycles if args.max_cycles is not None else DEFAULT_MAX_CYCLES
+    )
+    max_cycles = max(min(requested_cycles, MAX_CYCLES_HARD_CAP), 1)
+    return (
+        _make_coverage_progress(
+            args.scope, max_cycles, test_command, project_root, base_commit
+        ),
+        0,
+    )
+
+
+def _init_deep(args, project_root, test_command, base_commit):
+    """Build the initial progress dict for code-review-deep / refactor-deep."""
+    skill = args.skill
+    if args.focus and args.focus not in VALID_FOCUS_MODES:
+        print(
+            f"ERROR: --focus must be one of {sorted(VALID_FOCUS_MODES)}",
+            file=sys.stderr,
+        )
+        return None, 1
+    if args.focus and skill != "refactor":
+        print(
+            "ERROR: --focus is only supported with --skill refactor",
+            file=sys.stderr,
+        )
+        return None, 1
+    requested_iter = (
+        args.max_iterations
+        if args.max_iterations is not None
+        else DEFAULT_MAX_ITERATIONS
+    )
+    max_iter = max(min(requested_iter, MAX_ITERATIONS_HARD_CAP), 1)
+    # Treat scope as a git pathspec only when it resolves to an existing path
+    # under project_root. Natural-language scope ("focus on src/auth") is kept
+    # as prose for downstream agent prompts and never passed to git. The
+    # containment check also rejects absolute paths (Path semantics:
+    # `project_root / "/etc"` yields `/etc`), which would otherwise be silently
+    # handed to git as a pathspec that matches nothing.
+    if args.scope:
+        candidate = (project_root / args.scope).resolve()
+        scope_is_path = candidate.exists() and (
+            candidate == project_root or project_root in candidate.parents
+        )
+    else:
+        scope_is_path = False
+    progress = _make_deep_progress(
+        skill,
+        args.scope,
+        max_iter,
+        test_command,
+        project_root,
+        args.focus,
+        base_commit,
+        scope_is_path,
+    )
+    path_filter = args.scope if scope_is_path else None
+    branch_files, base_ref = git_discover_branch_files(
+        project_root, path_filter=path_filter
+    )
+    if branch_files:
+        progress["scope_files"]["current"] = branch_files
+        progress["config"]["scope"]["base_ref"] = base_ref
+    pr_info = git_fetch_open_pr_description(project_root)
+    if pr_info:
+        progress["config"]["pr_description"] = pr_info
+    return progress, 0
+
+
 def cmd_init(args):
     skill = args.skill
     project_root = Path(args.project_dir).resolve()
@@ -362,77 +485,16 @@ def cmd_init(args):
         return 1
 
     if skill in COVERAGE_VARIANT_SKILLS:
-        requested_cycles = (
-            args.max_cycles if args.max_cycles is not None else DEFAULT_MAX_CYCLES
-        )
-        max_cycles = min(requested_cycles, MAX_CYCLES_HARD_CAP)
-        if max_cycles < 1:
-            max_cycles = 1
-        progress = _make_coverage_progress(
-            args.scope,
-            max_cycles,
-            test_command,
-            project_root,
-            base_commit,
+        progress, exit_code = _init_coverage(
+            args, project_root, test_command, base_commit
         )
     elif skill in DEEP_VARIANT_SKILLS:
-        if args.focus and args.focus not in VALID_FOCUS_MODES:
-            print(
-                f"ERROR: --focus must be one of {sorted(VALID_FOCUS_MODES)}",
-                file=sys.stderr,
-            )
-            return 1
-        if args.focus and skill != "refactor":
-            print(
-                "ERROR: --focus is only supported with --skill refactor",
-                file=sys.stderr,
-            )
-            return 1
-        requested_iter = (
-            args.max_iterations
-            if args.max_iterations is not None
-            else DEFAULT_MAX_ITERATIONS
-        )
-        max_iter = min(requested_iter, MAX_ITERATIONS_HARD_CAP)
-        if max_iter < 1:
-            max_iter = 1
-        # Treat scope as a git pathspec only when it resolves to an existing
-        # path under project_root. Natural-language scope ("focus on src/auth")
-        # is kept as prose for downstream agent prompts and never passed to git.
-        # The containment check also rejects absolute paths (Path semantics:
-        # `project_root / "/etc"` yields `/etc`), which would otherwise be
-        # silently handed to git as a pathspec that matches nothing.
-        if args.scope:
-            candidate = (project_root / args.scope).resolve()
-            scope_is_path = candidate.exists() and (
-                candidate == project_root or project_root in candidate.parents
-            )
-        else:
-            scope_is_path = False
-        progress = _make_deep_progress(
-            skill,
-            args.scope,
-            max_iter,
-            test_command,
-            project_root,
-            args.focus or "",
-            base_commit,
-            scope_is_path,
-        )
-        path_filter = args.scope if scope_is_path else None
-        branch_files, base_ref = git_discover_branch_files(
-            project_root, path_filter=path_filter
-        )
-        if branch_files:
-            progress["scope_files"]["current"] = branch_files
-            progress["config"]["scope"]["base_ref"] = base_ref
-        # Capture PR description if available
-        pr_info = git_fetch_open_pr_description(project_root)
-        if pr_info:
-            progress["config"]["pr_description"] = pr_info
+        progress, exit_code = _init_deep(args, project_root, test_command, base_commit)
     else:
         print(f"ERROR: Unknown skill '{skill}'", file=sys.stderr)
         return 1
+    if exit_code != 0:
+        return exit_code
 
     write_progress(progress_path, progress)
     print(str(progress_path))
@@ -743,56 +805,9 @@ def cmd_refactor_step(args):
             }
         )
 
-    # Run tests and bisect on failure (same logic as deep variant, but on
-    # refactor_findings instead of findings)
-    fixed_count = 0
-    reverted_count = 0
-    test_passed = None
-    if fixes:
-        passed, summary = run_tests(test_command, project_root)
-        record_test_result(progress, passed, summary)
-        if passed:
-            fixed_count = len(fixes)
-            test_passed = True
-        else:
-            # Bisect on refactor_findings via a phase-specific callback.
-            # Reuses _BISECT_OUTCOMES_TO_STATUS so the status strings stay in
-            # one place; can't reuse _make_bisect_callback because that helper
-            # writes to progress["findings"], not progress["refactor_findings"].
-            def _refactor_outcome(_idx, fix, outcome, detail):
-                nonlocal fixed_count, reverted_count
-                if outcome == "reverted":
-                    status = "reverted — test failure"
-                    reverted_count += 1
-                else:
-                    status = _BISECT_OUTCOMES_TO_STATUS[outcome]
-                    if outcome != "skipped":
-                        fixed_count += 1
-                for finding in progress["refactor_findings"]:
-                    if finding.get("cycle") == cycle and finding_matches(finding, fix):
-                        finding["status"] = status
-                        break
-
-            bisect_fixes(
-                fixes,
-                test_command,
-                project_root,
-                on_outcome=_refactor_outcome,
-            )
-            if fixed_count > 0:
-                passed, summary = run_tests(test_command, project_root)
-                record_test_result(progress, passed, summary)
-                if not passed:
-                    restore_working_tree(pre_stash, pre_head, project_root)
-                    for finding in progress["refactor_findings"]:
-                        if (
-                            finding.get("cycle") == cycle
-                            and finding.get("status") in FIXED_STATUSES
-                        ):
-                            finding["status"] = "reverted — test failure"
-                            fixed_count -= 1
-                            reverted_count += 1
-            test_passed = passed
+    fixed_count, reverted_count, test_passed = _test_and_reconcile_refactor_fixes(
+        fixes, test_command, project_root, progress, cycle, pre_stash, pre_head
+    )
 
     # Mark only the untestable items whose file was actually touched by a
     # surviving fix as "attempted" — unrelated pending items stay pending so
@@ -1040,7 +1055,7 @@ def cmd_mark_termination(args):
     progress = read_progress(progress_path)
     progress["termination"] = {
         "reason": args.reason,
-        "message": args.message or "",
+        "message": args.message,
     }
     write_progress(progress_path, progress)
     return 0

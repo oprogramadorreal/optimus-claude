@@ -154,7 +154,7 @@ PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli record-cyc
     [--refactor-summary "<json>"]
 ```
 
-`record-cycle` appends a `cycle_history` entry and increments `cycle.current`. The summaries are JSON snippets you can build from the iteration outputs you captured at steps 4 and 8 (counts of tests written, fixes applied, etc.).
+`record-cycle` appends a `cycle_history` entry and increments `cycle.current`. The summaries are JSON snippets you can build from the phase outputs you captured at steps 4 and 8 (counts of tests written, fixes applied, etc.).
 
 ### 11. Check termination
 

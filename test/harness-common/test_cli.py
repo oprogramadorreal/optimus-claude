@@ -278,6 +278,34 @@ class TestInit:
         assert data["config"]["scope"]["paths"] == ["src"]
         assert data["config"]["scope"]["scope_text"] is None
 
+    def test_deep_absolute_path_outside_project_falls_back_to_branch_diff(
+        self, tmp_path, monkeypatch
+    ):
+        # Regression for 310c928: an absolute path scope (e.g. "/etc",
+        # "C:\\Windows") must not be treated as a git pathspec. Path semantics
+        # let `project_root / "/etc"` collapse to `/etc`, and without the
+        # containment check the loop would silently `git diff -- /etc` (empty)
+        # and run with no scope.
+        repo = _make_repo(tmp_path)
+        _stub_git(monkeypatch)
+        progress_path = repo / "progress.json"
+        outside = str(tmp_path.anchor or "/") + "definitely-not-in-this-repo"
+        _run(
+            "init",
+            "--skill",
+            "code-review",
+            "--scope",
+            outside,
+            "--progress-file",
+            str(progress_path),
+            "--project-dir",
+            str(repo),
+        )
+        data = _read_progress(progress_path)
+        assert data["config"]["scope"]["mode"] == "branch-diff"
+        assert data["config"]["scope"]["paths"] == []
+        assert data["config"]["scope"]["scope_text"] == outside
+
     def test_refuses_to_overwrite_existing_progress(
         self, tmp_path, monkeypatch, capsys
     ):
@@ -824,6 +852,66 @@ class TestDeepStep:
         assert out.startswith("applied")
         assert "test_passed=-" in out
 
+    def test_bisect_skipped_status_propagates_to_progress(
+        self, tmp_path, capsys, monkeypatch
+    ):
+        # A bisect "skipped" outcome (apply failed — pre_edit_content didn't
+        # match the file) must mark the finding "skipped — apply failed" and
+        # NOT increment the fixed counter. Without a regression test the
+        # special-case in _make_bisect_callback could drift unnoticed.
+        ppath = _seed_deep_progress(tmp_path)
+        monkeypatch.setattr(cli, "run_tests", lambda *a, **kw: (False, "FAIL"))
+
+        def _stub_bisect(fixes, _tc, _cwd, on_outcome=None):
+            for idx, fix in enumerate(fixes):
+                on_outcome(idx, fix, "skipped", "apply failed")
+            return 0, 0, len(fixes)
+
+        monkeypatch.setattr(cli, "bisect_fixes", _stub_bisect)
+        result = tmp_path / "result.json"
+        result.write_text(
+            json.dumps(
+                {
+                    "iteration": 1,
+                    "new_findings": [
+                        {
+                            "file": "a.py",
+                            "line": 1,
+                            "category": "x",
+                            "summary": "s",
+                            "pre_edit_content": "a",
+                            "post_edit_content": "b",
+                        }
+                    ],
+                    "fixes_applied": [
+                        {
+                            "file": "a.py",
+                            "line": 1,
+                            "category": "x",
+                            "summary": "s",
+                            "pre_edit_content": "a",
+                            "post_edit_content": "b",
+                        }
+                    ],
+                    "no_new_findings": False,
+                    "no_actionable_fixes": False,
+                }
+            ),
+            encoding="utf-8",
+        )
+        exit_code = _run(
+            "deep-step",
+            "--progress-file",
+            str(ppath),
+            "--result-file",
+            str(result),
+        )
+        assert exit_code == 0
+        out = capsys.readouterr().out.strip()
+        assert "fixed=0" in out
+        data = _read_progress(ppath)
+        assert data["findings"][0]["status"] == "skipped — apply failed"
+
     def test_promote_actionable_fixes_recovers_from_false_flag(
         self, tmp_path, capsys, monkeypatch
     ):
@@ -1240,6 +1328,48 @@ class TestRefactorStep:
         ]
         assert data["cycle"]["completed"] == 1
 
+    def test_empty_fixes_prints_test_passed_dash(self, tmp_path, capsys):
+        # Regression for 310c928 / parity with TestDeepStep:
+        # test_malformed_empty_fixes_does_not_crash: when fixes_applied is
+        # empty but no_actionable_fixes is False (subagent reported new
+        # findings but no actionable edit pairs), refactor-step must print
+        # test_passed=- rather than test_passed=1.
+        ppath = _seed_coverage_progress_with_untestable(tmp_path, files=["u.py"])
+        result = tmp_path / "result.json"
+        result.write_text(
+            json.dumps(
+                {
+                    "cycle": 1,
+                    "phase": "refactor",
+                    "new_findings": [
+                        {
+                            "file": "u.py",
+                            "line": 1,
+                            "category": "refactor",
+                            "summary": "s",
+                            "pre_edit_content": "",
+                            "post_edit_content": "",
+                        }
+                    ],
+                    "fixes_applied": [],
+                    "no_new_findings": False,
+                    "no_actionable_fixes": False,
+                }
+            ),
+            encoding="utf-8",
+        )
+        exit_code = _run(
+            "refactor-step",
+            "--progress-file",
+            str(ppath),
+            "--result-file",
+            str(result),
+        )
+        assert exit_code == 0
+        out = capsys.readouterr().out.strip()
+        assert out.startswith("applied")
+        assert "test_passed=-" in out
+
     def test_applied_all_pass_marks_attempted(self, tmp_path, capsys, monkeypatch):
         ppath = _seed_coverage_progress_with_untestable(tmp_path, files=["u.py"])
         (tmp_path / "u.py").write_text("a", encoding="utf-8")
@@ -1292,6 +1422,68 @@ class TestRefactorStep:
         assert data["refactor_findings"][0]["status"] == "fixed"
         assert data["untestable_code"][0]["status"] == "attempted"
         assert data["untestable_code"][0]["refactor_attempt_cycle"] == 1
+
+    def test_bisect_skipped_status_propagates_to_refactor_findings(
+        self, tmp_path, capsys, monkeypatch
+    ):
+        # Mirror of TestDeepStep.test_bisect_skipped_status_propagates_to_progress
+        # for the refactor phase: a "skipped" bisect outcome must mark the
+        # refactor_findings entry "skipped — apply failed" and NOT increment
+        # fixed_count (which would otherwise inflate iteration_history).
+        ppath = _seed_coverage_progress_with_untestable(tmp_path, files=["u.py"])
+        (tmp_path / "u.py").write_text("a", encoding="utf-8")
+        monkeypatch.setattr(cli, "run_tests", lambda *a, **kw: (False, "FAIL"))
+
+        def _stub_bisect(fixes, _tc, _cwd, on_outcome=None):
+            for idx, fix in enumerate(fixes):
+                on_outcome(idx, fix, "skipped", "apply failed")
+            return 0, 0, len(fixes)
+
+        monkeypatch.setattr(cli, "bisect_fixes", _stub_bisect)
+        result = tmp_path / "result.json"
+        result.write_text(
+            json.dumps(
+                {
+                    "cycle": 1,
+                    "phase": "refactor",
+                    "new_findings": [
+                        {
+                            "file": "u.py",
+                            "line": 1,
+                            "category": "refactor",
+                            "summary": "s",
+                            "pre_edit_content": "a",
+                            "post_edit_content": "b",
+                        }
+                    ],
+                    "fixes_applied": [
+                        {
+                            "file": "u.py",
+                            "line": 1,
+                            "category": "refactor",
+                            "summary": "s",
+                            "pre_edit_content": "a",
+                            "post_edit_content": "b",
+                        }
+                    ],
+                    "no_new_findings": False,
+                    "no_actionable_fixes": False,
+                }
+            ),
+            encoding="utf-8",
+        )
+        exit_code = _run(
+            "refactor-step",
+            "--progress-file",
+            str(ppath),
+            "--result-file",
+            str(result),
+        )
+        assert exit_code == 0
+        out = capsys.readouterr().out.strip()
+        assert "fixed=0" in out
+        data = _read_progress(ppath)
+        assert data["refactor_findings"][0]["status"] == "skipped — apply failed"
 
     def test_bisect_reverts_failed_fix(self, tmp_path, capsys, monkeypatch):
         ppath = _seed_coverage_progress_with_untestable(tmp_path, files=["u.py"])

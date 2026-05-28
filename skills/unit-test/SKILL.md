@@ -20,7 +20,7 @@ Examples:
 
 ### Inline harness mode detection
 
-If your invocation prompt body contains `HARNESS_MODE_INLINE`, you are running inside the `/optimus:unit-test-deep` orchestrator as a single iteration. Read `$CLAUDE_PLUGIN_ROOT/references/coverage-harness-mode.md` and follow its "Unit-Test Phase Execution" section: skip user confirmation, run Steps 2–4 exactly once, then output structured JSON via Step 6 and stop. Do not use `AskUserQuestion`. Do not loop.
+If your invocation prompt body contains `HARNESS_MODE_INLINE`, you are running inside the `/optimus:unit-test-deep` orchestrator as a single cycle (unit-test phase). Read `$CLAUDE_PLUGIN_ROOT/references/coverage-harness-mode.md` and follow its "Unit-Test Phase Execution" section: skip user confirmation, run Steps 2–4 exactly once, then output structured JSON via Step 6 and stop. Do not use `AskUserQuestion`. Do not loop.
 
 ### Pre-flight checks
 
@@ -218,51 +218,4 @@ Tell the user: **Tip:** for best results, start a fresh conversation for the nex
 
 ## Step 6: Harness Output (harness mode only)
 
-If running under `HARNESS_MODE_INLINE`, output structured JSON **instead** of the Step 5 markdown summary. Output it in a `json:harness-output` fenced block and then stop — do not loop, do not present recommendations, do not use `AskUserQuestion`.
-
-````
-```json:harness-output
-{
-  "cycle": <cycle number from progress file>,
-  "phase": "unit-test",
-  "coverage": {
-    "tool": "<coverage tool name or null>",
-    "before": <percentage or null>,
-    "after": <percentage or null>,
-    "delta": <percentage or null>
-  },
-  "tests_written": [
-    {
-      "file": "<test file path>",
-      "target_file": "<source file being tested>",
-      "target_description": "<what it tests>",
-      "test_count": <number of test cases>,
-      "status": "<pass | fail-fixed | fail-abandoned>",
-      "failure_reason": "<reason or null>"
-    }
-  ],
-  "untestable_code": [
-    {
-      "file": "<source file path>",
-      "line": <start line>,
-      "end_line": <end line>,
-      "function": "<function or class name>",
-      "barrier": "<hardcoded-dependency | tight-coupling | global-state | ...>",
-      "barrier_description": "<brief explanation>",
-      "suggested_refactoring": "<what refactoring would help>"
-    }
-  ],
-  "bugs_discovered": [
-    {
-      "file": "<path>",
-      "line": <line>,
-      "description": "<bug behavior>",
-      "severity": "<High | Medium | Low>"
-    }
-  ],
-  "no_new_tests": <true if zero new tests were written>,
-  "no_untestable_code": <true if no untestable code was found>,
-  "no_coverage_gained": <true if coverage delta is zero or negative>
-}
-```
-````
+If running under `HARNESS_MODE_INLINE`, output structured JSON **instead** of the Step 5 markdown summary. The exact schema lives in `$CLAUDE_PLUGIN_ROOT/references/coverage-harness-mode.md` "Output structured JSON" — read it and emit the fenced block specified there. Then stop — do not loop, do not present recommendations, do not use `AskUserQuestion`.
