@@ -52,6 +52,10 @@ Brainstorm generates the plan-mode prompt inline — no need to run `/optimus:pr
 | `/optimus:prompt` | Brainstorm generates plan-mode prompts inline for the brainstorm→plan→tdd chain. Use `/optimus:prompt` directly for other AI tools or non-brainstorm workflows. |
 | `/optimus:refactor` | For refactoring tasks (restructuring without new behavior), use refactor instead of brainstorm. |
 
+## Related concepts
+
+- [`references/sdd-mapping.md`](../../references/sdd-mapping.md) — how brainstorm's design doc maps onto spec-driven development (SDD) vocabulary popularised by GitHub Spec Kit and similar frameworks. The short version: the design doc IS the SDD spec.
+
 ## Prerequisites
 
 - `/optimus:init` should have been run (CLAUDE.md and coding guidelines inform design decisions)
