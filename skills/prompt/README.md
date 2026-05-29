@@ -63,6 +63,18 @@ Works with any language — describe what you need in Portuguese, Spanish, or an
 - Tasks where you're already getting good results — if it works, don't optimize it
 - Generating CLAUDE.md files or project documentation — use `/optimus:init` instead
 
+## Targeting Claude Code
+
+This skill can target Claude Code three ways — it picks based on your intent:
+
+| Target | Use when | Runs as |
+|---|---|---|
+| Direct execution | Make scoped changes now, to known files | Normal mode, edits inline |
+| Plan mode | Explore read-only, get a plan you approve first | One conversation; read-only until you approve |
+| Dynamic workflow | Fan-out too big for one conversation (audit / migrate / cross-check many items) | Background script of parallel subagents; auto-approves edits |
+
+Say "workflow" in the prompt to trigger the last one. See `references/templates.md` (Templates H / M / N) for the full routing rules.
+
 ## Relationship to Other Skills
 
 | Skill | Relationship |
