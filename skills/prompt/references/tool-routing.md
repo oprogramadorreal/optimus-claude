@@ -123,6 +123,14 @@ These models reason internally across thousands of tokens. Adding CoT or "think 
 - The prompt must be self-contained — it will be pasted as the first message in a fresh conversation with no prior context
 - See Template M in templates.md for full behavioral rules (input verification, codebase access policy, methodology preservation, redundant-instruction exclusions)
 
+### Claude Code (dynamic workflow)
+
+- For fan-out / parallel work at scale, produce a prompt that triggers a NATIVE dynamic workflow — real subagents in parallel, orchestration written by Claude Code (not by this skill)
+- The literal word "workflow" MUST appear (it is the trigger); the prompt describes the TASK + outcome + quality intent and lets Claude Code design the shape (phases, agent counts, verification) — a pattern-type hint (fan-out / pipeline / adversarial-verification) is optional, never a prescribed phase plan
+- Bound scope and cap agents (documented limits: up to 16 concurrent, 1,000 total per run); add a one-line token-cost note — a run uses meaningfully more tokens than one conversation
+- Workflow subagents run with edits auto-approved (acceptEdits) regardless of session mode — for analysis tasks the prompt MUST say read-only / report-only; tell Claude Code to present its workflow plan for approval before running
+- Output is a PROMPT only, never a .js script. Distinct from the "Workflow AI" section (Zapier / Make / n8n) below. See Template N in templates.md
+
 ### Cursor / Windsurf
 
 - File path + function name + current behavior + desired change + do-not-touch list + language and version

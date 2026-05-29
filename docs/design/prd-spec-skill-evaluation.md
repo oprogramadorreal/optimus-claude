@@ -56,7 +56,7 @@ Optimus's chain already implements all four Spec Kit phases without using SDD vo
 | Spec Kit phase | Optimus equivalent |
 |---|---|
 | **Specify** | `/optimus:brainstorm` Step 4 writes `docs/design/<slug>.md` with Goal, Context, Out of Scope, and conditional **Scenarios** (Given/When/Then) |
-| **Plan** | Same brainstorm doc covers Approach, Components, Interfaces. Plan mode iteration refines it into an appended "Refined plan" section (`references/skill-handoff.md` lines 57–69) |
+| **Plan** | Same brainstorm doc covers Approach, Components, Interfaces. Plan mode iteration refines it into an appended "Refined plan" section (`references/skill-handoff.md`, "Plan mode" section — the `/optimus:tdd` carve-out) |
 | **Tasks** | `/optimus:tdd` Step 3 decomposes the goal into behaviors. The scenario-driven shortcut (`skills/tdd/SKILL.md` line 136) maps each `### Scenario:` directly to one Red-Green-Refactor cycle — *the scenarios are the stakeholder-approved acceptance criteria; do not re-derive a parallel behavior list* |
 | **Implement & Verify** | `/optimus:tdd` Red-Green-Refactor cycles, then `/optimus:pr` → `/optimus:code-review` |
 
