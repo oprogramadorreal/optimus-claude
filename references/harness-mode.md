@@ -7,7 +7,7 @@
 
 ## Single-Iteration Execution
 
-When running under an orchestrator skill (`/optimus:code-review-deep` or `/optimus:refactor-deep`), the base skill detects `HARNESS_MODE_INLINE` in its invocation prompt and executes exactly **one iteration** of the analysis cycle, then exits. The orchestrator handles the iteration loop, test execution, bisection, termination detection, and final reporting via `python -m harness_common.cli`.
+When running under an orchestrator skill (`/optimus:code-review-deep`, `/optimus:refactor-deep`, or the refactor phase of `/optimus:unit-test-deep`), the base skill detects `HARNESS_MODE_INLINE` in its invocation prompt and executes exactly **one iteration** of the analysis cycle, then exits. The orchestrator handles the iteration loop, test execution, bisection, termination detection, and final reporting via `python -m harness_common.cli`.
 
 ### Contents
 
@@ -41,7 +41,7 @@ If `scope_files.current` is non-empty, use it as the file list for agents — th
 
 ### Skill-step execution under harness mode
 
-After reading the progress file, proceed through all of the skill's remaining numbered steps in order — skip only the user confirmation step (the orchestrator handles approval upfront). Under harness mode, Step 3 (or its skill-equivalent) must use the "no local changes → branch-diff" path automatically: the orchestrator stashes any uncommitted state before dispatch (the `snapshot --include-stash` invocation in `orchestrator-loop-single.md` step 1 covers the `--no-commit` case), so the subagent always sees a clean working tree. Skip the interactive scope offers, the scope summary presentation, and the large-diff warning.
+After reading the progress file, proceed through all of the skill's remaining numbered steps in order — skip only the user confirmation step (the orchestrator handles approval upfront). Under harness mode, Step 3 (or its skill-equivalent) must use the "no local changes → branch-diff" path automatically, regardless of the working tree's actual state. In commit mode the orchestrator's Step 2 git-state check guarantees a clean tree before the run starts; in `--no-commit` mode the `snapshot` step (`orchestrator-loop-single.md` step 1) takes a non-destructive stash via `git stash create`/`store`, which does **not** modify the working tree — so uncommitted changes may still be present. Take the branch-diff path because harness mode instructs it (and because the orchestrator pre-populates `scope_files.current`), not because the tree is guaranteed clean. Skip the interactive scope offers, the scope summary presentation, and the large-diff warning.
 
 If `config.pr_description` is non-null, treat it as equivalent to the `pr-description` that interactive Step 3 captures from `gh pr view`: inject it into agent prompts per Step 5 "PR/MR context injection" and apply the Step 6 "PR/MR description as intent signal" soft-confidence adjustment during validation. Do not re-fetch via `gh pr view` — the orchestrator already captured it, and skipping the extra fetch keeps the subagent's turn budget lean.
 

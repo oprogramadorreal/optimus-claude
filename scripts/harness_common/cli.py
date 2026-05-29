@@ -147,6 +147,13 @@ def _make_coverage_progress(
             "scope": scope,
             "project_root": normalize_path(str(project_root)),
             "base_commit": base_commit,
+            # The refactor phase dispatches /optimus:refactor in harness mode,
+            # which resolves its finding-cap focus from config.focus
+            # (references/harness-mode.md step 1). The coverage variant always
+            # runs its refactor phase for testability, so pin it here — without
+            # it the dispatch prompt's "Focus: testability" line is decorative
+            # and the phase silently falls back to balanced allocation.
+            "focus": "testability",
             "no_commit": no_commit,
         },
         "cycle": {"current": 1, "completed": 0},
@@ -433,11 +440,13 @@ def _init_deep(args, project_root, test_command, base_commit):
     )
     max_iter = max(min(requested_iter, MAX_ITERATIONS_HARD_CAP), 1)
     # Treat scope as a git pathspec only when it resolves to an existing path
-    # under project_root. Natural-language scope ("focus on src/auth") is kept
-    # as prose for downstream agent prompts and never passed to git. The
-    # containment check also rejects absolute paths (Path semantics:
-    # `project_root / "/etc"` yields `/etc`), which would otherwise be silently
-    # handed to git as a pathspec that matches nothing.
+    # under project_root. Natural-language scope ("focus on src/auth") cannot be
+    # turned into a reliable pathspec, so it is recorded in config.scope.scope_text
+    # for provenance only: the harness-mode dispatch does not consume it and the
+    # subagent reviews the full branch diff (see the scope note in each -deep
+    # SKILL.md / README). The containment check also rejects absolute paths (Path
+    # semantics: `project_root / "/etc"` yields `/etc`), which would otherwise be
+    # silently handed to git as a pathspec that matches nothing.
     if args.scope:
         candidate = (project_root / args.scope).resolve()
         scope_is_path = candidate.exists() and (
@@ -771,19 +780,26 @@ def cmd_unit_test_step(args):
     # Merge tests
     for t in result.get("tests_written", []):
         progress["tests_created"].append({**t, "cycle": cycle})
-    # Merge untestable items (dedup by file+line+function)
+    # Merge untestable items (dedup by file+line+function). Normalize the file
+    # path on storage so the dedup key here and the refactor phase's touched-file
+    # match are separator-agnostic — the unit-test and refactor subagents can
+    # cite the same file with different separators on Windows.
     existing_keys = {
         (u.get("file"), u.get("line"), u.get("function"))
         for u in progress["untestable_code"]
     }
     for item in result.get("untestable_code", []):
-        key = (item.get("file"), item.get("line"), item.get("function"))
+        item_file = (
+            normalize_path(item["file"]) if item.get("file") else item.get("file")
+        )
+        key = (item_file, item.get("line"), item.get("function"))
         if key in existing_keys:
             continue
         existing_keys.add(key)
         progress["untestable_code"].append(
             {
                 **item,
+                "file": item_file,
                 "status": "pending",
                 "cycle_reported": cycle,
                 "refactor_attempt_cycle": None,
@@ -873,7 +889,7 @@ def cmd_refactor_step(args):
     # the next cycle can retry them.
     if fixed_count > 0:
         touched_files = {
-            f["file"]
+            normalize_path(f["file"])
             for f in fixes
             if f.get("file")
             and any(
@@ -884,7 +900,12 @@ def cmd_refactor_step(args):
             )
         }
         for item in progress["untestable_code"]:
-            if item.get("status") == "pending" and item.get("file") in touched_files:
+            item_file = item.get("file")
+            if (
+                item.get("status") == "pending"
+                and item_file
+                and normalize_path(item_file) in touched_files
+            ):
                 item["status"] = "attempted"
                 item["refactor_attempt_cycle"] = cycle
 
@@ -1141,6 +1162,17 @@ def cmd_final_report(args):
     else:
         print_deep_report(progress)
     if args.archive:
+        # diminishing-returns is a soft, resumable exit — the termination message
+        # tells the user to --resume. Archiving renames the progress file to
+        # .done.json, which cmd_resume then refuses, breaking the advertised
+        # --resume. Leave the active progress file in place so the run continues.
+        reason = (progress.get("termination") or {}).get("reason")
+        if reason == "diminishing-returns":
+            print(
+                "not-archived: run left resumable (diminishing-returns). Re-run "
+                "with --resume to continue, or delete the progress file to discard."
+            )
+            return 0
         done_path = progress_path.with_suffix(".done.json")
         # os.replace is atomic on the same filesystem (progress and archive
         # both live in .claude/), so a crash mid-archive leaves either the

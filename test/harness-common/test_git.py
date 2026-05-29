@@ -122,19 +122,25 @@ class TestCommitCheckpoint:
         return fake_run, calls
 
     def test_commits_after_unstaging_progress_file(self, tmp_path):
-        # Verifies the full dance: git add -A, then `git reset HEAD --`
-        # against the progress file and its .bak sibling, then git commit.
-        run, calls = self._make_run([MagicMock(returncode=0, stdout="", stderr="")] * 5)
+        # Verifies the full dance: git add -A, then `git reset HEAD --` against
+        # the progress file, its .bak sibling, and every harness scratch / state
+        # pattern, then git commit. Un-staging the scratch patterns is
+        # authoritative — it must not depend on the user project's .gitignore.
+        run, calls = self._make_run(
+            [MagicMock(returncode=0, stdout="", stderr="")] * 12
+        )
         ok = commit_checkpoint("feat: x", tmp_path, ".claude/progress.json", _run=run)
         assert ok is True
-        # 1 add + 2 reset HEAD (progress + bak) + 1 commit = 4 calls
         assert calls[0][:2] == ["git", "add"]
         reset_calls = [c for c in calls if c[:3] == ["git", "reset", "HEAD"]]
-        assert len(reset_calls) == 2
-        # The progress file and its .bak sibling are both un-staged.
         reset_targets = [c[-1] for c in reset_calls]
+        # The progress file and its .bak sibling are un-staged...
         assert ".claude/progress.json" in reset_targets
         assert ".claude/progress.json.bak" in reset_targets
+        # ...along with every harness scratch / state pattern, so a checkpoint
+        # commit never captures them regardless of the user .gitignore.
+        for pattern in _HARNESS_STATE_EXCLUDES:
+            assert pattern in reset_targets
         commit_calls = [c for c in calls if c[:2] == ["git", "commit"]]
         assert len(commit_calls) == 1
         assert "feat: x" in commit_calls[0]

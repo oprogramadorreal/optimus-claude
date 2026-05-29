@@ -91,7 +91,15 @@ PENDING=$(PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli 
 
 If `PENDING == 0`, skip steps 7–9 and jump to step 10.
 
-Otherwise dispatch:
+Otherwise, **re-snapshot before dispatching the refactor subagent** so a refactor-phase rollback only undoes refactor edits:
+
+```bash
+PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli snapshot --progress-file "<progress-path>"
+```
+
+The unit-test phase (steps 2–5) wrote and committed new tests this cycle. The step-1 snapshot predates them, so a refactor-phase combined-regression restore against it would discard them. Re-running `snapshot` re-stamps the current cycle token (so step 8's freshness check still passes) and moves `pre_head` / `pre_stash` forward to the post-unit-test state, so a refactor rollback preserves the cycle's tests.
+
+Then dispatch:
 
 ```
 Agent tool call:
@@ -176,6 +184,8 @@ Possible values: `continue`, `convergence`, `cap`, `diminishing-returns`, `parse
 PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli final-report \
     --progress-file "<progress-path>" --archive
 ```
+
+`--archive` moves the progress file to `<path>.done.json` once the run is complete — except on a `diminishing-returns` soft-exit, which the CLI leaves un-archived (prints `not-archived`) so the run stays resumable via `--resume`.
 
 ## Per-phase notes
 

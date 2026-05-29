@@ -150,4 +150,4 @@ Print the final report:
 PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli final-report --progress-file "<progress-path>" --archive
 ```
 
-The `--archive` flag moves the progress file to `<path>.done.json` and removes the backup, signaling that this run is complete (a subsequent `--resume` will refuse the archived path). The archived `.done.json` is a historical artifact the user may delete at any time; a later fresh run (`init`) checks only the active progress path and won't clean it up.
+The `--archive` flag moves the progress file to `<path>.done.json` and removes the backup, signaling that this run is complete (a subsequent `--resume` will refuse the archived path) — **except** when the run ended in `diminishing-returns`, a resumable soft-exit: the CLI then leaves the active progress file in place (prints `not-archived`) so `--resume` can continue it. The archived `.done.json` is a historical artifact the user may delete at any time; a later fresh run (`init`) checks only the active progress path and won't clean it up.

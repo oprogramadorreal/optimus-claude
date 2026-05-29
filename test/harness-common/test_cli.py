@@ -159,6 +159,10 @@ class TestInit:
         assert data["harness"] == "test-coverage"
         assert data["cycle"]["current"] == 1
         assert data["config"]["max_cycles"] == 5
+        # The refactor phase resolves its finding-cap focus from config.focus
+        # (references/harness-mode.md step 1); the coverage variant always runs
+        # its refactor phase for testability, so init must pin it.
+        assert data["config"]["focus"] == "testability"
 
     def test_max_iterations_clamp_high(self, tmp_path, monkeypatch):
         repo = _make_repo(tmp_path)
@@ -1140,6 +1144,72 @@ class TestDeepStep:
         data = _read_progress(ppath)
         assert data["termination"]["reason"] == "all-reverted"
 
+    def test_interaction_bug_demotes_retained_fix(self, tmp_path, capsys, monkeypatch):
+        # Symmetric to test_interaction_bug_combined_regression but for the
+        # "retained" bisect outcome (revert failed -> fix stayed applied
+        # untested). When the post-bisect full re-run fails, the working-tree
+        # restore removes the retained fix, so _mark_combined_regression must
+        # demote it from "retained -- revert failed" to "reverted -- test
+        # failure" via its retained branch.
+        ppath = _seed_deep_progress(tmp_path)
+        (tmp_path / "a.py").write_text("a", encoding="utf-8")
+        monkeypatch.setattr(cli, "run_tests", lambda *a, **kw: (False, "FAIL"))
+
+        def _stub_bisect(fixes, _tc, _cwd, on_outcome=None):
+            for idx, fix in enumerate(fixes):
+                on_outcome(idx, fix, "retained", "revert failed")
+            # retained counts toward fixed_count in the real bisect_fixes.
+            return len(fixes), 0, 0
+
+        monkeypatch.setattr(cli, "bisect_fixes", _stub_bisect)
+        monkeypatch.setattr(cli, "restore_working_tree", lambda *a, **kw: None)
+        result = tmp_path / "result.json"
+        result.write_text(
+            json.dumps(
+                {
+                    "iteration": 1,
+                    "new_findings": [
+                        {
+                            "file": "a.py",
+                            "line": 1,
+                            "category": "x",
+                            "summary": "s",
+                            "pre_edit_content": "a",
+                            "post_edit_content": "b",
+                        }
+                    ],
+                    "fixes_applied": [
+                        {
+                            "file": "a.py",
+                            "line": 1,
+                            "category": "x",
+                            "summary": "s",
+                            "pre_edit_content": "a",
+                            "post_edit_content": "b",
+                        }
+                    ],
+                    "no_new_findings": False,
+                    "no_actionable_fixes": False,
+                }
+            ),
+            encoding="utf-8",
+        )
+        exit_code = _run(
+            "deep-step",
+            "--progress-file",
+            str(ppath),
+            "--result-file",
+            str(result),
+        )
+        assert exit_code == 0
+        data = _read_progress(ppath)
+        finding = data["findings"][0]
+        assert finding["status"] == "reverted — test failure"
+        latest_detail = finding["status_history"][-1]["detail"] or ""
+        assert "retained fix" in latest_detail
+        assert data["iteration_history"][-1]["fixed"] == 0
+        assert data["iteration_history"][-1]["reverted"] == 1
+
 
 # ---------------------------------------------------------------------------
 # unit-test-step
@@ -1430,6 +1500,61 @@ class TestRefactorStep:
         data = _read_progress(ppath)
         assert len(data["refactor_findings"]) == 1
         assert data["refactor_findings"][0]["status"] == "fixed"
+        assert data["untestable_code"][0]["status"] == "attempted"
+        assert data["untestable_code"][0]["refactor_attempt_cycle"] == 1
+
+    def test_attempted_marking_is_separator_agnostic(
+        self, tmp_path, capsys, monkeypatch
+    ):
+        # The untestable item is stored with forward slashes, but the refactor
+        # subagent may cite the fixed file with OS-native backslashes. The
+        # touched-file match must normalize both sides, else the item never
+        # converges and is re-dispatched every cycle.
+        ppath = _seed_coverage_progress_with_untestable(tmp_path, files=["pkg/u.py"])
+        (tmp_path / "pkg").mkdir()
+        (tmp_path / "pkg" / "u.py").write_text("a", encoding="utf-8")
+        monkeypatch.setattr(cli, "run_tests", lambda *a, **kw: (True, "ok"))
+        result = tmp_path / "result.json"
+        result.write_text(
+            json.dumps(
+                {
+                    "cycle": 1,
+                    "phase": "refactor",
+                    "new_findings": [
+                        {
+                            "file": "pkg\\u.py",
+                            "line": 1,
+                            "category": "refactor",
+                            "summary": "s",
+                            "pre_edit_content": "a",
+                            "post_edit_content": "b",
+                        }
+                    ],
+                    "fixes_applied": [
+                        {
+                            "file": "pkg\\u.py",
+                            "line": 1,
+                            "category": "refactor",
+                            "summary": "s",
+                            "pre_edit_content": "a",
+                            "post_edit_content": "b",
+                        }
+                    ],
+                    "no_new_findings": False,
+                    "no_actionable_fixes": False,
+                }
+            ),
+            encoding="utf-8",
+        )
+        exit_code = _run(
+            "refactor-step",
+            "--progress-file",
+            str(ppath),
+            "--result-file",
+            str(result),
+        )
+        assert exit_code == 0
+        data = _read_progress(ppath)
         assert data["untestable_code"][0]["status"] == "attempted"
         assert data["untestable_code"][0]["refactor_attempt_cycle"] == 1
 
@@ -2056,6 +2181,22 @@ class TestFinalReport:
         # The progress file must survive a failed archive (atomicity contract).
         assert ppath.exists()
 
+    def test_diminishing_returns_not_archived(self, tmp_path, capsys, monkeypatch):
+        # A diminishing-returns soft-exit is resumable — final-report --archive
+        # must leave the active progress file in place (and skip the .done.json
+        # rename) so the advertised --resume can continue the run.
+        ppath = _seed_deep_progress(tmp_path)
+        data = _read_progress(ppath)
+        data["termination"] = {"reason": "diminishing-returns", "message": "plateau"}
+        ppath.write_text(json.dumps(data), encoding="utf-8")
+        monkeypatch.setattr(reporting, "git_current_branch", lambda _cwd: "")
+        exit_code = _run("final-report", "--progress-file", str(ppath), "--archive")
+        assert exit_code == 0
+        out = capsys.readouterr().out
+        assert "not-archived" in out
+        assert ppath.exists()
+        assert not (tmp_path / "progress.done.json").exists()
+
 
 # ---------------------------------------------------------------------------
 # snapshot
@@ -2323,6 +2464,43 @@ class TestUnitTestStepStateMerge:
         assert data["scope_files"]["current"] == ["u.py"]
         # bugs tagged with the discovering cycle
         assert data["bugs_discovered"][0]["cycle_discovered"] == 1
+
+    def test_untestable_file_path_normalized_on_storage(self, tmp_path, monkeypatch):
+        # A unit-test subagent that reports an untestable file with OS-native
+        # backslashes must be stored with forward slashes, so the dedup key here
+        # and the refactor phase's touched-file match are separator-agnostic.
+        ppath = _seed_coverage_progress(tmp_path)
+        monkeypatch.setattr(cli, "run_tests", lambda *a, **kw: (True, "ok"))
+        result = tmp_path / "result.json"
+        result.write_text(
+            json.dumps(
+                {
+                    "untestable_code": [
+                        {
+                            "file": "src\\pkg\\mod.py",
+                            "line": 5,
+                            "function": "f",
+                            "barrier": "global state",
+                        }
+                    ],
+                    "no_new_tests": False,
+                    "no_untestable_code": False,
+                    "no_coverage_gained": False,
+                }
+            ),
+            encoding="utf-8",
+        )
+        exit_code = _run(
+            "unit-test-step",
+            "--progress-file",
+            str(ppath),
+            "--result-file",
+            str(result),
+        )
+        assert exit_code == 0
+        data = _read_progress(ppath)
+        assert data["untestable_code"][0]["file"] == "src/pkg/mod.py"
+        assert data["scope_files"]["current"] == ["src/pkg/mod.py"]
 
 
 # ---------------------------------------------------------------------------

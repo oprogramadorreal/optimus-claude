@@ -121,7 +121,7 @@ PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli final-repo
     --archive
 ```
 
-The report prints cycles completed, coverage baseline → final, total tests written (with file count), testability fixes applied, untestable items still pending, bugs discovered (if any), the termination reason, and git rollback guidance.
+The report prints cycles completed, coverage baseline → final, total tests written (with file count), testability fixes applied, untestable items still pending, bugs discovered (if any), the termination reason, and git rollback guidance. The run is then archived — except on a `diminishing-returns` soft-exit, which the CLI leaves un-archived (prints `not-archived`) so it stays resumable via `--resume`.
 
 ## Important
 

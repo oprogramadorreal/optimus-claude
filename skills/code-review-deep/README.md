@@ -23,11 +23,13 @@ This skill is part of the [optimus](https://github.com/oprogramadorreal/optimus-
 ```
 /optimus:code-review-deep                           # 8 iterations on the branch diff
 /optimus:code-review-deep --max-iterations 12       # 12 iterations
-/optimus:code-review-deep "focus on src/auth"       # Scoped to a path
+/optimus:code-review-deep src/auth                  # Scope to an existing path
 /optimus:code-review-deep --resume                  # Continue from existing progress file
 /optimus:code-review-deep --no-commit               # Skip per-iteration checkpoint commits
 claude -p "/optimus:code-review-deep --yes 'src/auth'"   # Headless / CI; auto-confirms Step 3
 ```
+
+Scope accepts an existing path (file or directory) to restrict the review to it. Natural-language text is recorded as intent but does not filter the diff — the full branch diff is reviewed unless the scope resolves to a real path.
 
 ## Requirements
 

@@ -34,7 +34,7 @@ optimus-claude/
 │       ├── parser.py         # JSON-block extraction from subagent output
 │       ├── progress.py       # JSON read/write/backup
 │       ├── runner.py         # Test runner with platform-aware bash routing
-│       ├── reporting.py      # Test command detection
+│       ├── reporting.py      # Cumulative report printing + commit-body builders (also test-command detection)
 │       └── constants.py      # Shared status / cap constants
 ├── skills/
 │   ├── init/                 # /optimus:init

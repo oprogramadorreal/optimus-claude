@@ -21,12 +21,12 @@ Extract from the user's arguments:
 3. `--yes` flag (present/absent) — auto-confirm the Step 3 prompt; required when invoked under `claude -p` or any other non-interactive session that cannot answer `AskUserQuestion`.
 4. `--max-iterations N` (optional, default 8, hard cap 20)
 5. Focus keyword (standalone unquoted token): `testability` or `guidelines` (the same detection rules as `/optimus:refactor` — see `skills/refactor/SKILL.md` Step 1)
-6. Everything else → scope text
+6. Everything else → scope text (an existing path scopes the refactor to that path; other text is recorded as intent only and does **not** filter — the full branch diff is still processed)
 
 Examples:
 - `/optimus:refactor-deep` → full project, 8 iterations, balanced focus
 - `/optimus:refactor-deep testability` → focus on testability barriers
-- `/optimus:refactor-deep guidelines "focus on backend"` → guidelines focus, scoped
+- `/optimus:refactor-deep guidelines src/backend` → guidelines focus, scoped to an existing path
 - `/optimus:refactor-deep --max-iterations 12` → 12 iterations
 - `/optimus:refactor-deep --resume` → continue from existing progress file
 - `/optimus:refactor-deep --no-commit` → skip per-iteration checkpoint commits
@@ -121,6 +121,8 @@ PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli final-repo
     --progress-file ".claude/refactor-deep-progress.json" \
     --archive
 ```
+
+This prints the cumulative report and archives the run — except on a `diminishing-returns` soft-exit, which the CLI leaves un-archived (prints `not-archived`) so it stays resumable via `--resume`.
 
 ## Important
 

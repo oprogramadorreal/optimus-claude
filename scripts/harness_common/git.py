@@ -20,7 +20,15 @@ def commit_checkpoint(commit_message, cwd, progress_file, _run=None):
     if add_result.returncode != 0:
         print(f"{_PREFIX} WARNING: git add -A failed: {add_result.stderr[:200]}")
         return False
-    for pattern in [progress_file, progress_file + BACKUP_SUFFIX]:
+    # Un-stage the progress file, its backup, and the per-iteration harness
+    # scratch files so a checkpoint commit never captures orchestrator state.
+    # Authoritative — does not rely on the user project's .gitignore carrying
+    # these patterns (which /optimus:init does not provision).
+    for pattern in [
+        progress_file,
+        progress_file + BACKUP_SUFFIX,
+        *_HARNESS_STATE_EXCLUDES,
+    ]:
         _run(
             ["git", "reset", "HEAD", "--", pattern],
             cwd=str(cwd),
@@ -141,9 +149,7 @@ def git_restore_snapshot(snapshot_sha, cwd, _run=None):
         text=True,
     )
     if result.returncode != 0:
-        print(
-            f"{_PREFIX} WARNING: Could not restore snapshot: {result.stderr[:200]}"
-        )
+        print(f"{_PREFIX} WARNING: Could not restore snapshot: {result.stderr[:200]}")
         print(
             f"{_PREFIX} WARNING: untracked files may be missing from the working "
             f"tree — recover them with: git stash apply {snapshot_sha}"

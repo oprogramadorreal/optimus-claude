@@ -20,12 +20,12 @@ Extract from the user's arguments:
 2. `--no-commit` flag (present/absent)
 3. `--yes` flag (present/absent) — auto-confirm the Step 3 prompt; required when invoked under `claude -p` or any other non-interactive session that cannot answer `AskUserQuestion`.
 4. `--max-iterations N` (optional, default 8, hard cap 20)
-5. Everything else → scope text (natural-language description or path; e.g., `"focus on src/auth"`)
+5. Everything else → scope text. An existing path scopes the review to that path; any other text (e.g. `"focus on src/auth"`) is recorded as intent only — it does **not** filter the diff, so the full branch diff is still reviewed.
 
 Examples:
 - `/optimus:code-review-deep` → 8 iterations on the branch diff
 - `/optimus:code-review-deep --max-iterations 12` → 12 iterations
-- `/optimus:code-review-deep "focus on src/auth"` → scoped
+- `/optimus:code-review-deep src/auth` → scope the review to an existing path
 - `/optimus:code-review-deep --resume` → continue from existing progress file
 - `/optimus:code-review-deep --no-commit` → skip per-iteration checkpoint commits
 - `claude -p "/optimus:code-review-deep --yes 'src/auth'"` → headless / CI usage; skips the Step 3 confirmation prompt
@@ -119,7 +119,7 @@ PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli final-repo
     --archive
 ```
 
-This prints the cumulative report (fixed / reverted / persistent counts, per-finding table, termination reason, git rollback guidance) and moves the progress file to `.done.json` so a stray `--resume` cannot pick up a completed run.
+This prints the cumulative report (fixed / reverted / persistent counts, per-finding table, termination reason, git rollback guidance) and moves the progress file to `.done.json` so a stray `--resume` cannot pick up a completed run. Exception: on a `diminishing-returns` soft-exit the CLI leaves the active progress file in place (prints `not-archived`) so the run stays resumable via `--resume`, matching that termination's "re-run to continue" guidance.
 
 ## Important
 

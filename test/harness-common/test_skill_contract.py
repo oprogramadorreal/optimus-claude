@@ -275,3 +275,23 @@ def test_harness_mode_documents_all_termination_reasons():
         assert (
             f"`{reason}`" in ref
         ), f"references/harness-mode.md must document termination reason '{reason}'"
+
+
+def test_paired_loop_resnapshots_before_refactor_phase():
+    """The paired loop must re-snapshot after the unit-test phase, before the
+    refactor dispatch.
+
+    The step-1 snapshot predates the unit tests written during the cycle; a
+    refactor-phase combined-regression restore against that stale snapshot would
+    discard them. The loop guards this by re-running `snapshot` between the
+    unit-test commit and the refactor dispatch — pin it so the guard cannot
+    silently regress.
+    """
+    ref = _read("references/orchestrator-loop-paired.md")
+    _, _, refactor_region = ref.partition("Conditionally dispatch the refactor phase")
+    assert refactor_region, "paired loop must have a refactor-phase dispatch step"
+    assert "cli snapshot" in refactor_region, (
+        "orchestrator-loop-paired.md must re-snapshot before dispatching the "
+        "refactor subagent so a refactor rollback does not discard the cycle's "
+        "unit tests"
+    )
