@@ -56,17 +56,22 @@ The criterion: the skill's primary value comes from reading the current conversa
 
 ## Plan mode
 
-Claude Code's plan mode has built-in semantics the plugin cannot change: **approving a plan executes it immediately in the same conversation.** That conflicts with skills that route to `/optimus:tdd` afterwards, because plan-mode execution bypasses TDD's Red-Green-Refactor discipline (the Iron Law, verification protocol, circuit breaker).
+Claude Code's plan mode has built-in semantics the plugin cannot change: **approving a plan executes it immediately in the same conversation.** This same-conversation approve-and-implement is the *intended* flow and the right default for most deliverables. The one exception is work routed to `/optimus:tdd` afterwards: there, approving would bypass TDD's Red-Green-Refactor discipline (the Iron Law, verification protocol, circuit breaker), so those skills deliberately keep plan mode review-only (see the decision below).
 
 Plan mode is also **read-only**: Claude cannot write files while the conversation is in plan mode. Any persistence ("append the refined plan to the doc") happens *after* the user toggles plan mode off **and sends a follow-up message** in normal mode, in the same conversation — the toggle itself is a permission-state change that does not trigger Claude; Claude only acts on the next user message, and only because the pasted plan-mode prompt told it to. There is no automatic persistence; it is prompt-driven.
 
 Plan mode is a **client UI toggle** — no phrase exits it. The user must press the client's plan-mode control (CLI: `Shift+Tab`; VSCode extension and other clients: the equivalent toggle). Alternate entry points: launch with `claude --permission-mode plan`, or prefix the first message with `/plan`. Skill closing copy should describe the action client-agnostically and mention `Shift+Tab` only as an example. Note: some approval dialogs offer an "Ultraplan" option — it executes the plan, so treat it like approval and ignore it.
 
-When a skill recommends plan mode as a handoff step:
+When a skill recommends plan mode as a handoff step, choose by **deliverable type**:
 
-- Treat plan mode as **review-only**. Tell the user not to approve the plan — use it to iterate on the design with Claude grounded against the real codebase.
+**Default — a prose deliverable, or any plan NOT routed to `/optimus:tdd`:** iterate against the real codebase, then **approve the plan to implement in the same conversation**. This is plan mode's intended flow and keeps the rich context just built — no "Refined plan" doc, no fresh conversation. After implementation, the continuation skills (`/optimus:commit`, `/optimus:pr`) stay in the conversation (see "Continuation skills" above).
+
+**Carve-out — a deliverable routed to `/optimus:tdd` (test-first production code):** treat plan mode as **review-only**. Tell the user *not* to approve the plan — approval executes immediately and bypasses Red-Green-Refactor. Instead:
+
 - The generated plan-mode prompt must include a closing instruction telling Claude to **append a "Refined plan" section** to the underlying design/task doc (`docs/design/…` or `docs/jira/…`) once the user signals they're done iterating. Append (not overwrite) preserves the original design/task context for audit. The write happens in normal mode after the user toggles plan mode off and sends a follow-up message — it is prompt-driven and requires an explicit trigger message, not automatic.
-- After Claude writes the refined plan, the user starts a **fresh conversation** and invokes the next skill (typically `/optimus:tdd` for code deliverables, or pastes an execution prompt for prose deliverables), which gathers context from scratch against the updated doc.
+- After Claude writes the refined plan, the user starts a **fresh conversation** and invokes `/optimus:tdd`, which gathers context from scratch against the updated doc.
+
+`/optimus:brainstorm` and `/optimus:jira` use this carve-out for their code paths — their inline plan-mode prompts already encode review-only + "Refined plan" + fresh conversation.
 
 ## Why fresh conversations
 

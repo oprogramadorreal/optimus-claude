@@ -3,7 +3,7 @@
 </div>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-1.80.1-blue" alt="Version">
+  <img src="https://img.shields.io/badge/version-1.81.0-blue" alt="Version">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
   <img src="https://img.shields.io/badge/Claude_Code-1.0.33+-blueviolet" alt="Claude Code">
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey" alt="Platform">
@@ -86,7 +86,7 @@ The result: consistent patterns, meaningful names, and lean context across every
 | [`/optimus:permissions`](skills/permissions/README.md) | Configures branch protection, precious file safety, and auto-approved routine tool calls via allow/deny rules and a PreToolUse hook. |
 | [`/optimus:commit`](skills/commit/README.md) | Stages, commits, and optionally pushes with a conventional commit message. Captures the "why" from the implementation conversation into the message body when run in the same session. Offers feature branch creation on protected branches. |
 | [`/optimus:commit-message`](skills/commit-message/README.md) | Suggests conventional commit messages from local git changes. Benefits from running in the implementation conversation. Recommends splitting multi-concern diffs. Read-only. |
-| [`/optimus:prompt`](skills/prompt/README.md) | Crafts optimized, copy-ready prompts for any AI tool — extracts intent, selects from 13 templates, and audits for token efficiency. |
+| [`/optimus:prompt`](skills/prompt/README.md) | Crafts optimized, copy-ready prompts for any AI tool — extracts intent, selects from 14 templates (including Claude Code dynamic-workflow orchestration), and audits for token efficiency. |
 | [`/optimus:reset`](skills/reset/README.md) | Removes files installed by init and permissions. Classifies each file before deletion and always asks for confirmation. |
 
 ## Recommended Workflow

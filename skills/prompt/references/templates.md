@@ -1,6 +1,6 @@
 # Prompt Templates Reference
 
-13 prompt architectures for different task types. Load only the template matching the task — do not load the entire file.
+14 prompt architectures for different task types. Load only the template matching the task — do not load the entire file.
 
 ## Table of Contents
 
@@ -19,6 +19,7 @@
 | [K — ComfyUI](#template-k--comfyui) | ComfyUI node-based image workflows |
 | [L — Prompt Decompiler](#template-l--prompt-decompiler) | Breaking down, adapting, or splitting existing prompts |
 | [M — Exploration + Plan Architecture](#template-m--exploration--plan-architecture) | Claude Code plan mode — codebase exploration and planning |
+| [N — Dynamic Workflow Orchestration](#template-n--dynamic-workflow-orchestration) | Claude Code dynamic workflows — fan-out / parallel subagent work |
 
 ---
 
@@ -325,6 +326,8 @@ Detect which task is needed:
 
 For Adapt tasks, always ask: "What tool is the original from, and what tool are you adapting it for?"
 
+When delivering any decompiler output below, wrap each pasteable prompt block — the `Recommended fix`, the `Adapted for [target tool]` block, and each split `[prompt block]` — in the same plain-text boundary markers used in SKILL.md Step 8 (`----- BEGIN PROMPT -----` above the opening fence, `----- END PROMPT -----` below the closing fence, always OUTSIDE the fence). Do not wrap the Structure analysis, Key changes, or commentary lines — only the pasteable prompt text.
+
 **Break down format:**
 ```
 Original prompt: [paste]
@@ -366,6 +369,8 @@ Prompt 2 — [what it handles]:
 Run these in order. Each output feeds the next.
 ```
 
+Wrap each `[prompt block]` above in its own `----- BEGIN PROMPT -----` / `----- END PROMPT -----` markers (placed outside its code fence) so each sequential prompt is individually selectable. Keep the `Prompt N — [what it handles]:` labels and the "Run these in order…" line outside the markers.
+
 ---
 
 ## Template M — Exploration + Plan Architecture
@@ -376,7 +381,7 @@ Run these in order. Each output feeds the next.
 - Verify and optimize user input: read referenced files to confirm findings, ask if something seems incorrect, synthesize into clear context — do not copy verbatim. Resolve entity names to paths (validation), but do not explore code structure or internals beyond what the user provided
 - If running inside the target project, use codebase access to validate user claims and improve prompt accuracy — but not to pre-do plan-mode's exploration
 - Preserve the user's explicit methodology instructions — if the user says to search the web, verify assumptions, ask questions, or use specific tools, carry those instructions into the prompt (typically in "What to Figure Out" or as a standalone section). Do not silently drop them during synthesis
-- Omit plan-mode-redundant instructions (execution guardrails, "do not execute," "read-only") — plan mode enforces these automatically
+- NEVER include plan-mode-redundant guardrails ("YOU ARE IN PLAN MODE", "DO NOT EDIT CODE", "read-only", "do not execute") — plan mode enforces read-only automatically
 
 ```
 ## Goal
@@ -417,3 +422,41 @@ The plan should include:
 **When to use:** The user wants Claude Code in plan mode to explore a codebase and produce an implementation plan. The prompt provides problem context and defines what the plan should contain — it does NOT pre-explore the codebase or pre-answer analytical questions.
 
 **When NOT to use:** The user wants Claude Code to execute changes directly — use Template H instead.
+
+---
+
+## Template N — Dynamic Workflow Orchestration
+
+*For Claude Code dynamic workflows — produces a single NATURAL-LANGUAGE PROMPT the user pastes into an active Claude Code session that asks it to spin up a workflow (real subagents running in parallel). Like Template M requests plan mode, this requests orchestration as INTENT. NEVER author or output a .js workflow script, and do NOT prescribe the workflow's phases or agent counts — describe the task, outcome, and constraints; Claude Code designs the orchestration and writes the script.*
+
+- Not a banned multi-pass technique: Hard Rule #2 bans orchestration SIMULATED inside one inference pass. A workflow runs REAL independent subagents in REAL parallel inference; the orchestration lives in platform code, not one model turn. Output is still ONE prompt.
+- The literal word "workflow" MUST appear in the first sentence — it is the trigger; without it Claude Code runs the task turn-by-turn.
+- Describe the task, the quality bar (e.g. "cross-check findings before reporting"), and the required output — then hand the orchestration to Claude Code: it decides the phases, agent counts, and verification mechanics and writes the script. A pattern-type hint (fan-out / pipeline / adversarial-verification) is optional preference in the prompt, never a prescribed phase plan with agent counts.
+- Scope + agent caps are MANDATORY (cost + runaway risk): bound the target set, set a concurrency/total ceiling (documented limits: up to 16 concurrent, 1,000 total per run), and note the run uses meaningfully more tokens than one conversation.
+- Permissions: workflow subagents run with edits auto-approved (acceptEdits) regardless of session mode. For analysis/audit work the prompt MUST say "read-only: do not edit, write, move, or delete any file; report findings only." (Opposite of Template M, which omits guardrails because plan mode enforces read-only.)
+- Tell Claude Code to write the script and present its plan for approval before running.
+
+```
+Run a workflow to [TASK — what to do across what bounded target set: files / dirs / items].
+
+Desired outcome: [what a good result looks like — the deliverable's purpose, not the steps].
+
+You design the orchestration — decide the phases, how many agents, and how they divide and (where useful) cross-check the work. I'm giving you the task, the constraints, and the quality bar; you write the script and choose the shape.
+
+Quality bar: [intent only — e.g. "be thorough: cover every item in scope"; "cross-check / verify findings before reporting and drop anything you can't confirm"; "approach this from several independent angles and reconcile them"]. Don't just run more agents — apply whatever verification makes the result trustworthy.
+
+Scope:
+- In scope: [explicit targets].  Out of scope: [skip].
+- Mode: [READ-ONLY — do NOT edit, write, move, or delete any file; report findings only.  OR  agents may edit only within <path>; do NOT touch <forbidden>]. (Workflow agents auto-approve edits regardless of session mode — state this explicitly.)
+- Stay within [16 concurrent / 1,000 total] agents; stop early if [condition].
+
+Output: [exact shape — e.g., one markdown report grouping findings by file with file:line evidence].
+
+Before running, show me the workflow plan (the phases and agent counts you chose) for approval. This uses meaningfully more tokens than a normal turn; you can stop it anytime from /workflows.
+```
+
+**When to use:** Claude Code fan-out / parallel work at scale — audit every X, review N files independently, research several angles, or draft a plan from several angles then weigh them.
+
+**When NOT to use:** a single linear task (Template H), read-only plan-mode exploration (Template M), any non-Claude-Code tool, or when the user wants the .js script itself.
+
+*Setup: dynamic workflows need a recent Claude Code version and may need enabling on some plans.*

@@ -89,4 +89,4 @@
 | 33 | **Silent agent** — no progress output | Add: "After each step output what was completed" |
 | 34 | **Unlocked filesystem** — no file restrictions | Add: "Only edit files inside src/. Do not touch config or .env" |
 | 35 | **No human review trigger** — agent decides everything | Add: "Stop and ask before deleting files, adding dependencies, or changing schema" |
-| 36 | **Pre-explored plan mode prompt** — pre-answered questions, enumerated directories, or execution guardrails in a plan mode prompt | Remove pre-explored details. Frame analytical work as questions for plan-mode Claude to answer |
+| 36 | **Pre-explored plan mode prompt** — pre-answered questions, enumerated directories, or execution guardrails in a plan mode prompt; literal redundant lines to strip include "YOU ARE IN PLAN MODE", "DO NOT EDIT CODE" / "do not edit", "read-only", "do not execute" | Remove pre-explored details, and delete any plan-mode / read-only / no-edit guardrail lines — plan mode already enforces read-only. Frame analytical work as questions for plan-mode Claude to answer |

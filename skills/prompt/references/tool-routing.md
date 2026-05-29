@@ -123,6 +123,13 @@ These models reason internally across thousands of tokens. Adding CoT or "think 
 - The prompt must be self-contained — it will be pasted as the first message in a fresh conversation with no prior context
 - See Template M in templates.md for full behavioral rules (input verification, codebase access policy, methodology preservation, redundant-instruction exclusions)
 
+### Claude Code (dynamic workflow)
+
+- For fan-out / parallel work at scale, produce a prompt that triggers a NATIVE dynamic workflow — real subagents in parallel, orchestration written by Claude Code (not by this skill). Distinct from the "Workflow AI" section (Zapier / Make / n8n) below
+- The literal word "workflow" MUST appear — it is the trigger
+- Output is a PROMPT only, never a .js script
+- See Template N in templates.md for full behavioral rules (task-not-orchestration framing, scope/agent caps, read-only vs. edit permissions, the approval gate)
+
 ### Cursor / Windsurf
 
 - File path + function name + current behavior + desired change + do-not-touch list + language and version
