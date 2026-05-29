@@ -4,13 +4,21 @@ import re
 
 def parse_harness_output(raw_output):
     """
-    Extract the json:harness-output block from claude's response.
-    With --output-format json, the output is a JSON object with a 'result' field.
+    Extract the json:harness-output block from a subagent's response.
+
+    When more than one ``json:harness-output`` block is present — e.g. the
+    subagent echoed the template from references/harness-mode.md before its real
+    output — the LAST block that parses as valid JSON wins, since the protocol
+    requires the real block to be emitted last ("emit a single block and stop").
+
+    The leading json.loads is a defensive fallback for the deleted Python
+    harness's ``claude -p --output-format json`` envelope (a dict with a
+    'result' field); current callers pass plain message text, for which it is a
+    no-op.
     """
     if not raw_output:
         return None
 
-    # Try to parse as --output-format json envelope
     text = raw_output
     try:
         envelope = json.loads(raw_output)
@@ -22,13 +30,11 @@ def parse_harness_output(raw_output):
     if not isinstance(text, str):
         return None
 
-    # Extract json:harness-output block
     pattern = r"```json:harness-output\s*\n(.*?)\n\s*```"
-    match = re.search(pattern, text, re.DOTALL)
-    if match:
+    for block in reversed(re.findall(pattern, text, re.DOTALL)):
         try:
-            return json.loads(match.group(1))
+            return json.loads(block)
         except json.JSONDecodeError:
-            pass
+            continue
 
     return None

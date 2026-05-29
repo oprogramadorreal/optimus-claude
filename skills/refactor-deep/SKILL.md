@@ -85,9 +85,12 @@ PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli init \
     --max-iterations [N] \
     [--focus testability | --focus guidelines] \
     [--scope "<scope>"] \
+    [--no-commit] \
     --progress-file ".claude/refactor-deep-progress.json" \
     --project-dir "."
 ```
+
+Pass `--no-commit` through to `init` when the user supplied it — the mode is persisted in the progress file, so `--resume` keeps it without re-passing the flag (and `commit-checkpoint` self-skips regardless).
 
 If `--focus` is supplied with anything other than `testability` or `guidelines`, the CLI rejects it.
 

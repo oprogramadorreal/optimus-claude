@@ -20,7 +20,7 @@ The orchestrator skill repeats steps 1–8 below until step 7 (`check-terminatio
 PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli snapshot --progress-file "<progress-path>"
 ```
 
-Records `HEAD` into `progress["_snapshot"]["pre_head"]`. Add `--include-stash` if running with `--no-commit` so the working tree can be restored after a failed iteration.
+Records `HEAD` into `progress["_snapshot"]["pre_head"]` and stamps the current iteration into `progress["_snapshot"]["iteration_token"]` (step 5 errors out if a stale token reveals a skipped snapshot). In no-commit mode — the run was started `--no-commit`, or a prior commit failed — `snapshot` also captures a working-tree stash automatically, so the iteration stays restorable; you do **not** need to pass `--include-stash` (it remains an explicit override).
 
 ### 2. Dispatch the base skill into a fresh subagent
 
@@ -85,15 +85,15 @@ This single subcommand: promotes actionable fixes, registers findings, runs test
 | `converged` | Skill reported `no_new_findings` — loop terminates. |
 | `no-actionable` | Skill reported `no_actionable_fixes` — loop terminates. |
 | `all-reverted` | Every fix in this iteration was reverted — loop terminates. |
-| `applied fixed=<N> reverted=<N> test_passed=<0\|1>` | Iteration completed normally — continue. |
+| `applied fixed=<N> reverted=<N> test_passed=<0\|1\|->` | Iteration completed normally — continue. `test_passed` is `-` when the iteration applied no fixes (so no test ran). |
 
-### 6. Checkpoint commit (skip if `--no-commit`)
+### 6. Checkpoint commit
 
 ```bash
 PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli commit-checkpoint --progress-file "<progress-path>"
 ```
 
-Returns `committed`, `nothing-to-commit`, or `commit-failed`. On `commit-failed`, the orchestrator should warn and switch the remaining iterations to `--no-commit` mode (skip commits going forward).
+Returns `committed`, `nothing-to-commit`, `commit-skipped`, or `commit-failed`. Call it every iteration — the CLI owns the decision: in no-commit mode it self-skips and prints `commit-skipped`. On `commit-failed`, the CLI durably disables commits for the rest of the run (persisted, so it survives `--resume`): later snapshots auto-stash and later checkpoints self-skip, keeping the accumulated uncommitted work restorable. Warn the user once that checkpoint commits have stopped.
 
 ### 7. Check termination
 
@@ -114,7 +114,7 @@ Increments `iteration.current`. Then loop back to step 1.
 
 ## Loop control invariants
 
-- **Snapshot before dispatch.** The CLI's `deep-step` needs a known `pre_head` to recover from test failures.
+- **Snapshot before dispatch.** The CLI's `deep-step` needs a fresh `pre_head` to recover from test failures, and verifies the snapshot's `iteration_token` matches the current iteration — a skipped snapshot makes `deep-step` exit non-zero rather than restore to a stale commit.
 - **Always write progress before dispatching.** Cancellation between dispatches is recoverable via `--resume`; cancellation mid-dispatch may leave the working tree inconsistent but the progress file remains valid as of the prior iteration.
 - **Slice-only progress reads.** Do not read the full progress file's `findings` array between iterations in the orchestrator's own context. The CLI's `check-termination` returns a single word; trust it.
 - **Subagent output is text, not state.** Treat each subagent's return as a one-time payload. Save it to a temp file, parse it, then forget it. Do not keep the raw output in the orchestrator's conversation.
@@ -150,4 +150,4 @@ Print the final report:
 PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli final-report --progress-file "<progress-path>" --archive
 ```
 
-The `--archive` flag moves the progress file to `<path>.done.json` and removes the backup, signaling that this run is complete (a subsequent `--resume` will refuse the archived path).
+The `--archive` flag moves the progress file to `<path>.done.json` and removes the backup, signaling that this run is complete (a subsequent `--resume` will refuse the archived path). The archived `.done.json` is a historical artifact the user may delete at any time; a later fresh run (`init`) checks only the active progress path and won't clean it up.

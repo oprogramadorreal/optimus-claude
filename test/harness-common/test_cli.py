@@ -446,6 +446,8 @@ class TestResume:
         )
         assert exit_code == 0
         assert progress_path.exists()
+        # The restored file must carry the backup's content, not an empty stub.
+        assert _read_progress(progress_path)["skill"] == "refactor"
 
     def test_corrupt_progress_file_fails_cleanly(self, tmp_path, capsys):
         # cmd_resume must surface a readable error (not a raw traceback) when
@@ -690,7 +692,11 @@ def _seed_deep_progress(tmp_path, *, iteration=1, scope_files=None):
         "test_results": {"last_full_run": None, "last_run_output_summary": None},
         "iteration_history": [],
         "termination": {"reason": None, "message": None},
-        "_snapshot": {"pre_head": "abc1234", "pre_stash": None},
+        "_snapshot": {
+            "pre_head": "abc1234",
+            "pre_stash": None,
+            "iteration_token": iteration,
+        },
     }
     path = tmp_path / "progress.json"
     path.write_text(json.dumps(progress, indent=2), encoding="utf-8")
@@ -1163,7 +1169,11 @@ def _seed_coverage_progress(tmp_path, *, cycle=1):
         "cycle_history": [],
         "test_results": {"last_full_run": None, "last_run_output_summary": None},
         "termination": {"reason": None, "message": None},
-        "_snapshot": {"pre_head": "abc1234", "pre_stash": None},
+        "_snapshot": {
+            "pre_head": "abc1234",
+            "pre_stash": None,
+            "iteration_token": cycle,
+        },
     }
     path = tmp_path / "progress.json"
     path.write_text(json.dumps(progress, indent=2), encoding="utf-8")
@@ -1982,15 +1992,16 @@ class TestCommitCheckpoint:
         assert "Testability fixes applied:" in captured["message"]
 
     def test_commit_failed_exit_code_and_marker(self, tmp_path, capsys, monkeypatch):
-        # The orchestrator depends on the "commit-failed" marker to switch
-        # remaining iterations to --no-commit mode. Regression for an
-        # untested exit path.
+        # On commit-failed the CLI durably sets commit_disabled, so later
+        # snapshots auto-stash and later checkpoints self-skip — the orchestrator
+        # no longer has to switch modes by hand.
         ppath = _seed_deep_progress(tmp_path)
         monkeypatch.setattr(cli, "git_diff_has_changes", lambda _cwd: True)
         monkeypatch.setattr(cli, "git_commit_checkpoint", lambda *_a, **_kw: False)
         exit_code = _run("commit-checkpoint", "--progress-file", str(ppath))
         assert exit_code == 1
         assert capsys.readouterr().out.strip() == "commit-failed"
+        assert _read_progress(ppath)["commit_disabled"] is True
 
 
 # ---------------------------------------------------------------------------
@@ -2077,3 +2088,436 @@ class TestSnapshot:
         exit_code = _run("snapshot", "--progress-file", str(ppath))
         assert exit_code == 1
         assert "Cannot determine HEAD" in capsys.readouterr().err
+
+    def test_auto_stashes_in_no_commit_mode(self, tmp_path, monkeypatch):
+        # No --include-stash flag: auto-stash is driven by persisted
+        # config.no_commit so the orchestrator never has to remember it.
+        ppath = _seed_deep_progress(tmp_path)
+        data = _read_progress(ppath)
+        data["config"]["no_commit"] = True
+        ppath.write_text(json.dumps(data), encoding="utf-8")
+        monkeypatch.setattr(cli, "git_rev_parse_head", lambda _cwd: "head_sha")
+        monkeypatch.setattr(cli, "git_stash_snapshot", lambda _cwd: "stash_sha")
+        _run("snapshot", "--progress-file", str(ppath))
+        assert _read_progress(ppath)["_snapshot"]["pre_stash"] == "stash_sha"
+
+    def test_auto_stashes_after_commit_disabled(self, tmp_path, monkeypatch):
+        ppath = _seed_deep_progress(tmp_path)
+        data = _read_progress(ppath)
+        data["commit_disabled"] = True
+        ppath.write_text(json.dumps(data), encoding="utf-8")
+        monkeypatch.setattr(cli, "git_rev_parse_head", lambda _cwd: "head_sha")
+        monkeypatch.setattr(cli, "git_stash_snapshot", lambda _cwd: "stash_sha")
+        _run("snapshot", "--progress-file", str(ppath))
+        assert _read_progress(ppath)["_snapshot"]["pre_stash"] == "stash_sha"
+
+    def test_stamps_iteration_token(self, tmp_path, monkeypatch):
+        ppath = _seed_deep_progress(tmp_path, iteration=3)
+        monkeypatch.setattr(cli, "git_rev_parse_head", lambda _cwd: "head_sha")
+        monkeypatch.setattr(cli, "git_stash_snapshot", lambda _cwd: None)
+        _run("snapshot", "--progress-file", str(ppath))
+        assert _read_progress(ppath)["_snapshot"]["iteration_token"] == 3
+
+
+# ---------------------------------------------------------------------------
+# --no-commit persistence + commit-checkpoint self-skip
+# ---------------------------------------------------------------------------
+
+
+class TestNoCommitMode:
+    def test_init_persists_no_commit(self, tmp_path, monkeypatch):
+        repo = _make_repo(tmp_path)
+        _stub_git(monkeypatch)
+        ppath = repo / "progress.json"
+        _run(
+            "init",
+            "--skill",
+            "code-review",
+            "--no-commit",
+            "--progress-file",
+            str(ppath),
+            "--project-dir",
+            str(repo),
+        )
+        data = _read_progress(ppath)
+        assert data["config"]["no_commit"] is True
+        assert data["commit_disabled"] is False
+
+    def test_init_commit_mode_is_default(self, tmp_path, monkeypatch):
+        repo = _make_repo(tmp_path)
+        _stub_git(monkeypatch)
+        ppath = repo / "progress.json"
+        _run(
+            "init",
+            "--skill",
+            "code-review",
+            "--progress-file",
+            str(ppath),
+            "--project-dir",
+            str(repo),
+        )
+        assert _read_progress(ppath)["config"]["no_commit"] is False
+
+    def test_commit_checkpoint_self_skips_when_no_commit(
+        self, tmp_path, capsys, monkeypatch
+    ):
+        ppath = _seed_deep_progress(tmp_path)
+        data = _read_progress(ppath)
+        data["config"]["no_commit"] = True
+        ppath.write_text(json.dumps(data), encoding="utf-8")
+        monkeypatch.setattr(
+            cli,
+            "git_commit_checkpoint",
+            lambda *_a, **_kw: pytest.fail("must not commit in no-commit mode"),
+        )
+        exit_code = _run("commit-checkpoint", "--progress-file", str(ppath))
+        assert exit_code == 0
+        assert capsys.readouterr().out.strip() == "commit-skipped"
+
+    def test_commit_checkpoint_self_skips_after_commit_disabled(
+        self, tmp_path, capsys, monkeypatch
+    ):
+        # A checkpoint after a prior commit-failed (commit_disabled=True)
+        # self-skips even though the run was not started --no-commit.
+        ppath = _seed_deep_progress(tmp_path)
+        data = _read_progress(ppath)
+        data["commit_disabled"] = True
+        ppath.write_text(json.dumps(data), encoding="utf-8")
+        monkeypatch.setattr(
+            cli,
+            "git_commit_checkpoint",
+            lambda *_a, **_kw: pytest.fail("must not commit after commit_disabled"),
+        )
+        exit_code = _run("commit-checkpoint", "--progress-file", str(ppath))
+        assert exit_code == 0
+        assert capsys.readouterr().out.strip() == "commit-skipped"
+
+
+# ---------------------------------------------------------------------------
+# snapshot-freshness guard (skipped-snapshot detection)
+# ---------------------------------------------------------------------------
+
+
+class TestSnapshotFreshnessGuard:
+    def test_deep_step_errors_on_stale_token(self, tmp_path, capsys):
+        ppath = _seed_deep_progress(tmp_path, iteration=3)
+        data = _read_progress(ppath)
+        data["_snapshot"]["iteration_token"] = 2  # snapshot skipped this iteration
+        ppath.write_text(json.dumps(data), encoding="utf-8")
+        result = tmp_path / "result.json"
+        result.write_text(
+            json.dumps(
+                {
+                    "iteration": 3,
+                    "new_findings": [],
+                    "fixes_applied": [],
+                    "no_new_findings": False,
+                    "no_actionable_fixes": True,
+                }
+            ),
+            encoding="utf-8",
+        )
+        exit_code = _run(
+            "deep-step", "--progress-file", str(ppath), "--result-file", str(result)
+        )
+        assert exit_code == 1
+        assert "stale" in capsys.readouterr().err
+
+    def test_unit_test_step_errors_on_stale_token(self, tmp_path, capsys):
+        ppath = _seed_coverage_progress(tmp_path, cycle=2)
+        data = _read_progress(ppath)
+        data["_snapshot"]["iteration_token"] = 1
+        ppath.write_text(json.dumps(data), encoding="utf-8")
+        result = tmp_path / "result.json"
+        result.write_text(
+            json.dumps(
+                {
+                    "coverage": {},
+                    "tests_written": [],
+                    "untestable_code": [],
+                    "bugs_discovered": [],
+                }
+            ),
+            encoding="utf-8",
+        )
+        exit_code = _run(
+            "unit-test-step",
+            "--progress-file",
+            str(ppath),
+            "--result-file",
+            str(result),
+        )
+        assert exit_code == 1
+        assert "stale" in capsys.readouterr().err
+
+    def test_refactor_step_errors_on_stale_token(self, tmp_path, capsys):
+        ppath = _seed_coverage_progress(tmp_path, cycle=2)
+        data = _read_progress(ppath)
+        data["_snapshot"]["iteration_token"] = 1
+        ppath.write_text(json.dumps(data), encoding="utf-8")
+        result = tmp_path / "result.json"
+        result.write_text(
+            json.dumps({"new_findings": [], "fixes_applied": []}), encoding="utf-8"
+        )
+        exit_code = _run(
+            "refactor-step",
+            "--progress-file",
+            str(ppath),
+            "--result-file",
+            str(result),
+        )
+        assert exit_code == 1
+        assert "stale" in capsys.readouterr().err
+
+
+# ---------------------------------------------------------------------------
+# unit-test-step state-merge substructure
+# ---------------------------------------------------------------------------
+
+
+class TestUnitTestStepStateMerge:
+    def test_records_coverage_scope_dedup_and_bugs(self, tmp_path, monkeypatch):
+        ppath = _seed_coverage_progress(tmp_path, cycle=1)
+        monkeypatch.setattr(cli, "run_tests", lambda *a, **kw: (True, "ok"))
+        dup = {"file": "u.py", "line": 10, "function": "f"}
+        result = tmp_path / "result.json"
+        result.write_text(
+            json.dumps(
+                {
+                    "coverage": {
+                        "before": 50,
+                        "after": 60,
+                        "delta": 10,
+                        "tool": "pytest-cov",
+                    },
+                    "tests_written": [{"file": "t.py", "target_file": "s.py"}],
+                    "untestable_code": [
+                        {**dup, "barrier": "global state"},
+                        {**dup, "barrier": "duplicate - same key"},
+                    ],
+                    "bugs_discovered": [{"file": "b.py", "summary": "off-by-one"}],
+                    "no_new_tests": False,
+                    "no_untestable_code": False,
+                    "no_coverage_gained": False,
+                }
+            ),
+            encoding="utf-8",
+        )
+        exit_code = _run(
+            "unit-test-step",
+            "--progress-file",
+            str(ppath),
+            "--result-file",
+            str(result),
+        )
+        assert exit_code == 0
+        data = _read_progress(ppath)
+        assert data["coverage"]["baseline"] == 50
+        assert data["coverage"]["current"] == 60
+        assert data["coverage"]["tool"] == "pytest-cov"
+        assert len(data["coverage"]["history"]) == 1
+        assert data["coverage"]["history"][0]["delta"] == 10
+        # dedup by (file, line, function) keeps a single entry
+        assert len(data["untestable_code"]) == 1
+        # refactor-phase scope refreshed from pending untestable files
+        assert data["scope_files"]["current"] == ["u.py"]
+        # bugs tagged with the discovering cycle
+        assert data["bugs_discovered"][0]["cycle_discovered"] == 1
+
+
+# ---------------------------------------------------------------------------
+# _promote_actionable_fixes dedup branch
+# ---------------------------------------------------------------------------
+
+
+class TestPromoteActionableDedup:
+    def test_does_not_re_promote_already_applied_finding(
+        self, tmp_path, capsys, monkeypatch
+    ):
+        # no_actionable_fixes=True with new_findings = [already-applied, fresh].
+        # The dedup branch must skip re-promoting the already-applied one so the
+        # fixed count reflects 2 distinct fixes, not 3.
+        ppath = _seed_deep_progress(tmp_path)
+        monkeypatch.setattr(cli, "run_tests", lambda *a, **kw: (True, "ok"))
+        applied = {
+            "file": "a.py",
+            "line": 1,
+            "category": "x",
+            "summary": "s",
+            "pre_edit_content": "a",
+            "post_edit_content": "b",
+        }
+        fresh = {
+            "file": "c.py",
+            "line": 9,
+            "category": "x",
+            "summary": "t",
+            "pre_edit_content": "c",
+            "post_edit_content": "d",
+        }
+        result = tmp_path / "result.json"
+        result.write_text(
+            json.dumps(
+                {
+                    "iteration": 1,
+                    "new_findings": [applied, fresh],
+                    "fixes_applied": [applied],
+                    "no_new_findings": False,
+                    "no_actionable_fixes": True,
+                }
+            ),
+            encoding="utf-8",
+        )
+        exit_code = _run(
+            "deep-step", "--progress-file", str(ppath), "--result-file", str(result)
+        )
+        assert exit_code == 0
+        assert capsys.readouterr().out.strip().startswith("applied")
+        data = _read_progress(ppath)
+        assert data["iteration_history"][-1]["fixed"] == 2
+        assert len(data["findings"]) == 2
+
+
+# ---------------------------------------------------------------------------
+# final-report body content
+# ---------------------------------------------------------------------------
+
+
+class TestFinalReportBody:
+    def test_deep_report_renders_findings_and_footer(
+        self, tmp_path, capsys, monkeypatch
+    ):
+        ppath = _seed_deep_progress(tmp_path)
+        data = _read_progress(ppath)
+        data["iteration"]["completed"] = 1
+        data["findings"] = [
+            {
+                "file": "a.py",
+                "line": 1,
+                "category": "bug",
+                "summary": "fixed one",
+                "status": "fixed",
+            },
+            {
+                "file": "b.py",
+                "line": 2,
+                "category": "bug",
+                "summary": "stuck",
+                "status": "persistent — fix failed",
+            },
+        ]
+        ppath.write_text(json.dumps(data), encoding="utf-8")
+        monkeypatch.setattr(reporting, "git_current_branch", lambda _cwd: "feat/x")
+        exit_code = _run("final-report", "--progress-file", str(ppath))
+        assert exit_code == 0
+        out = capsys.readouterr().out
+        # per-finding table rows render file:line + status
+        assert "a.py:1" in out
+        assert "b.py:2" in out
+        assert "persistent — fix failed" in out
+        # rollback footer prints (a fix exists) with the push line on a feature branch
+        assert "git reset --hard" in out
+        assert "git push -u origin feat/x" in out
+
+    def test_rollback_footer_suppresses_push_on_master(
+        self, tmp_path, capsys, monkeypatch
+    ):
+        ppath = _seed_deep_progress(tmp_path)
+        data = _read_progress(ppath)
+        data["findings"] = [
+            {
+                "file": "a.py",
+                "line": 1,
+                "category": "bug",
+                "summary": "fixed one",
+                "status": "fixed",
+            },
+        ]
+        ppath.write_text(json.dumps(data), encoding="utf-8")
+        monkeypatch.setattr(reporting, "git_current_branch", lambda _cwd: "master")
+        _run("final-report", "--progress-file", str(ppath))
+        out = capsys.readouterr().out
+        assert "git reset --hard" in out  # footer still prints
+        assert "git push -u origin" not in out  # but not the branch-push line
+
+
+# ---------------------------------------------------------------------------
+# diminishing-returns soft-exit branches
+# ---------------------------------------------------------------------------
+
+
+class TestSoftExitBranches:
+    def test_no_soft_exit_before_min_iteration(self, tmp_path, capsys):
+        ppath = _seed_deep_progress(tmp_path, iteration=3)
+        data = _read_progress(ppath)
+        data["iteration_history"] = [
+            {
+                "iteration": 2,
+                "new_findings": 0,
+                "fixed": 0,
+                "reverted": 0,
+                "persistent": 0,
+                "test_passed": True,
+            },
+            {
+                "iteration": 3,
+                "new_findings": 0,
+                "fixed": 0,
+                "reverted": 0,
+                "persistent": 0,
+                "test_passed": True,
+            },
+        ]
+        ppath.write_text(json.dumps(data), encoding="utf-8")
+        _run("check-termination", "--progress-file", str(ppath))
+        assert capsys.readouterr().out.strip() == "continue"
+
+    def test_high_yield_resets_window(self, tmp_path, capsys):
+        ppath = _seed_deep_progress(tmp_path, iteration=5)
+        data = _read_progress(ppath)
+        data["iteration_history"] = [
+            {
+                "iteration": 4,
+                "new_findings": 3,
+                "fixed": 3,
+                "reverted": 0,
+                "persistent": 0,
+                "test_passed": True,
+            },
+            {
+                "iteration": 5,
+                "new_findings": 0,
+                "fixed": 0,
+                "reverted": 0,
+                "persistent": 0,
+                "test_passed": True,
+            },
+        ]
+        ppath.write_text(json.dumps(data), encoding="utf-8")
+        _run("check-termination", "--progress-file", str(ppath))
+        assert capsys.readouterr().out.strip() == "continue"
+
+    def test_reverted_fix_resets_window(self, tmp_path, capsys):
+        ppath = _seed_deep_progress(tmp_path, iteration=5)
+        data = _read_progress(ppath)
+        data["iteration_history"] = [
+            {
+                "iteration": 4,
+                "new_findings": 1,
+                "fixed": 0,
+                "reverted": 1,
+                "persistent": 0,
+                "test_passed": False,
+            },
+            {
+                "iteration": 5,
+                "new_findings": 1,
+                "fixed": 1,
+                "reverted": 0,
+                "persistent": 0,
+                "test_passed": True,
+            },
+        ]
+        ppath.write_text(json.dumps(data), encoding="utf-8")
+        _run("check-termination", "--progress-file", str(ppath))
+        assert capsys.readouterr().out.strip() == "continue"

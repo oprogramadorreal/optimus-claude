@@ -87,9 +87,12 @@ PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli init \
     --skill code-review \
     --max-iterations [N] \
     [--scope "<scope>"] \
+    [--no-commit] \
     --progress-file ".claude/code-review-deep-progress.json" \
     --project-dir "."
 ```
+
+Pass `--no-commit` through to `init` when the user supplied it — the mode is persisted in the progress file, so `--resume` keeps it without re-passing the flag (and `commit-checkpoint` self-skips regardless).
 
 If exit code is non-zero, surface the error and stop. Likely errors:
 - *"progress file already exists"* — a prior run has not been archived. Tell the user to either pass `--resume` to continue the prior run, or re-invoke this skill with `--force` to discard the prior progress and start fresh.

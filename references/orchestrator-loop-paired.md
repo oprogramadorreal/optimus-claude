@@ -17,7 +17,7 @@ The loop control discipline mirrors `references/orchestrator-loop-single.md` (sl
 PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli snapshot --progress-file "<progress-path>"
 ```
 
-Add `--include-stash` if running with `--no-commit` so the working tree can be restored after a failed cycle.
+Records `pre_head` and stamps the current cycle into `_snapshot.iteration_token` (steps 4 and 8 error out on a stale token). In no-commit mode `snapshot` also captures a working-tree stash automatically, so you do **not** need `--include-stash` (it remains an explicit override).
 
 ### 2. Dispatch the unit-test subagent
 
@@ -46,7 +46,7 @@ Agent tool call:
 Write the unit-test subagent's final message text to `$TMP_RAW`, then extract the JSON:
 
 ```bash
-TMP_RAW=".claude/.unit-test-deep-raw.txt"
+TMP_RAW=".claude/.unit-test-deep-ut-raw.txt"
 TMP_RESULT=".claude/.unit-test-deep-result.json"
 PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli parse \
     --input-file "$TMP_RAW" \
@@ -71,12 +71,14 @@ Stdout is one of:
 | `converged` | Skill reported plateau (`no_new_tests` + `no_untestable_code` or `no_coverage_gained`) — cycle ends, loop terminates. |
 | `continue` | Unit-test phase complete — proceed to step 5. |
 
-### 5. Commit the unit-test phase checkpoint (skip if `--no-commit`)
+### 5. Commit the unit-test phase checkpoint
 
 ```bash
 PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli commit-checkpoint \
     --progress-file "<progress-path>" --phase unit-test
 ```
+
+Call this every cycle — in no-commit mode it self-skips (`commit-skipped`); on `commit-failed` the CLI durably disables commits for the rest of the run (later snapshots auto-stash). Same contract as `orchestrator-loop-single.md` step 6.
 
 ### 6. Conditionally dispatch the refactor phase
 
@@ -112,16 +114,17 @@ Agent tool call:
 
 ### 7. Save the refactor return + extract the refactor JSON
 
-Write the **refactor** subagent's final message text to `$TMP_RAW`, overwriting the unit-test phase's output from step 3 — otherwise the parse below re-reads the stale unit-test JSON and the refactor phase records nothing. Then extract:
+Write the **refactor** subagent's final message text to a refactor-phase raw file — distinct from the unit-test phase's file (step 3) so a forgotten write fails the parse loudly (missing file) instead of silently re-ingesting the stale unit-test JSON. Then extract:
 
 ```bash
+TMP_RAW=".claude/.unit-test-deep-rf-raw.txt"
 PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli parse \
     --input-file "$TMP_RAW" \
     --output-file "$TMP_RESULT" \
     --progress-file "<progress-path>"
 ```
 
-(Same temp file paths as step 3, reused. The `--progress-file` flag continues to update `parse_failure_count` so a refactor-phase parse failure following a unit-test-phase failure triggers `parse-failure` termination.)
+(`$TMP_RESULT` is reused from step 3 — refactor-step reads it immediately after this parse. The `--progress-file` flag continues to update `parse_failure_count` so a refactor-phase parse failure following a unit-test-phase failure triggers `parse-failure` termination.)
 
 ### 8. Record the refactor phase
 
@@ -136,14 +139,16 @@ Stdout is one of:
 | Output | Meaning |
 |---|---|
 | `converged` | Refactor reported no testability findings or none actionable — cycle ends, loop terminates. |
-| `applied fixed=<N> reverted=<N> test_passed=<0\|1>` | Refactor phase complete — proceed to step 9. |
+| `applied fixed=<N> reverted=<N> test_passed=<0\|1\|->` | Refactor phase complete — proceed to step 9. `test_passed` is `-` when no fixes were applied. |
 
-### 9. Commit the refactor phase checkpoint (skip if `--no-commit`)
+### 9. Commit the refactor phase checkpoint
 
 ```bash
 PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli commit-checkpoint \
     --progress-file "<progress-path>" --phase refactor
 ```
+
+Self-skips in no-commit mode (same contract as step 5).
 
 ### 10. Record the cycle history + advance
 

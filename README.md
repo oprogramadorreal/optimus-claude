@@ -3,7 +3,7 @@
 </div>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-2.0.2-blue" alt="Version">
+  <img src="https://img.shields.io/badge/version-2.0.3-blue" alt="Version">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
   <img src="https://img.shields.io/badge/Claude_Code-1.0.33+-blueviolet" alt="Claude Code">
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey" alt="Platform">
@@ -149,6 +149,8 @@ AI assistants also tend toward [sycophancy](https://blog.scielo.org/en/2026/03/1
 
 optimus-claude is designed to work alongside official tools, not replace them. Use Anthropic's official [code-review](https://github.com/anthropics/claude-code/tree/main/plugins/code-review) plugin for post-push PR review, [claude-md-management](https://claude.com/plugins/claude-md-management) for CLAUDE.md scoring and revision, the builtin `/simplify` for per-change cleanup (complemented by `/optimus:refactor` for project-wide restructuring), and Claude Code's [built-in sandboxing](https://code.claude.com/docs/en/sandboxing) or [Docker containers](https://www.docker.com/blog/docker-sandboxes-run-claude-code-and-other-coding-agents-unsupervised-but-safely/) for fully autonomous agent execution with OS-level isolation.
 
+Claude Code's [dynamic workflows](https://code.claude.com/docs/en/workflows) are complementary rather than competing. The `/optimus:*-deep` skills are slash-invoked auto-fix orchestrators that persist progress to disk and resume across sessions, with no dependency on a research-preview feature — while `/optimus:prompt` can emit prompts that *trigger* a native dynamic workflow for one-off background fan-outs (its Template N). Reach for a `*-deep` skill for the iterative fix loop; reach for a dynamic workflow for a one-off, background, multi-agent sweep.
+
 ## Troubleshooting
 
 ### Windows: SSL certificate error during install
@@ -160,6 +162,20 @@ git config --global http.sslBackend schannel
 ```
 
 Then retry the install command.
+
+### Upgrading from 1.x: `deep harness` mode and the Python harness scripts are gone
+
+2.0 replaced the two terminal-run Python harnesses with three in-conversation orchestrator skills. If you scripted the old entry points, migrate:
+
+| Removed in 2.0 | Use instead |
+|----------------|-------------|
+| `/optimus:code-review deep` / `… deep harness` | `/optimus:code-review-deep` |
+| `/optimus:refactor deep` / `… deep harness` | `/optimus:refactor-deep` |
+| `/optimus:unit-test deep` / `… deep harness` | `/optimus:unit-test-deep` |
+| `python scripts/deep-mode-harness/main.py …` | `/optimus:code-review-deep` (or `/optimus:refactor-deep`) |
+| `python scripts/test-coverage-harness/main.py …` | `/optimus:unit-test-deep` |
+
+The `*-deep` skills run inside your Claude Code conversation, persist state to `.claude/*-deep-progress.json`, support `--resume`, and accept `--yes` for non-interactive/CI use (e.g. `claude -p "/optimus:code-review-deep --yes 'src/auth'"`).
 
 ## Contributing
 

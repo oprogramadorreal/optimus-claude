@@ -103,6 +103,7 @@ def _make_deep_progress(
     focus,
     base_commit,
     scope_is_path,
+    no_commit=False,
 ):
     return {
         "schema_version": 1,
@@ -119,6 +120,7 @@ def _make_deep_progress(
             "project_root": normalize_path(str(project_root)),
             "base_commit": base_commit,
             "focus": focus,
+            "no_commit": no_commit,
             "pr_description": None,
         },
         "iteration": {"current": 1, "completed": 0},
@@ -127,11 +129,14 @@ def _make_deep_progress(
         "test_results": {"last_full_run": None, "last_run_output_summary": None},
         "iteration_history": [],
         "parse_failure_count": 0,
+        "commit_disabled": False,
         "termination": {"reason": None, "message": None},
     }
 
 
-def _make_coverage_progress(scope, max_cycles, test_command, project_root, base_commit):
+def _make_coverage_progress(
+    scope, max_cycles, test_command, project_root, base_commit, no_commit=False
+):
     return {
         "schema_version": 1,
         "harness": "test-coverage",
@@ -142,6 +147,7 @@ def _make_coverage_progress(scope, max_cycles, test_command, project_root, base_
             "scope": scope,
             "project_root": normalize_path(str(project_root)),
             "base_commit": base_commit,
+            "no_commit": no_commit,
         },
         "cycle": {"current": 1, "completed": 0},
         "phase": "unit-test",
@@ -159,6 +165,7 @@ def _make_coverage_progress(scope, max_cycles, test_command, project_root, base_
         "scope_files": {"current": []},
         "test_results": {"last_full_run": None, "last_run_output_summary": None},
         "parse_failure_count": 0,
+        "commit_disabled": False,
         "termination": {"reason": None, "message": None},
     }
 
@@ -393,7 +400,12 @@ def _init_coverage(args, project_root, test_command, base_commit):
     max_cycles = max(min(requested_cycles, MAX_CYCLES_HARD_CAP), 1)
     return (
         _make_coverage_progress(
-            args.scope, max_cycles, test_command, project_root, base_commit
+            args.scope,
+            max_cycles,
+            test_command,
+            project_root,
+            base_commit,
+            args.no_commit,
         ),
         0,
     )
@@ -442,6 +454,7 @@ def _init_deep(args, project_root, test_command, base_commit):
         args.focus,
         base_commit,
         scope_is_path,
+        args.no_commit,
     )
     path_filter = args.scope if scope_is_path else None
     branch_files, base_ref = git_discover_branch_files(
@@ -544,7 +557,8 @@ def cmd_snapshot(args):
         return 1
     progress.setdefault("_snapshot", {})
     progress["_snapshot"]["pre_head"] = head
-    if args.include_stash:
+    progress["_snapshot"]["iteration_token"] = _current_unit(progress)
+    if args.include_stash or _is_no_commit(progress):
         progress["_snapshot"]["pre_stash"] = git_stash_snapshot(project_root)
     write_progress(progress_path, progress)
     print(head)
@@ -606,6 +620,44 @@ def _snapshot_from_progress(progress):
     return snap.get("pre_stash"), snap.get("pre_head")
 
 
+def _is_no_commit(progress):
+    """True when checkpoint commits are disabled for this run.
+
+    Either the user chose --no-commit at init (``config.no_commit``) or a commit
+    failed mid-run and commits were durably disabled (``commit_disabled``). In
+    both cases ``snapshot`` captures a stash and ``commit-checkpoint`` self-skips,
+    so the safety net does not depend on the orchestrator re-passing a flag.
+    """
+    return bool(progress["config"].get("no_commit") or progress.get("commit_disabled"))
+
+
+def _current_unit(progress):
+    """The current iteration (deep) or cycle (coverage) — the snapshot token."""
+    if _is_coverage(progress):
+        return progress["cycle"]["current"]
+    return progress["iteration"]["current"]
+
+
+def _verify_snapshot_fresh(progress, current):
+    """Guard against a skipped ``snapshot`` step.
+
+    ``snapshot`` stamps the current iteration/cycle into
+    ``_snapshot.iteration_token``. A step running against a token from a prior
+    unit means ``snapshot`` was skipped this iteration, so ``pre_head`` /
+    ``pre_stash`` are stale — restoring on a test failure would revert to the
+    wrong commit. Fail loudly instead.
+    """
+    token = (progress.get("_snapshot") or {}).get("iteration_token")
+    if token is not None and token != current:
+        print(
+            f"ERROR: snapshot is stale (taken at unit {token}, current is "
+            f"{current}). Run `snapshot` before this step.",
+            file=sys.stderr,
+        )
+        return False
+    return True
+
+
 def cmd_deep_step(args):
     """Process a code-review-deep / refactor-deep subagent iteration result.
 
@@ -623,6 +675,8 @@ def cmd_deep_step(args):
     test_command = progress["config"]["test_command"]
     project_root = Path(progress["config"]["project_root"])
     iteration = progress["iteration"]["current"]
+    if not _verify_snapshot_fresh(progress, iteration):
+        return 1
     pre_stash, pre_head = _snapshot_from_progress(progress)
 
     _promote_actionable_fixes(result)
@@ -691,6 +745,8 @@ def cmd_unit_test_step(args):
     project_root = Path(progress["config"]["project_root"])
     test_command = progress["config"]["test_command"]
     cycle = progress["cycle"]["current"]
+    if not _verify_snapshot_fresh(progress, cycle):
+        return 1
 
     # Update coverage history
     cov = result.get("coverage") or {}
@@ -724,6 +780,7 @@ def cmd_unit_test_step(args):
         key = (item.get("file"), item.get("line"), item.get("function"))
         if key in existing_keys:
             continue
+        existing_keys.add(key)
         progress["untestable_code"].append(
             {
                 **item,
@@ -785,6 +842,8 @@ def cmd_refactor_step(args):
     test_command = progress["config"]["test_command"]
     project_root = Path(progress["config"]["project_root"])
     cycle = progress["cycle"]["current"]
+    if not _verify_snapshot_fresh(progress, cycle):
+        return 1
     pre_stash, pre_head = _snapshot_from_progress(progress)
 
     _promote_actionable_fixes(result)
@@ -891,6 +950,10 @@ def cmd_commit_checkpoint(args):
     progress = read_progress(progress_path)
     project_root = Path(progress["config"]["project_root"])
 
+    if _is_no_commit(progress):
+        print("commit-skipped")
+        return 0
+
     if _is_coverage(progress):
         cycle = progress["cycle"]["current"]
         phase = args.phase or progress.get("phase", "unit-test")
@@ -931,8 +994,17 @@ def cmd_commit_checkpoint(args):
         project_root,
         str(progress_path),
     )
-    print("committed" if ok else "commit-failed")
-    return 0 if ok else 1
+    if ok:
+        print("committed")
+        return 0
+    # Durably disable commits so the rest of the run (and any --resume) auto-
+    # stashes in snapshot and self-skips commit-checkpoint — preserving the
+    # accumulated uncommitted work rather than relying on the orchestrator to
+    # switch modes by hand.
+    progress["commit_disabled"] = True
+    write_progress(progress_path, progress)
+    print("commit-failed")
+    return 1
 
 
 PARSE_FAILURE_THRESHOLD = 2
@@ -1111,6 +1183,13 @@ def _build_parser():
         "--force",
         action="store_true",
         help="Overwrite an existing progress file (discards prior findings)",
+    )
+    p.add_argument(
+        "--no-commit",
+        action="store_true",
+        help="Run without per-iteration checkpoint commits; snapshot auto-stashes "
+        "so a failed iteration is still restorable. Persisted, so --resume keeps "
+        "the mode without re-passing the flag.",
     )
     p.set_defaults(func=cmd_init)
 

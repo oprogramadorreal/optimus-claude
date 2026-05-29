@@ -1,8 +1,10 @@
 import json
 import subprocess
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from harness_common.git import (
+    _HARNESS_STATE_EXCLUDES,
     _PR_BODY_TRUNCATE_LIMIT,
     _PR_TITLE_TRUNCATE_LIMIT,
     _base_from_default_branches,
@@ -23,6 +25,20 @@ from harness_common.git import (
     git_stash_snapshot,
     restore_working_tree,
 )
+
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
+def test_gitignore_mirrors_harness_state_excludes():
+    """The temp-file prefixes that commit_checkpoint relies on .gitignore to keep
+    out of `git add -A` must actually be in .gitignore. references/
+    orchestrator-loop-single.md calls this coupling load-bearing — pin it so a
+    rename on one side without the other can't pass silently.
+    """
+    gitignore = (_REPO_ROOT / ".gitignore").read_text(encoding="utf-8")
+    for pattern in _HARNESS_STATE_EXCLUDES:
+        if pattern.startswith(".claude/."):
+            assert pattern in gitignore, f"{pattern} missing from .gitignore"
 
 
 class TestGitRevParseHead:

@@ -85,9 +85,12 @@ PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli init \
     --skill unit-test \
     --max-cycles [N] \
     [--scope "<scope>"] \
+    [--no-commit] \
     --progress-file ".claude/unit-test-deep-progress.json" \
     --project-dir "."
 ```
+
+Pass `--no-commit` through to `init` when the user supplied it — the mode is persisted in the progress file, so `--resume` keeps it without re-passing the flag (and `commit-checkpoint` self-skips regardless).
 
 If `init` reports *"progress file already exists"*, a prior un-archived run is on disk. Either run with `--resume` to continue it, or re-invoke `init` with `--force` to discard the prior progress.
 

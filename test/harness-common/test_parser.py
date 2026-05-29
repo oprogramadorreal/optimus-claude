@@ -44,3 +44,28 @@ class TestParseHarnessOutput:
     def test_envelope_without_result_key(self):
         envelope = json.dumps({"data": "something"})
         assert parse_harness_output(envelope) is None
+
+    def test_returns_last_parseable_block_when_template_echoed(self):
+        # The subagent echoed the harness-mode.md template (placeholder
+        # values => invalid JSON) before emitting its real block. The last
+        # block that parses as valid JSON must win.
+        raw = (
+            "```json:harness-output\n"
+            '{"iteration": <number>, "no_new_findings": <bool>}\n'
+            "```\n"
+            "...real output below...\n"
+            "```json:harness-output\n"
+            '{"iteration": 3, "no_new_findings": true}\n'
+            "```"
+        )
+        assert parse_harness_output(raw) == {
+            "iteration": 3,
+            "no_new_findings": True,
+        }
+
+    def test_last_block_wins_when_multiple_valid(self):
+        raw = (
+            '```json:harness-output\n{"iteration": 1}\n```\n'
+            '```json:harness-output\n{"iteration": 2}\n```'
+        )
+        assert parse_harness_output(raw) == {"iteration": 2}
