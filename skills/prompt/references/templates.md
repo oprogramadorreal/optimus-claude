@@ -430,11 +430,11 @@ The plan should include:
 *For Claude Code dynamic workflows — produces a single NATURAL-LANGUAGE PROMPT the user pastes into an active Claude Code session that asks it to spin up a workflow (real subagents running in parallel). Like Template M requests plan mode, this requests orchestration as INTENT. NEVER author or output a .js workflow script, and do NOT prescribe the workflow's phases or agent counts — describe the task, outcome, and constraints; Claude Code designs the orchestration and writes the script.*
 
 - Not a banned multi-pass technique: Hard Rule #2 bans orchestration SIMULATED inside one inference pass. A workflow runs REAL independent subagents in REAL parallel inference; the orchestration lives in platform code, not one model turn. Output is still ONE prompt.
-- The literal word "workflow" MUST appear in the first sentence — it is the trigger; without it Claude Code runs the task turn-by-turn.
+- The literal word "workflow" MUST appear somewhere in the prompt — it is the trigger; without it Claude Code runs the task turn-by-turn. (The scaffold below opens with "Run a workflow to…", which satisfies this.)
 - Describe the task, the quality bar (e.g. "cross-check findings before reporting"), and the required output — then hand the orchestration to Claude Code: it decides the phases, agent counts, and verification mechanics and writes the script. A pattern-type hint (fan-out / pipeline / adversarial-verification) is optional preference in the prompt, never a prescribed phase plan with agent counts.
-- Scope + agent caps are MANDATORY (cost + runaway risk): bound the target set, set a concurrency/total ceiling (documented limits: up to 16 concurrent, 1,000 total per run), and note the run uses meaningfully more tokens than one conversation.
+- Scope is MANDATORY (cost + runaway risk): bound the target set and give an early-stop condition. The runtime auto-caps each run at 16 concurrent / 1,000 total agents — fixed limits, not knobs the prompt sets; the prompt's job is only to keep the *target set* from sprawling. Note the run uses meaningfully more tokens than one conversation.
 - Permissions: workflow subagents run with edits auto-approved (acceptEdits) regardless of session mode. For analysis/audit work the prompt MUST say "read-only: do not edit, write, move, or delete any file; report findings only." (Opposite of Template M, which omits guardrails because plan mode enforces read-only.)
-- Tell Claude Code to write the script and present its plan for approval before running.
+- Do NOT put an approval or cost line in the prompt — Claude Code shows a launch-time approval prompt with the planned phases on its own (same reason Template M omits plan mode's enforced read-only: don't restate what the platform already does). Tell the *user* about the approval gate and token cost in the SKILL.md Step 9 handoff instead.
 
 ```
 Run a workflow to [TASK — what to do across what bounded target set: files / dirs / items].
@@ -448,12 +448,12 @@ Quality bar: [intent only — e.g. "be thorough: cover every item in scope"; "cr
 Scope:
 - In scope: [explicit targets].  Out of scope: [skip].
 - Mode: [READ-ONLY — do NOT edit, write, move, or delete any file; report findings only.  OR  agents may edit only within <path>; do NOT touch <forbidden>]. (Workflow agents auto-approve edits regardless of session mode — state this explicitly.)
-- Stay within [16 concurrent / 1,000 total] agents; stop early if [condition].
+- Stop early if [condition]; keep work bounded to the in-scope targets above. (The runtime auto-caps each run at 16 concurrent / 1,000 total agents — you don't set these.)
 
 Output: [exact shape — e.g., one markdown report grouping findings by file with file:line evidence].
-
-Before running, show me the workflow plan (the phases and agent counts you chose) for approval. This uses meaningfully more tokens than a normal turn; you can stop it anytime from /workflows.
 ```
+
+*Match the prompt's weight to the task. The block above is the full scaffold for a non-trivial or ambiguous fan-out; for a simple, clearly-bounded task a lean prompt is enough — one or two sentences naming the task, scope, read-only-vs-edit, and output shape. Never pad. Orchestration stays Claude Code's to design at any length.*
 
 **When to use:** Claude Code fan-out / parallel work at scale — audit every X, review N files independently, research several angles, or draft a plan from several angles then weigh them.
 
