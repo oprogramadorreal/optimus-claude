@@ -187,3 +187,41 @@ A single new reference doc that explains the positioning. Per the open-question 
 - [GitHub Spec Kit (github/spec-kit)](https://github.com/github/spec-kit)
 - [Augment Code — What is Spec-Driven Development?](https://www.augmentcode.com/guides/what-is-spec-driven-development)
 - Optimus internals: `README.md`, `skills/brainstorm/SKILL.md`, `skills/brainstorm/references/design-doc-format.md`, `skills/brainstorm/references/scenario-style.md`, `skills/tdd/SKILL.md`, `references/skill-handoff.md`, `.claude/docs/skill-writing-guidelines.md`.
+
+---
+
+## Iteration — 2026-05-31
+
+**Status:** Decided — scope extended (narrowly); ship `/optimus:spec-init` + cascade read-wiring.
+
+### Trigger
+
+The 2026-05-28 decision held the "no new skill" line because the driver was industry buzz, not concrete demand, and it set an explicit revisit threshold (open question #4): concrete repeated demand, or a deliberate change in optimus's target persona. That threshold is now met. A real, in-use project (the maintainer's own, docs-only with no code yet) adopts a docs-first SDD cascade — `docs/product/product-context.md` (vision) → `docs/product/mvp-prd.md` (PRD) → `docs/architecture/tech-stack.md` (target stack) → a buildable spec — authored before any code, and the maintainer asked optimus to support that flow.
+
+### What changed, and what did NOT
+
+The engineering-only **authoring** boundary from 2026-05-28 still holds in full: optimus authors no PM content (no personas, KPIs, or business-value prose) and writes nothing into `docs/specs/`. What changed is narrow: optimus now (a) **scaffolds empty, product-neutral skeletons** for the cascade — `TODO`-marked docs a human fills, exactly as a real docs-first project ships its `mvp-prd.md` as a skeleton — and (b) **reads** the filled cascade as higher-altitude steering in `brainstorm` and `tdd`. Scaffolding empty skeletons is not authoring PM content.
+
+### Mechanism (chosen): A — dedicated lean skill + additive reads
+
+- **`/optimus:spec-init`** — a new lean skill (one `SKILL.md` + one template reference + `README.md`; no agents, no hooks) scaffolds the three steering docs non-destructively and hands off to `/optimus:brainstorm`.
+- **`brainstorm` / `tdd`** — additive, load-if-present steering reads. The `docs/design/` output, `docs/jira/` detection, the tdd context cascade, and the scenario/TDD-summary contracts are unchanged when the cascade is absent.
+- **`references/sdd-mapping.md`** — promoted from framing doc to the shared contract: the single canonical altitude order, the `docs/design/` (optimus-authored) vs `docs/specs/` (human-authored) spec-location rule, and the architecture-name disambiguation.
+
+**Invariant (hard boundary):** optimus AUTHORS only the engineering spec (`docs/design/`, via brainstorm) and READS product-context / mvp-prd / tech-stack as steering. It scaffolds EMPTY steering skeletons and authors NOTHING into `docs/specs/`. This narrow extension is **not** license to author PM content (personas, KPIs, business-value).
+
+### Why not the alternatives
+
+- **Extend `/optimus:init`** — rejected: init owns `.claude/` agent-conventions; folding root-`docs/` product planning in mixes concerns and forces both "architecture" artifacts (`.claude/docs/architecture.md` and `docs/architecture/tech-stack.md`) into one code path.
+- **Extend `/optimus:brainstorm`** — rejected for the scaffold half: a once-per-project bootstrap inside a per-feature authoring skill is a cadence / single-responsibility mismatch (the read half is kept).
+- **Do nothing** — rejected: the revisit threshold is met.
+
+### Naming-collision resolution
+
+`.claude/docs/architecture.md` (init-owned, post-code structure conventions) and `docs/architecture/tech-stack.md` (human-owned, pre-code target stack) are kept distinct by tree, basename, and lifecycle; they never meet in one code path. Keep the `tech-stack.md` basename — do not rename to `architecture.md`.
+
+### Decision deltas vs. the 2026-05-28 record
+
+- Options table row **D** ("No new skill; add SDD-mapping doc") remains shipped, but is now the *foundation* of the contract rather than the whole answer.
+- Row **A' (`/optimus:spec` / spec authoring)** stays rejected — the buildable spec is still brainstorm's `docs/design/` doc; `spec-init` scaffolds *steering*, not the spec.
+- New: a dedicated **scaffold-only** skill was previously unconsidered because no concrete demand existed; a real docs-first project now supplies it.

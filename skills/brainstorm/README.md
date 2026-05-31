@@ -47,6 +47,7 @@ Brainstorm generates the plan-mode prompt inline — no need to run `/optimus:pr
 
 | Skill | Relationship |
 |-------|-------------|
+| `/optimus:spec-init` | On greenfield projects, spec-init scaffolds the SDD steering cascade (`docs/product/`, `docs/architecture/tech-stack.md`) that brainstorm reads as upstream context. |
 | `/optimus:jira` | Brainstorm auto-detects JIRA task files in `docs/jira/`. Run jira first for JIRA-tracked work. |
 | `/optimus:tdd` | TDD auto-detects design docs in `docs/design/`. Run brainstorm before TDD for complex features. |
 | `/optimus:prompt` | Brainstorm generates plan-mode prompts inline for the brainstorm→plan→tdd chain. Use `/optimus:prompt` directly for other AI tools or non-brainstorm workflows. |
@@ -54,7 +55,7 @@ Brainstorm generates the plan-mode prompt inline — no need to run `/optimus:pr
 
 ## Related concepts
 
-- [`references/sdd-mapping.md`](../../references/sdd-mapping.md) — how brainstorm's design doc maps onto spec-driven development (SDD) vocabulary popularised by GitHub Spec Kit and similar frameworks. The short version: the design doc IS the SDD spec.
+- [`references/sdd-mapping.md`](../../references/sdd-mapping.md) — the shared spec-driven-development (SDD) contract: the canonical altitude/precedence order, the `docs/design` (optimus-authored) vs `docs/specs` (human-authored) spec-location rule, the architecture-name disambiguation, and the framing that brainstorm's design doc IS the SDD spec. For greenfield product work, `/optimus:spec-init` scaffolds the steering cascade (product vision, MVP PRD, target tech-stack) that brainstorm then reads.
 
 ## Prerequisites
 

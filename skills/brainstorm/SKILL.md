@@ -32,6 +32,11 @@ Load these documents:
 |----------|------|
 | `.claude/CLAUDE.md` | Project overview, tech stack, architecture |
 | `coding-guidelines.md` | Quality standards that constrain the design |
+| `docs/product/product-context.md` *(if present)* | Product vision — steering context |
+| `docs/product/mvp-prd.md` *(if present)* | MVP scope — steering context |
+| `docs/architecture/tech-stack.md` *(if present)* | Target tech stack — steering context |
+
+The three `docs/` rows are the optional spec-driven-development steering cascade (scaffolded by `/optimus:spec-init`). Load them **only if they exist**, and treat them as higher-altitude direction that *informs* the design — never as the task itself or as content to copy. The design doc you write remains the engineering spec: do **not** author product/PM prose (personas, KPIs, business-value) into it. See `$CLAUDE_PLUGIN_ROOT/references/sdd-mapping.md` for the precedence contract.
 
 **Monorepo path note:** Read the "Monorepo Scoping Rule" section of `$CLAUDE_PLUGIN_ROOT/skills/init/references/constraint-doc-loading.md` for doc layout and scoping rules.
 

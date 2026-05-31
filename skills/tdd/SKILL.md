@@ -30,6 +30,10 @@ Load these documents (they affect quality at every step):
 | `.claude/CLAUDE.md` | Project overview | Tech stack, test runner command |
 | `coding-guidelines.md` | Code quality reference | Applied during Refactor step |
 | `testing.md` | Testing conventions | Test file location, naming, framework, mocking patterns |
+| `docs/architecture/tech-stack.md` *(if present)* | SDD steering — target stack | Low-priority context for Step 3 decomposition and Refactor |
+| `docs/product/mvp-prd.md` *(if present)* | SDD steering — MVP scope | Low-priority context that informs decomposition |
+
+The two `docs/` rows are the optional spec-driven-development steering cascade (scaffolded by `/optimus:spec-init`). Load them **only if they exist**; they *inform* decomposition and the Refactor step but never replace the task source or the behavior decomposition. See `$CLAUDE_PLUGIN_ROOT/references/sdd-mapping.md` for the precedence contract.
 
 **Monorepo path note:** Read the "Monorepo Scoping Rule" section of `$CLAUDE_PLUGIN_ROOT/skills/init/references/constraint-doc-loading.md` for doc layout and scoping rules. When running TDD inside a subproject, load that subproject's `testing.md`, not another subproject's.
 
@@ -49,7 +53,7 @@ Before starting TDD cycles, analyze whether the user's task is a good fit for te
 
 **Context detection** (runs at Step 2 entry — the cascade below is evaluated in order regardless of whether the user provided an inline task description; first match wins):
 
-1. **Explicit reference** — if the user's input references a file path ending in `.md` inside `docs/design/` or `docs/jira/`, read that file and use its Goal section as the task description. Proceed to distillation below if the goal is longer than 2-3 sentences.
+1. **Explicit reference** — if the user's input references a file path ending in `.md` inside `docs/design/`, `docs/specs/`, or `docs/jira/`, read that file and use its Goal section as the task description. (A `docs/specs/<spec>.md` is a human-authored build spec — the bring-your-own-spec slot described in `$CLAUDE_PLUGIN_ROOT/references/sdd-mapping.md`; optimus authors nothing there.) Proceed to distillation below if the goal is longer than 2-3 sentences.
 
 2. **Design doc auto-discovery** — if item 1 did not fire and `docs/design/` exists with `.md` files, check the most recent one (by filename date prefix). If its date is within the last 7 days, mention it: "Found design doc `<path>` — use it as the basis for TDD?" via `AskUserQuestion` — header "Design doc", options "Use it" / "Ignore — describe a different task". If its date is older than 7 days, add a note: "(This design doc is [N] days old — you may want to re-run `/optimus:brainstorm` for a fresh design.)" Design docs contain full approach details from `/optimus:brainstorm` — use Goal, Components, and Interfaces sections as the task description.
 

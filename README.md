@@ -3,7 +3,7 @@
 </div>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-1.81.1-blue" alt="Version">
+  <img src="https://img.shields.io/badge/version-1.82.0-blue" alt="Version">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
   <img src="https://img.shields.io/badge/Claude_Code-1.0.33+-blueviolet" alt="Claude Code">
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey" alt="Platform">
@@ -69,6 +69,7 @@ The result: consistent patterns, meaningful names, and lean context across every
 | [`/optimus:init`](skills/init/README.md) | Initializes effective project documentation, formatter hooks, and unit test infrastructure. Detects empty directories and offers new-project scaffolding. Intelligent audit on re-run. Flags broken test baselines in the summary; repairs build-level issues only (never test logic). |
 | [`/optimus:unit-test`](skills/unit-test/README.md) | Discovers test coverage gaps and writes convention-following tests. Never refactors source code and never fixes pre-existing failing tests — stops with a triage pointer when the test baseline is broken. `deep` mode for iterative test generation. `deep harness` for multi-cycle test coverage + testability refactoring with fresh context per phase. *Requires init.* |
 | [`/optimus:tdd`](skills/tdd/README.md) | Guides test-driven development through Red-Green-Refactor cycles with per-behavior commits, parallel quality gate, and branch push. Recommends `/optimus:pr` as the explicit next step in the same conversation so the PR/MR captures TDD signals (behaviors, coverage delta) into the description. *Requires init.* |
+| [`/optimus:spec-init`](skills/spec-init/README.md) | Scaffolds an empty, product-neutral docs-first SDD steering cascade (product vision, MVP PRD, target tech-stack) for a human to fill, then hands off to brainstorm. `brainstorm` and `tdd` read it as steering. Authors no PM content — emits skeletons only. |
 | [`/optimus:brainstorm`](skills/brainstorm/README.md) | Guides structured design brainstorming — explores the codebase, proposes multiple approaches with trade-offs, and writes an approved design doc to the project. For stakeholder-facing or acceptance-criteria-driven tasks, the design doc includes a Given/When/Then Scenarios section that `/optimus:tdd` consumes as its behavior list. Use before implementation to think through design decisions. |
 | [`/optimus:refactor`](skills/refactor/README.md) | Refactors code for guideline compliance and testability using 4 parallel agents. `testability` or `guidelines` focus mode to prioritize finding categories. `deep` mode for iterative refactoring. `deep harness` for multi-iteration analysis with fresh context per iteration. *Run init first (recommended).* |
 | [`/optimus:code-review`](skills/code-review/README.md) | Reviews changes for bugs, security issues, and guideline compliance using 5 to 7 parallel agents. Auto-routes to PR mode on a clean branch with a fully-pushed open PR/MR. `deep` mode for iterative auto-fix. `deep harness` for multi-iteration analysis with fresh context per iteration. *Run init first (recommended).* |
@@ -105,6 +106,7 @@ The result: consistent patterns, meaningful names, and lean context across every
 | JIRA-tracked, moderate complexity | `/optimus:jira PROJ-123` → plan mode (jira generates prompt) → `/optimus:tdd` → `/optimus:pr` | 3 skills + plan mode |
 | Complex feature, design decisions needed | `/optimus:jira` → `/optimus:brainstorm` → plan mode → `/optimus:tdd` → `/optimus:pr` | 4 skills + plan mode |
 | Idea without JIRA | `/optimus:brainstorm` → plan mode → `/optimus:tdd` → `/optimus:pr` | 3 skills + plan mode |
+| New product, docs-first (greenfield) | `/optimus:spec-init` → fill the cascade → `/optimus:brainstorm` → plan mode → `/optimus:tdd` → `/optimus:pr` | 4 skills + plan mode |
 
 Each skill recommends the next step based on task complexity — you don't need to memorize these paths. Also available: `/optimus:branch` to move work to a properly named branch, `/optimus:worktree` for parallel isolated workspaces, `/optimus:prompt` to craft optimized prompts for any AI tool, `/optimus:commit` for conventional commits (or `/optimus:commit-message` to preview).
 

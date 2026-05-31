@@ -313,6 +313,8 @@ The skill recommends the right path based on codebase-assessed complexity (not j
 
 The jira skill fetches, structures, and analyzes context — it never creates branches, writes code, or modifies your project (except writing the task file to `docs/jira/` and optionally posting an analysis comment to JIRA).
 
+In spec-driven-development terms, `/optimus:jira` is optimus's PM-to-engineering firewall: it is the supported path for PM-authored content (a JIRA issue, or an external PRD pasted into one), distilling it into engineering-shaped task context. It is complementary to — not part of — the `/optimus:spec-init` steering cascade. See [`references/sdd-mapping.md`](../../references/sdd-mapping.md).
+
 ## Supported MCP Servers
 
 | Server | JIRA Cloud | JIRA Server/DC | Setup Complexity |
