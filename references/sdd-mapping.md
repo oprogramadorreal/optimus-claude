@@ -46,7 +46,7 @@ Higher docs set long-term direction; the **active build spec** governs what to b
 The lowest-altitude **active build spec** can live in either of two places, and both feed `/optimus:tdd`:
 
 - **`docs/design/<slug>.md` — optimus-authored.** `/optimus:brainstorm` writes this. It *is* optimus's SDD spec: Goal, Context, Approach, Components, Interfaces, Edge Cases and Risks, **Scenarios** (Given/When/Then — the acceptance criteria), Out of Scope, Open Questions. `skills/brainstorm/references/scenario-style.md` already calls the Scenarios section "the specification." This is the canonical, recommended spec.
-- **`docs/specs/<spec>.md` — human-authored (or from an external SDD tool).** optimus **authors nothing here.** `tdd` can consume it via its existing explicit-reference path (point tdd at the file). Use this slot if you arrive with a spec written outside optimus (Spec Kit output, a Markdown doc).
+- **`docs/specs/<spec>.md` — human-authored (or from an external SDD tool).** optimus **authors nothing here.** `tdd` consumes it two ways: by explicit reference (point tdd at the file), or by **auto-discovery** — if no `docs/design/` or `docs/jira/` context resolves, tdd offers the most recent `docs/specs/` file (precedence: design → jira → specs). Use this slot if you arrive with a spec written outside optimus (Spec Kit output, a Markdown doc).
 
 Coming from Spec Kit terminology: you do not need a separate optimus-written "spec" artifact — the brainstorm design doc is it. `docs/specs/` is the bring-your-own-spec slot, not something optimus populates.
 
@@ -88,7 +88,7 @@ If you arrive with a spec written outside optimus (Spec Kit output, a Markdown d
 
 - **PM-authored content in a JIRA issue** — start with `/optimus:jira <KEY>`. The jira skill distills it and recommends the next skill based on scope.
 - **An engineering spec or design intent** — pass it to `/optimus:brainstorm`. Brainstorm distills the intent, asks clarifying questions if needed, and writes `docs/design/<slug>.md`.
-- **A complete, decomposable spec** — drop it at `docs/specs/<spec>.md` and reference it directly when invoking `/optimus:tdd`. The tdd context-detection cascade reads `.md` files via explicit reference; the scenario-driven shortcut applies if the doc contains a `## Scenarios` section in Given/When/Then form.
+- **A complete, decomposable spec** — drop it at `docs/specs/<spec>.md`. `/optimus:tdd` picks it up either by explicit reference or by auto-discovery (offered when no `docs/design/` or `docs/jira/` context resolves; precedence is design → jira → specs). The scenario-driven shortcut applies if the doc contains a `## Scenarios` section in Given/When/Then form.
 
 ## What this doc is not
 

@@ -53,7 +53,7 @@ This skill is part of the [optimus](https://github.com/oprogramadorreal/optimus-
 | `/optimus:jira PROJ-123` → `/optimus:tdd` | JIRA-tracked work (TDD auto-detects `docs/jira/`) |
 | `/optimus:brainstorm` → plan mode → `/optimus:tdd` | Complex feature (TDD auto-detects `docs/design/`) |
 
-TDD also reads the SDD steering cascade — `docs/architecture/tech-stack.md` and `docs/product/mvp-prd.md` — as **supplementary** context when present (scaffolded by `/optimus:spec-init`), and can consume a human-authored `docs/specs/<spec>.md` via explicit reference (e.g., `/optimus:tdd docs/specs/<spec>.md`). The `docs/design/` and `docs/jira/` auto-detection is unchanged. See [`references/sdd-mapping.md`](../../references/sdd-mapping.md).
+TDD also reads the SDD steering cascade — `docs/architecture/tech-stack.md` and `docs/product/mvp-prd.md` — as **supplementary** context when present (scaffolded by `/optimus:spec-init`), and can consume a human-authored `docs/specs/<spec>.md` either by explicit reference (e.g., `/optimus:tdd docs/specs/<spec>.md`) or by auto-discovery when no `docs/design/` or `docs/jira/` context resolves (precedence: design → jira → specs). The `docs/design/` and `docs/jira/` auto-detection is unchanged. See [`references/sdd-mapping.md`](../../references/sdd-mapping.md).
 
 ## Usage
 
