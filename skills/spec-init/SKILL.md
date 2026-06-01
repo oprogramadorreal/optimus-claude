@@ -13,11 +13,11 @@ You are scaffolding a **docs-first cascade**: a small set of empty, human-fillab
 - `docs/product/mvp-prd.md` — the first product slice (MVP PRD).
 - `docs/product/tech-stack.md` — the target technology stack.
 
-**The boundary — do not cross it.** You emit **empty skeletons with `TODO` markers** for a human to fill. You **author no product content** — no personas, no metrics/KPIs, no business-value prose, no technology choices. optimus is an engineering tool; the cascade is product/PM territory that a human owns. The engineering build spec is authored later by `/optimus:brainstorm` (in `docs/specs/`), not here. See `${CLAUDE_PLUGIN_ROOT}/references/sdd-mapping.md` for the full contract.
+**The boundary — do not cross it.** You emit **empty skeletons with `TODO` markers** for a human to fill. You **author no product content** — no personas, no metrics/KPIs, no business-value prose, no technology choices. optimus is an engineering tool; the cascade is product/PM territory that a human owns. The engineering build spec is authored later by `/optimus:brainstorm` (in `docs/specs/`), not here. See `$CLAUDE_PLUGIN_ROOT/references/sdd-mapping.md` for the full contract.
 
 ## Step 1 — Pre-flight
 
-- Decide where the cascade should live. Normally that is the current project root. If this directory is part of a larger multi-repo workspace, consult `${CLAUDE_PLUGIN_ROOT}/skills/init/references/multi-repo-detection.md` and scaffold at the appropriate level (workspace root vs. a subproject) rather than blindly in the current folder.
+- Decide where the cascade should live. Normally that is the current project root. If this directory is part of a larger multi-repo workspace, consult `$CLAUDE_PLUGIN_ROOT/skills/init/references/multi-repo-detection.md` and scaffold at the appropriate level (workspace root vs. a subproject) rather than blindly in the current folder.
 - This skill is most valuable on a **greenfield** project (docs-first, before code), but it is safe to run anywhere — Step 2 guarantees it never clobbers existing work.
 
 ## Step 2 — Non-destructive existence check
@@ -31,7 +31,7 @@ If all three already exist, the cascade is already scaffolded: report that and s
 
 ## Step 3 — Emit the skeletons
 
-- Read `${CLAUDE_PLUGIN_ROOT}/skills/spec-init/references/cascade-templates.md`.
+- Read `$CLAUDE_PLUGIN_ROOT/skills/spec-init/references/cascade-templates.md`.
 - For each **missing** file, create the parent directory if needed (`docs/product/`) and write the matching template block **verbatim** to its target path. Do not fill in the `TODO` markers — that is the human's job.
 - Write **only** these three files. Specifically, do **not**:
   - scaffold a build-spec file in `docs/specs/` — the buildable spec is authored later by `/optimus:brainstorm` or dropped in by a human, in `docs/specs/`; see the contract;
@@ -42,7 +42,7 @@ If all three already exist, the cascade is already scaffolded: report that and s
 
 - Summarize what was **created** vs. **skipped**.
 - Tell the user to fill the `TODO` sections top-down (vision → MVP PRD → target stack), and state the precedence so they know how the docs relate: *higher docs set long-term direction; the active build spec governs what to build right now — when they conflict about current work, the spec wins.*
-- Close with the handoff tip. This is **not** a continuation skill (the human fills the docs out-of-band and `/optimus:brainstorm` gathers its own context), so use the default — Variant C in `${CLAUDE_PLUGIN_ROOT}/references/skill-handoff.md`:
+- Close with the handoff tip. This is **not** a continuation skill (the human fills the docs out-of-band and `/optimus:brainstorm` gathers its own context), so use the default — Variant C in `$CLAUDE_PLUGIN_ROOT/references/skill-handoff.md`:
 
   > **Next step:** fill in the cascade's `TODO` sections (vision → MVP PRD → target stack). Then run `/optimus:brainstorm` to design the first build — it reads the cascade as steering and writes the engineering spec to `docs/specs/`.
   >

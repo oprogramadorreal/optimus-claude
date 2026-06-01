@@ -56,10 +56,6 @@ Coming from Spec Kit terminology: you do not need a separate optimus-written "sp
 
 Spec Kit adds a `constitution.md` and Kiro a `structure.md` to hold project-wide invariants. optimus already has that governance layer for the engineering side: `.claude/CLAUDE.md` plus `.claude/docs/coding-guidelines.md` (and `skill-writing-guidelines.md`) are authored by `/optimus:init` and loaded by the engineering skills. The cascade therefore needs no separate principles/constitution doc — and the two doc trees stay cleanly separated: the project-root `docs/` tree carries product *direction* (human-owned steering), while `.claude/docs/` carries engineering *governance* (init-owned conventions).
 
-## Brainstorm authors the spec
-
-`/optimus:brainstorm` writes `docs/specs/<slug>.md` — optimus's build spec; its Scenarios section is the acceptance criteria. Coming from Spec Kit terminology, brainstorm IS the Specify phase: you do not need a separate spec-authoring step.
-
 ## Phase mapping
 
 | Stage | Spec Kit phase | Optimus equivalent |

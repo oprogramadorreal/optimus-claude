@@ -1,4 +1,4 @@
-# Spec Cascade Init Skill
+# optimus:spec-init
 
 Scaffolds an empty, product-neutral **docs-first cascade** — a long-term product vision, an MVP PRD, and a target tech-stack — for a human to fill before any code is written. It then hands off to `/optimus:brainstorm`, which reads the cascade as steering and authors the engineering spec.
 
