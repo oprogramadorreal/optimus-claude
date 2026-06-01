@@ -1,6 +1,6 @@
 # Scenario style
 
-How to write the **Scenarios** section of a design doc when the task is stakeholder-facing or names explicit acceptance criteria. Scenarios are plain markdown using Given/When/Then phrasing — no `.feature` files, no Cucumber/Gherkin tooling.
+How to write the **Scenarios** section of a spec when the task is stakeholder-facing or names explicit acceptance criteria. Scenarios are plain markdown using Given/When/Then phrasing — no `.feature` files, no Cucumber/Gherkin tooling.
 
 ## When to include
 
@@ -44,12 +44,12 @@ Each scenario is a `### Scenario:` heading followed by Given/When/Then lines. 3�
 - **Multi-When chains.** `When ... When ... When ...` is a workflow, not a behavior. Keep one When per scenario; if a setup action is needed, put it in Given.
 - **Scenario-Outline overuse.** Don't parameterize 12 rows of inputs to test arithmetic — that's a unit-test concern, not an acceptance criterion. Reserve the scenarios for distinct user-observable cases.
 - **Leaky implementation details.** "Then the `coupons.apply` endpoint returns 200" is a technical assertion, not a behavior. Phrase it as the user-observable outcome ("the discount appears on the order summary").
-- **Scenarios for refactors or internals.** If the work is "switch cache backend from Redis to in-process LRU," there is no stakeholder-facing behavior change — omit the Scenarios section entirely. The Components / Approach sections of the design doc cover internal work.
+- **Scenarios for refactors or internals.** If the work is "switch cache backend from Redis to in-process LRU," there is no stakeholder-facing behavior change — omit the Scenarios section entirely. The Components / Approach sections of the spec cover internal work.
 - **Vague Given.** "Given the user is on the checkout page" without state is a setup line, not a precondition. State *what is true* in the world, not which page is loaded.
 
 ## Boundary with TDD
 
-The Scenarios section is the **specification**. It belongs in the design doc, alongside Goal/Approach/Components/Interfaces.
+The Scenarios section is the **specification**. It belongs in the spec, alongside Goal/Approach/Components/Interfaces.
 
 `/optimus:tdd` reads the Scenarios section and maps each scenario to one Red-Green-Refactor cycle. Brainstorm does not write tests, does not generate step definitions, and does not run a test framework — those are TDD's job.
 

@@ -1,13 +1,13 @@
 # optimus:brainstorm
 
-Guides structured design brainstorming — explores the codebase, asks clarifying questions, proposes multiple approaches with trade-offs, and writes an approved design doc to the project.
+Guides structured design brainstorming — explores the codebase, asks clarifying questions, proposes multiple approaches with trade-offs, and writes an approved spec to the project.
 
 ## When to Use
 
 Before implementing a new feature or significant change. Especially valuable when:
 - The feature touches multiple components or has unclear boundaries
 - Multiple valid approaches exist and you want to compare trade-offs
-- You want a persistent design artifact that survives conversation resets
+- You want a persistent spec that survives conversation resets
 - A JIRA ticket is too vague for direct implementation — brainstorm auto-detects JIRA context from `docs/jira/`
 
 ## When NOT to Use
@@ -22,8 +22,8 @@ Before implementing a new feature or significant change. Especially valuable whe
 2. Asks clarifying questions (up to 3) to fill gaps in the requirement
 3. Proposes 2-3 approaches with trade-offs and a recommendation
 4. Develops a detailed design for the chosen approach — including a conditional Given/When/Then **Scenarios** section that `/optimus:tdd` consumes as its behavior list when the work is stakeholder-facing or acceptance-criteria-driven.
-5. Writes the design to `docs/design/YYYY-MM-DD-<topic-slug>.md`
-6. Self-reviews the doc for completeness, contradictions, scenario discipline (when a Scenarios section is present), and YAGNI violations
+5. Writes the spec to `docs/specs/YYYY-MM-DD-<topic-slug>.md`
+6. Self-reviews the spec for completeness, contradictions, scenario discipline (when a Scenarios section is present), and YAGNI violations
 
 ## The hard gate
 
@@ -31,13 +31,13 @@ No implementation until the design is approved. The skill enforces a strict boun
 
 ## Output
 
-A markdown design document written to `docs/design/` covering goal, approach, components, interfaces, edge cases, explicit scope boundaries, and — for stakeholder-facing or acceptance-criteria-driven work — a Given/When/Then Scenarios section.
+A markdown spec written to `docs/specs/` covering goal, approach, components, interfaces, edge cases, explicit scope boundaries, and — for stakeholder-facing or acceptance-criteria-driven work — a Given/When/Then Scenarios section.
 
 ## Recommended workflow
 
 | Task complexity | Workflow |
 |----------------|----------|
-| Small (1–2 components) | `/optimus:brainstorm` → `/optimus:tdd` (auto-detects design doc) |
+| Small (1–2 components) | `/optimus:brainstorm` → `/optimus:tdd` (auto-detects the spec) |
 | Medium-to-large (3+ components) | `/optimus:brainstorm` → plan mode (review-only, do not approve) → `/optimus:tdd` |
 | From JIRA | `/optimus:jira` → `/optimus:brainstorm` (auto-detects JIRA context) → plan mode (review-only) → `/optimus:tdd` |
 
@@ -47,14 +47,15 @@ Brainstorm generates the plan-mode prompt inline — no need to run `/optimus:pr
 
 | Skill | Relationship |
 |-------|-------------|
+| `/optimus:spec-init` | On greenfield projects, spec-init scaffolds the SDD steering cascade (`docs/product/`) that brainstorm reads as upstream context. |
 | `/optimus:jira` | Brainstorm auto-detects JIRA task files in `docs/jira/`. Run jira first for JIRA-tracked work. |
-| `/optimus:tdd` | TDD auto-detects design docs in `docs/design/`. Run brainstorm before TDD for complex features. |
+| `/optimus:tdd` | TDD auto-detects specs in `docs/specs/`. Run brainstorm before TDD for complex features. |
 | `/optimus:prompt` | Brainstorm generates plan-mode prompts inline for the brainstorm→plan→tdd chain. Use `/optimus:prompt` directly for other AI tools or non-brainstorm workflows. |
 | `/optimus:refactor` | For refactoring tasks (restructuring without new behavior), use refactor instead of brainstorm. |
 
 ## Related concepts
 
-- [`references/sdd-mapping.md`](../../references/sdd-mapping.md) — how brainstorm's design doc maps onto spec-driven development (SDD) vocabulary popularised by GitHub Spec Kit and similar frameworks. The short version: the design doc IS the SDD spec.
+- [`references/sdd-mapping.md`](../../references/sdd-mapping.md) — the shared spec-driven-development (SDD) contract: the canonical altitude/precedence order, the `docs/specs` spec-location rule, and the framing that brainstorm authors the SDD spec. For greenfield product work, `/optimus:spec-init` scaffolds the steering cascade (product vision, MVP PRD, target tech-stack) that brainstorm then reads.
 
 ## Prerequisites
 
@@ -65,7 +66,7 @@ Brainstorm generates the plan-mode prompt inline — no need to run `/optimus:pr
 | File | Purpose |
 |------|---------|
 | `SKILL.md` | Skill definition with 7-step brainstorming workflow |
-| `references/design-doc-format.md` | Design document template (Scenarios section is conditional) |
+| `references/spec-format.md` | Spec template (Scenarios section is conditional) |
 | `references/scenario-style.md` | Given/When/Then phrasing discipline for the Scenarios section |
 
 ## Requirements

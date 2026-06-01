@@ -129,7 +129,7 @@ Generate a title and body following the template. When filling in the sections:
   - **`## Intent` → Scope**: one bullet per row of the `### Behaviors Implemented` table where Status is `✓ Complete`. Use the behavior description column verbatim.
   - **`## Intent` → Non-goals**: one bullet per row of the same table where Status is `Not started`. Omit the sub-field if all rows are Complete.
   - **`## Intent` → Key decisions**: pull from refactor-step reasoning explicitly captured in the conversation (e.g., "renamed X to match existing pattern", "extracted Y to share with Z"). If every refactor step reported "No changes needed — code is clean", omit this sub-field rather than inventing decisions.
-  - **`## Intent` → Problem**: as already specified in the state 1 rules above — quote/summarize the design doc or JIRA task file if it was loaded in the conversation, otherwise summarize the initiating brief from the start of the TDD session.
+  - **`## Intent` → Problem**: as already specified in the state 1 rules above — quote/summarize the spec or JIRA task file if it was loaded in the conversation, otherwise summarize the initiating brief from the start of the TDD session.
   - **`## Test plan`**: one verification item per `### Behaviors Implemented` row that is `✓ Complete`, plus the project's test command. If the conversation contains a `### Coverage` section with `Before:`, `After:`, `Delta:` lines, append a single line `Coverage: <Before> → <After> (<Delta>)` to the Test plan.
 - Synthesize the **Summary** from commit messages, changed files, and the diff
 - Use `git diff --stat` output as a starting point for **Changes**, then describe what each file change accomplishes

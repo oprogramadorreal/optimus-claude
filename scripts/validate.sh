@@ -751,11 +751,11 @@ for token in \
 done
 
 # Brainstorm/TDD scenario contract: TDD's Step 3 scenario-driven shortcut greps
-# for the literal '## Scenarios' and '### Scenario:' strings in design docs that
-# brainstorm produces from the design-doc-format template. A silent rename of
+# for the literal '## Scenarios' and '### Scenario:' strings in specs that
+# brainstorm produces from the spec-format template. A silent rename of
 # either heading on either side would cause TDD's shortcut to never fire — the
 # user would silently fall back to the generic decomposition path with no error.
-brainstorm_template="skills/brainstorm/references/design-doc-format.md"
+brainstorm_template="skills/brainstorm/references/spec-format.md"
 tdd_skill="skills/tdd/SKILL.md"
 if [ -f "$brainstorm_template" ]; then
   for scenario_token in '## Scenarios' '### Scenario:'; do

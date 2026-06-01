@@ -17,7 +17,7 @@ The [2025 DORA report](https://cloud.google.com/discover/how-test-driven-develop
 ## Features
 
 - **Suitability analysis** — analyzes the task against the codebase before starting; redirects unsuitable tasks (refactoring, docs, styling) to the right skill
-- **Behavior decomposition** — breaks features or bug fixes into small, independently testable behaviors before writing any code. When the source design doc contains a `## Scenarios` section in Given/When/Then form, those scenarios are used directly as the behavior list (one Red-Green-Refactor cycle per scenario)
+- **Behavior decomposition** — breaks features or bug fixes into small, independently testable behaviors before writing any code. When the source spec contains a `## Scenarios` section in Given/When/Then form, those scenarios are used directly as the behavior list (one Red-Green-Refactor cycle per scenario)
 - **Red-Green-Refactor cycles** — enforces the classic TDD discipline: failing test → minimal pass → clean up
 - **Guideline-aware refactoring** — applies your project's `coding-guidelines.md` during the Refactor step
 - **Convention-aware tests** — follows your `testing.md` for framework, file location, naming, and mocking patterns
@@ -51,7 +51,9 @@ This skill is part of the [optimus](https://github.com/oprogramadorreal/optimus-
 |------|-------------|
 | `/optimus:tdd "description"` | Simple task, well-understood scope |
 | `/optimus:jira PROJ-123` → `/optimus:tdd` | JIRA-tracked work (TDD auto-detects `docs/jira/`) |
-| `/optimus:brainstorm` → plan mode → `/optimus:tdd` | Complex feature (TDD auto-detects `docs/design/`) |
+| `/optimus:brainstorm` → plan mode → `/optimus:tdd` | Complex feature (TDD auto-detects `docs/specs/`) |
+
+TDD also reads the SDD steering cascade — `docs/product/tech-stack.md` and `docs/product/mvp-prd.md` — as **supplementary** context when present (scaffolded by `/optimus:spec-init`), and consumes the active build spec in `docs/specs/<spec>.md` — whether authored by `/optimus:brainstorm` or brought by a human — either by explicit reference (e.g., `/optimus:tdd docs/specs/<spec>.md`) or by auto-discovery (precedence: `docs/specs/` build spec → `docs/jira/` context). See [`references/sdd-mapping.md`](../../references/sdd-mapping.md).
 
 ## Usage
 
@@ -288,7 +290,7 @@ The user's original branch is never modified. All code review happens through th
 | | `/optimus:tdd` | `/optimus:brainstorm` |
 |---|---|---|
 | Purpose | Implement behavior test-first | Explore design approaches before coding |
-| Context flow | TDD auto-detects design docs in `docs/design/` | Brainstorm writes design docs that TDD consumes |
+| Context flow | TDD auto-detects specs in `docs/specs/` | Brainstorm writes specs that TDD consumes |
 | When to combine | Complex features — brainstorm first, then TDD implements the design |
 
 **Full workflow**: `/optimus:init` (set up everything including test infrastructure) → `/optimus:unit-test` (retroactive tests to increase coverage) → `/optimus:permissions` (branch-aware git protection) → `/optimus:tdd` (build new features test-first — creates branch, commits, pushes) → `/optimus:pr` in the same conversation (create the PR/MR with TDD signals captured into Intent and the per-behavior Test plan) → `/optimus:code-review` in a fresh conversation (review the PR/MR). For JIRA-tracked work, add `/optimus:jira` before TDD. For complex features, add `/optimus:brainstorm` → plan mode before TDD. `/optimus:pr` also handles updating an existing PR description and creating PRs for non-TDD work.

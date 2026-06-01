@@ -2,21 +2,21 @@
 description: >-
   Guides structured design brainstorming — explores the codebase, asks clarifying
   questions, proposes multiple approaches with trade-offs, and writes an approved
-  design doc to the project. Use before implementation to think through design
+  spec to the project. Use before implementation to think through design
   decisions and avoid premature coding. Produces a persistent artifact that feeds
   into plan mode and TDD. For stakeholder-facing or acceptance-criteria-driven
-  work, the design doc includes a Given/When/Then Scenarios section consumed by
+  work, the spec includes a Given/When/Then Scenarios section consumed by
   /optimus:tdd.
 disable-model-invocation: true
 ---
 
 # Brainstorm
 
-Guide the user through a structured design conversation that produces a written, approved design document before any implementation begins. The output is a persistent file in the project that feeds into Claude Code plan mode and then into `/optimus:tdd` for test-first implementation.
+Guide the user through a structured design conversation that produces a written, approved spec before any implementation begins. The output is a persistent file in the project that feeds into Claude Code plan mode and then into `/optimus:tdd` for test-first implementation.
 
 ### The Hard Gate
 
-**No implementation until the design is approved.** Do not invoke any implementation skill, write any production code, scaffold any project structure, or take any implementation action until you have written a design doc and the user has approved it. This applies to all tasks — even seemingly simple ones. Unexamined assumptions in "simple" projects cause the most wasted effort.
+**No implementation until the design is approved.** Do not invoke any implementation skill, write any production code, scaffold any project structure, or take any implementation action until you have written a spec and the user has approved it. This applies to all tasks — even seemingly simple ones. Unexamined assumptions in "simple" projects cause the most wasted effort.
 
 ## Step 1: Pre-flight
 
@@ -32,6 +32,11 @@ Load these documents:
 |----------|------|
 | `.claude/CLAUDE.md` | Project overview, tech stack, architecture |
 | `coding-guidelines.md` | Quality standards that constrain the design |
+| `docs/product/product-context.md` *(if present)* | Product vision — steering context |
+| `docs/product/mvp-prd.md` *(if present)* | MVP scope — steering context |
+| `docs/product/tech-stack.md` *(if present)* | Target tech stack — steering context |
+
+The three `docs/` rows are the optional spec-driven-development steering cascade (scaffolded by `/optimus:spec-init`). Load them **only if they exist**, and treat them as higher-altitude direction that *informs* the design — never as the task itself or as content to copy. The spec you write stays engineering-focused: do **not** author product/PM prose (personas, KPIs, business-value) into it. See `$CLAUDE_PLUGIN_ROOT/references/sdd-mapping.md` for the precedence contract.
 
 **Monorepo path note:** Read the "Monorepo Scoping Rule" section of `$CLAUDE_PLUGIN_ROOT/skills/init/references/constraint-doc-loading.md` for doc layout and scoping rules.
 
@@ -129,19 +134,19 @@ Based on the chosen approach, develop a detailed design. Cover each section as a
 - **Out of scope** — explicit boundaries to prevent scope creep
 
 Present the design in conversation. Use `AskUserQuestion` — header "Design review", question "Does this design look right?":
-- **Approve** — "Write it to a design doc"
+- **Approve** — "Write it to a spec"
 - **Adjust** — "I have feedback before writing"
 
 If the user has feedback, refine the design and present it again. Iterate until approved.
 
-## Step 5: Write Design Doc
+## Step 5: Write the Spec
 
-Read `$CLAUDE_PLUGIN_ROOT/skills/brainstorm/references/design-doc-format.md` for the template.
+Read `$CLAUDE_PLUGIN_ROOT/skills/brainstorm/references/spec-format.md` for the template.
 
 ### Write the file
 
-- **Path:** `docs/design/YYYY-MM-DD-<topic-slug>.md` — derive the slug from the goal (lowercase, replace non-alphanumeric characters with hyphens, collapse consecutive hyphens, strip leading/trailing hyphens, max 5 words). The slug must match `[a-z0-9]+(-[a-z0-9]+)*` — reject any slug that does not match this pattern
-- Create the `docs/design/` directory if it doesn't exist
+- **Path:** `docs/specs/YYYY-MM-DD-<topic-slug>.md` — derive the slug from the goal (lowercase, replace non-alphanumeric characters with hyphens, collapse consecutive hyphens, strip leading/trailing hyphens, max 5 words). The slug must match `[a-z0-9]+(-[a-z0-9]+)*` — reject any slug that does not match this pattern
+- Create the `docs/specs/` directory if it doesn't exist
 - Fill the template with the approved design content
 - Set **Status** to `Approved`
 
@@ -163,7 +168,7 @@ Present the result:
 ```
 ## Design Complete
 
-**Design doc:** `<file-path>`
+**Spec:** `<file-path>`
 **Goal:** <single-sentence goal>
 **Approach:** <chosen approach name>
 **Components:** <count> (<count> new, <count> modified)
@@ -175,27 +180,27 @@ Handle non-implementation tasks first:
 - **Refactoring task** → tell the user: "Recommend running `/optimus:refactor` to restructure the code. **Tip:** for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch."
 - **Test-only task** → tell the user: "Recommend running `/optimus:unit-test` to write tests for existing code. **Tip:** for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch."
 
-For implementation tasks, assess complexity from the Components table in the design doc. If the Components table lists zero code components or the Goal names a written artifact (research note, audit report, investigation write-up), the deliverable is **prose** — use the Medium-to-large branch below but follow the "Prose deliverable" note on the execution prompt.
+For implementation tasks, assess complexity from the Components table in the spec. If the Components table lists zero code components or the Goal names a written artifact (research note, audit report, investigation write-up), the deliverable is **prose** — use the Medium-to-large branch below but follow the "Prose deliverable" note on the execution prompt.
 
 ### Small (1–2 components, <5 behaviors implied)
 
-Tell the user: "This is small enough to implement directly — run `/optimus:tdd` to build it test-first. It will auto-detect the design doc at `<file-path>`. **Tip:** for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch."
+Tell the user: "This is small enough to implement directly — run `/optimus:tdd` to build it test-first. It will auto-detect the spec at `<file-path>`. **Tip:** for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch."
 
 ### Medium-to-large (3+ components or complex interfaces)
 
-Generate a plan-mode prompt inline, pre-filled from the design doc. Present it as a single copyable block:
+Generate a plan-mode prompt inline, pre-filled from the spec. Present it as a single copyable block:
 
 ````
 ```
 ## Goal
-[Goal from the design doc]
+[Goal from the spec]
 
 ## Context
-[Synthesize from the design doc's Context and Approach sections.
+[Synthesize from the spec's Context and Approach sections.
 Include key decisions, constraints, and the chosen approach rationale.]
 
 ## Starting Hints
-- Design doc: <file-path>
+- Spec: <file-path>
 - [Key files/modules identified during codebase exploration in Step 3]
 
 ## What to Figure Out
@@ -212,39 +217,39 @@ The plan should include:
 - Test strategy mapped to each component
 
 ## Scope
-- Focus on: [components from the design doc]
-- Out of scope: [from the design doc's Out of Scope section]
+- Focus on: [components from the spec]
+- Out of scope: [from the spec's Out of Scope section]
 
 ## How this conversation should run
-Treat this conversation as a review loop — validate the plan against the actual codebase and iterate with me. When I say I'm done iterating, acknowledge but do not write yet — plan mode is read-only. I will then toggle plan mode off and send a short follow-up message (e.g. "go"). On that follow-up, append a "Refined plan" section to `<design-doc-path>` to capture the refined plan, and stop. I will start a fresh conversation to run `/optimus:tdd`.
+Treat this conversation as a review loop — validate the plan against the actual codebase and iterate with me. When I say I'm done iterating, acknowledge but do not write yet — plan mode is read-only. I will then toggle plan mode off and send a short follow-up message (e.g. "go"). On that follow-up, append a "Refined plan" section to `<spec-path>` to capture the refined plan, and stop. I will start a fresh conversation to run `/optimus:tdd`.
 ```
 ````
 
-When emitting both the plan-mode prompt above and the execution prompt below, substitute `<design-doc-path>` with the actual path from Step 5 so each pasted block is self-contained.
+When emitting both the plan-mode prompt above and the execution prompt below, substitute `<spec-path>` with the actual path from Step 5 so each pasted block is self-contained.
 
 Tell the user:
 
 > 1. Start a fresh Claude Code conversation in **plan mode** (CLI: press `Shift+Tab` until the mode indicator shows plan mode; other clients: use the equivalent toggle). Paste the prompt above.
-> 2. Iterate with Claude. **Do not approve the plan** — approval executes immediately and skips `/optimus:tdd`'s Red-Green-Refactor discipline. When you're satisfied, tell Claude you're done iterating; Claude will acknowledge. Then toggle plan mode off using the same control **and send a short follow-up message (e.g. "go")** — Claude will append a "Refined plan" section to `<design-doc-path>` in response.
+> 2. Iterate with Claude. **Do not approve the plan** — approval executes immediately and skips `/optimus:tdd`'s Red-Green-Refactor discipline. When you're satisfied, tell Claude you're done iterating; Claude will acknowledge. Then toggle plan mode off using the same control **and send a short follow-up message (e.g. "go")** — Claude will append a "Refined plan" section to `<spec-path>` in response.
 > 3. Start a **second fresh conversation** and paste the execution prompt below.
 
-Then emit the **execution prompt** as a second copyable block, pre-filled from the design doc:
+Then emit the **execution prompt** as a second copyable block, pre-filled from the spec:
 
 ````
 ```
 ## Goal
-Run `/optimus:tdd` to implement the refined plan in `<design-doc-path>` test-first.
+Run `/optimus:tdd` to implement the refined plan in `<spec-path>` test-first.
 
 ## Starting Hints
-- Design doc (with "Refined plan" section): <design-doc-path>
-- Components from the design: [list component names from the Components table]
+- Spec (with "Refined plan" section): <spec-path>
+- Components from the spec: [list component names from the Components table]
 
 ## Scope
-- Focus on: [components from the design doc]
-- Out of scope: [from the design doc's Out of Scope section]
+- Focus on: [components from the spec]
+- Out of scope: [from the spec's Out of Scope section]
 ```
 ````
 
-**Prose deliverable:** if the design produces a written artifact rather than code, replace the execution prompt above with one that instructs Claude directly — e.g. `Execute the refined plan in <design-doc-path> to produce <deliverable-path>.` — and note that `/optimus:tdd` does **not** apply. After `<deliverable-path>` is produced, recommend `/optimus:commit` to commit the artifact and tell the user the closing tip per `$CLAUDE_PLUGIN_ROOT/references/skill-handoff.md` "Closing tip wording" — use **Variant A** with `<continuation-skill(s)>` = `/optimus:commit` and `<non-continuation-examples>` = `/optimus:code-review`, `/optimus:unit-test`, etc.
+**Prose deliverable:** if the design produces a written artifact rather than code, replace the execution prompt above with one that instructs Claude directly — e.g. `Execute the refined plan in <spec-path> to produce <deliverable-path>.` — and note that `/optimus:tdd` does **not** apply. After `<deliverable-path>` is produced, recommend `/optimus:commit` to commit the artifact and tell the user the closing tip per `$CLAUDE_PLUGIN_ROOT/references/skill-handoff.md` "Closing tip wording" — use **Variant A** with `<continuation-skill(s)>` = `/optimus:commit` and `<non-continuation-examples>` = `/optimus:code-review`, `/optimus:unit-test`, etc.
 
 See `$CLAUDE_PLUGIN_ROOT/references/skill-handoff.md` for the full handoff convention and why plan mode is used review-only.
