@@ -37,7 +37,7 @@ These docs describe **direction at decreasing altitude**:
 
 > **product vision → MVP PRD → target tech-stack → active build spec**
 
-Higher docs set long-term direction; the **active build spec** governs what to build *right now*. **When they conflict about current work, the active build spec wins.** There is exactly one precedence statement and it lives here — the scaffolded doc headers and the three skills all reference this line rather than restating their own.
+Higher docs set long-term direction; the **active build spec** governs what to build *right now*. **When they conflict about current work, the active build spec wins.** There is exactly one canonical precedence statement and it lives here. The skills reference it; the scaffolded doc headers restate it in full — they ship into the user's repo, which has no access to this file — while deferring to it as canonical.
 
 (This resolves an ambiguity worth avoiding: cascades in the wild sometimes state a 4-level order in one doc and a 3-level order in another. optimus states it once, here.)
 

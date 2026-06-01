@@ -242,7 +242,7 @@ Run `/optimus:tdd` to implement the refined plan in `<spec-path>` test-first.
 
 ## Starting Hints
 - Spec (with "Refined plan" section): <spec-path>
-- Components from the design: [list component names from the Components table]
+- Components from the spec: [list component names from the Components table]
 
 ## Scope
 - Focus on: [components from the spec]
