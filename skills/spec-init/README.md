@@ -10,7 +10,7 @@ This is optimus's entry point for **spec-driven development (SDD)**: capture pro
 |---|---|
 | `docs/product/product-context.md` | Long-term product vision — the destination. |
 | `docs/product/mvp-prd.md` | The first product slice (MVP PRD). |
-| `docs/architecture/tech-stack.md` | The target technologies the product grows toward. |
+| `docs/product/tech-stack.md` | The target technologies the product grows toward. |
 
 Every file is an empty skeleton with `TODO` markers. The skill is **non-destructive** — it never overwrites a file that already exists.
 
@@ -20,8 +20,8 @@ Once per project, at bootstrap — most valuable on a greenfield, docs-first pro
 
 ## Boundary
 
-This skill **authors no PM content.** It emits empty skeletons only — no personas, no KPIs, no business-value prose, no technology choices. Those are the human's to write. The buildable spec is **not** created here either: it is authored by `/optimus:brainstorm` (`docs/design/`) or supplied by a human (`docs/specs/`). optimus stays an engineering tool that *reads* the cascade as steering and *authors* only the engineering spec.
+This skill **authors no PM content.** It emits empty skeletons only — no personas, no KPIs, no business-value prose, no technology choices. Those are the human's to write. The buildable spec is **not** created here either: it is authored by `/optimus:brainstorm` or supplied by a human, in `docs/specs/`. optimus stays an engineering tool that *reads* the cascade as steering and *authors* only the engineering spec.
 
 ## Related concepts
 
-- [`references/sdd-mapping.md`](../../references/sdd-mapping.md) — the shared contract: the canonical altitude/precedence order, the `docs/design` vs `docs/specs` spec-location rule, and the architecture-name disambiguation. `brainstorm` and `tdd` read the cascade this skill scaffolds.
+- [`references/sdd-mapping.md`](../../references/sdd-mapping.md) — the shared contract: the canonical altitude/precedence order and the `docs/specs` spec-location rule. `brainstorm` and `tdd` read the cascade this skill scaffolds.

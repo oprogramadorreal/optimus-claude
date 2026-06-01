@@ -11,9 +11,9 @@ You are scaffolding a **docs-first cascade**: a small set of empty, human-fillab
 
 - `docs/product/product-context.md` — the long-term product vision.
 - `docs/product/mvp-prd.md` — the first product slice (MVP PRD).
-- `docs/architecture/tech-stack.md` — the target technology stack.
+- `docs/product/tech-stack.md` — the target technology stack.
 
-**The boundary — do not cross it.** You emit **empty skeletons with `TODO` markers** for a human to fill. You **author no product content** — no personas, no metrics/KPIs, no business-value prose, no technology choices. optimus is an engineering tool; the cascade is product/PM territory that a human owns. The engineering spec is authored later by `/optimus:brainstorm` (in `docs/design/`), not here. See `${CLAUDE_PLUGIN_ROOT}/references/sdd-mapping.md` for the full contract.
+**The boundary — do not cross it.** You emit **empty skeletons with `TODO` markers** for a human to fill. You **author no product content** — no personas, no metrics/KPIs, no business-value prose, no technology choices. optimus is an engineering tool; the cascade is product/PM territory that a human owns. The engineering build spec is authored later by `/optimus:brainstorm` (in `docs/specs/`), not here. See `${CLAUDE_PLUGIN_ROOT}/references/sdd-mapping.md` for the full contract.
 
 ## Step 1 — Pre-flight
 
@@ -32,9 +32,9 @@ If all three already exist, the cascade is already scaffolded: report that and s
 ## Step 3 — Emit the skeletons
 
 - Read `${CLAUDE_PLUGIN_ROOT}/skills/spec-init/references/cascade-templates.md`.
-- For each **missing** file, create the parent directory if needed (`docs/product/`, `docs/architecture/`) and write the matching template block **verbatim** to its target path. Do not fill in the `TODO` markers — that is the human's job.
+- For each **missing** file, create the parent directory if needed (`docs/product/`) and write the matching template block **verbatim** to its target path. Do not fill in the `TODO` markers — that is the human's job.
 - Write **only** these three files. Specifically, do **not**:
-  - scaffold a `docs/specs/` spec template — the buildable spec is authored by `/optimus:brainstorm` (`docs/design/`) or dropped in by a human (`docs/specs/`); see the contract;
+  - scaffold a build-spec file in `docs/specs/` — the buildable spec is authored later by `/optimus:brainstorm` or dropped in by a human, in `docs/specs/`; see the contract;
   - write anything under `.claude/` (settings, hooks, `.optimus-version`, or docs) — agent/project setup is `/optimus:init`'s job, not this skill's;
   - invent product names, technology choices, or any content beyond the neutral templates.
 
@@ -44,6 +44,6 @@ If all three already exist, the cascade is already scaffolded: report that and s
 - Tell the user to fill the `TODO` sections top-down (vision → MVP PRD → target stack), and state the precedence so they know how the docs relate: *higher docs set long-term direction; the active build spec governs what to build right now — when they conflict about current work, the spec wins.*
 - Close with the handoff tip. This is **not** a continuation skill (the human fills the docs out-of-band and `/optimus:brainstorm` gathers its own context), so use the default — Variant C in `${CLAUDE_PLUGIN_ROOT}/references/skill-handoff.md`:
 
-  > **Next step:** fill in the cascade's `TODO` sections (vision → MVP PRD → target stack). Then run `/optimus:brainstorm` to design the first build — it reads the cascade as steering and writes the engineering spec to `docs/design/`.
+  > **Next step:** fill in the cascade's `TODO` sections (vision → MVP PRD → target stack). Then run `/optimus:brainstorm` to design the first build — it reads the cascade as steering and writes the engineering spec to `docs/specs/`.
   >
   > **Tip:** for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch.

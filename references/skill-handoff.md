@@ -68,7 +68,7 @@ When a skill recommends plan mode as a handoff step, choose by **deliverable typ
 
 **Carve-out — a deliverable routed to `/optimus:tdd` (test-first production code):** treat plan mode as **review-only**. Tell the user *not* to approve the plan — approval executes immediately and bypasses Red-Green-Refactor. Instead:
 
-- The generated plan-mode prompt must include a closing instruction telling Claude to **append a "Refined plan" section** to the underlying design/task doc (`docs/design/…` or `docs/jira/…`) once the user signals they're done iterating. Append (not overwrite) preserves the original design/task context for audit. The write happens in normal mode after the user toggles plan mode off and sends a follow-up message — it is prompt-driven and requires an explicit trigger message, not automatic.
+- The generated plan-mode prompt must include a closing instruction telling Claude to **append a "Refined plan" section** to the underlying spec or task file (`docs/specs/…` or `docs/jira/…`) once the user signals they're done iterating. Append (not overwrite) preserves the original spec/task context for audit. The write happens in normal mode after the user toggles plan mode off and sends a follow-up message — it is prompt-driven and requires an explicit trigger message, not automatic.
 - After Claude writes the refined plan, the user starts a **fresh conversation** and invokes `/optimus:tdd`, which gathers context from scratch against the updated doc.
 
 `/optimus:brainstorm` and `/optimus:jira` use this carve-out for their code paths — their inline plan-mode prompts already encode review-only + "Refined plan" + fresh conversation.

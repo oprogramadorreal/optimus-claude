@@ -1,9 +1,9 @@
-# Design doc format
+# Spec format
 
-Use this template when writing the design document. Omit sections that don't apply — a focused design is better than a padded one.
+Use this template when writing the spec. Omit sections that don't apply — a focused spec is better than a padded one.
 
 ```markdown
-# Design: <Title>
+# Spec: <Title>
 
 **Date:** YYYY-MM-DD
 **Status:** Draft | Approved
@@ -68,4 +68,4 @@ scenarios per the same reference.>
 - **Interfaces** section is critical for multi-component designs — skip for single-file changes
 - **Scenarios** section is conditional — see `scenario-style.md` for inclusion criteria
 - **Out of Scope** prevents the implementation phase from expanding beyond the design
-- Keep the entire document under 200 lines — design docs that rival the implementation are a smell
+- Keep the entire document under 200 lines — specs that rival the implementation are a smell

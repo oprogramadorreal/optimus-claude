@@ -8,7 +8,7 @@ These templates are intentionally neutral: **no product names, no tool/command r
 
 - [Emit to `docs/product/product-context.md`](#emit-to-docsproductproduct-contextmd)
 - [Emit to `docs/product/mvp-prd.md`](#emit-to-docsproductmvp-prdmd)
-- [Emit to `docs/architecture/tech-stack.md`](#emit-to-docsarchitecturetech-stackmd)
+- [Emit to `docs/product/tech-stack.md`](#emit-to-docsproducttech-stackmd)
 
 ---
 
@@ -19,12 +19,12 @@ These templates are intentionally neutral: **no product names, no tool/command r
 
 > **Altitude & precedence.** This document is part of a docs-first cascade, in decreasing altitude:
 > **product vision → MVP PRD → target tech-stack → active build spec**. Higher docs set long-term
-> direction; the active build spec (in `docs/design/` or `docs/specs/`) governs what to build right
+> direction; the active build spec (in `docs/specs/`) governs what to build right
 > now. When they conflict about current work, **the active build spec wins.**
-> Siblings: [MVP PRD](./mvp-prd.md) · [target tech-stack](../architecture/tech-stack.md).
+> Siblings: [MVP PRD](./mvp-prd.md) · [target tech-stack](./tech-stack.md).
 >
 > **What this document is.** The long-term product vision — the destination, not the next build. For
-> what to build now, follow the active build spec in `docs/design/` or `docs/specs/`; for the first
+> what to build now, follow the active build spec in `docs/specs/`; for the first
 > product slice, see [mvp-prd.md](./mvp-prd.md).
 
 ## Big picture
@@ -68,13 +68,13 @@ These templates are intentionally neutral: **no product names, no tool/command r
 
 > **Altitude & precedence.** This document is part of a docs-first cascade, in decreasing altitude:
 > **product vision → MVP PRD → target tech-stack → active build spec**. Higher docs set long-term
-> direction; the active build spec (in `docs/design/` or `docs/specs/`) governs what to build right
+> direction; the active build spec (in `docs/specs/`) governs what to build right
 > now. When they conflict about current work, **the active build spec wins.**
-> Siblings: [product vision](./product-context.md) · [target tech-stack](../architecture/tech-stack.md).
+> Siblings: [product vision](./product-context.md) · [target tech-stack](./tech-stack.md).
 >
 > **What this document is.** The first product slice (the MVP) — narrower than the
 > [product vision](./product-context.md), broader than any single build. What to build *right now* is
-> the smaller active build spec in `docs/design/` or `docs/specs/`.
+> the smaller active build spec in `docs/specs/`.
 >
 > **How to use it.** Each section holds a guiding question. Resolve a section by replacing its `TODO`
 > with the decision and a short note on *why*.
@@ -114,16 +114,16 @@ These templates are intentionally neutral: **no product names, no tool/command r
 
 ---
 
-## Emit to `docs/architecture/tech-stack.md`
+## Emit to `docs/product/tech-stack.md`
 
 ```markdown
 # Target Technology Stack
 
 > **Altitude & precedence.** This document is part of a docs-first cascade, in decreasing altitude:
 > **product vision → MVP PRD → target tech-stack → active build spec**. Higher docs set long-term
-> direction; the active build spec (in `docs/design/` or `docs/specs/`) governs what to build right
+> direction; the active build spec (in `docs/specs/`) governs what to build right
 > now. When they conflict about current work, **the active build spec wins.**
-> Siblings: [product vision](../product/product-context.md) · [MVP PRD](../product/mvp-prd.md).
+> Siblings: [product vision](./product-context.md) · [MVP PRD](./mvp-prd.md).
 >
 > **What this document is.** The **target** stack the product grows toward — *not* a constraint on the
 > current build. The active build spec uses only the small subset it needs. This is forward-looking
