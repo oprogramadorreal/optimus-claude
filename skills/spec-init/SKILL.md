@@ -41,7 +41,7 @@ If all three already exist, the cascade is already scaffolded: report that and s
 ## Step 4 — Report and hand off
 
 - Summarize what was **created** vs. **skipped**.
-- Tell the user to fill the `TODO` sections top-down (vision → MVP PRD → target stack), and state the precedence so they know how the docs relate: *higher docs set long-term direction; the active build spec governs what to build right now — when they conflict about current work, the spec wins.*
+- Tell the user to fill the `TODO` sections top-down (vision → MVP PRD → target stack), and state the precedence (the canonical rule lives in `$CLAUDE_PLUGIN_ROOT/references/sdd-mapping.md` and is restated in each scaffolded doc's header) so they know how the docs relate: *higher docs set long-term direction; the active build spec governs what to build right now — when they conflict about current work, the active build spec wins.*
 - Close with the handoff tip. This is **not** a continuation skill (the human fills the docs out-of-band and `/optimus:brainstorm` gathers its own context), so use the default — Variant C in `$CLAUDE_PLUGIN_ROOT/references/skill-handoff.md`:
 
   > **Next step:** fill in the cascade's `TODO` sections (vision → MVP PRD → target stack). Then run `/optimus:brainstorm` to design the first build — it reads the cascade as steering and writes the engineering spec to `docs/specs/`.
