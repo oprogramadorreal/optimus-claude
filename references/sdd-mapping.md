@@ -15,7 +15,7 @@ It is not a SKILL.md, and no skill loads it for *behavior* — the skills implem
 
 Optimus is an engineering tool. It does **not author** PM content — no personas, no success metrics or KPIs, no business-value framing. PRDs are PM artifacts; optimus stays out of PM territory.
 
-What changed (2026-05-31): optimus now **scaffolds an empty, product-neutral docs-first cascade** and **reads it as steering**, but it still authors nothing PM-flavored. `/optimus:spec-init` stamps blank skeletons with `TODO` markers for a human to fill; `brainstorm` and `tdd` read the filled docs as higher-altitude context. The authoring boundary is intact: optimus authors the engineering build spec (in `docs/specs/`, via `brainstorm`) and never the product steering above it — it only scaffolds those skeletons empty and reads them.
+What changed (2026-05-31): optimus now **scaffolds an empty, product-neutral docs-first cascade** and **reads it as steering**, but it still authors nothing PM-flavored. `/optimus:spec-init` stamps blank skeletons with `TODO` markers for a human to fill; `brainstorm` reads all three as higher-altitude context, while `tdd` reads only the lower two (MVP PRD and target tech-stack) — the long-term vision steers design, not implementation. The authoring boundary is intact: optimus authors the engineering build spec (in `docs/specs/`, via `brainstorm`) and never the product steering above it — it only scaffolds those skeletons empty and reads them.
 
 When PM-authored content needs to enter the workflow, the supported path is still `/optimus:jira`. The jira skill distills an issue into a fixed engineering shape — Goal, Acceptance Criteria, Context, Key Decisions — at `docs/jira/<KEY>.md`. The jira skill is, in effect, optimus's PM-firewall. If a user has a PRD authored externally (Notion, Confluence, a Markdown file), the path is to paste the relevant parts into a JIRA issue (then `/optimus:jira`) or describe the intent directly to `/optimus:brainstorm`. Optimus never authors a PRD itself.
 
@@ -67,7 +67,7 @@ Spec Kit adds a `constitution.md` and Kiro a `structure.md` to hold project-wide
 | 3 | **Tasks** | `/optimus:tdd` Step 3 decomposes the goal into behaviors. When the spec has a `## Scenarios` section, each `### Scenario:` maps to one Red-Green-Refactor cycle |
 | 4 | **Implement & Verify** | `/optimus:tdd` Red-Green-Refactor cycles, then `/optimus:pr` → `/optimus:code-review` |
 
-The full chain: *`/optimus:spec-init` (scaffold steering, optional) → human fills the cascade → external PM artifact → `/optimus:jira` (optional) → `/optimus:brainstorm` (reads cascade as steering) → plan mode (optional) → `/optimus:tdd` (reads the build spec + cascade) → `/optimus:pr` → `/optimus:code-review`*.
+The full chain: *`/optimus:spec-init` (scaffold steering, optional) → human fills the cascade → external PM artifact → `/optimus:jira` (optional) → `/optimus:brainstorm` (reads cascade as steering) → plan mode (optional) → `/optimus:tdd` (reads the build spec + the MVP PRD and tech-stack) → `/optimus:pr` → `/optimus:code-review`*.
 
 ## When you already have a spec authored elsewhere
 

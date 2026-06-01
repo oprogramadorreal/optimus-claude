@@ -24,4 +24,4 @@ This skill **authors no PM content.** It emits empty skeletons only — no perso
 
 ## Related concepts
 
-- [`references/sdd-mapping.md`](../../references/sdd-mapping.md) — the shared contract: the canonical altitude/precedence order and the `docs/specs` spec-location rule. `brainstorm` and `tdd` read the cascade this skill scaffolds.
+- [`references/sdd-mapping.md`](../../references/sdd-mapping.md) — the shared contract: the canonical altitude/precedence order and the `docs/specs` spec-location rule. `brainstorm` reads the full cascade this skill scaffolds; `tdd` reads its MVP PRD and tech-stack.
