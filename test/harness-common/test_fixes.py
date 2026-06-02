@@ -417,3 +417,90 @@ class TestBisectFixes:
         # B should have been marked "skipped" via the second-pass branch
         assert ("b.txt", "skipped") in outcomes
         assert ("a.txt", "fixed") in outcomes
+
+
+class TestBisectCleanReset:
+    """bisect_fixes with a reset_to_clean hook isolates deletion fixes that the
+    legacy revert-all/re-apply strategy cannot un-apply."""
+
+    def test_clean_reset_isolates_harmful_deletion(self, tmp_path):
+        del_file = tmp_path / "del.py"
+        good_file = tmp_path / "good.py"
+
+        def reset_to_clean():
+            del_file.write_text("DELETE_ME\n", encoding="utf-8")
+            good_file.write_text("GOOD_PRE\n", encoding="utf-8")
+
+        reset_to_clean()
+        deletion = {
+            "file": "del.py",
+            "category": "dead-code",
+            "line": 1,
+            "pre_edit_content": "DELETE_ME\n",
+            "post_edit_content": "",
+        }
+        good = {
+            "file": "good.py",
+            "category": "fix",
+            "line": 1,
+            "pre_edit_content": "GOOD_PRE",
+            "post_edit_content": "GOOD_POST",
+        }
+        # Simulate the subagent applying both fixes before bisection.
+        apply_single_fix(deletion, str(tmp_path))
+        apply_single_fix(good, str(tmp_path))
+
+        def fake_run_tests(_cmd, _cwd):
+            # The deletion is harmful: tests fail whenever DELETE_ME is gone.
+            ok = "DELETE_ME" in del_file.read_text(encoding="utf-8")
+            return ok, "" if ok else "boom"
+
+        outcomes = {}
+
+        def on_outcome(_idx, fix, outcome, _detail):
+            outcomes[fix["file"]] = outcome
+
+        fixed, reverted, skipped = bisect_fixes(
+            [deletion, good],
+            "test",
+            str(tmp_path),
+            run_tests_fn=fake_run_tests,
+            on_outcome=on_outcome,
+            reset_to_clean=reset_to_clean,
+        )
+
+        # The harmful deletion is correctly reverted (not "retained"), and the
+        # good co-fix survives instead of being lost to a full rollback.
+        assert outcomes["del.py"] == "reverted"
+        assert outcomes["good.py"] == "fixed"
+        assert (fixed, reverted, skipped) == (1, 1, 0)
+        assert "DELETE_ME" in del_file.read_text(encoding="utf-8")
+        assert "GOOD_POST" in good_file.read_text(encoding="utf-8")
+
+    def test_legacy_path_retains_deletion_without_reset(self, tmp_path):
+        # Without a reset hook, a deletion that can't be reverted is counted as
+        # "retained" — this is the behavior the clean-reset hook fixes.
+        del_file = tmp_path / "del.py"
+        del_file.write_text("DELETE_ME\n", encoding="utf-8")
+        deletion = {
+            "file": "del.py",
+            "category": "dead-code",
+            "line": 1,
+            "pre_edit_content": "DELETE_ME\n",
+            "post_edit_content": "",
+        }
+        apply_single_fix(deletion, str(tmp_path))
+
+        outcomes = {}
+
+        def on_outcome(_idx, fix, outcome, _detail):
+            outcomes[fix["file"]] = outcome
+
+        bisect_fixes(
+            [deletion],
+            "test",
+            str(tmp_path),
+            run_tests_fn=lambda _c, _w: (False, "boom"),
+            on_outcome=on_outcome,
+        )
+        assert outcomes["del.py"] == "retained"

@@ -75,8 +75,11 @@ If the user selects **Cancel**, stop.
 ```bash
 PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli resume \
     --progress-file ".claude/unit-test-deep-progress.json" \
+    [--max-cycles N] \
     --project-dir "."
 ```
+
+Pass `--max-cycles N` through when the user supplied a higher cap on `--resume` — `resume` raises the persisted cycle cap (and clears a prior `diminishing-returns` stop) so the loop continues past the previous limit. A run that finished cleanly is archived to `.done.json`; `--resume` only continues a still-on-disk run (interrupt or `diminishing-returns`).
 
 ### On fresh run
 

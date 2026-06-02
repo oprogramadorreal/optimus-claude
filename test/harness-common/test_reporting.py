@@ -17,6 +17,16 @@ class TestDetectTestCommand:
     def test_no_claude_md(self, tmp_path):
         assert detect_test_command(tmp_path) is None
 
+    def test_capitalized_fence_lang(self):
+        # A capitalized shell fence tag (```Bash) must still be recognized —
+        # the block-language match is case-insensitive like the inline patterns.
+        content = "# Project\n\n```Bash\npytest\n```\n"
+        assert detect_test_command("/unused", content=content) == "pytest"
+
+    def test_powershell_capitalized_fence_lang(self):
+        content = "# Project\n\n```PowerShell\npytest -v\n```\n"
+        assert detect_test_command("/unused", content=content) == "pytest -v"
+
     def test_inline_backtick_pattern(self):
         content = "test command: `pytest --tb=short`\n"
         assert detect_test_command("/unused", content=content) == "pytest --tb=short"

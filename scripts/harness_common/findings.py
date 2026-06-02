@@ -89,6 +89,12 @@ def mark_finding_status(progress, fix, status, detail):
     """Update a finding's status in the progress file."""
     for existing in progress["findings"]:
         if finding_matches(existing, fix):
+            if status == "discovered":
+                # The finding was already discovered in a prior iteration. A
+                # re-report (e.g. a subagent that ignored the harness-mode dedup
+                # protocol) must not regress a resolved status back to
+                # "discovered" or bump its attempt bookkeeping.
+                return
             effective_status = _escalate_revert_status(status, existing["status"])
 
             existing["status"] = effective_status

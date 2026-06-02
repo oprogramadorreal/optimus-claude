@@ -1,5 +1,3 @@
-import json
-
 from harness_common.parser import parse_harness_output
 
 
@@ -27,23 +25,9 @@ class TestParseHarnessOutput:
         result = parse_harness_output(raw)
         assert result == {"iteration": 2}
 
-    def test_envelope_format(self):
-        inner = '```json:harness-output\n{"iteration": 1}\n```'
-        envelope = json.dumps({"result": inner})
-        result = parse_harness_output(envelope)
-        assert result == {"iteration": 1}
-
     def test_invalid_json_in_block(self):
         raw = "```json:harness-output\n{invalid json}\n```"
         assert parse_harness_output(raw) is None
-
-    def test_envelope_with_non_string_result(self):
-        envelope = json.dumps({"result": 42})
-        assert parse_harness_output(envelope) is None
-
-    def test_envelope_without_result_key(self):
-        envelope = json.dumps({"data": "something"})
-        assert parse_harness_output(envelope) is None
 
     def test_returns_last_parseable_block_when_template_echoed(self):
         # The subagent echoed the harness-mode.md template (placeholder

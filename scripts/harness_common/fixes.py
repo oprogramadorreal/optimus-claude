@@ -55,7 +55,82 @@ def revert_single_fix(fix, cwd):
     return _swap_content(fix, cwd, "post_edit_content", "pre_edit_content")
 
 
-def bisect_fixes(fixes, test_command, cwd, run_tests_fn=None, on_outcome=None):
+def _is_deletion_fix(fix):
+    """A deletion fix (empty post_edit_content) can be applied but not reverted
+    by content-swap — reverting would need to re-insert pre_edit_content but has
+    no anchor to locate the insertion point.
+    """
+    return not fix.get("post_edit_content")
+
+
+def _bisect_via_clean_reset(
+    fixes, test_command, cwd, run_tests_fn, on_outcome, reset_to_clean
+):
+    """Bisect a set containing deletion fixes that content-swap can't revert.
+
+    The default revert-all/re-apply strategy can't un-apply a deletion, so the
+    deletion stays applied and contaminates every other fix's isolation test.
+    Instead, rebuild from the pre-iteration clean state via *reset_to_clean*:
+    re-establish the running set of kept (passing) fixes from clean before each
+    candidate, so every fix — deletions included — is tested in true isolation.
+
+    Same ``(fixed_count, reverted_count, skipped_count)`` contract as
+    :func:`bisect_fixes`. Never emits ``"retained"`` (no un-revertible state
+    survives a clean rebuild).
+    """
+
+    def _rebuild(indices):
+        reset_to_clean()
+        for i in indices:
+            apply_single_fix(fixes[i], cwd)
+
+    outcome = {}  # idx -> (status, detail)
+    kept = []
+    rejected = []
+    for idx, fix in enumerate(fixes):
+        _rebuild(kept)
+        if not apply_single_fix(fix, cwd):
+            outcome[idx] = ("skipped", None)
+            continue
+        passed, summary = run_tests_fn(test_command, cwd)
+        if passed:
+            kept.append(idx)
+            outcome[idx] = ("fixed", None)
+        else:
+            rejected.append(idx)
+            outcome[idx] = ("reverted", summary)
+
+    # Retry rejected fixes with all first-pass keepers applied — a fix may have
+    # depended on a keeper that was applied later in the first pass.
+    for idx in rejected:
+        _rebuild(kept)
+        if not apply_single_fix(fixes[idx], cwd):
+            outcome[idx] = ("skipped", None)
+            continue
+        passed, _summary = run_tests_fn(test_command, cwd)
+        if passed:
+            kept.append(idx)
+            outcome[idx] = ("fixed", "Passed on retry (dependency resolved)")
+
+    # Re-establish the final kept set on disk, then emit one outcome per fix.
+    _rebuild(kept)
+    fixed_count = reverted_count = skipped_count = 0
+    for idx in range(len(fixes)):
+        status, detail = outcome[idx]
+        if on_outcome is not None:
+            on_outcome(idx, fixes[idx], status, detail)
+        if status == "fixed":
+            fixed_count += 1
+        elif status == "reverted":
+            reverted_count += 1
+        else:
+            skipped_count += 1
+    return fixed_count, reverted_count, skipped_count
+
+
+def bisect_fixes(
+    fixes, test_command, cwd, run_tests_fn=None, on_outcome=None, reset_to_clean=None
+):
     """Bisect fixes to find which ones break tests.
 
     Reverts all fixes, then re-applies one at a time, running the test suite
@@ -73,12 +148,28 @@ def bisect_fixes(fixes, test_command, cwd, run_tests_fn=None, on_outcome=None):
     ``"fixed"`` after a successful retry, and ``None`` otherwise. Lets
     callers update per-finding status with provenance.
 
+    *reset_to_clean*, when provided, is a zero-arg callable that restores the
+    working tree to the pre-iteration clean state. It is required to correctly
+    bisect deletion fixes (empty post_edit_content), which can't be reverted by
+    content-swap; when the set contains one, this function rebuilds from clean
+    instead. When ``None`` (or no deletion present), the legacy incremental
+    strategy runs unchanged.
+
     Returns ``(fixed_count, reverted_count, skipped_count)``.
     """
     if run_tests_fn is None:
         from .runner import run_tests as _default_run_tests
 
         run_tests_fn = _default_run_tests
+
+    # Deletion fixes can't be reverted by content-swap. When the caller supplies
+    # a clean-reset hook, rebuild from clean so deletions can be isolated;
+    # otherwise fall through to the legacy strategy (an un-revertible deletion is
+    # left applied and reported "retained").
+    if reset_to_clean is not None and any(_is_deletion_fix(f) for f in fixes):
+        return _bisect_via_clean_reset(
+            fixes, test_command, cwd, run_tests_fn, on_outcome, reset_to_clean
+        )
 
     def _emit(idx, fix, outcome, detail=None):
         if on_outcome is not None:

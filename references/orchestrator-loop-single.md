@@ -68,7 +68,7 @@ PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli parse \
     --progress-file "<progress-path>"
 ```
 
-Errors on missing `json:harness-output` block. Passing `--progress-file` lets the CLI track consecutive parse failures across iterations (and across `--resume`); a single failure is a no-op and the loop moves on, while two consecutive failures cause step 7 to return `parse-failure` and terminate the loop. See "Parse-failure recovery" below.
+Errors on missing `json:harness-output` block. Passing `--progress-file` lets the CLI track consecutive parse failures across iterations (and across `--resume`); a single failure is a no-op — the CLI also rolls the failed dispatch's partial edits back to the iteration snapshot so nothing half-done is left for a later checkpoint to commit — and the loop moves on, while two consecutive failures cause step 7 to return `parse-failure` and terminate the loop. See "Parse-failure recovery" below.
 
 ### 5. Process the iteration
 

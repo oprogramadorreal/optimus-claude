@@ -67,6 +67,7 @@ from .findings import (
 from .fixes import bisect_fixes
 from .git import commit_checkpoint as git_commit_checkpoint
 from .git import (
+    get_open_pr_data,
     git_diff_has_changes,
     git_discover_branch_files,
     git_fetch_open_pr_description,
@@ -268,6 +269,18 @@ def _format_test_passed(test_passed):
     return "1" if test_passed else "0"
 
 
+def _clean_reset_hook(pre_stash, pre_head, project_root):
+    """Return a repeatable clean-reset callback for bisect, or None.
+
+    git_restore_to (commit mode, pre_stash is None) is repeatable; a no-commit
+    stash restore drops the stash after one use, so it can't back a clean-reset
+    bisect — return None there and let bisect use its legacy deletion handling.
+    """
+    if pre_stash is None and pre_head:
+        return lambda: restore_working_tree(pre_stash, pre_head, project_root)
+    return None
+
+
 def _test_and_reconcile_fixes(
     fixes, test_command, project_root, progress, pre_stash, pre_head
 ):
@@ -279,20 +292,27 @@ def _test_and_reconcile_fixes(
         mark_all_fixed(progress, fixes)
         return len(fixes), 0, True, False
 
+    reset_to_clean = _clean_reset_hook(pre_stash, pre_head, project_root)
     fixed, reverted, _ = bisect_fixes(
         fixes,
         test_command,
         project_root,
         on_outcome=_make_bisect_callback(progress),
+        reset_to_clean=reset_to_clean,
     )
     if fixed > 0:
         passed, summary = run_tests(test_command, project_root)
         record_test_result(progress, passed, summary)
         if not passed:
             restore_working_tree(pre_stash, pre_head, project_root)
-            interaction_reverted = _mark_combined_regression(fixes, progress)
-            reverted += interaction_reverted
-            fixed -= interaction_reverted
+            _mark_combined_regression(fixes, progress)
+            # The full restore reverted every fix this iteration applied, so the
+            # honest fix-level tally is zero fixed / all reverted. Set it from
+            # `fixed` directly rather than decrementing per demoted finding,
+            # which could drive the count negative when several findings share
+            # one fix key.
+            reverted += fixed
+            fixed = 0
 
     all_reverted = fixed == 0 and reverted > 0
     return fixed, reverted, passed, all_reverted
@@ -327,11 +347,13 @@ def _test_and_reconcile_refactor_fixes(
     if passed:
         return len(fixes), 0, True
 
+    reset_to_clean = _clean_reset_hook(pre_stash, pre_head, project_root)
     fixed, reverted, _ = bisect_fixes(
         fixes,
         test_command,
         project_root,
         on_outcome=_make_refactor_bisect_callback(progress, cycle),
+        reset_to_clean=reset_to_clean,
     )
     if fixed > 0:
         passed, summary = run_tests(test_command, project_root)
@@ -344,8 +366,12 @@ def _test_and_reconcile_refactor_fixes(
                     and finding.get("status") in FIXED_STATUSES
                 ):
                     finding["status"] = "reverted — test failure"
-                    fixed -= 1
-                    reverted += 1
+            # The full restore reverted every fix this phase applied, so report
+            # zero fixed / all reverted. Recompute from `fixed` rather than
+            # decrementing per finding, which could go negative when several
+            # findings share one fix key.
+            reverted += fixed
+            fixed = 0
     return fixed, reverted, passed
 
 
@@ -466,13 +492,17 @@ def _init_deep(args, project_root, test_command, base_commit):
         args.no_commit,
     )
     path_filter = args.scope if scope_is_path else None
+    # Fetch the open-PR metadata once and thread it into both base-branch
+    # detection and the description builder, instead of each re-shelling out
+    # to `gh pr view`.
+    pr_data = get_open_pr_data(project_root)
     branch_files, base_ref = git_discover_branch_files(
-        project_root, path_filter=path_filter
+        project_root, path_filter=path_filter, pr_info=pr_data
     )
     if branch_files:
         progress["scope_files"]["current"] = branch_files
         progress["config"]["scope"]["base_ref"] = base_ref
-    pr_info = git_fetch_open_pr_description(project_root)
+    pr_info = git_fetch_open_pr_description(project_root, pr_info=pr_data)
     if pr_info:
         progress["config"]["pr_description"] = pr_info
     return progress, 0
@@ -504,6 +534,20 @@ def cmd_init(args):
     base_commit = git_rev_parse_head(project_root)
     if not base_commit:
         print(f"ERROR: Cannot determine HEAD commit in {project_root}", file=sys.stderr)
+        return 1
+
+    # A fresh run's checkpoint commits must stay isolated from the user's own
+    # work, so refuse to start on a dirty tree. --no-commit runs take a
+    # non-destructive stash instead, so they are allowed. The orchestrator
+    # SKILL.md enforces the same check, but pinning it here also protects a
+    # direct CLI caller or a garbled skill step.
+    if not args.no_commit and git_diff_has_changes(project_root):
+        print(
+            "ERROR: Working tree has uncommitted changes. Commit or stash them "
+            "before a fresh deep run, or pass --no-commit to run without "
+            "checkpoint commits.",
+            file=sys.stderr,
+        )
         return 1
 
     if skill in COVERAGE_VARIANT_SKILLS:
@@ -552,6 +596,31 @@ def cmd_resume(args):
                 file=sys.stderr,
             )
             return 1
+
+    # Resuming means "continue the loop". Clear any stored terminal reason so
+    # `check-termination` re-evaluates from scratch instead of immediately
+    # re-emitting the soft-exit (diminishing-returns) that left this file
+    # resumable — without this, every --resume quits after a single iteration.
+    config = progress.get("config", {})
+    mutated = False
+    if (progress.get("termination") or {}).get("reason"):
+        progress["termination"] = {"reason": None, "message": None}
+        mutated = True
+    # Let --resume raise the persisted cap (the documented
+    # "--resume --max-iterations <new-cap>" continuation path).
+    if args.max_iterations is not None and "max_iterations" in config:
+        new_cap = max(min(args.max_iterations, MAX_ITERATIONS_HARD_CAP), 1)
+        if new_cap != config["max_iterations"]:
+            config["max_iterations"] = new_cap
+            mutated = True
+    if args.max_cycles is not None and "max_cycles" in config:
+        new_cap = max(min(args.max_cycles, MAX_CYCLES_HARD_CAP), 1)
+        if new_cap != config["max_cycles"]:
+            config["max_cycles"] = new_cap
+            mutated = True
+    if mutated:
+        write_progress(progress_path, progress)
+
     print(progress["skill"])
     return 0
 
@@ -605,6 +674,25 @@ def cmd_parse(args):
                     progress["parse_failure_count"] = (
                         progress.get("parse_failure_count", 0) + 1
                     )
+                    # The subagent emitted no parseable output, so any partial
+                    # edits it left are untrusted. Roll the working tree back to
+                    # this iteration's snapshot so the failed dispatch is a true
+                    # no-op and a later checkpoint can't sweep half-done work into
+                    # a commit. Gated on snapshot freshness so a missing/stale
+                    # snapshot never restores to the wrong state.
+                    snap = progress.get("_snapshot") or {}
+                    token = snap.get("iteration_token")
+                    if token is not None and token == _current_unit(progress):
+                        try:
+                            restore_working_tree(
+                                snap.get("pre_stash"),
+                                snap.get("pre_head"),
+                                Path(progress["config"]["project_root"]),
+                            )
+                        except (RuntimeError, OSError):
+                            # Best-effort rollback — the failure count is still
+                            # recorded so the loop can terminate on repeat.
+                            pass
                 else:
                     progress["parse_failure_count"] = 0
                 write_progress(progress_path, progress)
@@ -613,9 +701,13 @@ def cmd_parse(args):
         print(error_message, file=sys.stderr)
         return 1
     if args.output_file:
-        Path(args.output_file).write_text(
-            json.dumps(parsed, indent=2), encoding="utf-8"
-        )
+        try:
+            Path(args.output_file).write_text(
+                json.dumps(parsed, indent=2), encoding="utf-8"
+            )
+        except OSError as exc:
+            print(f"ERROR: Cannot write {args.output_file}: {exc}", file=sys.stderr)
+            return 1
     print(json.dumps(parsed))
     return 0
 
@@ -868,6 +960,7 @@ def cmd_refactor_step(args):
     fixes = result.get("fixes_applied", [])
     applied_keys = {finding_key(f) for f in fixes}
     new_findings = result.get("new_findings", [])
+    represented = set()
     for finding in new_findings:
         status = (
             "fixed" if finding_key(finding) in applied_keys else "skipped — not applied"
@@ -879,6 +972,18 @@ def cmd_refactor_step(args):
                 "status": status,
             }
         )
+        represented.add(finding_key(finding))
+    # Register any applied fix the subagent didn't echo in new_findings so every
+    # fix has a key-matched refactor_finding — mirrors deep-step's
+    # _register_iteration_findings. Without it, such a fix is invisible to the
+    # bisect callback and the touched-file match below, stranding its
+    # untestable item as permanently "pending".
+    for fix in fixes:
+        if finding_key(fix) not in represented:
+            progress["refactor_findings"].append(
+                {**fix, "cycle": cycle, "status": "fixed"}
+            )
+            represented.add(finding_key(fix))
 
     fixed_count, reverted_count, test_passed = _test_and_reconcile_refactor_fixes(
         fixes, test_command, project_root, progress, cycle, pre_stash, pre_head
@@ -1228,6 +1333,18 @@ def _build_parser():
     p = sub.add_parser("resume")
     p.add_argument("--progress-file", required=True)
     p.add_argument("--project-dir", default=None)
+    p.add_argument(
+        "--max-iterations",
+        type=int,
+        default=None,
+        help="Raise the persisted iteration cap when continuing a deep run",
+    )
+    p.add_argument(
+        "--max-cycles",
+        type=int,
+        default=None,
+        help="Raise the persisted cycle cap when continuing a coverage run",
+    )
     p.set_defaults(func=cmd_resume)
 
     p = sub.add_parser("snapshot")

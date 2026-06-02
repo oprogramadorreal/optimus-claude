@@ -4,7 +4,6 @@ from pathlib import Path
 from .constants import FIXED_STATUSES, PERSISTENT_STATUS, REVERTED_STATUSES
 from .git import git_current_branch
 
-
 _SHELL_FENCE_LANGS = (
     "bash",
     "sh",
@@ -61,7 +60,7 @@ def detect_test_command(project_root, content=None):
         r"((?:(?!```)[\s\S])+?)\n\s*```"
     )
     test_command_pattern = r"(?:test|spec|jest|pytest|cargo test|go test|dotnet test)"
-    for block_match in re.finditer(block_pattern, content):
+    for block_match in re.finditer(block_pattern, content, re.IGNORECASE):
         for line in block_match.group(1).strip().splitlines():
             line = line.strip()
             if (
@@ -229,8 +228,10 @@ def print_coverage_report(progress):
     print("  Coverage orchestrator report")
     print("=" * 60)
     print(f"  Cycles:           {cycles}")
-    if baseline is not None:
+    if baseline is not None and current is not None:
         print(f"  Coverage:         {baseline}% → {current}%")
+    elif baseline is not None:
+        print(f"  Coverage:         {baseline}% (baseline; no later measurement)")
     else:
         print("  Coverage:         not measured")
     print(f"  Tests created:    {total_tests} tests in {total_files} files")

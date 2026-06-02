@@ -15,6 +15,7 @@ from harness_common.git import (
     _fetch_open_pr_data,
     _verify_ref,
     commit_checkpoint,
+    get_open_pr_data,
     git_current_branch,
     git_diff_has_changes,
     git_discover_branch_files,
@@ -39,6 +40,13 @@ def test_gitignore_mirrors_harness_state_excludes():
     for pattern in _HARNESS_STATE_EXCLUDES:
         if pattern.startswith(".claude/."):
             assert pattern in gitignore, f"{pattern} missing from .gitignore"
+
+
+@patch("harness_common.git._fetch_open_pr_data")
+def test_get_open_pr_data_delegates(mock_fetch):
+    mock_fetch.return_value = {"state": "OPEN"}
+    assert get_open_pr_data("/tmp/project") == {"state": "OPEN"}
+    mock_fetch.assert_called_once_with("/tmp/project")
 
 
 class TestGitRevParseHead:
@@ -447,6 +455,16 @@ class TestBaseFromOpenPr:
         mock_fetch.return_value = {"title": "x", "body": "y", "state": "OPEN"}
         assert _base_from_open_pr("/tmp") is None
 
+    @patch("harness_common.git._verify_ref", return_value=True)
+    @patch("harness_common.git._fetch_open_pr_data")
+    def test_provided_pr_info_skips_refetch(self, mock_fetch, _mock_verify):
+        # CL1: threading pr_info (dict or None) must not trigger a re-fetch —
+        # None means "fetched, no open PR", not "not provided".
+        pr = {"baseRefName": "main", "state": "OPEN"}
+        assert _base_from_open_pr("/tmp", pr) == "origin/main"
+        assert _base_from_open_pr("/tmp", None) is None
+        mock_fetch.assert_not_called()
+
 
 class TestBaseFromSymbolicRef:
     @patch("harness_common.git.subprocess.run")
@@ -619,6 +637,12 @@ class TestGitFetchOpenPrDescription:
     @patch("harness_common.git._fetch_open_pr_data", return_value=None)
     def test_returns_none_when_no_pr(self, _mock_fetch):
         assert git_fetch_open_pr_description("/tmp") is None
+
+    @patch("harness_common.git._fetch_open_pr_data")
+    def test_provided_none_skips_refetch(self, mock_fetch):
+        # CL1: threading pr_info=None (no open PR) must not re-fetch.
+        assert git_fetch_open_pr_description("/tmp", None) is None
+        mock_fetch.assert_not_called()
 
     @patch("harness_common.git._fetch_open_pr_data")
     def test_title_truncated_at_limit(self, mock_fetch):

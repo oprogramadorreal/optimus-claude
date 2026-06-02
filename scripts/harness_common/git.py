@@ -5,6 +5,10 @@ from .constants import BACKUP_SUFFIX
 
 _PREFIX = "[harness]"
 
+# Sentinel distinguishing "PR data not provided → fetch it" from "provided as
+# None" (an explicit no-open-PR result that must NOT trigger a re-fetch).
+_UNSET = object()
+
 
 def commit_checkpoint(commit_message, cwd, progress_file, _run=None):
     """Stage all changes, un-stage harness state files, and commit.
@@ -55,6 +59,8 @@ def git_rev_parse_head(cwd):
         ["git", "rev-parse", "HEAD"],
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         cwd=str(cwd),
     )
     if result.returncode != 0:
@@ -183,6 +189,8 @@ def git_current_branch(cwd):
         cwd=str(cwd),
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
     )
     return result.stdout.strip() if result.returncode == 0 else ""
 
@@ -201,6 +209,8 @@ def git_diff_has_changes(cwd):
         cwd=cwd_str,
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
     )
     return bool(untracked.stdout.strip())
 
@@ -263,9 +273,20 @@ def _fetch_open_pr_data(cwd_str):
     return pr_info
 
 
-def _base_from_open_pr(cwd_str):
+def get_open_pr_data(cwd):
+    """Fetch the current branch's open-PR metadata once, or ``None``.
+
+    Public accessor so a caller (``init``) can fetch the open-PR JSON a single
+    time and thread it into both base-branch detection and the PR-description
+    builder, instead of each re-shelling out to ``gh pr view``.
+    """
+    return _fetch_open_pr_data(str(cwd))
+
+
+def _base_from_open_pr(cwd_str, pr_info=_UNSET):
     """Return the open PR's base ref (e.g. ``origin/main``) if it exists locally."""
-    pr_info = _fetch_open_pr_data(cwd_str)
+    if pr_info is _UNSET:
+        pr_info = _fetch_open_pr_data(cwd_str)
     if not (pr_info and pr_info.get("baseRefName")):
         return None
     pr_base = f"origin/{pr_info['baseRefName']}"
@@ -300,17 +321,17 @@ def _base_from_default_branches(cwd_str):
     return None
 
 
-def _detect_base_branch(cwd):
+def _detect_base_branch(cwd, pr_info=_UNSET):
     """Detect the base branch for the current feature branch."""
     cwd_str = str(cwd)
     return (
-        _base_from_open_pr(cwd_str)
+        _base_from_open_pr(cwd_str, pr_info)
         or _base_from_symbolic_ref(cwd_str)
         or _base_from_default_branches(cwd_str)
     )
 
 
-def git_discover_branch_files(cwd, path_filter=None):
+def git_discover_branch_files(cwd, path_filter=None, pr_info=_UNSET):
     """Discover all files changed in the current feature branch vs. the base branch.
 
     Returns ``(files, base_ref)`` — ``files`` is a list of repo-relative paths;
@@ -318,7 +339,7 @@ def git_discover_branch_files(cwd, path_filter=None):
     detection fails.
     """
     cwd_str = str(cwd)
-    base = _detect_base_branch(cwd)
+    base = _detect_base_branch(cwd, pr_info)
     if not base:
         return [], None
     cmd = ["git", "diff", "--name-only", f"{base}...HEAD"]
@@ -346,15 +367,18 @@ _PR_BODY_TRUNCATE_LIMIT = 4000
 _PR_TITLE_TRUNCATE_LIMIT = 500
 
 
-def git_fetch_open_pr_description(cwd):
+def git_fetch_open_pr_description(cwd, pr_info=_UNSET):
     """Return metadata for the current branch's open PR, or ``None``.
 
     Returns ``{"title": str, "body": str, "base_ref": str | None}`` when an
     open PR exists. Returns ``None`` for any failure mode (closed PR, no PR,
-    ``gh`` missing, timeout, malformed or non-UTF-8 output).
+    ``gh`` missing, timeout, malformed or non-UTF-8 output). Pass ``pr_info``
+    (from :func:`get_open_pr_data`) to reuse an already-fetched payload instead
+    of re-shelling out to ``gh``.
     """
     cwd_str = str(cwd)
-    pr_info = _fetch_open_pr_data(cwd_str)
+    if pr_info is _UNSET:
+        pr_info = _fetch_open_pr_data(cwd_str)
     if not pr_info:
         return None
     title = (pr_info.get("title") or "")[:_PR_TITLE_TRUNCATE_LIMIT]

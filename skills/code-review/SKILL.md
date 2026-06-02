@@ -38,7 +38,7 @@ Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/prerequisite-check.md` and appl
 
 ## Step 2: Inline Harness Mode Detection
 
-If your invocation prompt body contains `HARNESS_MODE_INLINE`, you are running inside the `/optimus:code-review-deep` orchestrator as a single iteration. Read `$CLAUDE_PLUGIN_ROOT/references/harness-mode.md` and follow its single-iteration execution protocol. The reference covers progress file reading, state initialization, scope and file-list rules, agent-prompt overrides, and the apply/output protocol. Proceed through Steps 3, 4, 5, 6, and 7 — skip the user confirmation in Step 8 (the orchestrator handles iteration approval upfront), apply the fixes mechanically, then emit the structured JSON via the harness-mode output protocol and stop. Do not use `AskUserQuestion`. Do not loop.
+If your invocation prompt body contains `HARNESS_MODE_INLINE`, you are running inside the `/optimus:code-review-deep` orchestrator as a single iteration. Read `$CLAUDE_PLUGIN_ROOT/references/harness-mode.md` and follow its single-iteration execution protocol. The reference covers progress file reading, state initialization, scope and file-list rules, agent-prompt overrides, and the apply/output protocol. Proceed through Steps 3, 4, 5, 6, and 7 — skip the Step 8 "Offer Actions" prompt (the orchestrator handles iteration approval upfront), apply the fixes mechanically, then emit the structured JSON via the harness-mode output protocol and stop. Do not use `AskUserQuestion`. Do not loop.
 
 If `HARNESS_MODE_INLINE` is NOT present, continue with the standard interactive flow below.
 
