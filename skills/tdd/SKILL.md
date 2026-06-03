@@ -43,7 +43,7 @@ Locate the test runner command from `testing.md`, `CLAUDE.md`, or project manife
 
 - **Tests pass** — proceed to Step 2 (Suitability Analysis)
 - **Tests fail** — stop and report. Existing failures must be resolved before TDD can begin (a failing suite makes Red/Green indistinguishable)
-- **No test runner found** — stop and recommend running `/optimus:init` first to set up test infrastructure (framework, runner, coverage tooling, `testing.md`)
+- **No test runner found** — stop and recommend running `/optimus:init` first to set up test infrastructure (framework, runner, coverage tooling, `testing.md`). For a project with no code or detectable stack yet, tell the user to pick **Scaffold new project** when init asks — init builds a starter stack, then sets up the runner on it (so this is not a dead-end).
 
 ## Step 2: Suitability Analysis
 
