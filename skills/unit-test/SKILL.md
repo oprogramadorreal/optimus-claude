@@ -136,7 +136,7 @@ Wait for the agent to complete.
 
 ### Stop gates (evaluated from agent results)
 
-**If no test framework is detected** in the agent's Discovery Results, stop and report: "No test framework found. Run `/optimus:init` (or re-run it) to install a test framework and set up test infrastructure before using this skill." Do not proceed to test generation without a working framework.
+**If no test framework is detected** in the agent's Discovery Results, stop and report: "No test framework found. Run `/optimus:init` (or re-run it) to install a test framework and set up test infrastructure before using this skill. For a project with no code or detectable stack yet, pick **Scaffold new project** when init asks — init builds a starter stack, then sets up the framework on it." Do not proceed to test generation without a working framework.
 
 **If the agent's Test Suite Execution reports failures**, stop. This skill does not fix failing tests or build-level issues by design. Print the matching message below (Conversation / Mode / Next skill per `$CLAUDE_PLUGIN_ROOT/references/skill-handoff.md`).
 
