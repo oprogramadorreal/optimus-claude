@@ -113,6 +113,26 @@ class TestInit:
         captured = capsys.readouterr()
         assert "focus" in captured.err.lower()
 
+    def test_unknown_skill_errors(self, tmp_path, monkeypatch, capsys):
+        # --skill has no argparse `choices` constraint, so an unsupported value
+        # reaches cmd_init's membership check; it must fail cleanly and write no
+        # progress file. Regression for the unknown-skill guard.
+        repo = _make_repo(tmp_path)
+        _stub_git(monkeypatch)
+        progress_path = repo / "progress.json"
+        exit_code = _run(
+            "init",
+            "--skill",
+            "bad-skill",
+            "--progress-file",
+            str(progress_path),
+            "--project-dir",
+            str(repo),
+        )
+        assert exit_code == 1
+        assert "Unknown skill" in capsys.readouterr().err
+        assert not progress_path.exists()
+
     def test_deep_invalid_focus(self, tmp_path, monkeypatch, capsys):
         repo = _make_repo(tmp_path)
         _stub_git(monkeypatch)
@@ -621,6 +641,60 @@ class TestResume:
         assert exit_code == 0
         assert _read_progress(progress_path)["termination"]["reason"] is None
 
+    def test_advances_iteration_on_resume_after_termination(self, tmp_path):
+        # A terminated run exits before step 8 (`advance`), so iteration.current
+        # still points at the just-completed iteration. Resuming must bump it so
+        # the loop continues at the next iteration instead of re-dispatching the
+        # same number. Regression for the resume-counter off-by-one.
+        progress_path = tmp_path / "progress.json"
+        progress_path.write_text(
+            json.dumps(
+                {
+                    "skill": "code-review",
+                    "config": {"project_root": str(tmp_path), "max_iterations": 12},
+                    "iteration": {"current": 8, "completed": 7},
+                    "termination": {"reason": "cap", "message": "Reached cap (8)"},
+                }
+            ),
+            encoding="utf-8",
+        )
+        exit_code = _run(
+            "resume",
+            "--progress-file",
+            str(progress_path),
+            "--project-dir",
+            str(tmp_path),
+            "--max-iterations",
+            "12",
+        )
+        assert exit_code == 0
+        assert _read_progress(progress_path)["iteration"]["current"] == 9
+
+    def test_does_not_advance_iteration_on_mid_iteration_resume(self, tmp_path):
+        # A mid-iteration Ctrl-C leaves no termination reason; the interrupted
+        # iteration must be re-run, so the counter must stay put.
+        progress_path = tmp_path / "progress.json"
+        progress_path.write_text(
+            json.dumps(
+                {
+                    "skill": "code-review",
+                    "config": {"project_root": str(tmp_path), "max_iterations": 12},
+                    "iteration": {"current": 8, "completed": 7},
+                    "termination": {"reason": None, "message": None},
+                }
+            ),
+            encoding="utf-8",
+        )
+        exit_code = _run(
+            "resume",
+            "--progress-file",
+            str(progress_path),
+            "--project-dir",
+            str(tmp_path),
+        )
+        assert exit_code == 0
+        assert _read_progress(progress_path)["iteration"]["current"] == 8
+
     def test_raises_iteration_cap(self, tmp_path):
         # The documented "--resume --max-iterations <new-cap>" must raise the
         # persisted cap so the loop can continue past the prior limit.
@@ -813,6 +887,45 @@ class TestParse:
         )
         assert exit_code == 1
         assert calls == [(None, "deadbeef")]
+        assert _read_progress(progress_path)["parse_failure_count"] == 1
+
+    def test_parse_failure_rollback_exception_is_swallowed(self, tmp_path, monkeypatch):
+        # If restore_working_tree itself raises mid-rollback (e.g. git missing),
+        # the best-effort except (RuntimeError, OSError) must swallow it: the
+        # failure count is still recorded and the command exits 1 cleanly rather
+        # than surfacing a traceback.
+        raw = tmp_path / "raw.txt"
+        raw.write_text("No JSON block here.", encoding="utf-8")
+        progress_path = tmp_path / "progress.json"
+        progress_path.write_text(
+            json.dumps(
+                {
+                    "skill": "code-review",
+                    "config": {"project_root": str(tmp_path)},
+                    "iteration": {"current": 3},
+                    "parse_failure_count": 0,
+                    "_snapshot": {
+                        "iteration_token": 3,
+                        "pre_head": "deadbeef",
+                        "pre_stash": None,
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        def _boom(_stash, _head, _root):
+            raise RuntimeError("git binary missing")
+
+        monkeypatch.setattr(cli, "restore_working_tree", _boom)
+        exit_code = _run(
+            "parse",
+            "--input-file",
+            str(raw),
+            "--progress-file",
+            str(progress_path),
+        )
+        assert exit_code == 1
         assert _read_progress(progress_path)["parse_failure_count"] == 1
 
     def test_parse_failure_no_rollback_when_snapshot_stale(self, tmp_path, monkeypatch):
@@ -2620,6 +2733,19 @@ class TestSnapshot:
         monkeypatch.setattr(cli, "git_stash_snapshot", lambda _cwd: None)
         _run("snapshot", "--progress-file", str(ppath))
         assert _read_progress(ppath)["_snapshot"]["iteration_token"] == 3
+
+    def test_stamps_cycle_token_in_coverage_variant(self, tmp_path, monkeypatch):
+        # Coverage-variant snapshots must stamp the cycle number via
+        # _current_unit's coverage branch (progress["cycle"]["current"]), not an
+        # iteration field. Regression for the untested coverage snapshot path.
+        ppath = _seed_coverage_progress(tmp_path, cycle=4)
+        data = _read_progress(ppath)
+        data["_snapshot"]["iteration_token"] = 999  # stale — must be overwritten
+        ppath.write_text(json.dumps(data), encoding="utf-8")
+        monkeypatch.setattr(cli, "git_rev_parse_head", lambda _cwd: "head_sha")
+        monkeypatch.setattr(cli, "git_stash_snapshot", lambda _cwd: None)
+        _run("snapshot", "--progress-file", str(ppath))
+        assert _read_progress(ppath)["_snapshot"]["iteration_token"] == 4
 
 
 # ---------------------------------------------------------------------------

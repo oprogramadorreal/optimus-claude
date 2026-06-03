@@ -605,6 +605,16 @@ def cmd_resume(args):
     mutated = False
     if (progress.get("termination") or {}).get("reason"):
         progress["termination"] = {"reason": None, "message": None}
+        # The terminating iteration finished steps 1–7 but the loop exited
+        # before step 8 (`advance`), so iteration.current still points at it.
+        # Bump it here so the resumed loop continues at the next iteration
+        # rather than re-dispatching the same number (which duplicated the
+        # iteration_history entry and re-stamped finding metadata). A
+        # mid-iteration Ctrl-C leaves no termination reason, so that
+        # interrupted iteration is correctly re-run instead of skipped. The
+        # paired variant advances cycle.current in record-cycle, not here.
+        if not _is_coverage(progress) and "iteration" in progress:
+            progress["iteration"]["current"] += 1
         mutated = True
     # Let --resume raise the persisted cap (the documented
     # "--resume --max-iterations <new-cap>" continuation path).

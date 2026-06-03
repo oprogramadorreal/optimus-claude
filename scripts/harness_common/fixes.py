@@ -80,15 +80,33 @@ def _bisect_via_clean_reset(
     """
 
     def _rebuild(indices):
-        reset_to_clean()
+        """Restore to the clean base, then re-apply the kept fixes.
+
+        Returns False if the clean reset itself failed: ``reset_to_clean``
+        (``restore_working_tree`` → ``git_restore_to``) raises ``RuntimeError``
+        when its ``git checkout`` errors (a locked index, a missing commit).
+        Testing a candidate on a dirty base gives a meaningless pass/fail, so
+        the caller aborts and reports the still-undecided fixes as skipped
+        rather than letting the exception crash the whole bisect (and, through
+        it, the deep-step / refactor-step that called it).
+        """
+        try:
+            reset_to_clean()
+        except (RuntimeError, OSError) as exc:
+            print(f"[harness] WARNING: clean reset failed mid-bisect: {exc}")
+            return False
         for i in indices:
             apply_single_fix(fixes[i], cwd)
+        return True
 
     outcome = {}  # idx -> (status, detail)
     kept = []
     rejected = []
+    aborted = False
     for idx, fix in enumerate(fixes):
-        _rebuild(kept)
+        if not _rebuild(kept):
+            aborted = True
+            break
         if not apply_single_fix(fix, cwd):
             outcome[idx] = ("skipped", None)
             continue
@@ -102,21 +120,26 @@ def _bisect_via_clean_reset(
 
     # Retry rejected fixes with all first-pass keepers applied — a fix may have
     # depended on a keeper that was applied later in the first pass.
-    for idx in rejected:
-        _rebuild(kept)
-        if not apply_single_fix(fixes[idx], cwd):
-            outcome[idx] = ("skipped", None)
-            continue
-        passed, _summary = run_tests_fn(test_command, cwd)
-        if passed:
-            kept.append(idx)
-            outcome[idx] = ("fixed", "Passed on retry (dependency resolved)")
+    if not aborted:
+        for idx in rejected:
+            if not _rebuild(kept):
+                break
+            if not apply_single_fix(fixes[idx], cwd):
+                outcome[idx] = ("skipped", None)
+                continue
+            passed, _summary = run_tests_fn(test_command, cwd)
+            if passed:
+                kept.append(idx)
+                outcome[idx] = ("fixed", "Passed on retry (dependency resolved)")
 
-    # Re-establish the final kept set on disk, then emit one outcome per fix.
+    # Re-establish the final kept set on disk (best-effort), then emit one
+    # outcome per fix. A fix left undecided by an aborted reset falls back to
+    # "skipped" via the ``.get`` default, so the emit loop never KeyErrors and a
+    # fix is never reported fixed/reverted off a result computed on a dirty base.
     _rebuild(kept)
     fixed_count = reverted_count = skipped_count = 0
     for idx in range(len(fixes)):
-        status, detail = outcome[idx]
+        status, detail = outcome.get(idx, ("skipped", None))
         if on_outcome is not None:
             on_outcome(idx, fixes[idx], status, detail)
         if status == "fixed":
