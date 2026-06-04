@@ -51,25 +51,15 @@ Before starting TDD cycles, analyze whether the user's task is a good fit for te
 
 ### Gather the task
 
-**Context detection** (runs at Step 2 entry — the cascade below is evaluated in order regardless of whether the user provided an inline task description; first match wins):
+Resolve the task description with the shared cascade in `$CLAUDE_PLUGIN_ROOT/skills/tdd/references/spec-context-detection.md` (explicit `docs/specs/`/`docs/jira/` reference → build-spec auto-discovery → JIRA auto-discovery → none, plus long-spec distillation to a single-sentence goal).
 
-1. **Explicit reference** — if the user's input references a file path ending in `.md` inside `docs/specs/` or `docs/jira/`, read that file and use its Goal section as the task description. (A `docs/specs/<spec>.md` is the active build spec — authored by `/optimus:brainstorm` or brought by a human; see `$CLAUDE_PLUGIN_ROOT/references/sdd-mapping.md`.) Proceed to distillation below if the goal is longer than 2-3 sentences.
-
-2. **Build spec auto-discovery** — if item 1 did not fire and `docs/specs/` exists with `.md` files, select the most recent (by filename date prefix if present, otherwise file modification time). If it is within the last 7 days, mention it: "Found build spec `<path>` — use it as the basis for TDD?" via `AskUserQuestion` — header "Build spec", options "Use it" / "Ignore — describe a different task". If that date — the filename prefix, or the modification time when there is no prefix — is older than 7 days, add a note: "(This spec is [N] days old — if it is a `/optimus:brainstorm`-authored spec, you may want to re-run brainstorm for a fresh design.)" A `docs/specs/` build spec is either a `/optimus:brainstorm`-authored spec (full approach details — use Goal, Components, and Interfaces) or a human-authored spec (use Goal and Acceptance Criteria). If it has a `## Scenarios` section in Given/When/Then form, the Step 3 scenario-driven shortcut applies.
-
-3. **JIRA context auto-discovery** — if no build spec resolved (none found, or the user ignored it) but `docs/jira/` exists with `.md` files, read each file's YAML frontmatter and select the one with the most recent `date` field. If its date is within the last 7 days, mention it: "Found JIRA context `<path>` — use it as the basis for TDD?" via `AskUserQuestion` — header "JIRA context", options "Use it" / "Ignore — describe a different task". If its date is older than 7 days, add a note: "(This context is [N] days old — you may want to re-run `/optimus:jira` for fresh data.)" JIRA context provides Goal and Acceptance Criteria as the task description.
-
-4. **No context found** — proceed with normal task gathering below.
-
-Precedence (first match wins): `docs/specs/` build spec → JIRA context → none. The build spec takes priority because it is the most detailed (a `/optimus:brainstorm`-authored spec incorporates JIRA context if brainstorm consumed it). Detected context feeds into the existing task-gathering cascade below — it does NOT bypass Step 3 decomposition. TDD still independently decomposes the goal into behaviors, except when a `## Scenarios` section is present (see the scenario-driven shortcut in Step 3).
-
-If context detection above resolved a task description (user accepted a spec or JIRA context), use it — skip the inline/prompt gathering below. Otherwise, if the user provided a task description inline (e.g., `/optimus:tdd "Add auth endpoint"`), use it. Otherwise, use `AskUserQuestion` — header "TDD scope", question "What feature or bug fix do you want to implement with TDD?":
+If that cascade resolved a task description (the user accepted a spec or JIRA context), use it — skip the gathering below. Otherwise, if the user provided a task description inline (e.g., `/optimus:tdd "Add auth endpoint"`), use it. Otherwise, use `AskUserQuestion` — header "TDD scope", question "What feature or bug fix do you want to implement with TDD?":
 - **New feature** — "Implement a new capability (e.g., 'Add user authentication endpoint')"
 - **Bug fix** — "Fix a bug by reproducing it with a test first (e.g., 'Login fails when email has uppercase')"
 
-If the task description is longer than ~2-3 sentences (e.g., a pasted spec, JIRA ticket, or acceptance criteria list), distill it into a **single-sentence goal** and confirm with `AskUserQuestion` — header "Distilled goal", question "I've distilled your spec to: '[single-sentence summary]'. Is this accurate?":
-- **Looks good** — "Proceed with this goal"
-- **Adjust** — "Let me refine the focus"
+Detected context feeds into this task-gathering — it does NOT bypass Step 3 decomposition. TDD still independently decomposes the goal into behaviors, except when the build spec has a `## Scenarios` section in Given/When/Then form (see the scenario-driven shortcut in Step 3).
+
+> **Prefer a self-orchestrated parallel build instead of supervised cycles?** `/optimus:workflow` implements the same spec by having Claude design and run a Claude Code dynamic workflow (test-first as a quality bar, no mid-run checkpoints, more tokens). Use TDD when you want supervised, interactive test-first discipline; use `/optimus:workflow` for a large or parallelizable spec where one linear pass is slow.
 
 ### Analyze suitability
 

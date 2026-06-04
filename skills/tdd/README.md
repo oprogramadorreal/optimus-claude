@@ -255,6 +255,16 @@ The user's original branch is never modified. All code review happens through th
 
 ## Relationship to Other Skills
 
+| | `/optimus:tdd` | `/optimus:workflow` |
+|---|---|---|
+| Orchestration | Supervised, sequential — one Red-Green-Refactor cycle at a time | Self-orchestrated parallel subagents (Claude Code dynamic workflow) |
+| User input | Interactive checkpoints throughout (AskUserQuestion) | None mid-run; launch-time phase approval only |
+| Test-first | Per-behavior gate (the Iron Law) | Quality bar — tests accompany/precede code, suite left green |
+| Cost / mode | Normal token use; runs in conversation | Meaningfully more tokens; background; edits auto-approved regardless of mode |
+| When to pick | Want supervision and a failing-test-first guarantee | Want a fast parallel build of a well-scoped spec |
+
+Both implement an approved spec and hand off to `/optimus:pr`. Use TDD for supervised test-first discipline; use `/optimus:workflow` for a large or parallelizable spec where a linear pass is slow.
+
 | | `/optimus:tdd` | `/optimus:unit-test` |
 |---|---|---|
 | Direction | Test-first (new code) | Test-after (existing code) |
@@ -293,7 +303,7 @@ The user's original branch is never modified. All code review happens through th
 | Context flow | TDD auto-detects specs in `docs/specs/` | Brainstorm writes specs that TDD consumes |
 | When to combine | Complex features — brainstorm first, then TDD implements the design |
 
-**Full workflow**: `/optimus:init` (set up everything including test infrastructure) → `/optimus:unit-test` (retroactive tests to increase coverage) → `/optimus:permissions` (branch-aware git protection) → `/optimus:tdd` (build new features test-first — creates branch, commits, pushes) → `/optimus:pr` in the same conversation (create the PR/MR with TDD signals captured into Intent and the per-behavior Test plan) → `/optimus:code-review` in a fresh conversation (review the PR/MR). For JIRA-tracked work, add `/optimus:jira` before TDD. For complex features, add `/optimus:brainstorm` → plan mode before TDD. `/optimus:pr` also handles updating an existing PR description and creating PRs for non-TDD work.
+**Full workflow**: `/optimus:init` (set up everything including test infrastructure) → `/optimus:unit-test` (retroactive tests to increase coverage) → `/optimus:permissions` (branch-aware git protection) → `/optimus:tdd` (build new features test-first — creates branch, commits, pushes; or `/optimus:workflow` for a self-orchestrated parallel build) → `/optimus:pr` in the same conversation (create the PR/MR with TDD signals captured into Intent and the per-behavior Test plan) → `/optimus:code-review` in a fresh conversation (review the PR/MR). For JIRA-tracked work, add `/optimus:jira` before TDD. For complex features, add `/optimus:brainstorm` → plan mode before TDD. `/optimus:pr` also handles updating an existing PR description and creating PRs for non-TDD work.
 
 ## Skill Structure
 

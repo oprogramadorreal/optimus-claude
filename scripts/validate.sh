@@ -801,6 +801,28 @@ if [ -f "$pr_skill" ]; then
   done
 fi
 
+# Implementation-summary handoff contract: /optimus:workflow Step 6 emits an
+# Implementation Summary block whose heading strings /optimus:pr Step 5 greps to
+# detect the workflow handoff and populate Intent (Scope, Non-goals, Key
+# decisions) and the per-component Test plan. Same rationale as the TDD-summary
+# contract above — a silent rename of either side drops the handoff. Each side is
+# checked independently so the failure message identifies which surface drifted.
+workflow_skill="skills/workflow/SKILL.md"
+if [ -f "$workflow_skill" ]; then
+  for workflow_handoff_token in '## Implementation Summary' '### Components Built' '### Coverage'; do
+    if ! grep -qF -- "$workflow_handoff_token" "$workflow_skill" 2>/dev/null; then
+      wiring_errors+="  $workflow_skill missing Implementation-summary handoff token: $workflow_handoff_token\n"
+    fi
+  done
+fi
+if [ -f "$pr_skill" ]; then
+  for workflow_handoff_token in '## Implementation Summary' '### Components Built' '### Coverage'; do
+    if ! grep -qF -- "$workflow_handoff_token" "$pr_skill" 2>/dev/null; then
+      wiring_errors+="  $pr_skill missing Implementation-summary handoff consumer token: $workflow_handoff_token\n"
+    fi
+  done
+fi
+
 # Brainstorm self-review reaches scenario-style.md by section name. Silent
 # rename of either heading would leave the self-review pointer dangling.
 scenario_style="skills/brainstorm/references/scenario-style.md"

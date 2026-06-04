@@ -73,7 +73,7 @@ This skill can target Claude Code three ways — it picks based on your intent:
 | Plan mode | Explore read-only, get a plan you approve first | One conversation; read-only until you approve |
 | Dynamic workflow | Fan-out too big for one conversation (audit / migrate / cross-check many items) | Background script of parallel subagents; auto-approves edits |
 
-Say "workflow" in the prompt to trigger the last one. See `references/templates.md` (Templates H / M / N) for the full routing rules.
+Phrase it as "Run a workflow to…" to trigger the last one (a self-orchestrated parallel build of a tracked spec is the dedicated `/optimus:workflow` skill's job). See `references/templates.md` (Templates H / M / N) for the full routing rules.
 
 ## Relationship to Other Skills
 

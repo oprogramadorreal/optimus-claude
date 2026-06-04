@@ -184,9 +184,11 @@ For implementation tasks, assess complexity from the Components table in the spe
 
 ### Small (1–2 components, <5 behaviors implied)
 
-Tell the user: "This is small enough to implement directly — run `/optimus:tdd` to build it test-first. It will auto-detect the spec at `<file-path>`. **Tip:** for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch."
+Tell the user: "This is small enough to implement directly. Pick your implementer: **`/optimus:tdd`** for a supervised, test-first build (Red-Green-Refactor, interactive checkpoints), or **`/optimus:workflow`** for a self-orchestrated parallel build (test-first as a quality bar, no mid-run input, more tokens). Both auto-detect the spec at `<file-path>`. **Tip:** for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch."
 
 ### Medium-to-large (3+ components or complex interfaces)
+
+**Alternative — a parallel build:** if the user prefers a self-orchestrated parallel build over supervised TDD, they can run **`/optimus:workflow`** instead. It auto-detects the spec at `<file-path>`, launches a Claude Code dynamic workflow directly (no plan-mode iteration, no "Refined plan" step), applies test-first as a quality bar, and uses meaningfully more tokens. The plan-mode → `/optimus:tdd` flow below remains the default for supervised, test-first work.
 
 Generate a plan-mode prompt inline, pre-filled from the spec. Present it as a single copyable block:
 
