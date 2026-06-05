@@ -70,14 +70,14 @@ Do **not** add git-worktree isolation here — workflow subagents already run as
 
 ## Step 4: Design and run the workflow
 
-Compose the brief below from the spec (Step 2) and the loaded docs (Step 1), then **state it to yourself as the task and run the workflow now** — do not emit it as a copy-paste block; this skill executes the workflow in the live session. Claude Code shows the planned phases for the user to approve before the run starts; tell the user to expect that approval gate and that the run uses meaningfully more tokens than a normal turn.
+Compose the brief below from the spec (Step 2) and the loaded docs (Step 1), then **state it to yourself as the task and run the workflow now — invoke the Workflow tool to launch it** (the brief opens with "Run a workflow to…", the natural-language phrasing Claude Code recognizes as a workflow launch). Do not emit it as a copy-paste block; this skill executes the workflow in the live session. Claude Code shows the planned phases for the user to approve before the run starts; tell the user to expect that approval gate and that the run uses meaningfully more tokens than a normal turn.
 
-Fill the bracketed slots: scope from the spec's Components / Acceptance Criteria and Out-of-Scope sections; the edit-forbidden list from the project's protected paths.
+Fill the bracketed slots: scope from the spec's Components / Acceptance Criteria and Out-of-Scope sections — when the source is a JIRA ticket or an inline goal with no Out-of-Scope section, derive the in-scope set from the goal and acceptance criteria and set out-of-scope to "anything not required by the stated goal"; the edit-forbidden list from the project's protected paths.
 
 **Authoring rules (do not violate):**
 1. **Do not prescribe** the phases, the number of agents, or a phase plan. A pattern hint (fan-out / pipeline / adversarial cross-check) is an *optional* preference only — Claude is capable of choosing the shape that fits the spec.
-2. **Scope is mandatory** — bound the target set to the spec and give an early-stop condition. Do **not** set concurrency or total-agent caps; the runtime auto-caps at 16 concurrent / 1,000 total.
-3. **State the edit guardrail explicitly** — workflow agents auto-approve edits regardless of session mode, so naming where they may and may not edit is the only thing keeping changes in scope.
+2. **Scope is mandatory** — bound the target set to the spec and give an early-stop condition. Do **not** set concurrency or total-agent caps (the brief notes the runtime's auto-caps).
+3. **State the edit guardrail explicitly** — name where agents may and may not edit (the brief's Edit-mode block explains why this boundary is the only thing keeping changes in scope).
 
 The brief:
 

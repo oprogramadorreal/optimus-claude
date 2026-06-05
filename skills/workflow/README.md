@@ -112,11 +112,7 @@ It is strongest right after `/optimus:brainstorm` writes a spec with a clear Com
 | Role | Builds, verifies green, emits `## Implementation Summary` | Reads that summary to populate `## Intent` and the per-component `## Test plan` |
 | Handoff | Recommends `/optimus:pr` in the same conversation | Full Conventional PR flow (default-branch detection, CLI install, preview/confirm) |
 
-| | `/optimus:workflow` | `/optimus:tdd` |
-|---|---|---|
-| Orchestration | Self-orchestrated parallel subagents | Supervised, sequential cycles |
-| Test-first | Quality bar (suite left green) | Per-behavior Iron Law (failing test first) |
-| When to pick | Large or parallelizable spec; speed via fan-out | Want supervision and a failing-test-first guarantee |
+For `/optimus:workflow` vs. `/optimus:tdd`, see the **Workflow vs. TDD — which to use** table at the top of this README.
 
 **Full workflow**: `/optimus:init` → `/optimus:brainstorm` (write the spec) → `/optimus:workflow` (parallel build — creates branch, commits, pushes) → `/optimus:pr` in the same conversation (create the PR/MR, Intent/Test-plan from the summary) → `/optimus:code-review` in a fresh conversation. `/optimus:tdd` is the supervised, test-first alternative to `/optimus:workflow` at the build step.
 

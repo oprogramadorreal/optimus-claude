@@ -188,7 +188,7 @@ Tell the user: "This is small enough to implement directly. Pick your implemente
 
 ### Medium-to-large (3+ components or complex interfaces)
 
-**Alternative — a parallel build:** if the user prefers a self-orchestrated parallel build over supervised TDD, they can run **`/optimus:workflow`** instead. It auto-detects the spec at `<file-path>`, launches a Claude Code dynamic workflow directly (no plan-mode iteration, no "Refined plan" step), applies test-first as a quality bar, and uses meaningfully more tokens. The plan-mode → `/optimus:tdd` flow below remains the default for supervised, test-first work.
+**Alternative — a parallel build (code deliverables only):** if the user prefers a self-orchestrated parallel build over supervised TDD, they can run **`/optimus:workflow`** instead. It auto-detects the spec at `<file-path>`, launches a Claude Code dynamic workflow directly (no plan-mode iteration, no "Refined plan" step), applies test-first as a quality bar, and uses meaningfully more tokens. The plan-mode → `/optimus:tdd` flow below remains the default for supervised, test-first work. For a **prose deliverable**, skip this alternative — `/optimus:workflow` is overkill for documentation-only work (see the "Prose deliverable" note below).
 
 Generate a plan-mode prompt inline, pre-filled from the spec. Present it as a single copyable block:
 

@@ -314,6 +314,7 @@ Both implement an approved spec and hand off to `/optimus:pr`. Use TDD for super
 | `references/quality-gate.md` | Quality gate procedure — post-cycle parallel agent execution |
 | `references/tdd-worktree-orchestration.md` | TDD-specific worktree setup and cleanup, delegates to shared worktree-setup reference |
 | `references/testing-anti-patterns.md` | Mocking anti-patterns and gate questions — loaded during Red step to prevent bad test patterns |
+| `references/spec-context-detection.md` | Spec/JIRA context-detection cascade + long-spec distillation (shared with `/optimus:workflow`) |
 | *(shared)* `init/references/multi-repo-detection.md` | Multi-repo workspace detection algorithm |
 | *(shared)* `init/references/constraint-doc-loading.md` | Constraint doc loading — Monorepo Scoping Rule |
 | *(shared)* `commit/references/branch-naming.md` | Branch naming convention |

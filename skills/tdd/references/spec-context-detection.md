@@ -20,6 +20,6 @@ If context detection resolved a task description (the user accepted a spec or JI
 
 ## Distillation
 
-If the resolved task description is longer than ~2-3 sentences (e.g., a pasted spec, JIRA ticket, or acceptance-criteria list), distill it into a **single-sentence goal** and confirm with `AskUserQuestion` — header "Distilled goal", question "I've distilled your spec to: '[single-sentence summary]'. Is this accurate?":
+Apply this to the **final task description, whatever its source** — a spec or JIRA context resolved by the cascade above, *or* a long task the user pasted inline (or supplied via the consuming skill's fallback `AskUserQuestion`). If it is longer than ~2-3 sentences (e.g., a pasted spec, JIRA ticket, or acceptance-criteria list), distill it into a **single-sentence goal** and confirm with `AskUserQuestion` — header "Distilled goal", question "I've distilled your spec to: '[single-sentence summary]'. Is this accurate?":
 - **Looks good** — "Proceed with this goal"
 - **Adjust** — "Let me refine the focus"
