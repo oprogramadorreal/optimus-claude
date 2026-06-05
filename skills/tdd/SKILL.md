@@ -57,6 +57,8 @@ If that cascade resolved a task description (the user accepted a spec or JIRA co
 - **New feature** — "Implement a new capability (e.g., 'Add user authentication endpoint')"
 - **Bug fix** — "Fix a bug by reproducing it with a test first (e.g., 'Login fails when email has uppercase')"
 
+Whatever the source — a spec or JIRA context the cascade resolved, an inline argument, or the answer above — apply the shared reference's **Distillation** step to the final task description: if it runs longer than ~2-3 sentences, distill it to a single-sentence goal and confirm via `AskUserQuestion` before proceeding.
+
 Detected context feeds into this task-gathering — it does NOT bypass Step 3 decomposition. TDD still independently decomposes the goal into behaviors, except when the build spec has a `## Scenarios` section in Given/When/Then form (see the scenario-driven shortcut in Step 3).
 
 > **Prefer a self-orchestrated parallel build instead of supervised cycles?** `/optimus:workflow` implements the same spec by having Claude design and run a Claude Code dynamic workflow (test-first as a quality bar, no mid-run checkpoints, more tokens). Use TDD when you want supervised, interactive test-first discipline; use `/optimus:workflow` for a large or parallelizable spec where one linear pass is slow.

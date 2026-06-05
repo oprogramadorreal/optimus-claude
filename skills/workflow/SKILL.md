@@ -19,6 +19,8 @@ Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/multi-repo-detection.md` for wo
 
 Check that `.claude/CLAUDE.md` exists. If it doesn't, stop and recommend running `/optimus:init` first — coding guidelines and project context steer the workflow's quality bar.
 
+This skill launches a Claude Code **dynamic workflow** (Step 4 invokes the Workflow tool). If dynamic workflows are not available in this session — a recent Claude Code is required, and on some plans the feature must be enabled in `/config` — stop now and tell the user to enable it. Do not proceed to create a branch in Step 3 for a launch that cannot run.
+
 Load these documents (they become constraints in the workflow brief):
 
 | Document | Role |
@@ -39,11 +41,15 @@ Locate the test runner command from `testing.md`, `CLAUDE.md`, or project manife
 - **Failing** — stop and report. Resolve existing failures first; otherwise the workflow's green gate is meaningless.
 - **No test runner found** — stop and recommend `/optimus:init` to set up test infrastructure. For a project with no code or detectable stack yet, tell the user to pick **Scaffold new project** when init asks.
 
+**Capture the coverage baseline now** — this green run is the only point before the workflow modifies the tree. Detect a coverage command (`testing.md` coverage section, a test-runner coverage flag such as `vitest --coverage` / `pytest --cov=.` / `go test -cover`, or a `package.json` coverage script); if one exists, run it once and record the result as the Step 6 `Before` value. If no coverage command is available, skip this — Step 6 omits the Coverage section.
+
 ## Step 2: Acquire the spec
 
 Resolve the spec with the shared cascade in `$CLAUDE_PLUGIN_ROOT/skills/tdd/references/spec-context-detection.md` (explicit `docs/specs/`/`docs/jira/` reference → build-spec auto-discovery → JIRA auto-discovery → none, plus long-spec distillation to a single-sentence goal).
 
 If the cascade resolved a spec, use it. Otherwise, if the user gave a task inline (e.g., `/optimus:workflow "Build the CSV import pipeline"`), use it. Otherwise, use `AskUserQuestion` — header "Spec", question "What spec or feature should the workflow implement?".
+
+Whatever the source — a spec or JIRA context the cascade resolved, an inline argument, or the answer above — apply the shared reference's **Distillation** step to the final spec/goal: if it runs longer than ~2-3 sentences, distill it to a single-sentence goal (the brief's `Goal:` slot in Step 4) and confirm via `AskUserQuestion` before proceeding.
 
 **Light suitability guard** (this skill skips TDD's full classification — a workflow is not bound to testable-behavior decomposition):
 - If the task is clearly **restructuring existing code without new behavior** → recommend `/optimus:refactor` and stop.
@@ -105,6 +111,8 @@ Quality bar — test-first:
 - Before returning, run the full project test suite and leave it green. The green run is
   the completion gate — do not report done on a suite you have not run, and drop or fix
   anything you cannot get to pass.
+- If this project has a lint or type-check command (in CLAUDE.md or its manifest), leave it
+  clean too — passing tests do not catch type errors.
 - Don't just run more agents — apply whatever review or cross-checking makes the result
   trustworthy.
 
@@ -117,8 +125,8 @@ Scope:
   config, generated/vendored dirs, unrelated subprojects>. (Workflow agents auto-approve
   edits regardless of session mode — this boundary is the only thing keeping edits in scope.)
 - Stop early once the spec is fully implemented and the suite is green; keep work bounded
-  to the in-scope targets above. (The runtime auto-caps each run at 16 concurrent / 1,000
-  total agents — you don't set these.)
+  to the in-scope targets above. (The runtime auto-caps concurrency and total agent count —
+  you don't set these.)
 
 Output: the working code in the working tree, plus a final summary listing each component
 you built, the test files that cover it, the final test result (e.g. "142 passed"), and
@@ -131,11 +139,11 @@ For a small, clearly-bounded spec, trim the brief to its essentials (task line, 
 
 The workflow returns only its final answer — intermediate agent work stayed in the workflow's own variables. **Re-verify independently; never report success on the workflow's self-report.**
 
-Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/verification-protocol.md` and apply its gate function: run the full test suite fresh now, read the complete output, and confirm it is **green** (0 failures, exit 0). If a lint or type-check command is configured (`CLAUDE.md` or the project manifest), run it too — type errors hide behind passing tests.
+Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/verification-protocol.md` and apply its gate function: run the full test suite fresh now, read the complete output, and confirm it is **green** (0 failures, exit 0). If a lint or type-check command is configured (`CLAUDE.md` or the project manifest), run it too and require it to pass — type errors hide behind passing tests, so a green suite with a failing type-check is **not** a pass. If you captured a coverage baseline in Step 1, run the coverage command again now to get the Step 6 `After` value.
 
-- **Suite green** — proceed to Step 6.
-- **Suite red, or the workflow left a partial/broken tree** — do **not** commit. Report the failures with evidence (the actual failing output). Then use `AskUserQuestion` — header "Workflow result", question "The workflow did not leave the suite green. How do you want to proceed?":
-  - **Fix forward** — "Run a focused follow-up (a normal turn or a smaller workflow) to green the suite, then continue."
+- **Suite green and lint/type-check clean** — proceed to Step 6.
+- **Suite red, lint/type-check failing, or the workflow left a partial/broken tree** — do **not** commit. Report the failures with evidence (the actual failing output). Then use `AskUserQuestion` — header "Workflow result", question "The workflow did not leave the suite green and clean. How do you want to proceed?":
+  - **Fix forward** — "Run a focused follow-up (a normal turn or a smaller workflow) to green the suite and clear any type/lint errors, then continue."
   - **Discard** — "The branch is isolated from your original. Review `git diff`, then `git checkout`/reset the branch to abandon it."
 
   Do not auto-revert — leave the user in control of the isolated branch.
@@ -164,10 +172,11 @@ Emit this block into the conversation so `/optimus:pr` can read it. The headings
 - Type-check / lint: [result, or omit this line if none configured]
 
 ### Coverage
-[Detect a coverage command from: testing.md coverage section, test runner built-in flag
-(e.g. vitest --coverage, pytest --cov=., go test -cover), or package.json coverage script.
-Measure once before Step 4 and once in Step 5. If no coverage command is found, omit this
-section entirely.]
+[The `Before` baseline is captured in Step 1 (the only pre-workflow measurement point) and
+the `After` value in Step 5, using the coverage command detected in Step 1 — testing.md
+coverage section, a test-runner flag (e.g. vitest --coverage, pytest --cov=., go test
+-cover), or a package.json coverage script. If no coverage command was found in Step 1, omit
+this section entirely.]
 - Before: [X]%
 - After: [Y]%
 - Delta: +[Z]%

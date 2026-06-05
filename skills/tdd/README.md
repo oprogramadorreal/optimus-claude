@@ -255,15 +255,7 @@ The user's original branch is never modified. All code review happens through th
 
 ## Relationship to Other Skills
 
-| | `/optimus:tdd` | `/optimus:workflow` |
-|---|---|---|
-| Orchestration | Supervised, sequential — one Red-Green-Refactor cycle at a time | Self-orchestrated parallel subagents (Claude Code dynamic workflow) |
-| User input | Interactive checkpoints throughout (AskUserQuestion) | None mid-run; launch-time phase approval only |
-| Test-first | Per-behavior gate (the Iron Law) | Quality bar — tests accompany/precede code, suite left green |
-| Cost / mode | Normal token use; runs in conversation | Meaningfully more tokens; background; edits auto-approved regardless of mode |
-| When to pick | Want supervision and a failing-test-first guarantee | Want a fast parallel build of a well-scoped spec |
-
-Both implement an approved spec and hand off to `/optimus:pr`. Use TDD for supervised test-first discipline; use `/optimus:workflow` for a large or parallelizable spec where a linear pass is slow.
+`/optimus:tdd` and `/optimus:workflow` are peer implementers of an approved spec — both create a feature branch, build, push, and hand off to `/optimus:pr`. They differ in *how* they build: TDD runs supervised, sequential Red-Green-Refactor cycles with interactive checkpoints and a failing-test-first guarantee; `/optimus:workflow` self-orchestrates parallel subagents with test-first as a quality bar and no mid-run input (more tokens). Use TDD for supervised test-first discipline (and most bug fixes); use `/optimus:workflow` for a large or parallelizable spec where a linear pass is slow. For the full side-by-side, see the **Workflow vs. TDD — which to use** table at the top of [`skills/workflow/README.md`](../workflow/README.md).
 
 | | `/optimus:tdd` | `/optimus:unit-test` |
 |---|---|---|
