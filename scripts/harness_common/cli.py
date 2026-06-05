@@ -27,19 +27,24 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import shutil
 import sys
+import time
 from pathlib import Path
 
 from .constants import (
     APPLIED_PENDING_TEST,
     BACKUP_SUFFIX,
+    COMMIT_COMMITTED,
+    COMMIT_NOTHING,
     COVERAGE_VARIANT_SKILLS,
     DEEP_VARIANT_SKILLS,
     DEFAULT_MAX_CYCLES,
     DEFAULT_MAX_ITERATIONS,
     DEFAULT_PROGRESS_FILES,
+    DEFAULT_TEST_TIMEOUT,
     FIXED_STATUSES,
     MAX_CYCLES_HARD_CAP,
     MAX_ITERATIONS_HARD_CAP,
@@ -112,6 +117,7 @@ def _make_deep_progress(
         "config": {
             "max_iterations": max_iterations,
             "test_command": test_command,
+            "test_timeout": DEFAULT_TEST_TIMEOUT,
             "scope": {
                 "mode": "directory" if scope_is_path else "branch-diff",
                 "paths": [scope] if scope_is_path else [],
@@ -145,6 +151,7 @@ def _make_coverage_progress(
         "config": {
             "max_cycles": max_cycles,
             "test_command": test_command,
+            "test_timeout": DEFAULT_TEST_TIMEOUT,
             "scope": scope,
             "project_root": normalize_path(str(project_root)),
             "base_commit": base_commit,
@@ -281,12 +288,19 @@ def _clean_reset_hook(pre_stash, pre_head, project_root):
     return None
 
 
+def _effective_timeout(progress):
+    """Per-run test timeout from config (baseline-calibrated), falling back to
+    the module default for older / resumed progress files lacking the field."""
+    return progress.get("config", {}).get("test_timeout", DEFAULT_TEST_TIMEOUT)
+
+
 def _test_and_reconcile_fixes(
     fixes, test_command, project_root, progress, pre_stash, pre_head
 ):
     if not fixes:
         return 0, 0, None, False
-    passed, summary = run_tests(test_command, project_root)
+    timeout = _effective_timeout(progress)
+    passed, summary = run_tests(test_command, project_root, timeout=timeout)
     record_test_result(progress, passed, summary)
     if passed:
         mark_all_fixed(progress, fixes)
@@ -297,11 +311,12 @@ def _test_and_reconcile_fixes(
         fixes,
         test_command,
         project_root,
+        run_tests_fn=lambda tc, cwd: run_tests(tc, cwd, timeout=timeout),
         on_outcome=_make_bisect_callback(progress),
         reset_to_clean=reset_to_clean,
     )
     if fixed > 0:
-        passed, summary = run_tests(test_command, project_root)
+        passed, summary = run_tests(test_command, project_root, timeout=timeout)
         record_test_result(progress, passed, summary)
         if not passed:
             restore_working_tree(pre_stash, pre_head, project_root)
@@ -342,7 +357,8 @@ def _test_and_reconcile_refactor_fixes(
     """Parallel of _test_and_reconcile_fixes for the refactor phase."""
     if not fixes:
         return 0, 0, None
-    passed, summary = run_tests(test_command, project_root)
+    timeout = _effective_timeout(progress)
+    passed, summary = run_tests(test_command, project_root, timeout=timeout)
     record_test_result(progress, passed, summary)
     if passed:
         return len(fixes), 0, True
@@ -352,11 +368,12 @@ def _test_and_reconcile_refactor_fixes(
         fixes,
         test_command,
         project_root,
+        run_tests_fn=lambda tc, cwd: run_tests(tc, cwd, timeout=timeout),
         on_outcome=_make_refactor_bisect_callback(progress, cycle),
         reset_to_clean=reset_to_clean,
     )
     if fixed > 0:
-        passed, summary = run_tests(test_command, project_root)
+        passed, summary = run_tests(test_command, project_root, timeout=timeout)
         record_test_result(progress, passed, summary)
         if not passed:
             restore_working_tree(pre_stash, pre_head, project_root)
@@ -912,7 +929,9 @@ def cmd_unit_test_step(args):
         progress["bugs_discovered"].append({**b, "cycle_discovered": cycle})
 
     # Run the full test suite to record pass/fail
-    passed, summary = run_tests(test_command, project_root)
+    passed, summary = run_tests(
+        test_command, project_root, timeout=_effective_timeout(progress)
+    )
     record_test_result(progress, passed, summary)
 
     # Refresh refactor-phase scope from pending untestable items so the refactor
@@ -1081,6 +1100,67 @@ def cmd_record_cycle(args):
     return 0
 
 
+# Green-baseline calibration: set the per-run test timeout to a generous
+# multiple of the measured baseline duration (never below the default floor) so
+# a slow suite — and the repeated runs bisection performs — don't spuriously
+# time out. The "slow suite" note fires when a single run already eats most of
+# the old default budget.
+BASELINE_TIMEOUT_FACTOR = 3
+BASELINE_SLOW_RATIO = 0.75
+
+
+def cmd_baseline(args):
+    """Establish a green test baseline before the iteration loop.
+
+    Runs the project's test command once. On failure, refuses to start (returns
+    non-zero, printing the failing tail then ``baseline-red``) unless
+    ``--allow-red``, which warns and proceeds without calibrating the timeout.
+    On success, calibrates ``config.test_timeout`` from the measured wall-clock
+    duration so the per-iteration runs — and bisection's re-runs — have headroom,
+    then prints ``baseline-green``. The orchestrator calls this once on a fresh
+    run only (skipped on ``--resume``, where the timeout is already persisted).
+    The status token is always the last line so the orchestrator can read it.
+    """
+    progress_path = Path(args.progress_file)
+    progress = read_progress(progress_path)
+    project_root = Path(progress["config"]["project_root"])
+    test_command = progress["config"]["test_command"]
+    timeout = _effective_timeout(progress)
+
+    start = time.monotonic()
+    passed, summary = run_tests(test_command, project_root, timeout=timeout)
+    elapsed = time.monotonic() - start
+
+    if not passed:
+        if args.allow_red:
+            print(
+                "[harness] WARNING: baseline tests are not green; proceeding "
+                "because --allow-red was given. Bisection cannot tell a "
+                "pre-existing failure from a fix-induced one this run."
+            )
+            print("baseline-red-allowed")
+            return 0
+        if summary:
+            print(summary)
+        print(
+            "[harness] Baseline tests failed. Fix them, or pass --allow-red to "
+            "proceed without a green safety net."
+        )
+        print("baseline-red")
+        return 1
+
+    calibrated = max(DEFAULT_TEST_TIMEOUT, math.ceil(elapsed * BASELINE_TIMEOUT_FACTOR))
+    progress["config"]["test_timeout"] = calibrated
+    write_progress(progress_path, progress)
+    if elapsed > BASELINE_SLOW_RATIO * DEFAULT_TEST_TIMEOUT:
+        print(
+            f"[harness] NOTE: the test suite is slow (~{round(elapsed)}s per run); "
+            f"per-iteration timeout calibrated to {calibrated}s."
+        )
+    print(f"baseline-green timeout={calibrated}")
+    return 0
+
+
 def cmd_commit_checkpoint(args):
     progress_path = Path(args.progress_file)
     progress = read_progress(progress_path)
@@ -1125,18 +1205,24 @@ def cmd_commit_checkpoint(args):
     if not git_diff_has_changes(project_root):
         print("nothing-to-commit")
         return 0
-    ok = git_commit_checkpoint(
+    status = git_commit_checkpoint(
         commit_message,
         project_root,
         str(progress_path),
     )
-    if ok:
+    if status == COMMIT_COMMITTED:
         print("committed")
         return 0
-    # Durably disable commits so the rest of the run (and any --resume) auto-
-    # stashes in snapshot and self-skips commit-checkpoint — preserving the
-    # accumulated uncommitted work rather than relying on the orchestrator to
-    # switch modes by hand.
+    if status == COMMIT_NOTHING:
+        # The un-stage step removed every staged path (e.g. a no-fix iteration
+        # whose only tree changes are the still-untracked harness state files).
+        # A clean no-op — must NOT disable commits.
+        print("nothing-to-commit")
+        return 0
+    # COMMIT_FAILED — durably disable commits so the rest of the run (and any
+    # --resume) auto-stashes in snapshot and self-skips commit-checkpoint —
+    # preserving the accumulated uncommitted work rather than relying on the
+    # orchestrator to switch modes by hand.
     progress["commit_disabled"] = True
     write_progress(progress_path, progress)
     print("commit-failed")
@@ -1302,6 +1388,18 @@ def cmd_final_report(args):
             backup.unlink()
         except FileNotFoundError:
             pass
+        # Remove the per-iteration scratch files the loop wrote alongside the
+        # progress file. final-report owns their lifecycle so the orchestrator
+        # needn't `rm` them (a project-root deletion guard can block that). The
+        # leading-dot globs match only the dotfile temps, never the *-progress*
+        # state files or the archived .done.json.
+        scratch_dir = progress_path.parent
+        for pattern in (".deep-iteration-*", ".unit-test-deep-*"):
+            for temp in scratch_dir.glob(pattern):
+                try:
+                    temp.unlink()
+                except OSError:
+                    pass
     return 0
 
 
@@ -1356,6 +1454,17 @@ def _build_parser():
         help="Raise the persisted cycle cap when continuing a coverage run",
     )
     p.set_defaults(func=cmd_resume)
+
+    p = sub.add_parser("baseline")
+    p.add_argument("--progress-file", required=True)
+    p.add_argument(
+        "--allow-red",
+        action="store_true",
+        help="Proceed even if the baseline suite is not green (skips timeout "
+        "calibration). The orchestrator passes this for unit-test-deep and when "
+        "the user supplied --allow-red-baseline.",
+    )
+    p.set_defaults(func=cmd_baseline)
 
     p = sub.add_parser("snapshot")
     p.add_argument("--progress-file", required=True)

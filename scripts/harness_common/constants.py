@@ -4,6 +4,12 @@ DEFAULT_TEST_TIMEOUT = 300  # 5 minutes for test runs
 APPLIED_PENDING_TEST = "applied-pending-test"
 PERSISTENT_STATUS = "persistent — fix failed"
 
+# commit_checkpoint result statuses (internal — cmd_commit_checkpoint maps these
+# to the orchestrator-facing words "committed" / "nothing-to-commit" / "commit-failed").
+COMMIT_COMMITTED = "committed"
+COMMIT_NOTHING = "nothing-to-commit"
+COMMIT_FAILED = "failed"
+
 FIXED_STATUSES = frozenset({"fixed", "retained — revert failed"})
 REVERTED_STATUSES = frozenset(
     {"reverted — test failure", "reverted — attempt 2", "skipped — apply failed"}

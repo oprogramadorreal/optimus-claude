@@ -9,6 +9,8 @@ Shared iteration template for `/optimus:unit-test-deep`. Each **cycle** runs a u
 
 The loop control discipline mirrors `references/orchestrator-loop-single.md` (slice-only progress reads, snapshot before dispatch, subagent output is text not state) — see that reference for the rationale. Only the cycle structure differs.
 
+**Plugin root.** Every command below writes `$CLAUDE_PLUGIN_ROOT` to mean the plugin root the orchestrator skill resolved in its Step 2. Bash-tool environment variables do **not** persist across separate Bash calls and may read empty on some platforms (notably Windows); if `echo $CLAUDE_PLUGIN_ROOT` was empty there, substitute the resolved absolute path **literally** into every `PYTHONPATH=...` command and into both dispatch prompts in this file.
+
 ## Per-cycle body
 
 ### 1. Snapshot pre-cycle git state
@@ -27,14 +29,18 @@ Agent tool call:
   description: "unit-test cycle <N> — unit-test phase"
   prompt: |
     HARNESS_MODE_INLINE
+    Plugin root: <absolute-plugin-root>
     Progress file: <absolute-progress-path>
     Cycle: <N> of <max>
     Phase: unit-test
 
-    Read the base SKILL.md at `skills/unit-test/SKILL.md` under the
-    plugin root and execute its harness-mode protocol from
-    `references/coverage-harness-mode.md` ("Unit-Test Phase Execution"
-    section) exactly:
+    Read the base SKILL.md at
+    `<absolute-plugin-root>/skills/unit-test/SKILL.md` and execute its
+    harness-mode protocol from
+    `<absolute-plugin-root>/references/coverage-harness-mode.md` ("Unit-Test
+    Phase Execution" section) exactly. Wherever the base SKILL.md or that
+    reference mentions `$CLAUDE_PLUGIN_ROOT`, substitute the absolute plugin
+    root above — your environment may not export it:
     - Read the progress file above for prior coverage and untestable items.
     - Discover gaps, write new tests, measure coverage, flag untestable code.
     - Emit a single ```json:harness-output fenced block and stop.
@@ -107,17 +113,22 @@ Agent tool call:
   description: "unit-test cycle <N> — refactor phase"
   prompt: |
     HARNESS_MODE_INLINE
+    Plugin root: <absolute-plugin-root>
     Progress file: <absolute-progress-path>
     Cycle: <N> of <max>
     Phase: refactor
 
-    Read the base SKILL.md at `skills/refactor/SKILL.md` under the
-    plugin root and execute its harness-mode protocol from
-    `references/harness-mode.md` (with focus = "testability"). The
-    progress file lists pending untestable items
-    under untestable_code; scope the refactor to those files only.
-    Apply fixes; do NOT run tests. Emit a single ```json:harness-output
-    fenced block and stop.
+    Read the base SKILL.md at
+    `<absolute-plugin-root>/skills/refactor/SKILL.md` and execute its
+    harness-mode protocol from
+    `<absolute-plugin-root>/references/harness-mode.md` (with focus =
+    "testability"). Wherever the base SKILL.md or harness-mode.md reference
+    `$CLAUDE_PLUGIN_ROOT`, substitute the absolute plugin root above — your
+    environment may not export it. The progress file lists pending untestable
+    items under untestable_code; scope the refactor to those files only.
+    Apply fixes. Do NOT run the test command, any `scripts/*.sh`, or any
+    lint/build — the orchestrator owns all test execution. Emit a single
+    ```json:harness-output fenced block and stop.
 ```
 
 ### 7. Save the refactor return + extract the refactor JSON

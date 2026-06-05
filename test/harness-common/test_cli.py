@@ -1,9 +1,15 @@
 """Tests for the orchestrator CLI (`scripts/harness_common/cli.py`)."""
 
 import json
+import subprocess
 
 import pytest
 from harness_common import cli, reporting
+from harness_common.constants import (
+    COMMIT_COMMITTED,
+    COMMIT_FAILED,
+    DEFAULT_TEST_TIMEOUT,
+)
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -46,6 +52,27 @@ def _stub_git(
 
 def _read_progress(path):
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _git_init(tmp_path):
+    """Create a real git repo with one commit, for tests that exercise the
+    actual git layer instead of stubbing it."""
+
+    def g(*args):
+        subprocess.run(
+            ["git", *args],
+            cwd=str(tmp_path),
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+
+    g("init")
+    g("config", "user.email", "t@t.test")
+    g("config", "user.name", "t")
+    (tmp_path / "seed.txt").write_text("seed\n", encoding="utf-8")
+    g("add", "seed.txt")
+    g("commit", "-m", "base")
 
 
 # ---------------------------------------------------------------------------
@@ -1134,6 +1161,25 @@ def _seed_deep_progress(tmp_path, *, iteration=1, scope_files=None):
     return path
 
 
+def _one_fix_result():
+    """A deep-step result JSON with a single actionable fix (triggers a test run)."""
+    fix = {
+        "file": "a.py",
+        "line": 1,
+        "category": "x",
+        "summary": "s",
+        "pre_edit_content": "a",
+        "post_edit_content": "b",
+    }
+    return {
+        "iteration": 1,
+        "new_findings": [fix],
+        "fixes_applied": [fix],
+        "no_new_findings": False,
+        "no_actionable_fixes": False,
+    }
+
+
 class TestDeepStep:
     def test_convergence(self, tmp_path, capsys):
         ppath = _seed_deep_progress(tmp_path)
@@ -1249,6 +1295,40 @@ class TestDeepStep:
         data = _read_progress(ppath)
         assert data["iteration_history"][-1]["fixed"] == 1
 
+    def test_configured_timeout_is_threaded_to_run_tests(self, tmp_path, monkeypatch):
+        # config.test_timeout (set by `baseline`) must reach run_tests.
+        ppath = _seed_deep_progress(tmp_path)
+        data = _read_progress(ppath)
+        data["config"]["test_timeout"] = 777
+        ppath.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        captured = {}
+
+        def fake_run_tests(tc, cwd, timeout=None, **kw):
+            captured["timeout"] = timeout
+            return (True, "ok")
+
+        monkeypatch.setattr(cli, "run_tests", fake_run_tests)
+        result = tmp_path / "result.json"
+        result.write_text(json.dumps(_one_fix_result()), encoding="utf-8")
+        _run("deep-step", "--progress-file", str(ppath), "--result-file", str(result))
+        assert captured["timeout"] == 777
+
+    def test_absent_timeout_falls_back_to_default(self, tmp_path, monkeypatch):
+        # _seed_deep_progress writes no test_timeout, mirroring an old/resumed
+        # progress file — run_tests must still get DEFAULT_TEST_TIMEOUT.
+        ppath = _seed_deep_progress(tmp_path)
+        captured = {}
+
+        def fake_run_tests(tc, cwd, timeout=None, **kw):
+            captured["timeout"] = timeout
+            return (True, "ok")
+
+        monkeypatch.setattr(cli, "run_tests", fake_run_tests)
+        result = tmp_path / "result.json"
+        result.write_text(json.dumps(_one_fix_result()), encoding="utf-8")
+        _run("deep-step", "--progress-file", str(ppath), "--result-file", str(result))
+        assert captured["timeout"] == DEFAULT_TEST_TIMEOUT
+
     def test_malformed_empty_fixes_does_not_crash(self, tmp_path, capsys):
         # Regression: if a subagent reports new_findings but neither
         # no_actionable_fixes=true nor any fixes_applied entries with valid
@@ -1299,7 +1379,9 @@ class TestDeepStep:
         ppath = _seed_deep_progress(tmp_path)
         monkeypatch.setattr(cli, "run_tests", lambda *a, **kw: (False, "FAIL"))
 
-        def _stub_bisect(fixes, _tc, _cwd, on_outcome=None, reset_to_clean=None):
+        def _stub_bisect(
+            fixes, _tc, _cwd, run_tests_fn=None, on_outcome=None, reset_to_clean=None
+        ):
             for idx, fix in enumerate(fixes):
                 on_outcome(idx, fix, "skipped", "apply failed")
             return 0, 0, len(fixes)
@@ -1457,7 +1539,9 @@ class TestDeepStep:
 
         monkeypatch.setattr(cli, "run_tests", _stub_tests)
 
-        def _stub_bisect(fixes, _tc, _cwd, on_outcome=None, reset_to_clean=None):
+        def _stub_bisect(
+            fixes, _tc, _cwd, run_tests_fn=None, on_outcome=None, reset_to_clean=None
+        ):
             for idx, fix in enumerate(fixes):
                 on_outcome(idx, fix, "fixed", "OK")
             return len(fixes), 0, 0
@@ -1522,7 +1606,9 @@ class TestDeepStep:
         (tmp_path / "a.py").write_text("a", encoding="utf-8")
         monkeypatch.setattr(cli, "run_tests", lambda *a, **kw: (False, "FAIL"))
 
-        def _stub_bisect(fixes, _tc, _cwd, on_outcome=None, reset_to_clean=None):
+        def _stub_bisect(
+            fixes, _tc, _cwd, run_tests_fn=None, on_outcome=None, reset_to_clean=None
+        ):
             for idx, fix in enumerate(fixes):
                 on_outcome(idx, fix, "reverted", "FAIL")
             return 0, len(fixes), 0
@@ -1582,7 +1668,9 @@ class TestDeepStep:
         (tmp_path / "a.py").write_text("a", encoding="utf-8")
         monkeypatch.setattr(cli, "run_tests", lambda *a, **kw: (False, "FAIL"))
 
-        def _stub_bisect(fixes, _tc, _cwd, on_outcome=None, reset_to_clean=None):
+        def _stub_bisect(
+            fixes, _tc, _cwd, run_tests_fn=None, on_outcome=None, reset_to_clean=None
+        ):
             for idx, fix in enumerate(fixes):
                 on_outcome(idx, fix, "retained", "revert failed")
             # retained counts toward fixed_count in the real bisect_fixes.
@@ -2044,7 +2132,9 @@ class TestRefactorStep:
         (tmp_path / "u.py").write_text("a", encoding="utf-8")
         monkeypatch.setattr(cli, "run_tests", lambda *a, **kw: (False, "FAIL"))
 
-        def _stub_bisect(fixes, _tc, _cwd, on_outcome=None, reset_to_clean=None):
+        def _stub_bisect(
+            fixes, _tc, _cwd, run_tests_fn=None, on_outcome=None, reset_to_clean=None
+        ):
             for idx, fix in enumerate(fixes):
                 on_outcome(idx, fix, "skipped", "apply failed")
             return 0, 0, len(fixes)
@@ -2100,7 +2190,9 @@ class TestRefactorStep:
         (tmp_path / "u.py").write_text("a", encoding="utf-8")
         monkeypatch.setattr(cli, "run_tests", lambda *a, **kw: (False, "FAIL"))
 
-        def _stub_bisect(fixes, _tc, _cwd, on_outcome=None, reset_to_clean=None):
+        def _stub_bisect(
+            fixes, _tc, _cwd, run_tests_fn=None, on_outcome=None, reset_to_clean=None
+        ):
             for idx, fix in enumerate(fixes):
                 on_outcome(idx, fix, "reverted", "FAIL")
             return 0, len(fixes), 0
@@ -2168,7 +2260,9 @@ class TestRefactorStep:
 
         monkeypatch.setattr(cli, "run_tests", _stub_tests)
 
-        def _stub_bisect(fixes, _tc, _cwd, on_outcome=None, reset_to_clean=None):
+        def _stub_bisect(
+            fixes, _tc, _cwd, run_tests_fn=None, on_outcome=None, reset_to_clean=None
+        ):
             for idx, fix in enumerate(fixes):
                 on_outcome(idx, fix, "fixed", "OK")
             return len(fixes), 0, 0
@@ -2508,7 +2602,7 @@ class TestCommitCheckpoint:
 
         def fake_commit(message, cwd, pf, **kw):
             captured["message"] = message
-            return True
+            return COMMIT_COMMITTED
 
         monkeypatch.setattr(cli, "git_commit_checkpoint", fake_commit)
         exit_code = _run("commit-checkpoint", "--progress-file", str(ppath))
@@ -2538,7 +2632,7 @@ class TestCommitCheckpoint:
 
         def fake_commit(message, cwd, pf, **kw):
             captured["message"] = message
-            return True
+            return COMMIT_COMMITTED
 
         monkeypatch.setattr(cli, "git_commit_checkpoint", fake_commit)
         exit_code = _run(
@@ -2575,7 +2669,7 @@ class TestCommitCheckpoint:
 
         def fake_commit(message, cwd, pf, **kw):
             captured["message"] = message
-            return True
+            return COMMIT_COMMITTED
 
         monkeypatch.setattr(cli, "git_commit_checkpoint", fake_commit)
         exit_code = _run(
@@ -2597,11 +2691,86 @@ class TestCommitCheckpoint:
         # no longer has to switch modes by hand.
         ppath = _seed_deep_progress(tmp_path)
         monkeypatch.setattr(cli, "git_diff_has_changes", lambda _cwd: True)
-        monkeypatch.setattr(cli, "git_commit_checkpoint", lambda *_a, **_kw: False)
+        monkeypatch.setattr(
+            cli, "git_commit_checkpoint", lambda *_a, **_kw: COMMIT_FAILED
+        )
         exit_code = _run("commit-checkpoint", "--progress-file", str(ppath))
         assert exit_code == 1
         assert capsys.readouterr().out.strip() == "commit-failed"
         assert _read_progress(ppath)["commit_disabled"] is True
+
+    def test_no_fix_iteration_keeps_commits_enabled(self, tmp_path, capsys):
+        # End-to-end regression with a REAL git repo (no monkeypatching of the
+        # git layer): a no-fix iteration whose only tree change is the untracked
+        # progress file must report nothing-to-commit and leave commit_disabled
+        # False — the field bug that durably killed checkpoint recoverability.
+        _git_init(tmp_path)
+        ppath = _seed_deep_progress(tmp_path)
+        # _seed_deep_progress points project_root at tmp_path; the progress file
+        # itself is the only untracked change, mirroring a converged iteration.
+        exit_code = _run("commit-checkpoint", "--progress-file", str(ppath))
+        assert exit_code == 0
+        assert capsys.readouterr().out.strip() == "nothing-to-commit"
+        # The field bug flipped this to True; the fix must leave it unset/falsy.
+        assert not _read_progress(ppath).get("commit_disabled")
+
+
+# ---------------------------------------------------------------------------
+# baseline
+# ---------------------------------------------------------------------------
+
+
+class TestBaseline:
+    def test_green_floor_keeps_default_timeout(self, tmp_path, capsys, monkeypatch):
+        ppath = _seed_deep_progress(tmp_path)
+        monkeypatch.setattr(cli, "run_tests", lambda *a, **kw: (True, "ok"))
+        # Fast suite → calibrated timeout never drops below the default floor.
+        times = iter([1000.0, 1005.0])
+        monkeypatch.setattr(cli.time, "monotonic", lambda: next(times))
+        exit_code = _run("baseline", "--progress-file", str(ppath))
+        assert exit_code == 0
+        out = capsys.readouterr().out
+        assert out.strip().splitlines()[-1] == (
+            f"baseline-green timeout={DEFAULT_TEST_TIMEOUT}"
+        )
+        assert _read_progress(ppath)["config"]["test_timeout"] == DEFAULT_TEST_TIMEOUT
+
+    def test_green_calibrates_above_floor_for_slow_suite(
+        self, tmp_path, capsys, monkeypatch
+    ):
+        ppath = _seed_deep_progress(tmp_path)
+        monkeypatch.setattr(cli, "run_tests", lambda *a, **kw: (True, "ok"))
+        times = iter([0.0, 240.0])  # 240s baseline run
+        monkeypatch.setattr(cli.time, "monotonic", lambda: next(times))
+        exit_code = _run("baseline", "--progress-file", str(ppath))
+        assert exit_code == 0
+        out = capsys.readouterr().out
+        # max(300, ceil(240 * 3)) == 720
+        assert _read_progress(ppath)["config"]["test_timeout"] == 720
+        assert "slow" in out.lower()
+        assert out.strip().splitlines()[-1] == "baseline-green timeout=720"
+
+    def test_red_refuses_to_start(self, tmp_path, capsys, monkeypatch):
+        ppath = _seed_deep_progress(tmp_path)
+        monkeypatch.setattr(cli, "run_tests", lambda *a, **kw: (False, "assert boom"))
+        exit_code = _run("baseline", "--progress-file", str(ppath))
+        assert exit_code == 1
+        out = capsys.readouterr().out
+        assert "assert boom" in out
+        assert out.strip().splitlines()[-1] == "baseline-red"
+        # A red run's duration is untrustworthy — no calibration written.
+        assert "test_timeout" not in _read_progress(ppath)["config"]
+
+    def test_red_allowed_proceeds_without_calibration(
+        self, tmp_path, capsys, monkeypatch
+    ):
+        ppath = _seed_deep_progress(tmp_path)
+        monkeypatch.setattr(cli, "run_tests", lambda *a, **kw: (False, "assert boom"))
+        exit_code = _run("baseline", "--progress-file", str(ppath), "--allow-red")
+        assert exit_code == 0
+        out = capsys.readouterr().out
+        assert out.strip().splitlines()[-1] == "baseline-red-allowed"
+        assert "test_timeout" not in _read_progress(ppath)["config"]
 
 
 # ---------------------------------------------------------------------------
@@ -2617,6 +2786,53 @@ class TestFinalReport:
         assert exit_code == 0
         out = capsys.readouterr().out
         assert "Deep-orchestrator cumulative report" in out
+
+    def test_archive_removes_iteration_temps(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(reporting, "git_current_branch", lambda _cwd: "feat/x")
+        ppath = _seed_deep_progress(tmp_path)
+        # Per-iteration scratch the loop leaves in the progress dir...
+        temps = [
+            tmp_path / ".deep-iteration-raw.txt",
+            tmp_path / ".deep-iteration-result.json",
+            tmp_path / ".unit-test-deep-ut-raw.txt",
+        ]
+        for temp in temps:
+            temp.write_text("x", encoding="utf-8")
+        # ...plus a sibling that must survive (not a scratch temp).
+        keep = tmp_path / "keep.txt"
+        keep.write_text("keep", encoding="utf-8")
+        exit_code = _run("final-report", "--progress-file", str(ppath), "--archive")
+        assert exit_code == 0
+        for temp in temps:
+            assert not temp.exists()
+        assert keep.exists()
+        assert (tmp_path / "progress.done.json").exists()
+
+    def test_deep_report_separator_is_ascii(self, tmp_path, capsys, monkeypatch):
+        # The "Stopped:" separator must be ASCII so the report can't mojibake on
+        # a legacy Windows console (cp437/cp1252).
+        monkeypatch.setattr(reporting, "git_current_branch", lambda _cwd: "feat/x")
+        ppath = _seed_deep_progress(tmp_path)
+        data = _read_progress(ppath)
+        data["termination"] = {"reason": "convergence", "message": "Zero new findings"}
+        ppath.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        _run("final-report", "--progress-file", str(ppath))
+        out = capsys.readouterr().out
+        out.encode("ascii")  # raises if a non-ASCII separator slipped back in
+        assert "convergence - Zero new findings" in out
+
+    def test_coverage_delta_separator_is_ascii(self, tmp_path, capsys, monkeypatch):
+        # The coverage delta arrow must be ASCII for the same reason.
+        monkeypatch.setattr(reporting, "git_current_branch", lambda _cwd: "feat/x")
+        ppath = _seed_coverage_progress(tmp_path)
+        data = _read_progress(ppath)
+        data["coverage"]["baseline"] = 50
+        data["coverage"]["current"] = 80
+        ppath.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        _run("final-report", "--progress-file", str(ppath))
+        out = capsys.readouterr().out
+        out.encode("ascii")
+        assert "50% -> 80%" in out
 
     def test_coverage_report_prints(self, tmp_path, capsys, monkeypatch):
         ppath = _seed_coverage_progress(tmp_path)
@@ -3145,7 +3361,7 @@ class TestFinalReportBody:
         exit_code = _run("final-report", "--progress-file", str(ppath))
         assert exit_code == 0
         out = capsys.readouterr().out
-        assert "40% → 75%" in out
+        assert "40% -> 75%" in out
         assert "8 tests in 2 files" in out
         assert "Testability fixes: 1" in out
         assert "Still untestable: 1" in out

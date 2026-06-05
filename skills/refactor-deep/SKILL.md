@@ -21,7 +21,8 @@ Extract from the user's arguments:
 3. `--yes` flag (present/absent) — auto-confirm the Step 3 prompt; required when invoked under `claude -p` or any other non-interactive session that cannot answer `AskUserQuestion`.
 4. `--max-iterations N` (optional, default 8, hard cap 20)
 5. Focus keyword (standalone unquoted token): `testability` or `guidelines` (the same detection rules as `/optimus:refactor` — see `skills/refactor/SKILL.md` Step 1)
-6. Everything else → scope text (an existing path scopes the refactor to that path; other text is recorded as intent only and does **not** filter — the full branch diff is still processed)
+6. `--allow-red-baseline` flag (present/absent) — proceed even if the Step 4 pre-loop baseline finds the suite already failing
+7. Everything else → scope text (an existing path scopes the refactor to that path; other text is recorded as intent only and does **not** filter — the full branch diff is still processed)
 
 Examples:
 - `/optimus:refactor-deep` → full project, 8 iterations, balanced focus
@@ -36,7 +37,13 @@ Examples:
 
 ### Plugin root
 
-Run `echo $CLAUDE_PLUGIN_ROOT` via Bash. Store as `plugin_root`. If empty, stop: *"Cannot resolve plugin root — ensure optimus-claude is installed via the Claude Code plugin system."*
+Resolve `plugin_root` (the absolute path to the installed plugin) and keep it for every CLI call and subagent dispatch below — the env var does not persist across separate Bash tool calls and reads empty on some platforms (notably Windows):
+
+1. Run `echo $CLAUDE_PLUGIN_ROOT` via Bash. If it is non-empty **and** `<value>/scripts/harness_common` exists (`test -d`), use it.
+2. Otherwise derive the root from the "Base directory for this skill:" line in your invocation context — strip the trailing `/skills/...` segment (this skill's own directory) — and use it if `<derived>/scripts/harness_common` exists.
+3. If neither candidate contains `scripts/harness_common`, stop: *"Cannot resolve plugin root — ensure optimus-claude is installed via the Claude Code plugin system."*
+
+Wherever the steps below (and `orchestrator-loop-*.md`) write `$CLAUDE_PLUGIN_ROOT`, use this resolved `plugin_root`; if `echo $CLAUDE_PLUGIN_ROOT` was empty, substitute the absolute path literally.
 
 ### Documentation prerequisites
 
@@ -44,7 +51,7 @@ Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/prerequisite-check.md` and appl
 
 ### Test command
 
-Read `.claude/CLAUDE.md` and verify a test command is documented. If missing, stop and recommend `/optimus:init`.
+Read `.claude/CLAUDE.md` and capture the documented test command verbatim — store the exact string (e.g. `npm test`, `pytest`) as `test_command`. If none is documented, stop and recommend `/optimus:init` to set one up first. You pass this captured command to `init` in Step 4 via `--test-command`; `init` can also parse `.claude/CLAUDE.md` itself, but its parser is stricter than a human read, so passing the command you just read avoids a spurious "No test command found" failure on a command the CLI can't parse.
 
 ### Git state
 
@@ -86,6 +93,7 @@ Pass `--max-iterations N` through when the user supplied a higher cap on `--resu
 PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli init \
     --skill refactor \
     --max-iterations [N] \
+    --test-command "<test_command>" \
     [--focus testability | --focus guidelines] \
     [--scope "<scope>"] \
     [--no-commit] \
@@ -98,6 +106,18 @@ Pass `--no-commit` through to `init` when the user supplied it — the mode is p
 If `--focus` is supplied with anything other than `testability` or `guidelines`, the CLI rejects it.
 
 If `init` reports *"progress file already exists"*, a prior un-archived run is on disk. Either run with `--resume` to continue it, or re-invoke `init` with `--force` to discard the prior progress.
+
+### Establish a green baseline (fresh runs only)
+
+Skip on `--resume` — the baseline already ran and the calibrated timeout is persisted. On a fresh run, after `init` succeeds, verify the suite is green before the loop:
+
+```bash
+PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli baseline \
+    --progress-file ".claude/refactor-deep-progress.json" \
+    [--allow-red]
+```
+
+`baseline` runs the test command once and calibrates the per-iteration timeout from how long it takes (so a slow suite, re-run repeatedly during bisection, doesn't spuriously time out). It prints `baseline-green` (continue) or, on a failing suite, `baseline-red` with a non-zero exit. On `baseline-red`, stop and show the user the failing tests — a red starting tree makes bisection blame the iteration's fixes and revert good work. Pass `--allow-red` only when the user supplied `--allow-red-baseline` (proceed without a green safety net; the timeout is left at its default).
 
 ## Step 5: Run the Iteration Loop
 

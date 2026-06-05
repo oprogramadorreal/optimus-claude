@@ -115,6 +115,54 @@ def test_orchestrator_has_reentry_guard(orchestrator, _loop, _base):
     assert "HARNESS_MODE_INLINE" in skill_md
 
 
+def _plugin_root_section(orchestrator):
+    """Return the '### Plugin root' subsection body of an orchestrator SKILL.md."""
+    skill_md = _read(f"skills/{orchestrator}/SKILL.md")
+    marker = "### Plugin root"
+    start = skill_md.index(marker) + len(marker)
+    rest = skill_md[start:]
+    return rest[: rest.index("\n### ")]
+
+
+def test_deep_skills_share_identical_plugin_root_resolution():
+    """All three orchestrators must resolve the plugin root the same way.
+
+    The resolution (env var → "Base directory" fallback → validate that the
+    candidate contains scripts/harness_common) is replicated verbatim in each
+    SKILL.md because it cannot live in a shared reference — reading that
+    reference would itself need the very root it resolves. Pin byte-identity so
+    a fix to one copy is mirrored to all three.
+    """
+    sections = {
+        o: _plugin_root_section(o)
+        for o in ("code-review-deep", "refactor-deep", "unit-test-deep")
+    }
+    reference = sections["code-review-deep"]
+    for orchestrator, section in sections.items():
+        assert section == reference, (
+            f"skills/{orchestrator}/SKILL.md '### Plugin root' diverged from "
+            "code-review-deep — keep the resolution byte-identical across all three"
+        )
+
+
+@pytest.mark.parametrize("orchestrator,_loop,_base", ORCHESTRATOR_CONTRACTS)
+def test_orchestrator_passes_test_command_and_runs_baseline(orchestrator, _loop, _base):
+    """Each orchestrator must pass --test-command to init and run the baseline gate.
+
+    The CLI's CLAUDE.md parser is stricter than a human read; passing the
+    command the skill already captured avoids a spurious init failure. The
+    baseline run establishes a green starting tree and calibrates the per-run
+    test timeout before the loop starts.
+    """
+    skill_md = _read(f"skills/{orchestrator}/SKILL.md")
+    assert (
+        "--test-command" in skill_md
+    ), f"skills/{orchestrator}/SKILL.md must pass --test-command to init"
+    assert (
+        "cli baseline" in skill_md
+    ), f"skills/{orchestrator}/SKILL.md must run the baseline gate before the loop"
+
+
 # ---------------------------------------------------------------------------
 # Loop references must inject HARNESS_MODE_INLINE and read base SKILL.md
 # ---------------------------------------------------------------------------

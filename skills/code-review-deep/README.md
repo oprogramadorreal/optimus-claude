@@ -76,6 +76,11 @@ Press Esc twice in Claude Code to interrupt. The orchestrator writes the progres
 
 The orchestration loop's primitives (snapshot, parse, deep-step, commit-checkpoint, check-termination, advance, final-report) are dispatched via the project-level `scripts/harness_common/cli.py` — see [.claude/docs/architecture.md](../../.claude/docs/architecture.md) for the data flow.
 
+## Known Limitations
+
+- **Per-iteration latency can be high.** Each iteration dispatches a fresh subagent that runs the base skill's full analysis, so a multi-iteration run over a large diff can take a long time (one observed run took ~45 min for a single iteration over an 18-file diff). Budget time and credits, or scope the run to a path.
+- **Subagent fan-out is unverified.** The per-iteration subagent is expected to launch the base skill's parallel analysis agents; whether nested subagent spawning actually occurs in practice (vs. collapsing to a single inline analysis) has not been confirmed empirically. The loop is correct either way — only the analysis breadth would differ. Tracked as a follow-up.
+
 ## License
 
 [MIT](../../LICENSE)

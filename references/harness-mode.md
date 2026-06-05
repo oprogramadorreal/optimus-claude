@@ -96,7 +96,7 @@ For fixes that span multiple locations in a single file, output one entry per ed
 
 ### 7. Do NOT run tests
 
-The orchestrator handles test execution and bisection externally. This keeps test output (stack traces, assertion failures) out of the subagent's context window. Do not run the test command.
+The orchestrator handles test execution and bisection externally. This keeps test output (stack traces, assertion failures) out of the subagent's context window. Do **not** run the project's test command, any `scripts/*.sh`, or any lint / build / coverage invocation — not even to "verify" your own fixes. Skip any verification or validation step the base skill's normal (interactive) flow would perform; under harness mode the orchestrator owns all test execution. Apply your edits and emit the JSON.
 
 ### 8. Output structured JSON
 

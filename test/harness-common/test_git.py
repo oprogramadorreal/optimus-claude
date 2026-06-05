@@ -3,6 +3,11 @@ import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+from harness_common.constants import (
+    COMMIT_COMMITTED,
+    COMMIT_FAILED,
+    COMMIT_NOTHING,
+)
 from harness_common.git import (
     _HARNESS_STATE_EXCLUDES,
     _PR_BODY_TRUNCATE_LIMIT,
@@ -31,10 +36,13 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 def test_gitignore_mirrors_harness_state_excludes():
-    """The temp-file prefixes that commit_checkpoint relies on .gitignore to keep
-    out of `git add -A` must actually be in .gitignore. references/
-    orchestrator-loop-single.md calls this coupling load-bearing — pin it so a
-    rename on one side without the other can't pass silently.
+    """This repo's .gitignore must mirror the harness temp-file prefixes.
+
+    commit_checkpoint's authoritative protection is the un-stage step (it does
+    NOT depend on .gitignore — `/optimus:init` does not provision it in user
+    repos). But keeping this repo's own .gitignore in sync is a dev convenience
+    so harness runs here don't leave the patterns showing as untracked; pin it
+    so a rename on one side without `_HARNESS_STATE_EXCLUDES` can't drift.
     """
     gitignore = (_REPO_ROOT / ".gitignore").read_text(encoding="utf-8")
     for pattern in _HARNESS_STATE_EXCLUDES:
@@ -116,29 +124,43 @@ class TestCleanWorkingTree:
 
 class TestCommitCheckpoint:
     # commit_checkpoint takes a `_run` test seam, so we drive it directly
-    # without monkey-patching subprocess.
+    # without monkey-patching subprocess. The seam is keyed by git subcommand
+    # (rather than positional) so the order/number of `git reset` un-stage calls
+    # can change without re-tuning a brittle results list.
 
-    def _make_run(self, results):
-        """Build a fake subprocess.run that returns results in order."""
+    def _make_run(self, *, add_rc=0, staged_rc=1, commit_result=None):
+        """Build a fake subprocess.run keyed by git subcommand.
+
+        ``staged_rc`` is the returncode of ``git diff --cached --quiet``
+        (1 = something is staged, 0 = nothing staged). ``commit_result``, when
+        given, is the MagicMock returned for ``git commit``; otherwise a clean
+        success is synthesized.
+        """
         calls = []
 
         def fake_run(cmd, **_kw):
             calls.append(cmd)
-            i = len(calls) - 1
-            return results[min(i, len(results) - 1)]
+            if cmd[:2] == ["git", "add"]:
+                return MagicMock(returncode=add_rc, stdout="", stderr="")
+            if cmd[:4] == ["git", "diff", "--cached", "--quiet"]:
+                return MagicMock(returncode=staged_rc, stdout="", stderr="")
+            if cmd[:2] == ["git", "commit"]:
+                return commit_result or MagicMock(returncode=0, stdout="", stderr="")
+            # `git reset HEAD -- <pattern>` and anything else succeed quietly.
+            return MagicMock(returncode=0, stdout="", stderr="")
 
         return fake_run, calls
 
     def test_commits_after_unstaging_progress_file(self, tmp_path):
         # Verifies the full dance: git add -A, then `git reset HEAD --` against
         # the progress file, its .bak sibling, and every harness scratch / state
-        # pattern, then git commit. Un-staging the scratch patterns is
-        # authoritative — it must not depend on the user project's .gitignore.
-        run, calls = self._make_run(
-            [MagicMock(returncode=0, stdout="", stderr="")] * 12
+        # pattern, then (something still staged) git commit. Un-staging the
+        # scratch patterns is authoritative — it must not depend on .gitignore.
+        run, calls = self._make_run(staged_rc=1)  # something staged → commit runs
+        status = commit_checkpoint(
+            "feat: x", tmp_path, ".claude/progress.json", _run=run
         )
-        ok = commit_checkpoint("feat: x", tmp_path, ".claude/progress.json", _run=run)
-        assert ok is True
+        assert status == COMMIT_COMMITTED
         assert calls[0][:2] == ["git", "add"]
         reset_calls = [c for c in calls if c[:3] == ["git", "reset", "HEAD"]]
         reset_targets = [c[-1] for c in reset_calls]
@@ -153,48 +175,97 @@ class TestCommitCheckpoint:
         assert len(commit_calls) == 1
         assert "feat: x" in commit_calls[0]
 
-    def test_nothing_to_commit_is_treated_as_success(self, tmp_path):
-        # When the un-stage step removes every staged path, `git commit`
-        # exits non-zero with "nothing to commit" in its output — this is
-        # a no-op success, not a failure.
-        run, _ = self._make_run(
-            [
-                MagicMock(returncode=0, stdout="", stderr=""),  # add
-                MagicMock(returncode=0, stdout="", stderr=""),  # reset 1
-                MagicMock(returncode=0, stdout="", stderr=""),  # reset 2
-                MagicMock(
-                    returncode=1,
-                    stdout="nothing to commit, working tree clean",
-                    stderr="",
-                ),
-            ]
+    def test_nothing_staged_after_unstage_skips_commit(self, tmp_path):
+        # The deterministic guard: after un-staging, `git diff --cached --quiet`
+        # returns 0 (nothing staged), so the function reports a no-op success
+        # WITHOUT attempting `git commit` — regardless of git's prose. This is
+        # the no-fix-iteration path that previously misfired as commit-failed.
+        run, calls = self._make_run(staged_rc=0)
+        status = commit_checkpoint(
+            "feat: x", tmp_path, ".claude/progress.json", _run=run
         )
-        ok = commit_checkpoint("feat: x", tmp_path, ".claude/progress.json", _run=run)
-        assert ok is True
+        assert status == COMMIT_NOTHING
+        assert not [c for c in calls if c[:2] == ["git", "commit"]]
 
-    def test_add_failure_returns_false(self, tmp_path, capsys):
-        run, _ = self._make_run(
-            [MagicMock(returncode=1, stdout="", stderr="permission denied")]
+    def test_nothing_added_phrasing_is_treated_as_nothing(self, tmp_path):
+        # Defense-in-depth: if something is staged at check time but the commit
+        # still reports nothing (e.g. a hook un-staged it in between), both the
+        # legacy "nothing to commit" and the untracked-files "nothing added to
+        # commit" phrasings map to a no-op success — never commit-failed.
+        commit = MagicMock(
+            returncode=1,
+            stdout="nothing added to commit but untracked files present",
+            stderr="",
         )
-        ok = commit_checkpoint("feat: x", tmp_path, ".claude/progress.json", _run=run)
-        assert ok is False
+        run, _ = self._make_run(staged_rc=1, commit_result=commit)
+        status = commit_checkpoint(
+            "feat: x", tmp_path, ".claude/progress.json", _run=run
+        )
+        assert status == COMMIT_NOTHING
+
+    def test_add_failure_returns_failed(self, tmp_path, capsys):
+        run, _ = self._make_run(add_rc=1)
+        status = commit_checkpoint(
+            "feat: x", tmp_path, ".claude/progress.json", _run=run
+        )
+        assert status == COMMIT_FAILED
         assert "git add -A failed" in capsys.readouterr().out
 
-    def test_commit_failure_returns_false(self, tmp_path, capsys):
+    def test_commit_failure_returns_failed(self, tmp_path, capsys):
         # A genuine commit failure (e.g., pre-commit hook rejection) must
-        # surface as False so the orchestrator can switch to --no-commit.
-        run, _ = self._make_run(
-            [
-                MagicMock(returncode=0, stdout="", stderr=""),  # add
-                MagicMock(returncode=0, stdout="", stderr=""),  # reset 1
-                MagicMock(returncode=0, stdout="", stderr=""),  # reset 2
-                MagicMock(returncode=1, stdout="", stderr="pre-commit hook failed"),
-            ]
+        # surface as COMMIT_FAILED so the orchestrator can switch to --no-commit.
+        commit = MagicMock(returncode=1, stdout="", stderr="pre-commit hook failed")
+        run, _ = self._make_run(staged_rc=1, commit_result=commit)
+        status = commit_checkpoint(
+            "feat: x", tmp_path, ".claude/progress.json", _run=run
         )
-        ok = commit_checkpoint("feat: x", tmp_path, ".claude/progress.json", _run=run)
-        assert ok is False
-        out = capsys.readouterr().out
-        assert "checkpoint commit failed" in out
+        assert status == COMMIT_FAILED
+        assert "checkpoint commit failed" in capsys.readouterr().out
+
+
+def _git(cwd, *args):
+    """Run a git command in ``cwd``, raising on failure."""
+    subprocess.run(
+        ["git", *args], cwd=str(cwd), capture_output=True, text=True, check=True
+    )
+
+
+def _head(cwd):
+    return subprocess.run(
+        ["git", "rev-parse", "HEAD"], cwd=str(cwd), capture_output=True, text=True
+    ).stdout.strip()
+
+
+def test_no_fix_iteration_with_untracked_progress_is_nothing_to_commit(tmp_path):
+    """Real-repo regression for the masked commit-checkpoint bug.
+
+    In a user project whose .gitignore does NOT carry the harness patterns, a
+    no-fix iteration leaves the progress file untracked. ``git add -A`` stages
+    it, the un-stage drops it, and ``git commit`` would print "nothing added to
+    commit but untracked files present". commit_checkpoint must report a no-op
+    success (COMMIT_NOTHING) and leave HEAD untouched — never a commit failure
+    that would durably disable checkpoints. A mocked test masked this; only a
+    real git repo exercises the actual git phrasing.
+    """
+    _git(tmp_path, "init")
+    _git(tmp_path, "config", "user.email", "t@t.test")
+    _git(tmp_path, "config", "user.name", "t")
+    (tmp_path / "file.txt").write_text("hello\n", encoding="utf-8")
+    _git(tmp_path, "add", "file.txt")
+    _git(tmp_path, "commit", "-m", "base")
+    head_before = _head(tmp_path)
+
+    # Simulate a no-fix iteration: the only tree change is the untracked,
+    # NON-gitignored progress file (this scratch repo has no .gitignore).
+    progress = tmp_path / ".claude" / "code-review-deep-progress.json"
+    progress.parent.mkdir()
+    progress.write_text("{}", encoding="utf-8")
+
+    status = commit_checkpoint(
+        "chore: checkpoint", tmp_path, ".claude/code-review-deep-progress.json"
+    )
+    assert status == COMMIT_NOTHING
+    assert _head(tmp_path) == head_before  # no checkpoint commit was created
 
 
 class TestGitRestoreTo:

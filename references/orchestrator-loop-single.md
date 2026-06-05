@@ -10,6 +10,8 @@ Shared iteration template for `/optimus:code-review-deep` and `/optimus:refactor
 
 The orchestrator never holds findings or fixes in conversation prose. All state lives in the progress file. Each Bash invocation of the CLI is a discrete operation; the orchestrator skill reads the CLI's stdout to make decisions.
 
+**Plugin root.** Every command below writes `$CLAUDE_PLUGIN_ROOT` to mean the plugin root the orchestrator skill resolved in its Step 2. Bash-tool environment variables do **not** persist across separate Bash calls and may read empty on some platforms (notably Windows); if `echo $CLAUDE_PLUGIN_ROOT` was empty there, substitute the resolved absolute path **literally** into every `PYTHONPATH=...` command and into every dispatch prompt in this file.
+
 ## Per-iteration body
 
 The orchestrator skill repeats steps 1–8 below until step 7 (`check-termination`) returns anything other than `continue`. Steps 1–6 and 8 mutate the progress file on disk; step 7 reads it.
@@ -32,21 +34,26 @@ Agent tool call:
   description: "<base-skill> iteration <N>"
   prompt: |
     HARNESS_MODE_INLINE
+    Plugin root: <absolute-plugin-root>
     Progress file: <absolute-progress-path>
     Iteration: <N> of <max>
     Phase: <skill>
 
-    Read the base SKILL.md at `skills/<base-skill>/SKILL.md` under the
-    plugin root and execute its harness-mode protocol from
-    `references/harness-mode.md` exactly:
+    Read the base SKILL.md at
+    `<absolute-plugin-root>/skills/<base-skill>/SKILL.md` and execute its
+    harness-mode protocol from
+    `<absolute-plugin-root>/references/harness-mode.md` exactly. Wherever the
+    base SKILL.md or harness-mode.md reference `$CLAUDE_PLUGIN_ROOT`, substitute
+    the absolute plugin root above — your environment may not export it:
     - Read the progress file above for accumulated findings and scope.
     - Run the analysis cycle once.
-    - Apply fixes (do NOT run tests — the orchestrator handles tests).
+    - Apply fixes. Do NOT run the test command, any `scripts/*.sh`, or any
+      lint/build — the orchestrator owns all test execution and bisection.
     - Emit a single ```json:harness-output fenced block and stop.
     - Do not use AskUserQuestion. Do not loop.
 ```
 
-Where `<base-skill>` is `code-review` or `refactor`. The subagent inherits the working tree and applies edits via `Edit`/`MultiEdit`; on return, the working tree carries the iteration's changes and the subagent's final message contains the structured JSON.
+Where `<base-skill>` is `code-review` or `refactor`, and `<absolute-plugin-root>` is the root resolved in Step 2 (the subagent does not inherit `$CLAUDE_PLUGIN_ROOT`, so it must be passed as an absolute path). The subagent inherits the working tree and applies edits via `Edit`/`MultiEdit`; on return, the working tree carries the iteration's changes and the subagent's final message contains the structured JSON.
 
 ### 3. Save the subagent return to a temp file
 
@@ -57,7 +64,7 @@ TMP_RAW=".claude/.deep-iteration-raw.txt"
 TMP_RESULT=".claude/.deep-iteration-result.json"
 ```
 
-These exact filename prefixes (`.deep-iteration-` and `.unit-test-deep-`) are required — `.gitignore` excludes these patterns so the checkpoint commit's `git add -A` doesn't capture them. Renaming requires synchronized updates to `.gitignore` and `_HARNESS_STATE_EXCLUDES` in `scripts/harness_common/git.py`.
+These exact filename prefixes (`.deep-iteration-` and `.unit-test-deep-`) are required. The checkpoint commit's authoritative protection is the un-stage step in `commit_checkpoint` (`scripts/harness_common/git.py`), which resets `_HARNESS_STATE_EXCLUDES` back out of the index after `git add -A` — it does **not** rely on the user project's `.gitignore` carrying these patterns (`/optimus:init` does not provision them). This repo's own `.gitignore` mirrors the patterns as a convenience for harness development; renaming a prefix therefore requires synchronized updates to `_HARNESS_STATE_EXCLUDES` (authoritative) and this repo's `.gitignore` (the dev mirror).
 
 ### 4. Extract the structured JSON
 

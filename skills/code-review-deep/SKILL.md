@@ -20,7 +20,8 @@ Extract from the user's arguments:
 2. `--no-commit` flag (present/absent)
 3. `--yes` flag (present/absent) — auto-confirm the Step 3 prompt; required when invoked under `claude -p` or any other non-interactive session that cannot answer `AskUserQuestion`.
 4. `--max-iterations N` (optional, default 8, hard cap 20)
-5. Everything else → scope text. An existing path scopes the review to that path; any other text (e.g. `"focus on src/auth"`) is recorded as intent only — it does **not** filter the diff, so the full branch diff is still reviewed.
+5. `--allow-red-baseline` flag (present/absent) — proceed even if the Step 4 pre-loop baseline finds the suite already failing
+6. Everything else → scope text. An existing path scopes the review to that path; any other text (e.g. `"focus on src/auth"`) is recorded as intent only — it does **not** filter the diff, so the full branch diff is still reviewed.
 
 Examples:
 - `/optimus:code-review-deep` → 8 iterations on the branch diff
@@ -34,7 +35,13 @@ Examples:
 
 ### Plugin root
 
-Run `echo $CLAUDE_PLUGIN_ROOT` via Bash. Store as `plugin_root`. If empty, stop: *"Cannot resolve plugin root — ensure optimus-claude is installed via the Claude Code plugin system."*
+Resolve `plugin_root` (the absolute path to the installed plugin) and keep it for every CLI call and subagent dispatch below — the env var does not persist across separate Bash tool calls and reads empty on some platforms (notably Windows):
+
+1. Run `echo $CLAUDE_PLUGIN_ROOT` via Bash. If it is non-empty **and** `<value>/scripts/harness_common` exists (`test -d`), use it.
+2. Otherwise derive the root from the "Base directory for this skill:" line in your invocation context — strip the trailing `/skills/...` segment (this skill's own directory) — and use it if `<derived>/scripts/harness_common` exists.
+3. If neither candidate contains `scripts/harness_common`, stop: *"Cannot resolve plugin root — ensure optimus-claude is installed via the Claude Code plugin system."*
+
+Wherever the steps below (and `orchestrator-loop-*.md`) write `$CLAUDE_PLUGIN_ROOT`, use this resolved `plugin_root`; if `echo $CLAUDE_PLUGIN_ROOT` was empty, substitute the absolute path literally.
 
 ### Documentation prerequisites
 
@@ -42,7 +49,7 @@ Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/prerequisite-check.md` and appl
 
 ### Test command
 
-Read `.claude/CLAUDE.md` and verify a test command is documented. If no test command can be detected (the CLI's `init` subcommand will fail explicitly), stop and recommend `/optimus:init` to set one up first.
+Read `.claude/CLAUDE.md` and capture the documented test command verbatim — store the exact string (e.g. `npm test`, `pytest`) as `test_command`. If none is documented, stop and recommend `/optimus:init` to set one up first. You pass this captured command to `init` in Step 4 via `--test-command`; `init` can also parse `.claude/CLAUDE.md` itself, but its parser is stricter than a human read, so passing the command you just read avoids a spurious "No test command found" failure on a command the CLI can't parse.
 
 ### Git state
 
@@ -87,6 +94,7 @@ If exit code is non-zero, surface the error and stop. Pass `--max-iterations N` 
 PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli init \
     --skill code-review \
     --max-iterations [N] \
+    --test-command "<test_command>" \
     [--scope "<scope>"] \
     [--no-commit] \
     --progress-file ".claude/code-review-deep-progress.json" \
@@ -101,6 +109,18 @@ If exit code is non-zero, surface the error and stop. Likely errors:
 - *"Cannot determine HEAD commit"* — the project is not a git repository or has no commits.
 
 If the user explicitly wants to discard a prior run, pass `--force` to `cli.py init` (no separate user-visible orchestrator flag is needed — the CLI's `--force` is sufficient).
+
+### Establish a green baseline (fresh runs only)
+
+Skip on `--resume` — the baseline already ran and the calibrated timeout is persisted. On a fresh run, after `init` succeeds, verify the suite is green before the loop:
+
+```bash
+PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli baseline \
+    --progress-file ".claude/code-review-deep-progress.json" \
+    [--allow-red]
+```
+
+`baseline` runs the test command once and calibrates the per-iteration timeout from how long it takes (so a slow suite, re-run repeatedly during bisection, doesn't spuriously time out). It prints `baseline-green` (continue) or, on a failing suite, `baseline-red` with a non-zero exit. On `baseline-red`, stop and show the user the failing tests — a red starting tree makes bisection blame the iteration's fixes and revert good work. Pass `--allow-red` only when the user supplied `--allow-red-baseline` (proceed without a green safety net; the timeout is left at its default).
 
 ## Step 5: Run the Iteration Loop
 

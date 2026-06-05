@@ -34,7 +34,13 @@ Examples:
 
 ### Plugin root
 
-Run `echo $CLAUDE_PLUGIN_ROOT` via Bash. Store as `plugin_root`. If empty, stop: *"Cannot resolve plugin root — ensure optimus-claude is installed via the Claude Code plugin system."*
+Resolve `plugin_root` (the absolute path to the installed plugin) and keep it for every CLI call and subagent dispatch below — the env var does not persist across separate Bash tool calls and reads empty on some platforms (notably Windows):
+
+1. Run `echo $CLAUDE_PLUGIN_ROOT` via Bash. If it is non-empty **and** `<value>/scripts/harness_common` exists (`test -d`), use it.
+2. Otherwise derive the root from the "Base directory for this skill:" line in your invocation context — strip the trailing `/skills/...` segment (this skill's own directory) — and use it if `<derived>/scripts/harness_common` exists.
+3. If neither candidate contains `scripts/harness_common`, stop: *"Cannot resolve plugin root — ensure optimus-claude is installed via the Claude Code plugin system."*
+
+Wherever the steps below (and `orchestrator-loop-*.md`) write `$CLAUDE_PLUGIN_ROOT`, use this resolved `plugin_root`; if `echo $CLAUDE_PLUGIN_ROOT` was empty, substitute the absolute path literally.
 
 ### Documentation prerequisites
 
@@ -42,7 +48,7 @@ Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/prerequisite-check.md` and appl
 
 ### Test command
 
-Read `.claude/CLAUDE.md` and verify a test command is documented. If missing, stop and recommend `/optimus:init` (the auto-fix loop has no safety net without a test command).
+Read `.claude/CLAUDE.md` and capture the documented test command verbatim — store the exact string (e.g. `npm test`, `pytest`) as `test_command`. If none is documented, stop and recommend `/optimus:init` to set one up first (the auto-fix loop has no safety net without a test command). You pass this captured command to `init` in Step 4 via `--test-command`; `init` can also parse `.claude/CLAUDE.md` itself, but its parser is stricter than a human read, so passing the command you just read avoids a spurious "No test command found" failure on a command the CLI can't parse.
 
 ### Test infrastructure
 
@@ -87,6 +93,7 @@ Pass `--max-cycles N` through when the user supplied a higher cap on `--resume` 
 PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli init \
     --skill unit-test \
     --max-cycles [N] \
+    --test-command "<test_command>" \
     [--scope "<scope>"] \
     [--no-commit] \
     --progress-file ".claude/unit-test-deep-progress.json" \
@@ -96,6 +103,18 @@ PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli init \
 Pass `--no-commit` through to `init` when the user supplied it — the mode is persisted in the progress file, so `--resume` keeps it without re-passing the flag (and `commit-checkpoint` self-skips regardless).
 
 If `init` reports *"progress file already exists"*, a prior un-archived run is on disk. Either run with `--resume` to continue it, or re-invoke `init` with `--force` to discard the prior progress.
+
+### Establish a baseline (fresh runs only)
+
+Skip on `--resume`. On a fresh run, after `init` succeeds, run the baseline once to calibrate the per-cycle test timeout:
+
+```bash
+PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli baseline \
+    --progress-file ".claude/unit-test-deep-progress.json" \
+    --allow-red
+```
+
+`--allow-red` is passed unconditionally here: a coverage run legitimately starts with little or no passing test coverage, so a non-green baseline is not a reason to refuse. When the suite is green the command calibrates the per-cycle timeout from the measured duration (so a slow suite doesn't spuriously time out during bisection); when it isn't, it proceeds and leaves the timeout at its default.
 
 ## Step 5: Run the Cycle Loop
 

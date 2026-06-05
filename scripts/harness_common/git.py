@@ -1,7 +1,12 @@
 import json
 import subprocess
 
-from .constants import BACKUP_SUFFIX
+from .constants import (
+    BACKUP_SUFFIX,
+    COMMIT_COMMITTED,
+    COMMIT_FAILED,
+    COMMIT_NOTHING,
+)
 
 _PREFIX = "[harness]"
 
@@ -13,9 +18,16 @@ _UNSET = object()
 def commit_checkpoint(commit_message, cwd, progress_file, _run=None):
     """Stage all changes, un-stage harness state files, and commit.
 
-    Returns True on success or when there is nothing to commit (the
-    "nothing to commit" exit is treated as a no-op success because it
-    means the un-stage step removed every staged path).
+    Returns one of ``COMMIT_COMMITTED`` (a checkpoint was created),
+    ``COMMIT_NOTHING`` (nothing remained staged after un-staging harness
+    state — a no-op success), or ``COMMIT_FAILED`` (``git add``/``git commit``
+    errored for a real reason). The "nothing staged" case is detected
+    deterministically with ``git diff --cached --quiet`` so it never depends
+    on git's prose: when the user project's .gitignore lacks the harness
+    patterns (``/optimus:init`` does not provision them), the still-untracked
+    progress file makes git print "nothing added to commit but untracked files
+    present" rather than "nothing to commit", which must NOT be misread as a
+    commit failure (that would durably disable checkpoint commits).
     """
     _run = _run or subprocess.run
     add_result = _run(
@@ -23,7 +35,7 @@ def commit_checkpoint(commit_message, cwd, progress_file, _run=None):
     )
     if add_result.returncode != 0:
         print(f"{_PREFIX} WARNING: git add -A failed: {add_result.stderr[:200]}")
-        return False
+        return COMMIT_FAILED
     # Un-stage the progress file, its backup, and the per-iteration harness
     # scratch files so a checkpoint commit never captures orchestrator state.
     # Authoritative — does not rely on the user project's .gitignore carrying
@@ -39,6 +51,16 @@ def commit_checkpoint(commit_message, cwd, progress_file, _run=None):
             capture_output=True,
             text=True,
         )
+    # Deterministic "is anything actually staged?" check. returncode 0 means no
+    # staged diff, so the un-stage step removed every path — a clean no-op.
+    staged = _run(
+        ["git", "diff", "--cached", "--quiet"],
+        cwd=str(cwd),
+        capture_output=True,
+        text=True,
+    )
+    if staged.returncode == 0:
+        return COMMIT_NOTHING
     result = _run(
         ["git", "commit", "-m", commit_message],
         cwd=str(cwd),
@@ -46,11 +68,13 @@ def commit_checkpoint(commit_message, cwd, progress_file, _run=None):
         text=True,
     )
     if result.returncode != 0:
-        if "nothing to commit" in (result.stdout + result.stderr):
-            return True
+        combined = result.stdout + result.stderr
+        # Defense-in-depth: a hook or race could still leave nothing to commit.
+        if "nothing to commit" in combined or "nothing added to commit" in combined:
+            return COMMIT_NOTHING
         print(f"{_PREFIX} WARNING: checkpoint commit failed: {result.stderr[:200]}")
-        return False
-    return True
+        return COMMIT_FAILED
+    return COMMIT_COMMITTED
 
 
 def git_rev_parse_head(cwd):

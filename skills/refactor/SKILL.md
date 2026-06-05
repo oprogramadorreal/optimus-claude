@@ -271,7 +271,9 @@ For each approved finding (skipping any annotated "(persistent — fix failed)" 
 1. Apply the refactoring using Edit or MultiEdit
 2. Verify the change matches the suggestion from Step 6
 
-After applying all approved changes, run the project's test command (from `.claude/CLAUDE.md`) if available. Follow the verification protocol from `$CLAUDE_PLUGIN_ROOT/skills/init/references/verification-protocol.md` — run tests fresh, read complete output, report actual results with evidence:
+**Under harness mode (`HARNESS_MODE_INLINE`), skip this entire verify-and-revert step.** Apply the fixes, record the `pre_edit_content`/`post_edit_content` pairs, and emit the JSON — the orchestrator owns all test execution and bisection (see `references/harness-mode.md` §7). Do not run the test command or revert anything yourself.
+
+Otherwise (interactive mode), after applying all approved changes, run the project's test command (from `.claude/CLAUDE.md`) if available. Follow the verification protocol from `$CLAUDE_PLUGIN_ROOT/skills/init/references/verification-protocol.md` — run tests fresh, read complete output, report actual results with evidence:
 - If tests pass → report success.
 - If tests fail → revert all changes, then re-apply one at a time with a test run after each. Keep changes that pass, skip those that fail.
 

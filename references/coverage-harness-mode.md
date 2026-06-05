@@ -30,7 +30,7 @@ Run the same Test Infrastructure Analyzer agent as normal mode (Step 2 of SKILL.
 Run Steps 3–4 of SKILL.md (plan + write) with these harness modifications:
 - **Skip `AskUserQuestion`** — auto-approve all planned items
 - **Cap at 10 items** per pass (same as normal mode)
-- **Do NOT run the full test suite** at the end — the orchestrator handles this externally
+- **Do NOT run the full test suite** at the end, nor any `scripts/*.sh` test/lint/build wrapper — the orchestrator owns the full run and bisection. Coverage measurement during analysis is fine; a final verification run is not
 
 ### 4. Collect results
 

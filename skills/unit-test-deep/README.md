@@ -79,6 +79,11 @@ Press Esc twice in Claude Code to interrupt. The orchestrator writes the progres
 
 The orchestration loop's primitives (snapshot, parse, unit-test-step, refactor-step, record-cycle, commit-checkpoint, check-termination, final-report) are dispatched via the project-level `scripts/harness_common/cli.py` — see [.claude/docs/architecture.md](../../.claude/docs/architecture.md) for the data flow.
 
+## Known Limitations
+
+- **High per-cycle cost.** Each cycle is two subagent dispatches (unit-test, then a conditional refactor phase) plus a full test-suite run, making deep unit-test runs the most expensive of the three orchestrators. The default of 5 cycles suits most projects.
+- **Subagent fan-out is unverified.** Each phase's subagent is expected to launch the base skill's parallel agents; whether nested subagent spawning actually occurs in practice (vs. collapsing to a single inline analysis) has not been confirmed empirically. The loop is correct either way — only the analysis breadth would differ. Tracked as a follow-up.
+
 ## License
 
 [MIT](../../LICENSE)
