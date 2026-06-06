@@ -41,7 +41,7 @@ Locate the test runner command from `testing.md`, `CLAUDE.md`, or project manife
 - **Failing** — stop and report. Resolve existing failures first; otherwise the workflow's green gate is meaningless.
 - **No test runner found** — stop and recommend `/optimus:init` to set up test infrastructure. For a project with no code or detectable stack yet, tell the user to pick **Scaffold new project** when init asks.
 
-**Capture the coverage baseline now** — this green run is the only point before the workflow modifies the tree. Detect a coverage command (`testing.md` coverage section, a test-runner coverage flag such as `vitest --coverage` / `pytest --cov=.` / `go test -cover`, or a `package.json` coverage script); if one exists, run it once and record the result as the Step 6 `Before` value. If no coverage command is available, skip this — Step 6 omits the Coverage section.
+**Capture the coverage baseline now** — this green run is the only point before the workflow modifies the tree. Detect a coverage command per `$CLAUDE_PLUGIN_ROOT/skills/tdd/references/coverage-detection.md`; if one exists, run it once and record the result as the Step 6 `Before` value. If none is available, skip this — Step 6 omits the Coverage section.
 
 ## Step 2: Acquire the spec
 
@@ -76,9 +76,9 @@ Do **not** add git-worktree isolation here — workflow subagents already run as
 
 ## Step 4: Design and run the workflow
 
-Compose the brief below from the spec (Step 2) and the loaded docs (Step 1), then **state it to yourself as the task and run the workflow now — invoke the Workflow tool to launch it** (the brief opens with "Run a workflow to…", the natural-language phrasing Claude Code recognizes as a workflow launch). Do not emit it as a copy-paste block; this skill executes the workflow in the live session. Claude Code shows the planned phases for the user to approve before the run starts; tell the user to expect that approval gate and that the run uses meaningfully more tokens than a normal turn.
+Compose the brief below from the spec (Step 2) and the loaded docs (Step 1), then **launch the workflow now, in this live session: design a workflow script that carries out the brief, then invoke the Workflow tool with that script.** The brief is the source material for the script — its task, scope, and quality bar; *you* author the orchestration and start the run. Do **not** emit the brief as a copy-paste block for the user to run, and do not wait for a trigger phrase — calling the Workflow tool is what launches it. Claude Code shows the planned phases for the user to approve before the run starts; tell the user to expect that approval gate and that the run uses meaningfully more tokens than a normal turn.
 
-Fill the bracketed slots: scope from the spec's Components / Acceptance Criteria and Out-of-Scope sections — when the source is a JIRA ticket or an inline goal with no Out-of-Scope section, derive the in-scope set from the goal and acceptance criteria and set out-of-scope to "anything not required by the stated goal"; the edit-forbidden list from the project's protected paths.
+Fill the bracketed slots: scope from the spec's Components / Acceptance Criteria and Out-of-Scope sections — when the source is a JIRA ticket or an inline goal with no Out-of-Scope section, derive the in-scope set from the goal and acceptance criteria and set out-of-scope to "anything not required by the stated goal". Build the edit-forbidden list from the project's protected paths: read `.claude/settings.json` `permissions.deny` if it exists (written by `/optimus:permissions`), and always include the defaults shown in the brief's Edit-mode block below (`.git`, `.claude/`, CI config, generated/vendored dirs, unrelated subprojects). If `/optimus:permissions` has not run, use those defaults and tell the user that running it first tightens the boundary.
 
 **Authoring rules (do not violate):**
 1. **Do not prescribe** the phases, the number of agents, or a phase plan. A pattern hint (fan-out / pipeline / adversarial cross-check) is an *optional* preference only — Claude is capable of choosing the shape that fits the spec.
@@ -119,7 +119,7 @@ Quality bar — test-first:
 Scope:
 - In scope: <components / acceptance criteria from the spec>.
 - Out of scope: <the spec's Out-of-Scope items>. Don't build beyond the spec, and don't
-  write meta-docs about this plugin or its commands.
+  add documentation the spec didn't ask for.
 - Edit mode: agents may create and edit files anywhere in the repo needed to implement
   the spec, INCLUDING tests. Do NOT touch: <forbidden paths — e.g. .git, .claude/, CI
   config, generated/vendored dirs, unrelated subprojects>. (Workflow agents auto-approve
@@ -139,12 +139,12 @@ For a small, clearly-bounded spec, trim the brief to its essentials (task line, 
 
 The workflow returns only its final answer — intermediate agent work stayed in the workflow's own variables. **Re-verify independently; never report success on the workflow's self-report.**
 
-Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/verification-protocol.md` and apply its gate function: run the full test suite fresh now, read the complete output, and confirm it is **green** (0 failures, exit 0). If a lint or type-check command is configured (`CLAUDE.md` or the project manifest), run it too and require it to pass — type errors hide behind passing tests, so a green suite with a failing type-check is **not** a pass. If you captured a coverage baseline in Step 1, run the coverage command again now to get the Step 6 `After` value.
+Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/verification-protocol.md` and apply its gate function. First confirm the workflow actually did the work: run `git status --short` and `git diff --stat`, and verify the tree was modified in the spec's in-scope areas — per the protocol's evidence table, a completed agent is proven by the VCS diff, not its self-report, so an empty or off-target diff is a gate failure (handle it like the red case below) even when the suite is green. Then run the full test suite fresh now, read the complete output, and confirm it is **green** (0 failures, exit 0). If a lint or type-check command is configured (`CLAUDE.md` or the project manifest), run it too and require it to pass — type errors hide behind passing tests, so a green suite with a failing type-check is **not** a pass. If you captured a coverage baseline in Step 1, run the coverage command again now to get the Step 6 `After` value; if that run fails or yields no percentage, omit the Coverage section in Step 6 rather than emitting a half-filled one.
 
-- **Suite green and lint/type-check clean** — proceed to Step 6.
-- **Suite red, lint/type-check failing, or the workflow left a partial/broken tree** — do **not** commit. Report the failures with evidence (the actual failing output). Then use `AskUserQuestion` — header "Workflow result", question "The workflow did not leave the suite green and clean. How do you want to proceed?":
-  - **Fix forward** — "Run a focused follow-up (a normal turn or a smaller workflow) to green the suite and clear any type/lint errors, then continue."
-  - **Discard** — "The branch is isolated from your original. Review `git diff`, then `git checkout`/reset the branch to abandon it."
+- **Suite green, lint/type-check clean, and the diff shows the in-scope work** — proceed to Step 6.
+- **Suite red, lint/type-check failing, an empty or off-target diff, or a partial/broken tree** — do **not** commit, and do **not** proceed to Step 6 or Step 7. Report the failures with evidence (the actual failing output). Then use `AskUserQuestion` — header "Workflow result", question "The workflow did not leave the suite green and clean. How do you want to proceed?":
+  - **Fix forward** — "Run a focused follow-up (a normal turn or a smaller workflow) to green the suite and clear any type/lint errors." When it finishes, **re-run this Step 5 gate** from the top — only a green, clean re-verification advances to Step 6.
+  - **Discard** — "Abandon this attempt." The workflow's output is still uncommitted in the working tree and is usually new, untracked files, so `git checkout`/`git reset` alone won't clear it: show the user `git status`, then have them run `git reset --hard` **and** `git clean -fd` to drop tracked and untracked changes before switching off the branch. Then **stop** — do not emit a summary or commit.
 
   Do not auto-revert — leave the user in control of the isolated branch.
 
@@ -172,11 +172,10 @@ Emit this block into the conversation so `/optimus:pr` can read it. The headings
 - Type-check / lint: [result, or omit this line if none configured]
 
 ### Coverage
-[The `Before` baseline is captured in Step 1 (the only pre-workflow measurement point) and
-the `After` value in Step 5, using the coverage command detected in Step 1 — testing.md
-coverage section, a test-runner flag (e.g. vitest --coverage, pytest --cov=., go test
--cover), or a package.json coverage script. If no coverage command was found in Step 1, omit
-this section entirely.]
+[The `Before` baseline is captured in Step 1 and the `After` value in Step 5, using the coverage
+command detected per `$CLAUDE_PLUGIN_ROOT/skills/tdd/references/coverage-detection.md`. Follow
+that reference's "When to omit" rule — emit this section only when both Before and After are real
+percentages.]
 - Before: [X]%
 - After: [Y]%
 - Delta: +[Z]%
@@ -197,6 +196,6 @@ this section entirely.]
 
 ### Next step — create the PR/MR with `/optimus:pr`
 
-Run `/optimus:pr` **in this same conversation**. Staying here lets `/optimus:pr` read the `## Implementation Summary` block above and populate the PR description's `## Intent` (Scope from components built, Non-goals from deferred components) and `## Test plan` (one item per component, plus the coverage delta). `/optimus:pr` also handles default-branch detection, CLI availability and install, existing-PR detection, and a preview-and-confirm step before creating. (If you stopped before the auto-commit, run `/optimus:commit` first to capture the work.)
+Run `/optimus:pr` **in this same conversation**. Staying here lets `/optimus:pr` read the `## Implementation Summary` block above and populate the PR description's `## Intent` (Scope from components built, Non-goals from deferred components) and `## Test plan` (one item per component, plus the coverage delta); it then owns the rest of the PR/MR flow (default-branch detection, CLI install, existing-PR detection, preview-and-confirm — see `$CLAUDE_PLUGIN_ROOT/references/skill-handoff.md`). (If you stopped before the auto-commit, run `/optimus:commit` first to capture the work.)
 
 Tell the user the closing tip per `$CLAUDE_PLUGIN_ROOT/references/skill-handoff.md` "Closing tip wording" — use **Variant A** with `<continuation-skill(s)>` = `/optimus:pr` and `<non-continuation-examples>` = `/optimus:code-review`.

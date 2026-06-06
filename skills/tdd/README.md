@@ -307,6 +307,7 @@ The user's original branch is never modified. All code review happens through th
 | `references/tdd-worktree-orchestration.md` | TDD-specific worktree setup and cleanup, delegates to shared worktree-setup reference |
 | `references/testing-anti-patterns.md` | Mocking anti-patterns and gate questions — loaded during Red step to prevent bad test patterns |
 | `references/spec-context-detection.md` | Spec/JIRA context-detection cascade + long-spec distillation (shared with `/optimus:workflow`) |
+| `references/coverage-detection.md` | Coverage-command detection + omit rule (shared with `/optimus:workflow`) |
 | *(shared)* `init/references/multi-repo-detection.md` | Multi-repo workspace detection algorithm |
 | *(shared)* `init/references/constraint-doc-loading.md` | Constraint doc loading — Monorepo Scoping Rule |
 | *(shared)* `commit/references/branch-naming.md` | Branch naming convention |

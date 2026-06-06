@@ -122,6 +122,7 @@ For `/optimus:workflow` vs. `/optimus:tdd`, see the **Workflow vs. TDD — which
 |---|---|
 | `SKILL.md` | Skill definition — 7-step workflow-driven implementation |
 | *(shared)* `tdd/references/spec-context-detection.md` | Spec/JIRA context-detection cascade + distillation (shared with `/optimus:tdd`) |
+| *(shared)* `tdd/references/coverage-detection.md` | Coverage-command detection + omit rule (shared with `/optimus:tdd`) |
 | *(shared)* `init/references/multi-repo-detection.md` | Multi-repo workspace detection |
 | *(shared)* `init/references/constraint-doc-loading.md` | Constraint doc loading — Monorepo Scoping Rule |
 | *(shared)* `init/references/verification-protocol.md` | Verification gate for the post-workflow green-suite check |

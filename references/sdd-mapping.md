@@ -1,13 +1,13 @@
 # Spec-driven development in optimus
 
-This doc maps the spec-driven development (SDD) vocabulary popularised by GitHub Spec Kit, Kiro, and similar frameworks onto the existing optimus chain, **and** defines the contract for the docs-first cascade that `/optimus:spec-init` scaffolds. It exists so users coming from those tools recognise that optimus already implements the same workflow — and so the scaffolder, `brainstorm`, and `tdd` share one precedence model instead of three.
+This doc maps the spec-driven development (SDD) vocabulary popularised by GitHub Spec Kit, Kiro, and similar frameworks onto the existing optimus chain, **and** defines the contract for the docs-first cascade that `/optimus:spec-init` scaffolds. It exists so users coming from those tools recognise that optimus already implements the same workflow — and so the scaffolder, `brainstorm`, and the implement skills (`tdd`, `workflow`) share one precedence model instead of each carrying its own.
 
 ## What this doc is
 
 A framing reference **and** a shared contract. Two audiences:
 
 - **Discoverability** — read it if you have heard of SDD or PRDs and want to know where they fit in optimus.
-- **Contract** — `skills/spec-init/SKILL.md`, `skills/brainstorm/SKILL.md`, and `skills/tdd/SKILL.md` point here for the single canonical precedence order and the spec-location rule. Keep those rules defined **only** here so the skills never duplicate (or drift from) them.
+- **Contract** — `skills/spec-init/SKILL.md`, `skills/brainstorm/SKILL.md`, `skills/tdd/SKILL.md`, and `skills/workflow/SKILL.md` point here for the single canonical precedence order and the spec-location rule. (`tdd` and `workflow` share the operational consumer copy in `skills/tdd/references/spec-context-detection.md`, which defers to this doc as canonical.) Keep those rules defined **only** here so the skills never duplicate (or drift from) them.
 
 It is not a SKILL.md, and no skill loads it for *behavior* — the skills implement the contract this doc describes.
 
@@ -43,12 +43,12 @@ Higher docs set long-term direction; the **active build spec** governs what to b
 
 ## Spec location: docs/specs
 
-The lowest-altitude **active build spec** lives in one folder — `docs/specs/` — and feeds `/optimus:tdd`. It has two provenances:
+The lowest-altitude **active build spec** lives in one folder — `docs/specs/` — and feeds the implement skills `/optimus:tdd` and `/optimus:workflow`. It has two provenances:
 
 - **brainstorm-authored (recommended).** `/optimus:brainstorm` writes `docs/specs/<YYYY-MM-DD-slug>.md`. It *is* optimus's SDD spec: Goal, Context, Approach, Components, Interfaces, Edge Cases and Risks, **Scenarios** (Given/When/Then — the acceptance criteria), Out of Scope, Open Questions. `skills/brainstorm/references/scenario-style.md` already calls the Scenarios section "the specification."
 - **human- or externally-authored (bring-your-own).** Drop a spec written outside optimus (Spec Kit output, a Markdown doc) at `docs/specs/<spec>.md`. `tdd` consumes it the same way — by explicit reference (point tdd at the file) or by auto-discovery.
 
-`tdd` auto-discovery offers the most recent `docs/specs/` file (by filename date prefix if present, else modification time). **Precedence (first match wins): `docs/specs/` build spec → `docs/jira/` context → none.**
+Both implement skills auto-discover the most recent `docs/specs/` file (by filename date prefix if present, else modification time), via the shared `skills/tdd/references/spec-context-detection.md`. **Precedence (first match wins): `docs/specs/` build spec → `docs/jira/` context → none.**
 
 Coming from Spec Kit terminology: you do not need a separate optimus-written "spec" artifact beyond the one `/optimus:brainstorm` writes — it *is* the spec, and it lives in `docs/specs/` next to any bring-your-own spec. optimus authors the engineering spec here; it never authors the product steering one altitude up (`docs/product/`).
 
@@ -64,10 +64,10 @@ Spec Kit adds a `constitution.md` and Kiro a `structure.md` to hold project-wide
 | (Optional) | **Ingest** | `/optimus:jira` distills a PM-authored issue into `docs/jira/<KEY>.md` |
 | 1 | **Specify** | `/optimus:brainstorm` Step 4 writes `docs/specs/<slug>.md` (Goal, Context, Out of Scope, and conditional Scenarios), reading the cascade as steering |
 | 2 | **Plan** | Same brainstorm doc covers Approach, Components, Interfaces. Plan mode iteration refines it into an appended "Refined plan" section (see `references/skill-handoff.md`) |
-| 3 | **Tasks** | `/optimus:tdd` Step 3 decomposes the goal into behaviors. When the spec has a `## Scenarios` section, each `### Scenario:` maps to one Red-Green-Refactor cycle |
-| 4 | **Implement & Verify** | `/optimus:tdd` Red-Green-Refactor cycles, then `/optimus:pr` → `/optimus:code-review` |
+| 3 | **Tasks** | `/optimus:tdd` Step 3 decomposes the goal into behaviors (when the spec has a `## Scenarios` section, each `### Scenario:` maps to one Red-Green-Refactor cycle). `/optimus:workflow` does not pre-decompose — Claude's dynamic workflow divides the spec across parallel agents at run time |
+| 4 | **Implement & Verify** | `/optimus:tdd` Red-Green-Refactor cycles **or** `/optimus:workflow`'s self-orchestrated parallel build (test-first as a quality bar), then `/optimus:pr` → `/optimus:code-review` |
 
-The full chain: *`/optimus:spec-init` (scaffold steering, optional) → human fills the cascade → external PM artifact → `/optimus:jira` (optional) → `/optimus:brainstorm` (reads cascade as steering) → plan mode (optional) → `/optimus:tdd` (reads the build spec + the MVP PRD and tech-stack) → `/optimus:pr` → `/optimus:code-review`*.
+The full chain: *`/optimus:spec-init` (scaffold steering, optional) → human fills the cascade → external PM artifact → `/optimus:jira` (optional) → `/optimus:brainstorm` (reads cascade as steering) → plan mode (optional) → `/optimus:tdd` (reads the build spec + the MVP PRD and tech-stack; or `/optimus:workflow` for a self-orchestrated parallel build) → `/optimus:pr` → `/optimus:code-review`*.
 
 ## When you already have a spec authored elsewhere
 

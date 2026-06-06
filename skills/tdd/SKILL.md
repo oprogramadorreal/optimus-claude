@@ -369,10 +369,9 @@ If there are uncommitted changes (e.g., the user stopped mid-cycle before the au
 - Quality gate: code-simplifier ([N] findings), test-guardian ([N] findings)
 
 ### Coverage
-[Detect coverage command from: testing.md coverage section, test runner built-in flag
-(e.g., vitest --coverage, pytest --cov=., go test -cover, dotnet test --collect:"XPlat Code Coverage"),
-or package.json coverage script. Run it before the first cycle and after the last cycle to measure delta.
-If no coverage command is found, omit this section entirely.]
+[Detect the coverage command per `$CLAUDE_PLUGIN_ROOT/skills/tdd/references/coverage-detection.md`;
+run it before the first cycle and after the last cycle to measure the delta, and omit this section
+per that reference's "When to omit" rule.]
 - Before: [X]%
 - After: [Y]%
 - Delta: +[Z]%
@@ -397,7 +396,7 @@ If behaviors remain unfinished, note them and suggest re-running `/optimus:tdd` 
 
 ### Next step — create the PR/MR with `/optimus:pr`
 
-Run `/optimus:pr` **in this same conversation** to create the pull/merge request. Staying here lets `/optimus:pr` read the `## TDD Summary` block above and populate the PR description's `## Intent` (Scope from behaviors implemented, Non-goals from deferred behaviors, Key decisions from refactor-step reasoning) and `## Test plan` (one verification item per behavior, plus the coverage delta). `/optimus:pr` also handles default-branch detection, CLI availability and install, existing-PR detection, and a preview-and-confirm step before creating.
+Run `/optimus:pr` **in this same conversation** to create the pull/merge request. Staying here lets `/optimus:pr` read the `## TDD Summary` block above and populate the PR description's `## Intent` (Scope from behaviors implemented, Non-goals from deferred behaviors, Key decisions from refactor-step reasoning) and `## Test plan` (one verification item per behavior, plus the coverage delta); it then owns the rest of the PR/MR flow (default-branch detection, CLI install, existing-PR detection, preview-and-confirm — see `$CLAUDE_PLUGIN_ROOT/references/skill-handoff.md`).
 
 ### Worktree cleanup
 
