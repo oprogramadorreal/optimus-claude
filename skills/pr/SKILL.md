@@ -105,7 +105,8 @@ Before generating PR content, determine whether author intent is recoverable. Th
    - Prior Edit / Write / NotebookEdit tool calls in the conversation touched files that appear in `git diff --stat origin/<default-branch>..HEAD`.
    - The conversation discussed design decisions, non-goals, trade-offs, or "decided against" language relative to the changes.
    - The conversation explicitly stated the problem being solved or the scope of the change.
-   - **TDD handoff (special case of state 1).** When the conversation contains a `## TDD Summary` block from `/optimus:tdd` Step 9 — detected by the literal headings `## TDD Summary` and `### Behaviors Implemented` (case-sensitive) above the diff, optionally with a `### Coverage` section containing `Before:`, `After:`, and `Delta:` lines — treat this as a strong state-1 signal and apply the TDD population rule below when filling the PR body.
+   - **TDD handoff (special case of state 1).** When the conversation contains a `## TDD Summary` block from `/optimus:tdd` Step 9 — detected by the literal headings `## TDD Summary` and `### Behaviors Implemented` (case-sensitive) above the diff, optionally with a `### Coverage` section containing `Before:`, `After:`, and `Delta:` lines — treat this as a strong state-1 signal and apply the summary population rule below when filling the PR body.
+   - **Workflow handoff (special case of state 1).** When the conversation contains a `## Implementation Summary` block from `/optimus:workflow` Step 6 — detected by the literal headings `## Implementation Summary` and `### Components Built` (case-sensitive) above the diff, optionally with a `### Coverage` section containing `Before:`, `After:`, and `Delta:` lines — treat this as a strong state-1 signal and apply the summary population rule below when filling the PR body.
 2. **Intent available from existing PR body** (Update Flow only — Step 6) — the existing PR body contains an `## Intent` section. Detection: see `$CLAUDE_PLUGIN_ROOT/skills/pr/references/pr-template.md` "Detecting `## Intent` in an existing PR body" for the canonical heuristic (shared with `/optimus:code-review`).
 3. **No intent context found** — neither of the above. Default classification when in doubt: if the heuristic is uncertain, prefer state 3 over fabricating an Intent section.
 
@@ -125,12 +126,19 @@ Generate a title and body following the template. When filling in the sections:
   - State 3 with "Add intent now" → populate from the user's reply to the plain-message follow-up.
   - State 3 with "Skip" → omit the section entirely (no stub, no placeholder).
   - **Never infer Intent from commit messages or the diff alone.** A fabricated Intent section creates false `Intent Mismatch` findings in `/optimus:code-review`.
-- **TDD population rule** — when the TDD handoff signal fired during intent detection, populate the body using the TDD signals visible in the conversation:
-  - **`## Intent` → Scope**: one bullet per row of the `### Behaviors Implemented` table where Status is `✓ Complete`. Use the behavior description column verbatim.
-  - **`## Intent` → Non-goals**: one bullet per row of the same table where Status is `Not started`. Omit the sub-field if all rows are Complete.
-  - **`## Intent` → Key decisions**: pull from refactor-step reasoning explicitly captured in the conversation (e.g., "renamed X to match existing pattern", "extracted Y to share with Z"). If every refactor step reported "No changes needed — code is clean", omit this sub-field rather than inventing decisions.
-  - **`## Intent` → Problem**: as already specified in the state 1 rules above — quote/summarize the spec or JIRA task file if it was loaded in the conversation, otherwise summarize the initiating brief from the start of the TDD session.
-  - **`## Test plan`**: one verification item per `### Behaviors Implemented` row that is `✓ Complete`, plus the project's test command. If the conversation contains a `### Coverage` section with `Before:`, `After:`, `Delta:` lines, append a single line `Coverage: <Before> → <After> (<Delta>)` to the Test plan.
+- **Summary population rule** — when a TDD or Workflow handoff signal fired during intent detection, populate the body from the summary block visible in the conversation. Both handoffs share one rule; only these per-source tokens differ:
+
+  | Handoff | Summary block | Table | Non-goals rows | Key decisions source |
+  |---------|---------------|-------|----------------|----------------------|
+  | TDD | `## TDD Summary` | `### Behaviors Implemented` | Status `Not started` | refactor-step reasoning captured in the conversation (e.g. "renamed X to match existing pattern", "extracted Y to share with Z") |
+  | Workflow | `## Implementation Summary` | `### Components Built` | Status begins with `Deferred` (include the stated reason) | the `### Stats` `Orchestration` line plus any design choices the summary surfaced (e.g. "fanned out by component, then one integration pass") |
+
+  Using the row for whichever handoff fired, fill the PR body:
+  - **`## Intent` → Scope**: one bullet per **Table** row where Status is `✓ Complete`, using the description column verbatim.
+  - **`## Intent` → Non-goals**: one bullet per **Table** row whose Status matches the **Non-goals rows** column above. Omit the sub-field if no such rows exist.
+  - **`## Intent` → Key decisions**: pull from the **Key decisions source** above. If none are present (e.g. every TDD refactor step reported "No changes needed — code is clean"), omit this sub-field rather than inventing decisions.
+  - **`## Intent` → Problem**: as specified in the state 1 rules above — quote/summarize the spec or JIRA task file if it was loaded in the conversation, otherwise summarize the initiating brief from the start of the session.
+  - **`## Test plan`**: one verification item per **Table** row that is `✓ Complete`, plus the project's test command. If the conversation contains a `### Coverage` section with `Before:`, `After:`, `Delta:` lines, append a single line `Coverage: <Before> → <After> (<Delta>)` to the Test plan.
 - Synthesize the **Summary** from commit messages, changed files, and the diff
 - Use `git diff --stat` output as a starting point for **Changes**, then describe what each file change accomplishes
 - For the **Test plan**, look for: test files in the diff → "Run `<test command>` to verify"; CI configuration → "CI pipeline will run automatically"; manual verification → describe what to check

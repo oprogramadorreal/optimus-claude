@@ -43,6 +43,8 @@ A markdown spec written to `docs/specs/` covering goal, approach, components, in
 
 Brainstorm generates the plan-mode prompt inline — no need to run `/optimus:prompt` as a separate step. Each skill recommends the right next step based on design complexity.
 
+At the build step, `/optimus:tdd` (supervised, test-first) and `/optimus:workflow` (self-orchestrated parallel build, test-first as a quality bar) are interchangeable peers. The table shows the TDD path; swap in `/optimus:workflow` when you want a parallel build instead — it skips the plan-mode step and launches a dynamic workflow directly.
+
 ## Relationship to Other Skills
 
 | Skill | Relationship |
@@ -50,6 +52,7 @@ Brainstorm generates the plan-mode prompt inline — no need to run `/optimus:pr
 | `/optimus:spec-init` | On greenfield projects, spec-init scaffolds the SDD steering cascade (`docs/product/`) that brainstorm reads as upstream context. |
 | `/optimus:jira` | Brainstorm auto-detects JIRA task files in `docs/jira/`. Run jira first for JIRA-tracked work. |
 | `/optimus:tdd` | TDD auto-detects specs in `docs/specs/`. Run brainstorm before TDD for complex features. |
+| `/optimus:workflow` | The peer of `/optimus:tdd` at the build step — implements the spec via a self-orchestrated parallel dynamic workflow. Also auto-detects specs in `docs/specs/`. |
 | `/optimus:prompt` | Brainstorm generates plan-mode prompts inline for the brainstorm→plan→tdd chain. Use `/optimus:prompt` directly for other AI tools or non-brainstorm workflows. |
 | `/optimus:refactor` | For refactoring tasks (restructuring without new behavior), use refactor instead of brainstorm. |
 

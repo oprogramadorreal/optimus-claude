@@ -772,34 +772,37 @@ if [ -f "$tdd_skill" ]; then
   done
 fi
 
-# TDD-summary handoff contract: /optimus:tdd Step 9 emits a TDD summary block
-# whose heading strings /optimus:pr Step 5 greps to detect the TDD handoff and
-# populate Intent (Scope, Non-goals, Key decisions) and the per-behavior Test
-# plan. Silent rename of either side would silently drop the handoff —
-# /optimus:pr would fall back to the generic state-1 conversation signals and
-# the TDD-specific population rule would never fire. Each side is checked
+# TDD-summary and Implementation-summary handoff contracts: /optimus:tdd Step 9
+# and /optimus:workflow Step 6 each emit a summary block whose heading strings
+# /optimus:pr Step 5 greps to detect the handoff and populate Intent (Scope,
+# Non-goals, Key decisions) and the per-item Test plan. A silent rename of either
+# the producer or the /optimus:pr consumer side would silently drop the handoff —
+# /optimus:pr would fall back to the generic state-1 conversation signals and the
+# summary-specific population rule would never fire. Each side is checked
 # independently so the failure message identifies which surface drifted.
 #
-# Scope note: this guards the three detection headings only — the load-bearing
-# trigger. The row-level tokens the population rule reads (Status `✓ Complete` /
+# Scope note: this guards the detection headings only — the load-bearing trigger.
+# The row-level tokens the population rule reads (Status `✓ Complete` /
 # `Not started`, coverage `Before:`/`After:`/`Delta:` labels) are intentionally
 # not asserted: their drift degrades gracefully (detection still fires, only
 # population is affected), unlike a heading rename, which drops the handoff whole.
 pr_skill="skills/pr/SKILL.md"
-if [ -f "$tdd_skill" ]; then
-  for tdd_handoff_token in '## TDD Summary' '### Behaviors Implemented' '### Coverage'; do
-    if ! grep -qF -- "$tdd_handoff_token" "$tdd_skill" 2>/dev/null; then
-      wiring_errors+="  $tdd_skill missing TDD-summary handoff token: $tdd_handoff_token\n"
+workflow_skill="skills/workflow/SKILL.md"
+check_handoff_tokens() {
+  local producer_file=$1 producer_label=$2 consumer_file=$3
+  shift 3
+  local token
+  for token in "$@"; do
+    if [ -f "$producer_file" ] && ! grep -qF -- "$token" "$producer_file" 2>/dev/null; then
+      wiring_errors+="  $producer_file missing $producer_label handoff token: $token\n"
+    fi
+    if [ -f "$consumer_file" ] && ! grep -qF -- "$token" "$consumer_file" 2>/dev/null; then
+      wiring_errors+="  $consumer_file missing $producer_label handoff consumer token: $token\n"
     fi
   done
-fi
-if [ -f "$pr_skill" ]; then
-  for tdd_handoff_token in '## TDD Summary' '### Behaviors Implemented' '### Coverage'; do
-    if ! grep -qF -- "$tdd_handoff_token" "$pr_skill" 2>/dev/null; then
-      wiring_errors+="  $pr_skill missing TDD-summary handoff consumer token: $tdd_handoff_token\n"
-    fi
-  done
-fi
+}
+check_handoff_tokens "$tdd_skill" 'TDD-summary' "$pr_skill" '## TDD Summary' '### Behaviors Implemented' '### Coverage'
+check_handoff_tokens "$workflow_skill" 'Implementation-summary' "$pr_skill" '## Implementation Summary' '### Components Built' '### Coverage'
 
 # Brainstorm self-review reaches scenario-style.md by section name. Silent
 # rename of either heading would leave the self-review pointer dangling.

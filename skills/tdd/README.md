@@ -255,6 +255,8 @@ The user's original branch is never modified. All code review happens through th
 
 ## Relationship to Other Skills
 
+`/optimus:tdd` and `/optimus:workflow` are peer implementers of an approved spec — both create a feature branch, build, push, and hand off to `/optimus:pr`. They differ in *how* they build: TDD runs supervised, sequential Red-Green-Refactor cycles with interactive checkpoints and a failing-test-first guarantee; `/optimus:workflow` self-orchestrates parallel subagents with test-first as a quality bar and no mid-run input (more tokens). Use TDD for supervised test-first discipline (and most bug fixes); use `/optimus:workflow` for a large or parallelizable spec where a linear pass is slow. For the full side-by-side, see the **Workflow vs. TDD — which to use** table at the top of [`skills/workflow/README.md`](../workflow/README.md).
+
 | | `/optimus:tdd` | `/optimus:unit-test` |
 |---|---|---|
 | Direction | Test-first (new code) | Test-after (existing code) |
@@ -293,7 +295,7 @@ The user's original branch is never modified. All code review happens through th
 | Context flow | TDD auto-detects specs in `docs/specs/` | Brainstorm writes specs that TDD consumes |
 | When to combine | Complex features — brainstorm first, then TDD implements the design |
 
-**Full workflow**: `/optimus:init` (set up everything including test infrastructure) → `/optimus:unit-test` (retroactive tests to increase coverage) → `/optimus:permissions` (branch-aware git protection) → `/optimus:tdd` (build new features test-first — creates branch, commits, pushes) → `/optimus:pr` in the same conversation (create the PR/MR with TDD signals captured into Intent and the per-behavior Test plan) → `/optimus:code-review` in a fresh conversation (review the PR/MR). For JIRA-tracked work, add `/optimus:jira` before TDD. For complex features, add `/optimus:brainstorm` → plan mode before TDD. `/optimus:pr` also handles updating an existing PR description and creating PRs for non-TDD work.
+**Full workflow**: `/optimus:init` (set up everything including test infrastructure) → `/optimus:unit-test` (retroactive tests to increase coverage) → `/optimus:permissions` (branch-aware git protection) → `/optimus:tdd` (build new features test-first — creates branch, commits, pushes; or `/optimus:workflow` for a self-orchestrated parallel build) → `/optimus:pr` in the same conversation (create the PR/MR with TDD signals captured into Intent and the per-behavior Test plan) → `/optimus:code-review` in a fresh conversation (review the PR/MR). For JIRA-tracked work, add `/optimus:jira` before TDD. For complex features, add `/optimus:brainstorm` → plan mode before TDD. `/optimus:pr` also handles updating an existing PR description and creating PRs for non-TDD work.
 
 ## Skill Structure
 
@@ -304,6 +306,8 @@ The user's original branch is never modified. All code review happens through th
 | `references/quality-gate.md` | Quality gate procedure — post-cycle parallel agent execution |
 | `references/tdd-worktree-orchestration.md` | TDD-specific worktree setup and cleanup, delegates to shared worktree-setup reference |
 | `references/testing-anti-patterns.md` | Mocking anti-patterns and gate questions — loaded during Red step to prevent bad test patterns |
+| `references/spec-context-detection.md` | Spec/JIRA context-detection cascade + long-spec distillation (shared with `/optimus:workflow`) |
+| `references/coverage-detection.md` | Coverage-command detection + omit rule (shared with `/optimus:workflow`) |
 | *(shared)* `init/references/multi-repo-detection.md` | Multi-repo workspace detection algorithm |
 | *(shared)* `init/references/constraint-doc-loading.md` | Constraint doc loading — Monorepo Scoping Rule |
 | *(shared)* `commit/references/branch-naming.md` | Branch naming convention |

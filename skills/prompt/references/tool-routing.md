@@ -126,7 +126,8 @@ These models reason internally across thousands of tokens. Adding CoT or "think 
 ### Claude Code (dynamic workflow)
 
 - For fan-out / parallel work at scale, produce a prompt that triggers a NATIVE dynamic workflow — real subagents in parallel, orchestration written by Claude Code (not by this skill). Distinct from the "Workflow AI" section (Zapier / Make / n8n) below
-- The literal word "workflow" MUST appear — it is the trigger
+- Phrase it as a workflow-launch intent in natural language (the Template-N scaffold opens with "Run a workflow to…"); a single literal trigger word is no longer required
+- For implementing a tracked spec/task (not an ad-hoc fan-out), the dedicated `/optimus:workflow` skill is the better entry point than a pasted prompt
 - Output is a PROMPT only, never a .js script
 - See Template N in templates.md for full behavioral rules (task-not-orchestration framing, scope/agent caps, read-only vs. edit permissions, the approval gate)
 

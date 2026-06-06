@@ -39,6 +39,7 @@ optimus-claude/
 │   ├── refactor/             # /optimus:refactor
 │   ├── code-review/          # /optimus:code-review
 │   ├── tdd/                  # /optimus:tdd
+│   ├── workflow/             # /optimus:workflow
 │   ├── pr/                   # /optimus:pr
 │   ├── prompt/               # /optimus:prompt
 │   ├── permissions/          # /optimus:permissions
