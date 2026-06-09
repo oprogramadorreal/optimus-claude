@@ -469,6 +469,21 @@ class TestFetchOpenPrData:
         mock_run.return_value = MagicMock(returncode=1, stdout="")
         assert _fetch_open_pr_data("/tmp/project") is None
 
+    @patch("harness_common.git.subprocess.run")
+    def test_returns_none_when_gh_missing(self, mock_run):
+        # gh not installed: subprocess.run raises FileNotFoundError, which the
+        # except clause absorbs into None (graceful degradation — PR context is
+        # simply not injected). Mirrors _verify_ref's covered failure branch.
+        mock_run.side_effect = FileNotFoundError("gh not found")
+        assert _fetch_open_pr_data("/tmp/project") is None
+
+    @patch("harness_common.git.subprocess.run")
+    def test_returns_none_on_malformed_json(self, mock_run):
+        # gh exited 0 but emitted non-JSON (truncated / interleaved output):
+        # json.loads raises ValueError, also absorbed into None.
+        mock_run.return_value = MagicMock(returncode=0, stdout="not json{")
+        assert _fetch_open_pr_data("/tmp/project") is None
+
 
 class TestVerifyRef:
     @patch("harness_common.git.subprocess.run")

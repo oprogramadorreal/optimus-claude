@@ -1,7 +1,9 @@
 """Tests for the orchestrator CLI (`scripts/harness_common/cli.py`)."""
 
+import argparse
 import json
 import subprocess
+from pathlib import Path
 
 import pytest
 from harness_common import cli, reporting
@@ -73,6 +75,30 @@ def _git_init(tmp_path):
     (tmp_path / "seed.txt").write_text("seed\n", encoding="utf-8")
     g("add", "seed.txt")
     g("commit", "-m", "base")
+
+
+# ---------------------------------------------------------------------------
+# _progress_path_for_skill (default-path resolution)
+# ---------------------------------------------------------------------------
+
+
+class TestProgressPathForSkill:
+    def test_explicit_progress_file_wins(self):
+        args = argparse.Namespace(progress_file="out/p.json", skill="code-review")
+        assert cli._progress_path_for_skill(args) == Path("out/p.json")
+
+    def test_falls_back_to_skill_default(self):
+        # The orchestrator skills always pass --progress-file, but the CLI must
+        # still resolve the per-skill default when it is omitted (manual use).
+        args = argparse.Namespace(progress_file=None, skill="refactor")
+        assert cli._progress_path_for_skill(args) == Path(
+            cli.DEFAULT_PROGRESS_FILES["refactor"]
+        )
+
+    def test_unknown_skill_without_progress_file_exits(self):
+        args = argparse.Namespace(progress_file=None, skill="bogus")
+        with pytest.raises(SystemExit):
+            cli._progress_path_for_skill(args)
 
 
 # ---------------------------------------------------------------------------
@@ -1294,6 +1320,53 @@ class TestDeepStep:
         assert out.strip().startswith("applied")
         data = _read_progress(ppath)
         assert data["iteration_history"][-1]["fixed"] == 1
+
+    def test_no_commit_mode_rolls_back_to_stash_on_combined_regression(
+        self, tmp_path, monkeypatch
+    ):
+        # No-commit mode (the snapshot carries a stash, not just a HEAD): when a
+        # fix survives bisection but the combined set still fails the suite, the
+        # iteration must roll the working tree back to the pre-iteration STASH.
+        # Exercises _clean_reset_hook's no-commit return-None branch (clean-reset
+        # bisect is disabled there because the stash is single-use) and the
+        # stash-restore reconciliation that the commit-mode tests never reach.
+        ppath = _seed_deep_progress(tmp_path)
+        data = _read_progress(ppath)
+        data["config"]["no_commit"] = True
+        data["_snapshot"]["pre_stash"] = "stash_sha"
+        ppath.write_text(json.dumps(data, indent=2), encoding="utf-8")
+
+        # Suite fails on the initial run and again after bisection retains a fix.
+        monkeypatch.setattr(cli, "run_tests", lambda *a, **kw: (False, "boom"))
+        captured = {}
+
+        def fake_bisect(*_a, reset_to_clean=None, **_kw):
+            captured["reset_to_clean"] = reset_to_clean
+            return (1, 0, [])  # one fix retained, none reverted individually
+
+        monkeypatch.setattr(cli, "bisect_fixes", fake_bisect)
+        restore_calls = []
+        monkeypatch.setattr(
+            cli,
+            "restore_working_tree",
+            lambda stash, head, _cwd, **_kw: restore_calls.append((stash, head)),
+        )
+        result = tmp_path / "result.json"
+        result.write_text(json.dumps(_one_fix_result()), encoding="utf-8")
+
+        exit_code = _run(
+            "deep-step", "--progress-file", str(ppath), "--result-file", str(result)
+        )
+        assert exit_code == 0
+        # Clean-reset bisect is disabled in no-commit mode (one-shot stash).
+        assert captured["reset_to_clean"] is None
+        # Rolled back to the stash + HEAD, not a bare HEAD checkout.
+        assert restore_calls == [("stash_sha", "abc1234")]
+        # The full restore zeroes the net fix tally and ends the iteration.
+        history = _read_progress(ppath)["iteration_history"][-1]
+        assert history["fixed"] == 0
+        assert history["reverted"] == 1
+        assert _read_progress(ppath)["termination"]["reason"] == "all-reverted"
 
     def test_configured_timeout_is_threaded_to_run_tests(self, tmp_path, monkeypatch):
         # config.test_timeout (set by `baseline`) must reach run_tests.
@@ -2807,6 +2880,25 @@ class TestFinalReport:
             assert not temp.exists()
         assert keep.exists()
         assert (tmp_path / "progress.done.json").exists()
+
+    def test_archive_survives_unremovable_scratch_temp(self, tmp_path, monkeypatch):
+        # A scratch temp that can't be unlinked (locked / permission denied)
+        # must not fail the archive: the progress file is already renamed to
+        # .done.json by then, so the best-effort cleanup swallows the OSError
+        # and still returns 0. A directory matching the glob stands in for the
+        # unremovable temp — Path.unlink() raises OSError on a directory.
+        monkeypatch.setattr(reporting, "git_current_branch", lambda _cwd: "feat/x")
+        ppath = _seed_deep_progress(tmp_path)
+        (tmp_path / ".deep-iteration-locked").mkdir()
+        removable = tmp_path / ".deep-iteration-raw.txt"
+        removable.write_text("x", encoding="utf-8")
+        exit_code = _run("final-report", "--progress-file", str(ppath), "--archive")
+        assert exit_code == 0
+        assert (tmp_path / "progress.done.json").exists()
+        # The OSError on the directory was swallowed; the loop still cleaned the
+        # removable temp, and the unremovable entry survived.
+        assert not removable.exists()
+        assert (tmp_path / ".deep-iteration-locked").exists()
 
     def test_deep_report_separator_is_ascii(self, tmp_path, capsys, monkeypatch):
         # The "Stopped:" separator must be ASCII so the report can't mojibake on
