@@ -32,6 +32,11 @@ def _swap_content(fix, cwd, source_field, target_field):
         return False
     find = fix.get(source_field, "")
     replace = fix.get(target_field, "")
+    # Both content fields must be strings. A non-string value (e.g. a JSON number
+    # or null that slipped past the dispatch contract) would crash the membership
+    # test and str.replace below — refuse the swap instead of raising.
+    if not isinstance(find, str) or not isinstance(replace, str):
+        return False
     if not find:
         # Empty find string — cannot locate target in file content.
         # This happens when reverting a deletion fix (empty post_edit_content):

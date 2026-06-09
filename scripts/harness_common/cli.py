@@ -75,6 +75,7 @@ from .git import (
     get_open_pr_data,
     git_diff_has_changes,
     git_discover_branch_files,
+    git_drop_stash,
     git_fetch_open_pr_description,
     git_rev_parse_head,
     git_stash_snapshot,
@@ -198,16 +199,23 @@ def _promote_actionable_fixes(result):
     """
     if not result.get("no_actionable_fixes", False):
         return
-    new_findings = result.get("new_findings", [])
+    new_findings = result.get("new_findings") or []
     if not new_findings:
         return
-    existing_fixes = result.get("fixes_applied", []) or []
+    existing_fixes = result.get("fixes_applied") or []
     existing_keys = {finding_key(f) for f in existing_fixes}
     promoted = []
     for finding in new_findings:
         pre = finding.get("pre_edit_content")
         post = finding.get("post_edit_content")
-        if not pre or not isinstance(post, str) or pre == post:
+        # Both edit-content fields must be non-empty strings before a finding is
+        # promoted into fixes_applied. The bisect's content-swap (fixes.py)
+        # requires strings; a non-string pre/post (e.g. a JSON number) would
+        # otherwise be promoted here and crash the swap on the failure-recovery
+        # path. pre and post are type-checked symmetrically.
+        if not isinstance(pre, str) or not isinstance(post, str):
+            continue
+        if not pre or pre == post:
             continue
         if finding_key(finding) in existing_keys:
             continue
@@ -222,7 +230,7 @@ def _register_iteration_findings(progress, result, fixes):
     applied_keys = {finding_key(f) for f in fixes}
     for fix in fixes:
         mark_finding_status(progress, fix, APPLIED_PENDING_TEST, None)
-    for new_finding in result.get("new_findings", []):
+    for new_finding in result.get("new_findings") or []:
         if finding_key(new_finding) not in applied_keys:
             mark_finding_status(progress, new_finding, "discovered", None)
 
@@ -294,17 +302,35 @@ def _effective_timeout(progress):
     return progress.get("config", {}).get("test_timeout", DEFAULT_TEST_TIMEOUT)
 
 
-def _test_and_reconcile_fixes(
-    fixes, test_command, project_root, progress, pre_stash, pre_head
+def _test_and_reconcile(
+    fixes,
+    test_command,
+    project_root,
+    progress,
+    pre_stash,
+    pre_head,
+    *,
+    on_outcome,
+    on_all_pass,
+    on_full_revert,
 ):
+    """Shared apply/test/bisect/restore core for the deep and refactor phases.
+
+    Runs the suite once; on green invokes ``on_all_pass`` and reports all fixes
+    fixed. On red, bisects with ``on_outcome`` (per-fix status), re-runs, and if
+    the surviving combination still fails, fully restores the snapshot, invokes
+    ``on_full_revert``, and reports zero fixed / all reverted — recomputed from
+    ``fixed`` rather than decremented per finding, which could go negative when
+    several findings share one fix key. Returns ``(fixed, reverted, passed)``.
+    """
     if not fixes:
-        return 0, 0, None, False
+        return 0, 0, None
     timeout = _effective_timeout(progress)
     passed, summary = run_tests(test_command, project_root, timeout=timeout)
     record_test_result(progress, passed, summary)
     if passed:
-        mark_all_fixed(progress, fixes)
-        return len(fixes), 0, True, False
+        on_all_pass()
+        return len(fixes), 0, True
 
     reset_to_clean = _clean_reset_hook(pre_stash, pre_head, project_root)
     fixed, reverted, _ = bisect_fixes(
@@ -312,7 +338,7 @@ def _test_and_reconcile_fixes(
         test_command,
         project_root,
         run_tests_fn=lambda tc, cwd: run_tests(tc, cwd, timeout=timeout),
-        on_outcome=_make_bisect_callback(progress),
+        on_outcome=on_outcome,
         reset_to_clean=reset_to_clean,
     )
     if fixed > 0:
@@ -320,15 +346,28 @@ def _test_and_reconcile_fixes(
         record_test_result(progress, passed, summary)
         if not passed:
             restore_working_tree(pre_stash, pre_head, project_root)
-            _mark_combined_regression(fixes, progress)
-            # The full restore reverted every fix this iteration applied, so the
-            # honest fix-level tally is zero fixed / all reverted. Set it from
-            # `fixed` directly rather than decrementing per demoted finding,
-            # which could drive the count negative when several findings share
-            # one fix key.
+            on_full_revert()
             reverted += fixed
             fixed = 0
+    return fixed, reverted, passed
 
+
+def _test_and_reconcile_fixes(
+    fixes, test_command, project_root, progress, pre_stash, pre_head
+):
+    """Deep variant: mark findings via the escalation chain and also report
+    ``all_reverted`` for the loop's termination check."""
+    fixed, reverted, passed = _test_and_reconcile(
+        fixes,
+        test_command,
+        project_root,
+        progress,
+        pre_stash,
+        pre_head,
+        on_outcome=_make_bisect_callback(progress),
+        on_all_pass=lambda: mark_all_fixed(progress, fixes),
+        on_full_revert=lambda: _mark_combined_regression(fixes, progress),
+    )
     all_reverted = fixed == 0 and reverted > 0
     return fixed, reverted, passed, all_reverted
 
@@ -354,42 +393,28 @@ def _make_refactor_bisect_callback(progress, cycle):
 def _test_and_reconcile_refactor_fixes(
     fixes, test_command, project_root, progress, cycle, pre_stash, pre_head
 ):
-    """Parallel of _test_and_reconcile_fixes for the refactor phase."""
-    if not fixes:
-        return 0, 0, None
-    timeout = _effective_timeout(progress)
-    passed, summary = run_tests(test_command, project_root, timeout=timeout)
-    record_test_result(progress, passed, summary)
-    if passed:
-        return len(fixes), 0, True
+    """Refactor variant: cycle-scoped status writes on ``refactor_findings`` (no
+    escalation chain) and a 3-tuple return."""
 
-    reset_to_clean = _clean_reset_hook(pre_stash, pre_head, project_root)
-    fixed, reverted, _ = bisect_fixes(
+    def _mark_regression():
+        for finding in progress["refactor_findings"]:
+            if (
+                finding.get("cycle") == cycle
+                and finding.get("status") in FIXED_STATUSES
+            ):
+                finding["status"] = "reverted — test failure"
+
+    return _test_and_reconcile(
         fixes,
         test_command,
         project_root,
-        run_tests_fn=lambda tc, cwd: run_tests(tc, cwd, timeout=timeout),
+        progress,
+        pre_stash,
+        pre_head,
         on_outcome=_make_refactor_bisect_callback(progress, cycle),
-        reset_to_clean=reset_to_clean,
+        on_all_pass=lambda: None,
+        on_full_revert=_mark_regression,
     )
-    if fixed > 0:
-        passed, summary = run_tests(test_command, project_root, timeout=timeout)
-        record_test_result(progress, passed, summary)
-        if not passed:
-            restore_working_tree(pre_stash, pre_head, project_root)
-            for finding in progress["refactor_findings"]:
-                if (
-                    finding.get("cycle") == cycle
-                    and finding.get("status") in FIXED_STATUSES
-                ):
-                    finding["status"] = "reverted — test failure"
-            # The full restore reverted every fix this phase applied, so report
-            # zero fixed / all reverted. Recompute from `fixed` rather than
-            # decrementing per finding, which could go negative when several
-            # findings share one fix key.
-            reverted += fixed
-            fixed = 0
-    return fixed, reverted, passed
 
 
 def _record_iteration_history(
@@ -412,6 +437,40 @@ def _record_iteration_history(
         }
     )
     progress["iteration"]["completed"] = iteration
+
+
+def _record_converged_cycle(progress, cycle, history_entry):
+    """Append a cycle_history entry and mark the cycle completed on a converged
+    exit. The paired loop skips step 10 (record-cycle) on the converged path, so
+    the unit-test and refactor steps record the just-run cycle here instead.
+    """
+    progress["cycle_history"].append(history_entry)
+    progress["cycle"]["completed"] = cycle
+
+
+def _vet_safe_exit_tree(progress, project_root, test_command, pre_stash, pre_head):
+    """Vet a dirty working tree on a deep-step safe exit (no fixes applied).
+
+    A well-behaved subagent leaves the tree clean when it reports
+    ``no_new_findings`` / ``no_actionable_fixes``. If it left stray edits, run
+    the suite and roll the tree back to the snapshot on red so the step-6
+    checkpoint never commits untested, test-breaking changes (mirrors the
+    pre-consolidation ``_handle_safe_exit``). Returns the test result, or
+    ``None`` when the tree was clean (no test ran).
+    """
+    if not git_diff_has_changes(project_root):
+        return None
+    passed, summary = run_tests(
+        test_command, project_root, timeout=_effective_timeout(progress)
+    )
+    record_test_result(progress, passed, summary)
+    if not passed:
+        try:
+            restore_working_tree(pre_stash, pre_head, project_root)
+        except (RuntimeError, OSError):
+            # Best-effort rollback — recording the red result is what matters.
+            pass
+    return passed
 
 
 def _should_soft_exit(progress, iteration):
@@ -586,17 +645,30 @@ def cmd_init(args):
 
 def cmd_resume(args):
     progress_path = Path(args.progress_file)
-    if not progress_path.exists():
-        backup = Path(str(progress_path) + BACKUP_SUFFIX)
-        if backup.exists():
-            shutil.copy2(str(backup), str(progress_path))
+    backup_path = Path(str(progress_path) + BACKUP_SUFFIX)
+    progress = None
+    read_error = None
+    if progress_path.exists():
+        try:
+            progress = read_progress(progress_path)
+        except (ValueError, OSError) as exc:
+            # Torn/corrupt primary (e.g. an interrupted write) — fall back to the
+            # backup below instead of failing outright.
+            read_error = exc
+    if progress is None and backup_path.exists():
+        try:
+            progress = read_progress(backup_path)
+        except (ValueError, OSError):
+            progress = None
+        else:
+            # Promote the good backup to the primary path so the rest of the run
+            # reads a valid file.
+            shutil.copy2(str(backup_path), str(progress_path))
+    if progress is None:
+        if read_error is not None:
+            print(f"ERROR: Cannot read progress file: {read_error}", file=sys.stderr)
         else:
             print(f"ERROR: No progress file at {progress_path}", file=sys.stderr)
-            return 1
-    try:
-        progress = read_progress(progress_path)
-    except (ValueError, OSError) as exc:
-        print(f"ERROR: Cannot read progress file: {exc}", file=sys.stderr)
         return 1
     for key in ("skill", "config"):
         if key not in progress:
@@ -614,27 +686,13 @@ def cmd_resume(args):
             )
             return 1
 
-    # Resuming means "continue the loop". Clear any stored terminal reason so
-    # `check-termination` re-evaluates from scratch instead of immediately
-    # re-emitting the soft-exit (diminishing-returns) that left this file
-    # resumable — without this, every --resume quits after a single iteration.
     config = progress.get("config", {})
     mutated = False
-    if (progress.get("termination") or {}).get("reason"):
-        progress["termination"] = {"reason": None, "message": None}
-        # The terminating iteration finished steps 1–7 but the loop exited
-        # before step 8 (`advance`), so iteration.current still points at it.
-        # Bump it here so the resumed loop continues at the next iteration
-        # rather than re-dispatching the same number (which duplicated the
-        # iteration_history entry and re-stamped finding metadata). A
-        # mid-iteration Ctrl-C leaves no termination reason, so that
-        # interrupted iteration is correctly re-run instead of skipped. The
-        # paired variant advances cycle.current in record-cycle, not here.
-        if not _is_coverage(progress) and "iteration" in progress:
-            progress["iteration"]["current"] += 1
-        mutated = True
-    # Let --resume raise the persisted cap (the documented
-    # "--resume --max-iterations <new-cap>" continuation path).
+    prior_reason = (progress.get("termination") or {}).get("reason")
+
+    # Raise the persisted cap when the user passed a higher value (the documented
+    # "--resume --max-iterations <new-cap>" continuation path). Done before the
+    # cap-overrun guard below so a same-call raise is taken into account.
     if args.max_iterations is not None and "max_iterations" in config:
         new_cap = max(min(args.max_iterations, MAX_ITERATIONS_HARD_CAP), 1)
         if new_cap != config["max_iterations"]:
@@ -645,6 +703,58 @@ def cmd_resume(args):
         if new_cap != config["max_cycles"]:
             config["max_cycles"] = new_cap
             mutated = True
+
+    # Refuse to silently overrun a hard cap. `check-termination` is a late loop
+    # step, so clearing a `cap` reason without actually raising the cap would let
+    # the loop run one full extra unit (dispatch + apply + commit) before the cap
+    # re-fires. Require the (possibly just-raised) cap to exceed the completed
+    # count; otherwise tell the user to raise it. (Returns before any write, so
+    # the in-memory cap bump above is not persisted on this path.)
+    if prior_reason == "cap":
+        if _is_coverage(progress):
+            completed = (progress.get("cycle") or {}).get("completed", 0)
+            cap = config.get("max_cycles", 0)
+            flag = "--max-cycles"
+        else:
+            completed = (progress.get("iteration") or {}).get("completed", 0)
+            cap = config.get("max_iterations", 0)
+            flag = "--max-iterations"
+        if cap <= completed:
+            print(
+                f"ERROR: this run already reached its cap ({cap}). Re-run with a "
+                f"higher {flag} to continue.",
+                file=sys.stderr,
+            )
+            return 1
+
+    # Resuming means "continue the loop". Clear any stored terminal reason so
+    # `check-termination` re-evaluates from scratch instead of immediately
+    # re-emitting the soft-exit (diminishing-returns) that left this file
+    # resumable — without this, every --resume quits after a single iteration.
+    if prior_reason:
+        progress["termination"] = {"reason": None, "message": None}
+        if _is_coverage(progress):
+            # On a convergence exit the per-phase step set cycle.completed but
+            # skipped record-cycle, so cycle.current still points at the finished
+            # cycle — advance it so the resumed loop starts a new cycle instead of
+            # re-running the converged one (which duplicated its coverage / tests
+            # / cycle_history data). On cap / diminishing-returns the reason was
+            # set by check-termination AFTER record-cycle already advanced
+            # cycle.current, so current != completed and it is left untouched.
+            cyc = progress.get("cycle")
+            if cyc and cyc.get("current") == cyc.get("completed"):
+                cyc["current"] += 1
+        elif "iteration" in progress:
+            # The terminating iteration finished steps 1–7 but exited before step
+            # 8 (`advance`), so iteration.current still points at it; bump it so
+            # the resumed loop continues at the next iteration rather than
+            # re-dispatching the same number (which duplicated the
+            # iteration_history entry and re-stamped finding metadata). A
+            # mid-iteration Ctrl-C leaves no termination reason, so that
+            # interrupted iteration is correctly re-run instead of skipped.
+            progress["iteration"]["current"] += 1
+        mutated = True
+
     if mutated:
         write_progress(progress_path, progress)
 
@@ -664,7 +774,14 @@ def cmd_snapshot(args):
     progress["_snapshot"]["pre_head"] = head
     progress["_snapshot"]["iteration_token"] = _current_unit(progress)
     if args.include_stash or _is_no_commit(progress):
-        progress["_snapshot"]["pre_stash"] = git_stash_snapshot(project_root)
+        # Reclaim the previous snapshot's stash (if it was never restored — i.e.
+        # the prior iteration passed) before taking a new one, so a long
+        # no-commit run doesn't leak orphaned stash entries into the reflog.
+        prev_stash = progress["_snapshot"].get("pre_stash")
+        new_stash = git_stash_snapshot(project_root)
+        if prev_stash and prev_stash != new_stash:
+            git_drop_stash(prev_stash, project_root)
+        progress["_snapshot"]["pre_stash"] = new_stash
     write_progress(progress_path, progress)
     print(head)
     return 0
@@ -808,11 +925,14 @@ def cmd_deep_step(args):
     pre_stash, pre_head = _snapshot_from_progress(progress)
 
     _promote_actionable_fixes(result)
-    new_count = len(result.get("new_findings", []))
+    new_count = len(result.get("new_findings") or [])
 
     if result.get("no_new_findings", False):
         _register_iteration_findings(progress, result, fixes=[])
-        _record_iteration_history(progress, iteration, 0, 0, 0, None)
+        test_passed = _vet_safe_exit_tree(
+            progress, project_root, test_command, pre_stash, pre_head
+        )
+        _record_iteration_history(progress, iteration, 0, 0, 0, test_passed)
         progress["termination"] = {
             "reason": "convergence",
             "message": f"Zero new findings on iteration {iteration}",
@@ -822,7 +942,10 @@ def cmd_deep_step(args):
         return 0
     if result.get("no_actionable_fixes", False):
         _register_iteration_findings(progress, result, fixes=[])
-        _record_iteration_history(progress, iteration, new_count, 0, 0, None)
+        test_passed = _vet_safe_exit_tree(
+            progress, project_root, test_command, pre_stash, pre_head
+        )
+        _record_iteration_history(progress, iteration, new_count, 0, 0, test_passed)
         progress["termination"] = {
             "reason": "no-actionable",
             "message": "Findings exist but none had actionable code edits",
@@ -831,7 +954,7 @@ def cmd_deep_step(args):
         print("no-actionable")
         return 0
 
-    fixes = result.get("fixes_applied", [])
+    fixes = result.get("fixes_applied") or []
     _register_iteration_findings(progress, result, fixes)
     fixed, reverted, test_passed, all_reverted = _test_and_reconcile_fixes(
         fixes,
@@ -876,13 +999,45 @@ def cmd_unit_test_step(args):
     if not _verify_snapshot_fresh(progress, cycle):
         return 1
 
-    # Update coverage history
+    # Run the full suite BEFORE merging the session's results. If the suite is
+    # red, the unit-test subagent left a failing test or a tree-breaking source
+    # edit; roll the working tree back to the pre-cycle snapshot and DROP the
+    # session output entirely — its coverage numbers, untestable items, and bugs
+    # describe code that is now gone, so they must not leak into later cycles and
+    # the step-5 checkpoint must not commit a red tree. (Restores the
+    # pre-consolidation _run_unit_test_phase safety net.)
+    passed, summary = run_tests(
+        test_command, project_root, timeout=_effective_timeout(progress)
+    )
+    record_test_result(progress, passed, summary)
+    if not passed:
+        pre_stash, pre_head = _snapshot_from_progress(progress)
+        try:
+            restore_working_tree(pre_stash, pre_head, project_root)
+        except (RuntimeError, OSError):
+            # Best-effort rollback — recording the red result is what matters.
+            pass
+        progress["phase"] = "unit-test"
+        write_progress(progress_path, progress)
+        print("continue")
+        return 0
+
+    # Suite is green — merge the session's results into progress.
     cov = result.get("coverage") or {}
     if cov.get("tool"):
         progress["coverage"]["tool"] = cov["tool"]
     before = cov.get("before")
     after = cov.get("after")
     delta = cov.get("delta")
+    if (
+        delta is None
+        and isinstance(before, (int, float))
+        and isinstance(after, (int, float))
+    ):
+        # check_coverage_plateau compares delta == 0; derive it from before/after
+        # when the subagent omitted (or null-set) it so a genuine zero-gain cycle
+        # still trips the diminishing-returns net rather than running to the cap.
+        delta = after - before
     if progress["coverage"]["baseline"] is None and before is not None:
         progress["coverage"]["baseline"] = before
     if after is not None:
@@ -897,7 +1052,7 @@ def cmd_unit_test_step(args):
     )
 
     # Merge tests
-    for t in result.get("tests_written", []):
+    for t in result.get("tests_written") or []:
         progress["tests_created"].append({**t, "cycle": cycle})
     # Merge untestable items (dedup by file+line+function). Normalize the file
     # path on storage so the dedup key here and the refactor phase's touched-file
@@ -907,10 +1062,13 @@ def cmd_unit_test_step(args):
         (u.get("file"), u.get("line"), u.get("function"))
         for u in progress["untestable_code"]
     }
-    for item in result.get("untestable_code", []):
-        item_file = (
-            normalize_path(item["file"]) if item.get("file") else item.get("file")
-        )
+    for item in result.get("untestable_code") or []:
+        if not item.get("file"):
+            # A file-less untestable item can never be scoped to a refactor or
+            # marked attempted, so storing it would inflate pending-refactor-count
+            # and waste a refactor dispatch every cycle. Skip it.
+            continue
+        item_file = normalize_path(item["file"])
         key = (item_file, item.get("line"), item.get("function"))
         if key in existing_keys:
             continue
@@ -925,14 +1083,8 @@ def cmd_unit_test_step(args):
             }
         )
     # Bugs
-    for b in result.get("bugs_discovered", []):
+    for b in result.get("bugs_discovered") or []:
         progress["bugs_discovered"].append({**b, "cycle_discovered": cycle})
-
-    # Run the full test suite to record pass/fail
-    passed, summary = run_tests(
-        test_command, project_root, timeout=_effective_timeout(progress)
-    )
-    record_test_result(progress, passed, summary)
 
     # Refresh refactor-phase scope from pending untestable items so the refactor
     # subagent's harness-mode protocol sees the items via scope_files.current
@@ -954,10 +1106,9 @@ def cmd_unit_test_step(args):
         # Record the cycle that just ran before terminating — the orchestrator
         # loop skips step 10 (record-cycle) on the converged path, so the
         # final report would otherwise miss this cycle in cycle_history.
-        progress["cycle_history"].append(
-            {"cycle": cycle, "unit_test": {"converged": True}}
+        _record_converged_cycle(
+            progress, cycle, {"cycle": cycle, "unit_test": {"converged": True}}
         )
-        progress["cycle"]["completed"] = cycle
         progress["termination"] = {"reason": "convergence", "message": reason}
         write_progress(progress_path, progress)
         print("converged")
@@ -986,9 +1137,9 @@ def cmd_refactor_step(args):
     _promote_actionable_fixes(result)
 
     # Merge new findings (refactor_findings is the coverage-variant store)
-    fixes = result.get("fixes_applied", [])
+    fixes = result.get("fixes_applied") or []
     applied_keys = {finding_key(f) for f in fixes}
-    new_findings = result.get("new_findings", [])
+    new_findings = result.get("new_findings") or []
     represented = set()
     for finding in new_findings:
         status = (
@@ -1055,7 +1206,9 @@ def cmd_refactor_step(args):
     if converged:
         # Record the cycle that just ran before terminating — the orchestrator
         # loop skips step 10 (record-cycle) on the converged path.
-        progress["cycle_history"].append(
+        _record_converged_cycle(
+            progress,
+            cycle,
             {
                 "cycle": cycle,
                 "refactor": {
@@ -1063,9 +1216,8 @@ def cmd_refactor_step(args):
                     "fixed": fixed_count,
                     "reverted": reverted_count,
                 },
-            }
+            },
         )
-        progress["cycle"]["completed"] = cycle
         progress["termination"] = {"reason": "convergence", "message": reason}
         write_progress(progress_path, progress)
         print("converged")

@@ -136,7 +136,7 @@ def update_scope(progress, result):
     for finding in progress["findings"]:
         if finding["status"] != PERSISTENT_STATUS:
             finding_files.add(finding["file"])
-    for fix in result.get("fixes_applied", []):
+    for fix in result.get("fixes_applied") or []:
         fix_file = normalize_path(fix.get("file", ""))
         if fix_file:
             finding_files.add(fix_file)

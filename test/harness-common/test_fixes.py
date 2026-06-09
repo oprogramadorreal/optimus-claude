@@ -45,6 +45,19 @@ class TestSwapContent:
             is False
         )
 
+    def test_non_string_content_is_refused(self, tmp_path):
+        # A non-string edit field (e.g. a JSON number that slipped past the
+        # dispatch contract) must be refused, not crash the membership test /
+        # str.replace.
+        f = tmp_path / "test.txt"
+        f.write_text("hello world", encoding="utf-8")
+        fix = {"file": "test.txt", "pre_edit_content": 5, "post_edit_content": "x"}
+        assert (
+            _swap_content(fix, str(tmp_path), "pre_edit_content", "post_edit_content")
+            is False
+        )
+        assert f.read_text(encoding="utf-8") == "hello world"
+
     def test_content_not_found(self, tmp_path):
         f = tmp_path / "test.txt"
         f.write_text("hello", encoding="utf-8")

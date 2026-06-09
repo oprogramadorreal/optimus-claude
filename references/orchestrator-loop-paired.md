@@ -200,8 +200,8 @@ PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli final-repo
 
 ## Per-phase notes
 
-- The unit-test phase runs full project tests after the subagent's writes (the CLI calls `run_tests` internally); the refactor phase bisects on failure (same algorithm as deep-step).
-- Tests written by the unit-test phase that fail are recorded with status `fail-fixed` or `fail-abandoned` by the base skill; the CLI does not retest them.
-- Coverage delta is computed from `coverage.before` and `coverage.after` reported by the unit-test subagent. The CLI records the history; the orchestrator skill does not need to inspect it directly.
+- The unit-test phase runs full project tests after the subagent's writes (the CLI calls `run_tests` internally) **before** merging the session's results. If the suite is red, the CLI rolls the working tree back to the pre-cycle snapshot and drops the session output, so a failing cycle is never committed and its coverage/untestable/bug data never leaks into later cycles; on green it merges and proceeds. The refactor phase bisects on failure (same algorithm as deep-step).
+- The unit-test base skill is expected to leave the suite green (failing tests it writes are marked `fail-fixed` or `fail-abandoned` and not left active); the CLI does not retest individual tests. Its full-suite run is the safety net — a red result rolls the whole cycle back rather than committing it.
+- Coverage delta is taken from the unit-test subagent's `coverage.delta`, or derived from `coverage.before`/`coverage.after` when the subagent omits it (so the plateau check still fires on a genuine zero-gain cycle). The CLI records the history; the orchestrator skill does not need to inspect it directly.
 - The orchestrator skill never reads the full `untestable_code` array between cycles — only `pending-refactor-count` decides whether to dispatch the refactor phase.
 - **Parse-failure recovery:** identical to the single-loop variant — see `orchestrator-loop-single.md` "Parse-failure recovery". The rule applies to both phase dispatches (unit-test and refactor); a parse failure in either phase counts toward the two-consecutive-failures threshold.

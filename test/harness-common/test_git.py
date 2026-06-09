@@ -24,6 +24,7 @@ from harness_common.git import (
     git_current_branch,
     git_diff_has_changes,
     git_discover_branch_files,
+    git_drop_stash,
     git_fetch_open_pr_description,
     git_restore_snapshot,
     git_restore_to,
@@ -222,6 +223,18 @@ class TestCommitCheckpoint:
         assert status == COMMIT_FAILED
         assert "checkpoint commit failed" in capsys.readouterr().out
 
+    def test_staged_check_error_is_failure_not_doomed_commit(self, tmp_path, capsys):
+        # `git diff --cached --quiet` returning 128 (locked/corrupt index) must
+        # NOT be misread as "changes staged": commit_checkpoint reports
+        # COMMIT_FAILED without attempting a doomed `git commit`.
+        run, calls = self._make_run(staged_rc=128)
+        status = commit_checkpoint(
+            "feat: x", tmp_path, ".claude/progress.json", _run=run
+        )
+        assert status == COMMIT_FAILED
+        assert not [c for c in calls if c[:2] == ["git", "commit"]]
+        assert "errored" in capsys.readouterr().out
+
 
 def _git(cwd, *args):
     """Run a git command in ``cwd``, raising on failure."""
@@ -340,9 +353,17 @@ class TestRestoreWorkingTree:
 
     @patch("harness_common.git.git_restore_to")
     @patch("harness_common.git.git_restore_snapshot", return_value=False)
-    def test_stash_fails_falls_back_to_head(self, mock_snapshot, mock_restore_to):
-        restore_working_tree("stash123", "head123", "/tmp")
-        mock_restore_to.assert_called_once_with("head123", "/tmp", _run=None)
+    def test_stash_fail_does_not_fall_back_to_head(
+        self, mock_snapshot, mock_restore_to
+    ):
+        # When a stash snapshot was taken but its apply fails, the snapshot is
+        # left intact in the reflog (a recovery hint was printed). restore_working_tree
+        # must return False and NOT fall back to a HEAD checkout — that fallback
+        # would report a successful restore while silently discarding the
+        # snapshot's uncommitted work.
+        result = restore_working_tree("stash123", "head123", "/tmp")
+        assert result is False
+        mock_restore_to.assert_not_called()
 
     @patch("harness_common.git.git_restore_to")
     def test_no_stash_uses_head(self, mock_restore_to):
@@ -425,6 +446,38 @@ class TestGitRestoreSnapshot:
         # subprocess call was the `stash apply` itself — the stash survives.
         assert mock_run.call_count == 1
         assert mock_run.call_args.args[0] == ["git", "stash", "apply", "abc123"]
+
+
+class TestGitDropStash:
+    def test_drops_matching_ref(self):
+        calls = []
+
+        def fake_run(cmd, **_kw):
+            calls.append(cmd)
+            if cmd[:3] == ["git", "stash", "list"]:
+                return MagicMock(
+                    returncode=0, stdout="stash@{0} deadbeef\nstash@{1} abc123\n"
+                )
+            return MagicMock(returncode=0, stdout="")
+
+        git_drop_stash("abc123", "/tmp", _run=fake_run)
+        drops = [c for c in calls if c[:3] == ["git", "stash", "drop"]]
+        assert drops == [["git", "stash", "drop", "stash@{1}"]]
+
+    def test_noop_when_sha_falsy(self):
+        calls = []
+        git_drop_stash(None, "/tmp", _run=lambda c, **k: calls.append(c))
+        assert calls == []
+
+    def test_noop_when_sha_not_listed(self):
+        calls = []
+
+        def fake_run(cmd, **_kw):
+            calls.append(cmd)
+            return MagicMock(returncode=0, stdout="stash@{0} deadbeef\n")
+
+        git_drop_stash("notpresent", "/tmp", _run=fake_run)
+        assert not [c for c in calls if c[:3] == ["git", "stash", "drop"]]
 
 
 class TestFetchOpenPrData:
@@ -639,9 +692,12 @@ class TestGitDiscoverBranchFiles:
         files, base = git_discover_branch_files("/tmp")
         assert files == ["src/a.py", "src/b.py"]
         assert base == "origin/main"
-        # Diff uses three-dot to compare branch vs merge-base.
+        # Diff uses three-dot to compare branch vs merge-base, with
+        # core.quotePath=false so non-ASCII paths aren't octal-escaped/quoted.
         args = mock_run.call_args.args[0]
-        assert args[:3] == ["git", "diff", "--name-only"]
+        assert args[0] == "git"
+        assert "-c" in args and "core.quotePath=false" in args
+        assert "diff" in args and "--name-only" in args
         assert "origin/main...HEAD" in args
 
     @patch("harness_common.git.subprocess.run")

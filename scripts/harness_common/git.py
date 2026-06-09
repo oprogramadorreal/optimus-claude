@@ -59,8 +59,19 @@ def commit_checkpoint(commit_message, cwd, progress_file, _run=None):
         capture_output=True,
         text=True,
     )
+    # `git diff --cached --quiet` exits 0 (nothing staged), 1 (changes staged),
+    # or 128 (a real error: locked/corrupt index, etc.). Only a clean "1" means
+    # there is something to commit; treat 0 as a no-op and any other code as a
+    # failure rather than misreading an error as "staged" and running a doomed
+    # commit (which would surface as COMMIT_FAILED and durably disable commits).
     if staged.returncode == 0:
         return COMMIT_NOTHING
+    if staged.returncode != 1:
+        print(
+            f"{_PREFIX} WARNING: 'git diff --cached --quiet' errored "
+            f"(rc={staged.returncode}): {staged.stderr[:200]}"
+        )
+        return COMMIT_FAILED
     result = _run(
         ["git", "commit", "-m", commit_message],
         cwd=str(cwd),
@@ -166,6 +177,36 @@ def git_stash_snapshot(cwd, _run=None):
     return sha
 
 
+def git_drop_stash(snapshot_sha, cwd, _run=None):
+    """Drop the stash reflog entry matching a snapshot SHA, if present.
+
+    Best-effort: ``git stash drop`` needs a stash ref (``stash@{N}``), not a raw
+    SHA, so resolve the ref from ``git stash list``. A no-op when the SHA is
+    falsy or no longer listed (already dropped). Lets callers reclaim a prior
+    snapshot stash so successful (never-restored) iterations don't leak orphaned
+    entries into the reflog.
+    """
+    if not snapshot_sha:
+        return
+    _run = _run or subprocess.run
+    list_result = _run(
+        ["git", "stash", "list", "--format=%gd %H"],
+        cwd=str(cwd),
+        capture_output=True,
+        text=True,
+    )
+    for entry in list_result.stdout.strip().splitlines():
+        parts = entry.split(" ", 1)
+        if len(parts) == 2 and parts[1] == snapshot_sha:
+            _run(
+                ["git", "stash", "drop", parts[0]],
+                cwd=str(cwd),
+                capture_output=True,
+                text=True,
+            )
+            break
+
+
 def git_restore_snapshot(snapshot_sha, cwd, _run=None):
     """Restore working tree from a stash snapshot created by git_stash_snapshot."""
     _run = _run or subprocess.run
@@ -185,24 +226,8 @@ def git_restore_snapshot(snapshot_sha, cwd, _run=None):
             f"tree — recover them with: git stash apply {snapshot_sha}"
         )
         return False
-    # Drop the stash entry to avoid accumulating orphaned snapshots.
-    # git stash drop requires a stash ref (stash@{N}), not a raw SHA.
-    list_result = _run(
-        ["git", "stash", "list", "--format=%gd %H"],
-        cwd=str(cwd),
-        capture_output=True,
-        text=True,
-    )
-    for entry in list_result.stdout.strip().splitlines():
-        parts = entry.split(" ", 1)
-        if len(parts) == 2 and parts[1] == snapshot_sha:
-            _run(
-                ["git", "stash", "drop", parts[0]],
-                cwd=str(cwd),
-                capture_output=True,
-                text=True,
-            )
-            break
+    # Drop the applied entry to avoid accumulating orphaned snapshots.
+    git_drop_stash(snapshot_sha, cwd, _run=_run)
     return True
 
 
@@ -242,12 +267,17 @@ def git_diff_has_changes(cwd):
 def restore_working_tree(stash_sha, head_commit, cwd, _run=None):
     """Restore working tree to its pre-iteration state.
 
-    Tries the stash snapshot first (preserves uncommitted work from prior
-    --no-commit iterations), falls back to git checkout of the HEAD commit.
-    Returns True on success, False when no usable snapshot is available.
+    With a stash snapshot (preferred — preserves uncommitted work from prior
+    --no-commit iterations), restore from it. If the stash apply fails, the
+    snapshot is left intact in the reflog (git_restore_snapshot printed a
+    recovery hint) and this returns False WITHOUT falling back to a HEAD
+    checkout — that fallback would report a successful restore while silently
+    discarding the snapshot's uncommitted work. Without a stash, fall back to
+    checking out head_commit. Returns True on success, False when no usable
+    restore path remains.
     """
-    if stash_sha and git_restore_snapshot(stash_sha, cwd, _run=_run):
-        return True
+    if stash_sha:
+        return git_restore_snapshot(stash_sha, cwd, _run=_run)
     if not head_commit:
         print(f"{_PREFIX} WARNING: no snapshot to restore from")
         return False
@@ -366,7 +396,10 @@ def git_discover_branch_files(cwd, path_filter=None, pr_info=_UNSET):
     base = _detect_base_branch(cwd, pr_info)
     if not base:
         return [], None
-    cmd = ["git", "diff", "--name-only", f"{base}...HEAD"]
+    # core.quotePath=false keeps non-ASCII paths literal (UTF-8) instead of
+    # octal-escaped and double-quoted, so discovered filenames match the
+    # downstream normalize_path comparisons rather than being silently dropped.
+    cmd = ["git", "-c", "core.quotePath=false", "diff", "--name-only", f"{base}...HEAD"]
     if path_filter:
         cmd.extend(["--", path_filter])
     try:

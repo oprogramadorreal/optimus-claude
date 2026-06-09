@@ -1,4 +1,5 @@
 import json
+import os
 import shutil
 from pathlib import Path
 
@@ -6,12 +7,22 @@ from .constants import BACKUP_SUFFIX
 
 
 def write_progress(path, progress):
-    """Write the progress file with a backup."""
+    """Write the progress file atomically, keeping a backup of the prior state.
+
+    The serialized content is written to a sibling temp file and then
+    ``os.replace``d into place (atomic on the same filesystem), so an interrupted
+    write — Ctrl-C, crash, power loss — can never leave a torn/truncated progress
+    file that ``--resume`` would then refuse. The prior good state is also copied
+    to ``<path>.bak`` as a second recovery anchor.
+    """
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     if path.exists():
         shutil.copy2(str(path), str(path) + BACKUP_SUFFIX)
-    path.write_text(json.dumps(progress, indent=2) + "\n", encoding="utf-8")
+    data = json.dumps(progress, indent=2) + "\n"
+    tmp_path = path.with_name(path.name + ".tmp")
+    tmp_path.write_text(data, encoding="utf-8")
+    os.replace(str(tmp_path), str(path))
 
 
 def read_progress(path):
