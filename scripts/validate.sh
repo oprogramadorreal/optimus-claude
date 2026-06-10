@@ -652,7 +652,9 @@ fi
 # Step 6 relies on these tokens to run the audit passes that catch
 # hallucinated ports/paths/counts (port 5000 vs actual 51914, unverified
 # "15 .csproj projects" prose, etc.). Step 4 Content Principles must cite
-# the same rules so the two steps stay in sync.
+# the same rules so the two steps stay in sync. The audit rule bodies
+# live in references/step6-verification-audits.md; SKILL.md Step 6 keeps
+# pointer wiring that carries the same literal audit names.
 how_to_run_skill="skills/how-to-run/SKILL.md"
 if [ -f "$how_to_run_skill" ]; then
   for token in \
@@ -672,6 +674,33 @@ if [ -f "$how_to_run_skill" ]; then
       wiring_errors+="  $how_to_run_skill missing token-audit wiring token: $token\n"
     fi
   done
+fi
+
+# The Step 6 audit rule bodies were moved verbatim into
+# references/step6-verification-audits.md (SKILL.md keeps the pointer
+# bullets above). Pin the rule bodies in their new home so a silent
+# rename or deletion there cannot disable an audit while SKILL.md's
+# pointer keeps naming it.
+step6_audits_file="skills/how-to-run/references/step6-verification-audits.md"
+if [ -f "$step6_audits_file" ]; then
+  for token in \
+    'Specific-Token Audit' \
+    'Unverified-Count filter' \
+    'grounded-tokens' \
+    'Runtime Ports table' \
+    'Section ordering audit' \
+    'Pre-Conditions Block audit' \
+    'Template-shape audit' \
+    'OS-version line in Prerequisites' \
+    'Build Debug+Release pair' \
+    'Running-in-Development layout vs Components-table row count' \
+    '`Verify:` permitted only'; do
+    if ! grep -qF -- "$token" "$step6_audits_file" 2>/dev/null; then
+      wiring_errors+="  $step6_audits_file missing audit rule body: $token\n"
+    fi
+  done
+else
+  wiring_errors+="  missing file: $step6_audits_file (Step 6 audit rule bodies)\n"
 fi
 
 # Workspace-kind wiring in detector.md. Detector must emit the Workspace kind
@@ -898,10 +927,14 @@ fi
 if ! grep -qF 'How-to-Run Audit Results' "$how_to_run_skill" 2>/dev/null; then
   wiring_errors+="  $how_to_run_skill missing return-format consumer: How-to-Run Audit Results\n"
 fi
-# Cross-step identifiers within SKILL.md — these list/field names are
-# referenced from multiple Steps (3 record, 4 populate, 6 exempt); a silent
-# rename in only one location would silently disable the cross-step contract
-# (e.g., Step 6 would reject legitimately approved unverifiable items).
+# Cross-step identifiers — these list/field names are referenced from
+# multiple Steps (3 record, 4 populate, 6 exempt); a silent rename in only
+# one location would silently disable the cross-step contract (e.g., Step 6
+# would reject legitimately approved unverifiable items). The contract now
+# spans SKILL.md (pointer wiring) plus the two reference files that hold
+# the rule bodies (unverifiable-content-sanitization.md for Steps 3/4,
+# step6-verification-audits.md for the Step 6 exemption), so each surface
+# is pinned independently.
 # Threshold = current occurrence count; one location renamed = check fails.
 # `|| true` lets the count=0 case reach the threshold comparison instead
 # of aborting the script under `set -euo pipefail` — count=0 is exactly
@@ -915,8 +948,13 @@ check_cross_step_identifier() {
     wiring_errors+="  $file cross-step identifier '$identifier' appears $actual times, expected >=$expected\n"
   fi
 }
-check_cross_step_identifier 'approved-unverifiable-items' 4 "$how_to_run_skill"
+sanitization_file="skills/how-to-run/references/unverifiable-content-sanitization.md"
+check_cross_step_identifier 'approved-unverifiable-items' 3 "$how_to_run_skill"
 check_cross_step_identifier 'rendered_line' 3 "$how_to_run_skill"
+check_cross_step_identifier 'approved-unverifiable-items' 3 "$sanitization_file"
+check_cross_step_identifier 'rendered_line' 4 "$sanitization_file"
+check_cross_step_identifier 'approved-unverifiable-items' 3 "$step6_audits_file"
+check_cross_step_identifier 'rendered_line' 2 "$step6_audits_file"
 # Stale-info report identifiers — Step 4/5 prose references the Step 6
 # "Outdated info" report by name; a silent rename of either side breaks
 # the path from principle to report. Each side is checked independently
