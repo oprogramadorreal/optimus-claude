@@ -3,7 +3,7 @@
 </div>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-1.83.0-blue" alt="Version">
+  <img src="https://img.shields.io/badge/version-2.0.10-blue" alt="Version">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
   <img src="https://img.shields.io/badge/Claude_Code-1.0.33+-blueviolet" alt="Claude Code">
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey" alt="Platform">
@@ -67,13 +67,16 @@ The result: consistent patterns, meaningful names, and lean context across every
 | Skill | Description |
 |-------|-------------|
 | [`/optimus:init`](skills/init/README.md) | Initializes effective project documentation, formatter hooks, and unit test infrastructure. Detects empty directories and offers new-project scaffolding. Intelligent audit on re-run. Flags broken test baselines in the summary; repairs build-level issues only (never test logic). |
-| [`/optimus:unit-test`](skills/unit-test/README.md) | Discovers test coverage gaps and writes convention-following tests. Never refactors source code and never fixes pre-existing failing tests — stops with a triage pointer when the test baseline is broken. `deep` mode for iterative test generation. `deep harness` for multi-cycle test coverage + testability refactoring with fresh context per phase. *Requires init.* |
+| [`/optimus:unit-test`](skills/unit-test/README.md) | Discovers test coverage gaps and writes convention-following tests. Never refactors source code and never fixes pre-existing failing tests — stops with a triage pointer when the test baseline is broken. *Requires init.* |
+| [`/optimus:unit-test-deep`](skills/unit-test-deep/README.md) | Iterative test-coverage improvement — alternates `/optimus:unit-test` (writes tests + measures coverage) with `/optimus:refactor testability` (unblocks untestable code) per cycle, in fresh subagent contexts. Default 5 cycles, hard cap 10. *Requires init + test command.* |
 | [`/optimus:tdd`](skills/tdd/README.md) | Guides test-driven development through Red-Green-Refactor cycles with per-behavior commits, parallel quality gate, and branch push. Recommends `/optimus:pr` as the explicit next step in the same conversation so the PR/MR captures TDD signals (behaviors, coverage delta) into the description. *Requires init.* |
 | [`/optimus:workflow`](skills/workflow/README.md) | Implements a spec by having Claude design and launch a Claude Code dynamic workflow — parallel subagents that build in the background with test-first applied as a quality bar. The self-orchestrated, parallel counterpart to `/optimus:tdd`'s supervised Red-Green-Refactor; prefer it for large or parallelizable specs. No mid-run input; edits auto-approved; uses meaningfully more tokens. *Requires init.* |
 | [`/optimus:spec-init`](skills/spec-init/README.md) | Scaffolds an empty, product-neutral docs-first SDD steering cascade (product vision, MVP PRD, target tech-stack) for a human to fill, then hands off to brainstorm. `brainstorm` and `tdd` read it as steering. Authors no PM content — emits skeletons only. |
 | [`/optimus:brainstorm`](skills/brainstorm/README.md) | Guides structured design brainstorming — explores the codebase, proposes multiple approaches with trade-offs, and writes an approved spec to the project. For stakeholder-facing or acceptance-criteria-driven tasks, the spec includes a Given/When/Then Scenarios section that `/optimus:tdd` consumes as its behavior list. Use before implementation to think through design decisions. |
-| [`/optimus:refactor`](skills/refactor/README.md) | Refactors code for guideline compliance and testability using 4 parallel agents. `testability` or `guidelines` focus mode to prioritize finding categories. `deep` mode for iterative refactoring. `deep harness` for multi-iteration analysis with fresh context per iteration. *Run init first (recommended).* |
-| [`/optimus:code-review`](skills/code-review/README.md) | Reviews changes for bugs, security issues, and guideline compliance using 5 to 7 parallel agents. Auto-routes to PR mode on a clean branch with a fully-pushed open PR/MR. `deep` mode for iterative auto-fix. `deep harness` for multi-iteration analysis with fresh context per iteration. *Run init first (recommended).* |
+| [`/optimus:refactor`](skills/refactor/README.md) | Refactors code for guideline compliance and testability using 4 parallel agents. `testability` or `guidelines` focus mode to prioritize finding categories. *Run init first (recommended).* |
+| [`/optimus:refactor-deep`](skills/refactor-deep/README.md) | Iterative project refactor — runs `/optimus:refactor` in a fresh subagent context per iteration, applies fixes, runs tests, bisects failures. Supports `testability` and `guidelines` focus. Default 8 iterations, hard cap 20. *Requires init + test command.* |
+| [`/optimus:code-review`](skills/code-review/README.md) | Reviews changes for bugs, security issues, and guideline compliance using 5 to 7 parallel agents. Auto-routes to PR mode on a clean branch with a fully-pushed open PR/MR. *Run init first (recommended).* |
+| [`/optimus:code-review-deep`](skills/code-review-deep/README.md) | Iterative auto-fix code review — runs `/optimus:code-review` in a fresh subagent context per iteration, applies fixes, runs tests, bisects failures. Default 8 iterations, hard cap 20. *Requires init + test command.* |
 
 ### Utility
 
@@ -95,8 +98,8 @@ The result: consistent patterns, meaningful names, and lean context across every
 
 1. **Safety guardrails** — `/optimus:permissions` for branch protection, precious file safety, and streamlined tool permissions
 2. **Initial setup** — `/optimus:init` to generate project context and set up test infrastructure (audits and updates if already present)
-3. **Test coverage** — `/optimus:unit-test` to write tests and improve coverage (or `/optimus:unit-test deep harness` for automated multi-cycle coverage + testability refactoring with fresh context per phase)
-4. **Code quality** — `/optimus:refactor` for full codebase refactoring against your coding guidelines and testability (if unit-test flagged untestable code, use `/optimus:refactor testability` then re-run `/optimus:unit-test` after refactoring — or use `/optimus:unit-test deep harness` which automates this cycle)
+3. **Test coverage** — `/optimus:unit-test` to write tests and improve coverage (or `/optimus:unit-test-deep` for an automated multi-cycle coverage + testability refactoring loop with fresh context per phase)
+4. **Code quality** — `/optimus:refactor` for full codebase refactoring against your coding guidelines and testability (if unit-test flagged untestable code, use `/optimus:refactor testability` then re-run `/optimus:unit-test` after refactoring — or use `/optimus:unit-test-deep` which automates this cycle)
 
 **During development:**
 
@@ -146,6 +149,8 @@ AI assistants also tend toward [sycophancy](https://blog.scielo.org/en/2026/03/1
 
 optimus-claude is designed to work alongside official tools, not replace them. Use Anthropic's official [code-review](https://github.com/anthropics/claude-code/tree/main/plugins/code-review) plugin for post-push PR review, [claude-md-management](https://claude.com/plugins/claude-md-management) for CLAUDE.md scoring and revision, the builtin `/simplify` for per-change cleanup (complemented by `/optimus:refactor` for project-wide restructuring), and Claude Code's [built-in sandboxing](https://code.claude.com/docs/en/sandboxing) or [Docker containers](https://www.docker.com/blog/docker-sandboxes-run-claude-code-and-other-coding-agents-unsupervised-but-safely/) for fully autonomous agent execution with OS-level isolation.
 
+Claude Code's [dynamic workflows](https://code.claude.com/docs/en/workflows) are complementary rather than competing. The `/optimus:*-deep` skills are slash-invoked auto-fix orchestrators that persist progress to disk and resume across sessions, with no dependency on a research-preview feature — while `/optimus:prompt` can emit prompts that *trigger* a native dynamic workflow for one-off background fan-outs (its Template N). Reach for a `*-deep` skill for the iterative fix loop; reach for a dynamic workflow for a one-off, background, multi-agent sweep.
+
 ## Troubleshooting
 
 ### Windows: SSL certificate error during install
@@ -157,6 +162,20 @@ git config --global http.sslBackend schannel
 ```
 
 Then retry the install command.
+
+### Upgrading from 1.x: `deep harness` mode and the Python harness scripts are gone
+
+2.0 replaced the two terminal-run Python harnesses with three in-conversation orchestrator skills. If you scripted the old entry points, migrate:
+
+| Removed in 2.0 | Use instead |
+|----------------|-------------|
+| `/optimus:code-review deep` / `… deep harness` | `/optimus:code-review-deep` |
+| `/optimus:refactor deep` / `… deep harness` | `/optimus:refactor-deep` |
+| `/optimus:unit-test deep` / `… deep harness` | `/optimus:unit-test-deep` |
+| `python scripts/deep-mode-harness/main.py …` | `/optimus:code-review-deep` (or `/optimus:refactor-deep`) |
+| `python scripts/test-coverage-harness/main.py …` | `/optimus:unit-test-deep` |
+
+The `*-deep` skills run inside your Claude Code conversation, persist state to `.claude/*-deep-progress.json`, support `--resume`, and accept `--yes` for non-interactive/CI use (e.g. `claude -p "/optimus:code-review-deep --yes 'src/auth'"`).
 
 ## Contributing
 

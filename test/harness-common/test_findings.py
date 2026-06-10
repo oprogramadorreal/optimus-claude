@@ -1,5 +1,6 @@
 import pytest
-from impl.findings import (
+from harness_common.constants import APPLIED_PENDING_TEST
+from harness_common.findings import (
     _escalate_revert_status,
     _truncate_failure_hint,
     finding_matches,
@@ -76,10 +77,42 @@ class TestMarkFindingStatus:
         assert sample_progress["findings"][0]["status"] == "fixed"
         assert len(sample_progress["findings"][0]["status_history"]) == 2
 
+    def test_rediscovery_does_not_regress_resolved_status(
+        self, sample_progress, sample_fix
+    ):
+        """A re-reported finding (subagent ignored the harness-mode dedup
+        protocol) must not regress an already-resolved status back to
+        ``discovered`` — that would drop it from the fixed tally and re-invite a
+        redundant fix on the next iteration."""
+        mark_finding_status(sample_progress, sample_fix, "fixed", "passed")
+        mark_finding_status(sample_progress, sample_fix, "discovered", None)
+        assert len(sample_progress["findings"]) == 1
+        assert sample_progress["findings"][0]["status"] == "fixed"
+
     def test_promotion_reverted_to_attempt2(self, sample_progress, sample_fix):
         mark_finding_status(
             sample_progress, sample_fix, "reverted — test failure", "fail 1"
         )
+        mark_finding_status(
+            sample_progress, sample_fix, "reverted — test failure", "fail 2"
+        )
+        assert sample_progress["findings"][0]["status"] == "reverted — attempt 2"
+
+    def test_revert_escalation_survives_applied_pending_test(
+        self, sample_progress, sample_fix
+    ):
+        """Regression test for 9e0553a: APPLIED_PENDING_TEST writes between
+        revert attempts must not reset the escalation chain. Each new
+        iteration registers findings as ``applied-pending-test`` before
+        bisection writes the terminal status; if escalation only looks at the
+        immediately preceding status, the chain silently resets each iteration.
+        """
+        mark_finding_status(
+            sample_progress, sample_fix, "reverted — test failure", "fail 1"
+        )
+        # Simulate a subsequent iteration re-registering the finding before
+        # bisection produces its final status.
+        mark_finding_status(sample_progress, sample_fix, APPLIED_PENDING_TEST, None)
         mark_finding_status(
             sample_progress, sample_fix, "reverted — test failure", "fail 2"
         )

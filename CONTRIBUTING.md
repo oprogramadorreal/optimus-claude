@@ -16,7 +16,7 @@ optimus-claude/
 ├── agents/                    # Plugin-level agents — user-invokable, also extended by skill-level agents
 │   ├── code-simplifier.md     # Code simplification agent (extended by code-review, refactor, tdd)
 │   ├── test-guardian.md       # Test coverage monitoring agent (extended by code-review, tdd)
-├── references/                # Shared reference docs (agent-architecture, shared-agent-constraints, context-injection-blocks, harness-mode, coverage-harness-mode, scope-expansion-rule, skill-handoff)
+├── references/                # Shared reference docs (agent-architecture, shared-agent-constraints, context-injection-blocks, harness-mode, coverage-harness-mode, orchestrator-loop-single, orchestrator-loop-paired, scope-expansion-rule, skill-handoff)
 ├── hooks/
 │   ├── hooks.json            # Plugin-level hooks (SessionStart for skill awareness)
 │   └── session-start         # Outputs dynamic project state on session start/resume/clear/compact
@@ -25,19 +25,26 @@ optimus-claude/
 │   ├── test-hooks.sh         # Hook execution tests (CI)
 │   ├── generate-fixtures.sh  # Generates minimal project fixtures for testing (local)
 │   ├── test-skills.sh        # Automated skill execution tests via claude -p (local)
-│   ├── harness_common/        # Shared modules used by both harnesses
-│   ├── deep-mode-harness/    # Deep harness orchestrator (Python package)
-│   │   ├── main.py           # Entry point — invoked via `deep harness` or directly
-│   │   └── impl/             # Internal modules (constants, git, progress, runner, etc.)
-│   └── test-coverage-harness/ # Test-coverage harness orchestrator (Python package)
-│       ├── main.py           # Entry point — invoked via `unit-test deep harness` or directly
-│       └── impl/             # Internal modules (constants, convergence, git, runner, etc.)
+│   └── harness_common/       # Shared modules + cli.py invoked by the *-deep orchestrator skills
+│       ├── cli.py            # Subcommand CLI (init, snapshot, deep-step, etc.)
+│       ├── findings.py       # Status escalation state machine
+│       ├── convergence.py    # Coverage convergence checks
+│       ├── fixes.py          # Apply / revert / bisect (mechanical, content-based)
+│       ├── git.py            # Checkpoint commits, stash, branch-base detection, PR fetch
+│       ├── parser.py         # JSON-block extraction from subagent output
+│       ├── progress.py       # JSON read/write/backup
+│       ├── runner.py         # Test runner with platform-aware bash routing
+│       ├── reporting.py      # Cumulative report printing + commit-body builders (also test-command detection)
+│       └── constants.py      # Shared status / cap constants
 ├── skills/
 │   ├── init/                 # /optimus:init
 │   ├── how-to-run/           # /optimus:how-to-run
 │   ├── unit-test/            # /optimus:unit-test
+│   ├── unit-test-deep/       # /optimus:unit-test-deep
 │   ├── refactor/             # /optimus:refactor
+│   ├── refactor-deep/        # /optimus:refactor-deep
 │   ├── code-review/          # /optimus:code-review
+│   ├── code-review-deep/     # /optimus:code-review-deep
 │   ├── tdd/                  # /optimus:tdd
 │   ├── workflow/             # /optimus:workflow
 │   ├── pr/                   # /optimus:pr
@@ -52,9 +59,7 @@ optimus-claude/
 │   └── jira/                 # /optimus:jira
 ├── test/
 │   ├── expected-outputs.yaml # Expected outputs for skill tests
-│   ├── harness-common/        # Python unit tests for shared harness modules
-│   ├── deep-mode-harness/    # Python unit tests for the deep harness
-│   ├── test-coverage-harness/ # Python unit tests for the test-coverage harness
+│   ├── harness-common/       # Python unit tests for the harness CLI and shared modules
 │   └── fixtures/             # Generated project fixtures (gitignored)
 ├── requirements-dev.txt      # Python dev dependencies (pytest, pytest-cov, black, isort)
 ├── install.cmd               # Create .venv and install dev dependencies
@@ -131,7 +136,7 @@ Follow the conventions visible in existing skills — study `skills/commit-messa
 
 Keep skill output templates plain: markdown headings, bold, and blockquotes — no decorative emoji (✅, ⚠, 🔴, 🟢, 🔄, etc.). Semantic markers (`**bold**`, `>` blockquotes, `###` headings) already convey severity and structure; decorative emoji read as off-tone scaffolding against the direct tone current Claude Code models emit by default.
 
-Similarly, do not hand-roll "[Step N/M]" progress indicators inside a skill. The harness and the model emit progress naturally during long agentic traces — forcing interim status lines duplicates that behavior and adds verbosity.
+Similarly, do not hand-roll "[Step N/M]" progress indicators inside a skill. The orchestrator skill and the model emit progress naturally during long agentic traces — forcing interim status lines duplicates that behavior and adds verbosity.
 
 For parallel-agent steps, spell out the expected fan-out as imperative ("Launch all 4 agents in a single message so they run in parallel"), not "up to N". Some Claude models conservatively under-spawn subagents, so the count needs to be explicit where the design depends on it.
 
@@ -178,7 +183,7 @@ The `source` object supports an optional `"ref"` field to pin plugin code to a s
 
 ## Testing
 
-This plugin is mostly markdown-based. Testing is split into layers: fast structural checks that run in CI, Python unit tests for the deep-mode harness, and slower skill execution tests that run locally.
+This plugin is mostly markdown-based. Testing is split into layers: fast structural checks that run in CI, Python unit tests for the shared harness CLI and modules, and slower skill execution tests that run locally.
 
 **Before merging significant changes**, run the full skill test suite from a clean slate:
 
@@ -222,9 +227,9 @@ Tests all state combinations (uninitialized, partial, fully configured, dirty tr
 - Zero-output guarantee for fully configured projects
 - Formatter hooks parse JSON input and filter by file extension correctly
 
-### Python unit tests (harness packages)
+### Python unit tests (harness common CLI and modules)
 
-Unit tests for the harness Python modules — the only Python code in the plugin.
+Unit tests for the orchestrator CLI and its supporting modules under `scripts/harness_common/` — the only Python code in the plugin.
 
 **First-time setup:**
 
@@ -243,10 +248,10 @@ Or manually via pytest:
 
 ```shell
 .venv\Scripts\activate
-python -m pytest test/harness-common/ test/deep-mode-harness/ test/test-coverage-harness/ -v
+python -m pytest test/harness-common/ -v
 ```
 
-**Note:** The project uses `pyproject.toml` with `--import-mode=importlib` so that test directories with overlapping package names resolve correctly.
+**Note:** The project uses `pyproject.toml` with `--import-mode=importlib` (kept for general robustness against same-name modules across test trees).
 
 ### Fixture generator (local)
 

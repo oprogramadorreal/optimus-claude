@@ -1,5 +1,5 @@
 ---
-description: Refactors existing code for guideline compliance and testability using 4 parallel analysis agents (guideline compliance, testability barriers, duplication/consistency, code-simplifier). Two goals — align code with project guidelines AND make untestable code testable so /optimus:unit-test can safely increase coverage. Use after /optimus:init to align existing code, before /optimus:unit-test to remove testability barriers, or periodically to prevent tech debt. Supports "testability" focus (after unit-test flags untestable code) or "guidelines" focus (after init establishes rules) to prioritize finding categories, flexible scoping, and a "deep" mode for iterative refactoring (default 8, up to 10 iterations).
+description: Refactors existing code for guideline compliance and testability using 4 parallel analysis agents (guideline compliance, testability barriers, duplication/consistency, code-simplifier). Two goals — align code with project guidelines AND make untestable code testable so /optimus:unit-test can safely increase coverage. Use after /optimus:init to align existing code, before /optimus:unit-test to remove testability barriers, or periodically to prevent tech debt. Supports "testability" focus (after unit-test flags untestable code) or "guidelines" focus (after init establishes rules) to prioritize finding categories, and flexible scoping. For iterative refactor in a loop, use `/optimus:refactor-deep`.
 disable-model-invocation: true
 ---
 
@@ -30,10 +30,7 @@ Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/prerequisite-check.md` and appl
 ### Parse invocation arguments
 
 Extract from the user's arguments:
-1. `deep` flag (present/absent)
-2. `harness` keyword after `deep` (present/absent)
-3. A number immediately after `deep` or `deep harness` → iteration cap (optional, default 8, hard cap 10)
-4. Focus keyword detection — match only **standalone unquoted tokens** (not inside quotes or part of longer words):
+1. Focus keyword detection — match only **standalone unquoted tokens** (not inside quotes or part of longer words):
    - If remaining unquoted text contains standalone `testability` (case-insensitive) → set `focus` = `"testability"`
    - If remaining unquoted text contains standalone `guidelines` (case-insensitive) → set `focus` = `"guidelines"`
    - Otherwise → `focus` = null (balanced — current behavior)
@@ -42,22 +39,16 @@ Extract from the user's arguments:
    - **Safe examples** (keyword NOT consumed — stays as scope):
      - `/optimus:refactor "improve testability in auth"` → focus=null, scope="improve testability in auth" (inside quotes)
      - `/optimus:refactor "fix guidelines compliance"` → focus=null, scope="fix guidelines compliance" (inside quotes)
-5. Everything else → scope instructions (natural language)
+2. Everything else → scope instructions (natural language)
 
 Examples:
-- `/optimus:refactor` → full project, normal mode
-- `/optimus:refactor "focus on auth module"` → scope to auth, normal mode
-- `/optimus:refactor testability` → full project, normal mode, focus=testability
-- `/optimus:refactor guidelines` → full project, normal mode, focus=guidelines
+- `/optimus:refactor` → full project
+- `/optimus:refactor "focus on auth module"` → scope to auth
+- `/optimus:refactor testability` → full project, focus=testability
+- `/optimus:refactor guidelines` → full project, focus=guidelines
 - `/optimus:refactor testability "focus on src/api"` → scope to src/api, focus=testability
-- `/optimus:refactor deep` → full project, deep (8 iterations)
-- `/optimus:refactor deep 10 backend` → scope to backend, deep (10 iterations)
-- `/optimus:refactor deep guidelines` → full project, deep, focus=guidelines
-- `/optimus:refactor deep harness` → harness mode, 8 iterations, full project
-- `/optimus:refactor deep harness testability` → harness mode, focus=testability
 
-If the iteration cap exceeds 10, clamp it to 10 and warn: "Iteration cap clamped to 10 (maximum)."
-If the iteration cap is less than 1, clamp it to 1 and warn: "Iteration cap clamped to 1 (minimum)."
+For iterative refactor in a loop, use `/optimus:refactor-deep` instead.
 
 ### Scope resolution
 
@@ -73,45 +64,11 @@ For **changed since**: use `git diff --name-only <ref>...HEAD` for commit SHAs, 
 
 For monorepos with **full project** scope: ask which subprojects to include (default: all). For **directory** scope: auto-detect which subproject the path belongs to.
 
-## Step 2: Deep Mode Activation
+## Step 2: Inline Harness Mode Detection
 
-### Harness mode detection
+If your invocation prompt body contains `HARNESS_MODE_INLINE`, you are running inside the `/optimus:refactor-deep` or `/optimus:unit-test-deep` orchestrator as a single iteration. Read `$CLAUDE_PLUGIN_ROOT/references/harness-mode.md` and follow its single-iteration execution protocol. The reference covers progress file reading, state initialization, scope and file-list rules, and step overrides (including the apply/output protocol). If `scope_files.current` is non-empty in the progress file, treat it as the pre-resolved scope (the orchestrator pre-populated it from the feature-branch diff) and skip the Step 1 scope resolution entirely. Proceed through Steps 3, 4, 5, and 6 — skip the Step 7 user confirmation (the orchestrator handles approval upfront), apply the fixes mechanically, then emit the structured JSON via the harness-mode output protocol and stop. Do not use `AskUserQuestion`. Do not loop.
 
-If the system prompt contains `HARNESS_MODE_ACTIVE`, read `$CLAUDE_PLUGIN_ROOT/references/harness-mode.md` and follow its single-iteration execution protocol. The reference covers progress file reading, state initialization, scope and file-list rules, and step overrides (including the Step 8 apply/output protocol). Then proceed through Step 1's scope resolution (branch-diff path only — no `AskUserQuestion`), Step 3, and Step 4 — skip only the Step 2 deep-mode confirmation. If `scope_files.current` is non-empty in the progress file, treat it as the pre-resolved scope (the harness pre-populated it from the feature-branch diff) and skip the Step 1 scope resolution entirely.
-
-If `HARNESS_MODE_ACTIVE` is NOT in the system prompt, continue with the standard interactive flow below.
-
-### Skill-triggered harness invocation
-
-If the `harness` keyword was detected in Step 1, read the **Skill-Triggered Invocation** section of `$CLAUDE_PLUGIN_ROOT/references/harness-mode.md` and follow its steps. Pass:
-- `skill_name` = `refactor`
-- `scope` = scope text from Step 1 argument parsing
-- `max_iterations` = parsed iteration cap from Step 1 (if specified)
-- `focus` = focus keyword from Step 1 (if detected)
-
-The reference protocol presents the command and stops. Do not proceed to Step 3 or any remaining steps.
-
-### Interactive deep mode
-
-If the `deep` flag was detected in Step 1, activate deep mode. Deep mode loops analysis-apply cycles (Steps 4–8) until clean or the iteration cap is reached.
-
-Before proceeding, check whether a test command is available (from `.claude/CLAUDE.md`). If no test command exists, deep mode's auto-apply loop has no safety net — fall back to normal mode and warn: "Deep mode requires a test command for safe auto-apply. Falling back to normal mode — re-run `/optimus:init` to set up test infrastructure first." Set `deep-mode` to false. Then continue with the standard single-pass flow.
-
-If a test command is available, warn the user:
-
-> **Deep mode** runs up to [cap] iterative refactoring passes. Each iteration is a full multi-agent analysis cycle — credit and time consumption multiplies with iteration count. Fixes are applied automatically at each iteration without per-change approval. Low test coverage increases the chance of undetected breakage; consider running `/optimus:unit-test` first to strengthen the safety net. Each iteration also accumulates context — on large codebases, output quality may degrade in later iterations.
->
-> Test command: `[test command from CLAUDE.md]`
-
-Then use `AskUserQuestion` — header "Deep mode", question "Proceed with deep mode?":
-- **Start deep mode** — "Run iterative refactoring until clean (max [cap] iterations)"
-- **Normal mode** — "Single pass with manual approval instead"
-
-Tell the user: *Tip: For large codebases or extended sessions, re-run with `/optimus:refactor deep harness` to launch the external harness with fresh context per iteration.*
-
-If the user did not invoke with `deep`, skip this step.
-
-If the user selects **Normal mode**, continue with the standard single-pass flow. Record the user's choice as a `deep-mode` flag for subsequent steps. If deep mode is confirmed, initialize `iteration-count` to 1, `total-applied` to 0, `total-reverted` to 0, and `accumulated-findings` to an empty list. Each entry in `accumulated-findings` tracks: **file** (with line), **category**, **guideline** (the specific project rule, barrier type, or quality concern from the agent finding), **summary** (one-sentence description of the issue), **fix description** (brief description of the applied or attempted change), **iteration** (which iteration discovered it), and **status** (updated through apply/test phases).
+If `HARNESS_MODE_INLINE` is NOT present, continue with the standard interactive flow below.
 
 ## Step 3: Load Project Context and Map Analysis Areas
 
@@ -164,9 +121,9 @@ Each agent receives the list of source files/directories from Step 3.
 
 Read the agent prompt files from `$CLAUDE_PLUGIN_ROOT/skills/refactor/agents/` for individual agent prompts. Read `$CLAUDE_PLUGIN_ROOT/skills/refactor/agents/shared-constraints.md` for the shared quality bar, exclusion rules, and false positive guidance.
 
-### Iteration context injection (deep mode, iterations 2+)
+### Iteration context injection (harness mode, iterations 2+)
 
-If deep mode is active and `iteration-count` > 1, prepend the iteration context block to every agent prompt before the file list. Read `$CLAUDE_PLUGIN_ROOT/skills/refactor/agents/context-blocks.md` for the template and format.
+When running under `HARNESS_MODE_INLINE` and the progress file's `iteration.current` is greater than 1, prepend the iteration context block to every agent prompt before the file list. Read `$CLAUDE_PLUGIN_ROOT/skills/refactor/agents/context-blocks.md` for the template and format.
 
 ### Agent overview
 
@@ -238,13 +195,9 @@ Maximum **15 findings** per run — only include findings that represent distinc
 **When no focus is active** (default balanced mode):
 - Prioritize by severity then confidence across all categories (current behavior)
 
-If more issues exist, note the count (e.g., "15 of ~24 findings shown") and suggest re-running with a narrower scope or `/optimus:refactor deep`.
+If more issues exist, note the count (e.g., "15 of ~24 findings shown") and suggest re-running with a narrower scope or `/optimus:refactor-deep`.
 
-### Deep mode accumulation
-
-**Deep mode:** Instead of presenting the output format below, append this iteration's validated findings to `accumulated-findings`. For each appended finding, record the current `iteration-count` as the finding's iteration number, and preserve the agent's guideline citation (or barrier type for testability findings) and issue description as the finding's guideline and summary fields. Deduplicate against previous iterations: if a finding matches an existing entry by file + line range + category, skip it if the existing entry is marked "(fixed)". If the existing entry is marked "(persistent — fix failed)", annotate the new entry as "(persistent — fix failed)". If the existing entry is marked "(reverted — test failure)", keep the new entry as "(reverted — attempt 2)" so Step 8 retries the fix once more; only promote to "(persistent — fix failed)" if it is reverted again. Then proceed directly to Step 8.
-
-**Normal mode:** Present findings using the output format below, then proceed to Step 7.
+Present findings using the output format below, then proceed to Step 7.
 
 ### Output format
 
@@ -301,15 +254,9 @@ Include "Areas with No Findings" to confirm coverage — the user should know th
 
 **No findings at all:**
 
-**Deep mode:** this is the convergence signal — report "Deep mode complete — no findings on iteration [N]", then skip to the cumulative summary and recommendation in Step 8 (bypass the apply phase).
-
-**Normal mode:** Report as a positive result ("code follows project guidelines and is well-structured for testing"). Suggest tightening guidelines or broadening scope if the user expected issues. Skip Steps 7–8 and proceed directly to the recommendation in the Important section below.
+Report as a positive result ("code follows project guidelines and is well-structured for testing"). Suggest tightening guidelines or broadening scope if the user expected issues. Skip Steps 7–8 and proceed directly to the recommendation in the Important section below.
 
 ## Step 7: Ask User How to Proceed
-
-**Deep mode:** Skip this step — auto-select "Apply all" and proceed directly to Step 8.
-
-**Normal mode:**
 
 Use `AskUserQuestion` — header "Action", question "How would you like to proceed with the refactoring findings?":
 - **Apply all** — "Apply every recommendation"
@@ -324,17 +271,15 @@ For each approved finding (skipping any annotated "(persistent — fix failed)" 
 1. Apply the refactoring using Edit or MultiEdit
 2. Verify the change matches the suggestion from Step 6
 
-After applying all approved changes, run the project's test command (from `.claude/CLAUDE.md`) if available. Follow the verification protocol from `$CLAUDE_PLUGIN_ROOT/skills/init/references/verification-protocol.md` — run tests fresh, read complete output, report actual results with evidence:
-- If tests pass → report success. If `deep-mode` is true, annotate each applied finding as "(fixed)" in `accumulated-findings` and add the count of applied fixes to `total-applied`.
-- If tests fail → revert all changes, then re-apply one at a time with a test run after each. Keep changes that pass, skip those that fail. If `deep-mode` is true: annotate kept changes as "(fixed)" in `accumulated-findings` (add to `total-applied`); for failed changes, if already annotated "(reverted — attempt 2)" promote to "(persistent — fix failed)", otherwise annotate as "(reverted — test failure)" (add to `total-reverted`).
+**Under harness mode (`HARNESS_MODE_INLINE`), skip this entire verify-and-revert step.** Apply the fixes, record the `pre_edit_content`/`post_edit_content` pairs, and emit the JSON — the orchestrator owns all test execution and bisection (see `references/harness-mode.md` §7). Do not run the test command or revert anything yourself.
+
+Otherwise (interactive mode), after applying all approved changes, run the project's test command (from `.claude/CLAUDE.md`) if available. Follow the verification protocol from `$CLAUDE_PLUGIN_ROOT/skills/init/references/verification-protocol.md` — run tests fresh, read complete output, report actual results with evidence:
+- If tests pass → report success.
+- If tests fail → revert all changes, then re-apply one at a time with a test run after each. Keep changes that pass, skip those that fail.
 
 If no test command is available, warn the user that changes were applied without automated verification and carry higher risk.
 
 ### Final summary
-
-**Deep mode (non-final iteration):** Skip this subsection — the iteration progress summary in the deep mode loop below replaces it.
-
-**Deep mode (final iteration) and Normal mode:**
 
 - Scope analyzed (from Step 1)
 - Changes applied (with file references)
@@ -344,76 +289,17 @@ If no test command is available, warn the user that changes were applied without
 - Remaining findings not shown in this run (if cap was hit)
 - Testability improvements: [N] changes will make code testable — run `/optimus:unit-test` to cover the restructured code
 
-### Deep mode loop
-
-**Normal mode:** Skip this subsection — proceed to the recommendation below.
-
-**Deep mode:** If arriving here from convergence (zero findings in Step 6), skip the termination checks below and go directly to the cumulative summary.
-
-After applying changes and running tests, check termination conditions (the iteration's counts were already added to `total-applied` and `total-reverted` in the apply phase above):
-
-1. **All changes in this iteration were reverted due to test failures** → stop to prevent a loop of failed attempts. Report: "Deep mode stopped — all findings in iteration [N] caused test failures."
-2. **No changes were applied** (all findings lacked actionable code edits) → stop. Report: "Deep mode stopped — remaining findings require manual review."
-3. **`iteration-count` >= the cap** → cap reached. Report: "Deep mode reached the iteration cap ([cap]). Remaining findings may exist — continue in a fresh conversation: re-run `/optimus:refactor deep`, increase the cap with `/optimus:refactor deep [higher-cap]`, or narrow scope with `/optimus:refactor deep \"focus on <area>\"`."
-4. **Otherwise** → continue to the next pass (iteration report and loop-back below).
-
-**For all four conditions above**, present the iteration report immediately after the termination/continuation message. This report is informational and non-blocking — no user prompt follows:
-
-```
-#### Iteration [N] — Report
-
-| # | File | What Changed | Reason | Guideline / Category | Status |
-|---|------|-------------|--------|---------------------|--------|
-[one row per finding attempted in THIS iteration from accumulated-findings where iteration == current]
-```
-
-Column definitions:
-- **#** — Sequential number within this iteration
-- **File** — `file:line`
-- **What Changed** — Brief description of the fix applied or attempted
-- **Reason** — Why the change was needed (the issue/problem)
-- **Guideline / Category** — Specific project rule violated, barrier type, or quality category
-- **Status** — `fixed`, `reverted — test failure`, `reverted — attempt 2`, or `persistent — fix failed`
-
-For condition 4 (continue), after presenting the iteration report also show the progress summary: "Iteration [N] of up to [cap] — [total-applied] findings applied so far, [total-reverted] reverted. Starting next pass..." If the **next** iteration will be 3 or higher, append to the progress summary: "Note: context is accumulating — if output quality degrades, consider finishing remaining findings in a fresh conversation." Then increment `iteration-count` and **return to Step 4** for the next analysis pass. Keep the same scope from Step 1.
-
-After the loop ends, present a cumulative report across all iterations:
-
-```
-## Deep Mode — Cumulative Report
-
-**Summary:**
-- Total iterations: [N]
-- Total findings applied: [N]
-- Total findings reverted (test failures): [N]
-- Total findings persistent (fix failed): [N]
-- Final test status: pass / fail / not available
-- Testability improvements: [N] changes made code testable for /optimus:unit-test
-
-**All Changes:**
-
-| # | Iter | File | What Changed | Reason | Guideline / Category | Status |
-|---|------|------|-------------|--------|---------------------|--------|
-[one row per finding from accumulated-findings, across all iterations, ordered by iteration then sequence]
-```
-
-Column definitions match the per-iteration report table, plus:
-- **Iter** — Which iteration discovered/attempted this finding
-
-The summary statistics provide a quick overview; the detailed table provides full auditability of every change attempted across all iterations.
-
 ## Important
 
-- Never modify files, commit, push, or post comments without explicit user approval (deep mode has explicit approval via the confirmation step in Step 2 — all changes remain as local modifications for the user to review with `git diff` before committing)
+- Never modify files, commit, push, or post comments without explicit user approval — all changes remain as local modifications for the user to review with `git diff` before committing
 - This skill is read-only by default — it only analyzes and reports
 - When changes are too broad for effective analysis, recommend narrowing scope
 
 After the refactoring is complete, recommend the next step based on the outcome:
 - If issues were found and fixed → `/optimus:commit` to commit the fixes, then `/optimus:unit-test` to cover the restructured code
-- If deep mode was used → `/optimus:commit` to commit the accumulated fixes, then `/optimus:unit-test` to strengthen test coverage on the newly-testable code
 - If no issues or user skipped fixes → consider `/optimus:unit-test` directly if coverage needs improvement
 
 Tell the user:
 
-- If the recommendation above includes `/optimus:commit` (first two bullets), the closing tip per `$CLAUDE_PLUGIN_ROOT/references/skill-handoff.md` "Closing tip wording" — use **Variant B** with `<continuation-skill(s)>` = `/optimus:commit` and `<non-continuation-examples>` = `/optimus:unit-test`, etc. Otherwise (third bullet — no issues / fixes skipped), use **Variant C** (default).
-- **Tip (normal mode only):** Single-pass analysis can miss issues due to LLM attention limits. Run `/optimus:refactor deep` to iterate automatically — it applies, tests, and repeats until clean (max 8 passes by default, configurable up to 10). Requires a test command in `.claude/CLAUDE.md`.
+- If the recommendation above includes `/optimus:commit` (first bullet), the closing tip per `$CLAUDE_PLUGIN_ROOT/references/skill-handoff.md` "Closing tip wording" — use **Variant B** with `<continuation-skill(s)>` = `/optimus:commit` and `<non-continuation-examples>` = `/optimus:unit-test`, etc. Otherwise (second bullet — no issues / fixes skipped), use **Variant C** (default).
+- **Tip:** Single-pass analysis can miss issues due to LLM attention limits. Run `/optimus:refactor-deep` to iterate automatically — it applies, tests, and repeats until clean (default 8 passes, hard cap 20). Requires a test command in `.claude/CLAUDE.md`.

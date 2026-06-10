@@ -1,5 +1,3 @@
-import json
-
 from harness_common.parser import parse_harness_output
 
 
@@ -27,20 +25,52 @@ class TestParseHarnessOutput:
         result = parse_harness_output(raw)
         assert result == {"iteration": 2}
 
-    def test_envelope_format(self):
-        inner = '```json:harness-output\n{"iteration": 1}\n```'
-        envelope = json.dumps({"result": inner})
-        result = parse_harness_output(envelope)
-        assert result == {"iteration": 1}
-
     def test_invalid_json_in_block(self):
         raw = "```json:harness-output\n{invalid json}\n```"
         assert parse_harness_output(raw) is None
 
-    def test_envelope_with_non_string_result(self):
-        envelope = json.dumps({"result": 42})
-        assert parse_harness_output(envelope) is None
+    def test_returns_last_parseable_block_when_template_echoed(self):
+        # The subagent echoed the harness-mode.md template (placeholder
+        # values => invalid JSON) before emitting its real block. The last
+        # block that parses as valid JSON must win.
+        raw = (
+            "```json:harness-output\n"
+            '{"iteration": <number>, "no_new_findings": <bool>}\n'
+            "```\n"
+            "...real output below...\n"
+            "```json:harness-output\n"
+            '{"iteration": 3, "no_new_findings": true}\n'
+            "```"
+        )
+        assert parse_harness_output(raw) == {
+            "iteration": 3,
+            "no_new_findings": True,
+        }
 
-    def test_envelope_without_result_key(self):
-        envelope = json.dumps({"data": "something"})
-        assert parse_harness_output(envelope) is None
+    def test_last_block_wins_when_multiple_valid(self):
+        raw = (
+            '```json:harness-output\n{"iteration": 1}\n```\n'
+            '```json:harness-output\n{"iteration": 2}\n```'
+        )
+        assert parse_harness_output(raw) == {"iteration": 2}
+
+    def test_non_dict_array_block_returns_none(self):
+        # A valid-JSON-but-non-object block (the subagent emitted just the
+        # findings list) must NOT be returned — callers immediately call
+        # `.get(...)` on the result. Returning None makes the orchestrator
+        # count a parse failure instead of crashing the step on it.
+        raw = "```json:harness-output\n[1, 2, 3]\n```"
+        assert parse_harness_output(raw) is None
+
+    def test_non_dict_scalar_block_returns_none(self):
+        raw = '```json:harness-output\n"just a string"\n```'
+        assert parse_harness_output(raw) is None
+
+    def test_skips_non_dict_block_and_falls_back_to_object(self):
+        # Last block is a (malformed) array; an earlier real object block must
+        # still win, mirroring the unparseable-block fallback.
+        raw = (
+            '```json:harness-output\n{"iteration": 5}\n```\n'
+            "```json:harness-output\n[1, 2, 3]\n```"
+        )
+        assert parse_harness_output(raw) == {"iteration": 5}

@@ -2,7 +2,7 @@
 
 ## Overview
 
-A Claude Code plugin that combines markdown-based skill authoring (19 skills invoked via `/optimus:<name>`) with Python harness orchestrators that drive iterative Claude sessions for deep code review, refactoring, and test coverage.
+A Claude Code plugin combining markdown-based skill authoring (22 skills invoked via `/optimus:<name>`) with three orchestrator skills (`*-deep`) that dispatch base skills into fresh subagent contexts and use a small Python CLI under `scripts/harness_common/` for state, test, bisection, and commit primitives.
 
 ## Directory Map
 
@@ -13,57 +13,61 @@ A Claude Code plugin that combines markdown-based skill authoring (19 skills inv
 | `hooks/` | Plugin-level hooks (SessionStart for project state awareness) |
 | `references/` | Shared reference docs consumed by multiple skills |
 | `skills/<name>/` | One directory per skill (SKILL.md + README.md + optional agents/, references/, templates/) |
-| `scripts/harness_common/` | Shared Python library used by both harnesses |
-| `scripts/deep-mode-harness/` | Deep-mode harness: iterative code-review/refactor orchestrator |
-| `scripts/test-coverage-harness/` | Test-coverage harness: iterative unit-test + refactor orchestrator |
+| `scripts/harness_common/` | Orchestrator CLI (`cli.py`) + shared modules invoked by the `*-deep` skills |
 | `scripts/test-skills.sh` | Skill execution test runner |
-| `test/` | pytest suites mirroring each harness module |
+| `test/harness-common/` | pytest suite for the CLI and shared modules |
 
 ## Code Architecture
 
 ### Data Flow
 
-- Entry: `main.py` (argparse CLI) → `impl/runner.py` (launches `claude -p` subprocess per iteration)
-- State: `impl/progress.py` reads/writes `.claude/*-progress.json` for cross-iteration persistence and `--resume` support
-- Output: Each Claude session emits a `json:harness-output` block parsed by `harness_common.parser.parse_harness_output`
-- Reporting: `impl/reporting.py` generates iteration summaries
+- Entry: a `*-deep` skill (`/optimus:code-review-deep`, `/optimus:refactor-deep`, `/optimus:unit-test-deep`) runs in the user's conversation.
+- The orchestrator skill invokes `python -m harness_common.cli init` to create a JSON progress file, then enters a per-iteration loop.
+- Each iteration (deep variant) or cycle (paired variant):
+  1. `cli snapshot` records the pre-iteration git HEAD into the progress file.
+  2. The skill dispatches the base skill (`/optimus:code-review`, `/optimus:refactor`, or `/optimus:unit-test`) as a fresh `general-purpose` subagent via the Agent tool. The subagent prompt carries `HARNESS_MODE_INLINE`, the absolute progress-file path, and an instruction to read the base SKILL.md and follow `references/harness-mode.md` (or `references/coverage-harness-mode.md`).
+  3. The subagent emits a `json:harness-output` fenced block in its final message.
+  4. The orchestrator saves the subagent's output to a temp file, runs `cli parse` to extract the JSON, then `cli deep-step` (or `unit-test-step` / `refactor-step` for the paired variant) to apply fixes, run tests, bisect on failure, and update statuses.
+  5. `cli commit-checkpoint` produces a per-iteration commit.
+  6. `cli check-termination` returns one of `continue | convergence | no-actionable | all-reverted | cap | diminishing-returns | parse-failure`.
+  7. `cli advance` (deep variant) or `cli record-cycle` (paired variant) advances the counter; the loop repeats until termination.
+- `cli final-report --archive` prints the cumulative report and moves the progress file to `.done.json`.
 
 ### Key Patterns
 
-- **Subprocess isolation** — each Claude iteration is a fresh `claude -p` process with no shared in-process state
-- **Facade/re-export** — each `impl/` module imports from `harness_common` and re-exports, so callers use the harness-specific namespace
-- **JSON progress protocol** — state persists across subprocess boundaries via a JSON file
-- **stdlib only** — no pip dependencies beyond the standard library (dev deps are test/formatting tools only)
+- **Subagent isolation** — each iteration runs in a fresh subagent context via the Agent tool. The orchestrator skill itself stays slim: it sees the subagent's terse JSON return, not the subagent's full analysis trace.
+- **File-based state** — all cross-iteration state lives in `.claude/<skill>-deep-progress.json` (or `unit-test-deep-progress.json`). The orchestrator skill never holds findings in conversation prose.
+- **JSON output protocol** — the base skill emits `json:harness-output`; the CLI parses it.
+- **stdlib only** — no pip dependencies beyond the standard library (dev deps are test/formatting tools only).
 
 ### Dependencies Between Modules
 
-- `deep-mode-harness/impl/` → `harness_common` (constants, fixes, git, progress, reporting, runner)
-- `test-coverage-harness/impl/` → `harness_common` (constants, git, progress, reporting, runner)
-- `harness_common` is self-contained with no intra-project dependencies
-- Harness-internal modules with no cross-module imports: `findings.py` (deep-mode), `convergence.py` (test-coverage)
+- `harness_common/cli.py` → all sibling modules (`findings`, `convergence`, `fixes`, `git`, `parser`, `progress`, `runner`, `reporting`, `constants`).
+- `harness_common` is otherwise self-contained with no intra-project dependencies.
 
 ## Skill Architecture
 
 ### Skill Organization
 
-- 19 skills: brainstorm, branch, code-review, commit, commit-message, handoff, how-to-run, init, jira, permissions, pr, prompt, refactor, reset, spec-init, tdd, unit-test, workflow, worktree
-- Each directory contains `SKILL.md` (required) + `README.md` (required), with optional `agents/`, `references/`, `templates/` subdirectories
+- 22 skills: brainstorm, branch, code-review, code-review-deep, commit, commit-message, handoff, how-to-run, init, jira, permissions, pr, prompt, refactor, refactor-deep, reset, spec-init, tdd, unit-test, unit-test-deep, workflow, worktree.
+- Each directory contains `SKILL.md` (required) + `README.md` (required), with optional `agents/`, `references/`, `templates/` subdirectories.
 
 ### Agent Boundaries
 
-- **Plugin-level** (`agents/`): code-simplifier, test-guardian — available across all skills
-- **Skill-level** (`skills/<name>/agents/`): scoped to the owning skill (e.g., code-review has 6 specialized agents, refactor has 4)
-- Agents receive context via explicit prompt construction in SKILL.md, not implicit sharing
+- **Plugin-level** (`agents/`): code-simplifier, test-guardian — available across all skills.
+- **Skill-level** (`skills/<name>/agents/`): scoped to the owning skill (e.g., code-review has 6 specialized agents, refactor has 4).
+- Orchestrator skills (`*-deep`) have no agents directory — they dispatch the base skill, which owns the analysis agents.
 
 ### Reference Hierarchy
 
-- **Root** `references/`: agent-architecture, shared-agent-constraints, context-injection-blocks, harness-mode, coverage-harness-mode, scope-expansion-rule, sdd-mapping, skill-handoff — cross-skill shared procedures
-- **Skill-level** `references/`: supplemental docs scoped to one skill (e.g., `init/references/`, `pr/references/`)
-- Maximum depth: SKILL.md → reference → sub-reference (two levels)
+- **Root** `references/`: agent-architecture, shared-agent-constraints, context-injection-blocks, harness-mode, coverage-harness-mode, orchestrator-loop-single, orchestrator-loop-paired, scope-expansion-rule, sdd-mapping, skill-handoff — cross-skill shared procedures.
+- **Skill-level** `references/`: supplemental docs scoped to one skill (e.g., `init/references/`, `pr/references/`).
+- Maximum depth: SKILL.md → reference → sub-reference (two levels).
 
 ### Orchestration Patterns
 
-- **Harness delegation** — skill detects deep-harness argument, reads `references/harness-mode.md`, builds CLI args, and hands off to the Python subprocess
-- **Agent spawning** — SKILL.md instructs Claude to invoke named sub-agents for specialized review passes
-- **JSON output protocol** — each Claude session emits structured `json:harness-output` blocks the orchestrator parses to decide continue/stop
-- **User checkpoints** — skills use `AskUserQuestion` at decision points for confirmation before proceeding
+- **Orchestrator dispatch** — `*-deep` skills read `references/orchestrator-loop-{single,paired}.md` and follow the per-iteration template, dispatching base skills via the Agent tool.
+- **Harness-mode protocol** — base skills detect `HARNESS_MODE_INLINE` in their invocation prompt and follow `references/harness-mode.md` (or `coverage-harness-mode.md` for unit-test) to emit a single-pass JSON result.
+- **Agent spawning** — base SKILL.md files instruct Claude to launch named subagents for specialized analysis passes.
+- **JSON output protocol** — each subagent emits structured `json:harness-output` blocks the orchestrator's CLI parses.
+- **User checkpoints** — skills use `AskUserQuestion` at decision points. Orchestrator skills confirm once at Step 3 (skipped on `--resume`); the confirmation stands for the whole loop.

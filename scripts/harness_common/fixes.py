@@ -32,6 +32,11 @@ def _swap_content(fix, cwd, source_field, target_field):
         return False
     find = fix.get(source_field, "")
     replace = fix.get(target_field, "")
+    # Both content fields must be strings. A non-string value (e.g. a JSON number
+    # or null that slipped past the dispatch contract) would crash the membership
+    # test and str.replace below — refuse the swap instead of raising.
+    if not isinstance(find, str) or not isinstance(replace, str):
+        return False
     if not find:
         # Empty find string — cannot locate target in file content.
         # This happens when reverting a deletion fix (empty post_edit_content):
@@ -55,7 +60,105 @@ def revert_single_fix(fix, cwd):
     return _swap_content(fix, cwd, "post_edit_content", "pre_edit_content")
 
 
-def bisect_fixes(fixes, test_command, cwd, run_tests_fn=None, on_outcome=None):
+def _is_deletion_fix(fix):
+    """A deletion fix (empty post_edit_content) can be applied but not reverted
+    by content-swap — reverting would need to re-insert pre_edit_content but has
+    no anchor to locate the insertion point.
+    """
+    return not fix.get("post_edit_content")
+
+
+def _bisect_via_clean_reset(
+    fixes, test_command, cwd, run_tests_fn, on_outcome, reset_to_clean
+):
+    """Bisect a set containing deletion fixes that content-swap can't revert.
+
+    The default revert-all/re-apply strategy can't un-apply a deletion, so the
+    deletion stays applied and contaminates every other fix's isolation test.
+    Instead, rebuild from the pre-iteration clean state via *reset_to_clean*:
+    re-establish the running set of kept (passing) fixes from clean before each
+    candidate, so every fix — deletions included — is tested in true isolation.
+
+    Same ``(fixed_count, reverted_count, skipped_count)`` contract as
+    :func:`bisect_fixes`. Never emits ``"retained"`` (no un-revertible state
+    survives a clean rebuild).
+    """
+
+    def _rebuild(indices):
+        """Restore to the clean base, then re-apply the kept fixes.
+
+        Returns False if the clean reset itself failed: ``reset_to_clean``
+        (``restore_working_tree`` → ``git_restore_to``) raises ``RuntimeError``
+        when its ``git checkout`` errors (a locked index, a missing commit).
+        Testing a candidate on a dirty base gives a meaningless pass/fail, so
+        the caller aborts and reports the still-undecided fixes as skipped
+        rather than letting the exception crash the whole bisect (and, through
+        it, the deep-step / refactor-step that called it).
+        """
+        try:
+            reset_to_clean()
+        except (RuntimeError, OSError) as exc:
+            print(f"[harness] WARNING: clean reset failed mid-bisect: {exc}")
+            return False
+        for i in indices:
+            apply_single_fix(fixes[i], cwd)
+        return True
+
+    outcome = {}  # idx -> (status, detail)
+    kept = []
+    rejected = []
+    aborted = False
+    for idx, fix in enumerate(fixes):
+        if not _rebuild(kept):
+            aborted = True
+            break
+        if not apply_single_fix(fix, cwd):
+            outcome[idx] = ("skipped", None)
+            continue
+        passed, summary = run_tests_fn(test_command, cwd)
+        if passed:
+            kept.append(idx)
+            outcome[idx] = ("fixed", None)
+        else:
+            rejected.append(idx)
+            outcome[idx] = ("reverted", summary)
+
+    # Retry rejected fixes with all first-pass keepers applied — a fix may have
+    # depended on a keeper that was applied later in the first pass.
+    if not aborted:
+        for idx in rejected:
+            if not _rebuild(kept):
+                break
+            if not apply_single_fix(fixes[idx], cwd):
+                outcome[idx] = ("skipped", None)
+                continue
+            passed, _summary = run_tests_fn(test_command, cwd)
+            if passed:
+                kept.append(idx)
+                outcome[idx] = ("fixed", "Passed on retry (dependency resolved)")
+
+    # Re-establish the final kept set on disk (best-effort), then emit one
+    # outcome per fix. A fix left undecided by an aborted reset falls back to
+    # "skipped" via the ``.get`` default, so the emit loop never KeyErrors and a
+    # fix is never reported fixed/reverted off a result computed on a dirty base.
+    _rebuild(kept)
+    fixed_count = reverted_count = skipped_count = 0
+    for idx in range(len(fixes)):
+        status, detail = outcome.get(idx, ("skipped", None))
+        if on_outcome is not None:
+            on_outcome(idx, fixes[idx], status, detail)
+        if status == "fixed":
+            fixed_count += 1
+        elif status == "reverted":
+            reverted_count += 1
+        else:
+            skipped_count += 1
+    return fixed_count, reverted_count, skipped_count
+
+
+def bisect_fixes(
+    fixes, test_command, cwd, run_tests_fn=None, on_outcome=None, reset_to_clean=None
+):
     """Bisect fixes to find which ones break tests.
 
     Reverts all fixes, then re-applies one at a time, running the test suite
@@ -73,12 +176,28 @@ def bisect_fixes(fixes, test_command, cwd, run_tests_fn=None, on_outcome=None):
     ``"fixed"`` after a successful retry, and ``None`` otherwise. Lets
     callers update per-finding status with provenance.
 
+    *reset_to_clean*, when provided, is a zero-arg callable that restores the
+    working tree to the pre-iteration clean state. It is required to correctly
+    bisect deletion fixes (empty post_edit_content), which can't be reverted by
+    content-swap; when the set contains one, this function rebuilds from clean
+    instead. When ``None`` (or no deletion present), the legacy incremental
+    strategy runs unchanged.
+
     Returns ``(fixed_count, reverted_count, skipped_count)``.
     """
     if run_tests_fn is None:
         from .runner import run_tests as _default_run_tests
 
         run_tests_fn = _default_run_tests
+
+    # Deletion fixes can't be reverted by content-swap. When the caller supplies
+    # a clean-reset hook, rebuild from clean so deletions can be isolated;
+    # otherwise fall through to the legacy strategy (an un-revertible deletion is
+    # left applied and reported "retained").
+    if reset_to_clean is not None and any(_is_deletion_fix(f) for f in fixes):
+        return _bisect_via_clean_reset(
+            fixes, test_command, cwd, run_tests_fn, on_outcome, reset_to_clean
+        )
 
     def _emit(idx, fix, outcome, detail=None):
         if on_outcome is not None:
@@ -124,8 +243,7 @@ def bisect_fixes(fixes, test_command, cwd, run_tests_fn=None, on_outcome=None):
             if not apply_single_fix(fix, cwd):
                 # File content drifted between first revert and retry — fix
                 # could not be re-applied. This is the same condition as a
-                # first-pass apply failure, so count it as skipped (matches
-                # deep-mode-harness/impl/fixes.py behavior).
+                # first-pass apply failure, so count it as skipped.
                 skipped_count += 1
                 _emit(idx, fix, "skipped")
                 continue
