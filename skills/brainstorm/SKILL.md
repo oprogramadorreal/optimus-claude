@@ -8,6 +8,7 @@ description: >-
   work, the spec includes a Given/When/Then Scenarios section consumed by
   /optimus:tdd.
 disable-model-invocation: true
+argument-hint: "[topic or JIRA key]"
 ---
 
 # Brainstorm

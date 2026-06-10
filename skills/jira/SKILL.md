@@ -1,6 +1,7 @@
 ---
 description: Fetches and optimizes context from a JIRA issue for AI-assisted development. Searches assigned issues or fetches by key. Distills title, description, acceptance criteria, sprint context, and comments into a structured task description. Analyzes the codebase to surface missing criteria, scope, and risks. Optionally enriches the JIRA issue with a structured analysis comment, and for Complex-scope work can spawn implementation tickets in JIRA. Re-running on the same key refreshes the local task with the latest JIRA state instead of overwriting prior enrichment. Use before /optimus:tdd, /optimus:brainstorm, or /optimus:branch to pull task context from JIRA, or to refresh existing context after JIRA edits.
 disable-model-invocation: true
+argument-hint: "[issue-key]"
 ---
 
 # JIRA Context

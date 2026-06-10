@@ -1,6 +1,7 @@
 ---
 description: Refactors existing code for guideline compliance and testability using 4 parallel analysis agents (guideline compliance, testability barriers, duplication/consistency, code-simplifier). Two goals — align code with project guidelines AND make untestable code testable so /optimus:unit-test can safely increase coverage. Use after /optimus:init to align existing code, before /optimus:unit-test to remove testability barriers, or periodically to prevent tech debt. Supports "testability" focus (after unit-test flags untestable code) or "guidelines" focus (after init establishes rules) to prioritize finding categories, and flexible scoping. For iterative refactor in a loop, use `/optimus:refactor-deep`.
 disable-model-invocation: true
+argument-hint: "[testability|guidelines] [scope]"
 ---
 
 # Project-Wide Code Refactoring

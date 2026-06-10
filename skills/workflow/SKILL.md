@@ -1,6 +1,7 @@
 ---
 description: Implements an approved spec by having Claude design and run its own Claude Code dynamic workflow (real parallel subagents) — you hand it the goal and constraints, it chooses the orchestration. Test-first is enforced as a quality bar (tests accompany or precede code and the suite is left green), not as supervised Red-Green-Refactor. A peer of /optimus:tdd for spec implementation; prefer it for large or parallelizable specs where one linear pass is slow. Requires /optimus:init and a spec (auto-detects docs/specs/ or docs/jira/, or pass a path). Uses meaningfully more tokens than a normal session. Use when a spec is ready to build and you want fan-out implementation instead of turn-by-turn TDD cycles.
 disable-model-invocation: true
+argument-hint: "[spec path or goal]"
 ---
 
 # Workflow-Driven Implementation
@@ -19,7 +20,7 @@ Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/multi-repo-detection.md` for wo
 
 Check that `.claude/CLAUDE.md` exists. If it doesn't, stop and recommend running `/optimus:init` first — coding guidelines and project context steer the workflow's quality bar.
 
-This skill launches a Claude Code **dynamic workflow** (Step 4 invokes the Workflow tool). If dynamic workflows are not available in this session — a recent Claude Code is required, and on some plans the feature must be enabled in `/config` — stop now and tell the user to enable it. Do not proceed to create a branch in Step 3 for a launch that cannot run.
+This skill launches a Claude Code **dynamic workflow** (Step 4 invokes the Workflow tool). If the Workflow tool is not available in this session, stop now and tell the user — the feature may need enabling in `/config` on some plans. Do not proceed to create a branch in Step 3 for a launch that cannot run.
 
 Load these documents (they become constraints in the workflow brief):
 

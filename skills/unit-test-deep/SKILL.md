@@ -1,6 +1,7 @@
 ---
 description: Iterative test-coverage improvement loop — dispatches `/optimus:unit-test` (unit-test phase) and `/optimus:refactor` with testability focus (refactor phase) into fresh subagent contexts per cycle, applies tests, runs the test suite, bisects refactor failures, and continues until coverage plateaus or the cycle cap (default 5, hard cap 10). Use to drive coverage up on a codebase that has untestable barriers — the loop alternates between writing tests and unblocking testability so a single skill cannot stall.
 disable-model-invocation: true
+argument-hint: "[path] [--resume] [--yes] [--max-cycles N]"
 ---
 
 # Unit-Test Coverage Improvement (Deep)

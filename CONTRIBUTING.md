@@ -92,6 +92,7 @@ skills/<skill-name>/
 ---
 description: Short description shown in /plugin install output
 disable-model-invocation: true
+argument-hint: "[optional-args]"
 ---
 
 # Skill Title
@@ -99,7 +100,7 @@ disable-model-invocation: true
 Step-by-step instructions...
 ```
 
-All skills **must** use `disable-model-invocation: true`. This is a core design principle: skills are tools the user explicitly reaches for, never behavior that Claude auto-triggers. The plugin enhances Claude Code without changing its default behavior behind the user's back.
+All skills **must** use `disable-model-invocation: true`. Skills that take arguments should also set `argument-hint` (quoted — bare brackets parse as a YAML list); it is shown in the `/` menu autocomplete. This is a core design principle: skills are tools the user explicitly reaches for, never behavior that Claude auto-triggers. The plugin enhances Claude Code without changing its default behavior behind the user's back.
 
 **Shared references:** When a procedure is used by 2+ skills (e.g., multi-repo workspace detection, platform detection), extract it to a reference file owned by the canonical skill. Consuming skills read the reference and apply their own policy. This avoids logic duplication while keeping each skill self-contained. See `skills/init/references/multi-repo-detection.md` and `skills/pr/references/platform-detection.md` for examples.
 

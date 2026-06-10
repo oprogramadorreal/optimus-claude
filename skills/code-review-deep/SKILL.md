@@ -1,6 +1,7 @@
 ---
 description: Iterative auto-fix code review — runs `/optimus:code-review` in a fresh subagent context per iteration, applies fixes, runs tests, bisects failures, and continues until convergence or the iteration cap (default 8, hard cap 20). Each iteration runs in an isolated subagent so context does not accumulate. Requires a test command in .claude/CLAUDE.md. Use when single-pass review leaves issues or for thorough cleanup before a release.
 disable-model-invocation: true
+argument-hint: "[path] [--resume] [--yes] [--max-iterations N]"
 ---
 
 # Code Review (Deep)
