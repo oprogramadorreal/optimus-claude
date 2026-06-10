@@ -205,14 +205,7 @@ If no files were modified (skip or no-action path), skip verification and procee
 
 - Read back the modified or created `HOW-TO-RUN.md`.
 - **Verify:** all commands use the correct package manager prefix, prerequisite versions match manifest constraints, build-system commands correspond to the detected build files, submodule paths in `HOW-TO-RUN.md` actually exist in `.gitmodules`, sibling-repo paths actually appear in build/CI files, directory paths match the actual filesystem, external service names match docker-compose service definitions, environment variable names match `.env.example`.
-- **Run the full audit suite** — read `$CLAUDE_PLUGIN_ROOT/skills/how-to-run/references/step6-verification-audits.md` now and apply every audit in it to the written file:
-  - **Verify External Services subsections** — citation format, registry allowlist, snippet sanitization, tag preference, volume-path slug check, and the user-override audit for services the user kept via the Step 4 multi-select downgrade prompt.
-  - **Section ordering audit** — surface Depends-On Graph conflicts to the user (no auto-rewrite).
-  - **Pre-Conditions Block audit** — every per-service subsection inside External Services.
-  - **Re-validate detector-sourced tokens** — package identifiers, project name, hardware/OS and developer-tool tokens, schema-bootstrap filenames, config-file section names and paths; free-text prose is rejected EXCEPT lines that exactly match (full-line equality after trimming whitespace) the `rendered_line` field of an entry in the `approved-unverifiable-items` list — substring matches are NOT exempt.
-  - **Specific-Token Audit** — build the `grounded-tokens` set from the detector's return format (including the Runtime Ports table), then check every port, path, and version appearing in prose against it.
-  - **Unverified-Count filter** — catches unbacked numeric counts ("15 `.csproj` projects"-style prose) that the Step 4 *Reject unverifiable exact counts* Content Principle forbids.
-  - **Template-shape audit** — OS-version line in Prerequisites, Build Debug+Release pair, Running-in-Development layout vs Components-table row count, `Verify:` permitted only for ≤2 components, and the TOC threshold.
+- **Run the full audit suite** — read `$CLAUDE_PLUGIN_ROOT/skills/how-to-run/references/step6-verification-audits.md` now and apply every audit in it to the written file: Verify External Services subsections, Section ordering audit, Pre-Conditions Block audit, Re-validate detector-sourced tokens (incl. the `approved-unverifiable-items` / `rendered_line` exact-match exemption), Specific-Token Audit (the `grounded-tokens` set), Unverified-Count filter, and Template-shape audit (OS-version line in Prerequisites, Build Debug+Release pair, Running-in-Development layout vs Components-table row count, `Verify:` permitted only for ≤2 components, TOC threshold).
 - **If any check fails:** show the correction to the user, wait for approval, apply it, then re-verify.
 
 **Report** to the user: what was created or updated in `HOW-TO-RUN.md`, which sections were included, and any aspects that were intentionally skipped (with reason).

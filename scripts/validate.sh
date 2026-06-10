@@ -75,6 +75,10 @@ while IFS= read -r f; do
   if grep -q '^name:' <<< "$frontmatter"; then
     fm_errors+="  $f: has 'name:' field (shadows builtin commands)\n"
   fi
+  # Check argument-hint is quoted (bare brackets parse as a YAML list)
+  if grep -q '^argument-hint:[[:space:]]*\[' <<< "$frontmatter"; then
+    fm_errors+="  $f: argument-hint value must be quoted (bare brackets parse as a YAML list)\n"
+  fi
 done < <(find ./skills -name 'SKILL.md' -not -path './.git/*')
 check "SKILL.md frontmatter valid" test -z "$fm_errors"
 if [ -n "$fm_errors" ]; then
@@ -703,6 +707,31 @@ else
   wiring_errors+="  missing file: $step6_audits_file (Step 6 audit rule bodies)\n"
 fi
 
+# The Step 3/4 sanitization rule bodies live in
+# references/unverifiable-content-sanitization.md; SKILL.md Steps 3/4
+# navigate to them by section name. Pin the headings and SKILL.md's
+# section pointers so a silent rename on either side cannot detach the
+# pointers from the rules.
+sanitization_file="skills/how-to-run/references/unverifiable-content-sanitization.md"
+if [ -f "$sanitization_file" ]; then
+  for token in \
+    '## Record-time validation' \
+    '## Render-time sanitization'; do
+    if ! grep -qF -- "$token" "$sanitization_file" 2>/dev/null; then
+      wiring_errors+="  $sanitization_file missing rule-body heading: $token\n"
+    fi
+  done
+else
+  wiring_errors+="  missing file: $sanitization_file (Step 3/4 sanitization rule bodies)\n"
+fi
+for token in \
+  '§Record-time validation' \
+  '§Render-time sanitization'; do
+  if ! grep -qF -- "$token" "$how_to_run_skill" 2>/dev/null; then
+    wiring_errors+="  $how_to_run_skill missing sanitization section pointer: $token\n"
+  fi
+done
+
 # Workspace-kind wiring in detector.md. Detector must emit the Workspace kind
 # field that SKILL.md Step 1 Checkpoint and Step 4 branch on. Silent rename
 # loses the per-kind command branching.
@@ -948,11 +977,10 @@ check_cross_step_identifier() {
     wiring_errors+="  $file cross-step identifier '$identifier' appears $actual times, expected >=$expected\n"
   fi
 }
-sanitization_file="skills/how-to-run/references/unverifiable-content-sanitization.md"
 check_cross_step_identifier 'approved-unverifiable-items' 3 "$how_to_run_skill"
 check_cross_step_identifier 'rendered_line' 3 "$how_to_run_skill"
-check_cross_step_identifier 'approved-unverifiable-items' 3 "$sanitization_file"
-check_cross_step_identifier 'rendered_line' 3 "$sanitization_file"
+check_cross_step_identifier 'approved-unverifiable-items' 1 "$sanitization_file"
+check_cross_step_identifier 'rendered_line' 1 "$sanitization_file"
 check_cross_step_identifier 'approved-unverifiable-items' 3 "$step6_audits_file"
 check_cross_step_identifier 'rendered_line' 2 "$step6_audits_file"
 # Stale-info report identifiers — Step 4/5 prose references the Step 6
