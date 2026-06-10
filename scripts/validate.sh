@@ -952,7 +952,7 @@ sanitization_file="skills/how-to-run/references/unverifiable-content-sanitizatio
 check_cross_step_identifier 'approved-unverifiable-items' 3 "$how_to_run_skill"
 check_cross_step_identifier 'rendered_line' 3 "$how_to_run_skill"
 check_cross_step_identifier 'approved-unverifiable-items' 3 "$sanitization_file"
-check_cross_step_identifier 'rendered_line' 4 "$sanitization_file"
+check_cross_step_identifier 'rendered_line' 3 "$sanitization_file"
 check_cross_step_identifier 'approved-unverifiable-items' 3 "$step6_audits_file"
 check_cross_step_identifier 'rendered_line' 2 "$step6_audits_file"
 # Stale-info report identifiers — Step 4/5 prose references the Step 6
