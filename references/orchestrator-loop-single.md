@@ -126,6 +126,8 @@ Increments `iteration.current`. Then loop back to step 1.
 - **Slice-only progress reads.** Do not read the full progress file's `findings` array between iterations in the orchestrator's own context. The CLI's `check-termination` returns a single word; trust it.
 - **Subagent output is text, not state.** Treat each subagent's return as a one-time payload. Save it to a temp file, parse it, then forget it. Do not keep the raw output in the orchestrator's conversation.
 - **Re-entry guard.** If the orchestrator's own invocation prompt body already contains `HARNESS_MODE_INLINE`, stop with `"Deep mode cannot run inside deep mode"`. This prevents a misbehaving subagent from triggering recursion.
+- **Don't end a turn on a promise.** Mid-loop, if the next step is a tool call, issue it — never end a turn with a bare "I'll run X next" or a plan. End only at termination or when blocked on input only the user can provide.
+- **Report only what the CLI confirmed.** Per-iteration status comes from `deep-step` / `check-termination` stdout — don't assert results the CLI did not return, and if a step was skipped or a count is unverified, say so.
 
 ## Parse-failure recovery
 

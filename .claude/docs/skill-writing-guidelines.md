@@ -108,6 +108,7 @@ For complex multi-step skills:
 - **Windows-style paths** — always use forward slashes (`reference/guide.md`), never backslashes. Forward slashes work cross-platform.
 - **Inconsistent terminology** — pick one term per concept. Don't mix "field"/"box"/"element" or "extract"/"pull"/"get" for the same operation.
 - **Drive-by improvements** — when fixing or updating a skill, only change what the task requires. Don't restructure adjacent sections, rename variables in examples, or reformat content you're passing through.
+- **Reasoning-echo instructions** — don't tell Claude to transcribe, narrate, or "show your thinking" as response text. Ask for conclusions and the rationale behind them, not a replay of the chain of thought; doing so adds noise and can trigger a `reasoning_extraction` refusal on some models.
 
 ## Documentation
 

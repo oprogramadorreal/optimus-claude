@@ -7,7 +7,7 @@
 
 Shared iteration template for `/optimus:unit-test-deep`. Each **cycle** runs a unit-test phase followed by a conditional refactor-testability phase. The orchestrator skill dispatches `/optimus:unit-test` and `/optimus:refactor` as two distinct subagents per cycle, each in its own fresh context.
 
-The loop control discipline mirrors `references/orchestrator-loop-single.md` (slice-only progress reads, snapshot before dispatch, subagent output is text not state) — see that reference for the rationale. Only the cycle structure differs.
+The loop control discipline mirrors `references/orchestrator-loop-single.md` (slice-only progress reads, snapshot before dispatch, subagent output is text not state, plus the long-run conduct invariants — don't end a turn on a promise, and report only what the CLI confirmed) — see that reference for the rationale. Only the cycle structure differs.
 
 **Plugin root.** Every command below writes `$CLAUDE_PLUGIN_ROOT` to mean the plugin root the orchestrator skill resolved in its Step 2. Bash-tool environment variables do **not** persist across separate Bash calls and may read empty on some platforms (notably Windows); if `echo $CLAUDE_PLUGIN_ROOT` was empty there, substitute the resolved absolute path **literally** into every `PYTHONPATH=...` command and into both dispatch prompts in this file.
 
