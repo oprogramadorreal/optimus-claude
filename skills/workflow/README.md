@@ -27,7 +27,7 @@ Rule of thumb: if the spec's value hinges on a failing-test-first proof — most
 ## Prerequisites
 
 1. **`/optimus:init`** — required. Installs `CLAUDE.md`, `coding-guidelines.md`, the test framework/runner, and `testing.md` — these become the workflow's quality bar.
-2. **Dynamic workflows enabled** — a recent Claude Code with the dynamic-workflows feature available (on some plans it must be turned on in `/config`).
+2. **Dynamic workflows enabled** — the Workflow tool available in your session (on some plans it must be turned on in `/config`).
 3. **`/optimus:permissions`** — recommended. Branch-aware git protection so the workflow builds on a feature branch while protecting main/master. (Workflow agents auto-approve file edits, so bounding the branch and the edit scope matters.)
 4. **`gh` or `glab` CLI** — optional. Needed when you run `/optimus:pr` afterward.
 

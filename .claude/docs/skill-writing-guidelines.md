@@ -65,7 +65,7 @@ Default to high freedom unless the task is fragile. Provide a sensible default w
 - Load only metadata (description) at startup.
 - Load full SKILL.md when skill is invoked.
 - Load reference files only as needed within the skill's execution.
-- Reference depth should not exceed two levels from SKILL.md (SKILL→A→B maximum). If you find yourself needing A→B→C→D, restructure by flattening the chain (preferred) — make SKILL.md reference the deeper files directly. Only inline content when the extracted file is small, single-use, and tightly coupled to its parent; otherwise inlining violates SRP by mixing concerns in one file. Circular references between files are never allowed.
+- Reference depth should not exceed two levels from SKILL.md (SKILL→A→B maximum). Note: this is a deliberate divergence — Anthropic's official guidance recommends one level, because nested references risk partial reads. The two-level allowance is what the shared-reference architecture requires (e.g., a skill's `shared-constraints.md` → `references/scope-expansion-rule.md`); it is checked by `scripts/validate.sh` (the check follows `$CLAUDE_PLUGIN_ROOT` references — prose section references are not tracked) and mitigated by the ToC rule below. If you find yourself needing A→B→C→D, restructure by flattening the chain (preferred) — make SKILL.md reference the deeper files directly. Only inline content when the extracted file is small, single-use, and tightly coupled to its parent; otherwise inlining violates SRP by mixing concerns in one file. Circular references between files are never allowed.
 - For reference files longer than 100 lines, include a table of contents at the top so Claude can see the full scope even when previewing with partial reads.
 
 ## Directory Layout
@@ -131,4 +131,4 @@ Every skill must end with a recommendation for the next logical optimus skill. T
 
 ## Further Reading
 
-Anthropic's official [Skill Authoring Best Practices](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices) is the upstream source. This file omits upstream sections targeting claude.ai/API sandboxes (executable scripts, MCP tool references, package dependencies, runtime environment); plugin-specific divergences (`disable-model-invocation`, omitting the `name` field) are in [Design Principles](#design-principles).
+Anthropic's official [Skill Authoring Best Practices](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices) is the upstream source. This file omits upstream sections targeting claude.ai/API sandboxes (executable scripts, MCP tool references, package dependencies, runtime environment); plugin-specific divergences (`disable-model-invocation`, omitting the `name` field) are in [Design Principles](#design-principles), and the two-level reference-depth allowance in [Progressive Disclosure](#progressive-disclosure) is a deliberate divergence from upstream's one-level rule.

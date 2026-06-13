@@ -8,6 +8,7 @@ description: >-
   doc or overwrite it. Use when pausing work that someone else or a future session will pick up,
   or when a long conversation needs a durable summary.
 disable-model-invocation: true
+argument-hint: "[topic]"
 ---
 
 # Handoff

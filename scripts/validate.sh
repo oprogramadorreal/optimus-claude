@@ -75,6 +75,10 @@ while IFS= read -r f; do
   if grep -q '^name:' <<< "$frontmatter"; then
     fm_errors+="  $f: has 'name:' field (shadows builtin commands)\n"
   fi
+  # Check argument-hint is quoted (bare brackets parse as a YAML list)
+  if grep -q '^argument-hint:[[:space:]]*\[' <<< "$frontmatter"; then
+    fm_errors+="  $f: argument-hint value must be quoted (bare brackets parse as a YAML list)\n"
+  fi
 done < <(find ./skills -name 'SKILL.md' -not -path './.git/*')
 check "SKILL.md frontmatter valid" test -z "$fm_errors"
 if [ -n "$fm_errors" ]; then
@@ -652,7 +656,9 @@ fi
 # Step 6 relies on these tokens to run the audit passes that catch
 # hallucinated ports/paths/counts (port 5000 vs actual 51914, unverified
 # "15 .csproj projects" prose, etc.). Step 4 Content Principles must cite
-# the same rules so the two steps stay in sync.
+# the same rules so the two steps stay in sync. The audit rule bodies
+# live in references/step6-verification-audits.md; SKILL.md Step 6 keeps
+# pointer wiring that carries the same literal audit names.
 how_to_run_skill="skills/how-to-run/SKILL.md"
 if [ -f "$how_to_run_skill" ]; then
   for token in \
@@ -673,6 +679,58 @@ if [ -f "$how_to_run_skill" ]; then
     fi
   done
 fi
+
+# The Step 6 audit rule bodies were moved verbatim into
+# references/step6-verification-audits.md (SKILL.md keeps the pointer
+# bullets above). Pin the rule bodies in their new home so a silent
+# rename or deletion there cannot disable an audit while SKILL.md's
+# pointer keeps naming it.
+step6_audits_file="skills/how-to-run/references/step6-verification-audits.md"
+if [ -f "$step6_audits_file" ]; then
+  for token in \
+    'Specific-Token Audit' \
+    'Unverified-Count filter' \
+    'grounded-tokens' \
+    'Runtime Ports table' \
+    'Section ordering audit' \
+    'Pre-Conditions Block audit' \
+    'Template-shape audit' \
+    'OS-version line in Prerequisites' \
+    'Build Debug+Release pair' \
+    'Running-in-Development layout vs Components-table row count' \
+    '`Verify:` permitted only'; do
+    if ! grep -qF -- "$token" "$step6_audits_file" 2>/dev/null; then
+      wiring_errors+="  $step6_audits_file missing audit rule body: $token\n"
+    fi
+  done
+else
+  wiring_errors+="  missing file: $step6_audits_file (Step 6 audit rule bodies)\n"
+fi
+
+# The Step 3/4 sanitization rule bodies live in
+# references/unverifiable-content-sanitization.md; SKILL.md Steps 3/4
+# navigate to them by section name. Pin the headings and SKILL.md's
+# section pointers so a silent rename on either side cannot detach the
+# pointers from the rules.
+sanitization_file="skills/how-to-run/references/unverifiable-content-sanitization.md"
+if [ -f "$sanitization_file" ]; then
+  for token in \
+    '## Record-time validation' \
+    '## Render-time sanitization'; do
+    if ! grep -qF -- "$token" "$sanitization_file" 2>/dev/null; then
+      wiring_errors+="  $sanitization_file missing rule-body heading: $token\n"
+    fi
+  done
+else
+  wiring_errors+="  missing file: $sanitization_file (Step 3/4 sanitization rule bodies)\n"
+fi
+for token in \
+  '§Record-time validation' \
+  '§Render-time sanitization'; do
+  if ! grep -qF -- "$token" "$how_to_run_skill" 2>/dev/null; then
+    wiring_errors+="  $how_to_run_skill missing sanitization section pointer: $token\n"
+  fi
+done
 
 # Workspace-kind wiring in detector.md. Detector must emit the Workspace kind
 # field that SKILL.md Step 1 Checkpoint and Step 4 branch on. Silent rename
@@ -898,10 +956,14 @@ fi
 if ! grep -qF 'How-to-Run Audit Results' "$how_to_run_skill" 2>/dev/null; then
   wiring_errors+="  $how_to_run_skill missing return-format consumer: How-to-Run Audit Results\n"
 fi
-# Cross-step identifiers within SKILL.md — these list/field names are
-# referenced from multiple Steps (3 record, 4 populate, 6 exempt); a silent
-# rename in only one location would silently disable the cross-step contract
-# (e.g., Step 6 would reject legitimately approved unverifiable items).
+# Cross-step identifiers — these list/field names are referenced from
+# multiple Steps (3 record, 4 populate, 6 exempt); a silent rename in only
+# one location would silently disable the cross-step contract (e.g., Step 6
+# would reject legitimately approved unverifiable items). The contract now
+# spans SKILL.md (pointer wiring) plus the two reference files that hold
+# the rule bodies (unverifiable-content-sanitization.md for Steps 3/4,
+# step6-verification-audits.md for the Step 6 exemption), so each surface
+# is pinned independently.
 # Threshold = current occurrence count; one location renamed = check fails.
 # `|| true` lets the count=0 case reach the threshold comparison instead
 # of aborting the script under `set -euo pipefail` — count=0 is exactly
@@ -915,8 +977,12 @@ check_cross_step_identifier() {
     wiring_errors+="  $file cross-step identifier '$identifier' appears $actual times, expected >=$expected\n"
   fi
 }
-check_cross_step_identifier 'approved-unverifiable-items' 4 "$how_to_run_skill"
+check_cross_step_identifier 'approved-unverifiable-items' 3 "$how_to_run_skill"
 check_cross_step_identifier 'rendered_line' 3 "$how_to_run_skill"
+check_cross_step_identifier 'approved-unverifiable-items' 1 "$sanitization_file"
+check_cross_step_identifier 'rendered_line' 1 "$sanitization_file"
+check_cross_step_identifier 'approved-unverifiable-items' 3 "$step6_audits_file"
+check_cross_step_identifier 'rendered_line' 2 "$step6_audits_file"
 # Stale-info report identifiers — Step 4/5 prose references the Step 6
 # "Outdated info" report by name; a silent rename of either side breaks
 # the path from principle to report. Each side is checked independently

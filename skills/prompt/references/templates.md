@@ -459,4 +459,4 @@ Output: [exact shape — e.g., one markdown report grouping findings by file wit
 
 **When NOT to use:** a single linear task (Template H), read-only plan-mode exploration (Template M), any non-Claude-Code tool, or when the user wants the .js script itself. Also: when the user wants to implement a tracked spec/task as a parallel build — the dedicated `/optimus:workflow` skill owns that entry point; Template N is for one-off, ad-hoc fan-out prompts.
 
-*Setup: dynamic workflows need a recent Claude Code version and may need enabling on some plans.*
+*Setup: dynamic workflows may need enabling in `/config` on some plans.*

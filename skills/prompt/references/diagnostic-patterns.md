@@ -1,6 +1,6 @@
 # Diagnostic Patterns Reference
 
-36 patterns that waste tokens and cause re-prompts. Scan every user-provided prompt or rough idea against these patterns. Fix silently — flag only if the fix changes the user's intent.
+Patterns that waste tokens and cause re-prompts. Scan every user-provided prompt or rough idea against these patterns. Fix silently — flag only if the fix changes the user's intent.
 
 ## Table of Contents
 

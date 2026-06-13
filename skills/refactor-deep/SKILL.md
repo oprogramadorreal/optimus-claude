@@ -1,6 +1,7 @@
 ---
 description: Iterative project-wide refactoring — runs `/optimus:refactor` in a fresh subagent context per iteration, applies fixes, runs tests, bisects failures, and continues until convergence or the iteration cap (default 8, hard cap 20). Supports `testability` or `guidelines` focus to prioritize finding categories. Each iteration runs in an isolated subagent so context does not accumulate. Requires a test command in .claude/CLAUDE.md. Use for thorough guideline alignment or testability cleanup before /optimus:unit-test.
 disable-model-invocation: true
+argument-hint: "[testability|guidelines] [path] [--resume] [--yes] [--max-iterations N]"
 ---
 
 # Project Refactor (Deep)
@@ -20,7 +21,7 @@ Extract from the user's arguments:
 2. `--no-commit` flag (present/absent)
 3. `--yes` flag (present/absent) — auto-confirm the Step 3 prompt; required when invoked under `claude -p` or any other non-interactive session that cannot answer `AskUserQuestion`.
 4. `--max-iterations N` (optional, default 8, hard cap 20)
-5. Focus keyword (standalone unquoted token): `testability` or `guidelines` (the same detection rules as `/optimus:refactor` — see `skills/refactor/SKILL.md` Step 1)
+5. Focus keyword: `testability` or `guidelines` (the same detection rules as `/optimus:refactor`) — match only standalone unquoted tokens, case-insensitive; keywords inside quotes stay in the scope text; if both keywords appear as standalone tokens, use the first one and warn: "Multiple focus keywords detected — using '[first]'. Run separate passes for each focus."
 6. `--allow-red-baseline` flag (present/absent) — proceed even if the Step 4 pre-loop baseline finds the suite already failing
 7. Everything else → scope text (an existing path scopes the refactor to that path; other text is recorded as intent only and does **not** filter — the full branch diff is still processed)
 

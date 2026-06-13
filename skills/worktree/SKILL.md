@@ -1,6 +1,7 @@
 ---
 description: Creates a git worktree for isolated parallel development — new branch in a separate directory with project setup and test baseline. Enables multiple Claude Code sessions on different tasks simultaneously. Multi-repo aware. Use when you need to work on something else without disturbing current work.
 disable-model-invocation: true
+argument-hint: "[description]"
 ---
 
 # Worktree

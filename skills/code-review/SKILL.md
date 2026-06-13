@@ -1,6 +1,7 @@
 ---
 description: Reviews local changes, PRs/MRs, or branch diffs against project coding guidelines using 5 to 7 parallel review agents (bug detection, security/logic, guideline compliance x2, code simplification, test coverage, contract quality). Use before committing, on open PRs/MRs, or to review any branch diff. HIGH SIGNAL only: real bugs, logic errors, security concerns, and guideline violations. For iterative auto-fix in a loop, use `/optimus:code-review-deep`.
 disable-model-invocation: true
+argument-hint: "[--pr N | --branch | path]"
 ---
 
 # Code Review

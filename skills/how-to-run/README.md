@@ -102,6 +102,8 @@ When `HOW-TO-RUN.md` already exists, the skill offers three choices: a guided in
 | `references/how-to-run-sections.md` | Section templates, signal-to-section mapping, build-system/source-dependency detection, PM command tables |
 | `references/external-services-docker.md` | Service classification tables, decision heuristics for Docker vs. local install vs. shared-cloud per service, web-search recipe for vendor images, canonical image catalogue (seeds), verify commands (seeds), snippet templates, Pre-Conditions Block format, citation format, and registry allowlist |
 | `references/guided-walkthrough.md` | Display-only walkthrough procedure when the user picks **Walk through it** at Step 3: per-step `AskUserQuestion` (Done / Skip / Stop), audit-verdict surface, destructive and remote-fetch advisories, completion summary. The user runs every command locally — the skill never executes anything. |
+| `references/unverifiable-content-sanitization.md` | Record-time validation (Step 3) and render-time sanitization (Step 4) for approved unverifiable items — markdown/link-injection defenses for content sourced from untrusted README prose |
+| `references/step6-verification-audits.md` | Step 6 audit rule bodies: External Services re-verification, section ordering, Pre-Conditions Block, detector-token re-validation, Specific-Token Audit, Unverified-Count filter, template-shape audit |
 | *(shared)* `init/references/readme-section-detection.md` | Algorithm for finding existing setup instructions in documentation |
 | *(shared)* `init/references/tech-stack-detection.md` | Manifest → tech stack and package manager detection tables |
 | *(shared)* `init/references/project-detection.md` | Monorepo/single-project detection algorithm |

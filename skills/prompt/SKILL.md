@@ -6,6 +6,7 @@ description: >-
   input in any language; English output by default. Use when writing, fixing,
   improving, or adapting a prompt for any AI tool.
 disable-model-invocation: true
+argument-hint: "[rough prompt idea]"
 ---
 
 # Prompt
@@ -112,7 +113,7 @@ If the task doesn't clearly match one template, default to RTF (A) for simple ta
 
 ### Step 5 — Run Diagnostic Checklist
 
-Read `$CLAUDE_PLUGIN_ROOT/skills/prompt/references/diagnostic-patterns.md`. Scan the draft prompt against all 36 patterns.
+Read `$CLAUDE_PLUGIN_ROOT/skills/prompt/references/diagnostic-patterns.md`. Scan the draft prompt against all patterns.
 
 - Fix silently — do not list every pattern checked
 - Flag only if a fix would change the user's stated intent

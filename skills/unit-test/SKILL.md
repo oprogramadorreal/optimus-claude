@@ -1,6 +1,7 @@
 ---
 description: Improves unit test coverage on demand — discovers testing gaps and generates tests that follow project conventions. Requires /optimus:init to have set up test infrastructure first. Conservative — only adds new test files, never refactors existing source code. Use when test coverage is low or after adding new code that lacks tests. For an automated multi-cycle coverage + testability refactoring loop, use `/optimus:unit-test-deep`.
 disable-model-invocation: true
+argument-hint: "[path]"
 ---
 
 # Unit Test Coverage Improvement
@@ -47,7 +48,7 @@ The skill operates differently depending on what exists:
 
 Parse optional path argument (e.g., `/optimus:unit-test src/api`) to limit scope. If no path is specified, default to the full project.
 
-For monorepos and multi-repo workspaces, detect project structure using the same approach as `/optimus:init` — reference `$CLAUDE_PLUGIN_ROOT/skills/init/SKILL.md` Step 1 for detection logic (multi-repo workspace detection, workspace configs, manifest scanning, supporting signals). Process each project/repo independently.
+For monorepos and multi-repo workspaces, detect project structure using the same approach as `/optimus:init` — read `$CLAUDE_PLUGIN_ROOT/skills/init/references/project-detection.md` for the full detection algorithm (workspace configs, manifest scanning, supporting signals; multi-repo workspace detection is already loaded from the pre-flight checks above). Process each project/repo independently.
 
 ## Step 2: Discovery & Coverage Analysis (agent-assisted)
 

@@ -1,6 +1,7 @@
 ---
 description: Creates and switches to a new, conventionally named branch — derives the name from an inline description, conversation context, or local git diffs. Preserves all local changes. Never commits or pushes. Use when you want a properly named branch for new or in-progress work.
 disable-model-invocation: true
+argument-hint: "[description]"
 ---
 
 # Branch

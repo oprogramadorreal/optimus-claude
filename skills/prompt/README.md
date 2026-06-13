@@ -9,7 +9,7 @@ A well-crafted prompt is optimal context. Vague prompts waste tokens and credits
 - **9-dimension intent extraction** — silently analyzes task, target tool, output format, constraints, input, context, audience, success criteria, and examples before writing a single word
 - **30+ AI tool profiles** — tool-specific routing for LLMs (Claude, ChatGPT, Gemini, o3), IDE AI (Cursor, Copilot, Claude Code), image generators (Midjourney, DALL-E, Stable Diffusion), video AI, 3D AI, voice AI, workflow automation, and more
 - **14 prompt templates** — auto-selected architecture (RTF, CO-STAR, RISEN, ReAct, Exploration + Plan, Dynamic Workflow Orchestration, Visual Descriptor, etc.) based on task type and target tool
-- **36 diagnostic patterns** — detects and fixes credit-killing patterns (vague verbs, missing scope, no stop conditions, wrong template for tool)
+- **Diagnostic patterns** — detects and fixes credit-killing patterns (vague verbs, missing scope, no stop conditions, wrong template for tool)
 - **5 safe techniques only** — role assignment, few-shot examples, XML structure, grounding anchors, Chain of Thought. Explicitly excludes fabrication-prone methods that collapse multiple passes into one prompt (Tree of Thought, Graph of Thought, Mixture of Experts, Universal Self-Consistency, prompt chaining); requesting a tool's native multi-agent workflow — real parallel subagents — is a separate, allowed pattern (Template N)
 - **Multilingual input** — write your request in any language. The skill communicates in your language and generates the prompt in English by default (better AI tool performance) with option to keep your original language
 - **Token efficiency audit** — every sentence must be load-bearing, no vague adjectives, strongest signal words, explicit format and scope
@@ -92,7 +92,7 @@ Phrase it as "Run a workflow to…" to trigger the last one (a self-orchestrated
 | `SKILL.md` | 9-step prompt crafting workflow |
 | `references/tool-routing.md` | Tool-specific routing for 30+ AI tools |
 | `references/templates.md` | 14 prompt architecture templates |
-| `references/diagnostic-patterns.md` | 36 credit-killing pattern checklist |
+| `references/diagnostic-patterns.md` | Credit-killing pattern checklist |
 
 ## Acknowledgements
 
