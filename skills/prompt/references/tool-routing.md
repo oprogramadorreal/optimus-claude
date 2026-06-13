@@ -25,11 +25,12 @@ Prompt-specific guidance for each AI tool category. Load only the section matchi
 
 ## Reasoning LLMs
 
-### Claude (claude.ai, Claude API, Claude 4.x)
+### Claude (claude.ai, Claude API, Claude 4.x / Fable 5)
 
 - Be explicit and specific — Claude follows instructions literally, not by inference
 - XML tags for complex multi-section prompts: `<context>`, `<task>`, `<constraints>`, `<output_format>`
 - Claude Opus 4.x over-engineers by default — add "Only make changes directly requested. Do not add features or refactor beyond what was asked."
+- Claude Fable 5 can over-tidy at higher effort — same steer as Opus: "Only make changes directly requested." Don't instruct it to echo or transcribe its reasoning as output text — that can trigger a refusal and fallback to Opus.
 - Provide context and reasoning WHY, not just WHAT — Claude generalizes better from explanations
 - Always specify output format and length explicitly
 
