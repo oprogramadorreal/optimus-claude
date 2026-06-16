@@ -95,7 +95,7 @@ It is strongest right after `/optimus:brainstorm` writes a spec with a clear Com
 ## Caveats
 
 - **No mid-run input.** A workflow runs to completion; for sign-off between stages you would run separate workflows. The skill's checkpoints are *before* (phase approval) and *after* (green-suite verification).
-- **Edits are auto-approved.** Workflow subagents edit with `acceptEdits` regardless of your session mode. The feature branch and the brief's edit-mode boundary are what keep changes in scope — `/optimus:permissions` is recommended.
+- **Edits are auto-approved.** Workflow subagents edit with `acceptEdits` regardless of your session mode. The feature branch and the brief's edit-mode boundary are what keep changes in scope — `/optimus:permissions` is recommended. Under Claude Code's [auto mode](https://code.claude.com/docs/en/permission-modes#eliminate-prompts-with-auto-mode), this `acceptEdits` does not bypass safety: the classifier still reviews each subagent action (and the delegated task at spawn), and subagent permission modes are ignored — so the feature branch and the permissions hook remain the deterministic boundary.
 - **Higher token use.** Run it on a small slice first to gauge spend on a large spec; you can stop a run from `/workflows` without losing completed work.
 - **The green suite is the completion gate.** The skill re-runs the suite itself and will not commit a red or partial result.
 - **`/optimus:workflow` (the skill) vs. "run a workflow" (the feature).** Invoking this skill is an explicit `/optimus:` command. Asking Claude to "run a workflow" in chat triggers the raw dynamic-workflow feature for an ad-hoc task — a different thing. For implementing a tracked spec, prefer this skill.

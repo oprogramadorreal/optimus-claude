@@ -88,6 +88,7 @@ Run through this checklist. Fix any issues before reporting.
 - Git branch protection is active — git operations (commit, push, rebase, reset, merge) are allowed on feature branches but blocked on protected branches (master, main, develop, dev, development, staging, stage, prod, production, release). Customize the `PROTECTED_BRANCHES` array in `.claude/hooks/restrict-paths.sh`
 - Precious file protection is always active — the hook automatically protects well-known sensitive files (`.env`, `*.key`, `*.pem`, `*.sqlite`, etc.) that are not tracked by git
 - Sandboxing note: this skill provides defense-in-depth, not OS-level isolation. For full sandboxing, see the skill's README ("Where This Fits" section) which covers built-in sandboxing, devcontainers, and platform-specific recommendations
+- Auto mode note: these layers complement Claude Code's auto mode — the deny list is evaluated before auto mode's classifier and the hook runs in every permission mode. If auto mode is available on the user's model and provider, it can be enabled separately (`Shift+Tab` or user settings) to further reduce prompts; this skill does not configure it. See the skill's README ("Relationship with auto mode" section)
 
 4. Scan for precious unversioned files in the project:
    ```bash

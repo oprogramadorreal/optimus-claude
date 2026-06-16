@@ -1,8 +1,8 @@
 # optimus:permissions
 
-Claude Code's [built-in sandboxing](https://code.claude.com/docs/en/sandboxing) provides OS-level isolation on macOS (Seatbelt) and Linux/WSL2 (bubblewrap) — but on native Windows, sandboxing is [not yet available](https://code.claude.com/docs/en/sandboxing#limitations). That leaves two options: constant permission prompts (safe but slow), or `--dangerously-skip-permissions` (fast but unsafe).
+Claude Code's [built-in sandboxing](https://code.claude.com/docs/en/sandboxing) provides OS-level isolation on macOS (Seatbelt) and Linux/WSL2 (bubblewrap) — but on native Windows, sandboxing is [not yet available](https://code.claude.com/docs/en/sandboxing#limitations). For reducing prompts without isolation, the options are constant permission prompts (safe but slow), `--dangerously-skip-permissions` (fast but unsafe), or [auto mode](https://code.claude.com/docs/en/auto-mode-config) — a server-side classifier that reviews each tool call (safer, but a research preview gated by model, provider, and admin settings).
 
-`/optimus:permissions` provides a third path: **allow/deny rules** that eliminate routine prompts, plus a **PreToolUse hook** that enforces a tiered security model — writes outside the project require approval, deletes outside the project are blocked. Not OS-level isolation, but significantly safer than no guardrails at all.
+`/optimus:permissions` provides a deterministic complement: **allow/deny rules** that eliminate routine prompts, plus a **PreToolUse hook** that enforces a tiered security model — writes outside the project require approval, deletes outside the project are blocked. Not OS-level isolation, but significantly safer than no guardrails at all — and because its deny rules are evaluated *before* auto mode's classifier and its hook runs in *every* permission mode, it strengthens auto mode rather than competing with it (see [Relationship with auto mode](#relationship-with-auto-mode)).
 
 ## Quick Start
 
@@ -18,11 +18,14 @@ Claude Code has multiple layers for managing agent autonomy. The right choice de
 |---|---|---|---|---|---|---|---|
 | **Default mode** | Every tool call | Safe | Yes | Yes | Yes | None | No (blocks) |
 | **`--dangerously-skip-permissions`** | None | **Unsafe** — no guardrails | Yes | Yes | Yes | None | Yes (no guardrails) |
+| **[Auto mode](https://code.claude.com/docs/en/auto-mode-config)** | Minimal (classifier-gated) | **Classifier-based** — probabilistic, research preview | Yes | Yes | Yes | Minimal (recent model; admin/provider gating) | Partial (classifier can still block) |
 | **[Built-in sandboxing](https://code.claude.com/docs/en/sandboxing)** | None (sandboxed) | **OS-level isolation** | Yes | Yes | **[Planned](https://code.claude.com/docs/en/sandboxing#limitations)** | Minimal | Yes |
 | **[Devcontainers](https://code.claude.com/docs/en/devcontainer)** | None (sandboxed) | **Container-level isolation** | Yes | Yes | Yes | Moderate | Yes |
 | **This skill** | Minimal | **Defense-in-depth** — tiered rules + hook | Yes | Yes | Yes | Minimal | **No** (prompts block) |
 
 **Gold standard:** [Built-in sandboxing](https://code.claude.com/docs/en/sandboxing) or [devcontainers](https://code.claude.com/docs/en/devcontainer) provide true isolation. Use them when you can.
+
+**Auto mode** reduces prompts with a server-side classifier, but is gated by Claude Code version (`v2.1.83+`), model (Anthropic API: Opus 4.6+ or Sonnet 4.6; Bedrock/Vertex/Foundry: Opus 4.7/4.8 with `CLAUDE_CODE_ENABLE_AUTO_MODE`), and admin enablement on Team/Enterprise — though it is available on all plans. This skill works everywhere and layers underneath it — see [Relationship with auto mode](#relationship-with-auto-mode).
 
 **Where this skill shines:**
 
@@ -33,6 +36,18 @@ Claude Code has multiple layers for managing agent autonomy. The right choice de
 > **Recommended for Windows users:** For full isolation, run Claude Code inside [WSL2](https://code.claude.com/docs/en/sandboxing) (which supports bubblewrap sandboxing) or a [devcontainer](https://code.claude.com/docs/en/devcontainer). This skill is for when those options are not practical.
 
 > **Not for unattended autonomous loops:** This skill is **not suitable** for [ralph-wiggum](https://github.com/anthropics/claude-code/tree/main/plugins/ralph-wiggum)-style autonomous loops (where Claude runs unattended in a `while true` loop). Permission prompts ("ask user") would block the loop, and without OS-level isolation an unattended agent could cause damage. For autonomous loops, use [devcontainers](https://code.claude.com/docs/en/devcontainer) or [built-in sandboxing](https://code.claude.com/docs/en/sandboxing).
+
+## Relationship with auto mode
+
+[Auto mode](https://code.claude.com/docs/en/auto-mode-config) is a permission mode where a server-side **classifier** reviews each tool call and blocks irreversible, destructive, or out-of-environment actions — reducing prompts without per-call approval. It is configured through an `autoMode` block (`environment` / `allow` / `soft_deny` / `hard_deny`) and is currently a research preview.
+
+This skill and auto mode are **complementary layers**, not alternatives:
+
+- **Deny rules run first and can't be overridden.** Claude Code evaluates `permissions.deny` (and explicit `ask`) *before* the classifier. The skill's deny list is the hardest boundary — it blocks `rm -rf /`, `sudo`, force-push, publish commands, etc. even in auto mode, and it works on every model and provider, including where auto mode is unavailable.
+- **Hooks run in every permission mode.** The `restrict-paths.sh` PreToolUse hook fires under auto mode too, so branch protection and precious-file protection keep working. The hook is **deterministic** — it knows exactly which branches you protect and which files are precious — while the classifier is **probabilistic** (it "does not guarantee absolute safety"). Deterministic enforcement backing a probabilistic gate is stronger than either alone.
+- **The allow list mainly helps when auto mode is off or unavailable**, pre-approving routine tools so you aren't prompted. Note the nuance: *on entering auto mode, Claude Code drops broad allow rules that grant arbitrary code execution* — including the template's blanket `Bash` (and `Task`) entries — and restores them when you leave, letting the classifier govern those calls instead. Reads and in-working-directory edits are auto-approved regardless, so the allow list's pre-approval matters most outside auto mode.
+
+**This skill does not enable or configure auto mode.** By design, an `autoMode` block is ignored in the shared, checked-in `.claude/settings.json` this skill manages, and `defaultMode: "auto"` only takes effect in user settings (`~/.claude/settings.json`) — both are safeguards against a repository turning auto mode on for itself. To enable auto mode, cycle to it with `Shift+Tab`, launch with `claude --permission-mode auto`, or set it in your user settings; validate any custom rules with `claude auto-mode config` and `claude auto-mode critique`.
 
 ## What It Does
 
@@ -264,6 +279,8 @@ Despite these limitations, this approach is **significantly safer** than `--dang
 Official documentation and resources that informed this skill's design:
 
 - **Anthropic** — [Claude Code Permissions](https://code.claude.com/docs/en/permissions): allow/deny rules, permission patterns, settings.json format
+- **Anthropic** — [Auto Mode Configuration](https://code.claude.com/docs/en/auto-mode-config): classifier-based permission mode, the `autoMode` block, `claude auto-mode` CLI
+- **Anthropic** — [Permission Modes](https://code.claude.com/docs/en/permission-modes): default, acceptEdits, plan, auto, and bypassPermissions modes
 - **Anthropic** — [Claude Code Hooks](https://code.claude.com/docs/en/hooks): PreToolUse/PostToolUse hook system, matchers, JSON protocol
 - **Anthropic** — [Hooks Guide](https://code.claude.com/docs/en/hooks-guide): practical examples of hook implementations
 - **Anthropic** — [Sandboxing](https://code.claude.com/docs/en/sandboxing): OS-level isolation via Seatbelt (macOS) and bubblewrap (Linux/WSL2), platform support matrix
