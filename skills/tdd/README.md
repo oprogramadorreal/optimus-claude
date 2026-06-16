@@ -251,7 +251,7 @@ The user's original branch is never modified. All code review happens through th
 
 **Platform detection:** TDD does not perform platform detection or PR/MR creation directly — it always pushes the feature branch and delegates PR/MR creation to `/optimus:pr` in the same conversation, which handles platform detection (see `skills/pr/references/platform-detection.md`).
 
-**Works with `/optimus:permissions`:** The permissions skill's branch protection hook ensures git operations on protected branches (master, main, develop, dev, development, staging, stage, prod, production, release) are blocked. TDD always creates a feature branch, so it works seamlessly with branch protection enabled.
+**Works with `/optimus:permissions`:** The permissions skill's branch protection hook ensures git operations on protected branches (master, main, develop, dev, development, staging, stage, prod, production, release) are blocked. TDD always creates a feature branch, so it works seamlessly with branch protection enabled. This hook runs in *every* permission mode — including [auto mode](https://code.claude.com/docs/en/permission-modes#eliminate-prompts-with-auto-mode), whose classifier does not itself implement TDD's feature-branch git policy — so it remains what lets TDD commit and push on feature branches while protecting main/master.
 
 ## Relationship to Other Skills
 

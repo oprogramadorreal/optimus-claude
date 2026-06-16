@@ -25,7 +25,7 @@ Claude Code has multiple layers for managing agent autonomy. The right choice de
 
 **Gold standard:** [Built-in sandboxing](https://code.claude.com/docs/en/sandboxing) or [devcontainers](https://code.claude.com/docs/en/devcontainer) provide true isolation. Use them when you can.
 
-**Auto mode** reduces prompts with a server-side classifier, but is gated by model (Opus 4.6+/Sonnet 4.6+), provider, and admin settings. This skill works everywhere and layers underneath it — see [Relationship with auto mode](#relationship-with-auto-mode).
+**Auto mode** reduces prompts with a server-side classifier, but is gated by Claude Code version (`v2.1.83+`), model (Anthropic API: Opus 4.6+ or Sonnet 4.6; Bedrock/Vertex/Foundry: Opus 4.7/4.8 with `CLAUDE_CODE_ENABLE_AUTO_MODE`), and admin enablement on Team/Enterprise — though it is available on all plans. This skill works everywhere and layers underneath it — see [Relationship with auto mode](#relationship-with-auto-mode).
 
 **Where this skill shines:**
 
@@ -45,7 +45,7 @@ This skill and auto mode are **complementary layers**, not alternatives:
 
 - **Deny rules run first and can't be overridden.** Claude Code evaluates `permissions.deny` (and explicit `ask`) *before* the classifier. The skill's deny list is the hardest boundary — it blocks `rm -rf /`, `sudo`, force-push, publish commands, etc. even in auto mode, and it works on every model and provider, including where auto mode is unavailable.
 - **Hooks run in every permission mode.** The `restrict-paths.sh` PreToolUse hook fires under auto mode too, so branch protection and precious-file protection keep working. The hook is **deterministic** — it knows exactly which branches you protect and which files are precious — while the classifier is **probabilistic** (it "does not guarantee absolute safety"). Deterministic enforcement backing a probabilistic gate is stronger than either alone.
-- **The allow list still helps** when auto mode is off or unavailable, pre-approving routine tools so you aren't prompted.
+- **The allow list mainly helps when auto mode is off or unavailable**, pre-approving routine tools so you aren't prompted. Note the nuance: *on entering auto mode, Claude Code drops broad allow rules that grant arbitrary code execution* — including the template's blanket `Bash` (and `Task`) entries — and restores them when you leave, letting the classifier govern those calls instead. Reads and in-working-directory edits are auto-approved regardless, so the allow list's pre-approval matters most outside auto mode.
 
 **This skill does not enable or configure auto mode.** By design, an `autoMode` block is ignored in the shared, checked-in `.claude/settings.json` this skill manages, and `defaultMode: "auto"` only takes effect in user settings (`~/.claude/settings.json`) — both are safeguards against a repository turning auto mode on for itself. To enable auto mode, cycle to it with `Shift+Tab`, launch with `claude --permission-mode auto`, or set it in your user settings; validate any custom rules with `claude auto-mode config` and `claude auto-mode critique`.
 
