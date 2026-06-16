@@ -3,7 +3,7 @@
 </div>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-2.0.13-blue" alt="Version">
+  <img src="https://img.shields.io/badge/version-2.0.14-blue" alt="Version">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
   <img src="https://img.shields.io/badge/Claude_Code-1.0.33+-blueviolet" alt="Claude Code">
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey" alt="Platform">
@@ -150,6 +150,8 @@ AI assistants also tend toward [sycophancy](https://blog.scielo.org/en/2026/03/1
 optimus-claude is designed to work alongside official tools, not replace them. Use Anthropic's official [code-review](https://github.com/anthropics/claude-code/tree/main/plugins/code-review) plugin for post-push PR review, [claude-md-management](https://claude.com/plugins/claude-md-management) for CLAUDE.md scoring and revision, the builtin `/simplify` for per-change cleanup (complemented by `/optimus:refactor` for project-wide restructuring), and Claude Code's [built-in sandboxing](https://code.claude.com/docs/en/sandboxing) or [Docker containers](https://www.docker.com/blog/docker-sandboxes-run-claude-code-and-other-coding-agents-unsupervised-but-safely/) for fully autonomous agent execution with OS-level isolation.
 
 Claude Code's [dynamic workflows](https://code.claude.com/docs/en/workflows) are complementary rather than competing. The `/optimus:*-deep` skills are slash-invoked auto-fix orchestrators that persist progress to disk and resume across sessions, with no dependency on a research-preview feature — while `/optimus:prompt` can emit prompts that *trigger* a native dynamic workflow for one-off background fan-outs (its Template N). Reach for a `*-deep` skill for the iterative fix loop; reach for a dynamic workflow for a one-off, background, multi-agent sweep.
+
+Claude Code's [`/goal`](https://code.claude.com/docs/en/goal) command is similarly complementary, not a replacement for the `*-deep` skills. `/goal` sets a session-scoped completion condition and auto-iterates until a **read-only** evaluator judges it met — it never runs the test suite itself, isn't checked into the repo, and accumulates context within one session. The `*-deep` skills provide what that can't: deterministic test bisection (reverting the exact fix that broke the build), a fresh subagent per iteration so context never decays, resumable on-disk progress, and a checked-in, CI-gated contract. Reach for `/goal` for lightweight, autonomous "work until a verifiable end-state" in a single session; reach for a `*-deep` skill for the deterministic, resumable, team-shareable fix loop (`/optimus:workflow` remains the option for an autonomous parallel build, `/optimus:tdd` for supervised test-first). One caveat when pointing `/goal` at optimus: the skills set `disable-model-invocation: true`, so a goal condition that depends on a `/optimus:*` skill the model can't auto-invoke may never be satisfied and can loop — invoke the skill yourself and let the goal judge the result.
 
 ## Troubleshooting
 
