@@ -6,10 +6,10 @@ Prompt-specific guidance for each AI tool category. Load only the section matchi
 
 | Category | Tools |
 |----------|-------|
-| [Reasoning LLMs](#reasoning-llms) | Claude, ChatGPT / GPT-5.x, Gemini 2.x / 3 Pro |
+| [Reasoning LLMs](#reasoning-llms) | Claude, ChatGPT / GPT-5.x, Gemini 2.x / 3 Pro, MiniMax |
 | [Reasoning-Native LLMs](#reasoning-native-llms) | o3 / o4-mini, DeepSeek-R1, Qwen3 thinking mode |
 | [Open-Weight LLMs](#open-weight-llms) | Qwen 2.5, Llama, Mistral, Ollama |
-| [IDE AI](#ide-ai) | Claude Code, Cursor / Windsurf, GitHub Copilot, Antigravity |
+| [IDE AI](#ide-ai) | Claude Code, Cursor / Windsurf, Cline, GitHub Copilot, Antigravity |
 | [Agentic AI](#agentic-ai) | Devin / SWE-agent, Bolt / v0 / Lovable / Figma Make / Google Stitch |
 | [Computer-Use Agents](#computer-use-agents) | Perplexity Comet, OpenAI Atlas, Claude in Chrome |
 | [Research / Orchestration](#research--orchestration) | Perplexity, Manus, Perplexity Computer |
@@ -33,6 +33,8 @@ Prompt-specific guidance for each AI tool category. Load only the section matchi
 - Claude Fable 5 can over-tidy at higher effort — same steer as Opus: "Only make changes directly requested." Don't instruct it to echo or transcribe its reasoning as output text — that can trigger a refusal and fallback to Opus.
 - Provide context and reasoning WHY, not just WHAT — Claude generalizes better from explanations
 - Always specify output format and length explicitly
+- For complex or multi-step tasks, front-load everything in one turn — intent, constraints, acceptance criteria, relevant files. Treat the first turn as the only turn; extra back-and-forth adds reasoning overhead and cost
+- Don't add "think step by step" or a fixed thinking budget — current Claude calibrates reasoning depth automatically. To nudge it: "Think carefully before responding" (more) or "Prioritize responding quickly" (less)
 
 ### ChatGPT / GPT-5.x
 
@@ -49,6 +51,14 @@ Prompt-specific guidance for each AI tool category. Load only the section matchi
 - Prone to hallucinated citations — always add "Cite only sources you are certain of. If uncertain, say [uncertain]."
 - Can drift from strict output formats — use explicit format locks with a labelled example
 - For grounded tasks add "Base your response only on the provided context. Do not extrapolate."
+
+### MiniMax (M3 / M2.7)
+
+- OpenAI-compatible API — prompts that work with GPT transfer directly
+- Strong at instruction following, structured (JSON) output, and long-context synthesis; M2.7-highspeed is tuned for latency-sensitive tasks
+- Temperature must be in the range [0, 1] — values above 1 fail
+- May emit reasoning in `<think>` tags — add "Output only the final answer, no reasoning tags." if visible thinking is unwanted
+- Responds well to explicit role assignment and a clear output-format spec; for function calling, include OpenAI-style tool schemas directly
 
 ---
 
@@ -112,6 +122,9 @@ These models reason internally across thousands of tokens. Adding CoT or "think 
 - Starting state + target state + allowed actions + forbidden actions + stop conditions + checkpoints
 - Stop conditions are MANDATORY — runaway loops are the biggest credit killer
 - Claude Opus 4.x over-engineers — add "Only make changes directly requested. Do not add extra files, abstractions, or features."
+- Reasons more between tool calls and uses fewer of them by default — instruct tool use explicitly when needed: "Read all files in src/auth/ before starting"
+- Spawns fewer subagents by default — request one explicitly when wanted: "Use a subagent to investigate X so it stays out of the main context"
+- Effort and thinking depth are harness-managed — do NOT hardcode an effort level or thinking budget in the prompt
 - Always scope to specific files and directories — never give a global instruction without a path anchor
 - Human review triggers required: "Stop and ask before deleting any file, adding any dependency, or affecting the database schema"
 - For complex tasks: split into sequential prompts. Output Prompt 1 and add "Run this first, then ask for Prompt 2" below it
@@ -138,6 +151,14 @@ These models reason internally across thousands of tokens. Adding CoT or "think 
 - Never give a global instruction without a file anchor
 - "Done when:" is required — defines when the agent stops editing
 - For complex tasks: split into sequential prompts rather than one large prompt
+
+### Cline (formerly Claude Dev)
+
+- Agentic VS Code extension — autonomously edits files, runs terminal commands, uses browser tools; powered by Claude, GPT, or others, so match the prompt style to the underlying model
+- Starting state + target state + file scope + stop conditions + approval gates
+- Specify which files to edit and which to leave untouched
+- Add "Ask before running terminal commands" or "Ask before installing dependencies" to prevent unwanted actions
+- Shows a task list before executing — for multi-step work, break into sequential prompts with clear checkpoints
 
 ### GitHub Copilot
 

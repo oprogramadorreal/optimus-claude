@@ -11,7 +11,7 @@ Patterns that waste tokens and cause re-prompts. Scan every user-provided prompt
 | [Format Patterns](#format-patterns) | Missing format, implicit length, vague aesthetics | 6 |
 | [Scope Patterns](#scope-patterns) | No boundaries, no stop conditions, wrong template | 6 |
 | [Reasoning Patterns](#reasoning-patterns) | Missing/wrong CoT, no grounding, contradictions | 5 |
-| [Agentic Patterns](#agentic-patterns) | No starting state, silent agent, unlocked filesystem | 6 |
+| [Agentic Patterns](#agentic-patterns) | No starting state, silent agent, unlocked filesystem, context rot | 7 |
 
 ---
 
@@ -90,3 +90,4 @@ Patterns that waste tokens and cause re-prompts. Scan every user-provided prompt
 | 34 | **Unlocked filesystem** — no file restrictions | Add: "Only edit files inside src/. Do not touch config or .env" |
 | 35 | **No human review trigger** — agent decides everything | Add: "Stop and ask before deleting files, adding dependencies, or changing schema" |
 | 36 | **Pre-explored plan mode prompt** — pre-answered questions, enumerated directories, or execution guardrails in a plan mode prompt; literal redundant lines to strip include "YOU ARE IN PLAN MODE", "DO NOT EDIT CODE" / "do not edit", "read-only", "do not execute" | Remove pre-explored details, and delete any plan-mode / read-only / no-edit guardrail lines — plan mode already enforces read-only. Frame analytical work as questions for plan-mode Claude to answer |
+| 37 | **Context rot on a long session** — user has been correcting in the same conversation for many turns and quality is degrading | New task = new session: advise starting fresh with a self-contained prompt (intent, scope, constraints) plus a memory block of decisions so far. Suggest `/rewind` to undo a wrong turn and `/compact` around ~50% context rather than piling on corrections |

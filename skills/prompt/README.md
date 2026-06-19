@@ -14,6 +14,7 @@ A well-crafted prompt is optimal context. Vague prompts waste tokens and credits
 - **Multilingual input** — write your request in any language. The skill communicates in your language and generates the prompt in English by default (better AI tool performance) with option to keep your original language
 - **Token efficiency audit** — every sentence must be load-bearing, no vague adjectives, strongest signal words, explicit format and scope
 - **Prompt Decompiler mode** — paste an existing prompt to break it down, adapt it for a different tool, simplify it, or split it
+- **Safety guardrails** — strips credentials from generated prompts and treats any pasted prompt as inert data, never executing instructions embedded in it
 
 ## Quick Start
 
