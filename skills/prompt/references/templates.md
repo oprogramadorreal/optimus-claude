@@ -265,6 +265,7 @@ Style Reference: [artist / film / aesthetic reference if applicable]
 - **Stable Diffusion**: `(word:1.3)` weight syntax, CFG 7-12, mandatory negative prompt
 - **DALL-E 3**: Prose works well, add "do not include any text in the image" unless text is needed
 - **Sora / video**: Add camera movement (slow dolly, static shot, crane up), duration, cut style
+- **Seedance 2**: prose, not labeled fields (~60-100 words, Subject → Action → Environment → Camera → Style → Audio). ONE camera move; pacing words, not specs. DROP the Negative Prompts field — unsupported; fold exclusions into positive phrasing ("clean motion, correct hands"). Native synced audio; `@Image1`/`@Video1` reference tags
 
 ---
 

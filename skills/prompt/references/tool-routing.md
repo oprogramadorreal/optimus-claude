@@ -17,7 +17,7 @@ Prompt-specific guidance for each AI tool category. Load only the section matchi
 | [Image AI — Editing](#image-ai--editing) | Reference image modification workflows |
 | [Image AI — ComfyUI](#image-ai--comfyui) | Node-based workflows |
 | [3D AI](#3d-ai) | Meshy, Tripo, Rodin, Unity AI, BlenderGPT |
-| [Video AI](#video-ai) | Sora, Runway, Kling, LTX Video, Dream Machine |
+| [Video AI](#video-ai) | Sora, Runway, Kling, LTX Video, Dream Machine, Seedance 2 |
 | [Voice AI](#voice-ai) | ElevenLabs |
 | [Workflow AI](#workflow-ai) | Zapier, Make, n8n |
 
@@ -256,6 +256,8 @@ First detect: generation from scratch or editing an existing image? If editing �
 - Specify art style explicitly (anime, cinematic, painterly) before scene content
 - Mood and atmosphere descriptors work well. Negative prompt recommended
 
+*Not to be confused with **Seedance 2** (ByteDance's *video* model — see [Video AI](#video-ai)). SeeDream is images only; unlike Seedance, it supports negative prompts.*
+
 ---
 
 ## Image AI — Editing
@@ -307,6 +309,7 @@ Node-based workflow — not a single prompt box.
 - **Kling**: strong at realistic human motion — describe body movement explicitly, specify camera angle and shot type
 - **LTX Video**: fast generation, prompt-sensitive — keep descriptions concise and visual. Specify resolution and motion intensity
 - **Dream Machine (Luma)**: cinematic quality — reference lighting setups, lens types, and color grading styles
+- **Seedance 2 (ByteDance video, ≠ SeeDream)**: prose director-style (Subject → Action → Environment → Camera → Style → Audio, ~60-100 words). ONE primary camera move per shot; pacing words, not specs ("slow dolly" not "24fps"). NO negative prompts — phrase exclusions positively ("clean motion, correct hands"). Native synced audio (dialogue in quotes) and `@Image1`/`@Video1` reference tags distinguish it from Sora/Kling
 
 ---
 
