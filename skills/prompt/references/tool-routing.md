@@ -309,7 +309,7 @@ Node-based workflow — not a single prompt box.
 - **Kling**: strong at realistic human motion — describe body movement explicitly, specify camera angle and shot type
 - **LTX Video**: fast generation, prompt-sensitive — keep descriptions concise and visual. Specify resolution and motion intensity
 - **Dream Machine (Luma)**: cinematic quality — reference lighting setups, lens types, and color grading styles
-- **Seedance 2 (ByteDance video, ≠ SeeDream)**: prose director-style (Subject → Action → Environment → Camera → Style → Audio, ~60-100 words). ONE primary camera move per shot; pacing words, not specs ("slow dolly" not "24fps"). NO negative prompts — phrase exclusions positively ("clean motion, correct hands"). Native synced audio (dialogue in quotes) and `@Image1`/`@Video1` reference tags distinguish it from Sora/Kling
+- **Seedance 2 (ByteDance video, ≠ SeeDream)**: prose director-style (Subject → Action → Environment → Camera → Lighting → Style → Audio, ~60-100 words). ONE primary camera move per shot; pacing words, not specs ("slow dolly" not "24fps"). NO negative prompts — phrase exclusions positively ("clean motion, correct hands"). Native synced audio (dialogue in quotes) and `@Image1`/`@Video1` reference tags distinguish it from Sora/Kling. Multi-shot in one prompt: chain with "camera cuts to…" (or "Shot 1: / Shot 2:") and re-name the subject each shot so identity holds. Image-to-video: describe only the motion/change plus "preserve composition and colors"
 
 ---
 
