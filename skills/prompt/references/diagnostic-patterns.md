@@ -50,7 +50,7 @@ Patterns that waste tokens and cause re-prompts. Scan every user-provided prompt
 | 15 | **Implicit length** — "write a summary" | Add count: "exactly 3 sentences" |
 | 16 | **No role assignment** for complex tasks | Add domain expert identity |
 | 17 | **Vague aesthetic** — "make it professional" | Translate to specs: "monochrome palette, 16px base font, 24px line height" |
-| 18 | **No negative prompts** for image AI | Add: "no watermark, no blur, no extra fingers, no distortion" |
+| 18 | **No negative prompts** for image AI | Add: "no watermark, no blur, no extra fingers, no distortion". EXCEPTION — Seedance 2 (video) supports none: phrase exclusions positively ("clean motion, correct hands"), never add a negative list or `--no` |
 | 19 | **Prose for Midjourney** — full sentences instead of descriptors | Convert to: "subject, style, mood, lighting, --ar 16:9 --v 6" |
 
 ---
