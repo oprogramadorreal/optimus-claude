@@ -233,6 +233,63 @@ else
 fi
 
 # ============================================================
+# Path-restriction hook tests (restrict-paths.sh)
+# ============================================================
+# Exercises the tiered path model via the PreToolUse JSON protocol: in-project
+# writes pass silently, out-of-project writes ask, deletes outside the project
+# are denied, and Claude's own auto-memory store under
+# ~/.claude/projects/<project>/memory/ is exempted from the out-of-project ask
+# while the rest of ~/.claude (e.g. settings.json) still prompts.
+echo
+echo "[restrict-paths: memory-store exemption + tiered model]"
+RESTRICT="$PLUGIN_ROOT/skills/permissions/templates/hooks/restrict-paths.sh"
+rp_tmp=$(mktemp -d)
+mkdir -p "$rp_tmp/home/.claude/projects/hash/memory/topics" "$rp_tmp/proj/src" "$rp_tmp/outside"
+
+# Map the hook's JSON decision (or silence) to a single token for assertions.
+rp_decision() { # $1=tool $2=input-field $3=path  ->  ALLOW | ASK | DENY | OTHER
+  local out
+  out=$(printf '{"tool_name":"%s","tool_input":{"%s":"%s"}}' "$1" "$2" "$3" \
+        | env HOME="$rp_tmp/home" CLAUDE_PROJECT_DIR="$rp_tmp/proj" bash "$RESTRICT" 2>/dev/null)
+  if [ -z "$out" ]; then echo "ALLOW"
+  elif echo "$out" | grep -q '"permissionDecision":"ask"'; then echo "ASK"
+  elif echo "$out" | grep -q '"permissionDecision":"deny"'; then echo "DENY"
+  else echo "OTHER"; fi
+}
+
+assert_decision() { # $1=label $2=expected $3=actual
+  if [ "$2" = "$3" ]; then
+    printf "  PASS  %s\n" "$1"
+    ((pass++)) || true
+  else
+    printf "  FAIL  %s (expected %s, got %s)\n" "$1" "$2" "$3"
+    ((errors++)) || true
+  fi
+}
+
+mem="$rp_tmp/home/.claude/projects/hash/memory"
+assert_decision "In-project write allowed"             ALLOW "$(rp_decision Write file_path "$rp_tmp/proj/src/a.txt")"
+assert_decision "Outside-project write asks"           ASK   "$(rp_decision Write file_path "$rp_tmp/outside/a.txt")"
+assert_decision "Memory-store write allowed"           ALLOW "$(rp_decision Write file_path "$mem/MEMORY.md")"
+assert_decision "Memory-store subdir write allowed"    ALLOW "$(rp_decision Edit file_path "$mem/topics/x.md")"
+assert_decision "Memory-store notebook allowed"        ALLOW "$(rp_decision NotebookEdit notebook_path "$mem/nb.ipynb")"
+assert_decision "Global ~/.claude/settings.json asks"  ASK   "$(rp_decision Write file_path "$rp_tmp/home/.claude/settings.json")"
+
+# Delete protection still holds (Bash branch).
+rp_bash_decision() { # $1=command -> ALLOW | DENY | OTHER
+  local out
+  out=$(printf '{"tool_name":"Bash","tool_input":{"command":"%s"}}' "$1" \
+        | env HOME="$rp_tmp/home" CLAUDE_PROJECT_DIR="$rp_tmp/proj" bash "$RESTRICT" 2>/dev/null)
+  if [ -z "$out" ]; then echo "ALLOW"
+  elif echo "$out" | grep -q '"permissionDecision":"deny"'; then echo "DENY"
+  else echo "OTHER"; fi
+}
+assert_decision "Delete outside project denied"        DENY  "$(rp_bash_decision "rm $rp_tmp/outside/a.txt")"
+assert_decision "Delete inside project allowed"        ALLOW "$(rp_bash_decision "rm $rp_tmp/proj/src/a.txt")"
+
+rm -rf "$rp_tmp"
+
+# ============================================================
 # Summary
 # ============================================================
 echo

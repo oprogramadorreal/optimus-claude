@@ -14,6 +14,7 @@
 # WHAT THIS SCRIPT DOES:
 #   - Edit/Write operations inside the project  → silently allowed
 #   - Edit/Write operations outside the project → prompts you for approval
+#   - Edit/Write to Claude's own memory store   → silently allowed
 #   - rm/rmdir commands outside the project     → hard blocked
 #   - Edit/Write of precious unversioned files  → prompts you for approval
 #   - rm/rmdir of precious unversioned files    → hard blocked
@@ -44,6 +45,14 @@
 #   not tracked by git receive extra protection: edits prompt for approval,
 #   deletions are blocked. No configuration needed — patterns are hardcoded
 #   in the is_precious() function. See the skill's README for the full list.
+#
+# CLAUDE MEMORY STORE (always-allowed):
+#   Claude Code keeps a per-project auto-memory store under
+#   <home>/.claude/projects/<project>/memory/. Although that path is outside
+#   CLAUDE_PROJECT_DIR, it is Claude's own scratchpad (plain markdown, designed
+#   to be written by Claude), so writes there are allowed without a prompt. The
+#   exemption is scoped to the memory/ subtree only — the rest of ~/.claude
+#   (settings.json, etc.) is NOT exempt and still prompts on out-of-project write.
 #
 # TO DISABLE OR REMOVE:
 #   1. Delete this file: rm .claude/hooks/restrict-paths.sh
@@ -154,6 +163,25 @@ is_inside_project() {
   local norm_path
   norm_path="$(normalize "$1")"
   [[ "$norm_path" == "${norm_root}"* || "$norm_path" == "${norm_root%/}" ]]
+}
+
+# --- Claude Code auto-memory store ---
+# Claude Code keeps a per-project memory store at
+#   <home>/.claude/projects/<mangled-project-path>/memory/
+# Those files are Claude's own scratchpad: plain markdown, recoverable, and
+# designed to be written by Claude. Treat writes there like in-project writes
+# (no prompt) even though the path sits outside CLAUDE_PROJECT_DIR. The match is
+# scoped to the memory/ subtree only — the rest of ~/.claude (settings.json,
+# etc.) is NOT exempted, so the agent still can't silently rewrite its own config.
+norm_home="$(normalize "${HOME:-${USERPROFILE:-}}")"
+is_claude_memory() {
+  [[ -n "$norm_home" ]] || return 1
+  local norm_path
+  norm_path="$(normalize "$1")"
+  case "$norm_path" in
+    "$norm_home"/.claude/projects/*/memory|"$norm_home"/.claude/projects/*/memory/*) return 0 ;;
+  esac
+  return 1
 }
 
 # --- JSON response helpers ---
@@ -446,6 +474,8 @@ case "$tool_name" in
     [[ "$input" =~ \"file_path\"[[:space:]]*:[[:space:]]*\"([^\"]+)\" ]] || exit 0
     filepath="${BASH_REMATCH[1]}"
     if ! is_inside_project "$filepath"; then
+      # Claude's own auto-memory store is outside the project but writable by design
+      is_claude_memory "$filepath" && exit 0
       ask_permission "File '$filepath' is outside project root. Allow this write?"
     fi
     # Precious file protection: prompt before modifying sensitive unversioned files
@@ -459,6 +489,8 @@ case "$tool_name" in
     [[ "$input" =~ \"notebook_path\"[[:space:]]*:[[:space:]]*\"([^\"]+)\" ]] || exit 0
     filepath="${BASH_REMATCH[1]}"
     if ! is_inside_project "$filepath"; then
+      # Claude's own auto-memory store is outside the project but writable by design
+      is_claude_memory "$filepath" && exit 0
       ask_permission "Notebook '$filepath' is outside project root. Allow this edit?"
     fi
     # Precious file protection: prompt before modifying sensitive unversioned notebooks

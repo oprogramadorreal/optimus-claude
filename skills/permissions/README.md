@@ -83,8 +83,11 @@ A [PreToolUse hook](https://code.claude.com/docs/en/hooks) that inspects every E
 | **Read / Search** | Allow (no prompt) | Allow (no prompt) |
 | **Write / Edit** | Allow (no prompt) | **Ask user** permission |
 | **Write / Edit precious unversioned file** | **Ask user** permission | **Ask user** permission |
+| **Write / Edit Claude's own memory store** (`~/.claude/projects/.../memory/`) | — | **Allow (no prompt)** |
 | **Delete (rm/rmdir)** | Allow (no prompt) | **BLOCKED** (hard deny) |
 | **Delete precious unversioned file** | **BLOCKED** (hard deny) | **BLOCKED** (hard deny) |
+
+**Memory-store exemption.** Claude Code keeps a per-project auto-memory store under `~/.claude/projects/<project>/memory/`. That path is *outside* the project, so without special handling every memory write would hit the "outside project root → ask" rule and prompt — repeatedly, since hooks don't cache. Because the store is Claude's own scratchpad (plain markdown, recoverable, designed to be written by Claude), the hook treats writes there like in-project writes and allows them without a prompt. The match is deliberately scoped to the `memory/` subtree only: the rest of `~/.claude` — most importantly `settings.json`, which defines the agent's own permissions — is **not** exempt and still prompts on an out-of-project write, so the agent can't silently rewrite its own rules. This is the only out-of-project location the hook auto-allows.
 
 For structured tools (Edit/Write/NotebookEdit), the hook validates the `file_path` parameter directly — this is a structured field that cannot be obfuscated, making this the most reliable enforcement layer.
 
