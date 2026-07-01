@@ -15,6 +15,7 @@
 #   - Edit/Write operations inside the project  → silently allowed
 #   - Edit/Write operations outside the project → prompts you for approval
 #   - Edit/Write/delete in Claude's memory store → silently allowed
+#   - Edit/Write/delete in Claude's scratchpad   → silently allowed
 #   - rm/rmdir commands outside the project     → hard blocked
 #   - Edit/Write of precious unversioned files  → prompts you for approval
 #   - rm/rmdir of precious unversioned files    → hard blocked
@@ -54,6 +55,16 @@
 #   without a prompt. The exemption is scoped to a single-segment memory/ subtree
 #   only — the rest of ~/.claude (settings.json, etc.) is NOT exempt and still
 #   prompts on out-of-project write / is blocked on out-of-project delete.
+#
+# CLAUDE SESSION SCRATCHPAD (always-allowed):
+#   The harness gives each session a scratchpad under
+#   <temp>/claude/<project>/<session>/scratchpad/ (temp root taken from
+#   TMPDIR/TEMP/TMP, or /tmp). Like the memory store it is Claude's own throwaway
+#   working area, so writes AND deletes there are allowed without a prompt. The
+#   match requires the full <temp>/claude/<project>/<session>/scratchpad shape
+#   (both <project> and <session> are single path segments), so it can't stretch
+#   to an unrelated 'scratchpad' dir elsewhere under the temp root. If the temp
+#   root can't be resolved, the path falls back to the normal out-of-project prompt.
 #
 # TO DISABLE OR REMOVE:
 #   1. Delete this file: rm .claude/hooks/restrict-paths.sh
@@ -196,6 +207,50 @@ is_claude_memory() {
   case "${rest#"$seg"}" in
     /memory|/memory/*) return 0 ;;
   esac
+  return 1
+}
+
+# --- Claude Code session scratchpad (see header: CLAUDE SESSION SCRATCHPAD) ---
+# Resolved lazily like the memory store: only out-of-project writes/deletes consult
+# it, so the common in-project paths skip the normalize() work. The OS temp root
+# varies (TMPDIR on macOS/Linux, TEMP/TMP on Windows, /tmp as a POSIX fallback), so
+# each candidate is normalized once — a Windows temp mounted at /tmp then compares
+# equal to a normalized file_path.
+_scratch_bases_resolved=""
+_scratch_bases=()
+is_claude_scratchpad() {
+  if [[ -z "$_scratch_bases_resolved" ]]; then
+    local candidate norm_candidate
+    for candidate in "${TMPDIR:-}" "${TEMP:-}" "${TMP:-}" /tmp; do
+      [[ -n "$candidate" ]] || continue
+      norm_candidate="$(normalize "$candidate")"
+      [[ -n "$norm_candidate" ]] && _scratch_bases+=("$norm_candidate")
+    done
+    _scratch_bases_resolved=1
+  fi
+  local norm_path
+  norm_path="$(normalize "$1")"
+  # Fail closed on an unresolved ".." (same guard as is_claude_memory): a traversal
+  # like scratchpad/../../settings.json must not reach the auto-allow below.
+  case "$norm_path" in */../*|*/..|../*|..) return 1 ;; esac
+  # Match exactly <temp>/claude/<project>/<session>/scratchpad[/...]. <project> and
+  # <session> must each be a SINGLE path segment so the exemption can't stretch to a
+  # 'scratchpad' dir nested arbitrarily deep under <temp>/claude/.
+  local base prefix rest proj after sess
+  for base in "${_scratch_bases[@]}"; do
+    prefix="$base/claude/"
+    [[ "$norm_path" == "$prefix"* ]] || continue
+    rest="${norm_path#"$prefix"}"          # <project>/<session>/scratchpad/...
+    proj="${rest%%/*}"
+    after="${rest#"$proj"}"                 # /<session>/scratchpad/...
+    [[ -n "$proj" && "$after" == /* ]] || continue
+    after="${after#/}"                      # <session>/scratchpad/...
+    sess="${after%%/*}"
+    [[ -n "$sess" ]] || continue
+    case "${after#"$sess"}" in
+      /scratchpad|/scratchpad/*) return 0 ;;
+    esac
+  done
   return 1
 }
 
@@ -488,10 +543,10 @@ case "$tool_name" in
     # Fail-open: if file_path cannot be extracted, allow rather than block
     [[ "$input" =~ \"file_path\"[[:space:]]*:[[:space:]]*\"([^\"]+)\" ]] || exit 0
     filepath="${BASH_REMATCH[1]}"
-    # Outside the project prompts — except Claude's own auto-memory store, which is
-    # writable by design. This skips only the out-of-project prompt; the precious-file
-    # check below still runs, so the exemption is not a blanket bypass.
-    if ! is_inside_project "$filepath" && ! is_claude_memory "$filepath"; then
+    # Outside the project prompts — except Claude's own auto-memory store and session
+    # scratchpad, which are writable by design. This skips only the out-of-project
+    # prompt; the precious-file check below still runs, so it is not a blanket bypass.
+    if ! is_inside_project "$filepath" && ! is_claude_memory "$filepath" && ! is_claude_scratchpad "$filepath"; then
       ask_permission "File '$filepath' is outside project root. Allow this write?"
     fi
     # Precious file protection: prompt before modifying sensitive unversioned files
@@ -504,10 +559,10 @@ case "$tool_name" in
     # Fail-open: if notebook_path cannot be extracted, allow rather than block
     [[ "$input" =~ \"notebook_path\"[[:space:]]*:[[:space:]]*\"([^\"]+)\" ]] || exit 0
     filepath="${BASH_REMATCH[1]}"
-    # Outside the project prompts — except Claude's own auto-memory store, which is
-    # writable by design. This skips only the out-of-project prompt; the precious-file
-    # check below still runs, so the exemption is not a blanket bypass.
-    if ! is_inside_project "$filepath" && ! is_claude_memory "$filepath"; then
+    # Outside the project prompts — except Claude's own auto-memory store and session
+    # scratchpad, which are writable by design. This skips only the out-of-project
+    # prompt; the precious-file check below still runs, so it is not a blanket bypass.
+    if ! is_inside_project "$filepath" && ! is_claude_memory "$filepath" && ! is_claude_scratchpad "$filepath"; then
       ask_permission "Notebook '$filepath' is outside project root. Allow this edit?"
     fi
     # Precious file protection: prompt before modifying sensitive unversioned notebooks
@@ -551,11 +606,12 @@ case "$tool_name" in
         read -ra words <<< "$_subcmd"
         for word in "${words[@]}"; do
           [[ "$word" == rm || "$word" == rmdir || "$word" == -* ]] && continue
-          # Claude's own auto-memory store is writable AND prunable by design, so
-          # deletes there are allowed like writes (see is_claude_memory). Everything
-          # else outside the project root is hard-blocked. The is_claude_memory ".."
-          # guard keeps a traversal like memory/../../settings.json from slipping through.
-          if ! is_inside_project "$word" && ! is_claude_memory "$word"; then
+          # Claude's own auto-memory store and session scratchpad are writable AND
+          # prunable by design, so deletes there are allowed like writes (see
+          # is_claude_memory / is_claude_scratchpad). Everything else outside the
+          # project root is hard-blocked. The shared ".." guard keeps a traversal
+          # like memory/../../settings.json from slipping through.
+          if ! is_inside_project "$word" && ! is_claude_memory "$word" && ! is_claude_scratchpad "$word"; then
             deny_operation "BLOCKED: Cannot delete '$word' — outside project root."
           fi
           # Precious file protection: block deletion of sensitive unversioned files

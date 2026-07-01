@@ -239,10 +239,11 @@ fi
 # Exercises the tiered path model via the PreToolUse JSON protocol: in-project
 # writes pass silently, out-of-project writes ask, deletes outside the project
 # are denied, and Claude's own auto-memory store under
-# ~/.claude/projects/<project>/memory/ is exempted from the out-of-project ask
-# while the rest of ~/.claude (e.g. settings.json) still prompts.
+# ~/.claude/projects/<project>/memory/ (and the per-session scratchpad under
+# <temp>/claude/<project>/<session>/scratchpad/) is exempted from the out-of-project
+# ask while the rest of ~/.claude (e.g. settings.json) still prompts.
 echo
-echo "[restrict-paths: memory-store exemption + tiered model]"
+echo "[restrict-paths: memory-store + scratchpad exemptions + tiered model]"
 RESTRICT="$PLUGIN_ROOT/skills/permissions/templates/hooks/restrict-paths.sh"
 rp_tmp=$(mktemp -d)
 mkdir -p "$rp_tmp/home/.claude/projects/hash/memory/topics" "$rp_tmp/proj/src" "$rp_tmp/outside"
@@ -338,6 +339,42 @@ assert_decision "Memory write asks when HOME unset"     ASK \
   "$(rp_decision_env -u HOME -u USERPROFILE CLAUDE_PROJECT_DIR="$rp_tmp/proj" -- Write file_path "$mem/MEMORY.md")"
 assert_decision "Memory delete denied when HOME unset"  DENY \
   "$(rp_decision_env -u HOME -u USERPROFILE CLAUDE_PROJECT_DIR="$rp_tmp/proj" -- Bash command "rm $mem/stale.md")"
+
+# --- Claude Code session scratchpad exemption ---
+# The harness gives each session a scratchpad under <temp>/claude/<project>/<session>/
+# scratchpad/. Like the memory store it is Claude's own throwaway working area, so
+# writes and deletes there are allowed without the out-of-project ask. The temp root
+# comes from TMPDIR/TEMP/TMP (with a /tmp fallback); we pin TMPDIR here so the tree is
+# self-contained and the assertions don't depend on the host's real temp.
+scratch_root="$rp_tmp/tmproot"
+scratch="$scratch_root/claude/E--proj/session-uuid/scratchpad"
+mkdir -p "$scratch/sub"
+rp_decision_scratch() { # $1=tool $2=input-field $3=path
+  rp_decision_env HOME="$rp_tmp/home" CLAUDE_PROJECT_DIR="$rp_tmp/proj" TMPDIR="$scratch_root" -- "$1" "$2" "$3"
+}
+assert_decision "Scratchpad write allowed"             ALLOW "$(rp_decision_scratch Write file_path "$scratch/notes.md")"
+assert_decision "Scratchpad subdir write allowed"      ALLOW "$(rp_decision_scratch Edit file_path "$scratch/sub/x.md")"
+assert_decision "Scratchpad notebook allowed"          ALLOW "$(rp_decision_scratch NotebookEdit notebook_path "$scratch/nb.ipynb")"
+assert_decision "Scratchpad delete allowed"            ALLOW "$(rp_decision_scratch Bash command "rm $scratch/stale.md")"
+
+# Negative boundary: the exemption needs the full <temp>/claude/<project>/<session>/
+# scratchpad shape. A scratchpad missing the session segment, a look-alike sibling, a
+# scratchpad nested deeper than two segments, and a traversal escape must all still
+# ask (or, for a delete, be denied).
+assert_decision "Shallow scratchpad asks"              ASK   "$(rp_decision_scratch Write file_path "$scratch_root/claude/E--proj/scratchpad/x.md")"
+assert_decision "Look-alike my-scratchpad asks"        ASK   "$(rp_decision_scratch Write file_path "$scratch_root/claude/E--proj/session-uuid/my-scratchpad/x.md")"
+assert_decision "Nested scratchpad (deep) asks"        ASK   "$(rp_decision_scratch Write file_path "$scratch_root/claude/E--proj/session-uuid/a/scratchpad/x.md")"
+assert_decision "Scratchpad traversal escape asks"     ASK   "$(rp_decision_scratch Write file_path "$scratch/../../../../outside/x.md")"
+assert_decision "Scratchpad delete traversal denied"   DENY  "$(rp_decision_scratch Bash command "rm $scratch/../../../../outside/x.md")"
+
+# Fail-closed: (1) the literal-'..' guard must reject the exemption when realpath
+# can't resolve '..' (reuses the non-resolving realpath stub from the memory block),
+# and (2) when no temp root can be resolved from the environment, scratchpad paths
+# fall back to the out-of-project gate. (rp_stub_bin is defined in the memory block.)
+assert_decision "Scratchpad traversal asks when realpath can't resolve .." ASK \
+  "$(rp_decision_env HOME="$rp_tmp/home" CLAUDE_PROJECT_DIR="$rp_tmp/proj" TMPDIR="$scratch_root" PATH="$rp_stub_bin:$PATH" -- Write file_path "$scratch/../../settings.json")"
+assert_decision "Scratchpad write asks when temp vars unset" ASK \
+  "$(rp_decision_env -u TMPDIR -u TEMP -u TMP HOME="$rp_tmp/home" CLAUDE_PROJECT_DIR="$rp_tmp/proj" -- Write file_path "$scratch/notes.md")"
 
 # ============================================================
 # Summary

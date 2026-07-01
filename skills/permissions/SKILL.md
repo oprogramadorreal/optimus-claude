@@ -15,6 +15,7 @@ Configure safe permission rules and a path-restriction hook so Claude Code agent
 | Write/Edit | Allow | Ask user |
 | Write/Edit precious unversioned file | **Ask user** | Ask user |
 | Write/Edit/Delete Claude's own memory store (`~/.claude/projects/.../memory/`) | — | **Allow** |
+| Write/Edit/Delete Claude's session scratchpad (`<temp>/claude/.../scratchpad/`) | — | **Allow** |
 | Delete (rm/rmdir) | Allow | **BLOCKED** |
 | Delete precious unversioned file | **BLOCKED** | **BLOCKED** |
 | Git on feature branch | Allow | — |
@@ -86,11 +87,13 @@ Run through this checklist. Fix any issues before reporting.
 - If MCP servers were detected, list them
 - Brief security model reminder: writes outside project will prompt, deletes outside project are blocked, reads are unrestricted
 - Memory-store exemption: writes and deletes in Claude's own per-project auto-memory store (`~/.claude/projects/.../memory/`) are allowed without a prompt even though it sits outside the project — it is Claude's designated, prunable scratchpad. The exemption is scoped to a single-segment `memory/` subtree only (a `..` traversal out of it is rejected); the rest of `~/.claude` (e.g., `settings.json`) still prompts on write and stays blocked on delete
+- Session-scratchpad exemption: writes and deletes in the harness-provided session scratchpad (`<temp>/claude/<project>/<session>/scratchpad/`) are likewise allowed without a prompt — it is Claude's throwaway working area for the session. The match requires the full `.../claude/<project>/<session>/scratchpad` shape (a `..` traversal out of it is rejected); if the temp root can't be resolved the path falls back to the normal out-of-project prompt
 - Trust model reminder: commands not on the deny list will execute without prompts inside the project (database operations, file deletions, network requests, etc.). See the skill's README for the full trust model
 - Git branch protection is active — git operations (commit, push, rebase, reset, merge) are allowed on feature branches but blocked on protected branches (master, main, develop, dev, development, staging, stage, prod, production, release). Customize the `PROTECTED_BRANCHES` array in `.claude/hooks/restrict-paths.sh`
 - Precious file protection is always active — the hook automatically protects well-known sensitive files (`.env`, `*.key`, `*.pem`, `*.sqlite`, etc.) that are not tracked by git
 - Sandboxing note: this skill provides defense-in-depth, not OS-level isolation. For full sandboxing, see the skill's README ("Where This Fits" section) which covers built-in sandboxing, devcontainers, and platform-specific recommendations
 - Auto mode note: these layers complement Claude Code's auto mode — the deny list is evaluated before auto mode's classifier and the hook runs in every permission mode. If auto mode is available on the user's model and provider, it can be enabled separately (`Shift+Tab` or user settings) to further reduce prompts; this skill does not configure it. See the skill's README ("Relationship with auto mode" section)
+- Native protected paths note: independently of this skill, Claude Code never auto-approves writes to certain in-project config paths — the whole `.claude/` directory, `.git/`, `.mcp.json`, and similar — in any mode except `bypassPermissions`, so editing files like `.claude/CLAUDE.md` or `.claude/settings.json` still prompts by design (a privilege-escalation safeguard this skill can't and shouldn't override). See the skill's README ("Interaction with Claude Code's native protected paths" section)
 
 4. Scan for precious unversioned files in the project:
    ```bash
