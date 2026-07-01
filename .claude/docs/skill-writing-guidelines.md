@@ -124,7 +124,7 @@ Every skill must end with the three-part closing defined in `references/skill-ha
 
 - Choose the next skill based on the outcome (e.g., after fixing issues → commit; after committing → PR).
 - If multiple paths are possible, present them conditionally (e.g., "if X → skill A; if Y → skill B").
-- Always include the fresh-conversation tip as part of the recommendation to the user — e.g., "Recommend running `/optimus:X` to do Y. **Tip:** for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch." The tip must be clearly scoped under a "Recommend" / "Tell the user" verb so Claude treats it as output, not as an internal instruction.
+- Always include the closing tip as part of the recommendation to the user, emitting the applicable variant from `references/skill-handoff.md` ("Closing tip wording") **verbatim** — never restate or paraphrase the wording (a `scripts/validate.sh` check pins inline copies to the canonical variants). The tip must be clearly scoped under a "Recommend" / "Tell the user" verb so Claude treats it as output, not as an internal instruction.
 - **Exception — continuation skills.** When the recommended next skill captures the current conversation into a durable artifact, override the default tip with the stay-in-conversation wording from `references/skill-handoff.md` under "Continuation skills — exception to fresh-conversation". The canonical list of continuation skills and the mixed-recommendation wording template live in that doc — read it before adding or modifying closing tips. Sending the user to a fresh conversation for a continuation skill strips the very context it was meant to capture.
 
 ## Examples

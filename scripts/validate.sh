@@ -1049,6 +1049,34 @@ if [ -n "$wiring_errors" ]; then
   printf "       Wiring issues:\n%b" "$wiring_errors"
 fi
 
+# Closing-tip drift guard: references/skill-handoff.md mandates verbatim
+# variant wording for closing tips, but inline copies in SKILL.md files are
+# otherwise unpinned. Any **Tip:** line about conversation hygiene (contains
+# "conversation") must match a canonical variant: Variant C verbatim, or the
+# Variant A/B invariant text with skill-specific substitutions in the
+# placeholder slots. Other **Tip:** lines (e.g. deep-mode pointers) are not
+# closing tips and are ignored.
+tip_errors=""
+variant_c='for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch.'
+while IFS= read -r match; do
+  tip_file="${match%%:*}"
+  tip_text="${match#*"**Tip:** "}"
+  case "$tip_text" in
+    *conversation*) ;;
+    *) continue ;;
+  esac
+  case "$tip_text" in
+    "$variant_c"*) ;;
+    "stay in this conversation when running "*" so the implementation context is captured. Other downstream skills ("*") should still run in fresh conversations."*) ;;
+    "for \`"*", stay in this conversation so they can capture the implementation context. For other downstream skills ("*"), start a fresh conversation — each gathers its own context from scratch."*) ;;
+    *) tip_errors+="  $tip_file: closing tip does not match a skill-handoff.md variant: $tip_text\n" ;;
+  esac
+done < <(grep -H -- '\*\*Tip:\*\*' skills/*/SKILL.md)
+check "Closing tips match skill-handoff.md variants" test -z "$tip_errors"
+if [ -n "$tip_errors" ]; then
+  printf "       Tip drift:\n%b" "$tip_errors"
+fi
+
 # --- Summary ---
 echo
 echo "=== Results: $pass passed, $errors failed ==="
