@@ -1,5 +1,5 @@
 ---
-description: Use when starting a new project or product and you want a docs-first plan before writing code — scaffolds an empty, product-neutral spec-driven-development cascade (product vision, MVP PRD, target tech-stack) for a human to fill, then hands off to brainstorm. Emits skeletons only; it never authors product content and never overwrites existing docs.
+description: Scaffolds an empty, product-neutral spec-driven-development cascade (product vision, MVP PRD, target tech-stack) for a human to fill, then hands off to brainstorm. Emits skeletons only; it never authors product content and never overwrites existing docs. Use when starting a new project or product and you want a docs-first plan before writing code.
 disable-model-invocation: true
 ---
 

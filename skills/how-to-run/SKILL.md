@@ -1,19 +1,12 @@
 ---
 description: >-
-  Generates or updates a project's HOW-TO-RUN.md — a single document that
-  teaches a new developer how to set up their environment and run the project
-  locally. Detects build system, toolchain, SDKs, source dependencies (git
-  submodules, sibling repos), external services, environment config, and
-  hardware/OS requirements. Works for web apps, C/C++ desktop apps, native
-  mobile, JVM/Android, game engines, embedded/firmware, and backend services.
-  Audits an existing HOW-TO-RUN.md against actual project state. Learns from
-  setup info found in README.md / CONTRIBUTING.md / docs but never modifies
-  those files — any outdated info found elsewhere is reported to the user at
-  the end. Use after /optimus:init or standalone when onboarding feels broken.
-  Handles single projects, monorepos, and multi-repo workspaces. When the
-  file already exists, also offers a guided in-chat walkthrough where the
-  user runs each documented step locally — the skill never executes
-  commands itself. Use the walkthrough when onboarding a new developer.
+  Generates or updates a project's HOW-TO-RUN.md — one document teaching a
+  new developer to set up their environment and run the project locally.
+  Detects toolchain, source dependencies, external services, and env config
+  across stacks from web to embedded. Audits an existing file against actual
+  project state and offers a guided in-chat walkthrough — the skill never
+  executes commands itself. Writes only HOW-TO-RUN.md. Use after
+  /optimus:init or when onboarding feels broken.
 disable-model-invocation: true
 ---
 

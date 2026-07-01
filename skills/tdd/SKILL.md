@@ -1,5 +1,5 @@
 ---
-description: Guides test-driven development — decompose a feature or bug fix into behaviors, then cycle through Red (failing test) → Green (minimal implementation) → Refactor for each one. Requires /optimus:init and working test infrastructure. Use when starting a new feature or bug fix with test-first discipline.
+description: Guides test-driven development — decompose a feature or bug fix into behaviors, then cycle through Red (failing test) → Green (minimal implementation) → Refactor for each one. Auto-detects specs from docs/specs/ or docs/jira/, creates a feature branch, commits per behavior, and pushes at the end. Requires /optimus:init and working test infrastructure. Use when starting a new feature or bug fix with test-first discipline. For large or parallelizable specs, /optimus:workflow is the fan-out peer.
 disable-model-invocation: true
 argument-hint: "[task description]"
 ---

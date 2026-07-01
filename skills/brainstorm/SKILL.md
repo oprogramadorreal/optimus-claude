@@ -2,7 +2,8 @@
 description: >-
   Guides structured design brainstorming — explores the codebase, asks clarifying
   questions, proposes multiple approaches with trade-offs, and writes an approved
-  spec to the project. Use before implementation to think through design
+  spec to docs/specs/ for /optimus:tdd and /optimus:workflow to auto-detect.
+  Use before implementation to think through design
   decisions and avoid premature coding. Produces a persistent artifact that feeds
   into plan mode and TDD. For stakeholder-facing or acceptance-criteria-driven
   work, the spec includes a Given/When/Then Scenarios section consumed by

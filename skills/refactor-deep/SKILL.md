@@ -1,5 +1,5 @@
 ---
-description: Iterative project-wide refactoring — runs `/optimus:refactor` in a fresh subagent context per iteration, applies fixes, runs tests, bisects failures, and continues until convergence or the iteration cap (default 8, hard cap 20). Supports `testability` or `guidelines` focus to prioritize finding categories. Each iteration runs in an isolated subagent so context does not accumulate. Requires a test command in .claude/CLAUDE.md. Use for thorough guideline alignment or testability cleanup before /optimus:unit-test.
+description: Iterative project-wide refactoring — runs `/optimus:refactor` in a fresh subagent context per iteration, applies fixes, runs tests, bisects failures, and continues until convergence or the iteration cap (default 8, hard cap 20). Supports `testability` or `guidelines` focus to prioritize finding categories. Fixes are applied automatically without per-change approval; for a single supervised pass, use /optimus:refactor. Requires a test command in .claude/CLAUDE.md. Use for thorough guideline alignment or testability cleanup before /optimus:unit-test.
 disable-model-invocation: true
 argument-hint: "[testability|guidelines] [path] [--resume] [--yes] [--max-iterations N]"
 ---

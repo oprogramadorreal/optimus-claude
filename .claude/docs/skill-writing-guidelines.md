@@ -53,17 +53,16 @@ Default to high freedom unless the task is fragile. Provide a sensible default w
 
 ## Description Quality (frontmatter)
 
-- Must describe both WHAT the skill does AND WHEN to use it — Claude uses descriptions to select the right skill from potentially many available skills.
-- Write descriptions in third person — they are injected into the system prompt. Good: "Generates commit messages by analyzing diffs." Avoid: "I can help you generate commit messages."
-- Include specific keywords users would naturally say.
-- Be concrete and specific, not vague. Bad: "Helps with documents." Good: "Extracts text and tables from PDF files, fills forms, merges documents. Use when working with PDF files or when the user mentions PDFs, forms, or document extraction."
+- With `disable-model-invocation: true` on every skill, descriptions never drive model skill selection — their audience is a human scanning the truncating `/` menu and plugin listings. Write for scannability.
+- Lead with the differentiating verb phrase — the menu may show only the first line. Good: "Generates commit messages by analyzing diffs." Avoid: "I can help you generate commit messages."
+- Describe both WHAT the skill does and WHEN to use it, accurate against actual behavior — declare side effects (branch creation, commits, pushes, file writes) and hard prerequisites.
+- Target roughly 250–450 characters. The platform cap is 1024 (enforced by `scripts/validate.sh`); feature inventories belong in the skill's README.md, not the description.
+- Write in third person. Be concrete and specific, not vague. Bad: "Helps with documents." Good: "Extracts text and tables from PDF files, fills forms, merges documents."
 - Prefer gerund form for skill names when possible: `processing-pdfs`, `analyzing-code`. Avoid vague names: `helper`, `utils`, `tools`.
-- Max 1024 characters.
 
 ## Progressive Disclosure
 
-- Load only metadata (description) at startup.
-- Load full SKILL.md when skill is invoked.
+- Descriptions surface in the `/` menu and plugin listings; the full SKILL.md loads into context only at explicit invocation.
 - Load reference files only as needed within the skill's execution.
 - Reference depth should not exceed two levels from SKILL.md (SKILL→A→B maximum). Note: this is a deliberate divergence — Anthropic's official guidance recommends one level, because nested references risk partial reads. The two-level allowance is what the shared-reference architecture requires (e.g., a skill's `shared-constraints.md` → `references/scope-expansion-rule.md`); it is checked by `scripts/validate.sh` (the check follows `$CLAUDE_PLUGIN_ROOT` references — prose section references are not tracked) and mitigated by the ToC rule below. If you find yourself needing A→B→C→D, restructure by flattening the chain (preferred) — make SKILL.md reference the deeper files directly. Only inline content when the extracted file is small, single-use, and tightly coupled to its parent; otherwise inlining violates SRP by mixing concerns in one file. Circular references between files are never allowed.
 - For reference files longer than 100 lines, include a table of contents at the top so Claude can see the full scope even when previewing with partial reads.

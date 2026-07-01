@@ -79,6 +79,23 @@ while IFS= read -r f; do
   if grep -q '^argument-hint:[[:space:]]*\[' <<< "$frontmatter"; then
     fm_errors+="  $f: argument-hint value must be quoted (bare brackets parse as a YAML list)\n"
   fi
+  # Check rendered description length against the 1024-char platform cap
+  # (handles both single-line and folded ">-" scalars)
+  description=$(awk '
+    /^description:[[:space:]]*>-?[[:space:]]*$/ { folded = 1; next }
+    folded {
+      if ($0 ~ /^[[:space:]]/) {
+        line = $0; sub(/^[[:space:]]+/, "", line)
+        text = (text == "" ? line : text " " line); next
+      }
+      folded = 0
+    }
+    /^description:[[:space:]]/ { text = $0; sub(/^description:[[:space:]]*/, "", text) }
+    END { print text }
+  ' <<< "$frontmatter")
+  if [ "${#description}" -gt 1024 ]; then
+    fm_errors+="  $f: description exceeds the 1024-char platform cap (${#description})\n"
+  fi
 done < <(find ./skills -name 'SKILL.md' -not -path './.git/*')
 check "SKILL.md frontmatter valid" test -z "$fm_errors"
 if [ -n "$fm_errors" ]; then

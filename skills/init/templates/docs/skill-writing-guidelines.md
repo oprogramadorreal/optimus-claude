@@ -35,6 +35,7 @@ Default to high freedom unless the task is fragile. Provide a sensible default w
 ## Description Quality (frontmatter)
 
 - When the agent framework uses frontmatter `description` fields, they must describe both WHAT the instruction does AND WHEN to use it — descriptions are how the agent selects the right instruction from many available ones.
+- If your instructions are only ever invoked explicitly (model auto-selection disabled), the description's real audience is a human scanning a truncating command menu — lead with the differentiating verb phrase and keep it concise rather than keyword-rich.
 - Write descriptions in third person — they are injected into the system prompt. Good: "Generates commit messages by analyzing diffs." Avoid: "I can help you generate commit messages."
 - Include specific keywords users would naturally say.
 - Be concrete and specific, not vague. Bad: "Helps with documents." Good: "Extracts text and tables from PDF files, fills forms, merges documents. Use when working with PDF files or when the user mentions PDFs, forms, or document extraction."
