@@ -49,6 +49,16 @@ This skill and auto mode are **complementary layers**, not alternatives:
 
 **This skill does not enable or configure auto mode.** By design, an `autoMode` block is ignored in the shared, checked-in `.claude/settings.json` this skill manages, and `defaultMode: "auto"` only takes effect in user settings (`~/.claude/settings.json`) — both are safeguards against a repository turning auto mode on for itself. To enable auto mode, cycle to it with `Shift+Tab`, launch with `claude --permission-mode auto`, or set it in your user settings; validate any custom rules with `claude auto-mode config` and `claude auto-mode critique`.
 
+## Interaction with Claude Code's native protected paths
+
+Independently of this skill, Claude Code has a built-in **[protected paths](https://code.claude.com/docs/en/permission-modes#protected-paths)** guard: writes to a small set of paths are **never auto-approved in any mode except `bypassPermissions`** — you are prompted before editing them even when everything else in the project is silent. This is why you still see a prompt for `.claude/CLAUDE.md`, `.claude/settings.json`, a file under `.claude/hooks/`, or `.mcp.json` after this skill has quieted ordinary edits. It is **not** a gap in this skill — the prompt comes from Claude Code itself, not from `restrict-paths.sh`.
+
+**What's protected:** the entire in-project `.claude/` directory (except `.claude/worktrees/`), `.git/`, and named config files anywhere in the tree — `.mcp.json`, `.claude.json`, `.gitconfig`/`.gitmodules`, shell rc files, and package-manager/tool configs. It is a fixed, native list; this skill neither defines nor can extend it.
+
+**Why it exists — and why it complements this skill.** It is a privilege-escalation safeguard: an "allow all edits" rule (or `acceptEdits`) must not let the agent silently rewrite its own permissions, hooks, or steering instructions. That dovetails with a deliberate blind spot in this skill's hook — the hook treats *in-project* writes as trusted, so it does not gate the very `<project>/.claude/settings.json` that registers it (only the out-of-project global `~/.claude/settings.json` hits the hook's ask). Claude Code's native guard covers exactly that in-project config surface, so between the two layers the self-modification surface stays protected.
+
+**You can't suppress it with an allow rule.** Per the docs, `permissions.allow` entries (even `Edit(.claude/**)`) do **not** pre-approve protected-path writes, and a PreToolUse hook returning allow/ask/silent cannot bypass the guard. To proceed you either approve the prompt each time, choose *"Yes, and allow Claude to edit its own settings for this session"* (approves further `.claude/` writes for that session only), or run in `bypassPermissions` mode — which also disables this skill's hook and every other guard, so it is an explicit opt-out of all safety. This skill does not enable, configure, or override the protected-paths guard. (Introduced in Claude Code `v2.1.126`.)
+
 ## What It Does
 
 `/optimus:permissions` generates two files that work together to provide four layers of protection:
@@ -83,8 +93,14 @@ A [PreToolUse hook](https://code.claude.com/docs/en/hooks) that inspects every E
 | **Read / Search** | Allow (no prompt) | Allow (no prompt) |
 | **Write / Edit** | Allow (no prompt) | **Ask user** permission |
 | **Write / Edit precious unversioned file** | **Ask user** permission | **Ask user** permission |
+| **Write / Edit / Delete Claude's own memory store** (`~/.claude/projects/.../memory/`) | — | **Allow (no prompt)** |
+| **Write / Edit / Delete Claude's session scratchpad** (`<temp>/claude/.../scratchpad/`) | — | **Allow (no prompt)** |
 | **Delete (rm/rmdir)** | Allow (no prompt) | **BLOCKED** (hard deny) |
 | **Delete precious unversioned file** | **BLOCKED** (hard deny) | **BLOCKED** (hard deny) |
+
+**Memory-store exemption.** Claude Code keeps a per-project auto-memory store under `~/.claude/projects/<project>/memory/`. That path is *outside* the project, so without special handling every memory write would hit the "outside project root → ask" rule and prompt — repeatedly, since hooks don't cache. Because the store is Claude's own scratchpad (plain markdown, recoverable, designed to be written and pruned by Claude), the hook treats writes — and deletes — there like in-project operations and allows them without a prompt. The match is deliberately scoped to a single-segment `memory/` subtree only: the rest of `~/.claude` — most importantly `settings.json`, which defines the agent's own permissions — is **not** exempt and still prompts on an out-of-project write (and stays hard-blocked on an out-of-project delete), so the agent can't silently rewrite its own rules. A `..` traversal out of the store (e.g. `memory/../../settings.json`) is rejected, so the exemption can't be used to escape it. The memory store and the session scratchpad (below) are the only out-of-project locations the hook auto-allows; the exemption spans every project's store, since all are Claude's own recoverable scratchpad.
+
+**Session-scratchpad exemption.** The harness gives each session a scratchpad under `<temp>/claude/<project>/<session>/scratchpad/` (the temp root comes from `TMPDIR`/`TEMP`/`TMP`, falling back to `/tmp`). Like the memory store it is Claude's own throwaway working area for the session, so writes and deletes there are allowed without a prompt. The match requires the full `<temp>/claude/<project>/<session>/scratchpad` shape — both `<project>` and `<session>` are single path segments — so it can't stretch to an unrelated `scratchpad` directory elsewhere under the temp root, and the same `..`-traversal guard applies. If the temp root can't be resolved from the environment, the path falls back to the normal out-of-project prompt (fail-closed).
 
 For structured tools (Edit/Write/NotebookEdit), the hook validates the `file_path` parameter directly — this is a structured field that cannot be obfuscated, making this the most reliable enforcement layer.
 
@@ -259,7 +275,7 @@ This skill provides **defense-in-depth**, not bulletproof isolation. Be aware of
 
 | Limitation | Details |
 |---|---|
-| **Inside project = fully trusted** | All operations inside the project run without prompts unless they match a deny pattern. See [Trust Model and Assumptions](#trust-model-and-assumptions) for what this means in practice |
+| **Inside project = fully trusted** | All operations inside the project run without prompts unless they match a deny pattern — except writes to Claude Code's [native protected paths](#interaction-with-claude-codes-native-protected-paths) (`.claude/`, `.git/`, config files), which always prompt. See [Trust Model and Assumptions](#trust-model-and-assumptions) for what this means in practice |
 | **Pattern matching bypass** | Bash deny patterns can be bypassed via command chaining or option insertion ([#13371](https://github.com/anthropics/claude-code/issues/13371)) |
 | **Bash writes not caught** | Only `rm`/`rmdir` is intercepted by the hook. Other Bash writes (`echo >`, `cp`, `mv`) outside the project are not blocked |
 | **Build command escalation** | File edits + build commands = arbitrary code execution. See the [critical limitation callout](#trust-model-and-assumptions) above |
