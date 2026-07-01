@@ -86,7 +86,7 @@ If the user chose a "Create branch" option in step 5, create and switch to the f
 git checkout -b <branch-name>
 ```
 
-If branch creation fails (e.g., the branch already exists), report the error and let the user choose a different name or cancel.
+If branch creation fails (e.g., the branch already exists), report the error and let the user choose a different name or cancel. This deliberately diverges from branch-naming.md's **Collision Handling** default (auto-append a numeric suffix): the user approved this exact branch name in step 5, so never silently alter it.
 
 Stage the files determined in steps 1 and 3:
 

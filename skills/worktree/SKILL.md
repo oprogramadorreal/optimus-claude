@@ -48,7 +48,7 @@ If neither source provides enough signal, use `AskUserQuestion` — header "Work
 
 Read `$CLAUDE_PLUGIN_ROOT/skills/commit/references/branch-naming.md` for the naming convention. Determine `<type>` and generate the slug from the description.
 
-**Handle collisions**: if `git show-ref --verify --quiet refs/heads/<branch-name>` succeeds (branch exists), append `-2` to the slug. If that also exists, try `-3`, and so on up to `-9`. If all collide, inform the user and stop.
+**Handle collisions**: apply the **Collision Handling** section of the same reference.
 
 Create the branch without switching to it:
 

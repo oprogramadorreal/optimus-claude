@@ -71,7 +71,7 @@ Then **stop** — do not create a branch with a generic or meaningless name.
 
 Read `$CLAUDE_PLUGIN_ROOT/skills/commit/references/branch-naming.md` for the naming convention. Use the **Type Detection Keywords** section to determine `<type>` from context, and apply the **Slug Rules** to generate `<slug>`.
 
-**Handle collisions**: if `git show-ref --verify --quiet refs/heads/<branch-name>` succeeds (branch exists), append `-2` to the slug. If that also exists, try `-3`, and so on up to `-9`. If all collide, inform the user and stop.
+**Handle collisions**: apply the **Collision Handling** section of the same reference.
 
 ### 4. Create Branch
 

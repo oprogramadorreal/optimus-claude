@@ -108,7 +108,7 @@ If **ambiguous** (the task has both testable and non-testable aspects, or it's u
 Always create a new branch from the current branch for TDD work. This keeps the user's original branch clean — all changes happen on the new branch.
 
 1. Record the current branch name (this becomes the PR/MR target later): `git rev-parse --abbrev-ref HEAD`
-2. Derive a branch name from the task description. Read `$CLAUDE_PLUGIN_ROOT/skills/commit/references/branch-naming.md` for the naming convention. The `<type>` is `feat` for new features or `fix` for bug fixes (from the task classification in Step 2). The `<description>` is the slugified task description.
+2. Derive a branch name from the task description. Read `$CLAUDE_PLUGIN_ROOT/skills/commit/references/branch-naming.md` for the naming convention and collision handling. The `<type>` is `feat` for new features or `fix` for bug fixes (from the task classification in Step 2). The `<description>` is the slugified task description.
 3. Create and switch to the branch: `git checkout -b <branch-name>`
 4. Report the branch name to the user:
 

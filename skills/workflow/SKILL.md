@@ -62,7 +62,7 @@ Whatever the source — a spec or JIRA context the cascade resolved, an inline a
 Keep the user's original branch clean — all workflow edits land on a new branch.
 
 1. Record the current branch (this becomes the PR/MR target): `git rev-parse --abbrev-ref HEAD`
-2. Derive a branch name. Read `$CLAUDE_PLUGIN_ROOT/skills/commit/references/branch-naming.md` for the convention. `<type>` is `feat` (or `fix`); `<description>` is the slugified goal.
+2. Derive a branch name. Read `$CLAUDE_PLUGIN_ROOT/skills/commit/references/branch-naming.md` for the convention and collision handling. `<type>` is `feat` (or `fix`); `<description>` is the slugified goal.
 3. Create and switch: `git checkout -b <branch-name>`
 4. Report:
 
