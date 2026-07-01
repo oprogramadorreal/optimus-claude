@@ -135,11 +135,7 @@ Follow the conventions visible in existing skills — study `skills/commit-messa
 
 ### Output tone and formatting
 
-Keep skill output templates plain: markdown headings, bold, and blockquotes — no decorative emoji (✅, ⚠, 🔴, 🟢, 🔄, etc.). Semantic markers (`**bold**`, `>` blockquotes, `###` headings) already convey severity and structure; decorative emoji read as off-tone scaffolding against the direct tone current Claude Code models emit by default.
-
-Similarly, do not hand-roll "[Step N/M]" progress indicators inside a skill. The orchestrator skill and the model emit progress naturally during long agentic traces — forcing interim status lines duplicates that behavior and adds verbosity.
-
-For parallel-agent steps, spell out the expected fan-out as imperative ("Launch all 4 agents in a single message so they run in parallel"), not "up to N". Some Claude models conservatively under-spawn subagents, so the count needs to be explicit where the design depends on it.
+The content rules for skill bodies (no decorative emoji in output templates, no hand-rolled "[Step N/M]" progress indicators, imperative fan-out counts for parallel-agent steps) live in `.claude/docs/skill-writing-guidelines.md` under "Writing Style".
 
 ## Skill-authoring projects as a stack
 

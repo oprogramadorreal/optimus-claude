@@ -10,7 +10,7 @@ These quality principles apply to skill authoring just as they apply to code:
 
   > **Exception — orchestration skills:** A skill may span multiple concerns when it serves as a one-time setup orchestrator whose value depends on executing all steps atomically (e.g., `skills/init/` handles project detection, CLAUDE.md generation, hooks, agents, and test infrastructure as a single coherent setup). Decomposing these into separate skills would force users to run them in sequence with no clear benefit. Keep orchestration skills well-structured internally — each step should still follow SRP.
 
-- **Intention-Revealing Names** — skill names, template files, and reference docs should convey purpose without tracing through content. Avoid generic names like `helper.md`, `utils.md`, or `doc2.md`.
+- **Intention-Revealing Names** — skill names, template files, and reference docs should convey purpose without tracing through content. Skill names surface as `/optimus:<name>`: use a short verb/noun slash-command-style name consistent with the existing set (`init`, `commit`, `refactor`, `tdd`), not gerund phrases. Avoid generic names like `helper.md`, `utils.md`, or `doc2.md`.
 - **Pragmatic Abstractions** — extract shared references when 2+ skills reuse a procedure. Don't add indirection for its own sake. Don't extract for hypothetical future reuse.
 
 ## Scope and Granularity
@@ -40,6 +40,9 @@ If a procedure ends up reused by 2+ skills after splitting, extract it per [Shar
 - Imperative step-by-step instructions, not conversational prose.
 - Keep SKILL.md body under 500 lines — move detailed reference material to separate files.
 - No time-sensitive information; consistent terminology throughout — pick one term per concept and use it everywhere (e.g., always "field" not a mix of "field", "box", "element").
+- Keep skill output templates plain: markdown headings, bold, and blockquotes — no decorative emoji (✅, ⚠, 🔴, 🟢, 🔄, etc.). Semantic markers (`**bold**`, `>` blockquotes, `###` headings) already convey severity and structure; decorative emoji read as off-tone scaffolding against the direct tone current Claude Code models emit by default.
+- Do not hand-roll "[Step N/M]" progress indicators inside a skill. The orchestrator skill and the model emit progress naturally during long agentic traces — forcing interim status lines duplicates that behavior and adds verbosity.
+- For parallel-agent steps, spell out the expected fan-out as imperative ("Launch all 4 agents in a single message so they run in parallel"), not "up to N". Some Claude models conservatively under-spawn subagents, so the count needs to be explicit where the design depends on it.
 
 ## Degrees of Freedom
 
@@ -58,7 +61,7 @@ Default to high freedom unless the task is fragile. Provide a sensible default w
 - Describe both WHAT the skill does and WHEN to use it, accurate against actual behavior — declare side effects (branch creation, commits, pushes, file writes) and hard prerequisites.
 - Target roughly 250–450 characters. The platform cap is 1024 (enforced by `scripts/validate.sh`); feature inventories belong in the skill's README.md, not the description.
 - Write in third person. Be concrete and specific, not vague. Bad: "Helps with documents." Good: "Extracts text and tables from PDF files, fills forms, merges documents."
-- Prefer gerund form for skill names when possible: `processing-pdfs`, `analyzing-code`. Avoid vague names: `helper`, `utils`, `tools`.
+- Naming guidance lives in [Foundation](#foundation) under Intention-Revealing Names.
 
 ## Progressive Disclosure
 
@@ -117,7 +120,7 @@ For complex multi-step skills:
 
 ## Next Step
 
-Every skill must end with a recommendation for the next logical optimus skill. This guides the user through the workflow and increases plugin adoption.
+Every skill must end with the three-part closing defined in `references/skill-handoff.md`: conversation (stay or start fresh), mode (normal or plan), and next skill — the exact slash command, or "none" if the chain genuinely ends here. This guides the user through the workflow and keeps each skill's context gathering honest; don't invent a recommendation for a terminal skill just to keep the chain going.
 
 - Choose the next skill based on the outcome (e.g., after fixing issues → commit; after committing → PR).
 - If multiple paths are possible, present them conditionally (e.g., "if X → skill A; if Y → skill B").
