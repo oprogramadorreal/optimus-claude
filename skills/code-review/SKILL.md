@@ -174,6 +174,8 @@ Each agent receives the list of changed file paths (from Step 3 in normal/intera
 
 Read the agent prompt files from `$CLAUDE_PLUGIN_ROOT/skills/code-review/agents/` for individual agent prompts. Read `$CLAUDE_PLUGIN_ROOT/skills/code-review/agents/shared-constraints.md` for the shared quality bar, exclusion rules, and false positive guidance applying to all agents.
 
+Compose each agent prompt per "Prompt assembly at dispatch time" in `$CLAUDE_PLUGIN_ROOT/references/agent-architecture.md`: substitute the resolved absolute plugin root for every `$CLAUDE_PLUGIN_ROOT` reference the prompt files carry, and inline or absolutize the bare `shared-constraints.md` reference — subagents inherit neither the variable nor the agents directory as cwd.
+
 ### PR/MR context injection (PR/MR mode only)
 
 If a `pr-description` was captured in Step 3 and its body is non-empty, prepend the PR/MR context block to every agent prompt before the file list. Read `$CLAUDE_PLUGIN_ROOT/skills/code-review/agents/context-blocks.md` for the template, truncation rule, and guardrail language.

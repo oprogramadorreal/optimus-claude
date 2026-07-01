@@ -122,6 +122,8 @@ Each agent receives the list of source files/directories from Step 3.
 
 Read the agent prompt files from `$CLAUDE_PLUGIN_ROOT/skills/refactor/agents/` for individual agent prompts. Read `$CLAUDE_PLUGIN_ROOT/skills/refactor/agents/shared-constraints.md` for the shared quality bar, exclusion rules, and false positive guidance.
 
+Compose each agent prompt per "Prompt assembly at dispatch time" in `$CLAUDE_PLUGIN_ROOT/references/agent-architecture.md`: substitute the resolved absolute plugin root for every `$CLAUDE_PLUGIN_ROOT` reference the prompt files carry, and inline or absolutize the bare `shared-constraints.md` reference — subagents inherit neither the variable nor the agents directory as cwd.
+
 ### Iteration context injection (harness mode, iterations 2+)
 
 When running under `HARNESS_MODE_INLINE` and the progress file's `iteration.current` is greater than 1, prepend the iteration context block to every agent prompt before the file list. Read `$CLAUDE_PLUGIN_ROOT/skills/refactor/agents/context-blocks.md` for the template and format.

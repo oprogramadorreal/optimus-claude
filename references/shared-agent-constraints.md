@@ -4,7 +4,7 @@ Common constraints, quality bar, exclusion rules, and false-positive guidance fo
 
 ## Agent Constraints
 
-- **Read-only analysis.** Do NOT modify any files, create any files, or run any commands that change state. You are analyzing code, not fixing it.
+- **Read-only analysis.** Do NOT modify any files, create any files, or run any commands that change state. You are analyzing code, not fixing it. One carve-out: you MAY run the project's existing test and coverage commands when your agent prompt's role explicitly requires it (e.g., a test-guardian verifying the suite passes); agents whose role doesn't require test runs remain fully read-only.
 - **Your findings will be independently validated.** Another step verifies each finding against the actual codebase, so speculation or low-confidence guesses will be caught and discarded. Only report what you are confident about.
 
 ## Quality Bar

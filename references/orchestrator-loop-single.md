@@ -43,8 +43,9 @@ Agent tool call:
     `<absolute-plugin-root>/skills/<base-skill>/SKILL.md` and execute its
     harness-mode protocol from
     `<absolute-plugin-root>/references/harness-mode.md` exactly. Wherever the
-    base SKILL.md or harness-mode.md reference `$CLAUDE_PLUGIN_ROOT`, substitute
-    the absolute plugin root above — your environment may not export it:
+    base SKILL.md, harness-mode.md, or the agent prompt files they load
+    reference `$CLAUDE_PLUGIN_ROOT`, substitute the absolute plugin root
+    above — your environment may not export it:
     - Read the progress file above for accumulated findings and scope.
     - Run the analysis cycle once.
     - Apply fixes. Do NOT run the test command, any `scripts/*.sh`, or any
@@ -53,7 +54,7 @@ Agent tool call:
     - Do not use AskUserQuestion. Do not loop.
 ```
 
-Where `<base-skill>` is `code-review` or `refactor`, and `<absolute-plugin-root>` is the root resolved in Step 2 (the subagent does not inherit `$CLAUDE_PLUGIN_ROOT`, so it must be passed as an absolute path). The subagent inherits the working tree and applies edits via `Edit`/`MultiEdit`; on return, the working tree carries the iteration's changes and the subagent's final message contains the structured JSON.
+Where `<base-skill>` is `code-review` or `refactor`, and `<absolute-plugin-root>` is the root resolved in Step 2 (the subagent does not inherit `$CLAUDE_PLUGIN_ROOT`, so it must be passed as an absolute path — and the subagent must substitute it onward into the fan-out agent prompts it composes, per "Prompt assembly at dispatch time" in `$CLAUDE_PLUGIN_ROOT/references/agent-architecture.md`). The subagent inherits the working tree and applies edits via `Edit`/`MultiEdit`; on return, the working tree carries the iteration's changes and the subagent's final message contains the structured JSON.
 
 ### 3. Save the subagent return to a temp file
 

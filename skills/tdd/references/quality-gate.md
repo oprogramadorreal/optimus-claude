@@ -12,6 +12,8 @@ Collect all files changed during the TDD session: `git diff --name-only <origina
 
 The code-simplifier agent always runs. The test-guardian agent runs when test infrastructure is detected (`.claude/docs/testing.md` or subproject `docs/testing.md` exists). Launch every applicable agent as a `general-purpose` Agent tool call in a **single** message so they run in parallel — do not skip an applicable agent to save tokens or time.
 
+Compose each agent prompt per "Prompt assembly at dispatch time" in `$CLAUDE_PLUGIN_ROOT/references/agent-architecture.md`: substitute the resolved absolute plugin root for every `$CLAUDE_PLUGIN_ROOT` reference the prompt files carry, and inline or absolutize the bare `shared-constraints.md` reference — subagents inherit neither the variable nor the agents directory as cwd.
+
 ### Present findings
 
 After both agents complete, present a consolidated quality report:
