@@ -4,7 +4,7 @@ A [Claude Code](https://docs.anthropic.com/en/docs/claude-code) skill that impro
 
 Well-maintained code has [30%+ fewer AI-introduced defects](https://arxiv.org/abs/2601.02200), and tests are what make AI agents self-correcting: make change → run tests → see failure → fix. The plugin includes a test-guardian agent that monitors coverage gaps, but it doesn't write tests. `/optimus:unit-test` is the active complement: it fills gaps deliberately.
 
-**Conservative by design** — only adds new test files, never refactors or restructures existing source code. If code is untestable as-is, it flags it rather than changing it. Refactoring is the domain of `/optimus:refactor`.
+**Conservative by design** — only adds new tests (new files, or new cases appended to existing test files), never refactors or restructures existing source code. If code is untestable as-is, it flags it rather than changing it. Refactoring is the domain of `/optimus:refactor`.
 
 ## Features
 
@@ -12,7 +12,7 @@ Well-maintained code has [30%+ fewer AI-introduced defects](https://arxiv.org/ab
 - **Project-wide discovery** — scans for test files, frameworks, coverage tooling; stops if no test framework found (recommends running `/optimus:init`)
 - **Achievable threshold estimation** — analyzes testable vs untestable code to set realistic coverage targets without requiring refactoring
 - **Prioritized test plan** — up to 10 items per run, highest-value targets first, user-approved before execution
-- **Conservative test writing** — adds new test files only; may fix a newly-written test but never modifies existing tests or source code
+- **Conservative test writing** — adds new tests only (new files, or new cases appended to existing test files); may fix a newly-written test but never modifies existing test logic or source code
 - **Broken baseline handoff** — stops with a triage pointer when pre-existing tests fail; never modifies their logic
 - **Bug discovery** — reports bugs found in existing code during test writing without fixing them
 - **Monorepo & multi-repo workspace support** — detects subprojects and processes each independently
@@ -121,10 +121,15 @@ The test-guardian agent and this skill are complementary — both use `testing.m
 
 | File | Purpose |
 |---|---|
-| `SKILL.md` | Skill definition with 5-step workflow |
+| `SKILL.md` | Skill definition with 6-step workflow |
 | `agents/` | Individual agent prompt files for Test Infrastructure Analysis subagent |
 | *(shared)* `init/references/multi-repo-detection.md` | Multi-repo workspace detection algorithm |
 | *(shared)* `init/references/constraint-doc-loading.md` | Constraint doc loading — Monorepo Scoping Rule |
+| *(shared)* `init/references/project-detection.md` | Project structure detection algorithm |
+| *(shared)* `init/references/verification-protocol.md` | Evidence-based test verification protocol |
+| *(shared)* `tdd/references/testing-anti-patterns.md` | Mocking and assertion discipline |
+| *(shared)* `references/coverage-harness-mode.md` | Single-pass protocol under `/optimus:unit-test-deep` |
+| *(shared)* `references/skill-handoff.md` | Closing recommendation wording variants |
 
 ## Requirements
 

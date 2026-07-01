@@ -62,6 +62,8 @@ PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli parse \
 
 Passing `--progress-file` lets the CLI track consecutive parse failures across cycles (and across `--resume`); a single failure is a no-op and the loop moves on, while two consecutive failures cause step 11 (`check-termination`) to return `parse-failure` and terminate the loop. The counter is shared across both phases — a unit-test parse failure followed by a refactor parse failure counts as two consecutive failures.
 
+**Blocked gate:** if the extracted JSON has a non-null `blocked` field, the unit-test phase hit a stop gate it cannot work past (no test framework, failing baseline — see coverage-harness-mode.md "Stop gates under harness mode"). Do not run `unit-test-step` and do not dispatch further cycles: exit the loop, report the `blocked` reason to the user with the matching base-skill recovery advice (`/optimus:init` for a missing framework or broken build; triage the failing tests for a red baseline), and proceed to "After the loop".
+
 ### 4. Record the unit-test phase
 
 ```bash
