@@ -247,15 +247,35 @@ RESTRICT="$PLUGIN_ROOT/skills/permissions/templates/hooks/restrict-paths.sh"
 rp_tmp=$(mktemp -d)
 mkdir -p "$rp_tmp/home/.claude/projects/hash/memory/topics" "$rp_tmp/proj/src" "$rp_tmp/outside"
 
-# Map the hook's JSON decision (or silence) to a single token for assertions.
-rp_decision() { # $1=tool $2=input-field $3=path  ->  ALLOW | ASK | DENY | OTHER
-  local out
-  out=$(printf '{"tool_name":"%s","tool_input":{"%s":"%s"}}' "$1" "$2" "$3" \
-        | env HOME="$rp_tmp/home" CLAUDE_PROJECT_DIR="$rp_tmp/proj" bash "$RESTRICT" 2>/dev/null)
-  if [ -z "$out" ]; then echo "ALLOW"
-  elif echo "$out" | grep -q '"permissionDecision":"ask"'; then echo "ASK"
-  elif echo "$out" | grep -q '"permissionDecision":"deny"'; then echo "DENY"
+# Build a PreToolUse payload (rp_json) and classify the hook's JSON decision — or
+# silence — into a single token (rp_classify). Kept as separate primitives so both
+# the common-case runner (rp_decision) and the fail-closed runner (rp_decision_env,
+# which takes a custom environment: stubbed realpath, unset HOME) can share them.
+rp_json() { # $1=tool $2=input-field $3=path
+  printf '{"tool_name":"%s","tool_input":{"%s":"%s"}}' "$1" "$2" "$3"
+}
+
+rp_classify() { # $1=hook stdout  ->  ALLOW | ASK | DENY | OTHER
+  if [ -z "$1" ]; then echo "ALLOW"
+  elif echo "$1" | grep -q '"permissionDecision":"ask"'; then echo "ASK"
+  elif echo "$1" | grep -q '"permissionDecision":"deny"'; then echo "DENY"
   else echo "OTHER"; fi
+}
+
+# Run one tool call through the hook and classify its decision. rp_decision_env takes
+# explicit `env` operands before a literal '--', for the fail-closed cases that need a
+# non-standard environment (a non-resolving realpath stub on PATH, or HOME unset).
+# rp_decision is the common case: the standard test env.
+# Usage: rp_decision_env <env-operand>... -- <tool> <input-field> <path>
+rp_decision_env() {
+  local -a envargs=()
+  while [ "${1:-}" != "--" ]; do envargs+=("$1"); shift; done
+  shift  # drop the '--' separator
+  rp_classify "$(rp_json "$1" "$2" "$3" | env "${envargs[@]}" bash "$RESTRICT" 2>/dev/null)"
+}
+
+rp_decision() { # $1=tool $2=input-field $3=path  ->  ALLOW | ASK | DENY | OTHER
+  rp_decision_env HOME="$rp_tmp/home" CLAUDE_PROJECT_DIR="$rp_tmp/proj" -- "$1" "$2" "$3"
 }
 
 assert_decision() { # $1=label $2=expected $3=actual
@@ -296,7 +316,28 @@ assert_decision "Delete inside project allowed"        ALLOW "$(rp_decision Bash
 assert_decision "Delete in memory store allowed"       ALLOW "$(rp_decision Bash command "rm $mem/stale.md")"
 assert_decision "Delete traversal out of memory denied" DENY "$(rp_decision Bash command "rm $mem/../../../settings.json")"
 
-rm -rf "$rp_tmp"
+# --- Fail-closed defensive branches (not reachable through the standard env above) ---
+# (1) When realpath cannot resolve '..' (non-GNU/BSD realpath — e.g. macOS, where
+# 'realpath -m' is unsupported), normalize() leaves the traversal intact and the
+# literal-'..' guard in is_claude_memory must still reject the exemption. Force that
+# branch with a non-resolving 'realpath' stub on PATH. (Robust either way: if the
+# stub is bypassed and realpath resolves '..', the path still misses the memory
+# prefix and the expected ask/deny holds — only a wrongful allow would fail these.)
+rp_stub_bin="$rp_tmp/stubbin"
+mkdir -p "$rp_stub_bin"
+printf '#!/bin/sh\nexit 1\n' > "$rp_stub_bin/realpath"
+chmod +x "$rp_stub_bin/realpath"
+assert_decision "Traversal asks when realpath can't resolve .."          ASK \
+  "$(rp_decision_env HOME="$rp_tmp/home" CLAUDE_PROJECT_DIR="$rp_tmp/proj" PATH="$rp_stub_bin:$PATH" -- Write file_path "$mem/../../settings.json")"
+assert_decision "Delete traversal denied when realpath can't resolve .." DENY \
+  "$(rp_decision_env HOME="$rp_tmp/home" CLAUDE_PROJECT_DIR="$rp_tmp/proj" PATH="$rp_stub_bin:$PATH" -- Bash command "rm $mem/../../settings.json")"
+
+# (2) When HOME and USERPROFILE are both unset, is_claude_memory can't resolve a
+# home dir and must fail closed — memory paths fall back to the out-of-project gate.
+assert_decision "Memory write asks when HOME unset"     ASK \
+  "$(rp_decision_env -u HOME -u USERPROFILE CLAUDE_PROJECT_DIR="$rp_tmp/proj" -- Write file_path "$mem/MEMORY.md")"
+assert_decision "Memory delete denied when HOME unset"  DENY \
+  "$(rp_decision_env -u HOME -u USERPROFILE CLAUDE_PROJECT_DIR="$rp_tmp/proj" -- Bash command "rm $mem/stale.md")"
 
 # ============================================================
 # Summary
