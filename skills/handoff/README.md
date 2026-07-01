@@ -25,9 +25,9 @@ on a different machine — can resume the work by reading only that file.
     /optimus:handoff
     /optimus:handoff finish the migration tests
 
-Arguments are optional: if you pass them, they're recorded as the next session's focus and the
-document is biased toward it. Without arguments, the document captures what happened and why, and
-records a focus or next steps only when the conversation makes them clear.
+Arguments are optional: if you pass them, they're recorded as the next session's focus. Without
+arguments, the document captures what happened and why, and records a focus or next steps only
+when the conversation makes them clear.
 
 ## Output
 

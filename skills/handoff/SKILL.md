@@ -23,10 +23,10 @@ Record a **Focus for next session** only when the conversation gives a clear sig
 
 ## Step 2: Locate the doc; decide create, enhance, or overwrite
 
-Resolve the root with `$CLAUDE_PLUGIN_ROOT/skills/init/references/multi-repo-detection.md` — the workspace root in a multi-repo workspace, otherwise the repo/project root. The handoff folder is `docs/handoffs/` under that root. Then branch:
+Resolve the root with `$CLAUDE_PLUGIN_ROOT/skills/init/references/multi-repo-detection.md` — the workspace root in a multi-repo workspace, otherwise the repo/project root; when detection finds exactly one child repo (the current directory is not itself a repo), treat that child repo as the root, and with no recognized structure use the current directory (Step 6 already covers reporting a root that is not under version control). The handoff folder is `docs/handoffs/` under that root. Then branch:
 
 - **`<slug>.md` exists** → read it, then `AskUserQuestion`: **Enhance** (merge new context; keep still-valid content and append a History line) or **Overwrite** (fresh rewrite; the prior version stays in git history).
-- **No slug match but other handoffs exist** → list them (filename · title · Last updated), then `AskUserQuestion`: **Continue one** (pick via a follow-up question, then treat as Enhance) or **Create new**.
+- **No slug match but other handoffs exist** → list them (filename · title · Last updated), then `AskUserQuestion`: **Continue one** (pick via a follow-up question, adopt the chosen file's slug as `<slug>` for the rest of the run, then treat as Enhance) or **Create new**.
 - **Folder empty or absent** → create new.
 
 ## Step 3: Classify artifacts against version control
@@ -47,26 +47,26 @@ If the conversation has not already established the codebase's current state, br
 
 Fill the **Handoff document template** from what was actually discussed. **New or overwrite** → write fresh. **Enhance** → keep still-valid content; update **Current state** (and **Goal**/**Next steps** if present) to current reality, dropping completed steps; preserve and extend the recorded decisions and open questions, promoting any the new work has resolved; add new artifacts; refresh **Last updated**; append one **History** line.
 
-- Prioritize knowledge a fresh agent could not re-derive from the code or git history — decisions and why, alternatives considered and rejected, constraints, gotchas, and still-open questions. Include **Goal**, **Focus for next session**, and **Next steps** only when the conversation makes them genuinely clear; otherwise omit them.
+- Prioritize knowledge a fresh agent could not re-derive from the code or git history — decisions and why, alternatives considered and rejected, constraints, gotchas, and still-open questions.
 - Never duplicate content that lives in a tracked artifact — reference it by path plus a one-line summary. Inline only bucket-2 and bucket-3 content.
 - Trust git state over chat memory when they conflict; if the current state is ambiguous, say so in one line rather than guessing.
 - Keep the document tool-agnostic: refer to the resuming actor as "a fresh agent" or "a new session" — never name a specific AI product.
 
-## Step 5: Redact inlined content
+## Step 5: Redact the drafted document
 
-Scan everything you are about to **inline** (never paths or references) against the **Redaction patterns** table and replace matches with the exact marker `[REDACTED: <kind>]`, preserving structure — e.g. `DATABASE_URL=postgres://app:[REDACTED: password]@db:5432/app`. A file whose name looks like a secret (the same set `/optimus:commit` warns about) is **never inlined with its values** regardless of tracked state — see the table's last two rows.
+Scan the entire drafted document body — authored prose (Current state, decisions, open questions) as much as inlined artifact content — against the **Redaction patterns** table and replace matches with the exact marker `[REDACTED: <kind>]`, preserving structure — e.g. `DATABASE_URL=postgres://app:[REDACTED: password]@db:5432/app`. Only reference lines (paths, SHAs, URLs) are exempt. A file whose name looks like a secret (the same set `/optimus:commit` warns about) is **never inlined with its values** regardless of tracked state — see the table's last two rows.
 
 ## Step 6: Write the document, then report and recommend
 
-Write the filled template to `docs/handoffs/<slug>.md` under the root resolved in Step 2, creating `docs/handoffs/` if missing.
+Write the filled template to `docs/handoffs/<slug>.md` under the root resolved in Step 2, creating `docs/handoffs/` if missing. Then re-scan the written file against the **Redaction patterns** table (full document body, same reference-line exemption as Step 5) and fix any hits before reporting.
 
-Report the written path; tell the user the document is redacted and safe to commit, and that any older handoffs in the folder remain (this is the latest for its topic). If the resolved root is a multi-repo workspace root that is not itself a git repo, note that the file is not yet under version control — suggest committing it inside a child repo or initializing version control at the root.
+Report the written path; tell the user the redaction scan re-ran clean on the written file, and that any older handoffs in the folder remain (this is the latest for its topic). If the resolved root is a multi-repo workspace root that is not itself a git repo, note that the file is not yet under version control — suggest committing it inside a child repo or initializing version control at the root.
 
 Recommend `/optimus:commit` so the handoff reaches the remote and other machines. Then emit the closing tip from `$CLAUDE_PLUGIN_ROOT/references/skill-handoff.md` — **Variant A**, substituting `<continuation-skill(s)>` with `/optimus:commit` and `<non-continuation-examples>` with `/optimus:code-review`, `/optimus:unit-test`. This tip is spoken to the user; it is never written into the document, which stays tool-agnostic.
 
 ## Handoff document template
 
-Minimal-but-complete; omit any section with nothing to say — **Goal**, **Focus for next session**, and **Next steps** included, unless the conversation makes them genuinely clear. Ordering follows a cold reader's path: orient (Goal if present, Current state, decisions) → act (Next steps, if any) → reference (artifacts).
+Minimal-but-complete; omit any section with nothing to say. Ordering follows a cold reader's path: orient (Goal if present, Current state, decisions) → act (Next steps, if any) → reference (artifacts). Square-bracketed lines in the template are author instructions — never emit them into the document.
 
 ````markdown
 # Handoff: <short title of the work>
@@ -82,11 +82,11 @@ Minimal-but-complete; omit any section with nothing to say — **Goal**, **Focus
 ## Current state
 <2-6 bullets: what is done, in progress, blocked. Prioritize what a fresh agent could not re-derive — decisions made and why.>
 
-**Decisions, constraints & gotchas** (omit if none):
+**Decisions, constraints & gotchas** [omit if none]:
 - <A decision made and why — and any alternative considered and rejected, with the reason.>
 - <A non-obvious gotcha, or a constraint that gates the work.>
 
-**Open questions** (omit if none):
+**Open questions** [omit if none]:
 - <Something the conversation left unresolved — what is undecided and what depends on it. Distinct from a rejected alternative: no decision was reached.>
 
 ## Next steps
@@ -96,12 +96,13 @@ Minimal-but-complete; omit any section with nothing to say — **Goal**, **Focus
 ## Relevant files & artifacts
 > Committed/tracked → referenced by repo-relative path / SHA / URL.
 > Uncommitted or unpushed → content inlined below (won't exist on another machine).
-> Anchor each reference on a durable identifier (a type / function / config name the resumer can search for) and say why it matters; never cite line numbers — a bare path can move under a refactor.
+[Anchor each reference on a durable identifier (a type / function / config name the resumer can search for) and say why it matters; never cite line numbers — a bare path can move under a refactor.]
 
 - `path/to/file.ts` — `SessionStore`: <why it matters> (tracked)
 - Issue/PR: <URL> — <relevance>
 
-### Inlined (not yet on remote) — omit if none
+### Inlined (not yet on remote)
+[Omit this section if nothing is inlined.]
 ```diff
 <the fragment that carries the decision — schema, type shape, state machine, or the changed lines that matter, not a full diff dump; or new-file body / unpushed commit message; secrets redacted>
 ```
@@ -115,7 +116,7 @@ Minimal-but-complete; omit any section with nothing to say — **Goal**, **Focus
 
 ## Redaction patterns
 
-Applied only to **inlined** content. Marker format is exactly `[REDACTED: <kind>]`.
+Applied to **everything written into the document**; only reference lines (paths, SHAs, URLs) are exempt. Marker format is exactly `[REDACTED: <kind>]`.
 
 | Class | Catch | Marker |
 |---|---|---|
