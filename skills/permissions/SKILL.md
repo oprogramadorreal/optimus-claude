@@ -14,7 +14,7 @@ Configure safe permission rules and a path-restriction hook so Claude Code agent
 | Read/Search | Allow | Allow |
 | Write/Edit | Allow | Ask user |
 | Write/Edit precious unversioned file | **Ask user** | Ask user |
-| Write/Edit Claude's own memory store (`~/.claude/projects/.../memory/`) | — | **Allow** |
+| Write/Edit/Delete Claude's own memory store (`~/.claude/projects/.../memory/`) | — | **Allow** |
 | Delete (rm/rmdir) | Allow | **BLOCKED** |
 | Delete precious unversioned file | **BLOCKED** | **BLOCKED** |
 | Git on feature branch | Allow | — |
@@ -85,7 +85,7 @@ Run through this checklist. Fix any issues before reporting.
 - Number of tools in the allow list, number of deny patterns
 - If MCP servers were detected, list them
 - Brief security model reminder: writes outside project will prompt, deletes outside project are blocked, reads are unrestricted
-- Memory-store exemption: writes to Claude's own per-project auto-memory store (`~/.claude/projects/.../memory/`) are allowed without a prompt even though it sits outside the project — it is Claude's designated scratchpad. The exemption is scoped to the `memory/` subtree only; the rest of `~/.claude` (e.g., `settings.json`) still prompts on write
+- Memory-store exemption: writes and deletes in Claude's own per-project auto-memory store (`~/.claude/projects/.../memory/`) are allowed without a prompt even though it sits outside the project — it is Claude's designated, prunable scratchpad. The exemption is scoped to a single-segment `memory/` subtree only (a `..` traversal out of it is rejected); the rest of `~/.claude` (e.g., `settings.json`) still prompts on write and stays blocked on delete
 - Trust model reminder: commands not on the deny list will execute without prompts inside the project (database operations, file deletions, network requests, etc.). See the skill's README for the full trust model
 - Git branch protection is active — git operations (commit, push, rebase, reset, merge) are allowed on feature branches but blocked on protected branches (master, main, develop, dev, development, staging, stage, prod, production, release). Customize the `PROTECTED_BRANCHES` array in `.claude/hooks/restrict-paths.sh`
 - Precious file protection is always active — the hook automatically protects well-known sensitive files (`.env`, `*.key`, `*.pem`, `*.sqlite`, etc.) that are not tracked by git

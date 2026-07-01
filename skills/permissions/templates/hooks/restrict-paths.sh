@@ -14,7 +14,7 @@
 # WHAT THIS SCRIPT DOES:
 #   - Edit/Write operations inside the project  → silently allowed
 #   - Edit/Write operations outside the project → prompts you for approval
-#   - Edit/Write to Claude's own memory store   → silently allowed
+#   - Edit/Write/delete in Claude's memory store → silently allowed
 #   - rm/rmdir commands outside the project     → hard blocked
 #   - Edit/Write of precious unversioned files  → prompts you for approval
 #   - rm/rmdir of precious unversioned files    → hard blocked
@@ -50,9 +50,10 @@
 #   Claude Code keeps a per-project auto-memory store under
 #   <home>/.claude/projects/<project>/memory/. Although that path is outside
 #   CLAUDE_PROJECT_DIR, it is Claude's own scratchpad (plain markdown, designed
-#   to be written by Claude), so writes there are allowed without a prompt. The
-#   exemption is scoped to the memory/ subtree only — the rest of ~/.claude
-#   (settings.json, etc.) is NOT exempt and still prompts on out-of-project write.
+#   to be written and pruned by Claude), so writes AND deletes there are allowed
+#   without a prompt. The exemption is scoped to a single-segment memory/ subtree
+#   only — the rest of ~/.claude (settings.json, etc.) is NOT exempt and still
+#   prompts on out-of-project write / is blocked on out-of-project delete.
 #
 # TO DISABLE OR REMOVE:
 #   1. Delete this file: rm .claude/hooks/restrict-paths.sh
@@ -165,21 +166,35 @@ is_inside_project() {
   [[ "$norm_path" == "${norm_root}"* || "$norm_path" == "${norm_root%/}" ]]
 }
 
-# --- Claude Code auto-memory store ---
-# Claude Code keeps a per-project memory store at
-#   <home>/.claude/projects/<mangled-project-path>/memory/
-# Those files are Claude's own scratchpad: plain markdown, recoverable, and
-# designed to be written by Claude. Treat writes there like in-project writes
-# (no prompt) even though the path sits outside CLAUDE_PROJECT_DIR. The match is
-# scoped to the memory/ subtree only — the rest of ~/.claude (settings.json,
-# etc.) is NOT exempted, so the agent still can't silently rewrite its own config.
-norm_home="$(normalize "${HOME:-${USERPROFILE:-}}")"
+# --- Claude Code auto-memory store (see header: CLAUDE MEMORY STORE) ---
+# norm_home is resolved lazily on first use: this hook fires on every tool call,
+# but only structured writes ever consult the store, so we skip the normalize()
+# fork on the common read/search/Bash/in-project paths.
+_norm_home=""
+_norm_home_resolved=""
 is_claude_memory() {
-  [[ -n "$norm_home" ]] || return 1
+  if [[ -z "$_norm_home_resolved" ]]; then
+    _norm_home="$(normalize "${HOME:-${USERPROFILE:-}}")"
+    _norm_home_resolved=1
+  fi
+  [[ -n "$_norm_home" ]] || return 1
   local norm_path
   norm_path="$(normalize "$1")"
-  case "$norm_path" in
-    "$norm_home"/.claude/projects/*/memory|"$norm_home"/.claude/projects/*/memory/*) return 0 ;;
+  # Fail closed on an unresolved ".." (e.g. non-GNU realpath ignoring '-m'): a
+  # traversal like memory/../../settings.json must not reach the auto-allow below.
+  case "$norm_path" in */../*|*/..|../*|..) return 1 ;; esac
+  # Match exactly <home>/.claude/projects/<project>/memory[/...]. <project> must be
+  # a SINGLE path segment: a bare case-glob '*' also spans '/', which would stretch
+  # the exemption to a 'memory' dir nested arbitrarily deep under projects/. Every
+  # project's store shares this shape and stays allowed — they are all Claude's own
+  # recoverable scratchpad; the rest of ~/.claude (settings.json, etc.) is not.
+  local prefix="$_norm_home/.claude/projects/"
+  [[ "$norm_path" == "$prefix"* ]] || return 1
+  local rest="${norm_path#"$prefix"}"
+  local seg="${rest%%/*}"
+  [[ -n "$seg" ]] || return 1
+  case "${rest#"$seg"}" in
+    /memory|/memory/*) return 0 ;;
   esac
   return 1
 }
@@ -473,9 +488,10 @@ case "$tool_name" in
     # Fail-open: if file_path cannot be extracted, allow rather than block
     [[ "$input" =~ \"file_path\"[[:space:]]*:[[:space:]]*\"([^\"]+)\" ]] || exit 0
     filepath="${BASH_REMATCH[1]}"
-    if ! is_inside_project "$filepath"; then
-      # Claude's own auto-memory store is outside the project but writable by design
-      is_claude_memory "$filepath" && exit 0
+    # Outside the project prompts — except Claude's own auto-memory store, which is
+    # writable by design. This skips only the out-of-project prompt; the precious-file
+    # check below still runs, so the exemption is not a blanket bypass.
+    if ! is_inside_project "$filepath" && ! is_claude_memory "$filepath"; then
       ask_permission "File '$filepath' is outside project root. Allow this write?"
     fi
     # Precious file protection: prompt before modifying sensitive unversioned files
@@ -488,9 +504,10 @@ case "$tool_name" in
     # Fail-open: if notebook_path cannot be extracted, allow rather than block
     [[ "$input" =~ \"notebook_path\"[[:space:]]*:[[:space:]]*\"([^\"]+)\" ]] || exit 0
     filepath="${BASH_REMATCH[1]}"
-    if ! is_inside_project "$filepath"; then
-      # Claude's own auto-memory store is outside the project but writable by design
-      is_claude_memory "$filepath" && exit 0
+    # Outside the project prompts — except Claude's own auto-memory store, which is
+    # writable by design. This skips only the out-of-project prompt; the precious-file
+    # check below still runs, so the exemption is not a blanket bypass.
+    if ! is_inside_project "$filepath" && ! is_claude_memory "$filepath"; then
       ask_permission "Notebook '$filepath' is outside project root. Allow this edit?"
     fi
     # Precious file protection: prompt before modifying sensitive unversioned notebooks
@@ -534,7 +551,11 @@ case "$tool_name" in
         read -ra words <<< "$_subcmd"
         for word in "${words[@]}"; do
           [[ "$word" == rm || "$word" == rmdir || "$word" == -* ]] && continue
-          if ! is_inside_project "$word"; then
+          # Claude's own auto-memory store is writable AND prunable by design, so
+          # deletes there are allowed like writes (see is_claude_memory). Everything
+          # else outside the project root is hard-blocked. The is_claude_memory ".."
+          # guard keeps a traversal like memory/../../settings.json from slipping through.
+          if ! is_inside_project "$word" && ! is_claude_memory "$word"; then
             deny_operation "BLOCKED: Cannot delete '$word' — outside project root."
           fi
           # Precious file protection: block deletion of sensitive unversioned files

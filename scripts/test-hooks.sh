@@ -12,7 +12,8 @@ SESSION_START="$PLUGIN_ROOT/hooks/session-start"
 errors=0
 pass=0
 tmpdir=""
-trap 'if [ -n "$tmpdir" ] && [ -d "$tmpdir" ]; then rm -rf "$tmpdir"; fi' EXIT
+rp_tmp=""
+trap 'for _d in "$tmpdir" "$rp_tmp"; do [ -n "$_d" ] && [ -d "$_d" ] && rm -rf "$_d"; done' EXIT
 
 # --- Helpers ---
 
@@ -275,17 +276,25 @@ assert_decision "Memory-store subdir write allowed"    ALLOW "$(rp_decision Edit
 assert_decision "Memory-store notebook allowed"        ALLOW "$(rp_decision NotebookEdit notebook_path "$mem/nb.ipynb")"
 assert_decision "Global ~/.claude/settings.json asks"  ASK   "$(rp_decision Write file_path "$rp_tmp/home/.claude/settings.json")"
 
-# Delete protection still holds (Bash branch).
-rp_bash_decision() { # $1=command -> ALLOW | DENY | OTHER
-  local out
-  out=$(printf '{"tool_name":"Bash","tool_input":{"command":"%s"}}' "$1" \
-        | env HOME="$rp_tmp/home" CLAUDE_PROJECT_DIR="$rp_tmp/proj" bash "$RESTRICT" 2>/dev/null)
-  if [ -z "$out" ]; then echo "ALLOW"
-  elif echo "$out" | grep -q '"permissionDecision":"deny"'; then echo "DENY"
-  else echo "OTHER"; fi
-}
-assert_decision "Delete outside project denied"        DENY  "$(rp_bash_decision "rm $rp_tmp/outside/a.txt")"
-assert_decision "Delete inside project allowed"        ALLOW "$(rp_bash_decision "rm $rp_tmp/proj/src/a.txt")"
+# Negative boundary: only a single-segment projects/<project>/memory subtree is
+# exempt. Traversal out of it, a sibling of memory/, a look-alike dir name, and a
+# 'memory' dir nested at arbitrary depth must all still hit the ask. (The exemption
+# spans any project's store by design — the memory dir 'hash' above is unrelated to
+# CLAUDE_PROJECT_DIR yet allowed — so there is no per-project negative case here.)
+assert_decision "Memory traversal to settings asks"    ASK   "$(rp_decision Write file_path "$mem/../../../settings.json")"
+assert_decision "Sibling of memory/ asks"              ASK   "$(rp_decision Write file_path "$rp_tmp/home/.claude/projects/hash/notes.txt")"
+assert_decision "Look-alike my-memory/ asks"           ASK   "$(rp_decision Write file_path "$rp_tmp/home/.claude/projects/hash/my-memory/x.md")"
+assert_decision "Nested memory/ (deep) asks"           ASK   "$(rp_decision Write file_path "$rp_tmp/home/.claude/projects/hash/sub/memory/x.md")"
+assert_decision "Bare memory/ dir allowed"             ALLOW "$(rp_decision Edit file_path "$mem")"
+
+# Delete protection (Bash branch) — reuse rp_decision; the Bash path only ever
+# denies or falls through, so the shared classifier suffices. The memory store is
+# writable AND prunable by design, so deletes there are allowed like writes — but a
+# traversal that escapes the store is still blocked.
+assert_decision "Delete outside project denied"        DENY  "$(rp_decision Bash command "rm $rp_tmp/outside/a.txt")"
+assert_decision "Delete inside project allowed"        ALLOW "$(rp_decision Bash command "rm $rp_tmp/proj/src/a.txt")"
+assert_decision "Delete in memory store allowed"       ALLOW "$(rp_decision Bash command "rm $mem/stale.md")"
+assert_decision "Delete traversal out of memory denied" DENY "$(rp_decision Bash command "rm $mem/../../../settings.json")"
 
 rm -rf "$rp_tmp"
 
