@@ -188,13 +188,27 @@ while IFS= read -r f; do
   # Check if this file is referenced in any skill .md file:
   # 1. By full relative path (e.g., skills/init/references/foo.md)
   # 2. By basename only (e.g., format-python.py in a table or prose)
-  # 3. By parent directory reference (e.g., templates/hooks/ covers all files inside)
-  parent_dir=$(dirname "$rel_path")
-  if ! grep -rq "$rel_path" skills/ 2>/dev/null && \
-     ! grep -rq "$basename_f" skills/ 2>/dev/null && \
-     ! grep -rq "$parent_dir/" skills/ 2>/dev/null; then
-    orphan_files+="  $rel_path\n"
-  fi
+  # 3. By parent directory reference (e.g., templates/hooks/ covers all files
+  #    inside) — skill-level files only. For root references/ and agents/
+  #    files this fallback is vacuous (the strings "references/" and "agents/"
+  #    match trivially somewhere in skills/), so they must match by full path
+  #    or basename.
+  case "$rel_path" in
+    references/*|agents/*)
+      if ! grep -rq "$rel_path" skills/ 2>/dev/null && \
+         ! grep -rq "$basename_f" skills/ 2>/dev/null; then
+        orphan_files+="  $rel_path\n"
+      fi
+      ;;
+    *)
+      parent_dir=$(dirname "$rel_path")
+      if ! grep -rq "$rel_path" skills/ 2>/dev/null && \
+         ! grep -rq "$basename_f" skills/ 2>/dev/null && \
+         ! grep -rq "$parent_dir/" skills/ 2>/dev/null; then
+        orphan_files+="  $rel_path\n"
+      fi
+      ;;
+  esac
 done < <(( find ./skills -path '*/references/*' -o -path '*/templates/*' -o -path '*/agents/*'; find ./references ./agents -type f 2>/dev/null ) | grep -v '/__' | sort)
 check "No orphaned reference/template/agent files" test -z "$orphan_files"
 if [ -n "$orphan_files" ]; then
