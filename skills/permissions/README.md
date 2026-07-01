@@ -249,7 +249,7 @@ Unlike the previous `OPTIMUS_PROTECT_UNVERSIONED` approach, precious file protec
 
 Re-run `/optimus:permissions` to scan for project-specific precious files. The skill will detect unversioned files that look sensitive and offer to add custom patterns to `is_precious()` in `.claude/hooks/restrict-paths.sh`. You can also edit the function directly.
 
-**Note:** Re-running the skill replaces the hook with the latest template version. If you've added custom patterns to `is_precious()`, they will be overwritten. For persistent customizations, edit the template in the plugin source or re-add patterns after updating.
+**Note:** Re-running the skill replaces the hook with the latest template version. If you've added custom patterns to `is_precious()` (or edited `PROTECTED_BRANCHES`), the skill detects the modifications before overwriting and offers to re-apply them on top of the fresh template. For persistent customizations, edit the template in the plugin source.
 
 ### Limitations
 

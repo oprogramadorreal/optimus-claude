@@ -1,5 +1,5 @@
 ---
-description: Configures Claude Code permissions for safe agent autonomy. Creates settings.json with allow/deny rules and a path-restriction hook. Use after /optimus:init to enable autonomous agent workflows, or standalone to lock down a project's permission boundaries.
+description: Configures Claude Code permissions for safe agent autonomy. Creates settings.json with allow/deny rules and a hook enforcing path restrictions, git branch protection (commit/push blocked on master/main), and precious-file safeguards. Use after /optimus:init to enable autonomous agent workflows, or standalone to lock down a project's permission boundaries.
 disable-model-invocation: true
 ---
 
@@ -37,11 +37,15 @@ mkdir -p .claude/hooks
 
 ## Step 3: Install Path-Restriction Hook
 
+If Step 1 detected an existing `.claude/hooks/restrict-paths.sh`, diff it against the template first. If it carries user modifications (e.g., a customized `PROTECTED_BRANCHES` array or extra `is_precious()` patterns), list them and use `AskUserQuestion` — header "Hook edits", question "Your restrict-paths.sh has local modifications: [list]. Installing overwrites the hook with the current template. Re-apply your modifications afterwards?":
+- **Re-apply (Recommended)** — "Install the fresh template, then re-apply the listed customizations on top."
+- **Discard** — "Install the fresh template as-is; local modifications are dropped."
+
 Copy the hook template to the project (overwrites any existing version):
 - Source: `$CLAUDE_PLUGIN_ROOT/skills/permissions/templates/hooks/restrict-paths.sh`
 - Destination: `.claude/hooks/restrict-paths.sh`
 
-Copy the file contents exactly — do not modify the template.
+Copy the file contents exactly — do not modify the template. If the user chose **Re-apply**, apply the listed customizations (and only those) to the installed copy afterwards.
 
 ## Step 4: Create or Update settings.json
 
@@ -66,41 +70,41 @@ Create it from the template. If `.mcp.json` was found in Step 1, add `mcp__<serv
 
 ### Merge principles
 
-- Never remove existing allow/deny entries or hooks — except git deny patterns, which are reconciled with the user when existing patterns go beyond the template (see step 2 above)
+- Never remove existing allow/deny entries or hooks — except git deny patterns, which are reconciled with the user when existing patterns go beyond the template (see the permissions.deny merge rule above)
 - Never overwrite the file — read, merge, write
+- If the existing file is not valid JSON, do not repair or overwrite it silently — show the parse problem and ask the user how to proceed
 - The result must be valid JSON
 
 ## Step 5: Verify and Report
 
 Run through this checklist. Fix any issues before reporting.
 
-1. `.claude/hooks/restrict-paths.sh` exists and contains the hook logic
+1. `.claude/hooks/restrict-paths.sh` is an exact copy of the template — `diff` it against `$CLAUDE_PLUGIN_ROOT/skills/permissions/templates/hooks/restrict-paths.sh` and check it parses with `bash -n .claude/hooks/restrict-paths.sh`. The only acceptable differences are customizations the user chose to re-apply in Step 3; on any other mismatch, re-copy the template before reporting — a mangled hook fails open at runtime
 2. `.claude/settings.json` exists and contains:
-   - `permissions.allow` with at least the 13 tool entries from the template
-   - `permissions.deny` with at least the 30 deny patterns from the template
+   - `permissions.allow` with every allow entry from the template
+   - `permissions.deny` with every deny pattern from the template
    - `hooks.PreToolUse` with an entry referencing `restrict-paths.sh`
 3. If the file had existing PostToolUse hooks or other content, verify it is preserved
+4. Scan for precious unversioned files in the project. Derive the patterns from the `is_precious()` function in the just-installed `.claude/hooks/restrict-paths.sh` (the single source of truth — do not hardcode the list), one `-name` clause per pattern:
+   ```bash
+   find . -maxdepth 4 \( -name "<pattern-1>" -o -name "<pattern-2>" -o ... \) -not -path "./.git/*" -not -path "*/node_modules/*" -not -path "*/obj/*" -not -path "*/bin/*" 2>/dev/null
+   ```
+   - If any are found and not git-tracked, report them as protected files
+   - If the scan discovers unversioned files that look sensitive but do not match built-in patterns (e.g., custom config files like `config.local.yaml`), ask the user if they want to add custom patterns to the `is_precious()` function in `.claude/hooks/restrict-paths.sh`. **Note:** on a re-run, Step 3 detects such edits and offers to re-apply them after reinstalling the template; to make them permanent, edit the template in the plugin source instead.
 
 **Report to the user:**
 - Files created or updated
 - Number of tools in the allow list, number of deny patterns
 - If MCP servers were detected, list them
 - Brief security model reminder: writes outside project will prompt, deletes outside project are blocked, reads are unrestricted
-- Memory-store exemption: writes and deletes in Claude's own per-project auto-memory store (`~/.claude/projects/.../memory/`) are allowed without a prompt even though it sits outside the project — it is Claude's designated, prunable scratchpad. The exemption is scoped to a single-segment `memory/` subtree only (a `..` traversal out of it is rejected); the rest of `~/.claude` (e.g., `settings.json`) still prompts on write and stays blocked on delete
-- Session-scratchpad exemption: writes and deletes in the harness-provided session scratchpad (`<temp>/claude/<project>/<session>/scratchpad/`) are likewise allowed without a prompt — it is Claude's throwaway working area for the session. The match requires the full `.../claude/<project>/<session>/scratchpad` shape (a `..` traversal out of it is rejected); if the temp root can't be resolved the path falls back to the normal out-of-project prompt
-- Trust model reminder: commands not on the deny list will execute without prompts inside the project (database operations, file deletions, network requests, etc.). See the skill's README for the full trust model
-- Git branch protection is active — git operations (commit, push, rebase, reset, merge) are allowed on feature branches but blocked on protected branches (master, main, develop, dev, development, staging, stage, prod, production, release). Customize the `PROTECTED_BRANCHES` array in `.claude/hooks/restrict-paths.sh`
-- Precious file protection is always active — the hook automatically protects well-known sensitive files (`.env`, `*.key`, `*.pem`, `*.sqlite`, etc.) that are not tracked by git
-- Sandboxing note: this skill provides defense-in-depth, not OS-level isolation. For full sandboxing, see the skill's README ("Where This Fits" section) which covers built-in sandboxing, devcontainers, and platform-specific recommendations
-- Auto mode note: these layers complement Claude Code's auto mode — the deny list is evaluated before auto mode's classifier and the hook runs in every permission mode. If auto mode is available on the user's model and provider, it can be enabled separately (`Shift+Tab` or user settings) to further reduce prompts; this skill does not configure it. See the skill's README ("Relationship with auto mode" section)
-- Native protected paths note: independently of this skill, Claude Code never auto-approves writes to certain in-project config paths — the whole `.claude/` directory, `.git/`, `.mcp.json`, and similar — in any mode except `bypassPermissions`, so editing files like `.claude/CLAUDE.md` or `.claude/settings.json` still prompts by design (a privilege-escalation safeguard this skill can't and shouldn't override). See the skill's README ("Interaction with Claude Code's native protected paths" section)
-
-4. Scan for precious unversioned files in the project:
-   ```bash
-   find . -maxdepth 4 \( -name ".env*" -o -name "local.settings.json" -o -name "credentials.*" -o -name "secrets.*" -o -name "docker-compose.override.yml" -o -name "appsettings.*.json" -o -name "*keyfile*.json" -o -name "newrelic.config" -o -name "*.key" -o -name "*.pem" -o -name "*.pfx" -o -name "*.p12" -o -name "*.cert" -o -name "*.crt" -o -name "*.jks" -o -name "*.sqlite" -o -name "*.sqlite3" -o -name "*.db" -o -name "*.db-shm" -o -name "*.db-wal" -o -name "*.db-journal" -o -name "*.mdf" -o -name "*.ldf" -o -name "*.ndf" -o -name "*.bak" -o -name "*.dump" -o -name "*.sql.gz" -o -name "*.suo" -o -name "*.user" \) -not -path "./.git/*" -not -path "*/node_modules/*" -not -path "*/obj/*" -not -path "*/bin/*" 2>/dev/null
-   ```
-   - If any are found and not git-tracked, report them as protected files
-   - If the scan discovers unversioned files that look sensitive but do not match built-in patterns (e.g., custom config files like `config.local.yaml`), ask the user if they want to add custom patterns to the `is_precious()` function in `.claude/hooks/restrict-paths.sh`. **Note:** custom edits to this file will be replaced if the user re-runs `/optimus:permissions`. For persistent customizations, edit the template in the plugin source instead.
+- Memory-store exemption: Claude's per-project auto-memory store (`~/.claude/projects/.../memory/`) is writable and deletable without prompts even though it sits outside the project — see the README ("PreToolUse Hook") for scope and traversal guards
+- Session-scratchpad exemption: likewise for the harness-provided session scratchpad (`<temp>/claude/<project>/<session>/scratchpad/`)
+- Trust model reminder: commands not on the deny list execute without prompts inside the project — see the README ("Trust Model and Assumptions")
+- Git branch protection is active — git commit/push/rebase/reset/merge are blocked on the branches in the installed hook's `PROTECTED_BRANCHES` array; customize that array in `.claude/hooks/restrict-paths.sh` (a re-run offers to re-apply the edit)
+- Precious file protection is always active for well-known sensitive unversioned files — the full pattern list is `is_precious()` in the installed hook
+- Sandboxing note: defense-in-depth, not OS-level isolation — see the README ("Where This Fits") for sandboxing options
+- Auto mode note: the deny list is evaluated before auto mode's classifier and the hook runs in every permission mode; this skill does not configure auto mode — see the README ("Relationship with auto mode")
+- Native protected paths note: Claude Code itself still prompts for writes to `.claude/`, `.git/`, `.mcp.json` and similar in every mode except `bypassPermissions` — see the README ("Interaction with Claude Code's native protected paths")
 
 Recommend the next step based on project state:
 - If `.claude/CLAUDE.md` does not exist → `/optimus:init` to set up coding guidelines and project structure
