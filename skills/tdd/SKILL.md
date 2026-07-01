@@ -18,7 +18,7 @@ This skill is for **new features** and **bug fixes** — not refactoring. For re
 
 ## Step 1: Pre-flight
 
-Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/multi-repo-detection.md` for workspace detection. If a multi-repo workspace is detected, process each repo independently: run Steps 1–9 inside the repo the user is targeting. If ambiguous, ask which repo.
+Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/multi-repo-detection.md` for workspace detection. If a multi-repo workspace is detected, process within the repo the user is targeting. If ambiguous, ask which repo.
 
 ### Verify prerequisites
 
