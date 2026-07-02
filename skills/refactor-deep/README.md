@@ -20,16 +20,17 @@ This skill is part of the [optimus](https://github.com/oprogramadorreal/optimus-
 ## Usage
 
 ```
-/optimus:refactor-deep                                # Full project, 8 iterations, balanced
+/optimus:refactor-deep                                # Feature-branch diff (full project when no diff), 8 iterations, balanced
 /optimus:refactor-deep testability                    # Focus on testability barriers
 /optimus:refactor-deep guidelines src/backend         # Guidelines focus, scoped to a path
 /optimus:refactor-deep --max-iterations 12            # Raise iteration cap (hard cap 20)
 /optimus:refactor-deep --resume                       # Continue from existing progress file
 /optimus:refactor-deep --no-commit                    # Skip per-iteration checkpoint commits
+/optimus:refactor-deep --allow-red-baseline           # Proceed even if the pre-loop baseline suite is red
 claude -p "/optimus:refactor-deep --yes testability"  # Headless / CI; auto-confirms Step 3
 ```
 
-Scope accepts an existing path to restrict the refactor to it. Natural-language text is recorded as intent but does not filter the diff — the full branch diff is processed unless the scope resolves to a real path.
+Scope accepts an existing path to restrict the refactor to it. Natural-language text is recorded as intent but does not filter. With no path scope, iteration 1 covers the feature-branch diff when one exists, otherwise the full project; scope then widens per iteration to files with active findings and newly modified files.
 
 ## Requirements
 

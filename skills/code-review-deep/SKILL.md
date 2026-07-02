@@ -96,9 +96,9 @@ PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli init \
     --project-dir "."
 ```
 
-### Establish a green baseline (fresh runs only)
+### Establish a green baseline
 
-Skip on `--resume` — the baseline already ran and the calibrated timeout is persisted. On a fresh run, after `init` succeeds, verify the suite is green before the loop:
+Skip on `--resume` only when the prior run completed at least one iteration — then the baseline already ran and its calibrated timeout is persisted. Check the progress file's single `iteration.completed` field (a targeted read — do not load the `findings` array into context): if it is 0, the prior run never entered the loop (it stopped at `baseline-red`, or was interrupted at or before the first iteration), and `resume` never re-checks the baseline — run the command below after `resume` (green required, or `--allow-red` per the user) before entering the loop. On a fresh run, after `init` succeeds, verify the suite is green before the loop:
 
 ```bash
 PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli baseline \

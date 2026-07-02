@@ -1,7 +1,7 @@
 ---
-description: Iterative project-wide refactoring — runs `/optimus:refactor` in a fresh subagent context per iteration, applies fixes, runs tests, bisects failures, and continues until convergence or the iteration cap (default 8, hard cap 20). Supports `testability` or `guidelines` focus to prioritize finding categories. Fixes are applied automatically without per-change approval; for a single supervised pass, use /optimus:refactor. Requires a test command in .claude/CLAUDE.md. Use for thorough guideline alignment or testability cleanup before /optimus:unit-test.
+description: Iterative refactoring of the feature-branch diff (full project when no diff exists) — runs `/optimus:refactor` in a fresh subagent context per iteration, applies fixes, runs tests, bisects failures, and continues until convergence or the iteration cap (default 8, hard cap 20). Supports `testability` or `guidelines` focus to prioritize finding categories. Fixes are applied automatically without per-change approval; for a single supervised pass, use /optimus:refactor. Requires a test command in .claude/CLAUDE.md. Use for thorough guideline alignment or testability cleanup before /optimus:unit-test.
 disable-model-invocation: true
-argument-hint: "[testability|guidelines] [path] [--resume] [--yes] [--max-iterations N]"
+argument-hint: "[testability|guidelines] [path] [--resume] [--yes] [--max-iterations N] [--no-commit] [--allow-red-baseline]"
 ---
 
 # Project Refactor (Deep)
@@ -23,10 +23,10 @@ Extract from the user's arguments:
 4. `--max-iterations N` (optional, default 8, hard cap 20)
 5. Focus keyword: `testability` or `guidelines` (the same detection rules as `/optimus:refactor`) — match only standalone unquoted tokens, case-insensitive; keywords inside quotes stay in the scope text; if both keywords appear as standalone tokens, use the first one and warn: "Multiple focus keywords detected — using '[first]'. Run separate passes for each focus."
 6. `--allow-red-baseline` flag (present/absent) — proceed even if the Step 4 pre-loop baseline finds the suite already failing
-7. Everything else → scope text (an existing path scopes the refactor to that path; other text is recorded as intent only and does **not** filter — the full branch diff is still processed)
+7. Everything else → scope text (an existing path scopes the refactor to that path; other text is recorded as intent only and does **not** filter). With no path scope, iteration 1 covers the feature-branch diff when one exists, otherwise the full project; scope then widens per iteration only to files with active findings and newly modified files.
 
 Examples:
-- `/optimus:refactor-deep` → full project, 8 iterations, balanced focus
+- `/optimus:refactor-deep` → feature-branch diff (full project when no diff exists), 8 iterations, balanced focus
 - `/optimus:refactor-deep testability` → focus on testability barriers
 - `/optimus:refactor-deep guidelines src/backend` → guidelines focus, scoped to an existing path
 - `/optimus:refactor-deep --max-iterations 12` → 12 iterations
@@ -100,9 +100,9 @@ PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli init \
 
 If `--focus` is supplied with anything other than `testability` or `guidelines`, the CLI rejects it.
 
-### Establish a green baseline (fresh runs only)
+### Establish a green baseline
 
-Skip on `--resume` — the baseline already ran and the calibrated timeout is persisted. On a fresh run, after `init` succeeds, verify the suite is green before the loop:
+Skip on `--resume` only when the prior run completed at least one iteration — then the baseline already ran and its calibrated timeout is persisted. Check the progress file's single `iteration.completed` field (a targeted read — do not load the `findings` array into context): if it is 0, the prior run never entered the loop (it stopped at `baseline-red`, or was interrupted at or before the first iteration), and `resume` never re-checks the baseline — run the command below after `resume` (green required, or `--allow-red` per the user) before entering the loop. On a fresh run, after `init` succeeds, verify the suite is green before the loop:
 
 ```bash
 PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli baseline \
@@ -110,7 +110,7 @@ PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli baseline \
     [--allow-red]
 ```
 
-`baseline` runs the test command once and calibrates the per-iteration timeout from how long it takes (so a slow suite, re-run repeatedly during bisection, doesn't spuriously time out). It prints `baseline-green` (continue) or, on a failing suite, `baseline-red` with a non-zero exit. On `baseline-red`, stop and show the user the failing tests — a red starting tree makes bisection blame the iteration's fixes and revert good work. Pass `--allow-red` only when the user supplied `--allow-red-baseline` (proceed without a green safety net; the timeout is left at its default).
+`baseline` runs the test command once and calibrates the per-iteration timeout from how long it takes (so a slow suite, re-run repeatedly during bisection, doesn't spuriously time out). It prints `baseline-green` (continue) or, on a failing suite, `baseline-red` with a non-zero exit. On `baseline-red`, stop and show the user the failing tests — a red starting tree makes bisection blame the iteration's fixes and revert good work. Tell the user to fix the failing tests, or to accept the red baseline by re-running with `--allow-red-baseline`; either way the run continues via `--resume`, which re-establishes the baseline per the skip rule above. The CLI's own failure message says to pass `--allow-red` — that is its internal flag, not a skill argument; the skill-level flag is `--allow-red-baseline`. Pass `--allow-red` only when the user supplied `--allow-red-baseline` (proceed without a green safety net; the timeout is left at its default).
 
 ## Step 5: Run the Iteration Loop
 
@@ -138,7 +138,7 @@ PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli final-repo
     --archive
 ```
 
-This prints the cumulative report and archives the run — except on a `diminishing-returns` soft-exit, which the CLI leaves un-archived (prints `not-archived`) so it stays resumable via `--resume`.
+This prints the cumulative report; archival semantics, including the `diminishing-returns` soft-exit exception, are in the loop reference's "After the loop" section.
 
 ## Important
 
