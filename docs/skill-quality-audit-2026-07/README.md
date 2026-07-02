@@ -33,32 +33,32 @@ A full-plugin quality assessment of all 22 skills plus the repo's own authoring 
 
 ## Ranking — improvement need, highest first
 
-Scores are the adversarially verified 0–10 improvement-need scores (0–2 well-tuned, 3–4 minor polish, 5–6 moderate, 7–8 structural, 9–10 rebuild). No skill scored above 6; no rebuilds.
+Scores are the adversarially verified 0–10 improvement-need scores (0–2 well-tuned, 3–4 minor polish, 5–6 moderate, 7–8 structural, 9–10 rebuild). No skill scored above 6; no rebuilds. The **Re-score (2026-07-02)** column is the post-remediation reassessment — one fresh assessor per skill judging the current files on the same scale, after every finding was implemented and independently verified (see the Session 3 changelog entry for method and the residuals behind each score). The original scores and problem classes are kept for the before/after; row order is the original ranking.
 
-| # | Skill | Verified score | Dominant problem class |
-|---|-------|:---:|------------------------|
-| 1 | unit-test | 6 | missing guidance on failing-test paths (breaks harness contract) |
-| 2 | permissions | 5 | unverified security-critical install; silent overwrite of user hook edits |
-| 3 | handoff | 5 | redaction promise not actually enforced end-to-end |
-| 4 | code-review | 5 | agents never given the diff; PR mode can review wrong local content |
-| 5 | jira | 5 | factually wrong MCP tool tables disable features |
-| 6 | init | 5 | monorepo testing.md placement contradiction |
-| 7 | tdd | 5 | several advertised behaviors don't fire as written |
-| 8 | how-to-run | 5 | over-specification; worst-in-repo description (1021/1024 chars) |
-| 9 | workflow | 4 | destructive Discard advice without clean-tree precondition |
-| 10 | reset | 4 | cleanup can disable hooks the user chose to keep |
-| 11 | unit-test-deep | 4 | red-baseline silent rollback loop |
-| 12 | refactor-deep | 4 | --resume bypasses the green-baseline gate |
-| 13 | pr | 4 | post-rebase push has no failure-mode guidance |
-| 14 | prompt | 4 | contradictory CoT guidance across references |
-| 15 | spec-init | 4 | multi-repo branch silently breaks the core handoff promise |
-| 16 | refactor | 4 | its guideline agent skips the skill-authoring lens |
-| 17 | commit | 4 | secrets-rule conflict; message generated before untracked decision |
-| 18 | worktree | 4 | shared guard embeds contradicting policy; failing baseline unhandled |
-| 19 | brainstorm | 3.5 | well-tuned; prose-deliverable routing quirk; spec overwrite check |
-| 20 | code-review-deep | 3 | well-tuned; `--force` self-contradiction |
-| 21 | branch | 3 | well-tuned; next-step advice contradicts own README |
-| 22 | commit-message | 3 | well-tuned; near-exemplary minimal skill |
+| # | Skill | Score (2026-07-01) | Re-score (2026-07-02) | Dominant problem class (2026-07-01, since fixed) |
+|---|-------|:---:|:---:|------------------------|
+| 1 | unit-test | 6 | 2 | missing guidance on failing-test paths (breaks harness contract) |
+| 2 | permissions | 5 | 2.5 | unverified security-critical install; silent overwrite of user hook edits |
+| 3 | handoff | 5 | 2.5 | redaction promise not actually enforced end-to-end |
+| 4 | code-review | 5 | 2 | agents never given the diff; PR mode can review wrong local content |
+| 5 | jira | 5 | 2.5 | factually wrong MCP tool tables disable features |
+| 6 | init | 5 | 3 | monorepo testing.md placement contradiction |
+| 7 | tdd | 5 | 2 | several advertised behaviors don't fire as written |
+| 8 | how-to-run | 5 | 2.5 | over-specification; worst-in-repo description (1021/1024 chars) |
+| 9 | workflow | 4 | 2 | destructive Discard advice without clean-tree precondition |
+| 10 | reset | 4 | 1.5 | cleanup can disable hooks the user chose to keep |
+| 11 | unit-test-deep | 4 | 3 | red-baseline silent rollback loop |
+| 12 | refactor-deep | 4 | 1.5 | --resume bypasses the green-baseline gate |
+| 13 | pr | 4 | 2.5 | post-rebase push has no failure-mode guidance |
+| 14 | prompt | 4 | 2 | contradictory CoT guidance across references |
+| 15 | spec-init | 4 | 2 | multi-repo branch silently breaks the core handoff promise |
+| 16 | refactor | 4 | 2.5 | its guideline agent skips the skill-authoring lens |
+| 17 | commit | 4 | 2 | secrets-rule conflict; message generated before untracked decision |
+| 18 | worktree | 4 | 2 | shared guard embeds contradicting policy; failing baseline unhandled |
+| 19 | brainstorm | 3.5 | 2.5 | well-tuned; prose-deliverable routing quirk; spec overwrite check |
+| 20 | code-review-deep | 3 | 1.5 | well-tuned; `--force` self-contradiction |
+| 21 | branch | 3 | 2 | well-tuned; next-step advice contradicts own README |
+| 22 | commit-message | 3 | 1.5 | well-tuned; near-exemplary minimal skill |
 
 Convention topics (full detail in findings.md under "Convention-level audits"): descriptions-layer 4, authoring-conventions 5, shared-architecture 5, cross-skill-redundancy 5.
 
@@ -157,6 +157,27 @@ Findings cite these ids. Distilled from the two Anthropic sources; treat as the 
 - All three suites green at `31f14dc`: validate.sh 18 passed (two new checks added this session — closing-tip variant pinning and CONTRIBUTING structure-tree coverage; jq checks SKIP because jq isn't installed — environmental), test-hooks 45 passed, pytest 410 passed.
 - **Notable file-vs-finding discrepancies (all recorded in per-item entries):** SA-F6's "annotate agent-architecture.md as non-runtime" half was invalidated mid-session by C4 making it runtime-consumed; #11's F1 revised fix was adapted to session 1's `blocked`-gate machinery; #12/#20 quotes had moved into the new `references/harness-init-resume.md` (C6-cli hoist); #16's F3 was already resolved by C5's pr_description scoping.
 - This work package is complete. Per the header note, the `docs/skill-quality-audit-2026-07/` folder can be deleted once the maintainer no longer needs the record.
+
+### Session 3 status (2026-07-02) — post-fix verification + re-score
+
+- **Verification pass (zero gaps):** 13 read-only agents re-checked every finding in findings.md against the branch tip (`d51e11f`), one agent per two sections (4 convention audits + all 22 skills), using the per-item changelog entries above as the map of claimed resolutions. Every "Findings to implement" entry verified present — directly, in its recorded ADJUSTED/adapted form, or as a documented skip whose resolving state exists in the files. Every REFUTED finding verified NOT implemented. Every validate.sh/expected-outputs pin named in the changelog verified intact. No fixes were needed; the "audit complete" claim in the Session 2 entry holds.
+- **Re-score (same 0–10 improvement-need scale):** one fresh assessor per skill judged the current files, screened against each skill's refuted findings, pinned deliberate redundancy, and documented design choices. Results are in the ranking table's **Re-score (2026-07-02)** column. Range: 1.5–3 — every skill now sits in the well-tuned (0–2) or minor-polish (3–4) bands; no moderate/structural scores remain. Highest residual need: init (3) and unit-test-deep (3).
+- **Residuals surfaced during re-scoring** (the evidence behind the new scores — recorded for a future polish pass; none reaches the original audit's implement bar, and none was introduced as a regression except where noted as fix residue):
+  - **unit-test-deep (3):** baseline rule is a flat "Skip on `--resume`" (SKILL.md Step 4) where refactor-deep/code-review-deep got the conditional `iteration.completed == 0` re-check — harness-init-resume.md line 29's "apply the skill's baseline step's `--resume` rule" resolves to a no-op here (decline-warning → fix tests → `--resume` skips baseline and timeout calibration); argument-hint omits `--no-commit` (siblings list it); Step 6 duplicates the archival semantics that F6 trimmed in refactor-deep.
+  - **init (3):** Step 2's "Keep only `coding-guidelines.md` and `skill-writing-guidelines.md` at root" relocate rule was not updated for F9's root-as-project placement semantics (Step 6 pointer and the reference were); Step 4's monorepo root-as-project branch still lists template docs before they exist (F1's first-run note went to the single-project branch only).
+  - **permissions (2.5):** Step 3's diff can't distinguish user edits from template-version drift on a post-update re-run; the checklist item-1 re-copy rescue doesn't say to re-apply Step-3-chosen customizations; README "always replaced with the latest template" bullet omits the new re-apply offer.
+  - **handoff (2.5):** SKILL.md Step 1's "(Step 6 already covers reporting a root that is not under version control)" points at a Step 6 clause conditioned on multi-repo workspaces only — it never fires for a plain non-repo cwd.
+  - **jira (2.5):** the Step 5 gate ("do not probe for any comment-like tool") vs the F2 generic-server discovery paragraph leave ambiguous which rule governs comment enrichment on generic servers (both fail closed); Sprint Context's fallback names the already-primary JQL approach.
+  - **how-to-run (2.5):** the detector agent prompt keeps two pointers into how-to-run-sections.md sections that left its context after the F4 split (informational, degrades gracefully); the fresh-write path twice claims "the user already approved the plan in Step 3" — no such approval occurs there (known-soft, deliberately left).
+  - **pr (2.5):** the "Regenerate Intent only" option promises a contradiction carve-out no procedure step implements (Phase 3 preview mitigates); Step 5's GitLab `git symbolic-ref` alternative is dead (Step 1 already gated on detection); `scripts/validate.sh` line ~148 comment cites nonexistent `skills/pr/references/body-file-tempfile.md` (rationale lives inline in SKILL.md).
+  - **refactor (2.5):** README Skill Structure omits now-load-bearing shared rows (`agent-architecture.md`, `shared-agent-constraints.md`, `skill-handoff.md`); the "orchestrator pre-populated it from the feature-branch diff" parenthetical is accurate only for iteration 1.
+  - **brainstorm (2.5):** `<deliverable-path>` in the prose-path plan prompt is the file's only placeholder without a substitution instruction; "replace … the execution prompt" vs "skip the execution prompt entirely" wording imprecision; the plan prompt's test-strategy bullet is inapplicable to prose deliverables.
+  - **code-review (2):** README Skill Structure omits `references/agent-architecture.md`, which Step 5 now loads as the prompt-assembly authority (D9 residue of the F2 fix).
+  - **commit (2):** step 6's "Stage the files determined in steps 1 and 2" is wrong on the split path, where each commit stages only its split-proposal subset (per-commit preview mitigates).
+  - **unit-test (2):** SKILL.md's harness stop-gate line says "emit the Step 6 JSON" — the JSON block is coverage-harness-mode.md **section 5** (section 6 is Exit); mild `test_command`-reference vs permitted-coverage-run tension in that reference.
+  - **workflow (2):** the clean-tree gate sits in Step 3 but the green/coverage baseline is captured in Step 1 — a user who stashes WIP at Step 3 resumes with a baseline measured on a different tree, and nothing says to re-run it.
+  - **tdd, prompt, spec-init, worktree, branch (2):** cosmetic only — tdd README's final-commit bullet omits the new run-tests-first conditioning; prompt mixes session/conversation vocabulary (intent table, diagnostic #37); spec-init's description keeps bare "brainstorm" instead of the slash form (recorded C1 skip); worktree's report template juxtaposes "(unchanged)" with the .gitignore-staged disclosure line; branch-naming's 50-char cap lacks a re-truncation note after collision suffixing, and branch's F6 override applies only to the one-repo case.
+  - **reset, refactor-deep, code-review-deep, commit-message (1.5):** effectively clean — harness-init-resume.md/orchestrator-loop-single.md say `resume` "refuses" the archived `.done.json` path (literally it just reports no progress file); refactor-deep's skip rationale ("calibrated timeout is persisted") is untrue for the `--allow-red-baseline` sub-case though the action stays correct.
 
 ### Cross-item: findings already completed by C1 — do not redo
 
