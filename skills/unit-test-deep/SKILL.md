@@ -77,16 +77,10 @@ If the user selects **Cancel**, stop.
 
 ## Step 4: Initialize or Resume Progress
 
-### On `--resume`
+Read `$CLAUDE_PLUGIN_ROOT/references/harness-init-resume.md` and apply its shared init/resume semantics — the `resume` invocation and cap raising, `init` error recovery (a prior run is discarded by re-invoking `init` with `--force`), `--no-commit` persistence, and `.done.json` archival — with these parameters:
 
-```bash
-PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli resume \
-    --progress-file ".claude/unit-test-deep-progress.json" \
-    [--max-cycles N] \
-    --project-dir "."
-```
-
-Pass `--max-cycles N` through when the user supplied a higher cap on `--resume` — `resume` raises the persisted cycle cap (and clears a prior `diminishing-returns` stop) so the loop continues past the previous limit. A run that finished cleanly is archived to `.done.json`; `--resume` only continues a still-on-disk run (interrupt or `diminishing-returns`).
+- `<progress-path>` = `.claude/unit-test-deep-progress.json`
+- `<cap-flag>` = `--max-cycles`
 
 ### On fresh run
 
@@ -100,10 +94,6 @@ PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli init \
     --progress-file ".claude/unit-test-deep-progress.json" \
     --project-dir "."
 ```
-
-Pass `--no-commit` through to `init` when the user supplied it — the mode is persisted in the progress file, so `--resume` keeps it without re-passing the flag (and `commit-checkpoint` self-skips regardless).
-
-If `init` reports *"progress file already exists"*, a prior un-archived run is on disk. Either run with `--resume` to continue it, or re-invoke `init` with `--force` to discard the prior progress.
 
 ### Establish a baseline (fresh runs only)
 

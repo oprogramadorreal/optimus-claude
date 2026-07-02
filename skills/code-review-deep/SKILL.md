@@ -78,16 +78,10 @@ If the user selects **Cancel**, stop.
 
 ## Step 4: Initialize or Resume Progress
 
-### On `--resume`
+Read `$CLAUDE_PLUGIN_ROOT/references/harness-init-resume.md` and apply its shared init/resume semantics — the `resume` invocation and cap raising, `init` error recovery (a prior run is discarded by re-invoking `init` with `--force`), `--no-commit` persistence, and `.done.json` archival — with these parameters:
 
-```bash
-PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli resume \
-    --progress-file ".claude/code-review-deep-progress.json" \
-    [--max-iterations N] \
-    --project-dir "."
-```
-
-If exit code is non-zero, surface the error and stop. Pass `--max-iterations N` through when the user supplied a higher cap on `--resume` — `resume` raises the persisted iteration cap (and clears a prior `diminishing-returns` stop) so the loop continues past the previous limit.
+- `<progress-path>` = `.claude/code-review-deep-progress.json`
+- `<cap-flag>` = `--max-iterations`
 
 ### On fresh run
 
@@ -101,15 +95,6 @@ PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli init \
     --progress-file ".claude/code-review-deep-progress.json" \
     --project-dir "."
 ```
-
-Pass `--no-commit` through to `init` when the user supplied it — the mode is persisted in the progress file, so `--resume` keeps it without re-passing the flag (and `commit-checkpoint` self-skips regardless).
-
-If exit code is non-zero, surface the error and stop. Likely errors:
-- *"progress file already exists"* — a prior run has not been archived. Tell the user to either pass `--resume` to continue the prior run, or re-invoke this skill with `--force` to discard the prior progress and start fresh.
-- *"No test command"* — `.claude/CLAUDE.md` does not document a test command. Recommend `/optimus:init`.
-- *"Cannot determine HEAD commit"* — the project is not a git repository or has no commits.
-
-If the user explicitly wants to discard a prior run, pass `--force` to `cli.py init` (no separate user-visible orchestrator flag is needed — the CLI's `--force` is sufficient).
 
 ### Establish a green baseline (fresh runs only)
 

@@ -73,6 +73,7 @@ Press Esc twice in Claude Code to interrupt. The orchestrator writes the progres
 | File | Purpose |
 |---|---|
 | `SKILL.md` | Orchestrator instructions |
+| *(shared)* `references/harness-init-resume.md` | Shared CLI init/resume semantics (error recovery, `--force`, archival) |
 | *(shared)* `references/orchestrator-loop-paired.md` | Per-cycle loop template |
 | *(shared)* `references/coverage-harness-mode.md` | Single-pass protocol for the unit-test phase |
 | *(shared)* `references/harness-mode.md` | Single-pass protocol for the refactor phase |
