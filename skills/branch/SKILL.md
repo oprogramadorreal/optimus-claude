@@ -20,7 +20,7 @@ The branch name is derived from the first available context: an inline descripti
 Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/multi-repo-detection.md` for workspace detection. If a multi-repo workspace is detected:
 - Run the git commands below inside each child repo (the workspace root has no `.git/`, so git commands must target individual repos)
 - Identify which repos have local changes (`git status --short` is non-empty)
-- If **one repo** has changes, target it silently
+- If **one repo** has changes, target it silently — unless the inline description or conversation clearly identifies a different repo as the target; then target that repo (its clean tree is the starting-fresh case) and leave the other repo's changes untouched
 - If **multiple repos** have changes, use `AskUserQuestion` — header "Target repo", question "Multiple repos have local changes. Which repo should get the new branch?": list each repo as an option
 - If **no repos** have changes: the user may be starting fresh. If an inline description or conversation context identifies a target repo, use it. If ambiguous, ask which repo to target. If no context at all, inform the user and stop
 
@@ -54,9 +54,11 @@ git diff
 git diff --cached
 ```
 
+Untracked files do not appear in `git diff` — use their paths from the `git status --short` output, and read the new files if their names alone are ambiguous.
+
 When analyzing diffs, look for:
 - File paths that reveal the domain (e.g., `src/auth/` → authentication, `tests/` → testing)
-- Test-only changes, documentation-only changes, config-only changes — these map directly to branch types in the shared reference
+- Test-only changes, documentation-only changes, config-only changes — these map directly to branch types in `branch-naming.md` (read in Step 3)
 
 If **no source provides enough signal** to generate a meaningful name (no inline description, no conversation context, and either no local changes or changes too ambiguous to interpret), inform the user:
 
@@ -71,7 +73,7 @@ Then **stop** — do not create a branch with a generic or meaningless name.
 
 Read `$CLAUDE_PLUGIN_ROOT/skills/commit/references/branch-naming.md` for the naming convention. Use the **Type Detection Keywords** section to determine `<type>` from context, and apply the **Slug Rules** to generate `<slug>`.
 
-**Handle collisions**: if `git show-ref --verify --quiet refs/heads/<branch-name>` succeeds (branch exists), append `-2` to the slug. If that also exists, try `-3`, and so on up to `-9`. If all collide, inform the user and stop.
+**Handle collisions**: apply the **Collision Handling** section of the same reference.
 
 ### 4. Create Branch
 
@@ -96,15 +98,17 @@ If the working tree was clean (no local changes), omit the "Local changes preser
 Created `<branch-name>` from `<original-branch>`.
 ```
 
+In a multi-repo workspace, name the target repo in the report, e.g. Created `<branch-name>` in `<repo>` from `<original-branch>`.
+
 ### 5. Next Step
 
 Recommend the next step based on context:
-- If the user seems to be starting new work → `/optimus:tdd` to build the feature test-first
+- If the user seems to be starting new work → `/optimus:tdd` to build the feature test-first — note: `/optimus:tdd` creates its own branch from the current one, so warn the user that a second branch will be stacked on the one just created (if TDD was the plan from the start, this skill was not needed)
 - If changes look ready to commit → `/optimus:commit` to stage, commit, and optionally push
 - If parallel work is needed → `/optimus:worktree` for an isolated workspace
 - Default → `/optimus:commit` when ready
 
-Tell the user the closing tip per `$CLAUDE_PLUGIN_ROOT/references/skill-handoff.md` "Closing tip wording" — use **Variant B** with `<continuation-skill(s)>` = `/optimus:commit` and `<non-continuation-examples>` = `/optimus:tdd`, `/optimus:worktree`, etc.
+Tell the user the closing tip per `$CLAUDE_PLUGIN_ROOT/references/skill-handoff.md` "Closing tip wording" — choose the variant by what was actually recommended: if only `/optimus:commit`, use **Variant A** with `<continuation-skill(s)>` = `/optimus:commit` and `<non-continuation-examples>` = `/optimus:tdd`, `/optimus:worktree`, etc.; if only non-continuation skills (`/optimus:tdd`, `/optimus:worktree`), use **Variant C** (default); if a mix was presented, use **Variant B** with the same substitutions.
 
 ## Important
 

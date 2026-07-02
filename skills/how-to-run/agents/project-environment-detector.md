@@ -26,7 +26,7 @@ You will receive the contents of five reference files as context before this pro
 - **tech-stack-detection.md** — manifest-to-type table, package manager detection, command prefix rules
 - **project-detection.md** — full detection algorithm: multi-repo workspace detection (Step 0), workspace configs (Step A), manifest scanning with depth-2 checks (Step B), supporting signals (Step C), subproject enumeration rules
 - **multi-repo-detection.md** — workspace structure detection for multi-repo setups
-- **how-to-run-sections.md** — signal-to-section mapping, build system detection, source dependencies detection
+- **detection-signals.md** — signal-to-section mapping, build system detection, source dependencies detection
 
 Apply the tables and algorithms from these reference files to the current project. The reference tables are detection hints, not an exhaustive support boundary — if you find a manifest or build file not listed in any reference table, identify the stack from your general knowledge and report it using the same return format tables.
 
@@ -44,11 +44,11 @@ Run the "non-manifest" tasks (0a–0d) in parallel with the manifest tasks (1–
 
 #### Task 0a — Build system & toolchain detection
 
-Apply the *Build System Detection* table from `how-to-run-sections.md` (provided as context): glob for each listed file, record which were found, and extract the metadata noted in the table's "Extract" column.
+Apply the *Build System Detection* table from `detection-signals.md` (provided as context): glob for each listed file, record which were found, and extract the metadata noted in the table's "Extract" column.
 
 Additionally:
 
-- For CMake projects, grep `CMakeLists.txt` for `find_package(...)` calls — report each as a potential SDK/library dependency (see *Additional Detection Hints* in `how-to-run-sections.md`). The main skill will determine which require explicit install documentation.
+- For CMake projects, grep `CMakeLists.txt` for `find_package(...)` calls — report each as a potential SDK/library dependency (see *Additional Detection Hints* in `detection-signals.md`). The main skill will determine which require explicit install documentation.
 - Check for `vcpkg.json`, `conanfile.txt`, `conanfile.py` — C++ dep manager bootstrap required.
 
 Additionally check for modern dev environment signals:
@@ -150,7 +150,7 @@ For unsupported stacks, detect and gather evidence only — do NOT propose insta
 
    **No constraint in either place:** if neither the manifest nor a version-manager file pins the runtime, emit NO row for that runtime. Do not invent a floor from general knowledge — the same "never guess unobserved tokens" discipline the skill applies to ports, paths, and counts applies here to versions.
 
-5. **Detect external services and dependencies** using the signal-to-section mapping in how-to-run-sections.md:
+5. **Detect external services and dependencies** using the signal-to-section mapping in detection-signals.md:
    - `docker-compose.yml` / `compose.yml`: parse `services` for databases, message queues, caches, and other infrastructure. Note which services have `build:` (app services) vs image-only (infrastructure services). Extract ports. Mark `Confidence: confirmed`.
    - Database config files: `database.yml`, `prisma/schema.prisma`, `alembic.ini`, `knexfile.*`, `ormconfig.*`, migration directories. Mark `Confidence: confirmed`.
 

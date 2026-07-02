@@ -1,5 +1,5 @@
 ---
-description: Refactors existing code for guideline compliance and testability using 4 parallel analysis agents (guideline compliance, testability barriers, duplication/consistency, code-simplifier). Two goals — align code with project guidelines AND make untestable code testable so /optimus:unit-test can safely increase coverage. Use after /optimus:init to align existing code, before /optimus:unit-test to remove testability barriers, or periodically to prevent tech debt. Supports "testability" focus (after unit-test flags untestable code) or "guidelines" focus (after init establishes rules) to prioritize finding categories, and flexible scoping. For iterative refactor in a loop, use `/optimus:refactor-deep`.
+description: Refactors code toward two goals — project-guideline compliance and testability (so /optimus:unit-test can safely increase coverage) — using 4 parallel analysis agents. Supports "testability" or "guidelines" focus to prioritize finding categories, plus flexible scoping. Use after /optimus:init, before /optimus:unit-test, or periodically to prevent tech debt. For iterative refactoring in a loop, use `/optimus:refactor-deep`.
 disable-model-invocation: true
 argument-hint: "[testability|guidelines] [scope]"
 ---
@@ -15,6 +15,8 @@ Two primary goals:
 The code-simplifier agent guards new code after every edit — this skill is the on-demand complement for restructuring existing code across the project.
 
 ## Step 1: Verify Prerequisites and Determine Scope
+
+If the invocation prompt contains `HARNESS_MODE_INLINE`, read Step 2 first — scope is pre-resolved by the orchestrator.
 
 ### Multi-repo workspace detection
 
@@ -67,7 +69,7 @@ For monorepos with **full project** scope: ask which subprojects to include (def
 
 ## Step 2: Inline Harness Mode Detection
 
-If your invocation prompt body contains `HARNESS_MODE_INLINE`, you are running inside the `/optimus:refactor-deep` or `/optimus:unit-test-deep` orchestrator as a single iteration. Read `$CLAUDE_PLUGIN_ROOT/references/harness-mode.md` and follow its single-iteration execution protocol. The reference covers progress file reading, state initialization, scope and file-list rules, and step overrides (including the apply/output protocol). If `scope_files.current` is non-empty in the progress file, treat it as the pre-resolved scope (the orchestrator pre-populated it from the feature-branch diff) and skip the Step 1 scope resolution entirely. Proceed through Steps 3, 4, 5, and 6 — skip the Step 7 user confirmation (the orchestrator handles approval upfront), apply the fixes mechanically, then emit the structured JSON via the harness-mode output protocol and stop. Do not use `AskUserQuestion`. Do not loop.
+If your invocation prompt body contains `HARNESS_MODE_INLINE`, you are running inside the `/optimus:refactor-deep` or `/optimus:unit-test-deep` orchestrator as a single iteration. Read `$CLAUDE_PLUGIN_ROOT/references/harness-mode.md` and follow its single-iteration execution protocol. The reference covers progress file reading, state initialization, scope and file-list rules, and step overrides (including the apply/output protocol). If `scope_files.current` is non-empty in the progress file, treat it as the pre-resolved scope (the orchestrator pre-populated it from the feature-branch diff) and skip the Step 1 scope resolution entirely. Proceed through Steps 3–6 — skip the Step 7 user confirmation (the orchestrator handles approval upfront), apply the fixes mechanically per Step 8's harness-mode paragraph, then emit the structured JSON via the harness-mode output protocol and stop. Do not use `AskUserQuestion`. Do not loop.
 
 If `HARNESS_MODE_INLINE` is NOT present, continue with the standard interactive flow below.
 
@@ -121,6 +123,8 @@ Launch all 4 agents as `general-purpose` Agent tool calls in a **single** messag
 Each agent receives the list of source files/directories from Step 3.
 
 Read the agent prompt files from `$CLAUDE_PLUGIN_ROOT/skills/refactor/agents/` for individual agent prompts. Read `$CLAUDE_PLUGIN_ROOT/skills/refactor/agents/shared-constraints.md` for the shared quality bar, exclusion rules, and false positive guidance.
+
+Compose each agent prompt per "Prompt assembly at dispatch time" in `$CLAUDE_PLUGIN_ROOT/references/agent-architecture.md`: substitute the resolved absolute plugin root for every `$CLAUDE_PLUGIN_ROOT` reference the prompt files carry, and inline or absolutize the bare `shared-constraints.md` reference — subagents inherit neither the variable nor the agents directory as cwd.
 
 ### Iteration context injection (harness mode, iterations 2+)
 
@@ -268,11 +272,11 @@ If the user selects **Selective**, ask which finding numbers to apply (e.g., "1,
 
 ## Step 8: Apply Approved Changes and Verify
 
-For each approved finding (skipping any annotated "(persistent — fix failed)" — these have already failed in a prior iteration):
+For each approved finding:
 1. Apply the refactoring using Edit or MultiEdit
 2. Verify the change matches the suggestion from Step 6
 
-**Under harness mode (`HARNESS_MODE_INLINE`), skip this entire verify-and-revert step.** Apply the fixes, record the `pre_edit_content`/`post_edit_content` pairs, and emit the JSON — the orchestrator owns all test execution and bisection (see `references/harness-mode.md` §7). Do not run the test command or revert anything yourself.
+**Under harness mode (`HARNESS_MODE_INLINE`), skip this entire verify-and-revert step.** Apply the fixes, record the `pre_edit_content`/`post_edit_content` pairs, and emit the JSON — the orchestrator owns all test execution and bisection (see `$CLAUDE_PLUGIN_ROOT/references/harness-mode.md` §7). Do not run the test command or revert anything yourself.
 
 Otherwise (interactive mode), after applying all approved changes, run the project's test command (from `.claude/CLAUDE.md`) if available. Follow the verification protocol from `$CLAUDE_PLUGIN_ROOT/skills/init/references/verification-protocol.md` — run tests fresh, read complete output, report actual results with evidence:
 - If tests pass → report success.

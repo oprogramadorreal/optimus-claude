@@ -23,14 +23,25 @@ Read the JSON progress file at the path specified in your invocation prompt. Ext
 
 ### 2. Run discovery and coverage analysis
 
-Run the same Test Infrastructure Analyzer agent as normal mode (Step 2 of SKILL.md). If prior cycles exist, include a brief context block listing previously created test files and known untestable items so the agent avoids duplicating work.
+Run the same Test Infrastructure Analyzer agent as normal mode (Step 2 of SKILL.md).
+
+**Cycle context block (cycles 2+):** when `cycle.current` is greater than 1, prepend a concise context block to the agent prompt before the main instructions. Source the data from the progress file's `tests_created`, `untestable_code`, and `coverage.history`. Include:
+
+- **Tests already added** — bullet list of `file → target` entries from `tests_created` with status `pass`, so the agent skips re-discovering the same targets.
+- **Items previously reverted, abandoned, or bug-found** — bullet list from `tests_created` with status `fail-abandoned` or similar, so the agent does not re-propose them.
+- **Untestable code already flagged** — bullet list from `untestable_code`, so the agent does not re-flag them; focus new discovery on genuinely new items.
+- **Cumulative coverage delta** — a one-line summary derived from `coverage.history`.
+
+The goal is convergence: each cycle should propose **new** testable items, not duplicates. Keep the block under ~30 lines to limit context drift.
+
+**Stop gates under harness mode:** if a SKILL.md Step 2 stop gate fires (no test framework detected, or the baseline suite fails), do not print the conversational handoff messages — skip sections 3–4 and emit the section 5 JSON immediately with `no_new_tests: true`, empty `tests_written` and `untestable_code` arrays (list any failing tests found under `bugs_discovered`), and a non-null `blocked` field naming the gate and why. The orchestrator terminates the loop on a non-null `blocked` and surfaces the reason to the user.
 
 ### 3. Generate and write tests
 
 Run Steps 3–4 of SKILL.md (plan + write) with these harness modifications:
 - **Skip `AskUserQuestion`** — auto-approve all planned items
 - **Cap at 10 items** per pass (same as normal mode)
-- **Do NOT run the full test suite** at the end, nor any `scripts/*.sh` test/lint/build wrapper — the orchestrator owns the full run and bisection. Coverage measurement during analysis is fine; a final verification run is not
+- **Do NOT run the full test suite as a final verification gate**, nor any `scripts/*.sh` test/lint/build wrapper — the orchestrator owns the full run and bisection. Coverage measurement is fine, including one coverage-instrumented run after tests are written to obtain `coverage.after` — but its pass/fail outcome must not trigger reverts or fixes beyond the per-test workflow
 
 ### 4. Collect results
 
@@ -82,7 +93,8 @@ Output the results in a `json:harness-output` fenced block:
   ],
   "no_new_tests": <true if zero new tests were written>,
   "no_untestable_code": <true if no untestable code was found>,
-  "no_coverage_gained": <true if coverage delta is zero or negative>
+  "no_coverage_gained": <true if coverage delta is zero or negative>,
+  "blocked": <null, or a one-line string naming the fired Step 2 stop gate and why (e.g. "no test framework detected")>
 }
 ```
 ````
@@ -97,6 +109,6 @@ Stop immediately. Do not loop, present reports, or use `AskUserQuestion`.
 
 ## Refactor Phase Execution
 
-When the `/optimus:unit-test-deep` orchestrator dispatches `/optimus:refactor` as a subagent for the refactor phase, the orchestrator's prompt body includes `Phase: refactor` and `Focus: testability`. The `/optimus:refactor` skill detects `HARNESS_MODE_INLINE` and follows the single-iteration protocol from `references/harness-mode.md` — same protocol used by `/optimus:refactor-deep`.
+When the `/optimus:unit-test-deep` orchestrator dispatches `/optimus:refactor` as a subagent for the refactor phase, the orchestrator's prompt body includes `Phase: refactor`; the binding testability focus is carried by the progress file's CLI-pinned `config.focus` (the dispatch prompt mentions it only in prose). The `/optimus:refactor` skill detects `HARNESS_MODE_INLINE` and follows the single-iteration protocol from `references/harness-mode.md` — same protocol used by `/optimus:refactor-deep`.
 
 The orchestrator scopes the refactor session to the `untestable_code` items reported by the preceding unit-test phase (the progress file's `scope_files.current` lists those file paths). The CLI's `refactor-step` handles test-and-bisect after the refactor subagent returns.

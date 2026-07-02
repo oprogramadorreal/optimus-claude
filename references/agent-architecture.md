@@ -59,6 +59,13 @@ This means:
 | `code-simplifier.md` | code-review, refactor, tdd |
 | `test-guardian.md` | code-review, tdd |
 
+## Prompt assembly at dispatch time
+
+Skill-level agents run as `general-purpose` subagents, and a subagent inherits neither the `$CLAUDE_PLUGIN_ROOT` variable nor the agent directory as its working directory — unresolved paths in its prompt cannot be read. Whoever dispatches a fan-out agent (a SKILL.md step, or a deep-mode iteration executing it) must, when composing each agent prompt from these files:
+
+- substitute the resolved absolute plugin root for every `$CLAUDE_PLUGIN_ROOT` reference the prompt carries (the specialization pattern's `Read` line and any shared-reference paths), and
+- inline the content of bare relative references such as `shared-constraints.md`, or rewrite them as absolute paths (they would otherwise resolve against the user project's cwd).
+
 ## Shared reference files
 
 Base constraints and context templates that apply across all skill-level agents live in `references/`:

@@ -15,7 +15,7 @@ Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/claude-md-best-practices.md`. K
 - Only universally-applicable instructions
 - Preserve user content: when re-running on an existing project, never silently drop content from CLAUDE.md that cannot be derived from the codebase. When unsure whether content is outdated, preserve it. Only mark content as outdated when source code directly contradicts it — and confirm with the user before removing user-added items.
 
-**Write generated files directly.** Files under `.claude/` (docs, hooks, CLAUDE.md) are plugin-generated content. Write new files immediately without asking for permission or confirming with the user — do not use `AskUserQuestion` for file writes. Only pause to confirm when **replacing** a file that contains user-customized content (identified as "User-added" in the audit). Generated content (hooks, `coding-guidelines.md`, templates) is always overwritten silently — these are not user-authored files. Exception: `settings.json` must always be merged, never overwritten — see Step 5. The same rule applies to subproject docs in monorepos and per-repo `.claude/` files in multi-repo workspaces.
+**Write generated files directly.** Files under `.claude/` (docs, hooks, CLAUDE.md) are plugin-generated content. Write new files immediately without asking for permission or confirming with the user — do not use `AskUserQuestion` for file writes. Only pause to confirm when **replacing** a file that contains user-customized content (identified as "User-added" in the audit). Generated content (hooks and `coding-guidelines.md`) is always overwritten silently — these are not user-authored files. Template-derived docs (`testing.md`, `styling.md`, `architecture.md`, `skill-writing-guidelines.md`) are NOT generated content — they use the never-silently-overwrite semantics in Steps 5b/6. Exception: `settings.json` must always be merged, never overwritten — see Step 5. The same rule applies to subproject docs in monorepos and per-repo `.claude/` files in multi-repo workspaces.
 
 ## Step 1: Detect Project Context
 
@@ -67,9 +67,9 @@ Before proceeding, confirm you have all of the following. If any are missing, re
 - If monorepo: **workspace tool** (if any)
 - If multi-repo workspace: **repo list** with each repo's path, tech stack, and internal structure (single project or monorepo)
 - If nested app root detected: **app root path** (e.g., `ngapp/`)
-- **Existing files inventory** (existence check only — content of docs is read in Step 1b; hooks and `coding-guidelines.md` are never audited, always overwritten): which of `.claude/CLAUDE.md`, `.claude/settings.json`, `.claude/docs/*`, root `CLAUDE.md`, subproject `CLAUDE.md` files already exist
-- **Test infrastructure detected** (yes/no): test framework in dependencies, test command in scripts, or test directory present. This determines the flow of Step 5b (test infrastructure setup).
-- **Skill authoring detected** (yes/no): reported by the Project Analyzer agent per the structural rule in `$CLAUDE_PLUGIN_ROOT/skills/init/agents/project-analyzer.md` (also applied in the Step 6 install table). A yes means the project authors markdown instructions for an AI agent as part of its stack (Claude Code plugin, Codex skill repo, prompt library, or similar). Determines whether Step 6 installs `skill-writing-guidelines.md`.
+- **Existing files inventory** (existence check only — content of docs is read in Step 1b; hooks and `coding-guidelines.md` are never audited — always overwritten, see Before You Start): which of `.claude/CLAUDE.md`, `.claude/settings.json`, `.claude/docs/*`, root `CLAUDE.md`, subproject `CLAUDE.md` files already exist
+- **Test infrastructure detected** (yes/no): reported by the Project Analyzer agent (precise detection rule in project-analyzer.md task 8). This determines the flow of Step 5b (test infrastructure setup).
+- **Skill authoring detected** (yes/no): reported by the Project Analyzer agent per the structural rule in `$CLAUDE_PLUGIN_ROOT/skills/init/agents/project-analyzer.md`. A yes means the project authors markdown instructions for an AI agent as part of its stack (Claude Code plugin, Codex skill repo, prompt library, or similar). Determines whether Step 6 installs `skill-writing-guidelines.md`.
 - **Doc-sourced insights** (if any documentation found): verified conventions, architecture rationale, workflow rules — all cross-checked against source code
 
 Print this as a **Detection Summary** to the user. Then use `AskUserQuestion` — header "Detection", question "Does the detection summary look correct?":
@@ -91,7 +91,7 @@ Delegate the audit comparison to an agent to keep the main context clean for fil
 
 Read `$CLAUDE_PLUGIN_ROOT/skills/init/agents/documentation-auditor.md` for the full prompt template, comparison dimensions, classification rules, and return format for the Documentation Audit Agent.
 
-Launch 1 `general-purpose` Agent tool call using the prompt from documentation-auditor.md. **Provide the Detection Results from Step 1 as context** at the start of the agent prompt (before the agent template content).
+Launch 1 `general-purpose` Agent tool call using the prompt from documentation-auditor.md, prepended with the shared constraints (`$CLAUDE_PLUGIN_ROOT/skills/init/agents/shared-constraints.md`, already read in Step 1). **Provide the Detection Results from Step 1 as context** after the shared constraints, before the agent template content.
 
 | Agent | Role | Runs when |
 |-------|------|-----------|
@@ -118,7 +118,7 @@ Remember the user's choice and approved findings. Steps 2-6 will reference them 
 
 **Default for ambiguous content:** When unsure whether content is outdated or user-intentional, preserve it. Only update or remove user-added content when source code provides clear contradicting evidence **and** the user has confirmed via the audit report or `AskUserQuestion`. Information that cannot be re-derived from the codebase must not be discarded to meet formatting or size targets.
 
-**Before creating any file**, check if it already exists. If it does not exist, write it directly — no confirmation needed (see "Write generated files directly" in Before You Start). If it does exist, read it first. For generated content (hooks, `coding-guidelines.md`), overwrite silently. For files that may contain user-customized content (CLAUDE.md, styling.md, architecture.md, testing.md, skill-writing-guidelines.md), inform the user what was preserved vs changed.
+**Before creating any file**, check if it already exists. If it does not exist, write it directly — no confirmation needed (see "Write generated files directly" in Before You Start). If it does exist, read it first. For generated content, overwrite silently (see Before You Start). For files that may contain user-customized content (CLAUDE.md, styling.md, architecture.md, testing.md, skill-writing-guidelines.md), inform the user what was preserved vs changed.
 
 **Relocate when scope changes:** If docs need to move (e.g., root `.claude/docs/testing.md` → subproject-scoped in a monorepo), move content to the new location and remove the old file. Keep only `coding-guidelines.md` and `skill-writing-guidelines.md` at root.
 
@@ -146,7 +146,7 @@ Use template from `$CLAUDE_PLUGIN_ROOT/skills/init/templates/single-project-clau
 - Replace command placeholders with real commands using the detected package manager
 - Replace directory placeholders with actual project directories
 - In the "Before Writing Code" section: if skill authoring was detected in Step 1, replace the HTML comment placeholder with the concrete sentence: "For changes to markdown instruction files (under skills/, agents/, prompts/, commands/, or instructions/), ALWAYS read `.claude/docs/skill-writing-guidelines.md` instead — those files follow different quality rules than code." If skill authoring was NOT detected, remove the HTML comment entirely, leaving only the coding-guidelines sentence. Do not modify the rest of the section.
-- In the Documentation section, list only non-guideline docs that were actually created (testing.md, styling.md, architecture.md) using `.claude/docs/` prefix. The coding-guidelines.md and skill-writing-guidelines.md references are in the "Before Writing Code" section.
+- In the Documentation section, list only non-guideline docs that actually exist (testing.md, styling.md, architecture.md) using `.claude/docs/` prefix — on a first run this section starts empty; Steps 5b/6 add entries as they create docs. The coding-guidelines.md and skill-writing-guidelines.md references are in the "Before Writing Code" section.
 **When updating an existing CLAUDE.md** (not Fresh start): edit the existing file in-place — do not regenerate from template. Update only sections where the audit found approved Outdated changes. Preserve all user-added content verbatim unless the audit classified specific user-added items as Outdated and the user approved their removal.
 
 The template follows WHAT/WHY/HOW structure. Target 60 lines. If preserving user-added content would exceed this, first try to condense template-generated content (shorter descriptions, abbreviate stacks). If still over 60 lines, the limit may be exceeded — never discard user content to meet the line count. Note the overage in Step 7 summary. If no manifest was detected, use generic placeholders and inform user that manual customization is recommended.
@@ -168,7 +168,7 @@ If more than 6 subprojects, group by category (apps, libs, services) in the root
 
 For multi-repo workspaces, **run the full init flow (Steps 3–7) independently inside each repo** — each repo gets its own complete, self-contained `.claude/` as if you had run init inside that repo directly. Use the single-project template (or monorepo template if the repo is internally a monorepo). Each repo's `.claude/` is version-controlled within that repo — a teammate cloning a single repo gets the full Claude Code experience without the plugin or the workspace.
 
-After all repos are initialized, create a lightweight `CLAUDE.md` file at the workspace root (NOT inside a `.claude/` directory) using the template from `$CLAUDE_PLUGIN_ROOT/skills/init/templates/multi-repo-claude.md`. This file provides cross-repo context (repo table, API contracts, shared conventions) but contains no agents, hooks, or guidelines — repos do not depend on it. Note in the Detection Summary that this file is local-only and not version-controlled.
+After all repos are initialized, create a lightweight `CLAUDE.md` file at the workspace root (NOT inside a `.claude/` directory) using the template from `$CLAUDE_PLUGIN_ROOT/skills/init/templates/multi-repo-claude.md`. This file provides cross-repo context (repo table, API contracts, shared conventions) but contains no agents, hooks, or guidelines — repos do not depend on it. When creating it, inform the user that this file is local-only and not version-controlled.
 
 If a nested app root was detected for a repo (Step 1), ensure that repo's CLAUDE.md notes the nested structure and all commands reference the correct subdirectory.
 
@@ -199,7 +199,7 @@ Key rules:
 
 Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/test-infra-provisioning.md` for the complete provisioning procedure.
 
-**If test infrastructure was detected in Step 1** (test framework in dependencies, `test`/`test:*` script in manifest, or `tests/`/`test/`/`spec/`/`__tests__/`/`integration_test/` directory exists):
+**If test infrastructure was detected in Step 1** (per the checkpoint flag — detection rule in project-analyzer.md task 8):
 
 Run the full provisioning procedure from the reference: health check (run test suite, fix build/bootstrap failures with user approval), create testing.md, add CLAUDE.md test references, append README testing section, update .gitignore. Also check for coverage tooling gaps — if framework exists but coverage tooling is missing, recommend installing it per the reference.
 
@@ -224,7 +224,7 @@ If the user chooses **No**: skip all test infrastructure provisioning. In Step 7
 |------|----------|-----------------------------------|
 | `styling.md` | `$CLAUDE_PLUGIN_ROOT/skills/init/templates/docs/styling.md` | Manifest lists a UI framework (react, vue, angular, svelte, solid) OR lists CSS tooling (tailwindcss, styled-components, sass, less, postcss) OR `.css`/`.scss`/`.less` files exist in `src/` OR manifest is `pubspec.yaml` with Flutter SDK dependency (Flutter apps are UI applications with theme, widget, and styling conventions) |
 | `architecture.md` | See template selection below | Project has 3+ top-level source directories (excluding config, tests, docs, build output) OR uses recognized pattern directories (controllers/, services/, repositories/, handlers/, models/) OR **skill authoring detected** in Step 1 |
-| `skill-writing-guidelines.md` | `$CLAUDE_PLUGIN_ROOT/skills/init/templates/docs/skill-writing-guidelines.md` | **Skill authoring detected** in Step 1: a directory named `skills/`, `agents/`, `prompts/`, `commands/`, or `instructions/` exists (at the repo root or, in monorepos, at any subproject root), contains ≥2 subdirectories, and **every** such subdirectory contains a file named `SKILL.md`, `AGENT.md`, `PROMPT.md`, `COMMAND.md`, or `INSTRUCTION.md` (case-insensitive). This signals the project authors markdown instructions for an AI agent as part of its stack. |
+| `skill-writing-guidelines.md` | `$CLAUDE_PLUGIN_ROOT/skills/init/templates/docs/skill-writing-guidelines.md` | **Skill authoring detected** in Step 1 (structural rule in project-analyzer.md task 9) |
 
 **`architecture.md` template selection:** The output file is always `architecture.md`, but the source template varies based on detection:
 - Skill authoring NOT detected → use `$CLAUDE_PLUGIN_ROOT/skills/init/templates/docs/architecture.md` (code-only)
@@ -239,7 +239,9 @@ Use each template as a skeleton — fill in all placeholders with actual project
 
 **Placement rules:**
 - **Single project:** All files go in `.claude/docs/`.
-- **Monorepo:** `styling.md` and `architecture.md` go in each subproject's `docs/` folder, scoped to that subproject's stack. Apply the detection rules above **per subproject** (e.g., skip `styling.md` for a subproject with no UI deps). `testing.md` placement is handled by Step 5b's provisioning reference. `skill-writing-guidelines.md` is shared at root (`.claude/docs/`) — same as `coding-guidelines.md`. Skill-authoring detection is applied **at the repo level**: if any subproject contains a skill-authoring stack, install `skill-writing-guidelines.md` once at root. For root-as-project, its scoped docs go in `.claude/docs/` alongside the shared guidelines. Each subproject can also get its own `coding-guidelines.md` only if its conventions differ significantly from root.
+- **Monorepo:** `styling.md` and `architecture.md` go in each subproject's `docs/` folder, scoped to that subproject's stack. Apply the detection rules above **per subproject** (e.g., skip `styling.md` for a subproject with no UI deps). `testing.md` placement is handled by Step 5b's provisioning reference (per-subproject `docs/testing.md`; root `.claude/docs/testing.md` only for root-as-project). `skill-writing-guidelines.md` is shared at root (`.claude/docs/`) — same as `coding-guidelines.md`. Skill-authoring detection is applied **at the repo level**: if any subproject contains a skill-authoring stack, install `skill-writing-guidelines.md` once at root. For root-as-project, its scoped docs go in `.claude/docs/` alongside the shared guidelines. Each subproject can also get its own `coding-guidelines.md` only if its conventions differ significantly from root.
+
+**Update the Documentation section:** Step 4 wrote the CLAUDE.md files before these docs existed. After creating `styling.md`/`architecture.md`, add each to the Documentation section of the CLAUDE.md that scopes it — root `.claude/CLAUDE.md` for root-scoped docs (`.claude/docs/` prefix), the owning subproject's `CLAUDE.md` in monorepos. (`testing.md` references were added in Step 5b per the provisioning reference.)
 
 ## Step 6b: Sync Existing Documentation
 
@@ -293,6 +295,7 @@ Run through this checklist. **Fix any failures before reporting to the user.**
 
 **Cross-reference checks:**
 - Every doc listed in a CLAUDE.md Documentation section actually exists as a file.
+- Every non-guideline doc created in Steps 5b/6 (`testing.md`, `styling.md`, `architecture.md`) is listed in the Documentation section of the CLAUDE.md that scopes it.
 - Monorepo: every subproject in root CLAUDE.md's Architecture table has a corresponding `CLAUDE.md` file.
 - Multi-repo workspace (if workspace root `CLAUDE.md` was created): every repo listed in it has its own `.claude/CLAUDE.md` file. Each repo's `.claude/` is self-contained (has its own coding-guidelines, hooks).
 
@@ -327,6 +330,10 @@ Run through this checklist. **Fix any failures before reporting to the user.**
   > **Baseline broken** — init does not fix failing tests by design. Ask Claude to triage the failing tests before running skills that need a green baseline.
 
 After the table (and the broken-baseline hint, if present), include conditional warnings:
+
+If Step 1 scaffolding created a `<name>/` subdirectory, include:
+
+> **New project root:** the project now lives in `<name>/` — start future Claude Code sessions from that directory, or the generated CLAUDE.md and hooks will not load.
 
 If test infrastructure was installed from scratch in Step 5b (no pre-existing test framework — the user chose "Yes" to install one), include a strong warning:
 

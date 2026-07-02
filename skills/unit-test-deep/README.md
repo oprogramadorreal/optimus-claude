@@ -54,7 +54,7 @@ Each cycle runs in this order:
 
 | Reason | Meaning |
 |---|---|
-| `convergence` | The unit-test phase reported no new tests possible + no untestable code (or no coverage gained); OR the refactor phase reported no testability findings. |
+| `convergence` | The unit-test phase reported no new tests possible + no untestable code (or no coverage gained); OR the refactor phase reported no testability findings or none actionable. |
 | `cap` | The cycle cap was reached. |
 | `diminishing-returns` | Coverage delta was exactly 0 (zero coverage gain) for 2 consecutive cycles. |
 | `parse-failure` | Two consecutive cycles produced no parseable JSON from a subagent. |
@@ -73,6 +73,7 @@ Press Esc twice in Claude Code to interrupt. The orchestrator writes the progres
 | File | Purpose |
 |---|---|
 | `SKILL.md` | Orchestrator instructions |
+| *(shared)* `references/harness-init-resume.md` | Shared CLI init/resume semantics (error recovery, `--force`, archival) |
 | *(shared)* `references/orchestrator-loop-paired.md` | Per-cycle loop template |
 | *(shared)* `references/coverage-harness-mode.md` | Single-pass protocol for the unit-test phase |
 | *(shared)* `references/harness-mode.md` | Single-pass protocol for the refactor phase |

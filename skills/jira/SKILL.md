@@ -1,5 +1,5 @@
 ---
-description: Fetches and optimizes context from a JIRA issue for AI-assisted development. Searches assigned issues or fetches by key. Distills title, description, acceptance criteria, sprint context, and comments into a structured task description. Analyzes the codebase to surface missing criteria, scope, and risks. Optionally enriches the JIRA issue with a structured analysis comment, and for Complex-scope work can spawn implementation tickets in JIRA. Re-running on the same key refreshes the local task with the latest JIRA state instead of overwriting prior enrichment. Use before /optimus:tdd, /optimus:brainstorm, or /optimus:branch to pull task context from JIRA, or to refresh existing context after JIRA edits.
+description: Fetches and optimizes context from a JIRA issue for AI-assisted development. Searches assigned issues or fetches by key. Distills title, description, acceptance criteria, sprint context, and comments into a structured task saved to docs/jira/ for downstream skills to auto-detect. Analyzes the codebase to surface missing criteria, scope, and risks. Optionally enriches the JIRA issue with a structured analysis comment, and for Complex-scope work can spawn implementation tickets in JIRA. Re-running on the same key refreshes the local task with the latest JIRA state instead of overwriting prior enrichment. Use before /optimus:tdd, /optimus:brainstorm, or /optimus:branch to pull task context from JIRA.
 disable-model-invocation: true
 argument-hint: "[issue-key]"
 ---
@@ -69,33 +69,7 @@ Check whether `docs/jira/<ISSUE-KEY>.md` exists at the project root.
 
 ## Step 4: Distill into Structured Task
 
-Assemble the fetched data into the **Structured Output Format** from the extraction reference:
-
-```
-## Task: [Issue Key] — [Summary]
-
-### Goal
-[Single-sentence distilled goal]
-
-### Acceptance Criteria
-[Extracted or inferred acceptance criteria as a numbered list]
-
-### Context
-- Type: [Issue type]
-- Status: [Current status]
-- Priority: [Priority]
-- Assignee: [Name]
-- Sprint: [Sprint name — sprint goal]
-- Parent: [Epic key — Epic summary]
-- Linked issues: [KEY — summary (link type)]
-- Subtasks: [KEY — summary (status)]
-- Related sprint work: [Sibling issues in the same sprint]
-
-### Key Decisions (from comments)
-[Distilled decisions and context from comments]
-```
-
-Omit sections that have no data (e.g., no sprint, no linked issues, no comments with decisions).
+Assemble the fetched data into the **Structured Output Format** from the extraction reference (already read in Step 3) — that template is the single source for section names and field lines. Omit sections that have no data (e.g., no sprint, no linked issues, no comments with decisions).
 
 If the original JIRA issue uses Given/When/Then phrasing in its acceptance criteria, preserve that phrasing verbatim in each Acceptance Criteria entry — `/optimus:brainstorm` can then reformat each entry into a `### Scenario:` block in its Scenarios section.
 
@@ -131,8 +105,8 @@ Read `$CLAUDE_PLUGIN_ROOT/skills/jira/references/jira-codebase-analysis.md` and 
 
 Present the **Impact Summary** to the user.
 
-Check whether the detected MCP server has a comment tool (see Tool Name Resolution table in `jira-context-extraction.md`). If no comment tool is available, present only "Update local context only" and "Skip". Otherwise, present all three options. Use `AskUserQuestion` — header "Codebase impact", question "How would you like to use these findings?":
-- **Update JIRA and local context** (only if a comment tool is available) — "Enrich `docs/jira/<ISSUE-KEY>.md` and post an analysis comment to the JIRA issue"
+Check whether the permitted add-comment tool named for the detected server in the MCP Safety permitted-write table in `jira-context-extraction.md` (`addCommentToJiraIssue` for Rovo, `jira_add_comment` for sooperset) is present in the runtime tool list — verify with `ToolSearch`; do not probe for any comment-like tool. If it is not present, present only "Update local context only" and "Skip". Otherwise, present all three options. Use `AskUserQuestion` — header "Codebase impact", question "How would you like to use these findings?":
+- **Update JIRA and local context** (only if the add-comment tool is available) — "Enrich `docs/jira/<ISSUE-KEY>.md` and post an analysis comment to the JIRA issue"
 - **Update local context only** — "Enrich `docs/jira/<ISSUE-KEY>.md` only"
 - **Skip** — "Proceed without changes"
 
@@ -140,11 +114,11 @@ Check whether the detected MCP server has a comment tool (see Tool Name Resoluti
 
 1. Update the `docs/jira/<ISSUE-KEY>.md` file following the **Task File Update** procedure in the reference. The local file is always updated first — it is the single source of truth.
 
-2. Post a structured JIRA comment using the add-comment tool from the Tool Name Resolution table in `jira-context-extraction.md` (`addCommentToJiraIssue` for Rovo). Derive the comment content from the sections just written to the local file, following the **JIRA Comment Format** in `jira-codebase-analysis.md`. If the JIRA issue is not in English, translate the derived content into the issue's original language before posting (see Language section above).
+2. Post a structured JIRA comment using the add-comment tool from the Tool Name Resolution table in `jira-context-extraction.md` (`addCommentToJiraIssue` for Rovo, `jira_add_comment` for sooperset). Derive the comment content from the sections just written to the local file, following the **JIRA Comment Format** in `jira-codebase-analysis.md`. If the JIRA issue is not in English, translate the derived content into the issue's original language before posting (see Language section above).
 
 3. If the comment tool call fails at runtime (e.g., tool was listed but is unavailable), inform the user and skip the JIRA write — the local file update still applies.
 
-4. Report success or failure. No further confirmation needed for the comment — comments are append-only and non-destructive.
+4. Report success or failure. No further confirmation needed for the comment — comments are append-only and non-destructive. For non-Complex scope, proceed to Step 6.
 
 5. **Complex scope only** — if the Scope Assessment from the Impact Summary is `Complex`, read `$CLAUDE_PLUGIN_ROOT/skills/jira/references/jira-implementation-tickets.md` and follow the **Implementation Ticket Creation Procedure** to optionally spawn implementation tickets. The procedure has its own confirmation gate; the default is to skip JIRA writes and emit a proposed list to the local file only. Then proceed to Step 6.
 
@@ -158,7 +132,7 @@ Proceed to Step 6.
 
 ## Step 6: Recommend Next Step
 
-First, handle tech debt and refactoring tickets separately — they have a fixed route:
+First, handle tech debt and refactoring tickets separately (identified by issue type, labels like `tech-debt`/`refactor`, or a goal that restructures code without changing behavior) — they have a fixed route:
 
 - **Refactoring / Tech debt** → "Recommend running `/optimus:refactor` to restructure the code. **Tip:** for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch."
 
@@ -212,18 +186,13 @@ The plan should include:
 - Focus on: [component/area from the structured task context]
 - Out of scope: [anything explicitly excluded in the JIRA issue]
 
-## How this conversation should run
-Treat this conversation as a review loop — validate the plan against the actual codebase and iterate with me. When I say I'm done iterating, acknowledge but do not write yet — plan mode is read-only. I will then toggle plan mode off and send a short follow-up message (e.g. "go"). On that follow-up, append a `### Refined plan` section (heading exactly `### Refined plan`) to `docs/jira/<ISSUE-KEY>.md` to capture the refined plan, and stop. I will start a fresh conversation to run `/optimus:tdd`.
+[Close the prompt with the "## How this conversation should run" section from `$CLAUDE_PLUGIN_ROOT/references/skill-handoff.md` "Carve-out canonical blocks", substituting `<doc-path>` = `docs/jira/<ISSUE-KEY>.md`.]
 ```
 ````
 
 When emitting both the plan-mode prompt above and the execution prompt below, substitute `<ISSUE-KEY>` with the real key so each pasted block is self-contained.
 
-Tell the user:
-
-> 1. Start a fresh Claude Code conversation in **plan mode** (CLI: press `Shift+Tab` until the mode indicator shows plan mode; other clients: use the equivalent toggle). Paste the prompt above.
-> 2. Iterate with Claude. **Do not approve the plan** — approval executes immediately and skips `/optimus:tdd`'s Red-Green-Refactor discipline. When you're satisfied, tell Claude you're done iterating; Claude will acknowledge. Then toggle plan mode off using the same control **and send a short follow-up message (e.g. "go")** — Claude will append a `### Refined plan` section to `docs/jira/<ISSUE-KEY>.md` in response.
-> 3. Start a **second fresh conversation** and paste the execution prompt below.
+Tell the user the three numbered plan-mode steps from `$CLAUDE_PLUGIN_ROOT/references/skill-handoff.md` "Carve-out canonical blocks" verbatim, substituting `<doc-path>` = `docs/jira/<ISSUE-KEY>.md`.
 
 Then emit the **execution prompt** as a second copyable block, pre-filled from the task file:
 

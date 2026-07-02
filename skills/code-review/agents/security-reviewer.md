@@ -45,7 +45,7 @@ Within your domain (security, authn/authz, secrets, injection, data integrity), 
 - Claims about rate-limiting or abuse prevention with security framing. Example: Intent says "lock account after 5 failed login attempts" — does the diff implement the counter and lockout, including the persistence layer?
 - Claims about security-related non-goals. Example: Intent says "no new secrets in environment variables" but the diff adds a hardcoded credential or a new env var read.
 
-Report findings using the **same output format below** with **Category: `Intent Mismatch`**, **Guideline: `Intent (see Intent claim)`**, the **`Intent claim:`** field populated with the specific quoted claim, and **Severity** assigned per the canonical mapping. Rename the `Code:`/`Fix:` fields to `Current:`/`Suggested:` per `shared-constraints.md` "Field names for Intent Mismatch findings".
+Report findings using the **same output format below** with **Category: `Intent Mismatch`**, **Guideline: `Intent (see Intent claim)`**, the **`Intent claim:`** field populated with the specific quoted claim, and **Severity** assigned per the canonical mapping.
 
 ## Output Format
 

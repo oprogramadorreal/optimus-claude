@@ -37,14 +37,15 @@ Agent tool call:
     Plugin root: <absolute-plugin-root>
     Progress file: <absolute-progress-path>
     Iteration: <N> of <max>
-    Phase: <skill>
+    Phase: <base-skill>
 
     Read the base SKILL.md at
     `<absolute-plugin-root>/skills/<base-skill>/SKILL.md` and execute its
     harness-mode protocol from
     `<absolute-plugin-root>/references/harness-mode.md` exactly. Wherever the
-    base SKILL.md or harness-mode.md reference `$CLAUDE_PLUGIN_ROOT`, substitute
-    the absolute plugin root above — your environment may not export it:
+    base SKILL.md, harness-mode.md, or the agent prompt files they load
+    reference `$CLAUDE_PLUGIN_ROOT`, substitute the absolute plugin root
+    above — your environment may not export it:
     - Read the progress file above for accumulated findings and scope.
     - Run the analysis cycle once.
     - Apply fixes. Do NOT run the test command, any `scripts/*.sh`, or any
@@ -53,7 +54,7 @@ Agent tool call:
     - Do not use AskUserQuestion. Do not loop.
 ```
 
-Where `<base-skill>` is `code-review` or `refactor`, and `<absolute-plugin-root>` is the root resolved in Step 2 (the subagent does not inherit `$CLAUDE_PLUGIN_ROOT`, so it must be passed as an absolute path). The subagent inherits the working tree and applies edits via `Edit`/`MultiEdit`; on return, the working tree carries the iteration's changes and the subagent's final message contains the structured JSON.
+Where `<base-skill>` is `code-review` or `refactor`, and `<absolute-plugin-root>` is the root resolved in Step 2 (the subagent does not inherit `$CLAUDE_PLUGIN_ROOT`, so it must be passed as an absolute path — and the subagent must substitute it onward into the fan-out agent prompts it composes, per "Prompt assembly at dispatch time" in `$CLAUDE_PLUGIN_ROOT/references/agent-architecture.md`). The subagent inherits the working tree and applies edits via `Edit`/`MultiEdit`; on return, the working tree carries the iteration's changes and the subagent's final message contains the structured JSON.
 
 ### 3. Save the subagent return to a temp file
 
@@ -64,7 +65,7 @@ TMP_RAW=".claude/.deep-iteration-raw.txt"
 TMP_RESULT=".claude/.deep-iteration-result.json"
 ```
 
-These exact filename prefixes (`.deep-iteration-` and `.unit-test-deep-`) are required. The checkpoint commit's authoritative protection is the un-stage step in `commit_checkpoint` (`scripts/harness_common/git.py`), which resets `_HARNESS_STATE_EXCLUDES` back out of the index after `git add -A` — it does **not** rely on the user project's `.gitignore` carrying these patterns (`/optimus:init` does not provision them). This repo's own `.gitignore` mirrors the patterns as a convenience for harness development; renaming a prefix therefore requires synchronized updates to `_HARNESS_STATE_EXCLUDES` (authoritative) and this repo's `.gitignore` (the dev mirror).
+These exact filename prefixes (`.deep-iteration-` and `.unit-test-deep-`) are required — the checkpoint commit's un-stage step (`commit_checkpoint` in `scripts/harness_common/git.py`) matches them to keep harness state out of the commit.
 
 ### 4. Extract the structured JSON
 

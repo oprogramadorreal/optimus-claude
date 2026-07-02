@@ -6,7 +6,7 @@ Many projects lack step-by-step "how to get this running on my machine" instruct
 
 ## Features
 
-- **Stack-agnostic.** Covers web apps, C/C++ desktop apps, native mobile, JVM/Android, game engines, embedded/firmware, and backend services with external infra. See [`references/how-to-run-sections.md`](references/how-to-run-sections.md) §*Additional Detection Hints* for the full catalog.
+- **Stack-agnostic.** Covers web apps, C/C++ desktop apps, native mobile, JVM/Android, game engines, embedded/firmware, and backend services with external infra. See [`references/detection-signals.md`](references/detection-signals.md) §*Additional Detection Hints* for the full catalog.
 - Detects build system, toolchain, SDKs, runtime version constraints, and dev commands from manifests and build files
 - Discovers source dependencies — git submodules from `.gitmodules`, sibling repos from CMake `FetchContent`/`ExternalProject`/hardcoded `../sibling` paths in build & CI files
 - Discovers external services from docker-compose (databases, queues, caches) and generates startup instructions
@@ -99,7 +99,8 @@ When `HOW-TO-RUN.md` already exists, the skill offers three choices: a guided in
 | `agents/project-environment-detector.md` | Agent for build system, toolchain, source dependencies, SDKs, hardware, tech stack, services, and env detection |
 | `agents/how-to-run-auditor.md` | Agent for scanning existing docs as hypotheses and classifying them against detected state |
 | `agents/shared-constraints.md` | Skill-specific read-only analysis constraints for both agents |
-| `references/how-to-run-sections.md` | Section templates, signal-to-section mapping, build-system/source-dependency detection, PM command tables |
+| `references/detection-signals.md` | Signal-to-section mapping and build-system/source-dependency detection tables — provided to the detector agent, consulted again by content generation |
+| `references/how-to-run-sections.md` | Section templates, scaling guidance, workspace-kind command branches, PM command tables |
 | `references/external-services-docker.md` | Service classification tables, decision heuristics for Docker vs. local install vs. shared-cloud per service, web-search recipe for vendor images, canonical image catalogue (seeds), verify commands (seeds), snippet templates, Pre-Conditions Block format, citation format, and registry allowlist |
 | `references/guided-walkthrough.md` | Display-only walkthrough procedure when the user picks **Walk through it** at Step 3: per-step `AskUserQuestion` (Done / Skip / Stop), audit-verdict surface, destructive and remote-fetch advisories, completion summary. The user runs every command locally — the skill never executes anything. |
 | `references/unverifiable-content-sanitization.md` | Record-time validation (Step 3) and render-time sanitization (Step 4) for approved unverifiable items — markdown/link-injection defenses for content sourced from untrusted README prose |

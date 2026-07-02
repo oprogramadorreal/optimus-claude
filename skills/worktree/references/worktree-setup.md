@@ -16,8 +16,7 @@ Parse the output: the first entry is the **main worktree**, subsequent entries a
 
 If already inside a linked worktree:
 - **Skip worktree creation entirely**
-- Return to the caller: "Already running inside a worktree (`<worktree-path>`). Skipping worktree creation — working directly on the current branch."
-- The caller should proceed with the standard branch workflow (no worktree)
+- Report the detection result (including `<worktree-path>`) to the calling skill — the caller defines the user-facing message and the next action
 
 If inside the main worktree (or not inside any worktree): proceed with the setup procedure below.
 
@@ -76,6 +75,8 @@ If no setup command is detected, skip silently.
 ### 7. Verify test baseline
 
 Run the test command inside the worktree to confirm tests pass in the isolated environment. If no test command is detected (no `testing.md`, no obvious test script), skip and note "no test command detected" in the report.
+
+If the baseline run fails, the failures are pre-existing — the worktree starts from the same commit as the main workspace. Do not block or remove the worktree; report the failing baseline (e.g., "failing (pre-existing — N failures)") so it is not later attributed to new work.
 
 ### 8. Failure handling
 

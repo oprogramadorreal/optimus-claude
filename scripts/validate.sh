@@ -79,6 +79,23 @@ while IFS= read -r f; do
   if grep -q '^argument-hint:[[:space:]]*\[' <<< "$frontmatter"; then
     fm_errors+="  $f: argument-hint value must be quoted (bare brackets parse as a YAML list)\n"
   fi
+  # Check rendered description length against the 1024-char platform cap
+  # (handles both single-line and folded ">-" scalars)
+  description=$(awk '
+    /^description:[[:space:]]*>-?[[:space:]]*$/ { folded = 1; next }
+    folded {
+      if ($0 ~ /^[[:space:]]/) {
+        line = $0; sub(/^[[:space:]]+/, "", line)
+        text = (text == "" ? line : text " " line); next
+      }
+      folded = 0
+    }
+    /^description:[[:space:]]/ { text = $0; sub(/^description:[[:space:]]*/, "", text) }
+    END { print text }
+  ' <<< "$frontmatter")
+  if [ "${#description}" -gt 1024 ]; then
+    fm_errors+="  $f: description exceeds the 1024-char platform cap (${#description})\n"
+  fi
 done < <(find ./skills -name 'SKILL.md' -not -path './.git/*')
 check "SKILL.md frontmatter valid" test -z "$fm_errors"
 if [ -n "$fm_errors" ]; then
@@ -171,13 +188,27 @@ while IFS= read -r f; do
   # Check if this file is referenced in any skill .md file:
   # 1. By full relative path (e.g., skills/init/references/foo.md)
   # 2. By basename only (e.g., format-python.py in a table or prose)
-  # 3. By parent directory reference (e.g., templates/hooks/ covers all files inside)
-  parent_dir=$(dirname "$rel_path")
-  if ! grep -rq "$rel_path" skills/ 2>/dev/null && \
-     ! grep -rq "$basename_f" skills/ 2>/dev/null && \
-     ! grep -rq "$parent_dir/" skills/ 2>/dev/null; then
-    orphan_files+="  $rel_path\n"
-  fi
+  # 3. By parent directory reference (e.g., templates/hooks/ covers all files
+  #    inside) — skill-level files only. For root references/ and agents/
+  #    files this fallback is vacuous (the strings "references/" and "agents/"
+  #    match trivially somewhere in skills/), so they must match by full path
+  #    or basename.
+  case "$rel_path" in
+    references/*|agents/*)
+      if ! grep -rq "$rel_path" skills/ 2>/dev/null && \
+         ! grep -rq "$basename_f" skills/ 2>/dev/null; then
+        orphan_files+="  $rel_path\n"
+      fi
+      ;;
+    *)
+      parent_dir=$(dirname "$rel_path")
+      if ! grep -rq "$rel_path" skills/ 2>/dev/null && \
+         ! grep -rq "$basename_f" skills/ 2>/dev/null && \
+         ! grep -rq "$parent_dir/" skills/ 2>/dev/null; then
+        orphan_files+="  $rel_path\n"
+      fi
+      ;;
+  esac
 done < <(( find ./skills -path '*/references/*' -o -path '*/templates/*' -o -path '*/agents/*'; find ./references ./agents -type f 2>/dev/null ) | grep -v '/__' | sort)
 check "No orphaned reference/template/agent files" test -z "$orphan_files"
 if [ -n "$orphan_files" ]; then
@@ -288,6 +319,13 @@ for skill in $actual_skills; do
     readme_mismatch+="  skills/$skill: not listed in README.md\n"
   fi
 done
+# CONTRIBUTING.md's project-structure tree has drifted before (missing
+# spec-init/ and handoff/) — assert every skill directory appears there too.
+for skill in $actual_skills; do
+  if ! grep -qE "(├──|└──) $skill/" CONTRIBUTING.md 2>/dev/null; then
+    readme_mismatch+="  skills/$skill: not listed in CONTRIBUTING.md project structure\n"
+  fi
+done
 check "README lists all skills" test -z "$readme_mismatch"
 if [ -n "$readme_mismatch" ]; then
   printf "       Missing from README:\n%b" "$readme_mismatch"
@@ -372,6 +410,7 @@ echo "[Load-bearing wiring]"
 wiring_errors=""
 
 sections_file="skills/how-to-run/references/how-to-run-sections.md"
+detection_signals_file="skills/how-to-run/references/detection-signals.md"
 
 # how-to-run must wire to the unsupported-stack fallback procedure from the main
 # SKILL context — the detector agent is read-only and cannot run it. Dropping
@@ -403,16 +442,16 @@ if [ -f skills/how-to-run/agents/project-environment-detector.md ]; then
   fi
 fi
 
-# The 'Additional Detection Hints' heading in how-to-run-sections.md is referenced
+# The 'Additional Detection Hints' heading in detection-signals.md is referenced
 # by name from SKILL.md, README.md, and the detector agent. A rename would
 # silently break all three without the generic cross-ref check catching it.
-if ! grep -q '^## Additional Detection Hints' "$sections_file" 2>/dev/null; then
-  wiring_errors+="  $sections_file missing '## Additional Detection Hints' heading\n"
+if ! grep -q '^## Additional Detection Hints' "$detection_signals_file" 2>/dev/null; then
+  wiring_errors+="  $detection_signals_file missing '## Additional Detection Hints' heading\n"
 fi
 # The 'Build System Detection' heading is load-bearing for Task 0a of the
 # detector agent, which delegates its entire build-file enumeration to the table.
-if ! grep -q '^## Build System Detection' "$sections_file" 2>/dev/null; then
-  wiring_errors+="  $sections_file missing '## Build System Detection' heading\n"
+if ! grep -q '^## Build System Detection' "$detection_signals_file" 2>/dev/null; then
+  wiring_errors+="  $detection_signals_file missing '## Build System Detection' heading\n"
 fi
 
 # Build System Detection table rows that the detector agent depends on. Before
@@ -420,13 +459,26 @@ fi
 # Now Task 0a delegates entirely to this table, so a silent row deletion during
 # a table cleanup would drop a detection signal the agent used to guarantee.
 # Scope the grep to the "## Build System Detection" section body so incidental
-# mentions elsewhere in the file (Signal → Section Mapping, Toolchain & SDKs)
-# cannot satisfy the check. Each token must appear in the table body.
-if [ -f "$sections_file" ]; then
-  bsd_body=$(awk '/^## Build System Detection/{f=1;next}/^## /{f=0}f' "$sections_file" 2>/dev/null)
+# mentions elsewhere in the file (Signal → Section Mapping) cannot satisfy the
+# check. Each token must appear in the table body.
+if [ -f "$detection_signals_file" ]; then
+  bsd_body=$(awk '/^## Build System Detection/{f=1;next}/^## /{f=0}f' "$detection_signals_file" 2>/dev/null)
   for token in 'CMakeLists.txt' 'meson.build' 'BUILD.bazel' 'WORKSPACE' '*.sln' '*.vcxproj' '*.xcodeproj' '*.xcworkspace' 'build.gradle' 'settings.gradle' 'AndroidManifest.xml' 'compileSdkVersion' '*.uproject' 'ProjectSettings/ProjectVersion.txt' 'project.godot' 'platformio.ini' '*.ino' 'Package.swift' 'Podfile' 'Makefile'; do
     if ! printf '%s' "$bsd_body" | grep -qF "$token" 2>/dev/null; then
       wiring_errors+="  Build System Detection table body missing row for: $token\n"
+    fi
+  done
+fi
+
+# Signal → Section Mapping rows that wire the detector's Components (Task 5d)
+# and Runtime Ports (Task 5c) tables to the Running-in-Development layout
+# selection. Silent removal would drop the layout wiring at its source.
+if [ -f "$detection_signals_file" ]; then
+  for detection_token in \
+    'Components table (Task 5d)' \
+    'Runtime Ports table (Task 5c)'; do
+    if ! grep -qF -- "$detection_token" "$detection_signals_file" 2>/dev/null; then
+      wiring_errors+="  $detection_signals_file missing detection wiring token: $detection_token\n"
     fi
   done
 fi
@@ -561,8 +613,6 @@ if [ -f "$sections_file" ]; then
     '**Component count → layout.**' \
     'Compact multi-component layout' \
     '**Flat layout (1-2 components).**' \
-    'Components table (Task 5d)' \
-    'Runtime Ports table (Task 5c)' \
     '## Workspace-Kind Command Branches' \
     '`npm-workspaces`' \
     '`pnpm-workspaces`' \
@@ -1030,6 +1080,34 @@ done
 check "Load-bearing wiring intact" test -z "$wiring_errors"
 if [ -n "$wiring_errors" ]; then
   printf "       Wiring issues:\n%b" "$wiring_errors"
+fi
+
+# Closing-tip drift guard: references/skill-handoff.md mandates verbatim
+# variant wording for closing tips, but inline copies in SKILL.md files are
+# otherwise unpinned. Any **Tip:** line about conversation hygiene (contains
+# "conversation") must match a canonical variant: Variant C verbatim, or the
+# Variant A/B invariant text with skill-specific substitutions in the
+# placeholder slots. Other **Tip:** lines (e.g. deep-mode pointers) are not
+# closing tips and are ignored.
+tip_errors=""
+variant_c='for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch.'
+while IFS= read -r match; do
+  tip_file="${match%%:*}"
+  tip_text="${match#*"**Tip:** "}"
+  case "$tip_text" in
+    *conversation*) ;;
+    *) continue ;;
+  esac
+  case "$tip_text" in
+    "$variant_c"*) ;;
+    "stay in this conversation when running "*" so the implementation context is captured. Other downstream skills ("*") should still run in fresh conversations."*) ;;
+    "for \`"*", stay in this conversation so they can capture the implementation context. For other downstream skills ("*"), start a fresh conversation — each gathers its own context from scratch."*) ;;
+    *) tip_errors+="  $tip_file: closing tip does not match a skill-handoff.md variant: $tip_text\n" ;;
+  esac
+done < <(grep -H -- '\*\*Tip:\*\*' skills/*/SKILL.md)
+check "Closing tips match skill-handoff.md variants" test -z "$tip_errors"
+if [ -n "$tip_errors" ]; then
+  printf "       Tip drift:\n%b" "$tip_errors"
 fi
 
 # --- Summary ---

@@ -30,7 +30,6 @@ The [2025 DORA report](https://cloud.google.com/discover/how-test-driven-develop
 - **Push and PR/MR handoff** — after the quality gate, TDD pushes the feature branch to `origin` and recommends `/optimus:pr` as the explicit next step in the same conversation. `/optimus:pr` reads the TDD summary block (behaviors, coverage delta, deferred behaviors) from the conversation to populate the [Conventional PR](../pr/README.md) format — `## Intent` (Scope from behaviors, Non-goals from deferred behaviors, Key decisions from refactor reasoning) and the per-behavior `## Test plan` items. Delegating (rather than running `gh pr create` / `glab mr create` inline) gives the PR step default-branch auto-detection, CLI install offers, existing-PR detection, and preview-and-confirm
 - **Coverage tracking** — detects coverage commands from testing.md, test runner flags, or package scripts; reports delta
 - **Multi-repo workspace support** — targets specific repos in multi-repo setups
-- **Submodule exclusion** — skips git submodule directories
 
 ## Quick Start
 
@@ -313,7 +312,6 @@ The user's original branch is never modified. All code review happens through th
 | *(shared)* `commit/references/branch-naming.md` | Branch naming convention |
 | *(shared)* `worktree/references/worktree-setup.md` | Worktree setup procedure and recursive guard |
 | *(shared)* `commit-message/references/conventional-commit-format.md` | Conventional commit message format |
-| *(shared)* `pr/references/platform-detection.md` | Platform detection and CLI management |
 
 ## Requirements
 

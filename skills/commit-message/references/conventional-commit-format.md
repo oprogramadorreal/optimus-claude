@@ -10,6 +10,8 @@ Review the gathered git diff information to understand:
 - **Why it changed**: Infer purpose from code context (new feature, bug fix, refactor, etc.). When the conversation carries implementation context — design decisions, non-goals, trade-offs, "we decided against X" discussions — capture that context in the commit body (see "Capture implementation context" below).
 - **Scope**: Identify the affected component or area of the codebase
 
+Untracked files appear only as names in the gathered output (`git status --short` produces no diff) — read their contents when needed to determine type and scope.
+
 In a multi-repo workspace, analyze each repo's changes independently — each repo may have different types, scopes, and purposes.
 
 ## Capture implementation context

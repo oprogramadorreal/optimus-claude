@@ -6,7 +6,7 @@ Prompt-specific guidance for each AI tool category. Load only the section matchi
 
 | Category | Tools |
 |----------|-------|
-| [Reasoning LLMs](#reasoning-llms) | Claude, ChatGPT / GPT-5.x, Gemini 2.x / 3 Pro, MiniMax |
+| [General-Purpose LLMs](#general-purpose-llms) | Claude, ChatGPT / GPT-5.x, Gemini 2.x / 3 Pro, MiniMax |
 | [Reasoning-Native LLMs](#reasoning-native-llms) | o3 / o4-mini, DeepSeek-R1, Qwen3 thinking mode |
 | [Open-Weight LLMs](#open-weight-llms) | Qwen 2.5, Llama, Mistral, Ollama |
 | [IDE AI](#ide-ai) | Claude Code, Cursor / Windsurf, Cline, GitHub Copilot, Antigravity |
@@ -23,7 +23,9 @@ Prompt-specific guidance for each AI tool category. Load only the section matchi
 
 ---
 
-## Reasoning LLMs
+## General-Purpose LLMs
+
+Unlike [Reasoning-Native LLMs](#reasoning-native-llms), these accept explicit CoT scaffolding (Template E) for logic-heavy tasks — unless the tool's entry says reasoning is calibrated automatically (e.g., current Claude); the entry is authoritative for the CoT decision.
 
 ### Claude (claude.ai, Claude API, Claude 4.x / Fable 5)
 

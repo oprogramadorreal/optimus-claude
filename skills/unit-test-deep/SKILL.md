@@ -1,12 +1,12 @@
 ---
-description: Iterative test-coverage improvement loop — dispatches `/optimus:unit-test` (unit-test phase) and `/optimus:refactor` with testability focus (refactor phase) into fresh subagent contexts per cycle, applies tests, runs the test suite, bisects refactor failures, and continues until coverage plateaus or the cycle cap (default 5, hard cap 10). Use to drive coverage up on a codebase that has untestable barriers — the loop alternates between writing tests and unblocking testability so a single skill cannot stall.
+description: Iterative test-coverage improvement loop — dispatches `/optimus:unit-test` (unit-test phase) and, when untestable code is flagged, `/optimus:refactor` with testability focus (refactor phase) into fresh subagent contexts per cycle, applies tests, runs the test suite, bisects refactor failures, and continues until coverage plateaus or the cycle cap is reached (default 5, hard cap 10). Requires a test command in .claude/CLAUDE.md. Use to drive coverage up on a codebase that has untestable barriers — the loop alternates between writing tests and unblocking testability so a single skill cannot stall.
 disable-model-invocation: true
 argument-hint: "[path] [--resume] [--yes] [--max-cycles N]"
 ---
 
 # Unit-Test Coverage Improvement (Deep)
 
-Orchestrate paired cycles of test generation and testability refactoring. Each cycle is two subagent dispatches: first `/optimus:unit-test` (writes tests, measures coverage, flags untestable code), then `/optimus:refactor` with focus on testability (unblocks the flagged items so the next cycle can cover them). All state lives in `.claude/unit-test-deep-progress.json`.
+Orchestrate paired cycles of test generation and testability refactoring. Each cycle is up to two subagent dispatches: first `/optimus:unit-test` (writes tests, measures coverage, flags untestable code), then — when untestable items are pending — `/optimus:refactor` with focus on testability (unblocks the flagged items so the next cycle can cover them). All state lives in `.claude/unit-test-deep-progress.json`.
 
 ## Step 1: Parse Arguments and Guard Against Re-entry
 
@@ -68,6 +68,8 @@ Warn the user with:
 > **Deep unit-test mode** runs up to [N] cycles. Each cycle is two subagent dispatches: a unit-test phase that writes tests + measures coverage, and a refactor phase (only when the first phase flags untestable code) that unblocks testability barriers. Credit and time consumption multiplies with cycle count. Tests and refactor fixes are applied automatically without per-change approval. Press Esc twice to interrupt — state is saved per-phase; resume with `/optimus:unit-test-deep --resume`.
 >
 > Test command: `[test command]`
+>
+> Mid-iteration interrupts may leave the working tree inconsistent; clean iterations are fully recoverable via `--resume`.
 
 Use `AskUserQuestion` — header "Deep unit-test", question "Proceed with deep unit-test?":
 - **Proceed** — "Run the unit-test + refactor cycle loop (max [N] cycles)"
@@ -77,16 +79,10 @@ If the user selects **Cancel**, stop.
 
 ## Step 4: Initialize or Resume Progress
 
-### On `--resume`
+Read `$CLAUDE_PLUGIN_ROOT/references/harness-init-resume.md` and apply its shared init/resume semantics — the `resume` invocation and cap raising, `init` error recovery (a prior run is discarded by re-invoking `init` with `--force`), `--no-commit` persistence, and `.done.json` archival — with these parameters:
 
-```bash
-PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli resume \
-    --progress-file ".claude/unit-test-deep-progress.json" \
-    [--max-cycles N] \
-    --project-dir "."
-```
-
-Pass `--max-cycles N` through when the user supplied a higher cap on `--resume` — `resume` raises the persisted cycle cap (and clears a prior `diminishing-returns` stop) so the loop continues past the previous limit. A run that finished cleanly is archived to `.done.json`; `--resume` only continues a still-on-disk run (interrupt or `diminishing-returns`).
+- `<progress-path>` = `.claude/unit-test-deep-progress.json`
+- `<cap-flag>` = `--max-cycles`
 
 ### On fresh run
 
@@ -101,10 +97,6 @@ PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli init \
     --project-dir "."
 ```
 
-Pass `--no-commit` through to `init` when the user supplied it — the mode is persisted in the progress file, so `--resume` keeps it without re-passing the flag (and `commit-checkpoint` self-skips regardless).
-
-If `init` reports *"progress file already exists"*, a prior un-archived run is on disk. Either run with `--resume` to continue it, or re-invoke `init` with `--force` to discard the prior progress.
-
 ### Establish a baseline (fresh runs only)
 
 Skip on `--resume`. On a fresh run, after `init` succeeds, run the baseline once to calibrate the per-cycle test timeout:
@@ -116,6 +108,8 @@ PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli baseline \
 ```
 
 `--allow-red` is passed unconditionally here: a coverage run legitimately starts with little or no passing test coverage, so a non-green baseline is not a reason to refuse. When the suite is green the command calibrates the per-cycle timeout from the measured duration (so a slow suite doesn't spuriously time out during bisection); when it isn't, it proceeds and leaves the timeout at its default.
+
+If the CLI prints `baseline-red-allowed` and the project already has tests (the Step 2 test-infrastructure check flagged neither gap) — or the baseline run hit the test timeout — the loop cannot make progress as-is: a failing suite trips the unit-test phase's `blocked` stop gate and terminates the run at cycle 1, and a timing-out suite makes every cycle's full-suite run roll the cycle's tests back silently (the CLI prints only `continue`). Warn the user and confirm before entering the loop — recommend fixing the failing tests (or the slow suite) first.
 
 ## Step 5: Run the Cycle Loop
 
@@ -132,7 +126,7 @@ The paired-loop template handles:
 - Recording the refactor phase outputs (with bisection on test failure)
 - Checkpoint commit for the refactor phase
 - Recording cycle history + advancing the cycle counter
-- Termination check (`continue`, `convergence`, `cap`, `diminishing-returns`)
+- Termination check (`continue`, `convergence`, `cap`, `diminishing-returns`, `parse-failure`)
 
 Brief per-phase status updates are appropriate (e.g., *"Cycle 2/5 unit-test: dispatching subagent…"*, *"Cycle 2/5 refactor: applied 3 fixes, tests pass."*). Do not narrate the subagent's findings in conversation prose — the report at Step 6 covers them.
 

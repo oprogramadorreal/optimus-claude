@@ -16,3 +16,5 @@ Check that these files exist:
 - `CLAUDE.md` missing → detect tech stack from manifest files (`package.json`, `Cargo.toml`, `pyproject.toml`, etc.) for basic context
 - `coding-guidelines.md` missing → read `$CLAUDE_PLUGIN_ROOT/skills/init/templates/docs/coding-guidelines.md` as a generic baseline; inform the user that findings are based on generic guidelines, not project-specific ones
 - Both missing → apply both fallbacks, strongly recommend `/optimus:init`
+
+> **Strictness note:** analysis skills (code-review, refactor) use these fallbacks; generative and deep skills deliberately hard-stop on a missing `CLAUDE.md` instead — their inline stop instructions override this section.

@@ -62,6 +62,8 @@ PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli parse \
 
 Passing `--progress-file` lets the CLI track consecutive parse failures across cycles (and across `--resume`); a single failure is a no-op and the loop moves on, while two consecutive failures cause step 11 (`check-termination`) to return `parse-failure` and terminate the loop. The counter is shared across both phases — a unit-test parse failure followed by a refactor parse failure counts as two consecutive failures.
 
+**Blocked gate:** if the extracted JSON has a non-null `blocked` field, the unit-test phase hit a stop gate it cannot work past (no test framework, failing baseline — see coverage-harness-mode.md "Stop gates under harness mode"). Do not run `unit-test-step` and do not dispatch further cycles: exit the loop, report the `blocked` reason to the user with the matching base-skill recovery advice (`/optimus:init` for a missing framework or broken build; triage the failing tests for a red baseline), and proceed to "After the loop".
+
 ### 4. Record the unit-test phase
 
 ```bash
@@ -75,7 +77,7 @@ Stdout is one of:
 | Output | Meaning |
 |---|---|
 | `converged` | Skill reported plateau (`no_new_tests` + `no_untestable_code` or `no_coverage_gained`) — cycle ends, loop terminates. |
-| `continue` | Unit-test phase complete — proceed to step 5. |
+| `continue` | Unit-test phase complete — proceed to step 5. Also printed after a red-suite rollback (the CLI reverts the cycle's tests and drops the phase JSON without a distinct token — see Per-phase notes). |
 
 ### 5. Commit the unit-test phase checkpoint
 
@@ -179,6 +181,8 @@ PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli record-cyc
 ```
 
 `record-cycle` appends a `cycle_history` entry and increments `cycle.current`. The summaries are JSON snippets you can build from the phase outputs you captured at steps 4 and 8 (counts of tests written, fixes applied, etc.).
+
+Step 4's `continue` does not distinguish a green merge from a red-suite rollback (see Per-phase notes), so the unit-test counts are subagent-reported, not CLI-confirmed. In commit mode, `nothing-to-commit` from step 5 despite reported tests indicates the cycle was rolled back — record zero tests written for the phase and say so in the status update; otherwise attribute counts to the subagent (e.g. *"subagent reported 4 tests"*) rather than asserting they were kept.
 
 ### 11. Check termination
 

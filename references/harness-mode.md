@@ -3,7 +3,8 @@
 ## Contents
 
 1. [Single-Iteration Execution](#single-iteration-execution) — progress file, analysis cycle, fix application, structured JSON output (steps 1–9)
-2. [Termination reasons](#termination-reasons) — enum of exit reasons the orchestrator may record
+2. [Skill-step execution under harness mode](#skill-step-execution-under-harness-mode) — which base-skill steps run, per-skill scope rules, `pr_description` handling
+3. [Termination reasons](#termination-reasons) — enum of exit reasons the orchestrator may record
 
 ## Single-Iteration Execution
 
@@ -12,6 +13,7 @@ When running under an orchestrator skill (`/optimus:code-review-deep`, `/optimus
 ### Contents
 
 1. [Read progress file](#1-read-progress-file)
+   - [Skill-step execution under harness mode](#skill-step-execution-under-harness-mode) — including `pr_description` handling
 2. [Build iteration context](#2-build-iteration-context-iterations-2)
 3. [Run one analysis cycle](#3-run-one-analysis-cycle)
 4. [Validate findings](#4-validate-findings)
@@ -37,33 +39,25 @@ Initialize from the progress file:
 - `accumulated-findings` = `findings` array (restoring cross-session state from disk)
 - `focus` = `config.focus` (apply to finding-cap logic if the skill supports focus modes)
 
-If `scope_files.current` is non-empty, use it as the file list for agents — this overrides the skill's Step 3 file discovery (the orchestrator pre-populated the scope). If `scope_files.current` is empty, fall back to the skill's Step 3 file discovery via git.
+If `scope_files.current` is non-empty, use it as the file list for agents — this overrides the skill's Step 3 file discovery (the orchestrator pre-populated the scope). If `scope_files.current` is empty, fall back to the skill's Step 3 file discovery (per-skill rules below).
 
 ### Skill-step execution under harness mode
 
-After reading the progress file, proceed through all of the skill's remaining numbered steps in order — skip only the user confirmation step (the orchestrator handles approval upfront). Under harness mode, Step 3 (or its skill-equivalent) must use the "no local changes → branch-diff" path automatically, regardless of the working tree's actual state. In commit mode the orchestrator's Step 2 git-state check guarantees a clean tree before the run starts; in `--no-commit` mode the `snapshot` step (`orchestrator-loop-single.md` step 1) takes a non-destructive stash via `git stash create`/`store`, which does **not** modify the working tree — so uncommitted changes may still be present. Take the branch-diff path because harness mode instructs it (and because the orchestrator pre-populates `scope_files.current`), not because the tree is guaranteed clean. Skip the interactive scope offers, the scope summary presentation, and the large-diff warning.
+After reading the progress file, proceed through all of the skill's remaining numbered steps in order — skip only the user confirmation step (the orchestrator handles approval upfront), the interactive scope offers, and the scope summary presentation. Scope handling is skill-specific:
 
-If `config.pr_description` is non-null, treat it as equivalent to the `pr-description` that interactive Step 3 captures from `gh pr view`: inject it into agent prompts per Step 5 "PR/MR context injection" and apply the Step 6 "PR/MR description as intent signal" soft-confidence adjustment during validation. Do not re-fetch via `gh pr view` — the orchestrator already captured it, and skipping the extra fetch keeps the subagent's turn budget lean.
+- **code-review**: Step 3 must use the "no local changes → branch-diff" path automatically, regardless of the working tree's actual state, and skip the large-diff warning. In commit mode the orchestrator's Step 2 git-state check guarantees a clean tree before the run starts; in `--no-commit` mode the `snapshot` step (`orchestrator-loop-single.md` step 1) takes a non-destructive stash via `git stash create`/`store`, which does **not** modify the working tree — so uncommitted changes may still be present. Take the branch-diff path because harness mode instructs it (and because the orchestrator pre-populates `scope_files.current`), not because the tree is guaranteed clean.
+- **refactor**: when `scope_files.current` is non-empty, derive analysis areas from it per Step 3's harness note; when empty, run Step 3's normal directory scan with full-project scope.
+
+If `config.pr_description` is non-null **and the base skill defines a PR/MR context block** (code-review does; refactor ignores `config.pr_description` — its `agents/context-blocks.md` states the PR/MR block does not apply), treat it as equivalent to the `pr-description` that interactive Step 3 captures from `gh pr view`: inject it into agent prompts per Step 5 "PR/MR context injection" and apply the Step 6 "PR/MR description as intent signal" soft-confidence adjustment during validation. Do not re-fetch via `gh pr view` — the orchestrator already captured it, and skipping the extra fetch keeps the subagent's turn budget lean.
 
 ### 2. Build iteration context (iterations 2+)
 
-If `iteration-count` > 1, construct the Iteration Context Block from the accumulated findings using the same template as `$CLAUDE_PLUGIN_ROOT/references/context-injection-blocks.md`:
+If `iteration-count` > 1, construct the Iteration Context Block from the accumulated findings using the "Iteration Context Block" template in `$CLAUDE_PLUGIN_ROOT/references/context-injection-blocks.md` — that file is the single source for the block, including the status-values legend, the empty-field fallbacks, and the closing "Focus your review on NEW issues only" instruction.
 
-```
-## Prior Findings (iterations 1–[N-1])
+Harness-specific deltas:
 
-| File | Line | Category | Summary | Status |
-|------|------|----------|---------|--------|
-[one row per finding from accumulated-findings]
-
-### Failed Fix Attempts
-[one bullet per reverted/persistent finding only — omit fixed findings]
-- **<file>:<line>** (<category>): Tried: <fix_description>. Failed: <last_failure_hint>
-```
-
-The main table uses only compact fields (file, line, category, summary, status). Do NOT include code content (`pre_edit_content` / `post_edit_content`) in the context block, as that would recreate context bloat.
-
-The "Failed Fix Attempts" section is appended **only when reverted or persistent findings exist**. It surfaces `fix_description` (what was tried) and `last_failure_hint` (truncated test failure output, max ~200 chars) so the next iteration can try a different approach instead of repeating the same fix. Omit the section entirely if all findings are fixed.
+- Do NOT include code content (`pre_edit_content` / `post_edit_content`) in the block — the table uses only the compact fields (file, line, category, summary, status); code content would recreate context bloat.
+- Source the "Failed Fix Attempts" bullets from `accumulated-findings`: `fix_description` (what was tried) and `last_failure_hint` (truncated test failure output, max ~200 chars) give the next iteration enough signal to try a different approach instead of repeating the same fix.
 
 ### 3. Run one analysis cycle
 
@@ -96,7 +90,7 @@ For fixes that span multiple locations in a single file, output one entry per ed
 
 ### 7. Do NOT run tests
 
-The orchestrator handles test execution and bisection externally. This keeps test output (stack traces, assertion failures) out of the subagent's context window. Do **not** run the project's test command, any `scripts/*.sh`, or any lint / build / coverage invocation — not even to "verify" your own fixes. Skip any verification or validation step the base skill's normal (interactive) flow would perform; under harness mode the orchestrator owns all test execution. Apply your edits and emit the JSON.
+The orchestrator handles test execution and bisection externally. This keeps test output (stack traces, assertion failures) out of the subagent's context window. Do **not** run the project's test command, any `scripts/*.sh`, or any lint / build / coverage invocation — not even to "verify" your own fixes. Skip any test-running, build, or lint verification step the base skill's normal (interactive) flow would perform; finding validation (step 4) still applies. Under harness mode the orchestrator owns all test execution. Apply your edits and emit the JSON.
 
 ### 8. Output structured JSON
 

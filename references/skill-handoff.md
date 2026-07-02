@@ -75,7 +75,22 @@ When a skill recommends plan mode as a handoff step, choose by **deliverable typ
 - The generated plan-mode prompt must include a closing instruction telling Claude to **append a "Refined plan" section** to the underlying spec or task file (`docs/specs/…` or `docs/jira/…`) once the user signals they're done iterating. Append (not overwrite) preserves the original spec/task context for audit. The write happens in normal mode after the user toggles plan mode off and sends a follow-up message — it is prompt-driven and requires an explicit trigger message, not automatic.
 - After Claude writes the refined plan, the user starts a **fresh conversation** and invokes `/optimus:tdd`, which gathers context from scratch against the updated doc.
 
-`/optimus:brainstorm` and `/optimus:jira` use this carve-out for their code paths — their inline plan-mode prompts already encode review-only + "Refined plan" + fresh conversation.
+`/optimus:brainstorm` and `/optimus:jira` use this carve-out for their code paths — their generated prompts and user instructions come from the canonical blocks below.
+
+### Carve-out canonical blocks
+
+Close the generated plan-mode prompt with this section, substituting `<doc-path>` with the actual spec/task file path. The `### Refined plan` heading is exact for both skills — jira's refresh and enrichment procedures preserve that section by that literal string:
+
+```
+## How this conversation should run
+Treat this conversation as a review loop — validate the plan against the actual codebase and iterate with me. When I say I'm done iterating, acknowledge but do not write yet — plan mode is read-only. I will then toggle plan mode off and send a short follow-up message (e.g. "go"). On that follow-up, append a `### Refined plan` section (heading exactly `### Refined plan`) to `<doc-path>` to capture the refined plan, and stop. I will start a fresh conversation to run `/optimus:tdd`.
+```
+
+After presenting the prompt, tell the user these three steps verbatim (substituting `<doc-path>`):
+
+> 1. Start a fresh Claude Code conversation in **plan mode** (CLI: press `Shift+Tab` until the mode indicator shows plan mode; other clients: use the equivalent toggle). Paste the prompt above.
+> 2. Iterate with Claude. **Do not approve the plan** — approval executes immediately and skips `/optimus:tdd`'s Red-Green-Refactor discipline. When you're satisfied, tell Claude you're done iterating; Claude will acknowledge. Then toggle plan mode off using the same control **and send a short follow-up message (e.g. "go")** — Claude will append a `### Refined plan` section to `<doc-path>` in response.
+> 3. Start a **second fresh conversation** and paste the execution prompt below.
 
 ## Why fresh conversations
 

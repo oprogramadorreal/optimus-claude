@@ -32,7 +32,7 @@ If worktree creation fails (e.g., git version too old, filesystem issues), fall 
 
 ## Cleanup
 
-If a worktree was used (see Setup above), offer cleanup after pushing the branch (before recommending `/optimus:pr`):
+If a worktree was used (see Setup above), offer cleanup after pushing the branch — SKILL.md Step 9 runs it as the final subsection, after the `/optimus:pr` next-step recommendation:
 
 1. Switch to the main workspace directory (parent of `.worktrees/`)
 2. Remove the worktree: `git worktree remove .worktrees/<worktree-dir>`

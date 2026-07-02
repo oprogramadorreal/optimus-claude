@@ -33,7 +33,7 @@ The canonical chain — all three continuation steps in the same conversation, t
 - **Default branch targeting** — new PRs target the repo's default branch (main/master); updates preserve the PR's existing target branch
 - **Ready to merge** — PRs/MRs are created as ready (not draft)
 - **User preview** — shows generated content before creating or updating, with option to adjust
-- **Shared template** — the Conventional PR template is reusable by other skills (e.g., `/optimus:tdd`)
+- **Shared template** — the Conventional PR template is reusable by other skills (`/optimus:code-review` reads its `## Intent` detection heuristic)
 - **Multi-repo workspace support** — detects multi-repo workspaces, auto-filters to repos with changes, and offers to create PRs for all or a specific repo
 
 ## Quick Start
@@ -151,7 +151,7 @@ A PR/MR already exists for this branch. What would you like to do?
 1. Detects multi-repo workspaces, auto-selects repos with changes ready for PRs
 2. Detects the hosting platform (GitHub/GitLab) from remote URLs or CI files
 3. Verifies the CLI (`gh`/`glab`) is installed and authenticated — offers installation if missing
-4. Checks if the current branch already has an open PR/MR
+4. Pushes the branch if needed (asking before any force-push when the branch diverged, e.g. after a rebase), then checks if the current branch already has an open PR/MR
 5. **Create flow:** gathers branch changes (commits, diff), generates a Conventional PR (title + structured body), previews, and creates
 6. **Update flow:** shows the existing PR/MR, asks what to regenerate, generates fresh content from diffs, scans the existing PR for manually-added information (issue references, deployment notes, etc.) to preserve, previews, and updates
 7. Reports the PR/MR URL and recommends `/optimus:code-review`
@@ -169,7 +169,7 @@ The skill uses a structured template inspired by Conventional Commits:
 | **Rationale** | No | Design decisions and trade-offs (omit for straightforward changes) |
 | **Test plan** | Yes | Verification checklist |
 
-The template is shared with `/optimus:tdd` via `references/pr-template.md`.
+The template is shared with `/optimus:code-review` (its `## Intent` detection heuristic) via `references/pr-template.md`.
 
 ## Relationship to Other Skills
 
@@ -205,8 +205,8 @@ Workflow: run `/optimus:pr` first, then `/optimus:code-review`.
 | File | Purpose |
 |---|---|
 | `SKILL.md` | Skill definition with 8-step workflow (pre-flight, platform detection, CLI check, PR check, create/update, per-repo report, final summary) |
-| `references/pr-template.md` | Shared Conventional PR format template (used by this skill and `/optimus:tdd`) |
-| `references/platform-detection.md` | Shared platform detection and CLI management reference (used by this skill, `/optimus:tdd`, and `/optimus:code-review`) |
+| `references/pr-template.md` | Shared Conventional PR format template (used by this skill and `/optimus:code-review`) |
+| `references/platform-detection.md` | Shared platform detection and CLI management reference (used by this skill and `/optimus:code-review`) |
 | `references/default-branch-detection.md` | Shared default branch detection algorithm (used by this skill and `/optimus:code-review`) |
 | *(shared)* `init/references/multi-repo-detection.md` | Multi-repo workspace detection algorithm |
 

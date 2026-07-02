@@ -32,17 +32,19 @@ This phase runs **regardless** of whether the steps above installed anything —
 
 ### Testing documentation
 
-If `.claude/docs/testing.md` doesn't exist, create it using `$CLAUDE_PLUGIN_ROOT/skills/init/templates/docs/testing.md` as the skeleton. Fill in all placeholders with actual project details (framework name, test commands, directory structure, conventions from existing test files). Don't leave any `[placeholder]` text.
+**Placement:** single project — `.claude/docs/testing.md`. Monorepo — `<subproject>/docs/testing.md` for each subproject with test infrastructure, scoped to that subproject's framework and commands; create root `.claude/docs/testing.md` only when the root is itself a project (root-as-project). The create/review semantics below apply per file.
 
-If `.claude/docs/testing.md` already exists, review it for accuracy. Propose updates if outdated — especially if a new framework was just installed. Ask user approval before modifying.
+If the testing.md doesn't exist, create it using `$CLAUDE_PLUGIN_ROOT/skills/init/templates/docs/testing.md` as the skeleton. Fill in all placeholders with actual project details (framework name, test commands, directory structure, conventions from existing test files). Don't leave any `[placeholder]` text.
+
+If it already exists, review it for accuracy. Propose updates if outdated — especially if a new framework was just installed. Ask user approval before modifying.
 
 ### CLAUDE.md testing references
 
-If `.claude/CLAUDE.md` doesn't reference testing, add test commands and a testing.md reference. Keep within init's compact ~60-line style — add to existing sections rather than creating new ones.
+If `.claude/CLAUDE.md` doesn't reference testing, add test commands and a testing.md reference. In monorepos without root-as-project, add workspace-wide test commands only — do not reference a root testing.md that was not created; subproject testing.md references are handled below. Keep within init's compact ~60-line style — add to existing sections rather than creating new ones.
 
 ### Monorepo subprojects
 
-For monorepos, update subproject-level `CLAUDE.md` files too. Each subproject should reference its own `docs/testing.md` and test commands.
+For monorepos, update subproject-level `CLAUDE.md` files too. Each subproject with test infrastructure should reference its own `docs/testing.md` (created above) and test commands.
 
 ### README testing section
 

@@ -124,7 +124,7 @@ Experiment: Give 3 variants ranging from minimal to bold.
 
 ## Template E — Chain of Thought
 
-*For logic-heavy tasks, math, debugging, and multi-factor analysis. ONLY for standard reasoning models (Claude, GPT, Gemini, Qwen 2.5, Llama). NEVER for o3, o4-mini, DeepSeek-R1, or Qwen3 thinking mode.*
+*For logic-heavy tasks, math, debugging, and multi-factor analysis. Check the target tool's entry in tool-routing.md before selecting — NEVER for reasoning-native models, and not for tools whose entry says reasoning depth is calibrated automatically (e.g., current Claude — use that entry's nudge wording instead).*
 
 ```
 [Task statement]
@@ -142,7 +142,7 @@ Give your final answer in <answer> tags only.
 
 **When to use:** debugging with non-obvious cause, comparing technical approaches, math/calculation, analysis where a wrong first impression is likely.
 
-**When NOT to use:** o3/o4-mini/R1/Qwen3-thinking (they think internally — CoT hurts), simple tasks, creative tasks.
+**When NOT to use:** any model whose tool-routing.md entry bars explicit CoT (reasoning-native models think internally — CoT hurts), simple tasks, creative tasks.
 
 ---
 
@@ -327,7 +327,7 @@ Detect which task is needed:
 
 For Adapt tasks, always ask: "What tool is the original from, and what tool are you adapting it for?"
 
-When delivering any decompiler output below, wrap each pasteable prompt block — the `Recommended fix`, the `Adapted for [target tool]` block, and each split `[prompt block]` — in the same plain-text boundary markers used in SKILL.md Step 8 (`----- BEGIN PROMPT -----` above the opening fence, `----- END PROMPT -----` below the closing fence, always OUTSIDE the fence). Do not wrap the Structure analysis, Key changes, or commentary lines — only the pasteable prompt text.
+When delivering any decompiler output below, wrap each pasteable prompt block — the `Recommended fix`, the `Adapted for [target tool]` block, and each split `[prompt block]` — in the SKILL.md Step 8 boundary markers (placement rules live there). Do not wrap the Structure analysis, Key changes, or commentary lines — only the pasteable prompt text.
 
 **Break down format:**
 ```
@@ -370,7 +370,7 @@ Prompt 2 — [what it handles]:
 Run these in order. Each output feeds the next.
 ```
 
-Wrap each `[prompt block]` above in its own `----- BEGIN PROMPT -----` / `----- END PROMPT -----` markers (placed outside its code fence) so each sequential prompt is individually selectable. Keep the `Prompt N — [what it handles]:` labels and the "Run these in order…" line outside the markers.
+Wrap each `[prompt block]` above in its own pair of Step 8 boundary markers so each sequential prompt is individually selectable. Keep the `Prompt N — [what it handles]:` labels and the "Run these in order…" line outside the markers.
 
 ---
 

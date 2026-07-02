@@ -1,5 +1,5 @@
 ---
-description: Stages, commits, and optionally pushes local changes with a conventional commit message — analyzes diffs, generates the message, confirms with the user, and commits. On protected branches, offers to create a feature branch automatically. Multi-repo aware. Use when ready to commit work in one step.
+description: Stages, commits, and optionally pushes local changes with a conventional commit message — analyzes diffs, generates the message, confirms with the user, and commits. On protected branches, offers to create a feature branch automatically. Multi-repo aware. Use when ready to commit work in one step. For a message-only suggestion without committing, use /optimus:commit-message.
 disable-model-invocation: true
 ---
 
@@ -13,23 +13,24 @@ Stage, commit, and optionally push local changes with a conventional commit mess
 
 Read `$CLAUDE_PLUGIN_ROOT/skills/commit/references/gather-changes.md` and follow the procedure (multi-repo detection + git commands).
 
-### 2. Analyze Changes and Generate Conventional Commit Message
-
-Read `$CLAUDE_PLUGIN_ROOT/skills/commit-message/references/conventional-commit-format.md` and follow its instructions to analyze the gathered changes and generate a conventional commit message.
-
-If changes span multiple concerns, use `AskUserQuestion` to ask whether to commit everything together or split into separate commits. If splitting, process each commit separately through steps 3–7.
+### 2. Handle Untracked Files
 
 In a multi-repo workspace, process each repo with changes through steps 2–7 independently.
-
-### 3. Handle Untracked Files
 
 If `git status --short` shows untracked files (`??`):
 - List them for the user
 - Warn about any that look like secrets (`.env`, `*.key`, `*.pem`, `*.pfx`, `credentials.*`, `secrets.*`, `*.sqlite`, `*.db`)
 - Use `AskUserQuestion` — header "Untracked files", question "Include these untracked files in the commit?":
-  - **"Include all"** — stage all untracked files
+  - **"Include all"** — stage all untracked files, except secret-looking ones: this option never covers them — confirm each one individually before including it
   - **"Exclude all"** — stage only tracked files with changes
   - **"Let me choose"** — present each file individually
+- Read the contents of the untracked files the user chose to include — step 1 gathers only their names, and step 3's analysis must cover them
+
+### 3. Analyze Changes and Generate Conventional Commit Message
+
+Read `$CLAUDE_PLUGIN_ROOT/skills/commit-message/references/conventional-commit-format.md` and follow its instructions to analyze the gathered changes (including the contents of the untracked files included in step 2) and generate a conventional commit message.
+
+If changes span multiple concerns, use `AskUserQuestion` to ask whether to commit everything together or split into separate commits. If splitting, process each commit separately through steps 4–7 — the split proposal already assigns each file to a commit.
 
 ### 4. Branch and Push-Safety Check
 
@@ -48,15 +49,15 @@ Use the first one found (child repo level takes precedence). In a single-repo pr
 
 If found, read the file and extract the `PROTECTED_BRANCHES` array to determine whether the current branch is protected. Remember this result for step 5.
 
-If the hook file does not exist at any checked location, assume the branch is safe for all operations.
+If the hook file does not exist at any checked location, assume the branch is safe for all operations. If the file exists but no `PROTECTED_BRANCHES` array can be extracted, treat the branch as unprotected and note this in the step 5 preview.
 
 #### Generate feature branch name (protected branches only)
 
-If the current branch is protected, generate a feature branch name. Read `$CLAUDE_PLUGIN_ROOT/skills/commit/references/branch-naming.md` for the naming convention. The `<type>` comes from the conventional commit message generated in step 2; the `<description>` is the slugified subject line. Remember this name for step 5.
+If the current branch is protected, generate a feature branch name. Read `$CLAUDE_PLUGIN_ROOT/skills/commit/references/branch-naming.md` for the naming convention. The `<type>` comes from the conventional commit message generated in step 3; the `<description>` is the slugified subject line. Remember this name for step 5.
 
 ### 5. Preview and Confirm
 
-Present a summary for each repo (in multi-repo, use a heading per repo — e.g., `## repo-name`):
+Present a summary (in multi-repo, steps 2–7 run per repo, so each repo gets its own preview and confirmation; label it with a `## repo-name` heading):
 
 - **Branch**: current branch name
 - **Commit message**: the full generated conventional commit message (subject line + body when the body is present — never truncate to subject-only)
@@ -86,15 +87,15 @@ If the user chose a "Create branch" option in step 5, create and switch to the f
 git checkout -b <branch-name>
 ```
 
-If branch creation fails (e.g., the branch already exists), report the error and let the user choose a different name or cancel.
+If branch creation fails (e.g., the branch already exists), report the error and let the user choose a different name or cancel. This deliberately diverges from branch-naming.md's **Collision Handling** default (auto-append a numeric suffix): the user approved this exact branch name in step 5, so never silently alter it.
 
-Stage the files determined in steps 1 and 3:
+Stage the files determined in steps 1 and 2:
 
 ```bash
 git add <specific files>
 ```
 
-Prefer `git add <specific files>` over `git add -A`. Never stage files that look like secrets.
+Prefer `git add <specific files>` over `git add -A`. Never stage files that look like secrets, unless the user individually confirmed them in step 2.
 
 Commit with the confirmed message. Use a heredoc to preserve multi-line messages (subject + body):
 
@@ -130,10 +131,8 @@ Present a summary of what was done (in a multi-repo workspace, show a combined s
 - Committed: `<short-hash> <commit message>` (per repo in multi-repo)
 - Pushed to: `origin/<branch>` (if push was performed)
 
-If a feature branch was created, inform the user: "You are now on `<branch-name>`. You can keep working on this branch, or use `/optimus:pr` to create a pull request."
+If a feature branch was created, inform the user: "You are now on `<branch-name>`. You can keep working on this branch, or use `/optimus:pr` to create a pull request." Then emit the closing tip per `$CLAUDE_PLUGIN_ROOT/references/skill-handoff.md` "Closing tip wording" — use **Variant A** with `<continuation-skill(s)>` = `/optimus:pr` and `<non-continuation-examples>` = `/optimus:code-review`, etc.
 
 Otherwise, recommend the next step based on readiness:
-- If a pull request is needed → `/optimus:pr` to create or update a PR.
+- If a pull request is needed → `/optimus:pr` to create or update a PR. Then emit the closing tip per `$CLAUDE_PLUGIN_ROOT/references/skill-handoff.md` "Closing tip wording" — use **Variant A** with `<continuation-skill(s)>` = `/optimus:pr` and `<non-continuation-examples>` = `/optimus:code-review`, etc.
 - Otherwise → the commit is complete; suggest continuing work on this branch (or running `/optimus:code-review` once more changes accumulate). Then emit the closing tip per `$CLAUDE_PLUGIN_ROOT/references/skill-handoff.md` "Closing tip wording" — use **Variant C** (default).
-
-When `/optimus:pr` is the recommended next step (either branch above), emit the closing tip per `$CLAUDE_PLUGIN_ROOT/references/skill-handoff.md` "Closing tip wording" — use **Variant A** with `<continuation-skill(s)>` = `/optimus:pr` and `<non-continuation-examples>` = `/optimus:code-review`, etc.

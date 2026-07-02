@@ -1,6 +1,6 @@
 # Branch Naming Convention
 
-Shared reference for generating feature branch names. Consumed by `branch`, `commit`, `tdd`, and `worktree` skills.
+Shared reference for generating feature branch names. Consumed by `branch`, `commit`, `tdd`, `workflow`, and `worktree` skills.
 
 ## Format
 
@@ -45,6 +45,10 @@ When inferring `<type>` from a description or context:
 5. Collapse consecutive hyphens into one
 6. Remove leading and trailing hyphens
 7. Truncate to keep the total branch name (`<type>/` + slug) at max 50 characters
+
+## Collision Handling
+
+Default policy when the derived name already exists: if `git show-ref --verify --quiet refs/heads/<branch-name>` succeeds (branch exists), append `-2` to the slug. If that also exists, try `-3`, and so on up to `-9`. If all collide, inform the user and stop.
 
 ## Examples
 

@@ -10,7 +10,7 @@ These quality principles apply to skill authoring just as they apply to code:
 
   > **Exception — orchestration skills:** A skill may span multiple concerns when it serves as a one-time setup orchestrator whose value depends on executing all steps atomically (e.g., `skills/init/` handles project detection, CLAUDE.md generation, hooks, agents, and test infrastructure as a single coherent setup). Decomposing these into separate skills would force users to run them in sequence with no clear benefit. Keep orchestration skills well-structured internally — each step should still follow SRP.
 
-- **Intention-Revealing Names** — skill names, template files, and reference docs should convey purpose without tracing through content. Avoid generic names like `helper.md`, `utils.md`, or `doc2.md`.
+- **Intention-Revealing Names** — skill names, template files, and reference docs should convey purpose without tracing through content. Skill names surface as `/optimus:<name>`: use a short verb/noun slash-command-style name consistent with the existing set (`init`, `commit`, `refactor`, `tdd`), not gerund phrases. Avoid generic names like `helper.md`, `utils.md`, or `doc2.md`.
 - **Pragmatic Abstractions** — extract shared references when 2+ skills reuse a procedure. Don't add indirection for its own sake. Don't extract for hypothetical future reuse.
 
 ## Scope and Granularity
@@ -40,6 +40,9 @@ If a procedure ends up reused by 2+ skills after splitting, extract it per [Shar
 - Imperative step-by-step instructions, not conversational prose.
 - Keep SKILL.md body under 500 lines — move detailed reference material to separate files.
 - No time-sensitive information; consistent terminology throughout — pick one term per concept and use it everywhere (e.g., always "field" not a mix of "field", "box", "element").
+- Keep skill output templates plain: markdown headings, bold, and blockquotes — no decorative emoji (✅, ⚠, 🔴, 🟢, 🔄, etc.). Semantic markers (`**bold**`, `>` blockquotes, `###` headings) already convey severity and structure; decorative emoji read as off-tone scaffolding against the direct tone current Claude Code models emit by default.
+- Do not hand-roll "[Step N/M]" progress indicators inside a skill. The orchestrator skill and the model emit progress naturally during long agentic traces — forcing interim status lines duplicates that behavior and adds verbosity.
+- For parallel-agent steps, spell out the expected fan-out as imperative ("Launch all 4 agents in a single message so they run in parallel"), not "up to N". Some Claude models conservatively under-spawn subagents, so the count needs to be explicit where the design depends on it.
 
 ## Degrees of Freedom
 
@@ -53,19 +56,18 @@ Default to high freedom unless the task is fragile. Provide a sensible default w
 
 ## Description Quality (frontmatter)
 
-- Must describe both WHAT the skill does AND WHEN to use it — Claude uses descriptions to select the right skill from potentially many available skills.
-- Write descriptions in third person — they are injected into the system prompt. Good: "Generates commit messages by analyzing diffs." Avoid: "I can help you generate commit messages."
-- Include specific keywords users would naturally say.
-- Be concrete and specific, not vague. Bad: "Helps with documents." Good: "Extracts text and tables from PDF files, fills forms, merges documents. Use when working with PDF files or when the user mentions PDFs, forms, or document extraction."
-- Prefer gerund form for skill names when possible: `processing-pdfs`, `analyzing-code`. Avoid vague names: `helper`, `utils`, `tools`.
-- Max 1024 characters.
+- With `disable-model-invocation: true` on every skill, descriptions never drive model skill selection — their audience is a human scanning the truncating `/` menu and plugin listings. Write for scannability.
+- Lead with the differentiating verb phrase — the menu may show only the first line. Good: "Generates commit messages by analyzing diffs." Avoid: "I can help you generate commit messages."
+- Describe both WHAT the skill does and WHEN to use it, accurate against actual behavior — declare side effects (branch creation, commits, pushes, file writes) and hard prerequisites.
+- Target roughly 250–450 characters. The platform cap is 1024 (enforced by `scripts/validate.sh`); feature inventories belong in the skill's README.md, not the description.
+- Write in third person. Be concrete and specific, not vague. Bad: "Helps with documents." Good: "Extracts text and tables from PDF files, fills forms, merges documents."
+- Naming guidance lives in [Foundation](#foundation) under Intention-Revealing Names.
 
 ## Progressive Disclosure
 
-- Load only metadata (description) at startup.
-- Load full SKILL.md when skill is invoked.
+- Descriptions surface in the `/` menu and plugin listings; the full SKILL.md loads into context only at explicit invocation.
 - Load reference files only as needed within the skill's execution.
-- Reference depth should not exceed two levels from SKILL.md (SKILL→A→B maximum). Note: this is a deliberate divergence — Anthropic's official guidance recommends one level, because nested references risk partial reads. The two-level allowance is what the shared-reference architecture requires (e.g., a skill's `shared-constraints.md` → `references/scope-expansion-rule.md`); it is checked by `scripts/validate.sh` (the check follows `$CLAUDE_PLUGIN_ROOT` references — prose section references are not tracked) and mitigated by the ToC rule below. If you find yourself needing A→B→C→D, restructure by flattening the chain (preferred) — make SKILL.md reference the deeper files directly. Only inline content when the extracted file is small, single-use, and tightly coupled to its parent; otherwise inlining violates SRP by mixing concerns in one file. Circular references between files are never allowed.
+- Reference depth should not exceed two levels from SKILL.md (SKILL→A→B maximum). Note: this is a deliberate divergence — Anthropic's official guidance recommends one level, because nested references risk partial reads. The two-level allowance is what the shared-reference architecture requires (e.g., a skill's `shared-constraints.md` → `references/scope-expansion-rule.md`); it is checked by `scripts/validate.sh`, with two blind spots: prose section references are not tracked, and onward references from top-level `references/` and `agents/` files are treated as leaves and not followed — depth through those files is convention-enforced only. The allowance is also mitigated by the ToC rule below. If you find yourself needing A→B→C→D, restructure by flattening the chain (preferred) — make SKILL.md reference the deeper files directly. Only inline content when the extracted file is small, single-use, and tightly coupled to its parent; otherwise inlining violates SRP by mixing concerns in one file. Circular references between files are never allowed.
 - For reference files longer than 100 lines, include a table of contents at the top so Claude can see the full scope even when previewing with partial reads.
 
 ## Directory Layout
@@ -118,11 +120,11 @@ For complex multi-step skills:
 
 ## Next Step
 
-Every skill must end with a recommendation for the next logical optimus skill. This guides the user through the workflow and increases plugin adoption.
+Every skill must end with the three-part closing defined in `references/skill-handoff.md`: conversation (stay or start fresh), mode (normal or plan), and next skill — the exact slash command, or "none" if the chain genuinely ends here. This guides the user through the workflow and keeps each skill's context gathering honest; don't invent a recommendation for a terminal skill just to keep the chain going.
 
 - Choose the next skill based on the outcome (e.g., after fixing issues → commit; after committing → PR).
 - If multiple paths are possible, present them conditionally (e.g., "if X → skill A; if Y → skill B").
-- Always include the fresh-conversation tip as part of the recommendation to the user — e.g., "Recommend running `/optimus:X` to do Y. **Tip:** for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch." The tip must be clearly scoped under a "Recommend" / "Tell the user" verb so Claude treats it as output, not as an internal instruction.
+- Always include the closing tip as part of the recommendation to the user, emitting the applicable variant from `references/skill-handoff.md` ("Closing tip wording") **verbatim** — never restate or paraphrase the wording (a `scripts/validate.sh` check pins inline copies to the canonical variants). The tip must be clearly scoped under a "Recommend" / "Tell the user" verb so Claude treats it as output, not as an internal instruction.
 - **Exception — continuation skills.** When the recommended next skill captures the current conversation into a durable artifact, override the default tip with the stay-in-conversation wording from `references/skill-handoff.md` under "Continuation skills — exception to fresh-conversation". The canonical list of continuation skills and the mixed-recommendation wording template live in that doc — read it before adding or modifying closing tips. Sending the user to a fresh conversation for a continuation skill strips the very context it was meant to capture.
 
 ## Examples
