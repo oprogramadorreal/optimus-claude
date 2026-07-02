@@ -3,7 +3,7 @@
 ## Contents
 
 1. [Single-Iteration Execution](#single-iteration-execution) — progress file, analysis cycle, fix application, structured JSON output (steps 1–9)
-2. [Skill-step execution under harness mode](#skill-step-execution-under-harness-mode) — which base-skill steps run, forced branch-diff path, `pr_description` handling
+2. [Skill-step execution under harness mode](#skill-step-execution-under-harness-mode) — which base-skill steps run, per-skill scope rules, `pr_description` handling
 3. [Termination reasons](#termination-reasons) — enum of exit reasons the orchestrator may record
 
 ## Single-Iteration Execution
@@ -39,11 +39,14 @@ Initialize from the progress file:
 - `accumulated-findings` = `findings` array (restoring cross-session state from disk)
 - `focus` = `config.focus` (apply to finding-cap logic if the skill supports focus modes)
 
-If `scope_files.current` is non-empty, use it as the file list for agents — this overrides the skill's Step 3 file discovery (the orchestrator pre-populated the scope). If `scope_files.current` is empty, fall back to the skill's Step 3 file discovery via git.
+If `scope_files.current` is non-empty, use it as the file list for agents — this overrides the skill's Step 3 file discovery (the orchestrator pre-populated the scope). If `scope_files.current` is empty, fall back to the skill's Step 3 file discovery (per-skill rules below).
 
 ### Skill-step execution under harness mode
 
-After reading the progress file, proceed through all of the skill's remaining numbered steps in order — skip only the user confirmation step (the orchestrator handles approval upfront). Under harness mode, Step 3 (or its skill-equivalent) must use the "no local changes → branch-diff" path automatically, regardless of the working tree's actual state. In commit mode the orchestrator's Step 2 git-state check guarantees a clean tree before the run starts; in `--no-commit` mode the `snapshot` step (`orchestrator-loop-single.md` step 1) takes a non-destructive stash via `git stash create`/`store`, which does **not** modify the working tree — so uncommitted changes may still be present. Take the branch-diff path because harness mode instructs it (and because the orchestrator pre-populates `scope_files.current`), not because the tree is guaranteed clean. Skip the interactive scope offers, the scope summary presentation, and the large-diff warning.
+After reading the progress file, proceed through all of the skill's remaining numbered steps in order — skip only the user confirmation step (the orchestrator handles approval upfront), the interactive scope offers, and the scope summary presentation. Scope handling is skill-specific:
+
+- **code-review**: Step 3 must use the "no local changes → branch-diff" path automatically, regardless of the working tree's actual state, and skip the large-diff warning. In commit mode the orchestrator's Step 2 git-state check guarantees a clean tree before the run starts; in `--no-commit` mode the `snapshot` step (`orchestrator-loop-single.md` step 1) takes a non-destructive stash via `git stash create`/`store`, which does **not** modify the working tree — so uncommitted changes may still be present. Take the branch-diff path because harness mode instructs it (and because the orchestrator pre-populates `scope_files.current`), not because the tree is guaranteed clean.
+- **refactor**: when `scope_files.current` is non-empty, derive analysis areas from it per Step 3's harness note; when empty, run Step 3's normal directory scan with full-project scope.
 
 If `config.pr_description` is non-null **and the base skill defines a PR/MR context block** (code-review does; refactor ignores `config.pr_description` — its `agents/context-blocks.md` states the PR/MR block does not apply), treat it as equivalent to the `pr-description` that interactive Step 3 captures from `gh pr view`: inject it into agent prompts per Step 5 "PR/MR context injection" and apply the Step 6 "PR/MR description as intent signal" soft-confidence adjustment during validation. Do not re-fetch via `gh pr view` — the orchestrator already captured it, and skipping the extra fetch keeps the subagent's turn budget lean.
 
