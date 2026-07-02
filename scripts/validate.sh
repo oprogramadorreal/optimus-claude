@@ -410,6 +410,7 @@ echo "[Load-bearing wiring]"
 wiring_errors=""
 
 sections_file="skills/how-to-run/references/how-to-run-sections.md"
+detection_signals_file="skills/how-to-run/references/detection-signals.md"
 
 # how-to-run must wire to the unsupported-stack fallback procedure from the main
 # SKILL context — the detector agent is read-only and cannot run it. Dropping
@@ -441,16 +442,16 @@ if [ -f skills/how-to-run/agents/project-environment-detector.md ]; then
   fi
 fi
 
-# The 'Additional Detection Hints' heading in how-to-run-sections.md is referenced
+# The 'Additional Detection Hints' heading in detection-signals.md is referenced
 # by name from SKILL.md, README.md, and the detector agent. A rename would
 # silently break all three without the generic cross-ref check catching it.
-if ! grep -q '^## Additional Detection Hints' "$sections_file" 2>/dev/null; then
-  wiring_errors+="  $sections_file missing '## Additional Detection Hints' heading\n"
+if ! grep -q '^## Additional Detection Hints' "$detection_signals_file" 2>/dev/null; then
+  wiring_errors+="  $detection_signals_file missing '## Additional Detection Hints' heading\n"
 fi
 # The 'Build System Detection' heading is load-bearing for Task 0a of the
 # detector agent, which delegates its entire build-file enumeration to the table.
-if ! grep -q '^## Build System Detection' "$sections_file" 2>/dev/null; then
-  wiring_errors+="  $sections_file missing '## Build System Detection' heading\n"
+if ! grep -q '^## Build System Detection' "$detection_signals_file" 2>/dev/null; then
+  wiring_errors+="  $detection_signals_file missing '## Build System Detection' heading\n"
 fi
 
 # Build System Detection table rows that the detector agent depends on. Before
@@ -458,13 +459,26 @@ fi
 # Now Task 0a delegates entirely to this table, so a silent row deletion during
 # a table cleanup would drop a detection signal the agent used to guarantee.
 # Scope the grep to the "## Build System Detection" section body so incidental
-# mentions elsewhere in the file (Signal → Section Mapping, Toolchain & SDKs)
-# cannot satisfy the check. Each token must appear in the table body.
-if [ -f "$sections_file" ]; then
-  bsd_body=$(awk '/^## Build System Detection/{f=1;next}/^## /{f=0}f' "$sections_file" 2>/dev/null)
+# mentions elsewhere in the file (Signal → Section Mapping) cannot satisfy the
+# check. Each token must appear in the table body.
+if [ -f "$detection_signals_file" ]; then
+  bsd_body=$(awk '/^## Build System Detection/{f=1;next}/^## /{f=0}f' "$detection_signals_file" 2>/dev/null)
   for token in 'CMakeLists.txt' 'meson.build' 'BUILD.bazel' 'WORKSPACE' '*.sln' '*.vcxproj' '*.xcodeproj' '*.xcworkspace' 'build.gradle' 'settings.gradle' 'AndroidManifest.xml' 'compileSdkVersion' '*.uproject' 'ProjectSettings/ProjectVersion.txt' 'project.godot' 'platformio.ini' '*.ino' 'Package.swift' 'Podfile' 'Makefile'; do
     if ! printf '%s' "$bsd_body" | grep -qF "$token" 2>/dev/null; then
       wiring_errors+="  Build System Detection table body missing row for: $token\n"
+    fi
+  done
+fi
+
+# Signal → Section Mapping rows that wire the detector's Components (Task 5d)
+# and Runtime Ports (Task 5c) tables to the Running-in-Development layout
+# selection. Silent removal would drop the layout wiring at its source.
+if [ -f "$detection_signals_file" ]; then
+  for detection_token in \
+    'Components table (Task 5d)' \
+    'Runtime Ports table (Task 5c)'; do
+    if ! grep -qF -- "$detection_token" "$detection_signals_file" 2>/dev/null; then
+      wiring_errors+="  $detection_signals_file missing detection wiring token: $detection_token\n"
     fi
   done
 fi
@@ -599,8 +613,6 @@ if [ -f "$sections_file" ]; then
     '**Component count → layout.**' \
     'Compact multi-component layout' \
     '**Flat layout (1-2 components).**' \
-    'Components table (Task 5d)' \
-    'Runtime Ports table (Task 5c)' \
     '## Workspace-Kind Command Branches' \
     '`npm-workspaces`' \
     '`pnpm-workspaces`' \
