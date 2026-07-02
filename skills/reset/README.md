@@ -22,7 +22,7 @@ Every file is analyzed and placed into one of three categories:
 |---|---|---|
 | **Unmodified** | Exact match with plugin template | Byte-for-byte comparison against the template file in the plugin |
 | **Likely generated** | Created by optimus but content was filled in from project analysis | Heuristic fingerprinting — checks for template HTML comments and matching section headings |
-| **Modified** | User has customized the file | Content differs from template, or fingerprints don't match |
+| **Modified** | Differs from current templates — user edits, or installed by an older optimus version whose templates have since changed | Content differs from template, or fingerprints don't match |
 
 ### Git-Tracked Awareness
 
@@ -30,9 +30,9 @@ For each file, the skill checks whether it is tracked by git. Git-tracked files 
 
 ### User Confirmation
 
-The skill **always** asks before removing anything. After presenting the categorized list, it offers four choices:
+The skill **always** asks before removing anything. After presenting the categorized list, it offers four choices — which one is recommended depends on git tracking: **Remove all** when every modified file is git-tracked (recoverable), otherwise **Keep modified** (with the untracked modified files named in the option):
 
-1. **Remove all** (Recommended) — removes all optimus files (unmodified + likely generated + modified). Safe when git-tracked
+1. **Remove all** — removes all optimus files (unmodified + likely generated + modified). Safe when git-tracked; irreversible for untracked modified files
 2. **Keep modified** — removes unmodified and likely generated files, keeps user-modified files
 3. **Unmodified only** — removes only exact template matches (most conservative)
 4. **Abort** — cancel, remove nothing
@@ -47,12 +47,12 @@ The skill **always** asks before removing anything. After presenting the categor
 | `.claude/.optimus-version` | Always unmodified (pure tracking file) |
 | `.claude/docs/coding-guidelines.md` | Near-exact (template body comparison, line 2+) |
 | `.claude/docs/testing.md` | Heuristic (section headings) |
-| `.claude/docs/skill-writing-guidelines.md` | Heuristic (section headings) |
+| `.claude/docs/skill-writing-guidelines.md` | Near-exact (template body comparison, line 2+) |
 | `.claude/docs/styling.md` | Heuristic (section headings) |
 | `.claude/docs/architecture.md` | Heuristic (section headings) |
 | `.claude/agents/code-simplifier.md` | Exact match *(legacy)* |
 | `.claude/agents/test-guardian.md` | Exact match *(legacy)* |
-| `.claude/hooks/format-*.{py,js,sh}` | Exact match (one per detected tech stack) |
+| `.claude/hooks/format-*` | Exact match against the plugin template; custom fallback hooks (unsupported stacks) have no template and use a shell-hook pattern heuristic |
 
 ### Files from `/optimus:permissions`
 
@@ -64,10 +64,10 @@ The skill **always** asks before removing anything. After presenting the categor
 
 Both `/optimus:init` and `/optimus:permissions` merge configuration into `.claude/settings.json`. The reset skill does **not** delete this file outright — it surgically removes optimus-contributed entries while preserving user-added configuration:
 
-- **PostToolUse hooks** referencing formatter scripts → removed
-- **PreToolUse hooks** referencing `restrict-paths.sh` → removed
+- **PostToolUse hooks** referencing formatter scripts → removed only when the referenced hook file was removed (entries for kept hook files stay wired)
+- **PreToolUse hooks** referencing `restrict-paths.sh` → removed only when the hook file was removed (a kept hook stays active)
 - **Permission allow/deny entries** matching the permissions template → removed
-- **MCP server allow entries** (`mcp__*`) added by permissions → removed (only when `.mcp.json` exists in the relevant project root — per child repo for multi-repo workspaces; preserved otherwise)
+- **MCP server allow entries** (server-level `mcp__<server-name>`) added by permissions → removed (only for servers declared in the relevant project root's `.mcp.json` — per child repo for multi-repo workspaces; tool-level `mcp__*` entries and undeclared servers preserved)
 - **User-added hooks, permissions, and other config** → preserved
 
 If the file becomes empty after cleanup, it is deleted. Otherwise, the cleaned JSON is written back.

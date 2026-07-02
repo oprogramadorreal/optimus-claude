@@ -53,14 +53,7 @@ Scan for all files that optimus skills may have created. Only list files that ac
 - `.claude/docs/skill-writing-guidelines.md`
 - `.claude/agents/code-simplifier.md` *(legacy — from previous optimus versions)*
 - `.claude/agents/test-guardian.md` *(legacy — from previous optimus versions)*
-- `.claude/hooks/format-python.py`
-- `.claude/hooks/format-node.js`
-- `.claude/hooks/format-rust.sh`
-- `.claude/hooks/format-go.sh`
-- `.claude/hooks/format-csharp.sh`
-- `.claude/hooks/format-java.sh`
-- `.claude/hooks/format-cpp.sh`
-- `.claude/hooks/format-dart.sh`
+- `.claude/hooks/format-*` — scan by pattern, matching Step 4's settings cleanup: the plugin's template hooks (`format-python.py`, `format-node.js`, `format-rust.sh`, `format-go.sh`, `format-csharp.sh`, `format-java.sh`, `format-cpp.sh`, `format-dart.sh`) plus any custom `format-<language>.sh` created by init's unsupported-stack fallback
 - `.claude/hooks/restrict-paths.sh`
 
 **Monorepo subprojects** (scan for these patterns):
@@ -100,11 +93,15 @@ For these files, read both the project file and the corresponding template from 
 | `.claude/hooks/format-dart.sh` | `$CLAUDE_PLUGIN_ROOT/skills/init/templates/hooks/format-dart.sh` |
 | `.claude/hooks/restrict-paths.sh` | `$CLAUDE_PLUGIN_ROOT/skills/permissions/templates/hooks/restrict-paths.sh` |
 
-**Near-exact template (coding-guidelines.md):**
+Formatter hooks with no row in this table (custom `format-<language>.sh` files from init's unsupported-stack fallback) have no plugin template. Classify them `LIKELY_GENERATED` if they follow the shell-hook pattern (shebang, JSON stdin parsing into a file-path variable, file-extension guard, formatter invocation — see `format-rust.sh` for the shape); otherwise `MODIFIED`.
+
+**Near-exact templates (coding-guidelines.md, skill-writing-guidelines.md):**
 
 The template body (everything after line 1) is verbatim — only line 1 has `[PROJECT NAME]` substituted by init. Compare the project file's content from line 2 onward against the template's content from line 2 onward. If identical → `UNMODIFIED`. If different → `MODIFIED`.
 
-Template: `$CLAUDE_PLUGIN_ROOT/skills/init/templates/docs/coding-guidelines.md`
+Templates:
+- `$CLAUDE_PLUGIN_ROOT/skills/init/templates/docs/coding-guidelines.md`
+- `$CLAUDE_PLUGIN_ROOT/skills/init/templates/docs/skill-writing-guidelines.md`
 
 **Generated docs (heuristic — content filled in by init):**
 
@@ -112,9 +109,8 @@ These files have ALL content filled in by init from project analysis — no temp
 
 | Project file | Template fingerprint (line 1 HTML comment) | Template section headings |
 |---|---|---|
-| `.claude/CLAUDE.md` | `<!-- Keep this file and .claude/docs/ updated when project structure, conventions, or tooling changes -->` | `Conventions`, `Commands`, `Project Structure`, `Before Writing Code`, `Documentation` |
+| `.claude/CLAUDE.md` | `<!-- Keep this file and .claude/docs/ updated when project structure, conventions, or tooling changes -->` | *(not used — comment-only check; headings differ across the single-project and monorepo variants)* |
 | `.claude/docs/testing.md` | *(no comment — check heading)* First line: `# Testing` | `Test Runner`, `Running Tests`, `Test Structure`, `Writing Tests`, `Workflow`, `Coverage` |
-| `.claude/docs/skill-writing-guidelines.md` | *(no comment — check heading)* First line: `# Skill-writing guidelines for` | `Foundation`, `Writing Style`, `Degrees of Freedom`, `Description Quality (frontmatter)`, `Progressive Disclosure`, `Directory Layout`, `Shared References`, `Workflows and Feedback Loops`, `Common Patterns`, `Evaluation and Iteration`, `Anti-patterns`, `Documentation` |
 | `.claude/docs/styling.md` | *(no comment — check heading)* First line: `# Styling` | `Stack`, `Conventions`, `File Organization`, `Adding New Components` |
 | `.claude/docs/architecture.md` | *(no comment — check heading)* First line: `# Architecture` | ANY of these heading sets: (1) code-only: `Overview`, `Directory Map`, `Data Flow`, `Key Patterns`, `Dependencies Between Modules` (2) skill-authoring: `Overview`, `Directory Map`, `Skill Organization`, `Agent Boundaries`, `Reference Hierarchy`, `Orchestration Patterns` (3) hybrid: `Overview`, `Directory Map`, `Code Architecture`, `Skill Architecture` |
 
@@ -124,7 +120,7 @@ For subproject CLAUDE.md files: check for `<!-- Keep this file and docs/ updated
 
 For workspace root CLAUDE.md: check for `<!-- Local workspace file — not version-controlled. Each repo has its own .claude/CLAUDE.md. -->`.
 
-For docs (testing.md, skill-writing-guidelines.md, styling.md, architecture.md): check if the `##` section headings match the template's headings in the same order.
+For docs (testing.md, styling.md, architecture.md): check if the `##` section headings match the template's headings in the same order.
 
 If fingerprints match → classify as `LIKELY_GENERATED`. If fingerprints don't match → classify as `MODIFIED`.
 
@@ -141,7 +137,7 @@ If fingerprints match → classify as `LIKELY_GENERATED`. If fingerprints don't 
 Each file gets one of:
 - `UNMODIFIED` — exact match with plugin template (safe to remove)
 - `LIKELY_GENERATED` — has optimus fingerprints, content was filled in by init
-- `MODIFIED` — differs from template or lacks optimus fingerprints (user customized)
+- `MODIFIED` — differs from current templates or lacks optimus fingerprints (user-modified, or installed by an older optimus version whose templates have since changed)
 - `COMPLEX` — settings.json (surgical removal in Step 4)
 
 ### Step 3 — Present reset plan and ask user
@@ -163,20 +159,22 @@ Group by classification. Example format:
 - .claude/CLAUDE.md (git-tracked)
 - .claude/docs/testing.md (git-tracked)
 
-## Modified by user
+## Modified (user edits, or older optimus version)
 - .claude/docs/coding-guidelines.md (git-tracked) — user added custom rules
 
 ## settings.json
-- .claude/settings.json — will remove optimus entries, preserve user config
+- .claude/settings.json — will remove optimus entries, preserve user config (hook entries whose hook file is kept stay wired — see Step 4)
 ```
+
+If `.claude/.optimus-version` records an older plugin version, show it in the plan as evidence of possible version skew — MODIFIED files may reflect template drift since that install rather than user edits.
 
 For multi-repo workspaces, group files by repo (e.g., `### repo-name/`).
 
 Then ask the user using AskUserQuestion:
 - Header: "Reset"
 - Question: "Review the files above. Which should be removed?"
-- Options:
-  1. "Remove all" (Recommended) — remove all optimus files (UNMODIFIED + LIKELY_GENERATED + MODIFIED). Safe when git-tracked
+- Options — mark exactly one "(Recommended)": "Remove all" when every MODIFIED file is git-tracked; otherwise "Keep modified", naming the untracked MODIFIED files in its option text:
+  1. "Remove all" — remove all optimus files (UNMODIFIED + LIKELY_GENERATED + MODIFIED). Safe when git-tracked; irreversible for untracked MODIFIED files
   2. "Keep modified" — remove UNMODIFIED + LIKELY_GENERATED, keep MODIFIED files
   3. "Unmodified only" — remove only UNMODIFIED (most conservative)
   4. "Abort" — cancel reset, do not remove anything
@@ -185,6 +183,8 @@ If user selects "Abort" → inform the user that no files were removed → stop.
 
 ### Step 4 — Clean settings.json (surgical removal)
 
+*This step is a procedure — it executes during Step 5 (item 2), after file deletions; it is skipped when the user chooses Abort.*
+
 If `.claude/settings.json` exists, do NOT delete it outright. Surgically remove optimus-contributed entries:
 
 1. Read the current `.claude/settings.json`
@@ -192,13 +192,13 @@ If `.claude/settings.json` exists, do NOT delete it outright. Surgically remove 
 3. Read the permissions template: `$CLAUDE_PLUGIN_ROOT/skills/permissions/templates/settings.json`
 
 **Remove PostToolUse hooks from init:**
-In `hooks.PostToolUse`, remove any entry whose `hooks` array contains commands referencing `.claude/hooks/format-` (init's formatter hooks). If the `PostToolUse` array becomes empty after removal, remove the `PostToolUse` key.
+In `hooks.PostToolUse`, remove any entry whose `hooks` array contains commands referencing `.claude/hooks/format-` (init's formatter hooks) — but only if the referenced hook file was deleted in Step 5 or does not exist. If the user chose to keep a hook file, keep its entry too: removing it would silently disable a hook the user elected to preserve. If the `PostToolUse` array becomes empty after removal, remove the `PostToolUse` key.
 
 **Remove PreToolUse hooks from permissions:**
-In `hooks.PreToolUse`, remove any entry whose `hooks` array contains commands referencing `.claude/hooks/restrict-paths.sh` (permissions hook). If the `PreToolUse` array becomes empty after removal, remove the `PreToolUse` key.
+In `hooks.PreToolUse`, remove any entry whose `hooks` array contains commands referencing `.claude/hooks/restrict-paths.sh` (permissions hook) — same rule: only if the hook file was deleted in Step 5 or does not exist. If the `PreToolUse` array becomes empty after removal, remove the `PreToolUse` key.
 
 **Remove permissions entries from permissions:**
-Compare `permissions.allow` against the permissions template's `permissions.allow` list. Remove entries that match. Also remove any `mcp__*` entries — but only if a `.mcp.json` file exists in the relevant project root (for multi-repo workspaces, check each child repo's root independently; for single projects and monorepos, check the project root). If no `.mcp.json` exists, leave `mcp__*` entries untouched (they may have been manually added by the user). If `permissions.allow` becomes empty, remove the key.
+Compare `permissions.allow` against the permissions template's `permissions.allow` list. Remove entries that match. Also remove server-level entries of the exact form `mcp__<server-name>` where `<server-name>` is a server declared in the relevant project root's `.mcp.json` (for multi-repo workspaces, check each child repo's root independently; for single projects and monorepos, check the project root) — these are the entries permissions installs. Leave all other `mcp__*` entries untouched: tool-level entries (e.g., `mcp__github__get_issue`) and entries for servers not declared in `.mcp.json` were added by the user. If no `.mcp.json` exists, leave all `mcp__*` entries untouched. If `permissions.allow` becomes empty, remove the key.
 
 Compare `permissions.deny` against the permissions template's `permissions.deny` list. Remove entries that match. If `permissions.deny` becomes empty, remove the key.
 
@@ -242,7 +242,7 @@ Present a summary to the user:
 
 - **Files removed** — count and list
 - **Files kept** — count and list with reason (user-modified, user chose to keep, etc.)
-- **settings.json** — entries removed, or file deleted, or "no changes needed"
+- **settings.json** — entries removed, or file deleted, or "no changes needed"; if a kept hook file retained its settings entry, say so explicitly (the hook stays active)
 - **Directories cleaned** — empty directories that were removed
 
 ### Step 8 — Next step
