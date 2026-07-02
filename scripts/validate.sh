@@ -319,6 +319,13 @@ for skill in $actual_skills; do
     readme_mismatch+="  skills/$skill: not listed in README.md\n"
   fi
 done
+# CONTRIBUTING.md's project-structure tree has drifted before (missing
+# spec-init/ and handoff/) — assert every skill directory appears there too.
+for skill in $actual_skills; do
+  if ! grep -qE "(├──|└──) $skill/" CONTRIBUTING.md 2>/dev/null; then
+    readme_mismatch+="  skills/$skill: not listed in CONTRIBUTING.md project structure\n"
+  fi
+done
 check "README lists all skills" test -z "$readme_mismatch"
 if [ -n "$readme_mismatch" ]; then
   printf "       Missing from README:\n%b" "$readme_mismatch"
