@@ -26,3 +26,5 @@ git diff
 # Untracked files
 git status --short
 ```
+
+If the commands show no staged, unstaged, or untracked changes, inform the user there are no local changes to work with and stop.

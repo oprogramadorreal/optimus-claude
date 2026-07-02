@@ -8,6 +8,7 @@ Consistent commit messages improve repository navigability for both humans and L
 
 - Analyzes staged, unstaged, and untracked changes
 - Generates messages following the Conventional Commits spec
+- Captures the implementation conversation's context — design decisions, trade-offs, non-goals — into the commit body when run in the same conversation
 - Suggests splitting into multiple commits when changes span different concerns
 - Supports multi-repo workspaces — detects repos with changes and suggests a commit message for each
 - Read-only — never stages, commits, or modifies files
@@ -55,7 +56,7 @@ refactor(signup): extract form field components
 
 ## How It Works
 
-The skill runs `git diff` (staged and unstaged) and `git status` to collect all local changes, then analyzes the diff to infer intent, scope, and type. It follows the [Conventional Commits](https://www.conventionalcommits.org/) specification for the output format. No files are read beyond what git provides — it operates entirely on diff output.
+The skill runs `git diff` (staged and unstaged) and `git status` to collect all local changes, then analyzes them to infer intent, scope, and type. When run in the conversation where the changes were implemented, it also mines that conversation — design decisions, trade-offs, deliberate non-goals — so the commit body records the *why* the diff alone cannot show. It follows the [Conventional Commits](https://www.conventionalcommits.org/) specification for the output format. It never stages, commits, or modifies anything.
 
 ## Relationship to Other Skills
 
