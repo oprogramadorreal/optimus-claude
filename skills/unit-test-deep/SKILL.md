@@ -1,12 +1,12 @@
 ---
-description: Iterative test-coverage improvement loop — dispatches `/optimus:unit-test` (unit-test phase) and `/optimus:refactor` with testability focus (refactor phase) into fresh subagent contexts per cycle, applies tests, runs the test suite, bisects refactor failures, and continues until coverage plateaus or the cycle cap (default 5, hard cap 10). Requires a test command in .claude/CLAUDE.md. Use to drive coverage up on a codebase that has untestable barriers — the loop alternates between writing tests and unblocking testability so a single skill cannot stall.
+description: Iterative test-coverage improvement loop — dispatches `/optimus:unit-test` (unit-test phase) and, when untestable code is flagged, `/optimus:refactor` with testability focus (refactor phase) into fresh subagent contexts per cycle, applies tests, runs the test suite, bisects refactor failures, and continues until coverage plateaus or the cycle cap is reached (default 5, hard cap 10). Requires a test command in .claude/CLAUDE.md. Use to drive coverage up on a codebase that has untestable barriers — the loop alternates between writing tests and unblocking testability so a single skill cannot stall.
 disable-model-invocation: true
 argument-hint: "[path] [--resume] [--yes] [--max-cycles N]"
 ---
 
 # Unit-Test Coverage Improvement (Deep)
 
-Orchestrate paired cycles of test generation and testability refactoring. Each cycle is two subagent dispatches: first `/optimus:unit-test` (writes tests, measures coverage, flags untestable code), then `/optimus:refactor` with focus on testability (unblocks the flagged items so the next cycle can cover them). All state lives in `.claude/unit-test-deep-progress.json`.
+Orchestrate paired cycles of test generation and testability refactoring. Each cycle is up to two subagent dispatches: first `/optimus:unit-test` (writes tests, measures coverage, flags untestable code), then — when untestable items are pending — `/optimus:refactor` with focus on testability (unblocks the flagged items so the next cycle can cover them). All state lives in `.claude/unit-test-deep-progress.json`.
 
 ## Step 1: Parse Arguments and Guard Against Re-entry
 
@@ -109,6 +109,8 @@ PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli baseline \
 
 `--allow-red` is passed unconditionally here: a coverage run legitimately starts with little or no passing test coverage, so a non-green baseline is not a reason to refuse. When the suite is green the command calibrates the per-cycle timeout from the measured duration (so a slow suite doesn't spuriously time out during bisection); when it isn't, it proceeds and leaves the timeout at its default.
 
+If the CLI prints `baseline-red-allowed` and the project already has tests (the Step 2 test-infrastructure check flagged neither gap) — or the baseline run hit the test timeout — the loop cannot make progress as-is: a failing suite trips the unit-test phase's `blocked` stop gate and terminates the run at cycle 1, and a timing-out suite makes every cycle's full-suite run roll the cycle's tests back silently (the CLI prints only `continue`). Warn the user and confirm before entering the loop — recommend fixing the failing tests (or the slow suite) first.
+
 ## Step 5: Run the Cycle Loop
 
 Read `$CLAUDE_PLUGIN_ROOT/references/orchestrator-loop-paired.md` and follow its 11-step per-cycle body, with these parameters:
@@ -124,7 +126,7 @@ The paired-loop template handles:
 - Recording the refactor phase outputs (with bisection on test failure)
 - Checkpoint commit for the refactor phase
 - Recording cycle history + advancing the cycle counter
-- Termination check (`continue`, `convergence`, `cap`, `diminishing-returns`)
+- Termination check (`continue`, `convergence`, `cap`, `diminishing-returns`, `parse-failure`)
 
 Brief per-phase status updates are appropriate (e.g., *"Cycle 2/5 unit-test: dispatching subagent…"*, *"Cycle 2/5 refactor: applied 3 fixes, tests pass."*). Do not narrate the subagent's findings in conversation prose — the report at Step 6 covers them.
 

@@ -160,7 +160,7 @@ def _make_coverage_progress(
             # which resolves its finding-cap focus from config.focus
             # (references/harness-mode.md step 1). The coverage variant always
             # runs its refactor phase for testability, so pin it here — without
-            # it the dispatch prompt's "Focus: testability" line is decorative
+            # it the dispatch prompt's prose focus mention is decorative
             # and the phase silently falls back to balanced allocation.
             "focus": "testability",
             "no_commit": no_commit,

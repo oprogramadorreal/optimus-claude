@@ -54,7 +54,7 @@ Each cycle runs in this order:
 
 | Reason | Meaning |
 |---|---|
-| `convergence` | The unit-test phase reported no new tests possible + no untestable code (or no coverage gained); OR the refactor phase reported no testability findings. |
+| `convergence` | The unit-test phase reported no new tests possible + no untestable code (or no coverage gained); OR the refactor phase reported no testability findings or none actionable. |
 | `cap` | The cycle cap was reached. |
 | `diminishing-returns` | Coverage delta was exactly 0 (zero coverage gain) for 2 consecutive cycles. |
 | `parse-failure` | Two consecutive cycles produced no parseable JSON from a subagent. |

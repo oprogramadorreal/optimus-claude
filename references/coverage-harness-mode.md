@@ -109,6 +109,6 @@ Stop immediately. Do not loop, present reports, or use `AskUserQuestion`.
 
 ## Refactor Phase Execution
 
-When the `/optimus:unit-test-deep` orchestrator dispatches `/optimus:refactor` as a subagent for the refactor phase, the orchestrator's prompt body includes `Phase: refactor` and `Focus: testability`. The `/optimus:refactor` skill detects `HARNESS_MODE_INLINE` and follows the single-iteration protocol from `references/harness-mode.md` — same protocol used by `/optimus:refactor-deep`.
+When the `/optimus:unit-test-deep` orchestrator dispatches `/optimus:refactor` as a subagent for the refactor phase, the orchestrator's prompt body includes `Phase: refactor`; the binding testability focus is carried by the progress file's CLI-pinned `config.focus` (the dispatch prompt mentions it only in prose). The `/optimus:refactor` skill detects `HARNESS_MODE_INLINE` and follows the single-iteration protocol from `references/harness-mode.md` — same protocol used by `/optimus:refactor-deep`.
 
 The orchestrator scopes the refactor session to the `untestable_code` items reported by the preceding unit-test phase (the progress file's `scope_files.current` lists those file paths). The CLI's `refactor-step` handles test-and-bisect after the refactor subagent returns.
