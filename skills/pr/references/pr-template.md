@@ -1,6 +1,6 @@
 # Conventional PR Format
 
-A structured pull request / merge request format inspired by [Conventional Commits](https://www.conventionalcommits.org/), with a deliberate extension — a top-of-body `## Intent` section that carries author intent into the artifact `/optimus:code-review` later consumes. Both `/optimus:pr` and `/optimus:tdd` use this template.
+A structured pull request / merge request format inspired by [Conventional Commits](https://www.conventionalcommits.org/), with a deliberate extension — a top-of-body `## Intent` section that carries author intent into the artifact `/optimus:code-review` later consumes. `/optimus:pr` uses this template; `/optimus:code-review` consumes the "Detecting `## Intent` in an existing PR body" heuristic below.
 
 ## Title
 

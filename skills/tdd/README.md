@@ -312,7 +312,6 @@ The user's original branch is never modified. All code review happens through th
 | *(shared)* `commit/references/branch-naming.md` | Branch naming convention |
 | *(shared)* `worktree/references/worktree-setup.md` | Worktree setup procedure and recursive guard |
 | *(shared)* `commit-message/references/conventional-commit-format.md` | Conventional commit message format |
-| *(shared)* `pr/references/platform-detection.md` | Platform detection and CLI management |
 
 ## Requirements
 

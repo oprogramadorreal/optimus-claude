@@ -1,5 +1,5 @@
 ---
-description: Creates or updates a pull request (GitHub) or merge request (GitLab) for the current branch using the Conventional PR format — intent, summary, changes, rationale, and test plan. Captures the implementation conversation's intent into the PR description when run in the same session. Use when a branch is ready for review, or to update an existing PR/MR description.
+description: Creates or updates a pull request (GitHub) or merge request (GitLab) for the current branch using the Conventional PR format — intent, summary, changes, rationale, and test plan. Captures the implementation conversation's intent into the PR description when run in the same conversation. Use when a branch is ready for review, or to update an existing PR/MR description.
 disable-model-invocation: true
 ---
 
@@ -25,7 +25,7 @@ Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/multi-repo-detection.md` for wo
    - **All** — "Create PRs for all repos with changes (one at a time)"
    - Each individual repo name — "Create PR for `<repo>` only"
 7. If the user selects a specific repo, proceed to run Steps 2–8 inside that repo's directory
-8. If the user selects **All**, process each repo with changes through Steps 2–8 sequentially. For each repo: run all commands inside that repo's directory, complete Steps 2–7 fully (including the per-repo report in Step 7), then **continue to the next repo**. After the last repo, show the combined summary from Step 8
+8. If the user selects **All**, process each repo with changes through Steps 2–8 sequentially. For each repo: run all commands inside that repo's directory, complete Steps 2–7 fully (including the per-repo report in Step 7), then **continue to the next repo**. After the last repo, show the combined summary from Step 8. In an **All** run, any per-repo stop condition in Steps 2–7 (unknown platform, CLI cancel, Update-Flow Cancel, etc.) stops only that repo — record the outcome for the Step 8 summary and continue with the next repo; only the Step 1 gates halt the whole run
 
 ### Verify git state
 
@@ -59,7 +59,15 @@ If the branch is not on the remote:
 1. Check for commits: `git log --oneline HEAD --not --remotes 2>/dev/null | head -1`. If no commits → inform the user: "No commits on this branch yet. Commit your changes first." Stop.
 2. Push: `git push -u origin <branch>`
 
-If the branch is on the remote but has unpushed commits (`git log origin/<branch>..HEAD --oneline`), push them: `git push origin <branch>`
+If the branch is on the remote but has unpushed commits (`git log origin/<branch>..HEAD --oneline`), check for divergence first: `git rev-list --count HEAD..origin/<branch>`
+
+- Count is `0` → fast-forward push: `git push origin <branch>`
+- Count is greater than `0` → the remote has commits not in local history (typical after a local rebase); a plain push would be rejected as non-fast-forward. Do NOT plain-push. Use `AskUserQuestion` — header "Diverged branch", question "The remote branch has commits not in your local history (e.g., pre-rebase commits). Overwrite it?":
+  - **Force push** — "Run `git push --force-with-lease origin <branch>`"
+  - **Cancel** — "I'll reconcile the branch manually"
+
+  If the user chooses **Force push** → run `git push --force-with-lease origin <branch>`. If the lease is rejected → inform the user: "Force push rejected — the remote gained new commits since your last fetch. Review them before overwriting." Stop.
+  If the user chooses **Cancel** → inform the user to reconcile the branch and push manually, then re-run `/optimus:pr`. Stop.
 
 ### Check for existing PR/MR
 
@@ -77,7 +85,7 @@ If the branch is on the remote but has unpushed commits (`git log origin/<branch
 
 ### Detect default branch
 
-- **GitHub:** `gh repo view --json defaultBranchRef --jq '.defaultBranchRef.name'`
+- **GitHub:** `gh repo view --json defaultBranchRef --jq '.defaultBranchRef.name'`. If this differs from Step 1's local detection, the API value is authoritative for this step's diffs (the local `origin/HEAD` ref may be stale).
 - **GitLab:** use the default branch detected in Step 1, or `git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@'`
 
 ### Gather change data
@@ -137,7 +145,7 @@ Generate a title and body following the template. When filling in the sections:
   - **`## Intent` → Scope**: one bullet per **Table** row where Status is `✓ Complete`, using the description column verbatim.
   - **`## Intent` → Non-goals**: one bullet per **Table** row whose Status matches the **Non-goals rows** column above. Omit the sub-field if no such rows exist.
   - **`## Intent` → Key decisions**: pull from the **Key decisions source** above. If none are present (e.g. every TDD refactor step reported "No changes needed — code is clean"), omit this sub-field rather than inventing decisions.
-  - **`## Intent` → Problem**: as specified in the state 1 rules above — quote/summarize the spec or JIRA task file if it was loaded in the conversation, otherwise summarize the initiating brief from the start of the session.
+  - **`## Intent` → Problem**: quote/summarize the spec or JIRA task file if it was loaded in the conversation, otherwise summarize the initiating brief from the start of the conversation.
   - **`## Test plan`**: one verification item per **Table** row that is `✓ Complete`, plus the project's test command. If the conversation contains a `### Coverage` section with `Before:`, `After:`, `Delta:` lines, append a single line `Coverage: <Before> → <After> (<Delta>)` to the Test plan.
 - Synthesize the **Summary** from commit messages, changed files, and the diff
 - Use `git diff --stat` output as a starting point for **Changes**, then describe what each file change accomplishes
@@ -220,7 +228,7 @@ Discard anything that is outdated, factually wrong based on current diffs, or al
 3. **Non-standard sections**: If the existing body has sections outside the four standard ones (e.g., `## Deployment notes`, `## Related issues`) that contain non-diff information still relevant, preserve them after `## Test plan`.
 4. **Title**: Only when regenerating the title — if the existing title contains an issue reference or similar non-diff context, incorporate it into the new title while keeping Conventional Commit format.
 
-**Friction floor for the standalone-update flow:** if the existing body has an `## Intent` section AND the conversation has no implementation context (no Edit/Write/NotebookEdit touching the current diff), the regeneration must succeed **without prompting** the user. The user came here to fix the description after a rebase, not to re-litigate intent.
+**Friction floor for the standalone-update flow:** if the existing body has an `## Intent` section AND the conversation has no implementation context (no Edit/Write/NotebookEdit touching the current diff), the regeneration must succeed **without any intent-related prompting** — the Phase 3 preview/confirm still runs. The user came here to fix the description after a rebase, not to re-litigate intent.
 
 #### Phase 3 — Preview
 
@@ -257,11 +265,11 @@ If processing multiple repos, **continue to the next repo** — go back to Step 
 In a multi-repo workspace where multiple repos were processed, show a combined summary across all repos:
 
 ```
-## All PRs/MRs Created
+## All PRs/MRs Processed
 
-| Repo | PR/MR | URL |
-|------|-------|-----|
-| `repo-name` | title | URL |
+| Repo | PR/MR | Status | URL |
+|------|-------|--------|-----|
+| `repo-name` | title | Created / Updated / Skipped (reason) | URL |
 ```
 
 Recommend running `/optimus:code-review` for quality review before merging.
