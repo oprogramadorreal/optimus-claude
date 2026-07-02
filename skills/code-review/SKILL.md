@@ -71,7 +71,7 @@ git status --short
      - If GitHub: `gh pr view --json number,state,baseRefName 2>/dev/null` — only use `number` and `baseRefName` if `state` equals `"OPEN"`; if `state` is not `"OPEN"`, treat as "no open PR"
      - If GitLab: `glab mr view --output json 2>/dev/null` — only use `iid` and `target_branch` if `state` equals `"opened"`; if `state` is not `"opened"`, treat as "no open MR". If the command fails, treat as no open MR — unless the failure appears to be an auth or connectivity error, in which case inform the user before falling back
      - If platform unknown: try both, ignore CLI-unavailable errors — use the first result where an open PR/MR is confirmed (state check passed)
-     - If no open PR/MR found or CLI unavailable → detect the default branch using `$CLAUDE_PLUGIN_ROOT/skills/pr/references/default-branch-detection.md`
+     - If no open PR/MR found or CLI unavailable → detect the default branch using `$CLAUDE_PLUGIN_ROOT/skills/pr/references/default-branch-detection.md`. If detection fails (e.g., no `origin` remote), ask the user for a base ref and use it as `<ref>` in the **Branch/ref mode** block — or, if they have none, report there is nothing to review; do not guess a base
   3. Use the detected branch as `<base-branch>` and capture the current branch as `<current-branch>` via `git rev-parse --abbrev-ref HEAD`. Run `git log --oneline origin/<base-branch>..HEAD`
   4. If commits found → route to the appropriate review mode (do NOT prompt the user to choose). Each branch diff route below jumps to the **Branch/ref mode** block using `origin/<base-branch>` as `<ref>`. For GitLab, substitute "MR !N" for "PR #N" in the user-facing notices below:
      - **`force-branch-diff` is set (from Step 1)** → review the branch diff.
@@ -88,10 +88,11 @@ When the user says "review PR #42", passes `--pr`, `#123`, or a PR URL:
 
 **GitHub projects:**
 - Verify `gh` is available by running `gh --version`. If not available, inform the user that PR review requires the GitHub CLI (`gh`) and offer to review the branch diff instead
-- Use `gh pr view <N> --json state,isDraft,title,body,baseRefName,headRefName` to get PR metadata
+- Use `gh pr view <N> --json state,isDraft,title,body,baseRefName,headRefName,headRefOid` to get PR metadata
 - Store the `title` and `body` fields as `pr-description` for use in Steps 5 and 6 (author intent context)
 - Use `gh pr diff <N>` to get the actual diff
 - If the PR is closed or merged → warn and stop
+- Verify the local checkout matches the PR head: if `headRefOid` differs from `git rev-parse HEAD`, offer `gh pr checkout <N>` before continuing — Step 5's agents and Step 6's validation read the local working tree, so a mismatched checkout silently reviews the wrong file content. If the user declines, proceed with a warning that finding validation and line context come from the local tree, not the PR head
 
 **GitLab projects:**
 - Verify `glab` is available by running `glab --version`. If not available, inform the user: "This project uses GitLab. PR/MR review requires the GitLab CLI (`glab`). You can use branch diff mode instead: `/optimus:code-review changes since origin/main`." Offer to review the branch diff as a fallback.
@@ -99,6 +100,7 @@ When the user says "review PR #42", passes `--pr`, `#123`, or a PR URL:
 - Store the `title` and `description` fields as `pr-description` for use in Steps 5 and 6 (author intent context)
 - Use `glab mr diff <N>` to get the actual diff
 - If the MR is closed or merged → warn and stop
+- Verify the local checkout matches the MR head: if the metadata's `sha` field differs from `git rev-parse HEAD`, offer `glab mr checkout <N>` before continuing — same local-tree caveat as the GitHub bullet above
 
 ### Branch/ref mode
 
@@ -170,11 +172,11 @@ Proceed immediately to Step 5 — do not wait for user confirmation.
 
 Launch every applicable agent as a `general-purpose` Agent tool call in a **single** message so they run in parallel. The full fan-out is the design — do not reduce the count to save tokens or time. See the agent overview below for which agents always run and which activate conditionally.
 
-Each agent receives the list of changed file paths (from Step 3 in normal/interactive mode, or from `scope_files.current` in harness mode when pre-populated by the harness).
+Each agent receives the list of changed file paths (from Step 3 in normal/interactive mode, or from `scope_files.current` in harness mode when pre-populated by the harness), followed by the diff for those files gathered in Step 3 — include the diff hunks in every agent prompt, or at minimum the changed line ranges per file when the diff is too large to inline. The agents are instructed to review only the changed sections and have no sanctioned way to compute the diff themselves; never send file paths alone.
 
 Read the agent prompt files from `$CLAUDE_PLUGIN_ROOT/skills/code-review/agents/` for individual agent prompts. Read `$CLAUDE_PLUGIN_ROOT/skills/code-review/agents/shared-constraints.md` for the shared quality bar, exclusion rules, and false positive guidance applying to all agents.
 
-Compose each agent prompt per "Prompt assembly at dispatch time" in `$CLAUDE_PLUGIN_ROOT/references/agent-architecture.md`: substitute the resolved absolute plugin root for every `$CLAUDE_PLUGIN_ROOT` reference the prompt files carry, and inline or absolutize the bare `shared-constraints.md` reference — subagents inherit neither the variable nor the agents directory as cwd.
+Compose each agent prompt per "Prompt assembly at dispatch time" in `$CLAUDE_PLUGIN_ROOT/references/agent-architecture.md`: substitute the resolved absolute plugin root for every `$CLAUDE_PLUGIN_ROOT` reference the prompt files carry, and inline or absolutize the bare `shared-constraints.md` reference — subagents inherit neither the variable nor the agents directory as cwd. Also at assembly time: strip each prompt file's YAML frontmatter; end every assembled prompt with the file list + diff (the context blocks below inject immediately before that file list line); and for Agents 3–4, resolve `guideline-reviewer.md`'s "Dynamic Prompt Construction" section — replace it with the concrete doc-reading instructions for this project's layout from Step 4 (that section addresses the dispatcher, not the agent).
 
 ### PR/MR context injection (PR/MR mode only)
 
