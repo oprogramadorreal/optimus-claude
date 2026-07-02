@@ -7,11 +7,12 @@ The skill passes two variables from detection: `jira-server-name` (the MCP serve
 ## Contents
 
 1. [Tool Name Resolution](#tool-name-resolution) — map operations to server-specific tool names
-2. [Search Procedures](#search-procedures) — assigned issues, by project, sprint siblings
-3. [Fetch Procedure (Single Issue)](#fetch-procedure-single-issue) — issue details, links, comments, sprint context
-4. [Truncation Limits](#truncation-limits) — field-level size caps
-5. [Structured Output Format](#structured-output-format) — assembled output template
-6. [Error Handling](#error-handling) — error-to-message mapping
+2. [MCP Safety](#mcp-safety) — read-only enforcement and the permitted-write table
+3. [Search Procedures](#search-procedures) — assigned issues, by project, sprint siblings
+4. [Fetch Procedure (Single Issue)](#fetch-procedure-single-issue) — issue details, links, comments, sprint context
+5. [Truncation Limits](#truncation-limits) — field-level size caps
+6. [Structured Output Format](#structured-output-format) — assembled output template
+7. [Error Handling](#error-handling) — error-to-message mapping
 
 ## Tool Name Resolution
 
@@ -23,8 +24,8 @@ Different MCP servers expose different tool names. Use `ToolSearch` at runtime t
 |-----------|--------------------------|-----------------------------------|--------|
 | Search issues (JQL) | `searchJiraIssuesUsingJql` or `search` | `jira_search` | Read |
 | Get single issue | `getJiraIssue` | `jira_get_issue` | Read |
-| Get projects | `getVisibleJiraProjects` | — | Read |
-| Get transitions | `getTransitionsForJiraIssue` | — | Read |
+| Get projects | `getVisibleJiraProjects` | `jira_get_all_projects` | Read |
+| Get transitions | `getTransitionsForJiraIssue` | `jira_get_transitions` | Read |
 | Get link types | `getIssueLinkTypes` | — | Read |
 | Get remote links | `getJiraIssueRemoteIssueLinks` | — | Read |
 | Get issue type metadata | `getJiraIssueTypeMetaWithFields` | — | Read |
@@ -35,12 +36,14 @@ Different MCP servers expose different tool names. Use `ToolSearch` at runtime t
 | Get boards | — | `jira_get_agile_boards` | Read |
 | Update issue | `editJiraIssue` | `jira_update_issue` | **Write** |
 | Create issue | `createJiraIssue` | `jira_create_issue` | **Write** |
-| Add comment | `addCommentToJiraIssue` | — | **Write** |
+| Add comment | `addCommentToJiraIssue` | `jira_add_comment` | **Write** |
 | Transition status | `transitionJiraIssue` | `jira_transition_issue` | **Write** |
-| Create link | `createIssueLink` | — | **Write** |
-| Add worklog | `addWorklogToJiraIssue` | — | **Write** |
+| Create link | `createIssueLink` | `jira_create_issue_link` | **Write** |
+| Add worklog | `addWorklogToJiraIssue` | `jira_add_worklog` | **Write** |
 
 When a **Read** tool is unavailable, fall back to the search tool with targeted JQL. For example, if `getJiraIssue` is unavailable, use `searchJiraIssuesUsingJql` with JQL `key = PROJ-123`. Write operations have no fallback — if the specified write tool is unavailable, inform the user and skip the write.
+
+**Generic servers** (detection matched a key other than the two above): the tables in this file have no column for them. Map each **Read** operation by tool-name pattern via `ToolSearch` (e.g., a search tool, a get-issue tool). Treat all writes as unavailable unless a discovered tool's name unambiguously matches one of the permitted purposes in the [MCP Safety](#mcp-safety) table below (add comment, create issue, create link) — when in doubt, fail closed and skip the write.
 
 ## MCP Safety
 
@@ -54,11 +57,11 @@ Write tools are only permitted in Step 5 of the jira skill, after explicit user 
 
 | Tool (Rovo / sooperset) | Purpose | Gate |
 |------------------------|---------|------|
-| `addCommentToJiraIssue` / — | Post the analysis comment | Step 5 user confirmation |
+| `addCommentToJiraIssue` / `jira_add_comment` | Post the analysis comment | Step 5 user confirmation |
 | `createJiraIssue` / `jira_create_issue` | Spawn implementation tickets | Step 5 user confirmation + ticket-creation confirmation gate (default Skip), Complex scope only |
-| `createIssueLink` / — | Link new implementation tickets to the parent (Rovo only, best-effort) | Same gates as `createJiraIssue` |
+| `createIssueLink` / `jira_create_issue_link` | Link new implementation tickets to the parent (best-effort) | Same gates as `createJiraIssue` |
 
-All other write tools (`editJiraIssue`, `jira_update_issue`, `transitionJiraIssue`, `jira_transition_issue`, `addWorklogToJiraIssue`, deletes, etc.) are forbidden by this skill regardless of branch.
+All other write tools (`editJiraIssue`, `jira_update_issue`, `transitionJiraIssue`, `jira_transition_issue`, `addWorklogToJiraIssue`, `jira_add_worklog`, deletes, etc.) are forbidden by this skill regardless of branch.
 
 ## Search Procedures
 
@@ -76,7 +79,7 @@ Present results as a numbered list (max 10):
 
 ### Search: By Project
 
-Ask the user for the project key. Validate it matches `[A-Z][A-Z0-9]+` (1-10 uppercase alphanumeric characters, starting with a letter) — reject inputs containing spaces, operators, or special characters. Then use JQL: `project = {KEY} AND resolution = Unresolved ORDER BY updated DESC`
+Ask the user for the project key. Validate it matches `^[A-Z][A-Z0-9]{1,9}$` (2-10 uppercase alphanumeric characters, starting with a letter) — reject inputs containing spaces, operators, or special characters. Then use JQL: `project = {KEY} AND resolution = Unresolved ORDER BY updated DESC`
 
 Present results in the same numbered list format (max 10).
 

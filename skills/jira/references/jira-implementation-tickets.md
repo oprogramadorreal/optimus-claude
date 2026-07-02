@@ -76,7 +76,7 @@ If "Review one-by-one": for each ticket, present its full payload (summary + des
 
 Look up the create-issue and create-link tools in the [Tool Name Resolution table](jira-context-extraction.md#tool-name-resolution) — that table is the single source of truth for tool names.
 
-If the create-issue tool is not in the available tool list, fall through to Skip-mode per [Entry condition](#entry-condition) — [Decomposition](#decomposition) and [Recording](#recording) still run in Proposed mode. If only the create-issue tool is available but not the create-link tool (the sooperset server does not expose link creation), create issues without linking — the local table remains the authoritative parent ↔ child record.
+If the create-issue tool is not in the available tool list, fall through to Skip-mode per [Entry condition](#entry-condition) — [Decomposition](#decomposition) and [Recording](#recording) still run in Proposed mode. If only the create-issue tool is available but not the create-link tool, create issues without linking — the local table remains the authoritative parent ↔ child record.
 
 ## Creation procedure
 
@@ -90,12 +90,12 @@ For each confirmed ticket:
 
 ## Linking
 
-Run only if the link tool is available (Rovo only). Best-effort — failures here do not block the batch.
+Run only if the link tool is available. Best-effort — failures here do not block the batch.
 
-For each successfully created child key, call `createIssueLink` with:
+For each successfully created child key, call the create-link tool from [Tool resolution](#tool-resolution) with:
 - `inwardIssue`: parent key (e.g., `OPTS-8`)
 - `outwardIssue`: child key (e.g., `OPTS-19`)
-- `linkType`: `relates to`. If `relates to` is absent from the schema returned by `getIssueLinkTypes`, try (in order) `relates`, `related to`, `is related to`. If none of those exist, skip the link for this child and report it — do NOT fall back to directional or causal types (`blocks`, `is blocked by`, `duplicates`, `clones`, `causes`), which would silently misrepresent the parent ↔ child relationship.
+- `linkType`: `relates to`. If the get-link-types Read tool is available (see the Tool Name Resolution table) and `relates to` is absent from the schema it returns, try (in order) `relates`, `related to`, `is related to`. If none of those exist, skip the link for this child and report it — do NOT fall back to directional or causal types (`blocks`, `is blocked by`, `duplicates`, `clones`, `causes`), which would silently misrepresent the parent ↔ child relationship.
 
 If a link call fails, record the failure but continue with the remaining links. The local table is the source of truth; the JIRA link is decoration.
 
