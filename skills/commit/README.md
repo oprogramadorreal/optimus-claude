@@ -95,6 +95,7 @@ Use `/optimus:commit-message` if you only want to preview the message without co
 | `references/gather-changes.md` | Git change collection procedure (shared with commit-message) |
 | *(shared)* `commit-message/references/conventional-commit-format.md` | Conventional commit format specification |
 | *(shared)* `init/references/multi-repo-detection.md` | Multi-repo workspace detection algorithm |
+| *(shared)* `references/skill-handoff.md` | Closing-tip wording variants and continuation-skill rules |
 
 ## Requirements
 
