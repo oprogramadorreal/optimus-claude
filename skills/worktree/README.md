@@ -8,7 +8,7 @@ Git worktrees let you have multiple working directories for the same repository.
 
 - **Isolated parallel development** — each worktree is a separate directory with its own branch, enabling truly independent Claude Code sessions
 - **Automatic project setup** — detects and runs setup commands (npm install, pip install, cargo build, etc.) in the new worktree
-- **Test baseline verification** — runs the test suite in the worktree to confirm a healthy starting point
+- **Test baseline verification** — runs the test suite in the worktree to record the starting point; pre-existing failures are reported, not blocking
 - **Conventional branch naming** — follows `<type>/<slugified-description>` convention, consistent with all optimus skills
 - **Recursive worktree guard** — detects if you are already inside a worktree and prevents nested worktree creation
 - **VSCode native integration** — VSCode 1.103+ discovers worktrees automatically in the Source Control panel; open any worktree in a new window with one click

@@ -6,14 +6,14 @@ argument-hint: "[description]"
 
 # Worktree
 
-Create a git worktree for isolated parallel development. Sets up a new branch in a separate directory (`.worktrees/`) with project setup and test baseline, so the main workspace stays untouched. Each worktree can host an independent Claude Code session.
+Create a git worktree for isolated parallel development. Sets up a new branch in a separate directory (`.worktrees/`) with project setup and test baseline, so the main workspace stays on its original branch. Each worktree can host an independent Claude Code session.
 
 ## Workflow
 
 ### 1. Multi-repo Detection
 
 Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/multi-repo-detection.md` for workspace detection. If a multi-repo workspace is detected:
-- Run the git commands below inside each child repo (the workspace root has no `.git/`, so git commands must target individual repos)
+- Run the git commands below inside the target child repo (the workspace root has no `.git/`, so git commands must target individual repos)
 - If the user specified a target repo (inline or in conversation), use it
 - If ambiguous, use `AskUserQuestion` — header "Target repo", question "Which repo should the worktree be created for?": list each repo as an option
 
@@ -46,6 +46,8 @@ If neither source provides enough signal, use `AskUserQuestion` — header "Work
 - **Bug fix** — "Fix a bug or issue"
 - **Other** — "Describe the task"
 
+If the answer captures only a category (New feature / Bug fix), follow up and ask for a few words describing the task — the slug needs a concrete description, not the category label.
+
 Read `$CLAUDE_PLUGIN_ROOT/skills/commit/references/branch-naming.md` for the naming convention. Determine `<type>` and generate the slug from the description.
 
 **Handle collisions**: apply the **Collision Handling** section of the same reference.
@@ -65,7 +67,7 @@ Follow the **setup procedure** from `$CLAUDE_PLUGIN_ROOT/skills/worktree/referen
 - Running project setup in the worktree (npm install, pip install, cargo build, etc.)
 - Verifying the test baseline
 
-If worktree creation fails, report the error with diagnostic information and stop.
+On failure, follow the reference's **Failure handling** (§8) — cleanup and diagnostics — then stop.
 
 ### 5. Report and Next Steps
 
@@ -75,7 +77,7 @@ If worktree creation fails, report the error with diagnostic information and sto
 Working directory: `.worktrees/<worktree-dir>`
 Branch: `<branch-name>` (from `<original-branch>`)
 Main workspace: `<original-branch>` (unchanged)
-Tests: passing / no test command detected
+Tests: passing / failing (pre-existing — N failures) / no test command detected
 
 ### Open the worktree
 
@@ -90,6 +92,10 @@ Tests: passing / no test command detected
 
 When done: `git worktree remove .worktrees/<worktree-dir>`
 ```
+
+If the setup procedure's §3 modified `.gitignore`, add a line after "Main workspace": `.gitignore updated to ignore .worktrees/ (staged, not committed)`.
+
+In a multi-repo workspace, prefix all paths in the report with the target repo directory (e.g., `cd <repo>/.worktrees/<worktree-dir>`).
 
 Recommend running `/optimus:tdd` in the new worktree for test-driven development, or `/optimus:init` if the worktree needs project setup.
 
