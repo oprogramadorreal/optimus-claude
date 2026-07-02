@@ -1,5 +1,5 @@
 ---
-description: Implements an approved spec by having Claude design and run its own Claude Code dynamic workflow (real parallel subagents) — you hand it the goal and constraints, it chooses the orchestration. Test-first is enforced as a quality bar (tests accompany or precede code and the suite is left green), not as supervised Red-Green-Refactor. A peer of /optimus:tdd for spec implementation; prefer it for large or parallelizable specs where one linear pass is slow. Requires /optimus:init and a spec (auto-detects docs/specs/ or docs/jira/, or pass a path). Uses meaningfully more tokens than a normal session. Use when a spec is ready to build and you want fan-out implementation instead of turn-by-turn TDD cycles.
+description: Implements an approved spec by having Claude design and run its own Claude Code dynamic workflow (real parallel subagents) — you hand it the goal and constraints, it chooses the orchestration. Test-first is enforced as a quality bar (tests accompany or precede code and the suite is left green), not as supervised Red-Green-Refactor. A peer of /optimus:tdd for spec implementation; prefer it for large or parallelizable specs where one linear pass is slow. Requires /optimus:init; takes a spec (auto-detects docs/specs/ or docs/jira/), a spec path, or an inline goal. Uses meaningfully more tokens than a normal session. Use when a spec is ready to build and you want fan-out implementation instead of turn-by-turn TDD cycles.
 disable-model-invocation: true
 argument-hint: "[spec path or goal]"
 ---
@@ -27,8 +27,8 @@ Load these documents (they become constraints in the workflow brief):
 | Document | Role |
 |----------|------|
 | `.claude/CLAUDE.md` | Project overview — tech stack, test runner command |
-| `coding-guidelines.md` | Code quality reference the workflow must follow |
-| `testing.md` | Testing conventions — file location, naming, framework, mocking |
+| `.claude/docs/coding-guidelines.md` | Code quality reference the workflow must follow |
+| `.claude/docs/testing.md` | Testing conventions — file location, naming, framework, mocking |
 | `docs/product/tech-stack.md` *(if present)* | SDD steering — target stack |
 | `docs/product/mvp-prd.md` *(if present)* | SDD steering — MVP scope |
 
@@ -50,7 +50,7 @@ Resolve the spec with the shared cascade in `$CLAUDE_PLUGIN_ROOT/skills/tdd/refe
 
 If the cascade resolved a spec, use it. Otherwise, if the user gave a task inline (e.g., `/optimus:workflow "Build the CSV import pipeline"`), use it. Otherwise, use `AskUserQuestion` — header "Spec", question "What spec or feature should the workflow implement?".
 
-Whatever the source — a spec or JIRA context the cascade resolved, an inline argument, or the answer above — apply the shared reference's **Distillation** step to the final spec/goal: if it runs longer than ~2-3 sentences, distill it to a single-sentence goal (the brief's `Goal:` slot in Step 4) and confirm via `AskUserQuestion` before proceeding.
+Whatever the source, apply the shared reference's **Distillation** step to the final spec/goal — the result becomes the brief's `Goal:` slot in Step 4.
 
 **Light suitability guard** (this skill skips TDD's full classification — a workflow is not bound to testable-behavior decomposition):
 - If the task is clearly **restructuring existing code without new behavior** → recommend `/optimus:refactor` and stop.
@@ -60,6 +60,8 @@ Whatever the source — a spec or JIRA context the cascade resolved, an inline a
 ## Step 3: Create a feature branch
 
 Keep the user's original branch clean — all workflow edits land on a new branch.
+
+Verify the working tree is clean first: if `git status --porcelain` reports anything, stop and have the user commit or stash it before branching — from here on, everything uncommitted is treated as the workflow's output (Step 7 stages it; Step 5's Discard path deletes it).
 
 1. Record the current branch (this becomes the PR/MR target): `git rev-parse --abbrev-ref HEAD`
 2. Derive a branch name. Read `$CLAUDE_PLUGIN_ROOT/skills/commit/references/branch-naming.md` for the convention and collision handling. `<type>` is `feat` (or `fix`); `<description>` is the slugified goal.
@@ -79,7 +81,7 @@ Do **not** add git-worktree isolation here — workflow subagents already run as
 
 Compose the brief below from the spec (Step 2) and the loaded docs (Step 1), then **launch the workflow now, in this live session: design a workflow script that carries out the brief, then invoke the Workflow tool with that script.** The brief is the source material for the script — its task, scope, and quality bar; *you* author the orchestration and start the run. Do **not** emit the brief as a copy-paste block for the user to run, and do not wait for a trigger phrase — calling the Workflow tool is what launches it. Claude Code shows the planned phases for the user to approve before the run starts; tell the user to expect that approval gate and that the run uses meaningfully more tokens than a normal turn.
 
-Fill the bracketed slots: scope from the spec's Components / Acceptance Criteria and Out-of-Scope sections — when the source is a JIRA ticket or an inline goal with no Out-of-Scope section, derive the in-scope set from the goal and acceptance criteria and set out-of-scope to "anything not required by the stated goal". Build the edit-forbidden list from the project's protected paths: read `.claude/settings.json` `permissions.deny` if it exists (written by `/optimus:permissions`), and always include the defaults shown in the brief's Edit-mode block below (`.git`, `.claude/`, CI config, generated/vendored dirs, unrelated subprojects). If `/optimus:permissions` has not run, use those defaults and tell the user that running it first tightens the boundary.
+Fill the bracketed slots: scope from the spec's Components / Acceptance Criteria and Out-of-Scope sections — when the source is a JIRA ticket or an inline goal with no Out-of-Scope section, derive the in-scope set from the goal and acceptance criteria and set out-of-scope to "anything not required by the stated goal". In the quality bar, substitute the resolved paths of the docs loaded in Step 1 (e.g. `<subproject>/docs/testing.md` in a monorepo); drop the mention of a doc that does not exist. Build the edit-forbidden list from the project's protected paths: read `.claude/settings.json` `permissions.deny` if it exists (written by `/optimus:permissions`), and always include the defaults shown in the brief's Edit-mode block below (`.git`, `.claude/`, CI config, generated/vendored dirs, unrelated subprojects). If `/optimus:permissions` has not run, use those defaults and tell the user that running it first tightens the boundary.
 
 **Authoring rules (do not violate):**
 1. **Do not prescribe** the phases, the number of agents, or a phase plan. A pattern hint (fan-out / pipeline / adversarial cross-check) is an *optional* preference only — Claude is capable of choosing the shape that fits the spec.
@@ -108,7 +110,8 @@ Quality bar — test-first:
 - Tests accompany or precede the code they cover; do not ship implementation for an
   in-scope behavior without a test that exercises it.
 - Follow this project's testing conventions (framework, file location, naming, mocking)
-  from testing.md, and its code quality rules from coding-guidelines.md.
+  from <resolved testing.md path from Step 1>, and its code quality rules from
+  <resolved coding-guidelines.md path from Step 1>.
 - Before returning, run the full project test suite and leave it green. The green run is
   the completion gate — do not report done on a suite you have not run, and drop or fix
   anything you cannot get to pass.
@@ -123,8 +126,10 @@ Scope:
   add documentation the spec didn't ask for.
 - Edit mode: agents may create and edit files anywhere in the repo needed to implement
   the spec, INCLUDING tests. Do NOT touch: <forbidden paths — e.g. .git, .claude/, CI
-  config, generated/vendored dirs, unrelated subprojects>. (Workflow agents auto-approve
-  edits regardless of session mode — this boundary is the only thing keeping edits in scope.)
+  config, generated/vendored dirs, unrelated subprojects>. This list is an edit boundary,
+  not a read boundary — reading the constraint docs named in the quality bar is fine even
+  when they live inside it. (Workflow agents auto-approve edits regardless of session
+  mode — this boundary is the only thing keeping edits in scope.)
 - Stop early once the spec is fully implemented and the suite is green; keep work bounded
   to the in-scope targets above. (The runtime auto-caps concurrency and total agent count —
   you don't set these.)

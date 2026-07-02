@@ -47,7 +47,7 @@ It is strongest right after `/optimus:brainstorm` writes a spec with a clear Com
 
 1. Verifies project context (`CLAUDE.md`, `coding-guidelines.md`, `testing.md`) and a **green** test baseline.
 2. Acquires the spec via the shared context-detection cascade (explicit path → `docs/specs/` auto-discovery → `docs/jira/` → inline → ask), distilling a long spec to a single-sentence goal.
-3. Creates a feature branch from the current branch (the workflow builds here; your original branch stays clean).
+3. Creates a feature branch from the current branch — requires a clean working tree (commit or stash first), since everything uncommitted after this point is treated as workflow output. The workflow builds here; your original branch stays clean.
 4. Hands Claude a natural-language brief and **runs the workflow** — Claude designs the orchestration (phases, agent counts, cross-checking) and builds in the background. You approve the planned phases first.
 5. **Independently re-verifies** the result: runs the full suite fresh and confirms it is green (plus lint/type-check if configured). Never trusts the workflow's self-report.
 6. Emits an `## Implementation Summary` block (components, tests, verification, coverage).
