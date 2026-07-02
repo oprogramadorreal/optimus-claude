@@ -68,6 +68,8 @@ Warn the user with:
 > **Deep unit-test mode** runs up to [N] cycles. Each cycle is two subagent dispatches: a unit-test phase that writes tests + measures coverage, and a refactor phase (only when the first phase flags untestable code) that unblocks testability barriers. Credit and time consumption multiplies with cycle count. Tests and refactor fixes are applied automatically without per-change approval. Press Esc twice to interrupt — state is saved per-phase; resume with `/optimus:unit-test-deep --resume`.
 >
 > Test command: `[test command]`
+>
+> Mid-iteration interrupts may leave the working tree inconsistent; clean iterations are fully recoverable via `--resume`.
 
 Use `AskUserQuestion` — header "Deep unit-test", question "Proceed with deep unit-test?":
 - **Proceed** — "Run the unit-test + refactor cycle loop (max [N] cycles)"

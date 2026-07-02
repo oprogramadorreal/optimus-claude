@@ -68,6 +68,8 @@ Warn the user with:
 >
 > Test command: `[test command]`
 > Focus: `[focus or "balanced"]`
+>
+> Mid-iteration interrupts may leave the working tree inconsistent; clean iterations are fully recoverable via `--resume`.
 
 Use `AskUserQuestion` — header "Deep refactor", question "Proceed with deep refactor?":
 - **Proceed** — "Run iterative refactor until clean (max [N] iterations)"
