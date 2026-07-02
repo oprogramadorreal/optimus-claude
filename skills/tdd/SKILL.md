@@ -46,6 +46,8 @@ Locate the test runner command from `testing.md`, `CLAUDE.md`, or project manife
 - **Tests fail** — stop and report. Existing failures must be resolved before TDD can begin (a failing suite makes Red/Green indistinguishable)
 - **No test runner found** — stop and recommend running `/optimus:init` first to set up test infrastructure (framework, runner, coverage tooling, `testing.md`). For a project with no code or detectable stack yet, tell the user to pick **Scaffold new project** when init asks — init builds a starter stack, then sets up the runner on it (so this is not a dead-end).
 
+Then detect the coverage command per `$CLAUDE_PLUGIN_ROOT/skills/tdd/references/coverage-detection.md`. If one is found, run it once now and record the baseline percentage — this is the `Before` value for the coverage delta; Step 9 runs only the `After` measurement. If none is found, skip this (Step 9 omits its Coverage section).
+
 ## Step 2: Suitability Analysis
 
 Before starting TDD cycles, analyze whether the user's task is a good fit for test-driven development.
@@ -138,11 +140,7 @@ Otherwise, use these decomposition strategies by task type:
 - **Bug fixes** — first behavior is always "reproduce the bug" (a test that demonstrates the current broken behavior)
 - **Data transformations** — one behavior per transformation step or boundary (empty input, boundary values, malformed data)
 
-If the decomposition produces more than 10 behaviors, split into milestones. Present the first milestone (~5-8 behaviors that deliver a coherent slice of functionality) as the current scope, and list remaining behaviors as "Future milestones" with brief descriptions. After completing the last behavior of the current milestone, use `AskUserQuestion` — header "Milestone complete", question "Milestone [N] is done ([N] behaviors). Continue to the next milestone?":
-- **Next milestone** — "Load the next milestone's behaviors for approval"
-- **Stop here** — "Done for now — show summary"
-
-If the user chooses to continue, present the next milestone's behaviors for approval (return to the "Behaviors" confirmation above), then resume Step 4. This prevents overwhelming behavior lists and gives natural stopping points.
+If the decomposition produces more than 10 behaviors, split into milestones. Present the first milestone (~5-8 behaviors that deliver a coherent slice of functionality) as the current scope, and list remaining behaviors as "Future milestones" with brief descriptions. This prevents overwhelming behavior lists and gives natural stopping points; the milestone-boundary prompt lives in Step 7 (Commit and Loop).
 
 Present the decomposition as a numbered list:
 
@@ -158,8 +156,6 @@ Present the decomposition as a numbered list:
 Use `AskUserQuestion` — header "Behaviors", question "Does this decomposition look right? Adjust, reorder, or approve to start cycling.":
 - **Start cycling** — "Looks good — begin Red-Green-Refactor with behavior #1"
 - **Adjust** — "I want to modify the list before starting"
-
-For **bug fixes**: the first behavior is always "reproduce the bug" — a test that demonstrates the current broken behavior.
 
 ### Anti-pattern: horizontal slicing
 
@@ -205,6 +201,8 @@ If the test **passes unexpectedly**, the behavior may already be implemented. Us
 
 If the test **fails for the wrong reason** (import error, missing dependency, syntax error), fix the test — not the source code. The test itself must be valid; only the assertion should fail.
 
+**Exception — the symbol under test doesn't exist yet.** For the first behavior of a new module, class, or function, the test's import/reference fails precisely because the code doesn't exist. Create a minimal stub (empty function, class, or module) so the run fails on the assertion instead. The stub is scaffolding, not the Iron-Law-violating implementation — the failing test already exists.
+
 Report to the user:
 
 ```
@@ -232,7 +230,7 @@ Run the project's test command. **All tests must pass** — including the new on
   - **Circuit breaker** — if the test still fails after 3 implementation attempts, stop. Use `AskUserQuestion` — header "Implementation stuck", question "The test has failed after 3 fix attempts. This usually signals a design problem, not a code problem. How to proceed?":
     - **Rethink the approach** — "Step back and reconsider the behavior's design or decomposition"
     - **Simplify the behavior** — "Break this behavior into smaller, simpler sub-behaviors"
-    - **Skip for now** — "Revert implementation changes from this cycle (`git checkout -- <implementation files>`), mark the test as skipped per the project's convention (e.g., `skip`/`xit`/`@pytest.mark.skip`), move to the next behavior"
+    - **Skip for now** — "Revert implementation changes from this cycle (`git checkout -- <implementation files>`; also delete any implementation files the cycle newly created — `git checkout` does not remove untracked files), mark the test as skipped per the project's convention (e.g., `skip`/`xit`/`@pytest.mark.skip`), move to the next behavior"
 - **Other tests broke** — the implementation introduced a regression. Fix it before proceeding — all tests must stay green
 
 ### Bug-fix regression gate
@@ -242,7 +240,7 @@ Run the project's test command. **All tests must pass** — including the new on
 This gate proves two things: (1) the test genuinely catches the bug, and (2) the fix genuinely resolves it. Without this, you may have a test that passes regardless of the fix — providing false confidence.
 
 1. **Commit the test** separately: `git add <test-file> && git commit -m "test: reproduce <bug-description>"`
-2. **Revert only the fix**: `git stash push <implementation-files>`
+2. **Revert only the fix**: `git stash push -u -- <implementation-files>` (`-u` stashes newly created files, which are still untracked at this point). Confirm via `git status`/`git diff` that the implementation changes are actually gone before proceeding.
 3. **Run the test** — it **must fail**. This proves the test catches the bug.
 4. **Restore the fix**: `git stash pop`
 5. **Run the test again** — it **must pass**. This proves the fix resolves the bug.
@@ -322,13 +320,21 @@ After completing one Red-Green-Refactor cycle, automatically commit the work on 
 Committed: <short-hash> <commit message>
 ```
 
-Then, if behaviors remain, use `AskUserQuestion` — header "Next step", question "Cycle complete for behavior #[N]. What next?":
+Then ask exactly one of these questions:
+
+**Milestone boundary** — if the completed behavior is the last of the current milestone and future milestones remain (Step 3 split), use `AskUserQuestion` — header "Milestone complete", question "Milestone [M] is done ([N] behaviors). Continue to the next milestone?" (`[M]` = milestone number, `[N]` = behaviors completed in it):
+- **Next milestone** — "Load the next milestone's behaviors for approval"
+- **Stop here** — "Done for now — show summary"
+
+If the user chooses **Next milestone**, present that milestone's behaviors for approval (the "Behaviors" confirmation in Step 3), then return to Step 4 (Red) for its first behavior.
+
+**Otherwise, if behaviors remain** in the current scope, use `AskUserQuestion` — header "Next step", question "Cycle complete for behavior #[N]. What next?":
 - **Next behavior** — "Continue to behavior #[N+1]: [description]"
 - **Stop here** — "Done for now — show summary"
 
-If behaviors remain and the user chooses to continue, return to Step 4 (Red) for the next one.
+If the user chooses **Next behavior**, return to Step 4 (Red) for the next one.
 
-If no behaviors remain, or the user chooses "Stop here", proceed to Step 8 (Quality Gate).
+If no behaviors remain, or the user chooses "Stop here" in either question, proceed to Step 8 (Quality Gate).
 
 ## Step 8: Quality Gate (parallel agents)
 
@@ -347,7 +353,8 @@ After all behaviors are implemented (or the user stops early):
 ### Commit remaining work
 
 If there are uncommitted changes (e.g., the user stopped mid-cycle before the auto-commit):
-1. Stage the remaining files (prefer `git add <specific files>`; use `git add -A` only if many files changed) and commit: `git commit -m "<conventional message covering remaining work>"`
+1. Run the test suite first (the Step 4 verification protocol applies). If a mid-cycle test fails, mark it skipped per the project's convention (as in the Step 5 circuit breaker) and note it in the summary; if skipping isn't appropriate, surface the failure to the user before committing
+2. Stage the remaining files (prefer `git add <specific files>`; use `git add -A` only if many files changed) and commit: `git commit -m "<conventional message covering remaining work>"`
 
 ### Present summary
 
@@ -364,15 +371,15 @@ If there are uncommitted changes (e.g., the user stopped mid-cycle before the au
 ### Stats
 - Cycles completed: [N] of [total]
 - Tests written: [N]
-- Tests passing: all ✓
+- Tests passing: [actual result of the last test run — e.g., "all ✓" or "14 passed, 1 skipped"]
 - Files created: [list new files]
 - Files modified: [list modified files]
 - Quality gate: code-simplifier ([N] findings), test-guardian ([N] findings)
 
 ### Coverage
-[Detect the coverage command per `$CLAUDE_PLUGIN_ROOT/skills/tdd/references/coverage-detection.md`;
-run it before the first cycle and after the last cycle to measure the delta, and omit this section
-per that reference's "When to omit" rule.]
+[Run the `After` measurement with the coverage command detected in Step 1 and compute the delta
+against the `Before` baseline recorded there; omit this section per the "When to omit" rule in
+`$CLAUDE_PLUGIN_ROOT/skills/tdd/references/coverage-detection.md`.]
 - Before: [X]%
 - After: [Y]%
 - Delta: +[Z]%
@@ -382,7 +389,7 @@ per that reference's "When to omit" rule.]
 
 If there are commits on the branch:
 
-1. **Push** the feature branch: `git push -u origin <branch-name>`. If the push fails, report the error and stop — skip the remaining Step 9 subsections and leave any worktree in place; the user must resolve the push issue before a PR/MR can be created (re-running `/optimus:tdd` resumes from the existing worktree).
+1. **Push** the feature branch: `git push -u origin <branch-name>`. If the push fails, report the error and stop — skip the remaining Step 9 subsections and leave any worktree in place; the user must resolve the push issue, push the branch manually, and then run `/optimus:pr` (a new `/optimus:tdd` invocation starts a fresh session with a new branch — it does not resume this one).
 
 2. **Report** to the user:
 
@@ -393,7 +400,7 @@ If there are commits on the branch:
 - Pushed: ✓
 ```
 
-If behaviors remain unfinished, note them and suggest re-running `/optimus:tdd` to continue.
+If behaviors remain unfinished, note them and suggest a follow-up `/optimus:tdd` run with the remaining behaviors as the task description, started from this feature branch so the new branch builds on the completed work — each run starts fresh (new branch, new decomposition); there is no resume.
 
 ### Next step — create the PR/MR with `/optimus:pr`
 
