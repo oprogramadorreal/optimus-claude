@@ -16,7 +16,7 @@ Branch names are meaningful context. A well-named branch tells collaborators, CI
 - **Fast and safe** — no commits, no pushes, no staging, no file modifications. All local changes are preserved on the new branch
 - **Smart type detection** — infers the branch type from keywords in context or the nature of changes (new files → feat, modifications → fix/refactor, test-only → test)
 - **Collision handling** — if a branch name already exists, appends a numeric suffix automatically
-- **Multi-repo workspace support** — detects which repo has changes and targets it; asks if multiple repos have changes
+- **Multi-repo workspace support** — detects which repo has changes and targets it (an explicit description naming a different repo wins); asks if multiple repos have changes
 
 ## Quick Start
 
