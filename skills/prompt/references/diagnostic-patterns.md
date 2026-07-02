@@ -72,7 +72,7 @@ Patterns that waste tokens and cause re-prompts. Scan every user-provided prompt
 
 | # | Pattern | Fix |
 |---|---------|-----|
-| 26 | **No CoT for logic task** — "which approach is better?" | Add: "Think through both approaches step by step before recommending" |
+| 26 | **No CoT for logic task** — "which approach is better?" | Add: "Think through both approaches step by step before recommending" — unless the target tool's tool-routing.md entry bars explicit CoT: skip for reasoning-native models (#27) and tools whose entry calibrates reasoning automatically (e.g., current Claude — use its entry's nudge wording) |
 | 27 | **CoT added to reasoning-native model** — "think step by step" to o3/R1 | REMOVE — reasoning models think internally, CoT degrades output |
 | 28 | **No self-check** on complex output | Add: "Before finishing, verify output against the constraints above" |
 | 29 | **Expecting inter-session memory** — "you already know my project" | Re-provide full context via memory block |
