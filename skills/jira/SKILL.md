@@ -212,18 +212,13 @@ The plan should include:
 - Focus on: [component/area from the structured task context]
 - Out of scope: [anything explicitly excluded in the JIRA issue]
 
-## How this conversation should run
-Treat this conversation as a review loop — validate the plan against the actual codebase and iterate with me. When I say I'm done iterating, acknowledge but do not write yet — plan mode is read-only. I will then toggle plan mode off and send a short follow-up message (e.g. "go"). On that follow-up, append a `### Refined plan` section (heading exactly `### Refined plan`) to `docs/jira/<ISSUE-KEY>.md` to capture the refined plan, and stop. I will start a fresh conversation to run `/optimus:tdd`.
+[Close the prompt with the "## How this conversation should run" section from `$CLAUDE_PLUGIN_ROOT/references/skill-handoff.md` "Carve-out canonical blocks", substituting `<doc-path>` = `docs/jira/<ISSUE-KEY>.md`.]
 ```
 ````
 
 When emitting both the plan-mode prompt above and the execution prompt below, substitute `<ISSUE-KEY>` with the real key so each pasted block is self-contained.
 
-Tell the user:
-
-> 1. Start a fresh Claude Code conversation in **plan mode** (CLI: press `Shift+Tab` until the mode indicator shows plan mode; other clients: use the equivalent toggle). Paste the prompt above.
-> 2. Iterate with Claude. **Do not approve the plan** — approval executes immediately and skips `/optimus:tdd`'s Red-Green-Refactor discipline. When you're satisfied, tell Claude you're done iterating; Claude will acknowledge. Then toggle plan mode off using the same control **and send a short follow-up message (e.g. "go")** — Claude will append a `### Refined plan` section to `docs/jira/<ISSUE-KEY>.md` in response.
-> 3. Start a **second fresh conversation** and paste the execution prompt below.
+Tell the user the three numbered plan-mode steps from `$CLAUDE_PLUGIN_ROOT/references/skill-handoff.md` "Carve-out canonical blocks" verbatim, substituting `<doc-path>` = `docs/jira/<ISSUE-KEY>.md`.
 
 Then emit the **execution prompt** as a second copyable block, pre-filled from the task file:
 
