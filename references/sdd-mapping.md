@@ -62,7 +62,7 @@ Spec Kit adds a `constitution.md` and Kiro a `structure.md` to hold project-wide
 |---|---|---|
 | (Optional) | **Steering / Bootstrap** | `/optimus:spec-init` scaffolds an empty `docs/product/` (product-context, mvp-prd, tech-stack); a human fills the vision, MVP PRD, and target stack |
 | (Optional) | **Ingest** | `/optimus:jira` distills a PM-authored issue into `docs/jira/<KEY>.md` |
-| 1 | **Specify** | `/optimus:brainstorm` Step 4 writes `docs/specs/<slug>.md` (Goal, Context, Out of Scope, and conditional Scenarios), reading the cascade as steering |
+| 1 | **Specify** | `/optimus:brainstorm` writes `docs/specs/<slug>.md` (Goal, Context, Out of Scope, and conditional Scenarios), reading the cascade as steering |
 | 2 | **Plan** | Same brainstorm doc covers Approach, Components, Interfaces. Plan mode iteration refines it into an appended "Refined plan" section (see `references/skill-handoff.md`) |
 | 3 | **Tasks** | `/optimus:tdd` Step 3 decomposes the goal into behaviors (when the spec has a `## Scenarios` section, each `### Scenario:` maps to one Red-Green-Refactor cycle). `/optimus:workflow` does not pre-decompose — Claude's dynamic workflow divides the spec across parallel agents at run time |
 | 4 | **Implement & Verify** | `/optimus:tdd` Red-Green-Refactor cycles **or** `/optimus:workflow`'s self-orchestrated parallel build (test-first as a quality bar), then `/optimus:pr` → `/optimus:code-review` |

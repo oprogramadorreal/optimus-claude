@@ -128,12 +128,14 @@ If the user wants to combine aspects of multiple approaches or suggests a differ
 Based on the chosen approach, develop a detailed design. Cover each section as applicable — omit sections that don't apply to the task:
 
 - **Goal** — single paragraph: what and why
+- **Context** — why the change is needed and the relevant existing state (what exists today, what's missing, what's broken)
 - **Approach** — how it works, key decisions and their rationale
 - **Components** — what gets created or modified, each component's responsibility
 - **Interfaces** — how components interact (APIs, data flow, contracts, function signatures)
 - **Edge cases and risks** — what could go wrong, mitigations
 - **Scenarios** — *conditional.* 3–7 Given/When/Then scenarios that `/optimus:tdd` consumes as the behavior list. See `$CLAUDE_PLUGIN_ROOT/skills/brainstorm/references/scenario-style.md` for inclusion signals and phrasing — read it before writing scenarios.
 - **Out of scope** — explicit boundaries to prevent scope creep
+- **Open questions** — decisions deferred or needing more information (omit if none)
 
 Present the design in conversation. Use `AskUserQuestion` — header "Design review", question "Does this design look right?":
 - **Approve** — "Write it to a spec"
@@ -149,6 +151,7 @@ Read `$CLAUDE_PLUGIN_ROOT/skills/brainstorm/references/spec-format.md` for the t
 
 - **Path:** `docs/specs/YYYY-MM-DD-<topic-slug>.md` — derive the slug from the goal (lowercase, replace non-alphanumeric characters with hyphens, collapse consecutive hyphens, strip leading/trailing hyphens, max 5 words). The slug must match `[a-z0-9]+(-[a-z0-9]+)*` — reject any slug that does not match this pattern
 - Create the `docs/specs/` directory if it doesn't exist
+- If the target file already exists (e.g., a same-day re-brainstorm of the same topic), ask the user via `AskUserQuestion` whether to overwrite it or write to a suffixed filename (append `-2`, `-3`, … to the slug); on overwrite, carry any existing `### Refined plan` section into the new file — it captures plan-mode iteration the append-not-overwrite rule exists to preserve
 - Fill the template with the approved design content
 - Set **Status** to `Approved`
 
@@ -170,7 +173,7 @@ Present the result:
 ```
 ## Design Complete
 
-**Spec:** `<file-path>`
+**Spec:** `<spec-path>`
 **Goal:** <single-sentence goal>
 **Approach:** <chosen approach name>
 **Components:** <count> (<count> new, <count> modified)
@@ -178,19 +181,19 @@ Present the result:
 
 ## Step 7: Next Step
 
-Handle non-implementation tasks first:
-- **Refactoring task** → tell the user: "Recommend running `/optimus:refactor` to restructure the code. **Tip:** for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch."
-- **Test-only task** → tell the user: "Recommend running `/optimus:unit-test` to write tests for existing code. **Tip:** for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch."
+Handle non-implementation tasks first. Neither skill below reads `docs/specs/` on its own — include the spec path in the handoff so the approved design isn't dropped:
+- **Refactoring task** → tell the user: "Recommend running `/optimus:refactor` to restructure the code, passing the scope and key decisions from `<spec-path>` as the scope argument. **Tip:** for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch."
+- **Test-only task** → tell the user: "Recommend running `/optimus:unit-test` to write tests for existing code, passing the target paths from `<spec-path>` as the path argument. **Tip:** for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch."
 
-For implementation tasks, assess complexity from the Components table in the spec. If the Components table lists zero code components or the Goal names a written artifact (research note, audit report, investigation write-up), the deliverable is **prose** — use the Medium-to-large branch below but follow the "Prose deliverable" note on the execution prompt.
+For implementation tasks, assess complexity from the Components table in the spec. If the Components table lists zero code components or the Goal names a written artifact (research note, audit report, investigation write-up), the deliverable is **prose** — read the "Prose deliverable" note at the end of this step first, then use the Medium-to-large branch below with its adjustments (they replace the prompt closer, the user steps, and the execution prompt).
 
 ### Small (1–2 components, <5 behaviors implied)
 
-Tell the user: "This is small enough to implement directly — run **`/optimus:tdd`** to build it test-first (Red-Green-Refactor, interactive checkpoints). It auto-detects the spec at `<file-path>`. (You can use **`/optimus:workflow`** instead for a self-orchestrated parallel build — test-first as a quality bar, no mid-run input, more tokens — but for a spec this small TDD is usually the better fit; `/optimus:workflow` shines on large or parallelizable specs.) **Tip:** for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch."
+Tell the user: "This is small enough to implement directly — run **`/optimus:tdd`** to build it test-first (Red-Green-Refactor, interactive checkpoints). It auto-detects the spec at `<spec-path>`. (You can use **`/optimus:workflow`** instead for a self-orchestrated parallel build — test-first as a quality bar, no mid-run input, more tokens — but for a spec this small TDD is usually the better fit; `/optimus:workflow` shines on large or parallelizable specs.) **Tip:** for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch."
 
-### Medium-to-large (3+ components or complex interfaces)
+### Medium-to-large (3+ components, complex interfaces, or anything not matching Small)
 
-**Alternative — a parallel build (code deliverables only):** if the user prefers a self-orchestrated parallel build over supervised TDD, they can run **`/optimus:workflow`** instead. It auto-detects the spec at `<file-path>`, launches a Claude Code dynamic workflow directly (no plan-mode iteration, no "Refined plan" step), applies test-first as a quality bar, and uses meaningfully more tokens. **If the user takes this alternative, skip the plan-mode prompt and execution-prompt blocks below** — point them to `/optimus:workflow` (in a fresh conversation) and stop here. Otherwise the plan-mode → `/optimus:tdd` flow below remains the default for supervised, test-first work. For a **prose deliverable**, skip this alternative — `/optimus:workflow` is overkill for documentation-only work (see the "Prose deliverable" note below).
+**Alternative — a parallel build (code deliverables only):** if the user prefers a self-orchestrated parallel build over supervised TDD, they can run **`/optimus:workflow`** instead. It auto-detects the spec at `<spec-path>`, launches a Claude Code dynamic workflow directly (no plan-mode iteration, no "Refined plan" step), applies test-first as a quality bar, and uses meaningfully more tokens. **If the user takes this alternative, skip the plan-mode prompt and execution-prompt blocks below** — point them to `/optimus:workflow` (in a fresh conversation) and stop here. Otherwise the plan-mode → `/optimus:tdd` flow below remains the default for supervised, test-first work. For a **prose deliverable**, skip this alternative — `/optimus:workflow` is overkill for documentation-only work (see the "Prose deliverable" note below).
 
 Generate a plan-mode prompt inline, pre-filled from the spec. Present it as a single copyable block:
 
@@ -204,7 +207,7 @@ Generate a plan-mode prompt inline, pre-filled from the spec. Present it as a si
 Include key decisions, constraints, and the chosen approach rationale.]
 
 ## Starting Hints
-- Spec: <file-path>
+- Spec: <spec-path>
 - [Key files/modules identified during codebase exploration in Step 3]
 
 ## What to Figure Out
@@ -228,7 +231,7 @@ The plan should include:
 ```
 ````
 
-When emitting both the plan-mode prompt above and the execution prompt below, substitute `<spec-path>` with the actual path from Step 5 so each pasted block is self-contained.
+Substitute `<spec-path>` with the actual path from Step 5 wherever it appears in Steps 6–7 — the report, the branch texts, and every emitted prompt block — so each pasted block is self-contained.
 
 Tell the user the three numbered plan-mode steps from `$CLAUDE_PLUGIN_ROOT/references/skill-handoff.md` "Carve-out canonical blocks" verbatim, substituting `<doc-path>` = `<spec-path>`.
 
@@ -249,6 +252,10 @@ Run `/optimus:tdd` to implement the refined plan in `<spec-path>` test-first.
 ```
 ````
 
-**Prose deliverable:** if the design produces a written artifact rather than code, replace the execution prompt above with one that instructs Claude directly — e.g. `Execute the refined plan in <spec-path> to produce <deliverable-path>.` — and note that `/optimus:tdd` does **not** apply. After `<deliverable-path>` is produced, recommend `/optimus:commit` to commit the artifact and tell the user the closing tip per `$CLAUDE_PLUGIN_ROOT/references/skill-handoff.md` "Closing tip wording" — use **Variant A** with `<continuation-skill(s)>` = `/optimus:commit` and `<non-continuation-examples>` = `/optimus:code-review`, `/optimus:unit-test`, etc.
+**Prose deliverable:** if the design produces a written artifact rather than code, `/optimus:tdd` does **not** apply — follow the default plan-mode flow (approve the plan to implement in the same conversation; see `$CLAUDE_PLUGIN_ROOT/references/skill-handoff.md` "Plan mode") instead of the review-only carve-out. Adjust the Medium-to-large branch as follows:
 
-See `$CLAUDE_PLUGIN_ROOT/references/skill-handoff.md` for the full handoff convention and why plan mode is used review-only.
+- Close the plan-mode prompt with a `## How this conversation should run` section that says: iterate on the plan against the actual codebase; once the user approves the plan, implement it in this conversation to produce `<deliverable-path>`; after writing the deliverable, recommend `/optimus:commit` to commit it, followed by the closing tip. Substitute the tip text into the prompt — **Variant A** from skill-handoff.md "Closing tip wording" with `<continuation-skill(s)>` = `/optimus:commit` and `<non-continuation-examples>` = `/optimus:code-review`, `/optimus:unit-test` — so the executing conversation can emit it verbatim after the deliverable exists.
+- Instead of the three carve-out steps, tell the user: start a fresh conversation in **plan mode**, paste the prompt, iterate, and **approve the plan** when satisfied — approval implements it in the same conversation (no `### Refined plan` append, no second conversation).
+- Skip the execution prompt above entirely.
+
+See `$CLAUDE_PLUGIN_ROOT/references/skill-handoff.md` for the full handoff convention and why plan mode is review-only on the `/optimus:tdd` path.
