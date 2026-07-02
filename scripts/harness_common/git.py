@@ -103,6 +103,10 @@ def git_rev_parse_head(cwd):
     return result.stdout.strip()
 
 
+# Authoritative harness-state patterns matched by commit_checkpoint's un-stage
+# step and _clean_working_tree. This repo's own .gitignore mirrors them as a
+# convenience for harness development; renaming a prefix requires synchronized
+# updates here (authoritative) and in this repo's .gitignore (the dev mirror).
 _HARNESS_STATE_EXCLUDES = (
     ".claude/*-deep-progress.json",
     ".claude/*-deep-progress.json.bak",

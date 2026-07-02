@@ -26,10 +26,13 @@ This skill is part of the [optimus](https://github.com/oprogramadorreal/optimus-
 /optimus:code-review-deep src/auth                  # Scope to an existing path
 /optimus:code-review-deep --resume                  # Continue from existing progress file
 /optimus:code-review-deep --no-commit               # Skip per-iteration checkpoint commits
+/optimus:code-review-deep --allow-red-baseline      # Proceed even if the pre-loop baseline suite is red
 claude -p "/optimus:code-review-deep --yes 'src/auth'"   # Headless / CI; auto-confirms Step 3
 ```
 
 Scope accepts an existing path (file or directory) to restrict the review to it. Natural-language text is recorded as intent but does not filter the diff — the full branch diff is reviewed unless the scope resolves to a real path.
+
+A leftover progress file from a prior run blocks a fresh start: either `--resume` it, or discard it by re-invoking the CLI `init` subcommand with `--force` (see SKILL.md Step 4).
 
 ## Requirements
 
@@ -38,6 +41,7 @@ Scope accepts an existing path (file or directory) to restrict the review to it.
 - Git
 - Project initialized with `/optimus:init`
 - Test command in `.claude/CLAUDE.md`
+- Green test suite at start (or `--allow-red-baseline`)
 - Clean working tree (or `--no-commit` to allow uncommitted state)
 
 ## Termination Reasons
@@ -47,7 +51,7 @@ Scope accepts an existing path (file or directory) to restrict the review to it.
 | `convergence` | The base skill reported `no_new_findings` — the codebase looks clean. |
 | `no-actionable` | Findings exist but none had concrete code edits to apply. |
 | `all-reverted` | Every fix in the most recent iteration caused test failures. |
-| `cap` | The iteration cap was reached. Resume with a higher cap if needed. |
+| `cap` | Reached the iteration cap. The run is archived; re-run `/optimus:code-review-deep --max-iterations <higher>` for a fresh pass. |
 | `diminishing-returns` | After iteration 4, two consecutive iterations produced ≤1 new finding and 0 reverted fixes. The remaining issues, if any, can be resumed in a fresh conversation via `--resume`. |
 | `parse-failure` | Two consecutive iterations produced no parseable JSON from the subagent. |
 

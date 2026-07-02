@@ -37,7 +37,7 @@ Agent tool call:
     Plugin root: <absolute-plugin-root>
     Progress file: <absolute-progress-path>
     Iteration: <N> of <max>
-    Phase: <skill>
+    Phase: <base-skill>
 
     Read the base SKILL.md at
     `<absolute-plugin-root>/skills/<base-skill>/SKILL.md` and execute its
@@ -65,7 +65,7 @@ TMP_RAW=".claude/.deep-iteration-raw.txt"
 TMP_RESULT=".claude/.deep-iteration-result.json"
 ```
 
-These exact filename prefixes (`.deep-iteration-` and `.unit-test-deep-`) are required. The checkpoint commit's authoritative protection is the un-stage step in `commit_checkpoint` (`scripts/harness_common/git.py`), which resets `_HARNESS_STATE_EXCLUDES` back out of the index after `git add -A` — it does **not** rely on the user project's `.gitignore` carrying these patterns (`/optimus:init` does not provision them). This repo's own `.gitignore` mirrors the patterns as a convenience for harness development; renaming a prefix therefore requires synchronized updates to `_HARNESS_STATE_EXCLUDES` (authoritative) and this repo's `.gitignore` (the dev mirror).
+These exact filename prefixes (`.deep-iteration-` and `.unit-test-deep-`) are required — the checkpoint commit's un-stage step (`commit_checkpoint` in `scripts/harness_common/git.py`) matches them to keep harness state out of the commit.
 
 ### 4. Extract the structured JSON
 

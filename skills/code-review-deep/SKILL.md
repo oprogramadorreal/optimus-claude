@@ -136,6 +136,6 @@ Recommend the user run `/optimus:commit` next, followed by `/optimus:pr` once th
 
 ## Tip
 
-`--resume` continues a run whose progress file is still on disk — after an interrupt, or after a `diminishing-returns` soft-exit (the CLI leaves that run un-archived). `/optimus:code-review-deep --resume --max-iterations <new-cap>` raises the cap and continues in the same branch.
+Resume and archive semantics — raising the cap on `--resume`, the `diminishing-returns` un-archived exception — are stated in Step 4 and Step 6.
 
-A run that finished cleanly (`convergence` / `cap`) was archived to `.done.json`, so `--resume` no longer finds it (`init` would report no progress file). For a fresh second-opinion pass after that — e.g. after pulling new changes — just re-run `/optimus:code-review-deep` (optionally `--max-iterations <cap>`); it starts a new run and, on a clean tree, converges on the first iteration.
+A run that finished cleanly (`convergence` / `cap`) was archived to `.done.json`, so `--resume` no longer finds it (`resume` would report no progress file). For a fresh second-opinion pass after that — e.g. after pulling new changes — just re-run `/optimus:code-review-deep` (optionally `--max-iterations <cap>`); it starts a new run and, on a clean tree, converges on the first iteration.
