@@ -9,9 +9,16 @@ if exist "%PYTHON_ENV_DIR%" (
     rmdir /s /q "%PYTHON_ENV_DIR%"
 )
 
-REM Create a Python virtual environment
+REM Create a Python virtual environment. Prefer uv if available: uv-managed
+REM Pythons may not provide a plain "python" on PATH, and uv omits pip from
+REM its venvs unless seeded.
 echo Creating Python virtual environment...
-python -m venv %PYTHON_ENV_DIR%
+where uv >nul 2>nul
+IF ERRORLEVEL 1 (
+    python -m venv %PYTHON_ENV_DIR%
+) ELSE (
+    uv venv --seed %PYTHON_ENV_DIR%
+)
 
 IF ERRORLEVEL 1 (
     echo Failed to create virtual environment
