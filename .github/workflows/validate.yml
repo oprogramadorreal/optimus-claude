@@ -29,4 +29,4 @@ jobs:
         with:
           python-version: '3.x'
       - run: pip install -r requirements-dev.txt
-      - run: python -m pytest test/harness-common/ -v
+      - run: python -m pytest test/ -v

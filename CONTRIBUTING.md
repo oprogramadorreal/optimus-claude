@@ -7,6 +7,7 @@ optimus-claude/
 ├── .claude/                    # Claude Code settings and hooks (for contributors)
 │   ├── CLAUDE.md
 │   ├── settings.json
+│   ├── docs/                  # Contributor guidelines (skill-writing, coding, architecture, testing)
 │   └── hooks/
 │       ├── format-python.py
 │       └── restrict-paths.sh
@@ -16,7 +17,7 @@ optimus-claude/
 ├── agents/                    # Plugin-level agents — user-invokable, also extended by skill-level agents
 │   ├── code-simplifier.md     # Code simplification agent (extended by code-review, refactor, tdd)
 │   ├── test-guardian.md       # Test coverage monitoring agent (extended by code-review, tdd)
-├── references/                # Shared reference docs (agent-architecture, shared-agent-constraints, context-injection-blocks, harness-init-resume, harness-mode, coverage-harness-mode, orchestrator-loop-single, orchestrator-loop-paired, scope-expansion-rule, sdd-mapping, skill-handoff)
+├── references/                # Shared reference docs consumed across skills (see the Reference Hierarchy in .claude/docs/architecture.md)
 ├── hooks/
 │   ├── hooks.json            # Plugin-level hooks (SessionStart for skill awareness)
 │   └── session-start         # Outputs dynamic project state on session start/resume/clear/compact
@@ -84,7 +85,7 @@ skills/<skill-name>/
 ├── templates/                # YAML, markdown, and shell templates (optional)
 │   ├── hooks/                # PostToolUse hook scripts
 │   └── docs/                 # Documentation templates
-├── agents/                   # Individual agent prompt files (one per agent, plus shared-constraints.md)
+├── agents/                   # Individual agent prompt files, one per agent plus shared-constraints.md (optional)
 └── references/               # Technical reference docs consumed by the skill (optional)
 ```
 
@@ -102,9 +103,9 @@ argument-hint: "[optional-args]"
 Step-by-step instructions...
 ```
 
-All skills **must** use `disable-model-invocation: true`. Skills that take arguments should also set `argument-hint` (quoted — bare brackets parse as a YAML list); it is shown in the `/` menu autocomplete. This is a core design principle: skills are tools the user explicitly reaches for, never behavior that Claude auto-triggers. The plugin enhances Claude Code without changing its default behavior behind the user's back.
+All skills **must** use `disable-model-invocation: true`. Skills that take arguments should also set `argument-hint` (quoted — bare brackets parse as a YAML list); it is shown in the `/` menu autocomplete. The rationale for this rule lives in `.claude/docs/skill-writing-guidelines.md` under Design Principles.
 
-**Shared references:** When a procedure is used by 2+ skills (e.g., multi-repo workspace detection, platform detection), extract it to a reference file owned by the canonical skill. Consuming skills read the reference and apply their own policy. This avoids logic duplication while keeping each skill self-contained. See `skills/init/references/multi-repo-detection.md` and `skills/pr/references/platform-detection.md` for examples.
+**Shared references:** when a procedure is used by 2+ skills, extract it to a reference file owned by the canonical skill — see `.claude/docs/skill-writing-guidelines.md` under "Shared References" for the rule and examples.
 
 **Note:** The `name` field is intentionally omitted from frontmatter. When present, it strips the plugin namespace prefix — `/optimus:init` would appear as just `/init`, shadowing the builtin command. See [anthropics/claude-code#22063](https://github.com/anthropics/claude-code/issues/22063).
 
@@ -132,6 +133,7 @@ The plugin uses a two-tier agent design. See `references/agent-architecture.md` 
 2. Create `skills/<skill-name>/README.md` with user-facing documentation
 3. Add templates and references as needed in subdirectories
 4. Add the skill to the Skills section in the root `README.md`
+5. Add the skill directory to the project-structure tree in this file — `scripts/validate.sh` asserts every `skills/` directory appears in both the root `README.md` and this tree
 
 Follow the conventions visible in existing skills — study `skills/commit-message/` for a minimal example or `skills/init/` for a full-featured one.
 
@@ -182,7 +184,7 @@ The `source` object supports an optional `"ref"` field to pin plugin code to a s
 
 ## Testing
 
-This plugin is mostly markdown-based. Testing is split into layers: fast structural checks that run in CI, Python unit tests for the shared harness CLI and modules, and slower skill execution tests that run locally.
+This plugin is mostly markdown-based. Testing is split into layers: fast structural checks, hook tests, and Python unit tests that run in CI, and slower skill execution tests that run locally.
 
 **Before merging significant changes**, run the full skill test suite from a clean slate:
 
@@ -215,7 +217,7 @@ Checks include:
 
 ### Hook execution tests (CI)
 
-Unit tests for the session-start hook and formatter hooks — the only executable code that runs on user machines.
+Unit tests for the session-start hook, formatter hooks, and the path-restriction hook — the hook scripts that run on user machines.
 
 ```shell
 bash scripts/test-hooks.sh
@@ -225,10 +227,11 @@ Tests all state combinations (uninitialized, partial, fully configured, dirty tr
 - Correct recommendations for each project state
 - Zero-output guarantee for fully configured projects
 - Formatter hooks parse JSON input and filter by file extension correctly
+- restrict-paths hook enforces the tiered path model (in-project writes allowed, out-of-project writes ask, outside deletes denied) with memory-store/scratchpad exemptions and fail-closed fallbacks
 
-### Python unit tests (harness common CLI and modules)
+### Python unit tests (CI)
 
-Unit tests for the orchestrator CLI and its supporting modules under `scripts/harness_common/` — the only Python code in the plugin.
+Unit tests for the Python code in the repo: the orchestrator CLI and its supporting modules under `scripts/harness_common/`, plus the `.claude/hooks/format-python.py` formatter hook.
 
 **First-time setup:**
 
@@ -247,7 +250,7 @@ Or manually via pytest:
 
 ```shell
 .venv\Scripts\activate
-python -m pytest test/harness-common/ -v
+python -m pytest test/ -v
 ```
 
 **Note:** The project uses `pyproject.toml` with `--import-mode=importlib` (kept for general robustness against same-name modules across test trees).

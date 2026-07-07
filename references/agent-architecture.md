@@ -16,7 +16,7 @@ These are standard Claude Code agent definitions with frontmatter (`name`, `desc
 1. **Base definitions** — define the core approach, quality criteria, and methodology for a reusable concern
 2. **Extended by skill-level agents** — skill-level agents read these files for their core approach, then layer skill-specific behavior on top (see [specialization pattern](#the-specialization-pattern) below)
 
-Both agents read the target project's `.claude/docs/coding-guidelines.md` and `.claude/CLAUDE.md` for project-specific standards. In projects with a skill-authoring stack, the code-simplifier also reads `.claude/docs/skill-writing-guidelines.md` and routes each analyzed file to the correct lens (coding-guidelines for code files, skill-writing-guidelines for markdown instruction files) — it inlines the routing rules directly to stay within the reference-depth limit. The test-guardian checks for the file's existence to skip markdown instruction files (which are not testable code) rather than routing them to a lens.
+Both agents read the target project's `.claude/CLAUDE.md`; the code-simplifier additionally reads `.claude/docs/coding-guidelines.md`, and the test-guardian reads the relevant `testing.md`. In projects with a skill-authoring stack, the code-simplifier also reads `.claude/docs/skill-writing-guidelines.md` and routes each analyzed file to the correct lens (coding-guidelines for code files, skill-writing-guidelines for markdown instruction files) — it inlines the routing rules directly to stay within the reference-depth limit. The test-guardian checks for the file's existence to skip markdown instruction files (which are not testable code) rather than routing them to a lens.
 
 ## Skill-level agents (`skills/<name>/agents/`)
 
@@ -32,7 +32,7 @@ Each skill-level agent directory typically contains:
 |-------|--------|-------|
 | code-review | bug-detector, code-simplifier, contracts-reviewer, guideline-reviewer, security-reviewer, test-guardian | + context-blocks.md for PR/MR and iteration context |
 | refactor | code-simplifier, consistency-analyzer, guideline-reviewer, testability-analyzer | + context-blocks.md for iteration context |
-| tdd | code-simplifier, test-guardian | Quality gate after each TDD cycle |
+| tdd | code-simplifier, test-guardian | Quality gate after all TDD cycles complete |
 | init | project-analyzer, documentation-auditor | Project analysis during setup |
 | how-to-run | project-environment-detector, how-to-run-auditor | Project environment analysis |
 | unit-test | test-infrastructure-analyzer | Test infrastructure analysis |
@@ -68,7 +68,7 @@ Skill-level agents run as `general-purpose` subagents, and a subagent inherits n
 
 ## Shared reference files
 
-Base constraints and context templates that apply across all skill-level agents live in `references/`:
+Base constraints and context templates shared by the review-oriented skills' agents (code-review, refactor, tdd) live in `references/`:
 
 | File | Purpose |
 |------|---------|

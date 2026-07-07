@@ -27,11 +27,11 @@ A Claude Code plugin combining markdown-based skill authoring (22 skills invoked
   1. `cli snapshot` records the pre-iteration git HEAD into the progress file.
   2. The skill dispatches the base skill (`/optimus:code-review`, `/optimus:refactor`, or `/optimus:unit-test`) as a fresh `general-purpose` subagent via the Agent tool. The subagent prompt carries `HARNESS_MODE_INLINE`, the absolute progress-file path, and an instruction to read the base SKILL.md and follow `references/harness-mode.md` (or `references/coverage-harness-mode.md`).
   3. The subagent emits a `json:harness-output` fenced block in its final message.
-  4. The orchestrator saves the subagent's output to a temp file, runs `cli parse` to extract the JSON, then `cli deep-step` (or `unit-test-step` / `refactor-step` for the paired variant) to apply fixes, run tests, bisect on failure, and update statuses.
+  4. The orchestrator saves the subagent's output to a temp file, runs `cli parse` to extract the JSON, then `cli deep-step` (or `refactor-step` for the paired refactor phase) to apply fixes, run tests, bisect on failure, and update statuses; `unit-test-step` instead records tests + coverage, rolling the whole cycle back if the suite is red.
   5. `cli commit-checkpoint` produces a per-iteration commit.
-  6. `cli check-termination` returns one of `continue | convergence | no-actionable | all-reverted | cap | diminishing-returns | parse-failure`.
-  7. `cli advance` (deep variant) or `cli record-cycle` (paired variant) advances the counter; the loop repeats until termination.
-- `cli final-report --archive` prints the cumulative report and moves the progress file to `.done.json`.
+  6. Deep variant: `cli check-termination`, then `cli advance` on `continue`. Paired variant: `cli record-cycle` first (it pre-increments `cycle.current`, which the cap check relies on), then `cli check-termination`.
+  7. `check-termination` returns one of `continue | convergence | no-actionable | all-reverted | cap | diminishing-returns | parse-failure`; the loop repeats until it returns anything other than `continue`.
+- `cli final-report --archive` prints the cumulative report and moves the progress file to `.done.json` (except after a `diminishing-returns` soft-exit, which stays un-archived so `--resume` can continue it).
 
 ### Key Patterns
 

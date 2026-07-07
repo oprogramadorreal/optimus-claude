@@ -144,6 +144,6 @@ The orchestrator may record one of these reasons on exit:
 - **`convergence`** — zero new findings
 - **`no-actionable`** — findings exist but have no code edits
 - **`all-reverted`** — every fix this iteration failed tests
-- **`diminishing-returns`** — yield plateaued at ≤1 new finding for two consecutive iterations after iter 4, with no reverted fixes in either window iteration; remaining issues may exist and can be resumed via `--resume`
+- **`diminishing-returns`** — yield plateaued at ≤1 new finding for two consecutive iterations ending at iter 4 or later, with no reverted fixes in either window iteration; remaining issues may exist and can be resumed via `--resume`
 - **`cap`** — max iterations hit
 - **`parse-failure`** — subagent error (after two consecutive iterations produced no parseable JSON)

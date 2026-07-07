@@ -42,13 +42,16 @@ When the skill is running under `HARNESS_MODE_INLINE` and the progress file's `i
 
 Status values:
 - **fixed** — applied and tests passed
-- **reverted** — applied but caused test failure, reverted
-- **persistent** — fix attempted multiple times, still failing
+- **retained — revert failed** — fix broke tests but the revert failed; left in place (treat as fixed)
+- **reverted — test failure** — applied but caused a test failure, reverted
+- **reverted — attempt 2** — second attempt at a previously reverted finding, reverted again
+- **skipped — apply failed** — the fix's content swap did not apply cleanly, skipped
+- **persistent — fix failed** — fix attempted multiple times, still failing
 
-[if any findings have status reverted or persistent, append this section:]
+[if any findings have a reverted, skipped, or persistent status (any status other than fixed / retained — revert failed), append this section:]
 
 ### Failed Fix Attempts
-[one bullet per reverted/persistent finding — omit for fixed findings]
+[one bullet per reverted/skipped/persistent finding — omit for fixed and retained findings]
 - **<file>:<line>** (<category>): Tried: <fix_description>. Failed: <last_failure_hint>
 
 [If fix_description is empty, write "Tried: (no description)". If last_failure_hint is empty, write "Failed: (no test output captured)".]
@@ -58,4 +61,4 @@ Focus your review on NEW issues only. Do NOT re-flag code that was introduced by
 ```
 
 **Summary column**: one sentence, max 120 characters, describing the issue (not the fix).
-**Failed Fix Attempts section**: only included when there are reverted or persistent findings. Kept compact — one line per finding with truncated test output (max ~200 chars). This gives the next iteration enough signal to try a different approach without bloating context.
+**Failed Fix Attempts section**: only included when there are reverted, skipped, or persistent findings. Kept compact — one line per finding with truncated test output (max ~200 chars). This gives the next iteration enough signal to try a different approach without bloating context.

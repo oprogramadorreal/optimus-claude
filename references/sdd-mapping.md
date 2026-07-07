@@ -62,7 +62,7 @@ Spec Kit adds a `constitution.md` and Kiro a `structure.md` to hold project-wide
 |---|---|---|
 | (Optional) | **Steering / Bootstrap** | `/optimus:spec-init` scaffolds an empty `docs/product/` (product-context, mvp-prd, tech-stack); a human fills the vision, MVP PRD, and target stack |
 | (Optional) | **Ingest** | `/optimus:jira` distills a PM-authored issue into `docs/jira/<KEY>.md` |
-| 1 | **Specify** | `/optimus:brainstorm` writes `docs/specs/<slug>.md` (Goal, Context, Out of Scope, and conditional Scenarios), reading the cascade as steering |
+| 1 | **Specify** | `/optimus:brainstorm` writes `docs/specs/<YYYY-MM-DD-slug>.md` (Goal, Context, Out of Scope, and conditional Scenarios), reading the cascade as steering |
 | 2 | **Plan** | Same brainstorm doc covers Approach, Components, Interfaces. Plan mode iteration refines it into an appended "Refined plan" section (see `references/skill-handoff.md`) |
 | 3 | **Tasks** | `/optimus:tdd` Step 3 decomposes the goal into behaviors (when the spec has a `## Scenarios` section, each `### Scenario:` maps to one Red-Green-Refactor cycle). `/optimus:workflow` does not pre-decompose — Claude's dynamic workflow divides the spec across parallel agents at run time |
 | 4 | **Implement & Verify** | `/optimus:tdd` Red-Green-Refactor cycles **or** `/optimus:workflow`'s self-orchestrated parallel build (test-first as a quality bar), then `/optimus:pr` → `/optimus:code-review` |
@@ -74,7 +74,7 @@ The full chain: *`/optimus:spec-init` (scaffold steering, optional) → human fi
 If you arrive with a spec written outside optimus (Spec Kit output, a Markdown doc, an external PRD), three paths exist:
 
 - **PM-authored content in a JIRA issue** — start with `/optimus:jira <KEY>`. The jira skill distills it and recommends the next skill based on scope.
-- **An engineering spec or design intent** — pass it to `/optimus:brainstorm`. Brainstorm distills the intent, asks clarifying questions if needed, and writes `docs/specs/<slug>.md`.
+- **An engineering spec or design intent** — pass it to `/optimus:brainstorm`. Brainstorm distills the intent, asks clarifying questions if needed, and writes `docs/specs/<YYYY-MM-DD-slug>.md`.
 - **A complete, decomposable spec** — drop it at `docs/specs/<spec>.md`. `/optimus:tdd` picks it up either by explicit reference or by auto-discovery (precedence: `docs/specs/` build spec → `docs/jira/` context). The scenario-driven shortcut applies if the doc contains a `## Scenarios` section in Given/When/Then form.
 
 ## What this doc is not

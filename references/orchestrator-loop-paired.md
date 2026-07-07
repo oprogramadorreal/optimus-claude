@@ -60,7 +60,7 @@ PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli parse \
     --progress-file "<progress-path>"
 ```
 
-Passing `--progress-file` lets the CLI track consecutive parse failures across cycles (and across `--resume`); a single failure is a no-op and the loop moves on, while two consecutive failures cause step 11 (`check-termination`) to return `parse-failure` and terminate the loop. The counter is shared across both phases — a unit-test parse failure followed by a refactor parse failure counts as two consecutive failures.
+Passing `--progress-file` lets the CLI track consecutive parse failures across cycles (and across `--resume`); a single failure is a no-op and the loop moves on, while two consecutive failures cause step 11 (`check-termination`) to return `parse-failure` and terminate the loop. The counter is shared across both phases — a refactor parse failure followed by the next cycle's unit-test parse failure counts as two consecutive failures.
 
 **Blocked gate:** if the extracted JSON has a non-null `blocked` field, the unit-test phase hit a stop gate it cannot work past (no test framework, failing baseline — see coverage-harness-mode.md "Stop gates under harness mode"). Do not run `unit-test-step` and do not dispatch further cycles: exit the loop, report the `blocked` reason to the user with the matching base-skill recovery advice (`/optimus:init` for a missing framework or broken build; triage the failing tests for a red baseline), and proceed to "After the loop".
 
@@ -145,7 +145,7 @@ PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli parse \
     --progress-file "<progress-path>"
 ```
 
-(`$TMP_RESULT` is reused from step 3 — refactor-step reads it immediately after this parse. The `--progress-file` flag continues to update `parse_failure_count` so a refactor-phase parse failure following a unit-test-phase failure triggers `parse-failure` termination.)
+(`$TMP_RESULT` is reused from step 3 — refactor-step reads it immediately after this parse. The `--progress-file` flag continues to update `parse_failure_count` so a refactor-phase parse failure counts toward the two-consecutive-failures threshold.)
 
 ### 8. Record the refactor phase
 
@@ -200,7 +200,7 @@ PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli final-repo
     --progress-file "<progress-path>" --archive
 ```
 
-`--archive` moves the progress file to `<path>.done.json` once the run is complete — except on a `diminishing-returns` soft-exit, which the CLI leaves un-archived (prints `not-archived`) so the run stays resumable via `--resume`.
+`--archive` moves the progress file to its `.done.json` sibling (the `.json` suffix is replaced — e.g. `.claude/unit-test-deep-progress.done.json`) once the run is complete — except on a `diminishing-returns` soft-exit, which the CLI leaves un-archived (prints `not-archived`) so the run stays resumable via `--resume`.
 
 ## Per-phase notes
 
@@ -208,4 +208,4 @@ PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli final-repo
 - The unit-test base skill is expected to leave the suite green (failing tests it writes are marked `fail-fixed` or `fail-abandoned` and not left active); the CLI does not retest individual tests. Its full-suite run is the safety net — a red result rolls the whole cycle back rather than committing it.
 - Coverage delta is taken from the unit-test subagent's `coverage.delta`, or derived from `coverage.before`/`coverage.after` when the subagent omits it (so the plateau check still fires on a genuine zero-gain cycle). The CLI records the history; the orchestrator skill does not need to inspect it directly.
 - The orchestrator skill never reads the full `untestable_code` array between cycles — only `pending-refactor-count` decides whether to dispatch the refactor phase.
-- **Parse-failure recovery:** identical to the single-loop variant — see `orchestrator-loop-single.md` "Parse-failure recovery". The rule applies to both phase dispatches (unit-test and refactor); a parse failure in either phase counts toward the two-consecutive-failures threshold.
+- **Parse-failure recovery:** identical to the single-loop variant — see `orchestrator-loop-single.md` "Parse-failure recovery". The rule applies to both phase dispatches (unit-test and refactor); a parse failure in either phase counts toward the two-consecutive-failures threshold. On a failed parse, never run a `*-step` subcommand against the stale `$TMP_RESULT` (`parse` only rewrites it on success): a unit-test-phase failure skips steps 4–9, a refactor-phase failure skips steps 8–9; in both cases continue at step 10 (record the cycle, noting the parse failure) then step 11.

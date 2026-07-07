@@ -6,7 +6,7 @@ Shared procedure used by analysis agents in `/optimus:code-review` and `/optimus
 
 When you flag an issue in file `X`, before returning your findings also open and inspect these related files for the **same pattern** (or the same pattern being **missing** where it should mirror `X`):
 
-1. **Sibling files** — any of: (a) the same filename under a parallel directory one level up (e.g., `agents/code-simplifier.md` ↔ `agents/test-guardian.md`), or (b) files in `X`'s own directory whose filename stem before the first `_`, `-`, or `.` matches `X`'s stem (e.g., `findings.py` ↔ `findings_test.py`, `auth.js` ↔ `auth.utils.js`).
+1. **Sibling files** — any of: (a) the same filename under a parallel directory one level up (e.g., `skills/code-review/agents/code-simplifier.md` ↔ `skills/refactor/agents/code-simplifier.md`), or (b) files in `X`'s own directory whose filename stem before the first `_`, `-`, or `.` matches `X`'s stem (e.g., `findings.py` ↔ `findings_test.py`, `auth.js` ↔ `auth.utils.js`).
 2. **Files that import or re-export** any symbol named in your finding.
 
 If the same pattern appears (or is **missing**) in a related file, report it as a **new consistency finding** — reference the original finding as its trigger.

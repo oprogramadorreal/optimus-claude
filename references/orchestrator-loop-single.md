@@ -58,14 +58,14 @@ Where `<base-skill>` is `code-review` or `refactor`, and `<absolute-plugin-root>
 
 ### 3. Save the subagent return to a temp file
 
-Write the subagent's final message text to a temp file (the orchestrator's parent context should not hold the raw subagent output verbatim). A repo-local temp path is fine:
+Write the subagent's final message text to a temp file (the orchestrator's parent context should not hold the raw subagent output verbatim):
 
 ```bash
 TMP_RAW=".claude/.deep-iteration-raw.txt"
 TMP_RESULT=".claude/.deep-iteration-result.json"
 ```
 
-These exact filename prefixes (`.deep-iteration-` and `.unit-test-deep-`) are required — the checkpoint commit's un-stage step (`commit_checkpoint` in `scripts/harness_common/git.py`) matches them to keep harness state out of the commit.
+These files must live in `.claude/` and carry these exact filename prefixes (`.deep-iteration-` and `.unit-test-deep-`) — the checkpoint commit's un-stage step (`commit_checkpoint` in `scripts/harness_common/git.py`) matches the `.claude/`-anchored patterns `.claude/.deep-iteration-*` and `.claude/.unit-test-deep-*` to keep harness state out of the commit, and `final-report`'s scratch cleanup only sweeps the progress file's own directory.
 
 ### 4. Extract the structured JSON
 
@@ -137,7 +137,7 @@ If the CLI's `parse` subcommand exits non-zero, the subagent emitted no `json:ha
 - The base SKILL.md does not detect `HARNESS_MODE_INLINE` in the prompt body (regression — see `references/harness-mode.md`).
 - The subagent fell into interactive mode and hung on `AskUserQuestion`.
 
-When this happens once: warn the user but continue (the iteration is a no-op, the loop moves on — the CLI's `parse_failure_count` is now 1). When this happens twice in a row: `check-termination` at step 7 will return `parse-failure` automatically, and the orchestrator should exit the loop and surface the error for the user to investigate.
+When this happens once: warn the user but continue (the iteration is a no-op — the CLI's `parse_failure_count` is now 1). Skip steps 5–6 for this iteration — `parse` only rewrites `$TMP_RESULT` on success, so it still holds the previous iteration's JSON and `deep-step` would silently re-process it — and continue at step 7 (`check-termination`) then step 8 (`advance`). When this happens twice in a row: `check-termination` at step 7 will return `parse-failure` automatically, and the orchestrator should exit the loop and surface the error for the user to investigate.
 
 The counter lives in the progress file under `parse_failure_count` and is reset to 0 on every successful parse, so an isolated earlier failure cannot poison a later run. The counter also survives `--resume`, so a Ctrl-C between the failed parse and the next iteration's parse doesn't lose state.
 
@@ -160,4 +160,4 @@ Print the final report:
 PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli final-report --progress-file "<progress-path>" --archive
 ```
 
-The `--archive` flag moves the progress file to `<path>.done.json` and removes the backup, signaling that this run is complete (a subsequent `--resume` will refuse the archived path) — **except** when the run ended in `diminishing-returns`, a resumable soft-exit: the CLI then leaves the active progress file in place (prints `not-archived`) so `--resume` can continue it. The archived `.done.json` is a historical artifact the user may delete at any time; a later fresh run (`init`) checks only the active progress path and won't clean it up.
+The `--archive` flag moves the progress file to its `.done.json` sibling (the `.json` suffix is replaced — e.g. `.claude/code-review-deep-progress.done.json`) and removes the backup, signaling that this run is complete (a subsequent `--resume` will refuse the archived path) — **except** when the run ended in `diminishing-returns`, a resumable soft-exit: the CLI then leaves the active progress file in place (prints `not-archived`) so `--resume` can continue it. The archived `.done.json` is a historical artifact the user may delete at any time; a later fresh run (`init`) checks only the active progress path and won't clean it up.

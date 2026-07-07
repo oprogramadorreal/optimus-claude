@@ -1,7 +1,7 @@
 ---
-description: Iterative auto-fix code review — runs `/optimus:code-review` in a fresh subagent context per iteration, applies fixes, runs tests, bisects failures, and continues until convergence or the iteration cap (default 8, hard cap 20). Requires a test command in .claude/CLAUDE.md. Use when single-pass review leaves issues or for thorough cleanup before a release.
+description: Iterative auto-fix code review — runs `/optimus:code-review` in a fresh subagent context per iteration, applies fixes, runs tests, bisects failures, and continues until convergence or the iteration cap (default 8, hard cap 20). Creates a git checkpoint commit after each iteration (skip with --no-commit). Requires a test command in .claude/CLAUDE.md. Use when single-pass review leaves issues or for thorough cleanup before a release.
 disable-model-invocation: true
-argument-hint: "[path] [--resume] [--yes] [--max-iterations N]"
+argument-hint: "[path] [--resume] [--yes] [--max-iterations N] [--no-commit]"
 ---
 
 # Code Review (Deep)

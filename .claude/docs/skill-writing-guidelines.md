@@ -8,7 +8,7 @@ These quality principles apply to skill authoring just as they apply to code:
 - **KISS** — default to the simplest instructions that meet current requirements. Don't add steps or branches for hypothetical scenarios. Remove dead steps — unused branches, commented-out instructions, and redundant clarifications add noise without value. Safety procedures (validation rules, command allowlists, user-approval gates) and explicit behavioral constraints are requirements — their detail is justified, not a simplicity violation.
 - **SRP** — each skill focused on one concern, each step on one action. When a step handles multiple concerns or mixes abstraction levels, decompose it. See [Scope and Granularity](#scope-and-granularity) for when to merge vs. split.
 
-  > **Exception — orchestration skills:** A skill may span multiple concerns when it serves as a one-time setup orchestrator whose value depends on executing all steps atomically (e.g., `skills/init/` handles project detection, CLAUDE.md generation, hooks, agents, and test infrastructure as a single coherent setup). Decomposing these into separate skills would force users to run them in sequence with no clear benefit. Keep orchestration skills well-structured internally — each step should still follow SRP.
+  > **Exception — orchestration skills:** A skill may span multiple concerns when it serves as a one-time setup orchestrator whose value depends on executing all steps atomically (e.g., `skills/init/` handles project detection, CLAUDE.md generation, hooks, and test infrastructure as a single coherent setup). Decomposing these into separate skills would force users to run them in sequence with no clear benefit. Keep orchestration skills well-structured internally — each step should still follow SRP.
 
 - **Intention-Revealing Names** — skill names, template files, and reference docs should convey purpose without tracing through content. Skill names surface as `/optimus:<name>`: use a short verb/noun slash-command-style name consistent with the existing set (`init`, `commit`, `refactor`, `tdd`), not gerund phrases. Avoid generic names like `helper.md`, `utils.md`, or `doc2.md`.
 - **Pragmatic Abstractions** — extract shared references when 2+ skills reuse a procedure. Don't add indirection for its own sake. Don't extract for hypothetical future reuse.
@@ -32,7 +32,7 @@ If a procedure ends up reused by 2+ skills after splitting, extract it per [Shar
 
 - `disable-model-invocation: true` required on all skills — skills are tools users explicitly reach for, never auto-triggered. The plugin enhances Claude Code without changing its default behavior behind the user's back.
 - Do NOT add a `name` field to SKILL.md frontmatter — it strips the plugin namespace prefix ([anthropics/claude-code#22063](https://github.com/anthropics/claude-code/issues/22063)). Note: Anthropic's official docs require a `name` field for standalone skills, but plugins must omit it to avoid namespace collision.
-- `coding-guidelines.md` (the template at `skills/init/templates/docs/`) is the single source of truth for code quality rules — skills and agents must reference it, never duplicate its principles inline.
+- `coding-guidelines.md` (the template at `skills/init/templates/docs/`, installed into projects as `.claude/docs/coding-guidelines.md`) is the single source of truth for code quality rules — skills and agents must reference the installed `.claude/docs/coding-guidelines.md`, never duplicate its principles inline.
 
 ## Writing Style
 

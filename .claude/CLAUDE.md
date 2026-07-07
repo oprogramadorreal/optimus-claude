@@ -13,18 +13,18 @@ Read the root README.md to understand the plugin's full capabilities — skills,
 - `.claude-plugin/` — plugin manifests (plugin.json, marketplace.json)
 - `agents/` — plugin-level agent definitions (code-simplifier, test-guardian)
 - `hooks/` — plugin-level hooks (SessionStart for project state awareness)
-- `references/` — shared reference docs consumed across skills (agent-architecture, shared-agent-constraints, context-injection-blocks, harness-init-resume, harness-mode, coverage-harness-mode, orchestrator-loop-single, orchestrator-loop-paired, scope-expansion-rule, sdd-mapping, skill-handoff)
+- `references/` — shared reference docs consumed across skills (see the Reference Hierarchy in `.claude/docs/architecture.md`)
 - `skills/<name>/` — one directory per skill (SKILL.md + README.md + optional agents/, templates/, and references/)
 - `scripts/` — validation and test scripts (CI and local)
 - `scripts/harness_common/` — shared modules + `cli.py` invoked by the `*-deep` orchestrator skills
-- `test/` — expected outputs and generated fixtures for skill tests
+- `test/` — expected outputs and generated fixtures for skill tests, plus `test_format_python_hook.py` for the repo's Python formatter hook
 - `test/harness-common/` — tests for the orchestrator CLI and shared modules
 - `.claude/` — project-level Claude Code settings and hooks
 
 ## Commands
 
 ```bash
-bash scripts/validate.sh && bash scripts/test-hooks.sh && python -m pytest test/harness-common/   # Run tests
+bash scripts/validate.sh && bash scripts/test-hooks.sh && python -m pytest test/   # Run tests
 ```
 
 For coverage: `python -m pytest test/harness-common/ --cov scripts/harness_common --cov-report=term-missing`
