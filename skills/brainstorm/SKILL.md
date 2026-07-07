@@ -127,7 +127,7 @@ If the user wants to combine aspects of multiple approaches or suggests a differ
 
 Based on the chosen approach, develop a detailed design. Cover each section as applicable — omit sections that don't apply to the task:
 
-- **Goal** — single paragraph: what and why
+- **Goal** — single sentence: what and why
 - **Context** — why the change is needed and the relevant existing state (what exists today, what's missing, what's broken)
 - **Approach** — how it works, key decisions and their rationale
 - **Components** — what gets created or modified, each component's responsibility

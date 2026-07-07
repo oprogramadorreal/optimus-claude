@@ -3,7 +3,7 @@
 </div>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-2.1.0-blue" alt="Version">
+  <img src="https://img.shields.io/badge/version-2.1.1-blue" alt="Version">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
   <img src="https://img.shields.io/badge/Claude_Code-1.0.33+-blueviolet" alt="Claude Code">
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey" alt="Platform">
@@ -17,7 +17,7 @@
 
 ---
 
-**The solution:** Optimus Claude generates tailored and optimized CLAUDE.md files, coding guidelines, formatter hooks, TDD and test coverage, all based on your actual codebase. Built-in quality agents (code simplifier, test guardian) run alongside every review and refactor.
+**The solution:** Optimus Claude generates tailored and optimized CLAUDE.md files, coding guidelines, formatter hooks, TDD and test coverage, all based on your actual codebase. Built-in quality agents (code simplifier, test guardian) run alongside reviews and TDD cycles; refactor runs the code simplifier plus its own consistency and testability agents.
 
 *Use it regularly and your project stays clean, consistent, tested, and well-documented. Exactly the conditions where Claude Code performs at its prime.*
 
@@ -56,7 +56,7 @@ The result: consistent patterns, meaningful names, and lean context across every
 
 ## Design Principles
 
-**Explicit invocation** — Skills never auto-trigger. Claude Code's default behavior is never altered unless you explicitly call a `/optimus` skill.
+**Explicit invocation** — Skills never auto-trigger. The plugin's only automatic component is a lightweight, read-only SessionStart hook that surfaces project state (e.g., init not yet run, unpushed commits); everything else runs only when you explicitly call a `/optimus` skill.
 
 **Project-scoped output** — Formatter hooks and coding guidelines are installed into `.claude/` and travel with the repo via git — self-contained and working for every teammate without the plugin. The plugin layers development skills on top: TDD, code-review, commit, refactor, and more.
 
@@ -68,10 +68,10 @@ The result: consistent patterns, meaningful names, and lean context across every
 |-------|-------------|
 | [`/optimus:init`](skills/init/README.md) | Initializes effective project documentation, formatter hooks, and unit test infrastructure. Detects empty directories and offers new-project scaffolding. Intelligent audit on re-run. Flags broken test baselines in the summary; repairs build-level issues only (never test logic). |
 | [`/optimus:unit-test`](skills/unit-test/README.md) | Discovers test coverage gaps and writes convention-following tests. Never refactors source code and never fixes pre-existing failing tests — stops with a triage pointer when the test baseline is broken. *Requires init.* |
-| [`/optimus:unit-test-deep`](skills/unit-test-deep/README.md) | Iterative test-coverage improvement — alternates `/optimus:unit-test` (writes tests + measures coverage) with `/optimus:refactor testability` (unblocks untestable code) per cycle, in fresh subagent contexts. Default 5 cycles, hard cap 10. *Requires init + test command.* |
+| [`/optimus:unit-test-deep`](skills/unit-test-deep/README.md) | Iterative test-coverage improvement — alternates `/optimus:unit-test` (writes tests + measures coverage) with `/optimus:refactor testability` (unblocks untestable code; runs only when the unit-test phase flags any) per cycle, in fresh subagent contexts. Default 5 cycles, hard cap 10. *Requires init + test command.* |
 | [`/optimus:tdd`](skills/tdd/README.md) | Guides test-driven development through Red-Green-Refactor cycles with per-behavior commits, parallel quality gate, and branch push. Recommends `/optimus:pr` as the explicit next step in the same conversation so the PR/MR captures TDD signals (behaviors, coverage delta) into the description. *Requires init.* |
 | [`/optimus:workflow`](skills/workflow/README.md) | Implements a spec by having Claude design and launch a Claude Code dynamic workflow — parallel subagents that build in the background with test-first applied as a quality bar. The self-orchestrated, parallel counterpart to `/optimus:tdd`'s supervised Red-Green-Refactor; prefer it for large or parallelizable specs. No mid-run input; edits auto-approved; uses meaningfully more tokens. *Requires init.* |
-| [`/optimus:spec-init`](skills/spec-init/README.md) | Scaffolds an empty, product-neutral docs-first SDD steering cascade (product vision, MVP PRD, target tech-stack) for a human to fill, then hands off to brainstorm. `brainstorm` and `tdd` read it as steering. Authors no PM content — emits skeletons only. |
+| [`/optimus:spec-init`](skills/spec-init/README.md) | Scaffolds an empty, product-neutral docs-first SDD steering cascade (product vision, MVP PRD, target tech-stack) for a human to fill, then hands off to brainstorm. `brainstorm`, `tdd`, and `workflow` read it as steering. Authors no PM content — emits skeletons only. |
 | [`/optimus:brainstorm`](skills/brainstorm/README.md) | Guides structured design brainstorming — explores the codebase, proposes multiple approaches with trade-offs, and writes an approved spec to `docs/specs/`. For stakeholder-facing or acceptance-criteria-driven tasks, the spec includes a Given/When/Then Scenarios section that `/optimus:tdd` consumes as its behavior list. Use before implementation to think through design decisions. |
 | [`/optimus:refactor`](skills/refactor/README.md) | Refactors code for guideline compliance and testability using 4 parallel agents. `testability` or `guidelines` focus mode to prioritize finding categories. *Run init first (recommended).* |
 | [`/optimus:refactor-deep`](skills/refactor-deep/README.md) | Iterative project refactor — runs `/optimus:refactor` in a fresh subagent context per iteration, applies fixes, runs tests, bisects failures. Supports `testability` and `guidelines` focus. Default 8 iterations, hard cap 20. *Requires init + test command.* |

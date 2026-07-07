@@ -11,7 +11,7 @@ pytest via `python -m pytest`, plus `bash scripts/validate.sh` and `bash scripts
 ## Running Tests
 
 ```bash
-bash scripts/validate.sh && bash scripts/test-hooks.sh && python -m pytest test/harness-common/   # Full suite
+bash scripts/validate.sh && bash scripts/test-hooks.sh && python -m pytest test/   # Full suite
 python -m pytest test/harness-common/test_cli.py                                                   # Single module
 python -m pytest test/harness-common/test_cli.py::TestInit::test_deep_code_review                  # Single test
 test.cmd                                                                                            # Windows convenience wrapper
@@ -20,6 +20,7 @@ test.cmd                                                                        
 ## Test Structure
 
 - `test/harness-common/` — tests for the orchestrator CLI (`scripts/harness_common/cli.py`) and its shared modules.
+- `test/test_format_python_hook.py` — tests for the repo's `.claude/hooks/format-python.py` PostToolUse hook (needs `black`/`isort` on PATH — activate the venv first).
 - Test files mirror the module they cover (`test_<module>.py`).
 
 ## Writing Tests
