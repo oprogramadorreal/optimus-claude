@@ -1,8 +1,10 @@
 """Tests for the orchestrator CLI (`scripts/harness_common/cli.py`)."""
 
 import argparse
+import io
 import json
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -66,6 +68,8 @@ def _git_init(tmp_path):
             cwd=str(tmp_path),
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             check=True,
         )
 
@@ -1333,9 +1337,9 @@ class TestDeepStep:
         # No-commit mode (the snapshot carries a stash, not just a HEAD): when a
         # fix survives bisection but the combined set still fails the suite, the
         # iteration must roll the working tree back to the pre-iteration STASH.
-        # Exercises _clean_reset_hook's no-commit return-None branch (clean-reset
-        # bisect is disabled there because the stash is single-use) and the
-        # stash-restore reconciliation that the commit-mode tests never reach.
+        # Also pins that the bisect receives a stash-backed clean-reset hook —
+        # git_apply_snapshot leaves the stash in the reflog, so the restore is
+        # repeatable across the bisect's rebuilds.
         ppath = _seed_deep_progress(tmp_path)
         data = _read_progress(ppath)
         data["config"]["no_commit"] = True
@@ -1344,10 +1348,17 @@ class TestDeepStep:
 
         # Suite fails on the initial run and again after bisection retains a fix.
         monkeypatch.setattr(cli, "run_tests", lambda *a, **kw: (False, "boom"))
+        apply_calls = []
+        monkeypatch.setattr(
+            cli,
+            "git_apply_snapshot",
+            lambda sha, _cwd, **_kw: apply_calls.append(sha) or True,
+        )
         captured = {}
 
         def fake_bisect(*_a, reset_to_clean=None, **_kw):
             captured["reset_to_clean"] = reset_to_clean
+            reset_to_clean()  # bisect rebuilds go through the stash apply
             return (1, 0, [])  # one fix retained, none reverted individually
 
         monkeypatch.setattr(cli, "bisect_fixes", fake_bisect)
@@ -1364,8 +1375,9 @@ class TestDeepStep:
             "deep-step", "--progress-file", str(ppath), "--result-file", str(result)
         )
         assert exit_code == 0
-        # Clean-reset bisect is disabled in no-commit mode (one-shot stash).
-        assert captured["reset_to_clean"] is None
+        # The bisect got a working clean-reset hook backed by the stash.
+        assert captured["reset_to_clean"] is not None
+        assert apply_calls == ["stash_sha"]
         # Rolled back to the stash + HEAD, not a bare HEAD checkout.
         assert restore_calls == [("stash_sha", "abc1234")]
         # The full restore zeroes the net fix tally and ends the iteration.
@@ -1373,6 +1385,35 @@ class TestDeepStep:
         assert history["fixed"] == 0
         assert history["reverted"] == 1
         assert _read_progress(ppath)["termination"]["reason"] == "all-reverted"
+
+    def test_combined_regression_survives_restore_failure(self, tmp_path, monkeypatch):
+        # If the full-tree restore itself raises (git checkout errors on a
+        # locked/corrupt index), the step must catch it and still record the
+        # combined regression rather than crash deep-step.
+        ppath = _seed_deep_progress(tmp_path)
+        data = _read_progress(ppath)
+        data["config"]["no_commit"] = True
+        data["_snapshot"]["pre_stash"] = "stash_sha"
+        ppath.write_text(json.dumps(data, indent=2), encoding="utf-8")
+
+        monkeypatch.setattr(cli, "run_tests", lambda *a, **kw: (False, "boom"))
+        monkeypatch.setattr(cli, "git_apply_snapshot", lambda *_a, **_kw: True)
+        monkeypatch.setattr(cli, "bisect_fixes", lambda *_a, **_kw: (1, 0, []))
+
+        def boom_restore(*_a, **_kw):
+            raise RuntimeError("git checkout failed: locked index")
+
+        monkeypatch.setattr(cli, "restore_working_tree", boom_restore)
+        result = tmp_path / "result.json"
+        result.write_text(json.dumps(_one_fix_result()), encoding="utf-8")
+
+        exit_code = _run(
+            "deep-step", "--progress-file", str(ppath), "--result-file", str(result)
+        )
+        assert exit_code == 0  # did not crash despite the restore RuntimeError
+        history = _read_progress(ppath)["iteration_history"][-1]
+        assert history["fixed"] == 0
+        assert history["reverted"] == 1
 
     def test_configured_timeout_is_threaded_to_run_tests(self, tmp_path, monkeypatch):
         # config.test_timeout (set by `baseline`) must reach run_tests.
@@ -3822,3 +3863,83 @@ class TestReviewFixRegressions:
         exit_code = _run("resume", "--progress-file", str(ppath))
         assert exit_code == 0
         assert _read_progress(ppath)["skill"] == "code-review"
+
+
+class TestForceUtf8Stdio:
+    """main() pins the CLI's own stdout/stderr to UTF-8.
+
+    Under Claude Code the CLI writes to a pipe, so without this Python encodes
+    prints with the locale codec (cp1252 on Western Windows) — and final-report
+    echoes subagent-authored strings containing →/—/", crashing the CLI with
+    UnicodeEncodeError at the end of a long run.
+    """
+
+    def test_reconfigures_streams_to_utf8_replace(self, monkeypatch):
+        out = io.TextIOWrapper(io.BytesIO(), encoding="cp1252")
+        err = io.TextIOWrapper(io.BytesIO(), encoding="cp1252")
+        monkeypatch.setattr(sys, "stdout", out)
+        monkeypatch.setattr(sys, "stderr", err)
+        cli._force_utf8_stdio()
+        assert (out.encoding, out.errors) == ("utf-8", "replace")
+        assert (err.encoding, err.errors) == ("utf-8", "replace")
+        # The exact failure from the field: printing a subagent-authored →
+        # to a cp1252-encoded pipe raised UnicodeEncodeError.
+        print("iteration 1 → done", file=out)
+
+    def test_tolerates_streams_without_reconfigure(self, monkeypatch):
+        class PlainStream:
+            pass
+
+        monkeypatch.setattr(sys, "stdout", PlainStream())
+        monkeypatch.setattr(sys, "stderr", PlainStream())
+        cli._force_utf8_stdio()  # must not raise
+
+    def test_tolerates_reconfigure_raising(self, monkeypatch):
+        # A closed/detached stream still exposes reconfigure() (hasattr passes)
+        # but raises when called — forcing UTF-8 must never crash the run.
+        class ClosedStream:
+            def reconfigure(self, **_kw):
+                raise ValueError("I/O operation on closed file.")
+
+        monkeypatch.setattr(sys, "stdout", ClosedStream())
+        monkeypatch.setattr(sys, "stderr", ClosedStream())
+        cli._force_utf8_stdio()  # must not raise
+
+
+class TestCleanResetHook:
+    def test_commit_mode_resets_tracked_without_cleaning_untracked(self, monkeypatch):
+        # Commit mode resets tracked files to pre_head but must NOT clean
+        # untracked files (git_restore_tracked_to, not restore_working_tree /
+        # git_restore_to), so a fix's untracked dependency survives isolation.
+        calls = []
+        monkeypatch.setattr(
+            cli,
+            "git_restore_tracked_to",
+            lambda head, root, **_kw: calls.append((head, root)),
+        )
+        hook = cli._clean_reset_hook(None, "head_sha", "/proj")
+        hook()
+        assert calls == [("head_sha", "/proj")]
+
+    def test_no_commit_mode_applies_stash_without_dropping(self, monkeypatch):
+        calls = []
+        monkeypatch.setattr(
+            cli,
+            "git_apply_snapshot",
+            lambda sha, root, **_kw: calls.append((sha, root)) or True,
+        )
+        hook = cli._clean_reset_hook("stash_sha", "head_sha", "/proj")
+        hook()
+        hook()  # repeatable — the stash is not consumed
+        assert calls == [("stash_sha", "/proj"), ("stash_sha", "/proj")]
+
+    def test_no_commit_mode_raises_on_failed_apply(self, monkeypatch):
+        # The bisect's _rebuild aborts on RuntimeError; a silent False would
+        # let it test candidates on a dirty base.
+        monkeypatch.setattr(cli, "git_apply_snapshot", lambda *_a, **_kw: False)
+        hook = cli._clean_reset_hook("stash_sha", "head_sha", "/proj")
+        with pytest.raises(RuntimeError):
+            hook()
+
+    def test_no_snapshot_returns_none(self):
+        assert cli._clean_reset_hook(None, None, "/proj") is None

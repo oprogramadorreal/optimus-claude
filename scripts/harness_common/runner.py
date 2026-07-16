@@ -27,6 +27,8 @@ def _find_bash(platform=None, which_fn=None, run_fn=None):
             ["git", "--exec-path"],
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=5,
         )
         if result.returncode == 0:
@@ -66,11 +68,17 @@ def run_tests(test_command, cwd, timeout=DEFAULT_TEST_TIMEOUT, prefix="[harness]
         effective_command = test_command
         use_shell = True
     try:
+        # encoding= is mandatory: without it, text=True decodes with the locale
+        # codec (cp1252 on Windows), and a single non-decodable byte in test
+        # output kills the reader thread — subprocess.run returns "successfully"
+        # with empty stdout/stderr, destroying all failure diagnostics.
         result = subprocess.run(
             effective_command,
             shell=use_shell,
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             cwd=str(cwd),
             timeout=timeout,
         )

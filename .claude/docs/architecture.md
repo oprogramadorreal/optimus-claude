@@ -27,7 +27,7 @@ A Claude Code plugin combining markdown-based skill authoring (22 skills invoked
   1. `cli snapshot` records the pre-iteration git HEAD into the progress file.
   2. The skill dispatches the base skill (`/optimus:code-review`, `/optimus:refactor`, or `/optimus:unit-test`) as a fresh `general-purpose` subagent via the Agent tool. The subagent prompt carries `HARNESS_MODE_INLINE`, the absolute progress-file path, and an instruction to read the base SKILL.md and follow `references/harness-mode.md` (or `references/coverage-harness-mode.md`).
   3. The subagent emits a `json:harness-output` fenced block in its final message.
-  4. The orchestrator saves the subagent's output to a temp file, runs `cli parse` to extract the JSON, then `cli deep-step` (or `refactor-step` for the paired refactor phase) to apply fixes, run tests, bisect on failure, and update statuses; `unit-test-step` instead records tests + coverage, rolling the whole cycle back if the suite is red.
+  4. The orchestrator saves the subagent's output to a temp file, runs `cli parse` to extract the JSON, then `cli deep-step` (or `refactor-step` for the paired refactor phase) to apply fixes, run tests, bisect on failure, and update statuses; `unit-test-step` instead records tests + coverage, rolling the whole cycle back if the suite is red. The bisect rebuilds each candidate state from the pre-iteration git snapshot (commit mode restores to the pre-iteration HEAD; no-commit mode re-applies the stash snapshot without consuming it) rather than trusting the reported `pre/post_edit_content` as revert data — a corrupt record can only fail loudly as `skipped`, never tear the tree.
   5. `cli commit-checkpoint` produces a per-iteration commit.
   6. Deep variant: `cli check-termination`, then `cli advance` on `continue`. Paired variant: `cli record-cycle` first (it pre-increments `cycle.current`, which the cap check relies on), then `cli check-termination`.
   7. `check-termination` returns one of `continue | convergence | no-actionable | all-reverted | cap | diminishing-returns | parse-failure`; the loop repeats until it returns anything other than `continue`.
@@ -39,6 +39,7 @@ A Claude Code plugin combining markdown-based skill authoring (22 skills invoked
 - **File-based state** — all cross-iteration state lives in `.claude/<skill>-deep-progress.json` (or `unit-test-deep-progress.json`). The orchestrator skill never holds findings in conversation prose.
 - **JSON output protocol** — the base skill emits `json:harness-output`; the CLI parses it.
 - **stdlib only** — no pip dependencies beyond the standard library (dev deps are test/formatting tools only).
+- **UTF-8 pinned I/O** — every text-mode subprocess call passes `encoding="utf-8", errors="replace"` (never the locale codec — on cp1252 Windows a bare `text=True` silently loses child output on the first non-decodable byte), and `cli.main()` reconfigures its own stdout/stderr to UTF-8 so printing subagent-authored text through a pipe can't crash the run. Enforced by `test/harness-common/test_encoding_policy.py`.
 
 ### Dependencies Between Modules
 

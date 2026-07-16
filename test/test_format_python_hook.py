@@ -20,6 +20,8 @@ def _run_hook(tool_input, timeout=10):
         input=payload,
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         timeout=timeout,
     )
 

@@ -73,10 +73,12 @@ from .fixes import bisect_fixes
 from .git import commit_checkpoint as git_commit_checkpoint
 from .git import (
     get_open_pr_data,
+    git_apply_snapshot,
     git_diff_has_changes,
     git_discover_branch_files,
     git_drop_stash,
     git_fetch_open_pr_description,
+    git_restore_tracked_to,
     git_rev_parse_head,
     git_stash_snapshot,
     restore_working_tree,
@@ -287,12 +289,28 @@ def _format_test_passed(test_passed):
 def _clean_reset_hook(pre_stash, pre_head, project_root):
     """Return a repeatable clean-reset callback for bisect, or None.
 
-    git_restore_to (commit mode, pre_stash is None) is repeatable; a no-commit
-    stash restore drops the stash after one use, so it can't back a clean-reset
-    bisect — return None there and let bisect use its legacy deletion handling.
+    Commit mode (pre_stash is None) resets tracked files to pre_head with
+    git_restore_tracked_to, which does NOT run ``git clean`` — so untracked
+    work the subagent created this iteration (e.g. a new module a kept fix
+    imports) survives each rebuild and the fix is isolated against its real
+    dependencies, matching the legacy in-place bisect. No-commit mode applies
+    the stash snapshot WITHOUT dropping it (git_apply_snapshot), so the restore
+    stays repeatable across the bisect's rebuilds — the snapshot entry is
+    reclaimed later by the iteration's full-revert restore or the next
+    iteration's snapshot; that stash already carries the untracked files. Both
+    variants raise on failure so the bisect aborts instead of testing
+    candidates on a dirty base. None only when no snapshot was recorded,
+    where bisect falls back to its legacy content-swap revert strategy.
     """
-    if pre_stash is None and pre_head:
-        return lambda: restore_working_tree(pre_stash, pre_head, project_root)
+    if pre_stash:
+
+        def _apply_stash():
+            if not git_apply_snapshot(pre_stash, project_root):
+                raise RuntimeError(f"git stash apply {pre_stash} failed")
+
+        return _apply_stash
+    if pre_head:
+        return lambda: git_restore_tracked_to(pre_head, project_root)
     return None
 
 
@@ -345,7 +363,23 @@ def _test_and_reconcile(
         passed, summary = run_tests(test_command, project_root, timeout=timeout)
         record_test_result(progress, passed, summary)
         if not passed:
-            restore_working_tree(pre_stash, pre_head, project_root)
+            # Roll the whole tree back to the pre-iteration snapshot. Guard the
+            # call the way the sibling restore sites (_vet_safe_exit_tree,
+            # cmd_parse) do: git_restore_to can raise on a failed checkout
+            # (locked index, missing commit) and the stash path can return
+            # False, and neither must crash the step or pass silently — the
+            # combined set is red regardless, so report it reverted.
+            try:
+                restored = restore_working_tree(pre_stash, pre_head, project_root)
+            except (RuntimeError, OSError) as exc:
+                print(f"[harness] WARNING: full-tree restore failed: {exc}")
+                restored = False
+            if not restored:
+                print(
+                    "[harness] WARNING: could not restore the pre-iteration tree "
+                    "after a combined regression — the working tree may still "
+                    "hold reverted fixes; the next snapshot will re-baseline it"
+                )
             on_full_revert()
             reverted += fixed
             fixed = 0
@@ -1734,7 +1768,29 @@ def _build_parser():
     return parser
 
 
+def _force_utf8_stdio():
+    """Force UTF-8 on the CLI's own stdout/stderr.
+
+    Under Claude Code the CLI writes to a pipe, so Python encodes prints with
+    the locale codec (cp1252 on pt-BR/Western Windows). Subagent-authored
+    strings echoed by final-report routinely contain characters outside that
+    codec (→, —, "), which would crash the run with UnicodeEncodeError.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        if not hasattr(stream, "reconfigure"):
+            continue
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (ValueError, OSError):
+            # A closed or buffer-detached stream still exposes ``reconfigure``
+            # (so hasattr passes) but raises when called. Forcing UTF-8 is a
+            # best-effort hardening — it must never be the thing that crashes
+            # the run before argparse even sees the command.
+            pass
+
+
 def main(argv=None):
+    _force_utf8_stdio()
     parser = _build_parser()
     args = parser.parse_args(argv)
     return args.func(args)
