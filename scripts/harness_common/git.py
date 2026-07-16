@@ -31,7 +31,12 @@ def commit_checkpoint(commit_message, cwd, progress_file, _run=None):
     """
     _run = _run or subprocess.run
     add_result = _run(
-        ["git", "add", "-A"], cwd=str(cwd), capture_output=True, text=True
+        ["git", "add", "-A"],
+        cwd=str(cwd),
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
     )
     if add_result.returncode != 0:
         print(f"{_PREFIX} WARNING: git add -A failed: {add_result.stderr[:200]}")
@@ -50,6 +55,8 @@ def commit_checkpoint(commit_message, cwd, progress_file, _run=None):
             cwd=str(cwd),
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
         )
     # Deterministic "is anything actually staged?" check. returncode 0 means no
     # staged diff, so the un-stage step removed every path — a clean no-op.
@@ -58,6 +65,8 @@ def commit_checkpoint(commit_message, cwd, progress_file, _run=None):
         cwd=str(cwd),
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
     )
     # `git diff --cached --quiet` exits 0 (nothing staged), 1 (changes staged),
     # or 128 (a real error: locked/corrupt index, etc.). Only a clean "1" means
@@ -77,6 +86,8 @@ def commit_checkpoint(commit_message, cwd, progress_file, _run=None):
         cwd=str(cwd),
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
     )
     if result.returncode != 0:
         combined = result.stdout + result.stderr
@@ -124,14 +135,26 @@ def _clean_working_tree(cwd, _run=None):
     """
     _run = _run or subprocess.run
     checkout = _run(
-        ["git", "checkout", "."], cwd=str(cwd), capture_output=True, text=True
+        ["git", "checkout", "."],
+        cwd=str(cwd),
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
     )
     if checkout.returncode != 0:
         print(f"{_PREFIX} WARNING: git checkout . failed: {checkout.stderr[:200]}")
     clean_cmd = ["git", "clean", "-fd"]
     for pattern in _HARNESS_STATE_EXCLUDES:
         clean_cmd.extend(["-e", pattern])
-    clean = _run(clean_cmd, cwd=str(cwd), capture_output=True, text=True)
+    clean = _run(
+        clean_cmd,
+        cwd=str(cwd),
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
     if clean.returncode != 0:
         print(f"{_PREFIX} WARNING: git clean -fd failed: {clean.stderr[:200]}")
 
@@ -144,6 +167,8 @@ def git_restore_to(commit, cwd, _run=None):
         cwd=str(cwd),
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
     )
     if result.returncode != 0:
         raise RuntimeError(f"git checkout {commit} failed: {result.stderr}")
@@ -163,6 +188,8 @@ def git_stash_snapshot(cwd, _run=None):
         ["git", "stash", "create", "--include-untracked"],
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         cwd=str(cwd),
     )
     sha = result.stdout.strip()
@@ -173,6 +200,8 @@ def git_stash_snapshot(cwd, _run=None):
         ["git", "stash", "store", "-m", "harness snapshot", sha],
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         cwd=str(cwd),
     )
     if store.returncode != 0:
@@ -198,6 +227,8 @@ def git_drop_stash(snapshot_sha, cwd, _run=None):
         cwd=str(cwd),
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
     )
     for entry in list_result.stdout.strip().splitlines():
         parts = entry.split(" ", 1)
@@ -207,6 +238,8 @@ def git_drop_stash(snapshot_sha, cwd, _run=None):
                 cwd=str(cwd),
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
+                errors="replace",
             )
             break
 
@@ -222,6 +255,8 @@ def git_restore_snapshot(snapshot_sha, cwd, _run=None):
         cwd=str(cwd),
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
     )
     if result.returncode != 0:
         print(f"{_PREFIX} WARNING: Could not restore snapshot: {result.stderr[:200]}")
@@ -296,6 +331,8 @@ def _verify_ref(cwd_str, ref):
             ["git", "rev-parse", "--verify", ref],
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             cwd=cwd_str,
             timeout=10,
         )
@@ -358,6 +395,8 @@ def _base_from_symbolic_ref(cwd_str):
             ["git", "symbolic-ref", "refs/remotes/origin/HEAD"],
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             cwd=cwd_str,
             timeout=10,
         )

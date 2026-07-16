@@ -1,8 +1,10 @@
 """Tests for the orchestrator CLI (`scripts/harness_common/cli.py`)."""
 
 import argparse
+import io
 import json
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -3822,3 +3824,33 @@ class TestReviewFixRegressions:
         exit_code = _run("resume", "--progress-file", str(ppath))
         assert exit_code == 0
         assert _read_progress(ppath)["skill"] == "code-review"
+
+
+class TestForceUtf8Stdio:
+    """main() pins the CLI's own stdout/stderr to UTF-8.
+
+    Under Claude Code the CLI writes to a pipe, so without this Python encodes
+    prints with the locale codec (cp1252 on Western Windows) — and final-report
+    echoes subagent-authored strings containing →/—/", crashing the CLI with
+    UnicodeEncodeError at the end of a long run.
+    """
+
+    def test_reconfigures_streams_to_utf8_replace(self, monkeypatch):
+        out = io.TextIOWrapper(io.BytesIO(), encoding="cp1252")
+        err = io.TextIOWrapper(io.BytesIO(), encoding="cp1252")
+        monkeypatch.setattr(sys, "stdout", out)
+        monkeypatch.setattr(sys, "stderr", err)
+        cli._force_utf8_stdio()
+        assert (out.encoding, out.errors) == ("utf-8", "replace")
+        assert (err.encoding, err.errors) == ("utf-8", "replace")
+        # The exact failure from the field: printing a subagent-authored →
+        # to a cp1252-encoded pipe raised UnicodeEncodeError.
+        print("iteration 1 → done", file=out)
+
+    def test_tolerates_streams_without_reconfigure(self, monkeypatch):
+        class PlainStream:
+            pass
+
+        monkeypatch.setattr(sys, "stdout", PlainStream())
+        monkeypatch.setattr(sys, "stderr", PlainStream())
+        cli._force_utf8_stdio()  # must not raise

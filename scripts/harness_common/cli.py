@@ -1734,7 +1734,21 @@ def _build_parser():
     return parser
 
 
+def _force_utf8_stdio():
+    """Force UTF-8 on the CLI's own stdout/stderr.
+
+    Under Claude Code the CLI writes to a pipe, so Python encodes prints with
+    the locale codec (cp1252 on pt-BR/Western Windows). Subagent-authored
+    strings echoed by final-report routinely contain characters outside that
+    codec (→, —, "), which would crash the run with UnicodeEncodeError.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
+
+
 def main(argv=None):
+    _force_utf8_stdio()
     parser = _build_parser()
     args = parser.parse_args(argv)
     return args.func(args)

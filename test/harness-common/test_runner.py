@@ -154,6 +154,37 @@ class TestRunTests:
         output = capsys.readouterr().out
         assert "[harness]" in output
 
+    @patch("harness_common.runner.sys")
+    @patch("harness_common.runner.subprocess.run")
+    def test_forces_utf8_decoding(self, mock_run, mock_sys):
+        # Regression guard (mirrors TestFetchOpenPrData in test_git): without
+        # these kwargs, text=True decodes with the locale codec (cp1252 on
+        # Windows), where one non-decodable byte in test output kills the
+        # reader thread and run_tests returns empty stdout/stderr — losing
+        # all failure diagnostics while the pass/fail verdict looks normal.
+        mock_sys.platform = "linux"
+        mock_run.return_value = MagicMock(returncode=0, stdout="ok\n", stderr="")
+        run_tests("npm test", "/tmp/project")
+        _args, kwargs = mock_run.call_args
+        assert kwargs.get("encoding") == "utf-8"
+        assert kwargs.get("errors") == "replace"
+
+
+class TestRunTestsEndToEnd:
+    """Real-subprocess checks — no mocks, exercising the actual decode path."""
+
+    def test_captures_non_cp1252_utf8_output(self, tmp_path):
+        # U+201D is E2 80 9D in UTF-8, and 0x9D is undefined in cp1252. Before
+        # encoding= was pinned, a cp1252 locale (e.g. pt-BR Windows) lost the
+        # child's entire output; pinning UTF-8 makes capture locale-independent.
+        sample = tmp_path / "curly.txt"
+        sample.write_bytes(b"\xe2\x80\x9d ok\n")
+        posix_path = str(sample).replace("\\", "/")
+        passed, summary = run_tests(f'cat "{posix_path}"; exit 0', tmp_path)
+        assert passed is True
+        assert "ok" in summary
+        assert "”" in summary
+
 
 class TestFindBashGitExecPath:
     @patch("harness_common.runner.sys")
@@ -211,6 +242,22 @@ class TestFindBashGitExecPath:
             mock_path_cls.return_value = mock_instance
             result = _find_bash()
         assert result == str(mock_instance)
+
+    @patch("harness_common.runner.sys")
+    @patch("harness_common.runner.shutil.which")
+    @patch("harness_common.runner.subprocess.run")
+    def test_git_exec_path_forces_utf8(self, mock_run, mock_which, mock_sys):
+        mock_sys.platform = "win32"
+        mock_which.return_value = None
+        mock_run.return_value = MagicMock(returncode=1)
+        with patch("harness_common.runner.Path") as mock_path_cls:
+            mock_instance = MagicMock()
+            mock_instance.exists.return_value = False
+            mock_path_cls.return_value = mock_instance
+            _find_bash()
+        _args, kwargs = mock_run.call_args
+        assert kwargs.get("encoding") == "utf-8"
+        assert kwargs.get("errors") == "replace"
 
     @patch("harness_common.runner.sys")
     @patch("harness_common.runner.shutil.which")

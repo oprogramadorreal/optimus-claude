@@ -39,6 +39,7 @@ A Claude Code plugin combining markdown-based skill authoring (22 skills invoked
 - **File-based state** — all cross-iteration state lives in `.claude/<skill>-deep-progress.json` (or `unit-test-deep-progress.json`). The orchestrator skill never holds findings in conversation prose.
 - **JSON output protocol** — the base skill emits `json:harness-output`; the CLI parses it.
 - **stdlib only** — no pip dependencies beyond the standard library (dev deps are test/formatting tools only).
+- **UTF-8 pinned I/O** — every text-mode subprocess call passes `encoding="utf-8", errors="replace"` (never the locale codec — on cp1252 Windows a bare `text=True` silently loses child output on the first non-decodable byte), and `cli.main()` reconfigures its own stdout/stderr to UTF-8 so printing subagent-authored text through a pipe can't crash the run. Enforced by `test/harness-common/test_encoding_policy.py`.
 
 ### Dependencies Between Modules
 

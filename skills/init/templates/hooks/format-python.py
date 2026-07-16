@@ -12,7 +12,7 @@ if not file_path or not file_path.endswith(".py"):
 
 for cmd in [["black", "--quiet", file_path], ["isort", "--quiet", "--profile", "black", file_path]]:
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True)
+        result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
         if result.returncode != 0:
             msg = (result.stderr or "").split("\n")[0]
             print(f"[format-python] {cmd[0]} failed: {msg}", file=sys.stderr)
