@@ -198,10 +198,10 @@ def bisect_fixes(
     :func:`_bisect_via_clean_reset` — git is the source of truth for reverts,
     so a corrupt recorded content pair can never tear the tree, and deletion
     fixes (empty post_edit_content, no anchor to re-insert at) are isolated
-    correctly. When ``None`` (no-commit mode — the stash snapshot is one-shot),
-    the legacy incremental revert/re-apply strategy runs instead, which trusts
-    recorded content for reverts (an un-revertible fix is left applied and
-    reported "retained").
+    correctly. When ``None`` (no git snapshot was recorded), the legacy
+    incremental revert/re-apply strategy runs instead, which trusts recorded
+    content for reverts (an un-revertible fix is left applied and reported
+    "retained").
 
     Returns ``(fixed_count, reverted_count, skipped_count)``.
     """

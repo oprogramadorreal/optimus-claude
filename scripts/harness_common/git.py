@@ -1,5 +1,9 @@
+import fnmatch
 import json
+import os
 import subprocess
+import tempfile
+from pathlib import Path
 
 from .constants import (
     BACKUP_SUFFIX,
@@ -175,34 +179,166 @@ def git_restore_to(commit, cwd, _run=None):
     _clean_working_tree(cwd, _run=_run)
 
 
+def _run_git_text(_run, args, cwd, **extra):
+    """Run a git command through the ``_run`` seam with the module's text defaults."""
+    return _run(
+        args,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        cwd=str(cwd),
+        **extra,
+    )
+
+
+def _rev_parse(ref, cwd, _run):
+    result = _run_git_text(_run, ["git", "rev-parse", ref], cwd)
+    return result.stdout.strip() if result.returncode == 0 else None
+
+
+def _is_harness_state_path(path):
+    return any(fnmatch.fnmatch(path, pattern) for pattern in _HARNESS_STATE_EXCLUDES)
+
+
+def _untracked_snapshot_commit(cwd, _run):
+    """Return a commit object capturing the untracked files, or None.
+
+    Built with a temporary index so the real index and working tree are never
+    touched. Harness state files (progress JSON, iteration temp files) are
+    excluded: ``_clean_working_tree`` preserves them in place during restores,
+    and re-applying a stale copy would corrupt the run's bookkeeping.
+    """
+    listed = _run_git_text(
+        _run, ["git", "ls-files", "--others", "--exclude-standard", "-z"], cwd
+    )
+    if listed.returncode != 0:
+        return None
+    files = [
+        path
+        for path in listed.stdout.split("\0")
+        if path and not _is_harness_state_path(path)
+    ]
+    if not files:
+        return None
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        env = {**os.environ, "GIT_INDEX_FILE": str(Path(tmp_dir) / "index")}
+        added = _run_git_text(
+            _run,
+            ["git", "update-index", "--add", "-z", "--stdin"],
+            cwd,
+            input="\0".join(files) + "\0",
+            env=env,
+        )
+        if added.returncode != 0:
+            print(
+                f"{_PREFIX} WARNING: could not index untracked files for "
+                f"snapshot: {added.stderr[:200]}"
+            )
+            return None
+        tree = _run_git_text(_run, ["git", "write-tree"], cwd, env=env)
+        if tree.returncode != 0:
+            return None
+        commit = _run_git_text(
+            _run,
+            [
+                "git",
+                "commit-tree",
+                tree.stdout.strip(),
+                "-m",
+                "untracked files on harness snapshot",
+            ],
+            cwd,
+        )
+        if commit.returncode != 0:
+            return None
+        return commit.stdout.strip()
+
+
+def _stash_commit_with_untracked(base, untracked_commit, cwd, _run):
+    """Synthesize a 3-parent stash commit (worktree, index, untracked files).
+
+    Mirrors the commit shape ``git stash push --include-untracked`` produces —
+    the shape ``git stash apply`` requires to restore untracked files — without
+    modifying the working tree. *base* is the 2-parent commit from ``git stash
+    create``, or empty when only untracked files changed. Returns the commit
+    SHA on success, or *base* unchanged (possibly empty) if synthesis fails,
+    degrading to a tracked-only snapshot rather than losing it entirely.
+    """
+    head = _rev_parse("HEAD", cwd, _run)
+    tree = index_commit = None
+    if base:
+        tree = _rev_parse(f"{base}^{{tree}}", cwd, _run)
+        index_commit = _rev_parse(f"{base}^2", cwd, _run)
+    elif head:
+        # No tracked changes: the worktree and index trees are HEAD's tree.
+        tree = _rev_parse("HEAD^{tree}", cwd, _run)
+        if tree:
+            made = _run_git_text(
+                _run,
+                [
+                    "git",
+                    "commit-tree",
+                    tree,
+                    "-p",
+                    head,
+                    "-m",
+                    "index on harness snapshot",
+                ],
+                cwd,
+            )
+            index_commit = made.stdout.strip() if made.returncode == 0 else None
+    if not (head and tree and index_commit):
+        print(f"{_PREFIX} WARNING: could not build untracked-files snapshot commit")
+        return base
+    made = _run_git_text(
+        _run,
+        [
+            "git",
+            "commit-tree",
+            tree,
+            "-p",
+            head,
+            "-p",
+            index_commit,
+            "-p",
+            untracked_commit,
+            "-m",
+            "harness snapshot",
+        ],
+        cwd,
+    )
+    if made.returncode != 0:
+        print(
+            f"{_PREFIX} WARNING: could not build untracked-files snapshot "
+            f"commit: {made.stderr[:200]}"
+        )
+        return base
+    return made.stdout.strip()
+
+
 def git_stash_snapshot(cwd, _run=None):
     """Create a stash snapshot of current working tree without modifying it.
 
-    Returns a stash commit SHA that can be restored later, or None if no changes.
-    Uses 'git stash create' which creates a commit object without modifying the
-    working tree, index, or stash reflog. The commit is then registered in the
-    stash reflog so that 'git stash apply' processes the untracked-files tree.
+    Returns a stash commit SHA that can be restored later, or None if no
+    changes. ``git stash create`` captures tracked changes as a commit object
+    without touching the working tree, index, or stash reflog — but it cannot
+    capture untracked files (it has no ``--include-untracked``; passing the
+    flag is silently consumed as the stash message). Untracked files are
+    therefore captured separately and grafted on as the stash's third parent,
+    the shape ``git stash apply`` restores untracked files from. The result is
+    registered in the stash reflog so apply can process it.
     """
     _run = _run or subprocess.run
-    result = _run(
-        ["git", "stash", "create", "--include-untracked"],
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-        cwd=str(cwd),
-    )
-    sha = result.stdout.strip()
+    base = _run_git_text(_run, ["git", "stash", "create"], cwd).stdout.strip()
+    untracked_commit = _untracked_snapshot_commit(cwd, _run)
+    sha = base
+    if untracked_commit:
+        sha = _stash_commit_with_untracked(base, untracked_commit, cwd, _run)
     if not sha:
         return None
-    # Register in stash reflog so 'git stash apply' handles untracked files
-    store = _run(
-        ["git", "stash", "store", "-m", "harness snapshot", sha],
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-        cwd=str(cwd),
+    store = _run_git_text(
+        _run, ["git", "stash", "store", "-m", "harness snapshot", sha], cwd
     )
     if store.returncode != 0:
         print(f"{_PREFIX} WARNING: git stash store failed: {store.stderr[:200]}")
@@ -244,12 +380,17 @@ def git_drop_stash(snapshot_sha, cwd, _run=None):
             break
 
 
-def git_restore_snapshot(snapshot_sha, cwd, _run=None):
-    """Restore working tree from a stash snapshot created by git_stash_snapshot."""
+def git_apply_snapshot(snapshot_sha, cwd, _run=None):
+    """Restore the working tree from a stash snapshot without consuming it.
+
+    Cleans the tree, then applies the snapshot, leaving its stash reflog entry
+    in place so the restore is repeatable — this backs the bisect's clean-reset
+    rebuilds in no-commit mode. Returns True on success.
+    """
     _run = _run or subprocess.run
     # Clean working tree so stash apply can recreate files cleanly
     _clean_working_tree(cwd, _run=_run)
-    # Then apply the snapshot (includes untracked files if --include-untracked was used)
+    # Then apply the snapshot (includes the untracked-files tree if present)
     result = _run(
         ["git", "stash", "apply", snapshot_sha],
         cwd=str(cwd),
@@ -264,6 +405,19 @@ def git_restore_snapshot(snapshot_sha, cwd, _run=None):
             f"{_PREFIX} WARNING: untracked files may be missing from the working "
             f"tree — recover them with: git stash apply {snapshot_sha}"
         )
+        return False
+    return True
+
+
+def git_restore_snapshot(snapshot_sha, cwd, _run=None):
+    """One-shot restore from a stash snapshot: apply it, then drop it.
+
+    Dropping keeps successful restores from leaking orphaned entries into the
+    stash reflog; on a failed apply the snapshot is left intact (a recovery
+    hint was printed). Use :func:`git_apply_snapshot` directly when the
+    snapshot must stay restorable.
+    """
+    if not git_apply_snapshot(snapshot_sha, cwd, _run=_run):
         return False
     # Drop the applied entry to avoid accumulating orphaned snapshots.
     git_drop_stash(snapshot_sha, cwd, _run=_run)

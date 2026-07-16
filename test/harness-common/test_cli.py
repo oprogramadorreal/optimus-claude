@@ -1335,9 +1335,9 @@ class TestDeepStep:
         # No-commit mode (the snapshot carries a stash, not just a HEAD): when a
         # fix survives bisection but the combined set still fails the suite, the
         # iteration must roll the working tree back to the pre-iteration STASH.
-        # Exercises _clean_reset_hook's no-commit return-None branch (clean-reset
-        # bisect is disabled there because the stash is single-use) and the
-        # stash-restore reconciliation that the commit-mode tests never reach.
+        # Also pins that the bisect receives a stash-backed clean-reset hook —
+        # git_apply_snapshot leaves the stash in the reflog, so the restore is
+        # repeatable across the bisect's rebuilds.
         ppath = _seed_deep_progress(tmp_path)
         data = _read_progress(ppath)
         data["config"]["no_commit"] = True
@@ -1346,10 +1346,17 @@ class TestDeepStep:
 
         # Suite fails on the initial run and again after bisection retains a fix.
         monkeypatch.setattr(cli, "run_tests", lambda *a, **kw: (False, "boom"))
+        apply_calls = []
+        monkeypatch.setattr(
+            cli,
+            "git_apply_snapshot",
+            lambda sha, _cwd, **_kw: apply_calls.append(sha) or True,
+        )
         captured = {}
 
         def fake_bisect(*_a, reset_to_clean=None, **_kw):
             captured["reset_to_clean"] = reset_to_clean
+            reset_to_clean()  # bisect rebuilds go through the stash apply
             return (1, 0, [])  # one fix retained, none reverted individually
 
         monkeypatch.setattr(cli, "bisect_fixes", fake_bisect)
@@ -1366,8 +1373,9 @@ class TestDeepStep:
             "deep-step", "--progress-file", str(ppath), "--result-file", str(result)
         )
         assert exit_code == 0
-        # Clean-reset bisect is disabled in no-commit mode (one-shot stash).
-        assert captured["reset_to_clean"] is None
+        # The bisect got a working clean-reset hook backed by the stash.
+        assert captured["reset_to_clean"] is not None
+        assert apply_calls == ["stash_sha"]
         # Rolled back to the stash + HEAD, not a bare HEAD checkout.
         assert restore_calls == [("stash_sha", "abc1234")]
         # The full restore zeroes the net fix tally and ends the iteration.
@@ -3854,3 +3862,39 @@ class TestForceUtf8Stdio:
         monkeypatch.setattr(sys, "stdout", PlainStream())
         monkeypatch.setattr(sys, "stderr", PlainStream())
         cli._force_utf8_stdio()  # must not raise
+
+
+class TestCleanResetHook:
+    def test_commit_mode_restores_to_head(self, monkeypatch):
+        calls = []
+        monkeypatch.setattr(
+            cli,
+            "restore_working_tree",
+            lambda stash, head, root, **_kw: calls.append((stash, head, root)),
+        )
+        hook = cli._clean_reset_hook(None, "head_sha", "/proj")
+        hook()
+        assert calls == [(None, "head_sha", "/proj")]
+
+    def test_no_commit_mode_applies_stash_without_dropping(self, monkeypatch):
+        calls = []
+        monkeypatch.setattr(
+            cli,
+            "git_apply_snapshot",
+            lambda sha, root, **_kw: calls.append((sha, root)) or True,
+        )
+        hook = cli._clean_reset_hook("stash_sha", "head_sha", "/proj")
+        hook()
+        hook()  # repeatable — the stash is not consumed
+        assert calls == [("stash_sha", "/proj"), ("stash_sha", "/proj")]
+
+    def test_no_commit_mode_raises_on_failed_apply(self, monkeypatch):
+        # The bisect's _rebuild aborts on RuntimeError; a silent False would
+        # let it test candidates on a dirty base.
+        monkeypatch.setattr(cli, "git_apply_snapshot", lambda *_a, **_kw: False)
+        hook = cli._clean_reset_hook("stash_sha", "head_sha", "/proj")
+        with pytest.raises(RuntimeError):
+            hook()
+
+    def test_no_snapshot_returns_none(self):
+        assert cli._clean_reset_hook(None, None, "/proj") is None

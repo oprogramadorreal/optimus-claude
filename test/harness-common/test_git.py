@@ -21,6 +21,7 @@ from harness_common.git import (
     _verify_ref,
     commit_checkpoint,
     get_open_pr_data,
+    git_apply_snapshot,
     git_current_branch,
     git_diff_has_changes,
     git_discover_branch_files,
@@ -384,8 +385,9 @@ class TestGitStashSnapshot:
     @patch("harness_common.git.subprocess.run")
     def test_success(self, mock_run):
         mock_run.side_effect = [
-            MagicMock(returncode=0, stdout="abc123\n"),
-            MagicMock(returncode=0),
+            MagicMock(returncode=0, stdout="abc123\n"),  # stash create
+            MagicMock(returncode=0, stdout=""),  # ls-files: no untracked
+            MagicMock(returncode=0),  # stash store
         ]
         assert git_stash_snapshot("/tmp") == "abc123"
 
@@ -398,10 +400,81 @@ class TestGitStashSnapshot:
     def test_store_failure_returns_none(self, mock_run, capsys):
         mock_run.side_effect = [
             MagicMock(returncode=0, stdout="abc123\n"),
+            MagicMock(returncode=0, stdout=""),
             MagicMock(returncode=1, stderr="error storing"),
         ]
         assert git_stash_snapshot("/tmp") is None
         assert "WARNING" in capsys.readouterr().out
+
+    @patch("harness_common.git.subprocess.run")
+    def test_untracked_files_grafted_as_third_parent(self, mock_run):
+        # git stash create cannot capture untracked files, so the snapshot
+        # synthesizes a 3-parent stash commit — the shape `git stash apply`
+        # restores untracked files from.
+        mock_run.side_effect = [
+            MagicMock(returncode=0, stdout="base1\n"),  # stash create
+            MagicMock(returncode=0, stdout="new.txt\0"),  # ls-files
+            MagicMock(returncode=0),  # update-index (temp index)
+            MagicMock(returncode=0, stdout="utree\n"),  # write-tree
+            MagicMock(returncode=0, stdout="ucommit\n"),  # commit-tree untracked
+            MagicMock(returncode=0, stdout="headsha\n"),  # rev-parse HEAD
+            MagicMock(returncode=0, stdout="wtree\n"),  # rev-parse base^{tree}
+            MagicMock(returncode=0, stdout="idxcommit\n"),  # rev-parse base^2
+            MagicMock(returncode=0, stdout="stash3p\n"),  # commit-tree 3-parent
+            MagicMock(returncode=0),  # stash store
+        ]
+        assert git_stash_snapshot("/tmp") == "stash3p"
+        three_parent = mock_run.call_args_list[8].args[0]
+        assert three_parent[:3] == ["git", "commit-tree", "wtree"]
+        assert three_parent[3:9] == [
+            "-p",
+            "headsha",
+            "-p",
+            "idxcommit",
+            "-p",
+            "ucommit",
+        ]
+        stored = mock_run.call_args_list[9].args[0]
+        assert stored == ["git", "stash", "store", "-m", "harness snapshot", "stash3p"]
+
+    @patch("harness_common.git.subprocess.run")
+    def test_untracked_capture_excludes_harness_state(self, mock_run):
+        # Progress/iteration files are orchestrator bookkeeping: they are
+        # preserved in place by _clean_working_tree during restores, so they
+        # must not be captured (re-applying a stale copy would corrupt the
+        # run's state). Only harness paths untracked → plain 2-parent stash.
+        mock_run.side_effect = [
+            MagicMock(returncode=0, stdout="base1\n"),
+            MagicMock(
+                returncode=0,
+                stdout=(
+                    ".claude/code-review-deep-progress.json\0"
+                    ".claude/.deep-iteration-raw.txt\0"
+                ),
+            ),
+            MagicMock(returncode=0),  # store
+        ]
+        assert git_stash_snapshot("/tmp") == "base1"
+
+
+class TestGitApplySnapshot:
+    @patch("harness_common.git.subprocess.run")
+    @patch("harness_common.git._clean_working_tree")
+    def test_success_does_not_drop(self, mock_clean, mock_run):
+        # The repeatable variant must leave the stash reflog entry in place —
+        # it backs the bisect's clean-reset rebuilds in no-commit mode.
+        mock_run.return_value = MagicMock(returncode=0)
+        assert git_apply_snapshot("abc123", "/tmp") is True
+        mock_clean.assert_called_once()
+        assert mock_run.call_count == 1
+        assert mock_run.call_args.args[0] == ["git", "stash", "apply", "abc123"]
+
+    @patch("harness_common.git.subprocess.run")
+    @patch("harness_common.git._clean_working_tree")
+    def test_failure_returns_false(self, mock_clean, mock_run, capsys):
+        mock_run.return_value = MagicMock(returncode=1, stderr="conflict")
+        assert git_apply_snapshot("abc123", "/tmp") is False
+        assert "git stash apply abc123" in capsys.readouterr().out
 
 
 class TestGitRestoreSnapshot:
@@ -855,3 +928,94 @@ class TestGitFetchOpenPrDescription:
         assert out["title"] == ""
         assert out["body"] == ""
         assert out["base_ref"] == "origin/main"
+
+
+# ---------------------------------------------------------------------------
+# Snapshot round-trips against a real git repo
+# ---------------------------------------------------------------------------
+
+
+def _run_git(cwd, *args):
+    return subprocess.run(
+        ["git", *args],
+        cwd=str(cwd),
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=True,
+    )
+
+
+def _init_repo(tmp_path):
+    _run_git(tmp_path, "init")
+    _run_git(tmp_path, "config", "user.email", "t@t.test")
+    _run_git(tmp_path, "config", "user.name", "t")
+    (tmp_path / "tracked.txt").write_text("base\n", encoding="utf-8")
+    _run_git(tmp_path, "add", "tracked.txt")
+    _run_git(tmp_path, "commit", "-m", "base")
+
+
+class TestSnapshotRealRepo:
+    """End-to-end snapshot/apply/restore against a real repo — the plumbing
+    that synthesizes the untracked third parent can only be proven here, not
+    with mocks."""
+
+    def test_apply_restores_tracked_and_untracked_and_is_repeatable(self, tmp_path):
+        _init_repo(tmp_path)
+        # Accumulated no-commit work: tracked edit + untracked file + progress.
+        (tmp_path / "tracked.txt").write_text("accumulated\n", encoding="utf-8")
+        (tmp_path / "new_test.py").write_text("untracked work\n", encoding="utf-8")
+        claude = tmp_path / ".claude"
+        claude.mkdir()
+        progress = claude / "code-review-deep-progress.json"
+        progress.write_text('{"iter": 1}', encoding="utf-8")
+
+        sha = git_stash_snapshot(tmp_path)
+        assert sha
+
+        for round_no in range(2):  # repeatable — not one-shot
+            (tmp_path / "tracked.txt").write_text(f"fix {round_no}\n", encoding="utf-8")
+            (tmp_path / "new_test.py").write_text("mutated\n", encoding="utf-8")
+            (tmp_path / "stray.txt").write_text("stray\n", encoding="utf-8")
+            progress.write_text('{"iter": 2}', encoding="utf-8")
+            assert git_apply_snapshot(sha, tmp_path) is True
+            assert (tmp_path / "tracked.txt").read_text(
+                encoding="utf-8"
+            ) == "accumulated\n"
+            # Untracked work is captured and restored — `git stash create`
+            # alone cannot do this; the synthesized third parent carries it.
+            assert (tmp_path / "new_test.py").read_text(
+                encoding="utf-8"
+            ) == "untracked work\n"
+            assert not (tmp_path / "stray.txt").exists()
+            # Harness state is preserved in place, never rolled back.
+            assert progress.read_text(encoding="utf-8") == '{"iter": 2}'
+        listed = _run_git(tmp_path, "stash", "list", "--format=%H")
+        assert sha in listed.stdout  # still registered after repeated applies
+
+    def test_untracked_only_changes_are_snapshottable(self, tmp_path):
+        _init_repo(tmp_path)
+        (tmp_path / "new_test.py").write_text("only untracked\n", encoding="utf-8")
+        sha = git_stash_snapshot(tmp_path)
+        assert sha
+        (tmp_path / "new_test.py").unlink()
+        assert git_apply_snapshot(sha, tmp_path) is True
+        assert (tmp_path / "new_test.py").read_text(
+            encoding="utf-8"
+        ) == "only untracked\n"
+
+    def test_restore_snapshot_consumes_the_stash(self, tmp_path):
+        _init_repo(tmp_path)
+        (tmp_path / "tracked.txt").write_text("work\n", encoding="utf-8")
+        sha = git_stash_snapshot(tmp_path)
+        assert sha
+        (tmp_path / "tracked.txt").write_text("dirty\n", encoding="utf-8")
+        assert git_restore_snapshot(sha, tmp_path) is True
+        assert (tmp_path / "tracked.txt").read_text(encoding="utf-8") == "work\n"
+        listed = _run_git(tmp_path, "stash", "list", "--format=%H")
+        assert sha not in listed.stdout  # one-shot restore drops the entry
+
+    def test_no_changes_returns_none(self, tmp_path):
+        _init_repo(tmp_path)
+        assert git_stash_snapshot(tmp_path) is None

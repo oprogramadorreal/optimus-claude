@@ -73,6 +73,7 @@ from .fixes import bisect_fixes
 from .git import commit_checkpoint as git_commit_checkpoint
 from .git import (
     get_open_pr_data,
+    git_apply_snapshot,
     git_diff_has_changes,
     git_discover_branch_files,
     git_drop_stash,
@@ -287,13 +288,24 @@ def _format_test_passed(test_passed):
 def _clean_reset_hook(pre_stash, pre_head, project_root):
     """Return a repeatable clean-reset callback for bisect, or None.
 
-    git_restore_to (commit mode, pre_stash is None) is repeatable; a no-commit
-    stash restore drops the stash after one use, so it can't back a clean-reset
-    bisect — return None there and let bisect fall back to its legacy
-    content-swap revert strategy.
+    Commit mode (pre_stash is None) restores with git_restore_to(pre_head),
+    repeatable by nature. No-commit mode applies the stash snapshot WITHOUT
+    dropping it (git_apply_snapshot), so the restore stays repeatable across
+    the bisect's rebuilds — the snapshot entry is reclaimed later by the
+    iteration's full-revert restore or the next iteration's snapshot. Both
+    variants raise on failure so the bisect aborts instead of testing
+    candidates on a dirty base. None only when no snapshot was recorded,
+    where bisect falls back to its legacy content-swap revert strategy.
     """
-    if pre_stash is None and pre_head:
-        return lambda: restore_working_tree(pre_stash, pre_head, project_root)
+    if pre_stash:
+
+        def _apply_stash():
+            if not git_apply_snapshot(pre_stash, project_root):
+                raise RuntimeError(f"git stash apply {pre_stash} failed")
+
+        return _apply_stash
+    if pre_head:
+        return lambda: restore_working_tree(None, pre_head, project_root)
     return None
 
 
