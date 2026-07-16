@@ -1,6 +1,6 @@
 # Coverage Harness Mode
 
-Single-pass protocol for `/optimus:unit-test` when invoked under the `/optimus:unit-test-deep` orchestrator. The orchestrator alternates unit-test and refactor phases per cycle, but each phase runs in its own fresh subagent context as a single pass.
+Single-pass protocol for `/optimus:unit-test` when invoked under the `/optimus:deep coverage` orchestrator. The orchestrator alternates unit-test and refactor phases per cycle, but each phase runs in its own fresh subagent context as a single pass.
 
 ## Contents
 
@@ -9,7 +9,7 @@ Single-pass protocol for `/optimus:unit-test` when invoked under the `/optimus:u
 
 ## Unit-Test Phase Execution
 
-When the `/optimus:unit-test-deep` orchestrator dispatches `/optimus:unit-test` as a subagent for the unit-test phase, the base skill detects `HARNESS_MODE_INLINE` in its invocation prompt and the orchestrator's prompt body includes `Phase: unit-test`. Execute exactly **one pass** of the unit-test workflow, then output structured JSON and exit.
+When the `/optimus:deep coverage` orchestrator dispatches `/optimus:unit-test` as a subagent for the unit-test phase, the base skill detects `HARNESS_MODE_INLINE` in its invocation prompt and the orchestrator's prompt body includes `Phase: unit-test`. Execute exactly **one pass** of the unit-test workflow, then output structured JSON and exit.
 
 ### 1. Read progress file
 
@@ -109,7 +109,7 @@ Stop immediately. Do not loop, present reports, or use `AskUserQuestion`.
 
 ## Refactor Phase Execution
 
-When the `/optimus:unit-test-deep` orchestrator dispatches `/optimus:refactor` as a subagent for the refactor phase, the orchestrator's prompt body includes `Phase: refactor`; the binding testability focus is carried by the progress file's CLI-pinned `config.focus` (the dispatch prompt mentions it only in prose). The `/optimus:refactor` skill detects `HARNESS_MODE_INLINE` and follows the single-iteration protocol from `references/harness-mode.md` — same protocol used by `/optimus:refactor-deep`.
+When the `/optimus:deep coverage` orchestrator dispatches `/optimus:refactor` as a subagent for the refactor phase, the orchestrator's prompt body includes `Phase: refactor`; the binding testability focus is carried by the progress file's CLI-pinned `config.focus` (the dispatch prompt mentions it only in prose). The `/optimus:refactor` skill detects `HARNESS_MODE_INLINE` and follows the single-iteration protocol from `references/harness-mode.md` — same protocol used by `/optimus:deep refactor`.
 
 The orchestrator scopes the refactor session to the `untestable_code` items reported by the preceding unit-test phase (the progress file's `scope_files.current` lists those file paths). The CLI's `refactor-step` handles test-and-bisect after the refactor subagent returns.
 

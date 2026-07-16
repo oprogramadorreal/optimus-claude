@@ -115,17 +115,17 @@ output=$(bash "$SESSION_START" 2>/dev/null || true)
 assert_output_empty "Zero output when fully configured and clean" "$output"
 cleanup_fixture
 
-echo "[session-start: fully configured, uncommitted changes]"
+echo "[session-start: fully configured, uncommitted changes — still silent]"
 setup_fixture
 mkdir -p .claude/docs
 echo "# Project" > .claude/CLAUDE.md
 echo "# Guidelines" > .claude/docs/coding-guidelines.md
 echo "# Testing" > .claude/docs/testing.md
 git add -A && git commit -q -m "setup"
-# Create uncommitted change
+# Create uncommitted change — git state is Claude Code's job, not the hook's
 echo "new content" > dirty-file.txt
 output=$(bash "$SESSION_START" 2>/dev/null || true)
-assert_output_contains "Reports uncommitted changes" "files changed" "$output"
+assert_output_empty "Zero output even with uncommitted changes (native gitStatus covers it)" "$output"
 cleanup_fixture
 
 echo "[session-start: multi-repo workspace, marker in one sub-repo]"
@@ -244,7 +244,7 @@ fi
 # ask while the rest of ~/.claude (e.g. settings.json) still prompts.
 echo
 echo "[restrict-paths: memory-store + scratchpad exemptions + tiered model]"
-RESTRICT="$PLUGIN_ROOT/skills/permissions/templates/hooks/restrict-paths.sh"
+RESTRICT="$PLUGIN_ROOT/skills/init/templates/hooks/restrict-paths.sh"
 rp_tmp=$(mktemp -d)
 mkdir -p "$rp_tmp/home/.claude/projects/hash/memory/topics" "$rp_tmp/proj/src" "$rp_tmp/outside"
 

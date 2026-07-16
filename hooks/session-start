@@ -14,7 +14,7 @@ if [ ! -f .claude/CLAUDE.md ] || [ ! -f .claude/docs/coding-guidelines.md ]; the
   # .optimus-version is uniquely written by /optimus:init, so it's the authoritative marker.
   multi_repo_marker=$(find . -mindepth 2 -maxdepth 4 -path '*/.claude/.optimus-version' -print -quit 2>/dev/null)
   if [ -z "$multi_repo_marker" ]; then
-    output+="IMPORTANT: This project has not been initialized with the optimus plugin. You MUST mention this to the user in your first response: recommend running \`/optimus:init\` to set up CLAUDE.md, coding guidelines, and auto-format hooks for effective AI-assisted development."$'\n'
+    output+="[optimus] This project has not been initialized with the optimus plugin. Mention this to the user in your first response: \`/optimus:init\` sets up CLAUDE.md, coding guidelines, and auto-format hooks for effective AI-assisted development."$'\n'
   fi
 else
   # 2. Check test infrastructure (only relevant if init was done)
@@ -28,16 +28,8 @@ else
 
 fi
 
-# 3. Git state (uncommitted changes or unpushed commits)
-if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-  changed=$(git status --porcelain 2>/dev/null | wc -l | tr -d ' ')
-  unpushed=$(git log --oneline '@{u}..HEAD' 2>/dev/null | wc -l | tr -d ' ') || unpushed=0
-
-  state_parts=""
-  [ "$changed" -gt 0 ] 2>/dev/null && state_parts+="${changed} files changed"
-  [ "$unpushed" -gt 0 ] 2>/dev/null && { [ -n "$state_parts" ] && state_parts+=", "; state_parts+="${unpushed} commits unpushed"; }
-  [ -n "$state_parts" ] && output+="[optimus] ${state_parts}."$'\n'
-fi
+# Git state is intentionally not reported here — Claude Code injects the git
+# status into the session context natively.
 
 # Only output if there's something to report
 [ -n "$output" ] && printf '%s' "$output"

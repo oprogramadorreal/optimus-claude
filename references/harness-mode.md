@@ -8,7 +8,7 @@
 
 ## Single-Iteration Execution
 
-When running under an orchestrator skill (`/optimus:code-review-deep`, `/optimus:refactor-deep`, or the refactor phase of `/optimus:unit-test-deep`), the base skill detects `HARNESS_MODE_INLINE` in its invocation prompt and executes exactly **one iteration** of the analysis cycle, then exits. The orchestrator handles the iteration loop, test execution, bisection, termination detection, and final reporting via `python -m harness_common.cli`.
+When running under an orchestrator skill (`/optimus:deep review`, `/optimus:deep refactor`, or the refactor phase of `/optimus:deep coverage`), the base skill detects `HARNESS_MODE_INLINE` in its invocation prompt and executes exactly **one iteration** of the analysis cycle, then exits. The orchestrator handles the iteration loop, test execution, bisection, termination detection, and final reporting via `python -m harness_common.cli`.
 
 ### Contents
 
