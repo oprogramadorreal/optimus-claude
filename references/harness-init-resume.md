@@ -1,11 +1,11 @@
 # Harness CLI — Initialize or Resume a Run
 
-Shared `harness_common.cli` init/resume semantics for the three `*-deep` orchestrator skills. Each consuming SKILL.md (Step 4) supplies these parameters:
+Shared `harness_common.cli` init/resume semantics for the `/optimus:deep` orchestrator. The consuming SKILL.md supplies these parameters:
 
-- `<progress-path>` — the skill's progress file (e.g. `.claude/code-review-deep-progress.json`)
-- `<cap-flag>` — `--max-iterations` (code-review-deep, refactor-deep) or `--max-cycles` (unit-test-deep)
+- `<progress-path>` — the mode's progress file (e.g. `.claude/code-review-deep-progress.json`)
+- `<cap-flag>` — `--max-iterations` (review, refactor modes) or `--max-cycles` (coverage mode)
 
-Per-skill deltas stay inline in each SKILL.md: the `init` invocation itself (its `--skill`, cap, `--focus`, and `--scope` flags differ) and the baseline `--allow-red` policy. Wherever the commands below write `$CLAUDE_PLUGIN_ROOT`, use the plugin root the skill resolved in its Step 2 — substitute the absolute path literally if the env var read empty.
+Per-mode deltas stay inline in the SKILL.md: the `init` invocation itself (its `--skill`, cap, `--focus`, and `--scope` flags differ) and the baseline `--allow-red` policy. Wherever the commands below write `$CLAUDE_PLUGIN_ROOT`, use the plugin root the skill resolved in its Plugin-root step — substitute the absolute path literally if the env var read empty.
 
 ## On `--resume`
 
