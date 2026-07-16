@@ -71,10 +71,17 @@ SKIP_APPLY_DETAIL = (
 
 
 def _warn_skipped_apply(fix):
+    """Log the skip warning and return the detail hint to persist.
+
+    Returning ``SKIP_APPLY_DETAIL`` lets each call site record exactly the
+    reason it just logged in one statement, so the operator-facing warning and
+    the finding's persisted ``last_failure_hint`` can never drift apart.
+    """
     print(
         f"[harness] WARNING: could not apply fix for {fix.get('file', '?')} "
         f"from its recorded content — skipped"
     )
+    return SKIP_APPLY_DETAIL
 
 
 def _bisect_via_clean_reset(
@@ -125,8 +132,7 @@ def _bisect_via_clean_reset(
             aborted = True
             break
         if not apply_single_fix(fix, cwd):
-            _warn_skipped_apply(fix)
-            outcome[idx] = ("skipped", SKIP_APPLY_DETAIL)
+            outcome[idx] = ("skipped", _warn_skipped_apply(fix))
             continue
         passed, summary = run_tests_fn(test_command, cwd)
         if passed:
@@ -145,8 +151,7 @@ def _bisect_via_clean_reset(
             if not _rebuild(kept):
                 break
             if not apply_single_fix(fixes[idx], cwd):
-                _warn_skipped_apply(fixes[idx])
-                outcome[idx] = ("skipped", SKIP_APPLY_DETAIL)
+                outcome[idx] = ("skipped", _warn_skipped_apply(fixes[idx]))
                 continue
             passed, _summary = run_tests_fn(test_command, cwd)
             if passed:
@@ -238,9 +243,8 @@ def bisect_fixes(
             _emit(idx, fix, "retained")
             continue
         if not apply_single_fix(fix, cwd):
-            _warn_skipped_apply(fix)
             skipped_count += 1
-            _emit(idx, fix, "skipped", SKIP_APPLY_DETAIL)
+            _emit(idx, fix, "skipped", _warn_skipped_apply(fix))
             continue
         passed, summary = run_tests_fn(test_command, cwd)
         if passed:
@@ -261,9 +265,8 @@ def bisect_fixes(
                 # File content drifted between first revert and retry — fix
                 # could not be re-applied. This is the same condition as a
                 # first-pass apply failure, so count it as skipped.
-                _warn_skipped_apply(fix)
                 skipped_count += 1
-                _emit(idx, fix, "skipped", SKIP_APPLY_DETAIL)
+                _emit(idx, fix, "skipped", _warn_skipped_apply(fix))
                 continue
             passed, summary = run_tests_fn(test_command, cwd)
             if passed:

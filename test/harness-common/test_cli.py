@@ -68,6 +68,8 @@ def _git_init(tmp_path):
             cwd=str(tmp_path),
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             check=True,
         )
 
@@ -1383,6 +1385,35 @@ class TestDeepStep:
         assert history["fixed"] == 0
         assert history["reverted"] == 1
         assert _read_progress(ppath)["termination"]["reason"] == "all-reverted"
+
+    def test_combined_regression_survives_restore_failure(self, tmp_path, monkeypatch):
+        # If the full-tree restore itself raises (git checkout errors on a
+        # locked/corrupt index), the step must catch it and still record the
+        # combined regression rather than crash deep-step.
+        ppath = _seed_deep_progress(tmp_path)
+        data = _read_progress(ppath)
+        data["config"]["no_commit"] = True
+        data["_snapshot"]["pre_stash"] = "stash_sha"
+        ppath.write_text(json.dumps(data, indent=2), encoding="utf-8")
+
+        monkeypatch.setattr(cli, "run_tests", lambda *a, **kw: (False, "boom"))
+        monkeypatch.setattr(cli, "git_apply_snapshot", lambda *_a, **_kw: True)
+        monkeypatch.setattr(cli, "bisect_fixes", lambda *_a, **_kw: (1, 0, []))
+
+        def boom_restore(*_a, **_kw):
+            raise RuntimeError("git checkout failed: locked index")
+
+        monkeypatch.setattr(cli, "restore_working_tree", boom_restore)
+        result = tmp_path / "result.json"
+        result.write_text(json.dumps(_one_fix_result()), encoding="utf-8")
+
+        exit_code = _run(
+            "deep-step", "--progress-file", str(ppath), "--result-file", str(result)
+        )
+        assert exit_code == 0  # did not crash despite the restore RuntimeError
+        history = _read_progress(ppath)["iteration_history"][-1]
+        assert history["fixed"] == 0
+        assert history["reverted"] == 1
 
     def test_configured_timeout_is_threaded_to_run_tests(self, tmp_path, monkeypatch):
         # config.test_timeout (set by `baseline`) must reach run_tests.
@@ -3863,18 +3894,32 @@ class TestForceUtf8Stdio:
         monkeypatch.setattr(sys, "stderr", PlainStream())
         cli._force_utf8_stdio()  # must not raise
 
+    def test_tolerates_reconfigure_raising(self, monkeypatch):
+        # A closed/detached stream still exposes reconfigure() (hasattr passes)
+        # but raises when called — forcing UTF-8 must never crash the run.
+        class ClosedStream:
+            def reconfigure(self, **_kw):
+                raise ValueError("I/O operation on closed file.")
+
+        monkeypatch.setattr(sys, "stdout", ClosedStream())
+        monkeypatch.setattr(sys, "stderr", ClosedStream())
+        cli._force_utf8_stdio()  # must not raise
+
 
 class TestCleanResetHook:
-    def test_commit_mode_restores_to_head(self, monkeypatch):
+    def test_commit_mode_resets_tracked_without_cleaning_untracked(self, monkeypatch):
+        # Commit mode resets tracked files to pre_head but must NOT clean
+        # untracked files (git_restore_tracked_to, not restore_working_tree /
+        # git_restore_to), so a fix's untracked dependency survives isolation.
         calls = []
         monkeypatch.setattr(
             cli,
-            "restore_working_tree",
-            lambda stash, head, root, **_kw: calls.append((stash, head, root)),
+            "git_restore_tracked_to",
+            lambda head, root, **_kw: calls.append((head, root)),
         )
         hook = cli._clean_reset_hook(None, "head_sha", "/proj")
         hook()
-        assert calls == [(None, "head_sha", "/proj")]
+        assert calls == [("head_sha", "/proj")]
 
     def test_no_commit_mode_applies_stash_without_dropping(self, monkeypatch):
         calls = []

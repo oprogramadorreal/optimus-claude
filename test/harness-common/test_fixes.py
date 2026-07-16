@@ -245,8 +245,9 @@ class TestBisectFixes:
         assert reverted == 0
         assert skipped == 0
 
-    def test_failed_apply_counted_as_skipped(self, tmp_path):
-        """Fix that reverts but can't be re-applied counts as skipped."""
+    def test_failed_apply_counted_as_skipped(self, tmp_path, capsys):
+        """Fix that reverts but can't be re-applied counts as skipped — and the
+        legacy path emits the loud WARNING + recorded-content detail hint."""
         f = tmp_path / "a.txt"
         f.write_text("new_a", encoding="utf-8")
         fix = {
@@ -265,14 +266,25 @@ class TestBisectFixes:
         def run_tests(cmd, cwd):
             return (True, "ok")
 
+        details = {}
+
+        def on_outcome(idx, _fix, outcome, detail=None):
+            details[idx] = (outcome, detail)
+
         # Patch apply_single_fix to return False (simulating apply failure)
         with patch("harness_common.fixes.apply_single_fix", return_value=False):
             fixed, reverted, skipped = bisect_fixes(
-                [fix], "test", str(tmp_path), run_tests
+                [fix], "test", str(tmp_path), run_tests, on_outcome=on_outcome
             )
         assert fixed == 0
         assert reverted == 0
         assert skipped == 1
+        # The legacy skipped branch now attaches the recorded-content detail
+        # (previously None) and prints a WARNING instead of failing silently.
+        outcome, detail = details[0]
+        assert outcome == "skipped"
+        assert "verbatim" in detail
+        assert "WARNING" in capsys.readouterr().out
 
     def test_default_run_tests_fn(self, tmp_path):
         """When run_tests_fn is None, falls back to harness_common.runner.run_tests."""

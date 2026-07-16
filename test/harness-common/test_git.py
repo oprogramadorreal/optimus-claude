@@ -29,6 +29,7 @@ from harness_common.git import (
     git_fetch_open_pr_description,
     git_restore_snapshot,
     git_restore_to,
+    git_restore_tracked_to,
     git_rev_parse_head,
     git_stash_snapshot,
     restore_working_tree,
@@ -240,13 +241,24 @@ class TestCommitCheckpoint:
 def _git(cwd, *args):
     """Run a git command in ``cwd``, raising on failure."""
     subprocess.run(
-        ["git", *args], cwd=str(cwd), capture_output=True, text=True, check=True
+        ["git", *args],
+        cwd=str(cwd),
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=True,
     )
 
 
 def _head(cwd):
     return subprocess.run(
-        ["git", "rev-parse", "HEAD"], cwd=str(cwd), capture_output=True, text=True
+        ["git", "rev-parse", "HEAD"],
+        cwd=str(cwd),
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
     ).stdout.strip()
 
 
@@ -455,6 +467,123 @@ class TestGitStashSnapshot:
             MagicMock(returncode=0),  # store
         ]
         assert git_stash_snapshot("/tmp") == "base1"
+
+    # --- Snapshot-synthesis failure/degrade paths ---------------------------
+    # `git stash create` cannot capture untracked files, so the snapshot
+    # synthesizes them (temp index → write-tree → commit-tree → 3-parent
+    # graft). Every intermediate git failure must degrade to a tracked-only
+    # snapshot rather than lose the snapshot silently or emit a corrupt SHA.
+    # One test pins each degrade branch (all mocks feed all-success codes).
+
+    @patch("harness_common.git.subprocess.run")
+    def test_untracked_ls_files_failure_degrades_to_tracked(self, mock_run, capsys):
+        # ls-files nonzero → _untracked_snapshot_commit warns and returns None.
+        mock_run.side_effect = [
+            MagicMock(returncode=0, stdout="base1\n"),  # stash create
+            MagicMock(returncode=1, stdout="", stderr="ls-files boom"),  # ls-files
+            MagicMock(returncode=0),  # stash store
+        ]
+        assert git_stash_snapshot("/tmp") == "base1"
+        assert "WARNING" in capsys.readouterr().out
+
+    @patch("harness_common.git.subprocess.run")
+    def test_untracked_update_index_failure_degrades_with_warning(
+        self, mock_run, capsys
+    ):
+        # update-index nonzero → WARNING, degrade to tracked-only base.
+        mock_run.side_effect = [
+            MagicMock(returncode=0, stdout="base1\n"),  # stash create
+            MagicMock(returncode=0, stdout="new.txt\0"),  # ls-files
+            MagicMock(returncode=1, stderr="cannot add"),  # update-index
+            MagicMock(returncode=0),  # stash store
+        ]
+        assert git_stash_snapshot("/tmp") == "base1"
+        assert "WARNING" in capsys.readouterr().out
+
+    @patch("harness_common.git.subprocess.run")
+    def test_untracked_write_tree_failure_degrades_to_tracked(self, mock_run, capsys):
+        # write-tree nonzero → WARNING, None → tracked-only base.
+        mock_run.side_effect = [
+            MagicMock(returncode=0, stdout="base1\n"),  # stash create
+            MagicMock(returncode=0, stdout="new.txt\0"),  # ls-files
+            MagicMock(returncode=0),  # update-index
+            MagicMock(returncode=1, stdout=""),  # write-tree
+            MagicMock(returncode=0),  # stash store
+        ]
+        assert git_stash_snapshot("/tmp") == "base1"
+        assert "WARNING" in capsys.readouterr().out
+
+    @patch("harness_common.git.subprocess.run")
+    def test_untracked_commit_tree_failure_degrades_to_tracked(self, mock_run, capsys):
+        # commit-tree (untracked) nonzero → WARNING, None → tracked-only base.
+        mock_run.side_effect = [
+            MagicMock(returncode=0, stdout="base1\n"),  # stash create
+            MagicMock(returncode=0, stdout="new.txt\0"),  # ls-files
+            MagicMock(returncode=0),  # update-index
+            MagicMock(returncode=0, stdout="utree\n"),  # write-tree
+            MagicMock(returncode=1, stdout=""),  # commit-tree (untracked)
+            MagicMock(returncode=0),  # stash store
+        ]
+        assert git_stash_snapshot("/tmp") == "base1"
+        assert "WARNING" in capsys.readouterr().out
+
+    @patch("harness_common.git.subprocess.run")
+    def test_stash_synthesis_missing_prereq_degrades_with_warning(
+        self, mock_run, capsys
+    ):
+        # A missing prerequisite (rev-parse HEAD fails) → WARNING, return base.
+        mock_run.side_effect = [
+            MagicMock(returncode=0, stdout="base1\n"),  # stash create
+            MagicMock(returncode=0, stdout="new.txt\0"),  # ls-files
+            MagicMock(returncode=0),  # update-index
+            MagicMock(returncode=0, stdout="utree\n"),  # write-tree
+            MagicMock(returncode=0, stdout="ucommit\n"),  # commit-tree untracked
+            MagicMock(returncode=1, stdout=""),  # rev-parse HEAD → head=None
+            MagicMock(returncode=0, stdout="wtree\n"),  # rev-parse base^{tree}
+            MagicMock(returncode=0, stdout="idxcommit\n"),  # rev-parse base^2
+            MagicMock(returncode=0),  # stash store
+        ]
+        assert git_stash_snapshot("/tmp") == "base1"
+        assert "WARNING" in capsys.readouterr().out
+
+    @patch("harness_common.git.subprocess.run")
+    def test_stash_three_parent_failure_degrades_with_warning(self, mock_run, capsys):
+        # The final 3-parent commit-tree nonzero → WARNING, return base.
+        mock_run.side_effect = [
+            MagicMock(returncode=0, stdout="base1\n"),  # stash create
+            MagicMock(returncode=0, stdout="new.txt\0"),  # ls-files
+            MagicMock(returncode=0),  # update-index
+            MagicMock(returncode=0, stdout="utree\n"),  # write-tree
+            MagicMock(returncode=0, stdout="ucommit\n"),  # commit-tree untracked
+            MagicMock(returncode=0, stdout="headsha\n"),  # rev-parse HEAD
+            MagicMock(returncode=0, stdout="wtree\n"),  # rev-parse base^{tree}
+            MagicMock(returncode=0, stdout="idxcommit\n"),  # rev-parse base^2
+            MagicMock(returncode=1, stderr="commit-tree boom"),  # 3-parent commit-tree
+            MagicMock(returncode=0),  # stash store
+        ]
+        assert git_stash_snapshot("/tmp") == "base1"
+        assert "WARNING" in capsys.readouterr().out
+
+    @patch("harness_common.git.subprocess.run")
+    def test_untracked_only_synthesis_failure_warns_not_restorable(
+        self, mock_run, capsys
+    ):
+        # Untracked-only work (empty tracked base) whose synthesis fails has no
+        # tracked snapshot to degrade to: the snapshot is abandoned (None), and
+        # the loss must be surfaced loudly since a later `git clean` deletes the
+        # untracked files rather than restoring them.
+        mock_run.side_effect = [
+            MagicMock(returncode=0, stdout=""),  # stash create → empty base
+            MagicMock(returncode=0, stdout="new.txt\0"),  # ls-files
+            MagicMock(returncode=0),  # update-index
+            MagicMock(returncode=0, stdout="utree\n"),  # write-tree
+            MagicMock(returncode=0, stdout="ucommit\n"),  # commit-tree untracked
+            MagicMock(returncode=0, stdout="headsha\n"),  # rev-parse HEAD
+            MagicMock(returncode=0, stdout="htree\n"),  # rev-parse HEAD^{tree}
+            MagicMock(returncode=1, stderr="boom"),  # commit-tree index → fails
+        ]
+        assert git_stash_snapshot("/tmp") is None
+        assert "will not be restorable" in capsys.readouterr().out
 
 
 class TestGitApplySnapshot:
@@ -1019,3 +1148,39 @@ class TestSnapshotRealRepo:
     def test_no_changes_returns_none(self, tmp_path):
         _init_repo(tmp_path)
         assert git_stash_snapshot(tmp_path) is None
+
+
+class TestGitRestoreTrackedTo:
+    """git_restore_tracked_to resets tracked files but preserves untracked ones
+    (the commit-mode bisect clean-reset); git_restore_to wipes untracked."""
+
+    def test_resets_tracked_and_preserves_untracked(self, tmp_path):
+        _init_repo(tmp_path)
+        head = _run_git(tmp_path, "rev-parse", "HEAD").stdout.strip()
+        # Subagent's iteration work: edit a tracked file + create a new module a
+        # fix would import (untracked, not yet committed in commit mode).
+        (tmp_path / "tracked.txt").write_text("edited\n", encoding="utf-8")
+        (tmp_path / "new_module.py").write_text("VALUE = 1\n", encoding="utf-8")
+
+        git_restore_tracked_to(head, tmp_path)
+
+        # Tracked edit undone; the untracked dependency survives isolation so a
+        # re-applied fix that imports it still passes (the B1 regression).
+        assert (tmp_path / "tracked.txt").read_text(encoding="utf-8") == "base\n"
+        assert (tmp_path / "new_module.py").read_text(encoding="utf-8") == "VALUE = 1\n"
+
+    def test_contrast_git_restore_to_wipes_untracked(self, tmp_path):
+        # git_restore_to (used for full reverts) DOES clean untracked — the two
+        # must differ, which is the whole point of the commit-mode fix.
+        _init_repo(tmp_path)
+        head = _run_git(tmp_path, "rev-parse", "HEAD").stdout.strip()
+        (tmp_path / "new_module.py").write_text("VALUE = 1\n", encoding="utf-8")
+        git_restore_to(head, tmp_path)
+        assert not (tmp_path / "new_module.py").exists()
+
+    def test_raises_on_failed_checkout(self, tmp_path):
+        import pytest
+
+        _init_repo(tmp_path)
+        with pytest.raises(RuntimeError, match="git checkout .* failed"):
+            git_restore_tracked_to("does-not-exist-ref", tmp_path)
