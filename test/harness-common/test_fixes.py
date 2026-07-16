@@ -432,6 +432,139 @@ class TestBisectFixes:
         assert ("a.txt", "fixed") in outcomes
 
 
+class TestBisectCleanResetIsDefault:
+    """With a repeatable reset hook, bisection always rebuilds from the git
+    snapshot — recorded content is never trusted as revert data. Regression
+    for a field incident where truncated pre/post_edit_content records tore a
+    coupled edit in half during the legacy revert-all phase."""
+
+    def test_clean_reset_used_without_deletion_fixes(self, tmp_path):
+        f = tmp_path / "a.py"
+        resets = {"n": 0}
+
+        def reset_to_clean():
+            resets["n"] += 1
+            f.write_text("PRE", encoding="utf-8")
+
+        reset_to_clean()
+        fix = {"file": "a.py", "pre_edit_content": "PRE", "post_edit_content": "POST"}
+        apply_single_fix(fix, str(tmp_path))
+        fixed, reverted, skipped = bisect_fixes(
+            [fix],
+            "test",
+            str(tmp_path),
+            run_tests_fn=lambda _c, _w: (True, "ok"),
+            reset_to_clean=reset_to_clean,
+        )
+        assert (fixed, reverted, skipped) == (1, 0, 0)
+        assert resets["n"] > 1  # rebuilt from clean → clean-reset strategy ran
+        assert f.read_text(encoding="utf-8") == "POST"
+
+    def test_truncated_record_cannot_tear_file(self, tmp_path):
+        # The subagent really edited line2+line3, but the recorded pair was
+        # truncated mid-edit when saved. A content-swap revert of the truncated
+        # pair would produce a chimera file (neither pre nor post — the torn
+        # state from the field incident). With the snapshot rebuild, the
+        # truncated record can only fail its isolation test, and the tree ends
+        # at a git-true state.
+        f = tmp_path / "a.py"
+        clean = "line1\nline2\nline3\n"
+
+        def reset_to_clean():
+            f.write_text(clean, encoding="utf-8")
+
+        # Working tree as the subagent actually left it.
+        f.write_text("line1\nEDITED2\nEDITED3\n", encoding="utf-8")
+        truncated = {
+            "file": "a.py",
+            "pre_edit_content": "line1\nline2\n",
+            "post_edit_content": "line1\nEDITED2\n",
+        }
+        fixed, reverted, skipped = bisect_fixes(
+            [truncated],
+            "test",
+            str(tmp_path),
+            run_tests_fn=lambda _c, _w: (False, "boom"),
+            reset_to_clean=reset_to_clean,
+        )
+        assert (fixed, reverted, skipped) == (0, 1, 0)
+        assert f.read_text(encoding="utf-8") == clean  # never torn
+
+    def test_skipped_apply_is_loud(self, tmp_path, capsys):
+        f = tmp_path / "a.py"
+
+        def reset_to_clean():
+            f.write_text("CLEAN", encoding="utf-8")
+
+        reset_to_clean()
+        # Record whose pre content doesn't exist in the clean file at all
+        # (e.g. abbreviated with an ellipsis when saved).
+        corrupt = {
+            "file": "a.py",
+            "pre_edit_content": "def foo(): ...",
+            "post_edit_content": "def foo(): return 1",
+        }
+        details = {}
+
+        def on_outcome(idx, _fix, outcome, detail):
+            details[idx] = (outcome, detail)
+
+        fixed, reverted, skipped = bisect_fixes(
+            [corrupt],
+            "test",
+            str(tmp_path),
+            run_tests_fn=lambda _c, _w: (True, "ok"),
+            on_outcome=on_outcome,
+            reset_to_clean=reset_to_clean,
+        )
+        assert (fixed, reverted, skipped) == (0, 0, 1)
+        outcome, detail = details[0]
+        assert outcome == "skipped"
+        assert "verbatim" in detail
+        assert "WARNING" in capsys.readouterr().out
+
+    def test_no_retry_replay_when_nothing_kept(self, tmp_path):
+        # All candidates rejected on the first pass and no keepers: a retry
+        # would replay the identical first pass, so it must be skipped.
+        a = tmp_path / "a.py"
+        b = tmp_path / "b.py"
+
+        def reset_to_clean():
+            a.write_text("A_PRE", encoding="utf-8")
+            b.write_text("B_PRE", encoding="utf-8")
+
+        reset_to_clean()
+        fixes = [
+            {
+                "file": "a.py",
+                "pre_edit_content": "A_PRE",
+                "post_edit_content": "A_POST",
+            },
+            {
+                "file": "b.py",
+                "pre_edit_content": "B_PRE",
+                "post_edit_content": "B_POST",
+            },
+        ]
+        for fix in fixes:
+            apply_single_fix(fix, str(tmp_path))
+        runs = []
+
+        def failing_run_tests(_c, _w):
+            runs.append(True)
+            return False, "boom"
+
+        fixed, reverted, skipped = bisect_fixes(
+            fixes,
+            "test",
+            str(tmp_path),
+            run_tests_fn=failing_run_tests,
+            reset_to_clean=reset_to_clean,
+        )
+        assert (fixed, reverted, skipped) == (0, 2, 0)
+        assert len(runs) == 2  # one per fix — no wasted replay
+
+
 class TestBisectCleanReset:
     """bisect_fixes with a reset_to_clean hook isolates deletion fixes that the
     legacy revert-all/re-apply strategy cannot un-apply."""

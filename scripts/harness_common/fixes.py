@@ -60,24 +60,36 @@ def revert_single_fix(fix, cwd):
     return _swap_content(fix, cwd, "post_edit_content", "pre_edit_content")
 
 
-def _is_deletion_fix(fix):
-    """A deletion fix (empty post_edit_content) can be applied but not reverted
-    by content-swap — reverting would need to re-insert pre_edit_content but has
-    no anchor to locate the insertion point.
-    """
-    return not fix.get("post_edit_content")
+# Emitted as the "skipped" outcome detail when a fix cannot be applied from its
+# recorded content. Lands in the finding's status_history/last_failure_hint, so
+# the next iteration's subagent sees why the fix was lost.
+SKIP_APPLY_DETAIL = (
+    "Fix could not be applied from its recorded content — pre_edit_content/"
+    "post_edit_content must match the file verbatim (possibly truncated or "
+    "re-typed when the subagent output was saved)"
+)
+
+
+def _warn_skipped_apply(fix):
+    print(
+        f"[harness] WARNING: could not apply fix for {fix.get('file', '?')} "
+        f"from its recorded content — skipped"
+    )
 
 
 def _bisect_via_clean_reset(
     fixes, test_command, cwd, run_tests_fn, on_outcome, reset_to_clean
 ):
-    """Bisect a set containing deletion fixes that content-swap can't revert.
+    """Bisect by rebuilding from the pre-iteration git snapshot.
 
-    The default revert-all/re-apply strategy can't un-apply a deletion, so the
-    deletion stays applied and contaminates every other fix's isolation test.
-    Instead, rebuild from the pre-iteration clean state via *reset_to_clean*:
-    re-establish the running set of kept (passing) fixes from clean before each
-    candidate, so every fix — deletions included — is tested in true isolation.
+    Never trusts recorded ``pre_edit_content``/``post_edit_content`` as revert
+    data: *reset_to_clean* re-establishes the running set of kept (passing)
+    fixes from the clean state before each candidate, so every fix is tested in
+    true isolation. This also covers the two cases content-swap reverts can't:
+    deletion fixes (empty ``post_edit_content`` has no anchor to re-insert at)
+    and corrupt records (a truncated ``post_edit_content`` would silently
+    revert only the part it describes, tearing the file — here a corrupt record
+    can only fail to apply, loudly, as ``"skipped"``).
 
     Same ``(fixed_count, reverted_count, skipped_count)`` contract as
     :func:`bisect_fixes`. Never emits ``"retained"`` (no un-revertible state
@@ -113,7 +125,8 @@ def _bisect_via_clean_reset(
             aborted = True
             break
         if not apply_single_fix(fix, cwd):
-            outcome[idx] = ("skipped", None)
+            _warn_skipped_apply(fix)
+            outcome[idx] = ("skipped", SKIP_APPLY_DETAIL)
             continue
         passed, summary = run_tests_fn(test_command, cwd)
         if passed:
@@ -124,13 +137,16 @@ def _bisect_via_clean_reset(
             outcome[idx] = ("reverted", summary)
 
     # Retry rejected fixes with all first-pass keepers applied — a fix may have
-    # depended on a keeper that was applied later in the first pass.
-    if not aborted:
+    # depended on a keeper that was applied later in the first pass. With no
+    # keepers the retry would replay the first pass verbatim (same clean base,
+    # same fix, same test), so skip it.
+    if not aborted and kept:
         for idx in rejected:
             if not _rebuild(kept):
                 break
             if not apply_single_fix(fixes[idx], cwd):
-                outcome[idx] = ("skipped", None)
+                _warn_skipped_apply(fixes[idx])
+                outcome[idx] = ("skipped", SKIP_APPLY_DETAIL)
                 continue
             passed, _summary = run_tests_fn(test_command, cwd)
             if passed:
@@ -176,12 +192,16 @@ def bisect_fixes(
     ``"fixed"`` after a successful retry, and ``None`` otherwise. Lets
     callers update per-finding status with provenance.
 
-    *reset_to_clean*, when provided, is a zero-arg callable that restores the
-    working tree to the pre-iteration clean state. It is required to correctly
-    bisect deletion fixes (empty post_edit_content), which can't be reverted by
-    content-swap; when the set contains one, this function rebuilds from clean
-    instead. When ``None`` (or no deletion present), the legacy incremental
-    strategy runs unchanged.
+    *reset_to_clean*, when provided, is a zero-arg callable (must be safely
+    repeatable) that restores the working tree to the pre-iteration clean
+    state. When available, bisection always rebuilds from clean via
+    :func:`_bisect_via_clean_reset` — git is the source of truth for reverts,
+    so a corrupt recorded content pair can never tear the tree, and deletion
+    fixes (empty post_edit_content, no anchor to re-insert at) are isolated
+    correctly. When ``None`` (no-commit mode — the stash snapshot is one-shot),
+    the legacy incremental revert/re-apply strategy runs instead, which trusts
+    recorded content for reverts (an un-revertible fix is left applied and
+    reported "retained").
 
     Returns ``(fixed_count, reverted_count, skipped_count)``.
     """
@@ -190,11 +210,7 @@ def bisect_fixes(
 
         run_tests_fn = _default_run_tests
 
-    # Deletion fixes can't be reverted by content-swap. When the caller supplies
-    # a clean-reset hook, rebuild from clean so deletions can be isolated;
-    # otherwise fall through to the legacy strategy (an un-revertible deletion is
-    # left applied and reported "retained").
-    if reset_to_clean is not None and any(_is_deletion_fix(f) for f in fixes):
+    if reset_to_clean is not None:
         return _bisect_via_clean_reset(
             fixes, test_command, cwd, run_tests_fn, on_outcome, reset_to_clean
         )
@@ -222,8 +238,9 @@ def bisect_fixes(
             _emit(idx, fix, "retained")
             continue
         if not apply_single_fix(fix, cwd):
+            _warn_skipped_apply(fix)
             skipped_count += 1
-            _emit(idx, fix, "skipped")
+            _emit(idx, fix, "skipped", SKIP_APPLY_DETAIL)
             continue
         passed, summary = run_tests_fn(test_command, cwd)
         if passed:
@@ -244,8 +261,9 @@ def bisect_fixes(
                 # File content drifted between first revert and retry — fix
                 # could not be re-applied. This is the same condition as a
                 # first-pass apply failure, so count it as skipped.
+                _warn_skipped_apply(fix)
                 skipped_count += 1
-                _emit(idx, fix, "skipped")
+                _emit(idx, fix, "skipped", SKIP_APPLY_DETAIL)
                 continue
             passed, summary = run_tests_fn(test_command, cwd)
             if passed:

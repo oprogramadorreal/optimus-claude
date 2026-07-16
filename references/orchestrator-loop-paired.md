@@ -49,7 +49,7 @@ Agent tool call:
 
 ### 3. Save the subagent return + extract JSON
 
-Write the unit-test subagent's final message text to `$TMP_RAW`, then extract the JSON:
+Write the unit-test subagent's final message text to `$TMP_RAW` **verbatim** — never summarize, abbreviate, or re-type any part of it — then extract the JSON:
 
 ```bash
 TMP_RAW=".claude/.unit-test-deep-ut-raw.txt"
@@ -135,7 +135,7 @@ Agent tool call:
 
 ### 7. Save the refactor return + extract the refactor JSON
 
-Write the **refactor** subagent's final message text to a refactor-phase raw file — distinct from the unit-test phase's file (step 3) so a forgotten write fails the parse loudly (missing file) instead of silently re-ingesting the stale unit-test JSON. Then extract:
+Write the **refactor** subagent's final message text **verbatim** (the `pre_edit_content`/`post_edit_content` strings inside the JSON are the bisect's apply/revert data — a corrupted copy makes its fix unrecoverable) to a refactor-phase raw file — distinct from the unit-test phase's file (step 3) so a forgotten write fails the parse loudly (missing file) instead of silently re-ingesting the stale unit-test JSON. Then extract:
 
 ```bash
 TMP_RAW=".claude/.unit-test-deep-rf-raw.txt"

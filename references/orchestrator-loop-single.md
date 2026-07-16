@@ -58,7 +58,7 @@ Where `<base-skill>` is `code-review` or `refactor`, and `<absolute-plugin-root>
 
 ### 3. Save the subagent return to a temp file
 
-Write the subagent's final message text to a temp file (the orchestrator's parent context should not hold the raw subagent output verbatim):
+Write the subagent's final message text to a temp file **verbatim** — never summarize, abbreviate, or re-type any part of it: the `pre_edit_content`/`post_edit_content` strings inside the JSON are the bisect's apply/revert data, and a corrupted copy makes its fix unrecoverable (`skipped — apply failed`). Saving to a file also keeps the raw output out of the orchestrator's parent context:
 
 ```bash
 TMP_RAW=".claude/.deep-iteration-raw.txt"
@@ -125,7 +125,7 @@ Increments `iteration.current`. Then loop back to step 1.
 - **Snapshot before dispatch.** The CLI's `deep-step` needs a fresh `pre_head` to recover from test failures, and verifies the snapshot's `iteration_token` matches the current iteration — a skipped snapshot makes `deep-step` exit non-zero rather than restore to a stale commit.
 - **Always write progress before dispatching.** Cancellation between dispatches is recoverable via `--resume`; cancellation mid-dispatch may leave the working tree inconsistent but the progress file remains valid as of the prior iteration.
 - **Slice-only progress reads.** Do not read the full progress file's `findings` array between iterations in the orchestrator's own context. The CLI's `check-termination` returns a single word; trust it.
-- **Subagent output is text, not state.** Treat each subagent's return as a one-time payload. Save it to a temp file, parse it, then forget it. Do not keep the raw output in the orchestrator's conversation.
+- **Subagent output is text, not state.** Treat each subagent's return as a one-time payload. Save it to a temp file verbatim, parse it, then forget it. Do not keep the raw output in the orchestrator's conversation.
 - **Re-entry guard.** If the orchestrator's own invocation prompt body already contains `HARNESS_MODE_INLINE`, stop with `"Deep mode cannot run inside deep mode"`. This prevents a misbehaving subagent from triggering recursion.
 - **Don't end a turn on a promise.** Mid-loop, if the next step is a tool call, issue it — never end a turn with a bare "I'll run X next" or a plan. End only at termination or when blocked on input only the user can provide.
 - **Report only what the CLI confirmed.** Per-iteration status comes from `deep-step` / `check-termination` stdout — don't assert results the CLI did not return, and if a step was skipped or a count is unverified, say so.

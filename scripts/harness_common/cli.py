@@ -289,7 +289,8 @@ def _clean_reset_hook(pre_stash, pre_head, project_root):
 
     git_restore_to (commit mode, pre_stash is None) is repeatable; a no-commit
     stash restore drops the stash after one use, so it can't back a clean-reset
-    bisect — return None there and let bisect use its legacy deletion handling.
+    bisect — return None there and let bisect fall back to its legacy
+    content-swap revert strategy.
     """
     if pre_stash is None and pre_head:
         return lambda: restore_working_tree(pre_stash, pre_head, project_root)
