@@ -1,11 +1,14 @@
-# optimus-claude 3.0 modernization plan
+# optimus-claude 3.0 modernization — plan and execution record
 
-Written 2026-07-16 on `feat/v3-modernization`. Produced from a 27-agent audit of every
-skill and cross-cutting area against Anthropic's current guidance
+Written 2026-07-16 on `feat/v3-modernization`. Part 1 (through "Considered and
+rejected") is the plan as decided **before** execution, produced from a 27-agent
+audit of every skill and cross-cutting area against Anthropic's current guidance
 ([Claude Code best practices](https://code.claude.com/docs/en/best-practices),
-[skill authoring best practices](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices)),
-plus a top-down cohesion review. Full per-file audit evidence lives in the session
-scratchpad (`audit-verdicts.json`); this file records the decisions and why.
+[skill authoring best practices](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices))
+plus a top-down cohesion review. Part 2 (["Execution record"](#execution-record--what-actually-happened))
+documents what was actually done, where execution diverged from the plan, how it was
+verified, and what a future session needs to know before touching anything. The plan
+sections are preserved as written — where reality differs, the execution record wins.
 
 ## Diagnosis
 
@@ -195,3 +198,165 @@ healthy — unchanged.
   kept.
 - **Renaming progress files / CLI identifiers for the deep merge:** CLI contracts are
   stable and tested; the merge is markdown-layer only.
+
+---
+
+# Execution record — what actually happened
+
+Everything below was executed on 2026-07-16 in a single autonomous session and is
+verified against tool output from that session. Final state vs master:
+**144 files changed, +3,252 / −15,823**. Test suite at HEAD: `validate.sh` 13/13,
+`test-hooks.sh` 45/45, `pytest test/` 393/393 (the two `test_format_python_hook.py`
+tests need the venv `Scripts` dir on PATH for black/isort — a machine quirk, not a
+repo issue).
+
+## Commit map (5 commits on `feat/v3-modernization`)
+
+| Commit | Content |
+|---|---|
+| `8d336fd` | This plan file (pre-execution version). |
+| `237276d` | **Phase 1 — shared infrastructure.** Deleted the 8 native-covered skills; deleted `skill-handoff.md`, `sdd-mapping.md`, `scope-expansion-rule.md`; merged the two orchestrator-loop refs into `references/orchestrator-loop.md`; trimmed `shared-agent-constraints.md`, `agent-architecture.md`, both plugin agents; slimmed `hooks/session-start` (git-state block removed — one test-hooks scenario flipped from "reports uncommitted changes" to "still silent"); rewrote `validate.sh` 1,116→413 lines; moved `platform-detection.md` + `default-branch-detection.md` from pr→code-review and the permissions templates under init (`templates/hooks/restrict-paths.sh`, `templates/permissions-settings.json` — test-hooks.sh path updated). |
+| `e0b56c0` | **Main overhaul.** The 8 skill rewrites (see below), deletion of the 8 merge-source dirs, harness code trims + full test alignment, all root/meta docs rewritten, version 3.0.0. |
+| `90da714` | Post-sweep fixes: `retained — revert failed` status removed from the two context-block docs (it died with the legacy bisect), `harness-init-resume.md` retargeted from "three `*-deep` skills" to `/optimus:deep`, guardrails-hook header comments repointed from the dead permissions skill to init. |
+| `76aa633` | All 26 findings from the adversarial verification pass (list below). |
+
+## How the work was executed
+
+Four multi-agent operations, all with per-agent transcripts in the session's workflow
+journals (not accessible to future sessions — the durable evidence is this file and
+the commits):
+
+1. **Audit workflow — 27 agents** (~1.7M tokens): one auditor per skill (22), four
+   cross-cutting auditors (shared references/agents/hooks, validate.sh + test infra,
+   Python harness, meta-docs), one top-down "cohesion critic" that designed the ideal
+   lineup from first principles. Each returned a structured verdict
+   (drop/merge/rewrite/keep-trim/keep) with cut/keep lists and dependency evidence.
+   The per-skill (bottom-up) and critic (top-down) verdicts diverged on four skills —
+   `workflow`, `pr`, `handoff` (bottom-up said rewrite/keep-trim, critic said drop)
+   and `how-to-run` (standalone rewrite vs init merge). The orchestrating session
+   adjudicated each; the critic's position won all four, for the reasons recorded in
+   "Considered and rejected" above.
+2. **Rewrite workflow — 8 agents in parallel**, each confined to its own
+   `skills/<name>/` directory, all given the same shared contract: the new
+   `.claude/docs/skill-writing-guidelines.md` (deliberately written *before* this
+   phase so rewrites would embody it), the final lineup (so closing suggestions only
+   name surviving skills), the exact machine-contract tokens to preserve, and
+   validator invariants (orphan rule, path resolution, portable mktemp).
+   Merge-source directories (brainstorm, jira, the *-deep trio, …) were left on disk
+   as readable source material until all agents finished, then deleted.
+3. **One synchronous agent** aligned `test/harness-common/` with the harness trims
+   (387→393 tests over the session as contract tests were added).
+4. **Verification workflow — 7 adversarial auditors** (root docs, init+reset,
+   spec+tdd, review/refactor/unit-test, deep-vs-CLI-source, repo-wide stale sweep,
+   fresh-user walkthrough), each returning findings with file:line evidence.
+
+The orchestrating session did the cross-cutting surgery itself (phase 1, the harness
+Python trims, `test_skill_contract.py` repointing, root docs, version bump) because
+those define contracts the parallel agents depended on.
+
+**Incident worth knowing about:** the first verification run returned
+`{"findings": []}` — but all 7 agents had actually errored on a session usage limit,
+so the empty list was *not* evidence of accuracy. It was treated as a failed run.
+The mechanical half of the verification (stale-token greps, deep-vs-CLI flag/constant
+comparison, init-vs-reset manifest diff) was done inline by the orchestrator, three
+stragglers were fixed (`90da714`), and the LLM audit was re-run after the limit reset
+— it then produced the 26 real findings fixed in `76aa633`. Lesson for future
+sessions: an empty result from an errored fan-out is a failure, not a pass.
+
+## Deviations from the plan
+
+- **Sizes landed smaller than planned.** tdd 105 lines (plan said ~150), init 131
+  (plan implied 170–200), spec 111, deep 127, code-review 204, refactor 117,
+  unit-test 116, reset 137. Total SKILL.md footprint 4,457 → 1,037 lines; all
+  skill/reference/agent markdown ~15,200 → ~4,885. Agents were explicitly told not to
+  pad to targets.
+- **`spec-context-detection.md` was deleted, not moved.** tdd inlined its 4-step
+  resolution (explicit path → newest `docs/specs/` with `Status: Approved` → inline
+  task → ask); spec owns the format contract in `skills/spec/references/spec-format.md`.
+  Also deleted outright: tdd's `coverage-detection.md` (now two lines inline) and
+  `tdd-worktree-orchestration.md`; init's `readme-section-detection.md` (sole
+  consumer was the dead how-to-run); all five `skills/jira/references/*` (nothing
+  ported — the spec skill's JIRA path is a read-only-MCP stance plus paste fallback,
+  not a port of the extraction machinery).
+- **code-review's bug-detector + security-reviewer merged into one
+  `correctness-security.md` agent** (fan-out is now 4–6: correctness-security,
+  guideline ×2, code-simplifier, + conditional test-guardian and contracts-reviewer).
+  The Intent Mismatch category survives but is judged against the PR/MR description
+  as a whole — the `## Intent` heading gate was fully removed (last remnant found by
+  the verification pass in `references/context-injection-blocks.md`).
+- **`test_skill_contract.py` was loosened where it pinned prose.** The old test
+  demanded an exact `--yes` bypass sentence in each orchestrator; the new test checks
+  `--yes` and `--resume` are documented — behavioral, not verbatim. The plugin-root
+  byte-identity test across three orchestrators became a single existence check (one
+  orchestrator now).
+- **init landed with no argument handling** — the verification pass caught its README
+  advertising a "focus" argument the SKILL never implemented; the example was dropped
+  rather than the feature added (YAGNI).
+- **`skills/init/templates/settings.json`** (formatter-hook wiring template) already
+  existed and stayed; the permissions template landed beside it as
+  `permissions-settings.json`. Both are referenced by reset's surgical cleanup.
+
+## The 26 verification findings (all fixed in `76aa633` unless noted)
+
+Themes, so a future session knows what class of drift to watch for:
+
+1. **reset's manifest vs init's actual behavior** (5 findings): claimed
+   per-subproject `coding-guidelines.md` copies init never creates (fixed in 3
+   places); missed the workspace-root HOW-TO-RUN.md init generates for multi-repo
+   workspaces; missed that init's guardrails step adds `mcp__<server>` allow entries
+   beyond the permissions template (reset now removes those too).
+2. **Deleted-era remnants** (6): the `## Intent` heading gate in
+   `context-injection-blocks.md`; `test-skills.sh` help/usage text listing five dead
+   skills; `cli.py` argparse description and `--allow-red` help naming
+   `unit-test-deep` and a never-existed `--allow-red-baseline` flag; a stale
+   quotation of the old base-agent wording in code-review's `code-simplifier.md`.
+3. **Docstring/doc drift from my own harness trims** (4): `check-termination` enum
+   missing `parse-failure`; missing `baseline` line in the CLI docstring;
+   `cmd_baseline` "fresh run only" claim contradicting deep's resume-with-zero-
+   iterations rule; `harness-init-resume.md` quoting an error string
+   ("No test command") the CLI no longer emits.
+4. **Cross-doc consistency** (5): README's "only automatic component" claim vs the
+   two model-invocable plugin agents (softened to "only always-on component");
+   unit-test README's "passively flags after code changes"; `.optimus-version`
+   "never touch it" rule vs reset legitimately deleting it; quality-gate.md's
+   "project-level agents" (a tier that doesn't exist); platform-detection.md's
+   "shared by multiple skills" preamble (single consumer now).
+5. **Stale pointers** (2): restrict-paths.sh header promising a pattern list "in the
+   skill's README" that no README carries (both the template and this repo's
+   installed copy now point at `is_precious()` itself); init README's unsupported
+   usage example.
+
+## Contract inventory — do not break these without updating their enforcers
+
+| Contract | Enforced by |
+|---|---|
+| `## Scenarios` / `### Scenario:` literal headings in `skills/spec/references/spec-format.md` **and** `skills/tdd/SKILL.md` | `validate.sh` check 17 |
+| `HARNESS_MODE_INLINE` + `references/harness-mode.md` routing in code-review/refactor SKILL.md; + `references/coverage-harness-mode.md` in unit-test | `test_skill_contract.py` |
+| `skills/deep/SKILL.md` must name `references/orchestrator-loop.md`, all three base SKILL.md paths, `### Plugin root`, `Re-entry guard`, `--test-command`, `cli baseline`, `` `--yes` ``/`` `--resume` `` | `test_skill_contract.py` |
+| Progress-file names `.claude/{code-review,refactor,unit-test}-deep-progress.json` | `constants.py` `DEFAULT_PROGRESS_FILES` + tests |
+| Temp-file prefixes `.claude/.deep-iteration-*`, `.claude/.unit-test-deep-*` (in `orchestrator-loop.md`) | `git.py` `_HARNESS_STATE_EXCLUDES` un-stage patterns |
+| Iteration-context status vocabulary (`fixed`, `reverted — test failure`, `reverted — attempt 2`, `skipped — apply failed`, `persistent — fix failed`) in `context-injection-blocks.md` | `constants.py` / `findings.py`; note `retained — revert failed` no longer exists |
+| harness JSON output schema (`json:harness-output`, `pre/post_edit_content`, `no_new_findings`, …) in `harness-mode.md` / `coverage-harness-mode.md` | `cli.py parse` + `test_skill_contract.py` round-trip |
+| SKILL.md frontmatter: `description` (≤1024), `disable-model-invocation: true`, **no** `name:` field, quoted `argument-hint` | `validate.sh` check 3 |
+| Every skill dir has SKILL.md + README.md; README lists every skill; every `$CLAUDE_PLUGIN_ROOT` path resolves; refs ≤2 deep; no orphans in references/templates/agents dirs | `validate.sh` checks 8, 9, 12, 13, 16 |
+| `cli init` requires `--test-command` (the CLAUDE.md parser is gone) | `cli.py` + `test_cli.py` |
+| `bisect_fixes` requires `reset_to_clean` (raises ValueError; legacy content-swap bisect and `revert_single_fix` deleted) | `test_fixes.py` |
+
+## Open items for the next session
+
+- **`test-skills.sh` was updated but never executed** — it needs an authenticated
+  `claude` CLI and real headless runs. Run
+  `bash scripts/test-skills.sh --fresh --all --worktree` before merging; only init
+  is in the matrix now (spec/deep/tdd are interactive or long-running by design).
+- `validate.sh`'s jq-dependent checks (plugin.json validity, version-bump/badge,
+  hooks.json) and the Python template-syntax check **SKIPped locally** (tools not on
+  the Git Bash PATH of the machine used) — CI runs them; the version/badge pair was
+  verified manually (`3.0.0` both places).
+- Decide whether this V3-PLAN.md ships in the release or is dropped before merge.
+- Feature-branch install testing (CONTRIBUTING's `ref` + `#branch` procedure) was not
+  done; if wanted, remember the `ref` must be removed before merging (validate.sh
+  enforces its absence).
+- The branch is local-only — nothing was pushed.
+- Session memory (`~/.claude/.../memory/`) was updated: the 51-finding July-7 audit
+  backlog is marked superseded by this overhaul; a `v3-modernization-2026-07` entry
+  points future sessions at this file.
