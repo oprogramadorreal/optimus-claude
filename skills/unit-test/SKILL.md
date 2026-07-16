@@ -1,215 +1,116 @@
 ---
-description: Improves unit test coverage on demand — discovers testing gaps and generates tests that follow project conventions. Requires /optimus:init to have set up test infrastructure first. Conservative — only adds new tests, never modifies existing test logic or source code. Use when test coverage is low or after adding new code that lacks tests. For an automated multi-cycle coverage + testability refactoring loop, use `/optimus:unit-test-deep`.
+description: Improves unit test coverage on demand — discovers coverage gaps and writes new tests that follow project conventions. Conservative by design — only adds tests (new files, or new cases appended to existing test files), never modifies existing test logic or source code; structurally untestable code is flagged for /optimus:refactor instead of being changed. Requires /optimus:init to have set up test infrastructure. Use when coverage is low or after adding code that lacks tests; for an automated multi-cycle coverage loop, use /optimus:deep coverage.
 disable-model-invocation: true
 argument-hint: "[path]"
 ---
 
 # Unit Test Coverage Improvement
 
-Improve unit test coverage for existing code. Requires `/optimus:init` to have set up test infrastructure (framework, coverage tooling, testing docs) first. Conservative by design — only adds new tests (new files, or new cases appended to existing test files), never refactors or restructures existing source code. If code is untestable as-is, it flags it rather than changing it. Refactoring is the domain of `/optimus:refactor`.
+Improve unit test coverage for existing code. Conservative by design: only add new tests — new files, or new cases appended to existing test files. Never refactor or restructure source code; if code is untestable as-is, flag it rather than change it. Refactoring is the domain of `/optimus:refactor`.
 
 ## Step 1: Pre-flight
 
-### Parse invocation arguments
+Arguments are optional scope instructions (e.g. `/optimus:unit-test src/api` scopes discovery and planning to that path).
 
-Extract from the user's arguments:
-1. Everything → scope instructions (optional path)
+### Harness mode detection
 
-Examples:
-- `/optimus:unit-test` → full project
-- `/optimus:unit-test src/api` → scoped
+If your invocation prompt body contains `HARNESS_MODE_INLINE`, you are running as a single unit-test-phase pass inside the `/optimus:deep coverage` orchestrator. Read `$CLAUDE_PLUGIN_ROOT/references/coverage-harness-mode.md` and follow its "Unit-Test Phase Execution" section: skip user confirmation, run Steps 2–4 exactly once, then emit the structured JSON from Step 6 and stop. Do not use `AskUserQuestion`. Do not loop.
 
-### Inline harness mode detection
+### Prerequisites
 
-If your invocation prompt body contains `HARNESS_MODE_INLINE`, you are running inside the `/optimus:unit-test-deep` orchestrator as a single cycle (unit-test phase). Read `$CLAUDE_PLUGIN_ROOT/references/coverage-harness-mode.md` and follow its "Unit-Test Phase Execution" section: skip user confirmation, run Steps 2–4 exactly once, then output structured JSON via Step 6 and stop. Do not use `AskUserQuestion`. Do not loop.
-
-### Pre-flight checks
-
-Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/multi-repo-detection.md` for workspace detection. If a multi-repo workspace is detected, process each repo independently: run Steps 1-5 inside each repo that has `.claude/CLAUDE.md`. Report results per repo. If no repos have been initialized, suggest running `/optimus:init` first from the workspace root.
+Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/multi-repo-detection.md` for workspace detection. In a multi-repo workspace, run Steps 1–5 independently inside each repo that has `.claude/CLAUDE.md` and report results per repo; if no repo is initialized, suggest running `/optimus:init` from the workspace root.
 
 Check that `.claude/CLAUDE.md` exists. If it doesn't, stop and recommend running `/optimus:init` first — the project needs baseline context before test generation can be effective.
 
-Beyond the init check, identify which guideline documents are available — they directly affect the quality of everything this skill does:
-
-| Document | Role | Effect on skill |
-|----------|------|-----------------|
-| `coding-guidelines.md` | Primary quality reference | Tests follow naming conventions, code structure, quality standards |
-| `testing.md` | Testing conventions | Framework, runner commands, mocking patterns, file organization |
-| `.claude/CLAUDE.md` | Project overview | Tech stack signals, test runner commands |
-
-**Monorepo path note:** Read the "Monorepo Scoping Rule" section of `$CLAUDE_PLUGIN_ROOT/skills/init/references/constraint-doc-loading.md` for doc layout and scoping rules. When generating tests for a subproject, load that subproject's `testing.md`, not another subproject's.
-
-The skill operates differently depending on what exists:
-- **All three docs** — matches existing conventions precisely
-- **CLAUDE.md + coding-guidelines (no testing.md)** — derives conventions from the codebase
-- **CLAUDE.md only (no guidelines either)** — still works, but with less project-specific guidance
-
-### Scope
-
-For monorepos and multi-repo workspaces, detect project structure using the same approach as `/optimus:init` — read `$CLAUDE_PLUGIN_ROOT/skills/init/references/project-detection.md` for the full detection algorithm (workspace configs, manifest scanning, supporting signals; multi-repo workspace detection is already loaded from the pre-flight checks above). Process each project/repo independently.
+Locate the guideline documents that shape everything this skill writes: `coding-guidelines.md` (quality standards) and `testing.md` (framework, runner commands, mocking patterns, file organization). If `testing.md` is missing, derive conventions from the existing test suite; if guidelines are missing entirely, the skill still works with less project-specific guidance. In a monorepo, apply the "Monorepo Scoping Rule" from `$CLAUDE_PLUGIN_ROOT/skills/init/references/constraint-doc-loading.md` — load the target subproject's `testing.md`, not another subproject's — and process each subproject independently.
 
 ## Step 2: Discovery & Coverage Analysis (agent-assisted)
 
-Delegate test infrastructure scanning, test execution, and coverage analysis to a reconnaissance agent to keep the main context clean for test writing.
+Delegate infrastructure scanning, test execution, and coverage analysis to a reconnaissance agent, keeping the main context clean for test writing.
 
-For each subproject (or the single project):
+For each subproject (or the single project), launch **one** `general-purpose` Agent using the prompt from `$CLAUDE_PLUGIN_ROOT/skills/unit-test/agents/test-infrastructure-analyzer.md`, prepended with `$CLAUDE_PLUGIN_ROOT/skills/unit-test/agents/shared-constraints.md`.
 
-Read `$CLAUDE_PLUGIN_ROOT/skills/unit-test/agents/shared-constraints.md` for agent constraints.
-Read `$CLAUDE_PLUGIN_ROOT/skills/unit-test/agents/test-infrastructure-analyzer.md` for the full prompt template, scanning patterns, execution rules, and return format for the Test Infrastructure Analyzer Agent.
+**Cycle context (harness mode, cycles 2+):** when the progress file's `cycle.current` is greater than 1, also prepend the cycle context block specified in coverage-harness-mode.md ("Run discovery and coverage analysis") so the agent proposes new targets instead of re-discovering prior ones.
 
-### Cycle context injection (harness mode, cycles 2+)
+### Stop gates (evaluated from the agent's Discovery Results)
 
-When running under `HARNESS_MODE_INLINE` and the progress file's `cycle.current` is greater than 1, prepend the cycle context block specified in `$CLAUDE_PLUGIN_ROOT/references/coverage-harness-mode.md` (section "Run discovery and coverage analysis") to the agent prompt before the main instructions.
+**Harness mode:** when a gate fires, don't write conversational handoffs — follow the "Stop gates under harness mode" rule in coverage-harness-mode.md: emit the Step 6 JSON immediately with a non-null `blocked` field and stop.
 
-### Launch
+**No test framework detected** — stop. Recommend `/optimus:init` (or re-running it) to install a test framework and set up test infrastructure; for a project with no detectable stack yet, init's scaffold option builds a starter stack first. Never proceed to test generation without a working framework.
 
-Launch 1 `general-purpose` Agent tool call using the prompt from test-infrastructure-analyzer.md, prepended with the shared constraints (and the cycle context block, if applicable).
+**Baseline test suite fails** — stop. This skill never fixes pre-existing failing tests or build issues; a green baseline is required before adding tests. Distinguish the two failure kinds from the agent's report:
 
-| Agent | Role | Runs when |
-|-------|------|-----------|
-| 1 — Test Infrastructure Analysis | Scan test files/frameworks/runners, run existing tests, measure coverage, classify code testability | Always |
-
-Wait for the agent to complete.
-
-### Stop gates (evaluated from agent results)
-
-**Harness mode:** when a stop gate fires, do not print the conversational handoff messages below — follow the "Stop gates under harness mode" rule in `$CLAUDE_PLUGIN_ROOT/references/coverage-harness-mode.md`: emit the Step 6 JSON immediately with a non-null `blocked` field and stop.
-
-**If no test framework is detected** in the agent's Discovery Results, stop and report: "No test framework found. Run `/optimus:init` (or re-run it) to install a test framework and set up test infrastructure before using this skill. For a project with no code or detectable stack yet, pick **Scaffold new project** when init asks — init builds a starter stack, then sets up the framework on it." Do not proceed to test generation without a working framework.
-
-**If the agent's Test Suite Execution reports failures**, stop. This skill does not fix failing tests or build-level issues by design. Print the matching message below (Conversation / Mode / Next skill per `$CLAUDE_PLUGIN_ROOT/references/skill-handoff.md`).
-
-- **Fail - assertion** (tests compile and run, but some fail): print the quote below, then append a `### Bugs Discovered` section listing each failing test as `[test file] — [test name] — [one-line failure excerpt]` (prefix entries with repo name/path in multi-repo workspaces; omit the excerpt if the test runner output did not expose it).
-
-  > Pre-existing tests are failing. A green baseline is required before adding new tests, and this skill does not modify existing tests or source code.
-  >
-  > **Next:** stay in this conversation (normal mode) and ask Claude to triage the failing tests listed in Bugs Discovered. Once the baseline is green, start a fresh conversation and re-run `/optimus:unit-test`.
-  >
-  > **Tip:** for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch.
-
-- **Fail - build** (build/bootstrap failures): print the quote below and stop — no Bugs Discovered section (there are no per-test failures to list, only build errors the analyzer has already summarized).
-
-  > The test runner cannot start or test files fail to compile. These are build-level issues, not test logic, and `/optimus:init` owns that repair path.
-  >
-  > **Next:** start a fresh conversation in normal mode and run `/optimus:init` — its health check will propose minimal fixes and re-run the suite. Once the build is healthy, start another fresh conversation and re-run `/optimus:unit-test`.
-  >
-  > **Tip:** for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch.
-
-### Present to user
-
-From the agent's results, present the **Discovery Summary** and **Coverage Analysis** to the user. This sets clear expectations and reinforces the conservative constraint.
+- *Assertion failures* (tests compile and run, but some fail): list each failing test with a one-line failure excerpt so the user can triage in this conversation. Once the baseline is green, re-run `/optimus:unit-test` in a fresh conversation.
+- *Build/bootstrap failures* (the runner cannot start or test files fail to compile): these are build-level issues — recommend `/optimus:init`, whose health check owns that repair path, then re-running this skill.
 
 ### Data carried forward
 
-- **Test runner command** and **framework identity** → Step 4 (test execution and idioms)
-- **Coverage tooling** → Step 5 (final measurement)
-- **Testability classification** → Step 3 (plan prioritization — testable items become candidates, untestable items are skipped)
-- **Baseline coverage** → Step 5 (before/after comparison)
+From the agent's Discovery Results, present the infrastructure findings and coverage analysis to the user, and carry forward: the test runner command and framework, coverage tooling, baseline coverage (for the before/after comparison), and the testability classification (testable items become plan candidates; untestable items are flagged, not attempted).
 
 ## Step 3: Test Generation Plan
 
 Create a prioritized list, **capped at 10 items per run**:
 
-1. **Exported/public functions and classes** — API surface, highest value
-2. **Pure functions and utility modules** — easiest to test, highest ROI
-3. **Business logic with clear inputs/outputs** — core functionality
-4. **Complex branching logic** — high cyclomatic complexity, most likely to have bugs
-5. **Internal/private helpers** — lower priority, test through public API when possible
+1. Exported/public functions and classes — API surface, highest value
+2. Pure functions and utility modules — easiest to test, highest ROI
+3. Business logic with clear inputs/outputs
+4. Complex branching logic — most likely to hide bugs
+5. Internal/private helpers — lowest priority; test through the public API when possible
 
-**Skip** (flag in summary, don't attempt):
-- Code that's untestable without refactoring
-- Generated code (protobuf, OpenAPI, ORM migrations)
-- Migration files
-- Declarative configuration
-- Thin wrappers with no logic
+**Skip** (flag in the summary, don't attempt): code untestable without refactoring, generated code (protobuf, OpenAPI, ORM migrations), migration files, declarative configuration, thin wrappers with no logic.
 
-### User confirmation
+**Harness mode:** auto-approve all planned items and proceed to Step 4 — the orchestrator decides whether to iterate.
 
-**Harness mode**: Skip the question — auto-select "Generate tests for all planned items" and proceed directly to Step 4. The orchestrator skill (`/optimus:unit-test-deep`) decides whether to iterate after Step 6 emits JSON.
-
-**Normal mode**: Present the plan, then use `AskUserQuestion` — header "Plan", question "How would you like to proceed with the test generation plan?":
-- **Approve all** — "Generate tests for all planned items"
-- **Selective** — "Choose specific items by number"
-- **Skip** — "No tests — keep the plan as reference"
-
-If the user selects **Selective**, ask which item numbers to proceed with (e.g., "1, 3, 5").
+**Normal mode:** present the plan and confirm with the user before writing anything — they may approve everything, pick specific items, or skip generation and keep the plan as reference.
 
 ## Step 4: Test Writing
 
 ### Quality standards
 
 Tests must follow:
-- `coding-guidelines.md` for quality standards (naming, structure, clarity)
-- `testing.md` for testing conventions (framework idioms, file naming, directory structure)
-- `$CLAUDE_PLUGIN_ROOT/skills/tdd/references/testing-anti-patterns.md` for mocking discipline — prefer real code over mocks, never assert on mock behavior, mock only external services or non-deterministic dependencies
-- Existing test files for concrete patterns to replicate: import style, assertion library, file naming convention, directory placement, shared fixtures (conftest/setup files, factories, beforeAll/setUp blocks), and describe/it or class/method test organization. Extract these patterns **before writing the first test** and apply them consistently to all generated tests.
 
-### Before writing each test
+- `coding-guidelines.md` — naming, structure, clarity
+- `testing.md` — framework idioms, file naming, directory structure
+- `$CLAUDE_PLUGIN_ROOT/skills/tdd/references/testing-anti-patterns.md` — mocking discipline: prefer real code over mocks, never assert on mock behavior, mock only external services or non-deterministic dependencies
+- Existing test files — extract concrete patterns (import style, assertion library, naming, placement, shared fixtures, test organization) **before writing the first test** and apply them consistently
 
-Answer these gate questions — fix any "no" before proceeding:
+### Before each test
 
-1. **File placement** — Does a test file for this module already exist? If yes, add tests there instead of creating a new file. New files must follow the naming convention from `testing.md` (typically `test_<module_name>` or `<module_name>.test`).
-2. **Fixtures and helpers** — Do existing test files or shared setup files (conftest.py, test helpers, factories) already provide fixtures for the data this test needs? Use them instead of creating private helpers that duplicate existing setup.
-3. **Mocking and assertion discipline** — apply the gate questions from `$CLAUDE_PLUGIN_ROOT/skills/tdd/references/testing-anti-patterns.md` (already referenced in Quality standards above).
-4. **Setup duplication** — apply the DRY principle from `coding-guidelines.md` to test setup: repeated setup should be extracted to shared fixtures (setUp/beforeEach, conftest, factories).
+1. **File placement** — if a test file for the module already exists, add cases there; new files follow the `testing.md` naming convention.
+2. **Fixture reuse** — use existing fixtures and shared setup (conftest, helpers, factories) instead of duplicating them privately.
+3. **Mocking discipline** — apply the gate questions from testing-anti-patterns.md.
+4. **Setup DRY** — extract repeated setup into shared fixtures per `coding-guidelines.md`.
 
 ### Conservative constraint
 
-**Only add new tests** — new files, or new cases appended to existing test files. Never modify existing test logic or source code — refactoring is the domain of `/optimus:refactor`. If a function can't be tested without changing its signature or extracting dependencies, flag it in the summary instead of changing it.
+Only add new tests. Never modify existing test logic or source code — refactoring is the domain of `/optimus:refactor`. If a function can't be tested without changing its signature or extracting dependencies, flag it as untestable instead of changing it. In harness mode, flagged items become `untestable_code` entries in the Step 6 JSON — they feed the orchestrator's refactor phase.
 
 ### Per-test workflow
 
 For each approved item:
-1. Write the test file
-2. Self-review against the "Before writing each test" checklist above — fix any violations before running
-3. Run it immediately
-4. If the test fails:
-   - Fix the **test** (not the source code) — max 3 fix attempts
-   - If still failing after 3 attempts, flag as untestable and revert the test file (or remove the appended cases) before moving on — an abandoned failing test must not remain active in either mode. In harness mode, record the item as `fail-abandoned` in the Step 6 JSON.
-   - If the failure reveals an actual **bug in existing code**, report the bug but do not fix it — keep it in Bugs Discovered (`bugs_discovered` in harness mode), then revert the failing test the same way. In harness mode, record the item as `fail-abandoned` with `failure_reason` naming the bug.
-5. Move to the next item
+
+1. Write the test, self-review against the checks above, run it immediately.
+2. If it fails, fix the **test** (never the source) — max 3 attempts. In harness mode, a test that needed fixes before passing is recorded as `fail-fixed` in the Step 6 JSON.
+3. Still failing after 3 attempts — flag the item as untestable and revert the test file (or remove the appended cases): an abandoned failing test must not remain active in either mode. Harness mode: record it as `fail-abandoned`.
+4. If the failure reveals a **bug in existing code**, report the bug but do not fix it — keep it in the bugs-discovered list (`bugs_discovered` in harness mode), then revert the failing test the same way. Harness mode: record the item as `fail-abandoned` with `failure_reason` naming the bug.
 
 ### Final verification (normal mode only)
 
-After all tests are written, run the **full test suite** to ensure no regressions. Follow the verification protocol from `$CLAUDE_PLUGIN_ROOT/skills/init/references/verification-protocol.md` — run tests fresh, read complete output, and report actual results with evidence before claiming success. (In harness mode, skip this run — the orchestrator owns the full run and bisection.)
+Run the **full test suite** and follow `$CLAUDE_PLUGIN_ROOT/skills/init/references/verification-protocol.md` — fresh run, complete output read, evidence before any success claim. If a newly-added test causes regressions under the full suite, revert it. (Harness mode: skip this run — the orchestrator owns the full run and bisection.)
 
-If the full-suite run reveals that a newly-added test file causes regressions (either the new test itself failing under the full suite, or causing other tests to fail), revert that test file.
+## Step 5: Summary (normal mode)
 
-## Step 5: Summary
+**Harness mode:** skip — Step 6 emits the structured JSON instead.
 
-**Harness mode:** Skip this step — Step 6 emits the structured JSON output instead.
+Report to the user (per repo, in multi-repo workspaces):
 
-**Normal mode:** Report to the user:
+- Coverage before → after, and the achievable target without refactoring
+- Tests created — file, target, pass status
+- Bugs discovered in existing code — reported, not fixed
+- Code not testable without refactoring — with the structural change each would need
 
-```
-## Unit Test Summary
-
-### Coverage
-- Coverage tooling: [tool name / not configured]
-- Before: [X]% → After: [Y]%
-- Achievable target (without refactoring): ~[Z]%
-
-### Tests Created
-| # | File | Target | Status |
-|---|------|--------|--------|
-| 1 | src/__tests__/auth.test.ts | auth module exports | ✓ Pass |
-| 2 | src/__tests__/validate.test.ts | validation utilities | ✓ Pass |
-| ... | ... | ... | ... |
-
-### Bugs Discovered
-- [List of bugs found in existing code — reported, not fixed]
-
-### Not Testable Without Refactoring
-- [List of code flagged as untestable — with brief explanation of what structural change would be needed]
-- To address these, run `/optimus:refactor testability` to prioritize testability improvements.
-```
-
-For multi-repo workspaces, present results per repo (one summary block per repo) and include the repo name/path in each section header.
-
-Recommend running `/optimus:refactor testability` to prioritize testability improvements (or `/optimus:refactor` for balanced code quality review), or `/optimus:tdd` to continue development with test-driven workflow. If many untestable items were flagged or coverage gains are blocked behind untestable code, suggest `/optimus:unit-test-deep` which alternates test generation with testability refactoring in an automated loop.
-
-Tell the user: **Tip:** for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch.
+Close with what fits the results: re-run `/optimus:unit-test` to keep improving coverage incrementally; if untestable code was flagged, `/optimus:refactor testability` restructures it (then re-run this skill against the result); for sustained automated alternation of both, `/optimus:deep coverage`. Each is best run in a fresh conversation.
 
 ## Step 6: Harness Output (harness mode only)
 
-If running under `HARNESS_MODE_INLINE`, output structured JSON **instead** of the Step 5 markdown summary. The exact schema lives in `$CLAUDE_PLUGIN_ROOT/references/coverage-harness-mode.md` "Output structured JSON" — read it and emit the fenced block specified there. Then stop — do not loop, do not present recommendations, do not use `AskUserQuestion`.
+If running under `HARNESS_MODE_INLINE`, output structured JSON **instead** of the Step 5 summary. The exact schema lives in `$CLAUDE_PLUGIN_ROOT/references/coverage-harness-mode.md` "Output structured JSON" — read it and emit the fenced block specified there. Then stop — do not loop, do not present recommendations, do not use `AskUserQuestion`.

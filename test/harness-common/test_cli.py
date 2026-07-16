@@ -117,6 +117,8 @@ class TestInit:
         progress_path = repo / "progress.json"
         exit_code = _run(
             "init",
+            "--test-command",
+            "npm test",
             "--skill",
             "code-review",
             "--progress-file",
@@ -138,6 +140,8 @@ class TestInit:
         progress_path = repo / "progress.json"
         exit_code = _run(
             "init",
+            "--test-command",
+            "npm test",
             "--skill",
             "refactor",
             "--focus",
@@ -157,6 +161,8 @@ class TestInit:
         progress_path = repo / "progress.json"
         exit_code = _run(
             "init",
+            "--test-command",
+            "npm test",
             "--skill",
             "code-review",
             "--focus",
@@ -179,6 +185,8 @@ class TestInit:
         progress_path = repo / "progress.json"
         exit_code = _run(
             "init",
+            "--test-command",
+            "npm test",
             "--skill",
             "bad-skill",
             "--progress-file",
@@ -196,6 +204,8 @@ class TestInit:
         progress_path = repo / "progress.json"
         exit_code = _run(
             "init",
+            "--test-command",
+            "npm test",
             "--skill",
             "refactor",
             "--focus",
@@ -208,11 +218,9 @@ class TestInit:
         assert exit_code == 1
 
     def test_no_test_command(self, tmp_path, monkeypatch, capsys):
-        repo = tmp_path
-        (repo / ".claude").mkdir()
-        (repo / ".claude" / "CLAUDE.md").write_text(
-            "# no test command", encoding="utf-8"
-        )
+        # There is no CLAUDE.md-detection fallback: the orchestrator resolves
+        # the project's test command and must pass --test-command explicitly.
+        repo = _make_repo(tmp_path)
         _stub_git(monkeypatch)
         progress_path = repo / "progress.json"
         exit_code = _run(
@@ -225,7 +233,28 @@ class TestInit:
             str(repo),
         )
         assert exit_code == 1
-        assert "No test command" in capsys.readouterr().err
+        assert "--test-command is required" in capsys.readouterr().err
+        assert not progress_path.exists()
+
+    def test_empty_test_command_rejected(self, tmp_path, monkeypatch, capsys):
+        # An explicit empty value is as unusable as an absent one.
+        repo = _make_repo(tmp_path)
+        _stub_git(monkeypatch)
+        progress_path = repo / "progress.json"
+        exit_code = _run(
+            "init",
+            "--test-command",
+            "",
+            "--skill",
+            "code-review",
+            "--progress-file",
+            str(progress_path),
+            "--project-dir",
+            str(repo),
+        )
+        assert exit_code == 1
+        assert "--test-command is required" in capsys.readouterr().err
+        assert not progress_path.exists()
 
     def test_coverage_init(self, tmp_path, monkeypatch):
         repo = _make_repo(tmp_path)
@@ -233,6 +262,8 @@ class TestInit:
         progress_path = repo / "progress.json"
         exit_code = _run(
             "init",
+            "--test-command",
+            "npm test",
             "--skill",
             "unit-test",
             "--progress-file",
@@ -256,6 +287,8 @@ class TestInit:
         progress_path = repo / "progress.json"
         _run(
             "init",
+            "--test-command",
+            "npm test",
             "--skill",
             "code-review",
             "--max-iterations",
@@ -274,6 +307,8 @@ class TestInit:
         progress_path = repo / "progress.json"
         _run(
             "init",
+            "--test-command",
+            "npm test",
             "--skill",
             "unit-test",
             "--max-cycles",
@@ -292,6 +327,8 @@ class TestInit:
         progress_path = repo / "progress.json"
         _run(
             "init",
+            "--test-command",
+            "npm test",
             "--skill",
             "code-review",
             "--progress-file",
@@ -312,6 +349,8 @@ class TestInit:
         progress_path = repo / "progress.json"
         _run(
             "init",
+            "--test-command",
+            "npm test",
             "--skill",
             "code-review",
             "--progress-file",
@@ -324,13 +363,15 @@ class TestInit:
 
     def test_deep_natural_language_scope(self, tmp_path, monkeypatch):
         # Regression for c53086d: non-existent scope is treated as prose, not
-        # a git pathspec, so config.scope.mode stays "branch-diff" and the
-        # natural-language text is preserved in scope_text.
+        # a git pathspec, so config.scope.mode stays "branch-diff" with no
+        # pathspec recorded.
         repo = _make_repo(tmp_path)
         _stub_git(monkeypatch)
         progress_path = repo / "progress.json"
         _run(
             "init",
+            "--test-command",
+            "npm test",
             "--skill",
             "code-review",
             "--scope",
@@ -343,7 +384,8 @@ class TestInit:
         data = _read_progress(progress_path)
         assert data["config"]["scope"]["mode"] == "branch-diff"
         assert data["config"]["scope"]["paths"] == []
-        assert data["config"]["scope"]["scope_text"] == "focus on src/auth"
+        # The scope dict carries only mode/paths/base_ref now.
+        assert "scope_text" not in data["config"]["scope"]
 
     def test_deep_path_scope_existing(self, tmp_path, monkeypatch):
         # Complement to test_deep_natural_language_scope: when --scope points
@@ -354,6 +396,8 @@ class TestInit:
         progress_path = repo / "progress.json"
         _run(
             "init",
+            "--test-command",
+            "npm test",
             "--skill",
             "code-review",
             "--scope",
@@ -366,7 +410,7 @@ class TestInit:
         data = _read_progress(progress_path)
         assert data["config"]["scope"]["mode"] == "directory"
         assert data["config"]["scope"]["paths"] == ["src"]
-        assert data["config"]["scope"]["scope_text"] is None
+        assert "scope_text" not in data["config"]["scope"]
 
     def test_deep_absolute_path_outside_project_falls_back_to_branch_diff(
         self, tmp_path, monkeypatch
@@ -382,6 +426,8 @@ class TestInit:
         outside = str(tmp_path.anchor or "/") + "definitely-not-in-this-repo"
         _run(
             "init",
+            "--test-command",
+            "npm test",
             "--skill",
             "code-review",
             "--scope",
@@ -394,7 +440,7 @@ class TestInit:
         data = _read_progress(progress_path)
         assert data["config"]["scope"]["mode"] == "branch-diff"
         assert data["config"]["scope"]["paths"] == []
-        assert data["config"]["scope"]["scope_text"] == outside
+        assert "scope_text" not in data["config"]["scope"]
 
     def test_init_aborts_when_head_undeterminable(self, tmp_path, monkeypatch, capsys):
         # cmd_init must exit 1 without writing a progress file when HEAD cannot
@@ -405,6 +451,8 @@ class TestInit:
         progress_path = repo / "progress.json"
         exit_code = _run(
             "init",
+            "--test-command",
+            "npm test",
             "--skill",
             "code-review",
             "--progress-file",
@@ -424,6 +472,8 @@ class TestInit:
         progress_path = repo / "progress.json"
         exit_code = _run(
             "init",
+            "--test-command",
+            "npm test",
             "--skill",
             "code-review",
             "--progress-file",
@@ -441,6 +491,8 @@ class TestInit:
         progress_path = repo / "progress.json"
         exit_code = _run(
             "init",
+            "--test-command",
+            "npm test",
             "--skill",
             "code-review",
             "--no-commit",
@@ -481,6 +533,8 @@ class TestInit:
         progress_path = repo / "progress.json"
         exit_code = _run(
             "init",
+            "--test-command",
+            "npm test",
             "--skill",
             "code-review",
             "--progress-file",
@@ -504,6 +558,8 @@ class TestInit:
         progress_path = repo / "progress.json"
         _run(
             "init",
+            "--test-command",
+            "npm test",
             "--skill",
             "code-review",
             "--progress-file",
@@ -518,6 +574,8 @@ class TestInit:
 
         exit_code = _run(
             "init",
+            "--test-command",
+            "npm test",
             "--skill",
             "code-review",
             "--progress-file",
@@ -539,6 +597,8 @@ class TestInit:
         progress_path = repo / "progress.json"
         _run(
             "init",
+            "--test-command",
+            "npm test",
             "--skill",
             "code-review",
             "--progress-file",
@@ -552,6 +612,8 @@ class TestInit:
 
         exit_code = _run(
             "init",
+            "--test-command",
+            "npm test",
             "--skill",
             "code-review",
             "--progress-file",
@@ -1346,7 +1408,7 @@ class TestDeepStep:
         data["_snapshot"]["pre_stash"] = "stash_sha"
         ppath.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
-        # Suite fails on the initial run and again after bisection retains a fix.
+        # Suite fails on the initial run and again after bisection keeps a fix.
         monkeypatch.setattr(cli, "run_tests", lambda *a, **kw: (False, "boom"))
         apply_calls = []
         monkeypatch.setattr(
@@ -1359,7 +1421,7 @@ class TestDeepStep:
         def fake_bisect(*_a, reset_to_clean=None, **_kw):
             captured["reset_to_clean"] = reset_to_clean
             reset_to_clean()  # bisect rebuilds go through the stash apply
-            return (1, 0, [])  # one fix retained, none reverted individually
+            return (1, 0, [])  # one fix kept, none reverted individually
 
         monkeypatch.setattr(cli, "bisect_fixes", fake_bisect)
         restore_calls = []
@@ -1777,74 +1839,6 @@ class TestDeepStep:
         assert capsys.readouterr().out.strip() == "all-reverted"
         data = _read_progress(ppath)
         assert data["termination"]["reason"] == "all-reverted"
-
-    def test_interaction_bug_demotes_retained_fix(self, tmp_path, capsys, monkeypatch):
-        # Symmetric to test_interaction_bug_combined_regression but for the
-        # "retained" bisect outcome (revert failed -> fix stayed applied
-        # untested). When the post-bisect full re-run fails, the working-tree
-        # restore removes the retained fix, so _mark_combined_regression must
-        # demote it from "retained -- revert failed" to "reverted -- test
-        # failure" via its retained branch.
-        ppath = _seed_deep_progress(tmp_path)
-        (tmp_path / "a.py").write_text("a", encoding="utf-8")
-        monkeypatch.setattr(cli, "run_tests", lambda *a, **kw: (False, "FAIL"))
-
-        def _stub_bisect(
-            fixes, _tc, _cwd, run_tests_fn=None, on_outcome=None, reset_to_clean=None
-        ):
-            for idx, fix in enumerate(fixes):
-                on_outcome(idx, fix, "retained", "revert failed")
-            # retained counts toward fixed_count in the real bisect_fixes.
-            return len(fixes), 0, 0
-
-        monkeypatch.setattr(cli, "bisect_fixes", _stub_bisect)
-        monkeypatch.setattr(cli, "restore_working_tree", lambda *a, **kw: None)
-        result = tmp_path / "result.json"
-        result.write_text(
-            json.dumps(
-                {
-                    "iteration": 1,
-                    "new_findings": [
-                        {
-                            "file": "a.py",
-                            "line": 1,
-                            "category": "x",
-                            "summary": "s",
-                            "pre_edit_content": "a",
-                            "post_edit_content": "b",
-                        }
-                    ],
-                    "fixes_applied": [
-                        {
-                            "file": "a.py",
-                            "line": 1,
-                            "category": "x",
-                            "summary": "s",
-                            "pre_edit_content": "a",
-                            "post_edit_content": "b",
-                        }
-                    ],
-                    "no_new_findings": False,
-                    "no_actionable_fixes": False,
-                }
-            ),
-            encoding="utf-8",
-        )
-        exit_code = _run(
-            "deep-step",
-            "--progress-file",
-            str(ppath),
-            "--result-file",
-            str(result),
-        )
-        assert exit_code == 0
-        data = _read_progress(ppath)
-        finding = data["findings"][0]
-        assert finding["status"] == "reverted — test failure"
-        latest_detail = finding["status_history"][-1]["detail"] or ""
-        assert "retained fix" in latest_detail
-        assert data["iteration_history"][-1]["fixed"] == 0
-        assert data["iteration_history"][-1]["reverted"] == 1
 
 
 # ---------------------------------------------------------------------------
@@ -2561,7 +2555,7 @@ class TestCheckTermination:
 
     def test_parse_failure_threshold_deep(self, tmp_path, capsys):
         # Two consecutive failed parses → check-termination surfaces
-        # parse-failure (records the reason, no need for mark-termination).
+        # parse-failure and records the reason itself.
         ppath = _seed_deep_progress(tmp_path)
         data = _read_progress(ppath)
         data["parse_failure_count"] = 2
@@ -2665,42 +2659,6 @@ class TestPendingRefactorCount:
         ppath.write_text(json.dumps(data, indent=2), encoding="utf-8")
         _run("pending-refactor-count", "--progress-file", str(ppath))
         assert capsys.readouterr().out.strip() == "2"
-
-
-# ---------------------------------------------------------------------------
-# mark-termination
-# ---------------------------------------------------------------------------
-
-
-class TestMarkTermination:
-    def test_records_parse_failure(self, tmp_path):
-        # The CLI subcommand the orchestrator uses to record a parse-failure
-        # termination without touching the progress file directly.
-        ppath = _seed_deep_progress(tmp_path)
-        exit_code = _run(
-            "mark-termination",
-            "--progress-file",
-            str(ppath),
-            "--reason",
-            "parse-failure",
-            "--message",
-            "two consecutive iterations produced no JSON",
-        )
-        assert exit_code == 0
-        data = _read_progress(ppath)
-        assert data["termination"]["reason"] == "parse-failure"
-        assert "two consecutive" in data["termination"]["message"]
-
-    def test_rejects_unknown_reason(self, tmp_path):
-        ppath = _seed_deep_progress(tmp_path)
-        with pytest.raises(SystemExit):
-            _run(
-                "mark-termination",
-                "--progress-file",
-                str(ppath),
-                "--reason",
-                "made-up-reason",
-            )
 
 
 # ---------------------------------------------------------------------------
@@ -3046,14 +3004,6 @@ class TestSnapshot:
         assert data["_snapshot"]["pre_head"] == "head_sha"
         assert data["_snapshot"]["pre_stash"] is None
 
-    def test_includes_stash(self, tmp_path, monkeypatch):
-        ppath = _seed_deep_progress(tmp_path)
-        monkeypatch.setattr(cli, "git_rev_parse_head", lambda _cwd: "head_sha")
-        monkeypatch.setattr(cli, "git_stash_snapshot", lambda _cwd: "stash_sha")
-        _run("snapshot", "--progress-file", str(ppath), "--include-stash")
-        data = _read_progress(ppath)
-        assert data["_snapshot"]["pre_stash"] == "stash_sha"
-
     def test_head_unavailable_returns_error(self, tmp_path, capsys, monkeypatch):
         ppath = _seed_deep_progress(tmp_path)
         monkeypatch.setattr(cli, "git_rev_parse_head", lambda _cwd: None)
@@ -3062,8 +3012,8 @@ class TestSnapshot:
         assert "Cannot determine HEAD" in capsys.readouterr().err
 
     def test_auto_stashes_in_no_commit_mode(self, tmp_path, monkeypatch):
-        # No --include-stash flag: auto-stash is driven by persisted
-        # config.no_commit so the orchestrator never has to remember it.
+        # Auto-stash is driven purely by persisted config.no_commit so the
+        # orchestrator never has to remember it.
         ppath = _seed_deep_progress(tmp_path)
         data = _read_progress(ppath)
         data["config"]["no_commit"] = True
@@ -3116,6 +3066,8 @@ class TestNoCommitMode:
         ppath = repo / "progress.json"
         _run(
             "init",
+            "--test-command",
+            "npm test",
             "--skill",
             "code-review",
             "--no-commit",
@@ -3134,6 +3086,8 @@ class TestNoCommitMode:
         ppath = repo / "progress.json"
         _run(
             "init",
+            "--test-command",
+            "npm test",
             "--skill",
             "code-review",
             "--progress-file",

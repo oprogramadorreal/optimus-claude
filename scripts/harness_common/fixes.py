@@ -55,11 +55,6 @@ def apply_single_fix(fix, cwd):
     return _swap_content(fix, cwd, "pre_edit_content", "post_edit_content")
 
 
-def revert_single_fix(fix, cwd):
-    """Revert a single fix by replacing post_edit_content with pre_edit_content."""
-    return _swap_content(fix, cwd, "post_edit_content", "pre_edit_content")
-
-
 # Emitted as the "skipped" outcome detail when a fix cannot be applied from its
 # recorded content. Lands in the finding's status_history/last_failure_hint, so
 # the next iteration's subagent sees why the fix was lost.
@@ -182,8 +177,11 @@ def bisect_fixes(
 ):
     """Bisect fixes to find which ones break tests.
 
-    Reverts all fixes, then re-applies one at a time, running the test suite
-    after each. Fixes that cause test failures are left reverted.
+    Rebuilds from the pre-iteration git snapshot for every candidate via
+    :func:`_bisect_via_clean_reset` — git is the source of truth for reverts,
+    so a corrupt recorded content pair can never tear the tree, and deletion
+    fixes (empty post_edit_content, no anchor to re-insert at) are isolated
+    correctly.
 
     *run_tests_fn*, when provided, must be a callable with signature
     ``(test_command, cwd) -> (passed: bool, summary: str)``.  When ``None``
@@ -191,22 +189,16 @@ def bisect_fixes(
 
     *on_outcome*, when provided, is invoked once per fix with
     ``(idx, fix, outcome, detail)`` where outcome is one of ``"fixed"``,
-    ``"reverted"``, ``"skipped"``, or ``"retained"`` (revert failed → fix
-    remains applied untested). ``detail`` is a contextual hint string —
+    ``"reverted"``, or ``"skipped"``. ``detail`` is a contextual hint string —
     the test-failure summary on ``"reverted"``, the retry-pass note on
     ``"fixed"`` after a successful retry, and ``None`` otherwise. Lets
     callers update per-finding status with provenance.
 
-    *reset_to_clean*, when provided, is a zero-arg callable (must be safely
+    *reset_to_clean* is a required zero-arg callable (must be safely
     repeatable) that restores the working tree to the pre-iteration clean
-    state. When available, bisection always rebuilds from clean via
-    :func:`_bisect_via_clean_reset` — git is the source of truth for reverts,
-    so a corrupt recorded content pair can never tear the tree, and deletion
-    fixes (empty post_edit_content, no anchor to re-insert at) are isolated
-    correctly. When ``None`` (no git snapshot was recorded), the legacy
-    incremental revert/re-apply strategy runs instead, which trusts recorded
-    content for reverts (an un-revertible fix is left applied and reported
-    "retained").
+    state. The orchestrator loop always snapshots before dispatch, so a
+    missing snapshot is a protocol violation — fail loudly rather than
+    bisect against an unknown base.
 
     Returns ``(fixed_count, reverted_count, skipped_count)``.
     """
@@ -215,71 +207,12 @@ def bisect_fixes(
 
         run_tests_fn = _default_run_tests
 
-    if reset_to_clean is not None:
-        return _bisect_via_clean_reset(
-            fixes, test_command, cwd, run_tests_fn, on_outcome, reset_to_clean
+    if reset_to_clean is None:
+        raise ValueError(
+            "bisect_fixes requires reset_to_clean — no git snapshot was "
+            "recorded for this iteration (run `snapshot` before the step)"
         )
 
-    def _emit(idx, fix, outcome, detail=None):
-        if on_outcome is not None:
-            on_outcome(idx, fix, outcome, detail)
-
-    # Revert all fixes first
-    failed_revert_indices = set()
-    for idx, fix in reversed(list(enumerate(fixes))):
-        if not revert_single_fix(fix, cwd):
-            failed_revert_indices.add(idx)
-
-    fixed_count = 0
-    reverted_count = 0
-    skipped_count = 0
-    reverted_indices = []
-    failure_summaries = {}  # idx → first-pass test failure summary
-
-    # First pass: apply fixes one at a time
-    for idx, fix in enumerate(fixes):
-        if idx in failed_revert_indices:
-            fixed_count += 1  # could not revert, so fix remains applied
-            _emit(idx, fix, "retained")
-            continue
-        if not apply_single_fix(fix, cwd):
-            skipped_count += 1
-            _emit(idx, fix, "skipped", _warn_skipped_apply(fix))
-            continue
-        passed, summary = run_tests_fn(test_command, cwd)
-        if passed:
-            fixed_count += 1
-            _emit(idx, fix, "fixed")
-        else:
-            revert_single_fix(fix, cwd)
-            reverted_indices.append(idx)
-            failure_summaries[idx] = summary
-
-    # Second pass: retry reverted fixes — they may depend on fixes that
-    # were applied later in the first pass (e.g., fix A uses an import
-    # that fix B added, but B had a higher index)
-    if reverted_indices and fixed_count > 0:
-        for idx in reverted_indices:
-            fix = fixes[idx]
-            if not apply_single_fix(fix, cwd):
-                # File content drifted between first revert and retry — fix
-                # could not be re-applied. This is the same condition as a
-                # first-pass apply failure, so count it as skipped.
-                skipped_count += 1
-                _emit(idx, fix, "skipped", _warn_skipped_apply(fix))
-                continue
-            passed, summary = run_tests_fn(test_command, cwd)
-            if passed:
-                fixed_count += 1
-                _emit(idx, fix, "fixed", "Passed on retry (dependency resolved)")
-            else:
-                revert_single_fix(fix, cwd)
-                reverted_count += 1
-                # Prefer the retry's failure summary; fall back to first-pass.
-                _emit(idx, fix, "reverted", summary or failure_summaries.get(idx))
-    else:
-        reverted_count += len(reverted_indices)
-        for idx in reverted_indices:
-            _emit(idx, fixes[idx], "reverted", failure_summaries.get(idx))
-
-    return fixed_count, reverted_count, skipped_count
+    return _bisect_via_clean_reset(
+        fixes, test_command, cwd, run_tests_fn, on_outcome, reset_to_clean
+    )

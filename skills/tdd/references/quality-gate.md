@@ -1,39 +1,22 @@
-# Quality Gate
+# Quality gate
 
-Runs project-level quality agents after all TDD cycles complete. Running agents here — not per-cycle — catches cross-cycle issues (duplication between behaviors, naming drift, accumulated pattern violations, edge-case coverage gaps) that are invisible within a single cycle.
+Runs the project-level quality agents after TDD cycles complete. Running them here rather than per-cycle catches cross-cycle issues — duplication between behaviors, naming drift, accumulated pattern violations, coverage gaps — that are invisible within a single cycle.
 
-## Execution
+## Scope
 
-### Gather changed files
+Collect the files changed during the session: `git diff --name-only <original-branch>...HEAD`, where `<original-branch>` is the branch the feature branch was created from. This is the scope for both agents.
 
-Collect all files changed during the TDD session: `git diff --name-only <original-branch>...HEAD` (where `<original-branch>` is provided by the caller). This is the scope for both agents.
+## Launch
 
-### Launch parallel agents
+The code-simplifier agent always runs. The test-guardian agent runs only when test infrastructure docs exist (`.claude/docs/testing.md`, or the subproject's `docs/testing.md` in a monorepo). Launch every applicable agent as a `general-purpose` Agent tool call in a single message so they run in parallel.
 
-The code-simplifier agent always runs. The test-guardian agent runs when test infrastructure is detected (`.claude/docs/testing.md` or subproject `docs/testing.md` exists). Launch every applicable agent as a `general-purpose` Agent tool call in a **single** message so they run in parallel — do not skip an applicable agent to save tokens or time.
+The agent prompts are `code-simplifier.md` and `test-guardian.md` in this skill's `agents/` directory, each layered on `shared-constraints.md`. Compose each prompt per "Prompt assembly at dispatch time" in `$CLAUDE_PLUGIN_ROOT/references/agent-architecture.md`: substitute the resolved absolute plugin root for every `$CLAUDE_PLUGIN_ROOT` reference the prompt files carry, and inline or absolutize the bare `shared-constraints.md` reference — subagents inherit neither the variable nor this directory as their cwd.
 
-Compose each agent prompt per "Prompt assembly at dispatch time" in `$CLAUDE_PLUGIN_ROOT/references/agent-architecture.md`: substitute the resolved absolute plugin root for every `$CLAUDE_PLUGIN_ROOT` reference the prompt files carry, and inline or absolutize the bare `shared-constraints.md` reference — subagents inherit neither the variable nor the agents directory as cwd.
+## Act on findings
 
-### Present findings
+Present the consolidated findings to the user, then apply a fix for each one. When done, run the test suite:
 
-After both agents complete, present a consolidated quality report:
+- **All green** — commit the fixes with a conventional message.
+- **Tests fail** — revert all the fixes, then re-apply them one at a time with a test run after each: keep the ones that pass, drop the ones that fail, and tell the user which were dropped and why. Commit the kept fixes.
 
-```
-## Quality Gate
-
-### Code Simplifier
-[Findings from code-simplifier, or "No issues found — code follows project guidelines."]
-
-### Test Guardian
-[If test-guardian was launched: findings, or "All code has test coverage. No structural barriers detected."]
-[If test-guardian was not launched (no test infrastructure detected): omit this section]
-```
-
-If no agents produced findings, report "Quality gate passed — no issues found" and proceed silently to Step 9.
-
-### Act on findings
-
-If either agent produced findings, apply fixes for each one. After all fixes are applied, run the test suite:
-
-- **All tests pass** — stage and commit with a conventional message (e.g., `refactor(scope): address quality gate findings`). Proceed to Step 9.
-- **Tests fail** — revert all fixes, then re-apply one at a time with a test run after each. Keep fixes that pass, revert those that fail. Present a fix summary listing which fixes were applied and which were reverted (with reason "fix broke tests"). Stage and commit kept fixes with a conventional message (e.g., `refactor(scope): address quality gate findings`). Proceed to Step 9.
+If neither agent found anything, say so and move on to the wrap-up.

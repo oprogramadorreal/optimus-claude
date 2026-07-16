@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # ============================================================================
 # restrict-paths.sh — Claude Code PreToolUse hook
-# Installed by: /optimus:permissions (optimus-claude plugin)
+# Installed by: /optimus:init (optimus-claude plugin, optional guardrails step)
 # Source:       https://github.com/oprogramadorreal/optimus-claude
-# Docs:         skills/permissions/README.md
+# Docs:         skills/init/README.md
 # ============================================================================
 #
 # PURPOSE:

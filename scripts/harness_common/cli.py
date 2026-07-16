@@ -1,25 +1,23 @@
-"""Orchestrator CLI for the *-deep skills.
+"""Orchestrator CLI for the /optimus:deep skill.
 
-Subcommands compose the per-iteration steps the `/optimus:code-review-deep`,
-`/optimus:refactor-deep`, and `/optimus:unit-test-deep` skills run via Bash.
-The skills hold no state; the CLI reads/writes a JSON progress file on disk.
+Subcommands compose the per-iteration steps the `/optimus:deep` orchestrator
+(review / refactor / coverage modes) runs via Bash. The skill holds no state;
+the CLI reads/writes a JSON progress file on disk.
 
 Subcommand summary:
   init                    — create initial progress file
   resume                  — validate existing progress file for continuation
   snapshot                — capture pre-iteration git state into progress
   parse                   — extract json:harness-output from subagent text
-  deep-step               — apply/test/bisect for code-review-deep / refactor-deep
-  unit-test-step          — record tests + coverage for unit-test-deep
-  refactor-step           — apply/test/bisect for unit-test-deep's refactor phase
+  deep-step               — apply/test/bisect for the review / refactor modes
+  unit-test-step          — record tests + coverage for coverage mode
+  refactor-step           — apply/test/bisect for coverage mode's refactor phase
   record-cycle            — append cycle_history entry (paired variant)
   commit-checkpoint       — create git checkpoint commit
   check-termination       — print one of continue|convergence|no-actionable|
                             all-reverted|diminishing-returns|cap
   advance                 — increment iteration counter (deep variant)
   pending-refactor-count  — count untestable_code items still pending refactor
-  mark-termination        — record an externally-driven termination reason
-                            (e.g. parse-failure after two consecutive failures)
   final-report            — print the cumulative report
 """
 
@@ -88,7 +86,6 @@ from .progress import read_progress, record_test_result, write_progress
 from .reporting import (
     build_coverage_commit_body,
     build_deep_commit_body,
-    detect_test_command,
     print_coverage_report,
     print_deep_report,
 )
@@ -124,7 +121,6 @@ def _make_deep_progress(
             "scope": {
                 "mode": "directory" if scope_is_path else "branch-diff",
                 "paths": [scope] if scope_is_path else [],
-                "scope_text": scope if (scope and not scope_is_path) else None,
                 "base_ref": None,
             },
             "project_root": normalize_path(str(project_root)),
@@ -252,14 +248,6 @@ def _mark_combined_regression(fixes, progress):
                     "Interaction bug — combined fixes failed",
                 )
                 reverted += 1
-            elif status == "retained — revert failed":
-                mark_finding_status(
-                    progress,
-                    fix,
-                    "reverted — test failure",
-                    "Interaction bug — full working tree restore removed retained fix",
-                )
-                reverted += 1
             break
     return reverted
 
@@ -267,7 +255,6 @@ def _mark_combined_regression(fixes, progress):
 _BISECT_OUTCOMES_TO_STATUS = {
     "fixed": "fixed",
     "reverted": "reverted — test failure",
-    "retained": "retained — revert failed",
     "skipped": "skipped — apply failed",
 }
 
@@ -299,8 +286,8 @@ def _clean_reset_hook(pre_stash, pre_head, project_root):
     reclaimed later by the iteration's full-revert restore or the next
     iteration's snapshot; that stash already carries the untracked files. Both
     variants raise on failure so the bisect aborts instead of testing
-    candidates on a dirty base. None only when no snapshot was recorded,
-    where bisect falls back to its legacy content-swap revert strategy.
+    candidates on a dirty base. None only when no snapshot was recorded — a
+    protocol violation that makes bisect_fixes raise rather than proceed.
     """
     if pre_stash:
 
@@ -577,12 +564,10 @@ def _init_deep(args, project_root, test_command, base_commit):
     max_iter = max(min(requested_iter, MAX_ITERATIONS_HARD_CAP), 1)
     # Treat scope as a git pathspec only when it resolves to an existing path
     # under project_root. Natural-language scope ("focus on src/auth") cannot be
-    # turned into a reliable pathspec, so it is recorded in config.scope.scope_text
-    # for provenance only: the harness-mode dispatch does not consume it and the
-    # subagent reviews the full branch diff (see the scope note in each -deep
-    # SKILL.md / README). The containment check also rejects absolute paths (Path
-    # semantics: `project_root / "/etc"` yields `/etc`), which would otherwise be
-    # silently handed to git as a pathspec that matches nothing.
+    # turned into a reliable pathspec, so the subagent reviews the full branch
+    # diff. The containment check also rejects absolute paths (Path semantics:
+    # `project_root / "/etc"` yields `/etc`), which would otherwise be silently
+    # handed to git as a pathspec that matches nothing.
     if args.scope:
         candidate = (project_root / args.scope).resolve()
         scope_is_path = candidate.exists() and (
@@ -632,11 +617,11 @@ def cmd_init(args):
         )
         return 1
 
-    test_command = args.test_command or detect_test_command(project_root)
+    test_command = args.test_command
     if not test_command:
         print(
-            f"ERROR: No test command found in {project_root}/.claude/CLAUDE.md "
-            "and --test-command not supplied",
+            "ERROR: --test-command is required (the orchestrator resolves the "
+            "project's test command and passes it explicitly)",
             file=sys.stderr,
         )
         return 1
@@ -807,7 +792,7 @@ def cmd_snapshot(args):
     progress.setdefault("_snapshot", {})
     progress["_snapshot"]["pre_head"] = head
     progress["_snapshot"]["iteration_token"] = _current_unit(progress)
-    if args.include_stash or _is_no_commit(progress):
+    if _is_no_commit(progress):
         # Reclaim the previous snapshot's stash (if it was never restored — i.e.
         # the prior iteration passed) before taking a new one, so a long
         # no-commit run doesn't leak orphaned stash entries into the reflog.
@@ -1444,7 +1429,7 @@ def cmd_check_termination(args):
 
     if _is_coverage(progress):
         # cmd_record_cycle pre-increments cycle.current to N+1 before this runs
-        # (per references/orchestrator-loop-paired.md steps 10 → 11), so we cap
+        # (per references/orchestrator-loop.md paired-cycle steps 10 → 11), so we cap
         # on `current > max_cycles` to allow exactly max_cycles complete cycles.
         cycle = progress["cycle"]["current"]
         max_cycles = progress["config"]["max_cycles"]
@@ -1519,25 +1504,6 @@ def cmd_pending_refactor_count(args):
         if item.get("status") == "pending"
     )
     print(pending)
-    return 0
-
-
-def cmd_mark_termination(args):
-    """Write a terminal reason to progress["termination"] without other side effects.
-
-    The orchestrator skill calls this when it must end the loop for a reason
-    the per-iteration steps don't naturally surface — currently the
-    parse-failure recovery path (per references/orchestrator-loop-single.md).
-    Keeps the orchestrator out of the progress file's internals so the
-    "slice-only progress reads" invariant holds.
-    """
-    progress_path = Path(args.progress_file)
-    progress = read_progress(progress_path)
-    progress["termination"] = {
-        "reason": args.reason,
-        "message": args.message,
-    }
-    write_progress(progress_path, progress)
     return 0
 
 
@@ -1654,11 +1620,6 @@ def _build_parser():
 
     p = sub.add_parser("snapshot")
     p.add_argument("--progress-file", required=True)
-    p.add_argument(
-        "--include-stash",
-        action="store_true",
-        help="Also create a git stash snapshot (use with --no-commit mode)",
-    )
     p.set_defaults(func=cmd_snapshot)
 
     p = sub.add_parser("parse")
@@ -1733,28 +1694,6 @@ def _build_parser():
     p = sub.add_parser("pending-refactor-count")
     p.add_argument("--progress-file", required=True)
     p.set_defaults(func=cmd_pending_refactor_count)
-
-    p = sub.add_parser("mark-termination")
-    p.add_argument("--progress-file", required=True)
-    p.add_argument(
-        "--reason",
-        required=True,
-        choices=[
-            "convergence",
-            "no-actionable",
-            "all-reverted",
-            "diminishing-returns",
-            "cap",
-            "parse-failure",
-        ],
-        help="Termination reason to record in progress[termination]",
-    )
-    p.add_argument(
-        "--message",
-        default="",
-        help="Human-readable detail recorded alongside the reason",
-    )
-    p.set_defaults(func=cmd_mark_termination)
 
     p = sub.add_parser("final-report")
     p.add_argument("--progress-file", required=True)

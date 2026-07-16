@@ -12,8 +12,10 @@ optimus-claude uses a two-tier agent design:
   optionally `context-blocks.md` (conditional context injection templates).
 
 **The specialization pattern:** a skill-level agent extends a plugin-level one by
-including `Read $CLAUDE_PLUGIN_ROOT/agents/<name>.md for your approach and quality
-criteria`, then layering skill-specific scope, output format, and exclusions on top.
+telling the subagent to read the plugin-level file (`agents/code-simplifier.md` or
+`agents/test-guardian.md`, resolved from the plugin root) for its approach and
+quality criteria, then layering skill-specific scope, output format, and exclusions
+on top.
 The dispatching prompt's constraints override the base file's operational sections;
 only quality criteria and focus areas carry over.
 

@@ -12,6 +12,8 @@
 #       files_not_modified: true  # assert no files changed (read-only skills)
 #
 # Paths are relative to the fixture project root.
+# Assertions are structural (files exist, stable markers) — never pin template
+# prose, which couples the E2E suite to wording that should be free to evolve.
 
 init:
   node-project:
@@ -19,97 +21,38 @@ init:
       - .claude/CLAUDE.md
       - .claude/docs/coding-guidelines.md
       - .claude/.optimus-version
-    files_contain:
-      .claude/docs/coding-guidelines.md:
-        - "Clarity over cleverness"
 
   python-project:
     files_exist:
       - .claude/CLAUDE.md
       - .claude/docs/coding-guidelines.md
       - .claude/.optimus-version
-    files_contain:
-      .claude/docs/coding-guidelines.md:
-        - "Clarity over cleverness"
 
   go-project:
     files_exist:
       - .claude/CLAUDE.md
       - .claude/docs/coding-guidelines.md
       - .claude/.optimus-version
-    files_contain:
-      .claude/docs/coding-guidelines.md:
-        - "Clarity over cleverness"
 
   rust-project:
     files_exist:
       - .claude/CLAUDE.md
       - .claude/docs/coding-guidelines.md
       - .claude/.optimus-version
-    files_contain:
-      .claude/docs/coding-guidelines.md:
-        - "Clarity over cleverness"
 
   csharp-project:
     files_exist:
       - .claude/CLAUDE.md
       - .claude/docs/coding-guidelines.md
       - .claude/.optimus-version
-    files_contain:
-      .claude/docs/coding-guidelines.md:
-        - "Clarity over cleverness"
 
   monorepo-project:
     files_exist:
       - .claude/CLAUDE.md
       - .claude/docs/coding-guidelines.md
       - .claude/.optimus-version
-    files_contain:
-      .claude/docs/coding-guidelines.md:
-        - "Clarity over cleverness"
 
   empty-project:
     # Empty project triggers scaffolding prompt — init may or may not create files
     # depending on Claude's decision. Just check it doesn't crash.
     files_exist: []
-
-permissions:
-  node-project:
-    files_exist:
-      - .claude/hooks/restrict-paths.sh
-    files_contain:
-      .claude/hooks/restrict-paths.sh:
-        - "#!/usr/bin/env bash"
-
-commit-message:
-  node-project:
-    # Read-only skill: suggests a message but changes nothing
-    files_not_modified: true
-
-how-to-run:
-  node-project:
-    files_exist:
-      - HOW-TO-RUN.md
-    files_contain:
-      HOW-TO-RUN.md:
-        - "npm install"
-        - "Prerequisites"
-
-  python-project:
-    files_exist:
-      - HOW-TO-RUN.md
-    files_contain:
-      HOW-TO-RUN.md:
-        - "pip install"
-        - "Prerequisites"
-
-prompt:
-  node-project:
-    # Read-only skill: crafts a prompt but changes nothing
-    files_not_modified: true
-
-branch:
-  node-project:
-    # Branch skill creates a new branch — check for conventional prefix
-    output_contains:
-      - "feat/"

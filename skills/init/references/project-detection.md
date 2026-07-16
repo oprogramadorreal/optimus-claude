@@ -1,6 +1,6 @@
 # Project Structure Detection Logic
 
-Detailed detection algorithm for identifying monorepo and multi-repo workspace structures. Referenced from Step 1 of the init skill.
+Detailed detection algorithm for identifying monorepo and multi-repo workspace structures. Provided to init's project-analyzer agent; also read by other skills that need init's structure detection.
 
 ## Step 0 — Check for multi-repo workspace (runs before Steps A/B/C)
 
@@ -30,7 +30,7 @@ If `.git/` exists in the current directory, skip this step and proceed to Step A
 
 ## Step B — Scan for Independent Manifests (confirms monorepo if 2+ projects found)
 
-Scan top-level directories for manifest files (from the manifest table in SKILL.md). Skip:
+Scan top-level directories for manifest files (from the manifest table in `tech-stack-detection.md`). Skip:
 - **Dot-directories**: `.git`, `.github`, `.vscode`, etc.
 - **Dependencies**: `node_modules`, `vendor`, `.venv`, `venv`, `env`
 - **Build output**: `dist`, `build`, `out`, `target`, `bin`, `obj`

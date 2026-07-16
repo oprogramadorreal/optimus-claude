@@ -1,14 +1,14 @@
 """Pins the orchestrator ↔ base-skill ↔ CLI wiring contract.
 
 These tests catch silent breakages that the unit-level CLI tests miss: a base
-SKILL.md losing its `HARNESS_MODE_INLINE` Step 2 router, an orchestrator skill
+SKILL.md losing its `HARNESS_MODE_INLINE` router, the /optimus:deep orchestrator
 stopping pointing at the loop reference, the harness-mode.md JSON schema
 drifting from what `cli.py parse` actually accepts. Each assertion below
 encodes one rung of the dispatch chain.
 
 If one of these fails, the in-conversation deep-mode flow is silently broken —
-the unit tests will pass but a real `/optimus:code-review-deep` invocation will
-either hang the subagent or terminate the loop on the first iteration.
+the unit tests will pass but a real `/optimus:deep` invocation will either hang
+the subagent or terminate the loop on the first iteration.
 """
 
 import json
@@ -56,158 +56,111 @@ def test_base_skill_routes_harness_mode_inline(base_skill, harness_ref):
 
 
 # ---------------------------------------------------------------------------
-# Orchestrator SKILL.md must reference the right loop template + base skill
+# The /optimus:deep orchestrator must reference the loop template + base skills
 # ---------------------------------------------------------------------------
 
 
-ORCHESTRATOR_CONTRACTS = [
-    # (orchestrator_skill, loop_reference, dispatched_base_skill_path)
-    (
-        "code-review-deep",
-        "references/orchestrator-loop-single.md",
-        "skills/code-review/SKILL.md",
-    ),
-    (
-        "refactor-deep",
-        "references/orchestrator-loop-single.md",
-        "skills/refactor/SKILL.md",
-    ),
-    (
-        "unit-test-deep",
-        "references/orchestrator-loop-paired.md",
-        # unit-test-deep dispatches both base skills; loop reference covers both.
-        None,
-    ),
-]
+DEEP_SKILL = "skills/deep/SKILL.md"
 
 
-@pytest.mark.parametrize(
-    "orchestrator,loop_ref,base_skill_path", ORCHESTRATOR_CONTRACTS
-)
-def test_orchestrator_references_loop_template(orchestrator, loop_ref, base_skill_path):
-    skill_md = _read(f"skills/{orchestrator}/SKILL.md")
+def test_orchestrator_references_loop_template_and_base_skills():
+    skill_md = _read(DEEP_SKILL)
     assert (
-        loop_ref in skill_md
-    ), f"skills/{orchestrator}/SKILL.md must reference {loop_ref}"
+        "references/orchestrator-loop.md" in skill_md
+    ), f"{DEEP_SKILL} must reference references/orchestrator-loop.md"
+    for base in (
+        "skills/code-review/SKILL.md",
+        "skills/refactor/SKILL.md",
+        "skills/unit-test/SKILL.md",
+    ):
+        assert base in skill_md, f"{DEEP_SKILL} must name its base skill {base}"
 
 
-@pytest.mark.parametrize("orchestrator,_loop,_base", ORCHESTRATOR_CONTRACTS)
-def test_orchestrator_disables_model_invocation(orchestrator, _loop, _base):
-    """Orchestrators must not be reachable via slash-command dispatch from a subagent.
+def test_orchestrator_disables_model_invocation():
+    """The orchestrator must not be reachable via slash-command dispatch from a subagent.
 
     `disable-model-invocation: true` prevents recursive deep-mode runs (a
     subagent cannot accidentally invoke its own orchestrator via slash). The
-    re-entry guard inside each SKILL.md is the second line of defense.
+    re-entry guard inside the SKILL.md is the second line of defense.
     """
-    skill_md = _read(f"skills/{orchestrator}/SKILL.md")
+    skill_md = _read(DEEP_SKILL)
     assert (
         "disable-model-invocation: true" in skill_md
-    ), f"skills/{orchestrator}/SKILL.md must set disable-model-invocation: true"
+    ), f"{DEEP_SKILL} must set disable-model-invocation: true"
 
 
-@pytest.mark.parametrize("orchestrator,_loop,_base", ORCHESTRATOR_CONTRACTS)
-def test_orchestrator_has_reentry_guard(orchestrator, _loop, _base):
-    skill_md = _read(f"skills/{orchestrator}/SKILL.md")
+def test_orchestrator_has_reentry_guard():
+    skill_md = _read(DEEP_SKILL)
     assert (
         "Re-entry guard" in skill_md
-    ), f"skills/{orchestrator}/SKILL.md must have a Re-entry guard step"
+    ), f"{DEEP_SKILL} must have a Re-entry guard step"
     # The guard's payload — looking for HARNESS_MODE_INLINE as the marker.
     assert "HARNESS_MODE_INLINE" in skill_md
 
 
-def _plugin_root_section(orchestrator):
-    """Return the '### Plugin root' subsection body of an orchestrator SKILL.md."""
-    skill_md = _read(f"skills/{orchestrator}/SKILL.md")
-    marker = "### Plugin root"
-    start = skill_md.index(marker) + len(marker)
-    rest = skill_md[start:]
-    return rest[: rest.index("\n### ")]
+def test_orchestrator_resolves_plugin_root():
+    """The orchestrator must carry its own plugin-root resolution subsection.
 
-
-def test_deep_skills_share_identical_plugin_root_resolution():
-    """All three orchestrators must resolve the plugin root the same way.
-
-    The resolution (env var → "Base directory" fallback → validate that the
-    candidate contains scripts/harness_common) is replicated verbatim in each
-    SKILL.md because it cannot live in a shared reference — reading that
-    reference would itself need the very root it resolves. Pin byte-identity so
-    a fix to one copy is mirrored to all three.
+    The resolution cannot live in a shared reference — reading that reference
+    would itself need the very root it resolves.
     """
-    sections = {
-        o: _plugin_root_section(o)
-        for o in ("code-review-deep", "refactor-deep", "unit-test-deep")
-    }
-    reference = sections["code-review-deep"]
-    for orchestrator, section in sections.items():
-        assert section == reference, (
-            f"skills/{orchestrator}/SKILL.md '### Plugin root' diverged from "
-            "code-review-deep — keep the resolution byte-identical across all three"
-        )
+    skill_md = _read(DEEP_SKILL)
+    assert (
+        "### Plugin root" in skill_md
+    ), f"{DEEP_SKILL} must carry a '### Plugin root' resolution subsection"
 
 
-@pytest.mark.parametrize("orchestrator,_loop,_base", ORCHESTRATOR_CONTRACTS)
-def test_orchestrator_passes_test_command_and_runs_baseline(orchestrator, _loop, _base):
-    """Each orchestrator must pass --test-command to init and run the baseline gate.
+def test_orchestrator_passes_test_command_and_runs_baseline():
+    """The orchestrator must pass --test-command to init and run the baseline gate.
 
-    The CLI's CLAUDE.md parser is stricter than a human read; passing the
-    command the skill already captured avoids a spurious init failure. The
-    baseline run establishes a green starting tree and calibrates the per-run
-    test timeout before the loop starts.
+    The CLI requires an explicit test command; passing the command the skill
+    already captured avoids a spurious init failure. The baseline run
+    establishes a green starting tree and calibrates the per-run test timeout
+    before the loop starts.
     """
-    skill_md = _read(f"skills/{orchestrator}/SKILL.md")
+    skill_md = _read(DEEP_SKILL)
     assert (
         "--test-command" in skill_md
-    ), f"skills/{orchestrator}/SKILL.md must pass --test-command to init"
+    ), f"{DEEP_SKILL} must pass --test-command to init"
     assert (
         "cli baseline" in skill_md
-    ), f"skills/{orchestrator}/SKILL.md must run the baseline gate before the loop"
+    ), f"{DEEP_SKILL} must run the baseline gate before the loop"
 
 
 # ---------------------------------------------------------------------------
-# Loop references must inject HARNESS_MODE_INLINE and read base SKILL.md
+# The loop reference must inject HARNESS_MODE_INLINE and read base SKILL.md
 # ---------------------------------------------------------------------------
 
 
-LOOP_REFS_AND_DISPATCHED_BASE_PATHS = [
-    (
-        "references/orchestrator-loop-single.md",
-        ["skills/<base-skill>/SKILL.md", "references/harness-mode.md"],
-    ),
-    (
-        "references/orchestrator-loop-paired.md",
-        [
-            "skills/unit-test/SKILL.md",
-            "skills/refactor/SKILL.md",
-            "references/coverage-harness-mode.md",
-            "references/harness-mode.md",
-        ],
-    ),
-]
+LOOP_REF = "references/orchestrator-loop.md"
 
 
-@pytest.mark.parametrize("loop_ref,expected_paths", LOOP_REFS_AND_DISPATCHED_BASE_PATHS)
-def test_loop_reference_dispatches_via_skill_md_read(loop_ref, expected_paths):
-    """Loop refs must tell the subagent to read SKILL.md, not /optimus:slash-dispatch.
+def test_loop_reference_dispatches_via_skill_md_read():
+    """The loop ref must tell the subagent to read SKILL.md, not /optimus:slash-dispatch.
 
     The base SKILL.md files all carry `disable-model-invocation: true`, so a
     subagent prompt of `/optimus:code-review …` is not guaranteed to route.
     The orchestrator works around this by instructing the subagent to read
     the SKILL.md from disk and follow its harness-mode protocol.
     """
-    ref = _read(loop_ref)
+    ref = _read(LOOP_REF)
     assert (
         "HARNESS_MODE_INLINE" in ref
-    ), f"{loop_ref} must inject HARNESS_MODE_INLINE in dispatch prompts"
-    for path in expected_paths:
-        assert path in ref, f"{loop_ref} must reference {path}"
+    ), f"{LOOP_REF} must inject HARNESS_MODE_INLINE in dispatch prompts"
+    for path in (
+        "skills/<base-skill>/SKILL.md",
+        "references/harness-mode.md",
+        "skills/unit-test/SKILL.md",
+        "skills/refactor/SKILL.md",
+        "references/coverage-harness-mode.md",
+    ):
+        assert path in ref, f"{LOOP_REF} must reference {path}"
     # Pin the dispatch *mechanism*, not just the path token. A future loop-ref
     # edit could keep the SKILL.md path string while dropping the "read from
-    # disk" instruction in favour of an alternative (slash command, cache); the
-    # PR description (#140 Key decisions item d) calls out the read-from-disk
-    # choice explicitly, so the contract must too.
+    # disk" instruction in favour of an alternative (slash command, cache).
     assert (
         "Read the base SKILL.md" in ref
-    ), f"{loop_ref} must instruct the subagent to read the base SKILL.md from disk"
+    ), f"{LOOP_REF} must instruct the subagent to read the base SKILL.md from disk"
 
 
 # ---------------------------------------------------------------------------
@@ -279,29 +232,17 @@ def test_harness_mode_documented_schema_round_trips_through_cli_parse(tmp_path, 
     assert parsed["no_actionable_fixes"] is False
 
 
-@pytest.mark.parametrize("orchestrator,_loop,_base", ORCHESTRATOR_CONTRACTS)
-def test_orchestrator_documents_yes_flag(orchestrator, _loop, _base):
-    """Each orchestrator SKILL.md must document the --yes flag and its Step 3 bypass.
+def test_orchestrator_documents_yes_and_resume_flags():
+    """The orchestrator SKILL.md must document the --yes and --resume flags.
 
-    The flag is the headless / CI entry point — the only reason the deleted
-    Python harness's CI use case still works under the new orchestrator design.
-    If a future SKILL.md edit silently drops the flag, `claude -p
-    "/optimus:*-deep …"` will hang on Step 3's AskUserQuestion with no test
-    failure to flag the regression.
+    --yes is the headless / CI entry point: if a future SKILL.md edit silently
+    drops it, `claude -p "/optimus:deep …"` will hang on the confirmation
+    AskUserQuestion with no test failure to flag the regression. --resume is
+    the crash-recovery contract.
     """
-    skill_md = _read(f"skills/{orchestrator}/SKILL.md")
-    assert (
-        "`--yes`" in skill_md
-    ), f"skills/{orchestrator}/SKILL.md must document the --yes flag"
-    # The Step 3 bypass behavior must be explicitly stated — not just the
-    # argparse entry. Headless callers depend on Step 3 being skipped.
-    assert (
-        "Skip this step entirely when `--resume` is given, or when `--yes` is given"
-        in skill_md
-    ), (
-        f"skills/{orchestrator}/SKILL.md must document --yes bypassing the "
-        f"Step 3 confirmation prompt"
-    )
+    skill_md = _read(DEEP_SKILL)
+    assert "`--yes`" in skill_md, f"{DEEP_SKILL} must document the --yes flag"
+    assert "`--resume`" in skill_md, f"{DEEP_SKILL} must document the --resume flag"
 
 
 def test_harness_mode_documents_all_termination_reasons():
@@ -335,11 +276,11 @@ def test_paired_loop_resnapshots_before_refactor_phase():
     unit-test commit and the refactor dispatch — pin it so the guard cannot
     silently regress.
     """
-    ref = _read("references/orchestrator-loop-paired.md")
+    ref = _read(LOOP_REF)
     _, _, refactor_region = ref.partition("Conditionally dispatch the refactor phase")
     assert refactor_region, "paired loop must have a refactor-phase dispatch step"
     assert "cli snapshot" in refactor_region, (
-        "orchestrator-loop-paired.md must re-snapshot before dispatching the "
+        "orchestrator-loop.md must re-snapshot before dispatching the "
         "refactor subagent so a refactor rollback does not discard the cycle's "
         "unit tests"
     )

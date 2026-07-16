@@ -10,7 +10,7 @@ COMMIT_COMMITTED = "committed"
 COMMIT_NOTHING = "nothing-to-commit"
 COMMIT_FAILED = "failed"
 
-FIXED_STATUSES = frozenset({"fixed", "retained — revert failed"})
+FIXED_STATUSES = frozenset({"fixed"})
 REVERTED_STATUSES = frozenset(
     {"reverted — test failure", "reverted — attempt 2", "skipped — apply failed"}
 )

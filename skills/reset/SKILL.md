@@ -1,255 +1,137 @@
 ---
-description: Removes files installed by /optimus:init and /optimus:permissions from the project. Compares each file against plugin templates and classifies as unmodified, likely generated, or user-modified. Always asks before deleting. Git-tracked files are noted as recoverable. Tests are never touched. Monorepo and multi-repo aware. Use for clean reinstall or to stop using optimus.
+description: Uninstalls optimus-installed files from a project — inventories everything /optimus:init can install (CLAUDE.md files, guideline docs, formatter and guardrail hooks, settings.json entries, version marker, harness state), classifies each file against plugin templates as unmodified, likely generated, or user-modified, and deletes only what the user approves. User-modified files need explicit per-file approval, settings.json is cleaned surgically, and tests and approved specs are never touched. Monorepo and multi-repo aware. Deletes project files but does not uninstall the plugin itself. Use for a clean reinstall or to stop using optimus in a project.
 disable-model-invocation: true
 ---
 
-# Reset — Remove optimus-generated files
+# Reset — remove optimus-installed files
 
-Remove files installed by `/optimus:init` and `/optimus:permissions` from the project. Does NOT uninstall the plugin itself — only removes files from the project's `.claude/` directory (and subproject docs for monorepos).
+Remove everything `/optimus:init` installed in the project. This does not uninstall
+the plugin itself — that is `/plugin uninstall optimus@optimus-claude`, run afterwards
+if the user wants optimus gone entirely.
 
-## Safety Rules
+## Safety rules
 
-These rules are absolute and override all other instructions:
+These are absolute and override everything else:
 
-- **NEVER** touch test files, test directories, or test configuration — even if created by `/optimus:unit-test`
-- **NEVER** touch files outside `.claude/`, subproject `CLAUDE.md`, subproject `docs/`, and workspace root `CLAUDE.md`
-- **NEVER** delete `.claude/settings.json` without first extracting user-added content (use surgical removal — Step 4)
-- **ALWAYS** show the categorized file list and get user confirmation before removing anything
+- **Never** touch test files, test directories, or test configuration — even tests
+  written by `/optimus:unit-test`.
+- **Never** touch `docs/specs/` or `docs/product/` — approved specs and product docs
+  are user content. Leave them in place and say so in the final summary.
+- **Never** delete or replace `.claude/settings.json` wholesale — surgical cleanup
+  only (Step 5).
+- **Never** delete anything before showing the classified inventory and getting the
+  user's confirmation. User-modified files additionally require explicit per-file
+  approval — a bulk "remove everything" answer never covers them.
 
-## Workflow
+## Step 1 — Detect context and inventory
 
-### Step 1 — Detect project context
+Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/multi-repo-detection.md` and
+determine whether this is a single project, a monorepo, or a multi-repo workspace.
+For multi-repo workspaces, run the whole reset per child repo (plus the
+workspace-root `CLAUDE.md`); for monorepos, include subproject paths.
 
-#### Multi-repo workspace detection
+If no optimus files exist, tell the user there is nothing to reset and stop. If
+files exist but `.claude/.optimus-version` is missing, warn that the project may not
+have been initialized by optimus and proceed with classification anyway.
 
-Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/multi-repo-detection.md` and run the detection algorithm.
+This is everything init can install — inventory only the files that actually exist:
 
-Determine project type:
-
-- **Multi-repo workspace** — root has no `.git/`, 2+ child directories have `.git/` directories. Each child repo has its own `.claude/` directory. Workspace root may have a local `CLAUDE.md` (not version-controlled)
-- **Monorepo** — single git repo with multiple subproject directories (e.g., `packages/`, `apps/`). Root has `.claude/`, subprojects may have their own `CLAUDE.md` and `docs/` directories
-- **Single project** — standard single repo with `.claude/` directory
-
-#### Check for optimus files
-
-For **multi-repo workspaces**: enumerate all child repos and check each for `.claude/` directories. Also check for a workspace root `CLAUDE.md`. If no child repo has `.claude/` and no workspace root `CLAUDE.md` exists → inform the user "Nothing to reset — no optimus files found" → stop.
-
-For **single project / monorepo**: check if `.claude/` directory exists. If not → inform the user "Nothing to reset — no optimus files found" → stop.
-
-If `.claude/.optimus-version` does not exist, warn that the project may not have been initialized by optimus, but proceed with template comparison anyway.
-
-#### Inventory optimus-managed files
-
-Scan for all files that optimus skills may have created. Only list files that actually exist:
-
-**Root `.claude/` directory:**
-- `.claude/CLAUDE.md`
+- `.claude/CLAUDE.md`; the workspace-root `CLAUDE.md` in multi-repo workspaces;
+  subproject `CLAUDE.md` files in monorepos
+- `.claude/docs/`: `coding-guidelines.md`, `testing.md`, `styling.md`,
+  `architecture.md`, `skill-writing-guidelines.md`; in monorepos, subproject `docs/`
+  copies of testing/styling/architecture and per-subproject `coding-guidelines.md`
+- `.claude/hooks/`: formatter hooks (`format-python.py`, `format-node.js`,
+  `format-<language>.sh` — both plugin templates and custom fallbacks init wrote for
+  unsupported stacks) and the guardrails hook `restrict-paths.sh`
+- `.claude/settings.json` — optimus-added entries only, handled in Step 5
 - `.claude/.optimus-version`
-- `.claude/settings.json`
-- `.claude/docs/coding-guidelines.md`
-- `.claude/docs/testing.md`
-- `.claude/docs/styling.md`
-- `.claude/docs/architecture.md`
-- `.claude/docs/skill-writing-guidelines.md`
-- `.claude/agents/code-simplifier.md` *(legacy — from previous optimus versions)*
-- `.claude/agents/test-guardian.md` *(legacy — from previous optimus versions)*
-- `.claude/hooks/format-*` — scan by pattern, matching Step 4's settings cleanup: the plugin's template hooks (`format-python.py`, `format-node.js`, `format-rust.sh`, `format-go.sh`, `format-csharp.sh`, `format-java.sh`, `format-cpp.sh`, `format-dart.sh`) plus any custom `format-<language>.sh` created by init's unsupported-stack fallback
-- `.claude/hooks/restrict-paths.sh`
-
-**Monorepo subprojects** (scan for these patterns):
-- `<subproject>/CLAUDE.md` — subproject overview files
-- `<subproject>/docs/testing.md` — subproject testing docs
-- `<subproject>/docs/styling.md` — subproject styling docs
-- `<subproject>/docs/architecture.md` — subproject architecture docs
-
-**Multi-repo workspace root:**
-- `CLAUDE.md` at workspace root (local-only file)
-
-### Step 2 — Classify each file
-
-For each file found in Step 1, determine two things:
-1. **Origin classification** — was it generated by optimus, and has it been modified?
-2. **Git tracking** — is it tracked by git? (recoverable via `git checkout` if deleted)
-
-Check git tracking by running `git ls-files --error-unmatch <file>` for each file. Note: in multi-repo workspaces, run this from the correct repo directory.
-
-#### Classification by comparison strategy
-
-**Verbatim templates (exact content match):**
-
-For these files, read both the project file and the corresponding template from the plugin. If content is identical → classify as `UNMODIFIED`. If different → classify as `MODIFIED`.
-
-| Project file | Template source |
-|---|---|
-| `.claude/agents/code-simplifier.md` | `$CLAUDE_PLUGIN_ROOT/agents/code-simplifier.md` *(legacy — agents now live at plugin level)* |
-| `.claude/agents/test-guardian.md` | `$CLAUDE_PLUGIN_ROOT/agents/test-guardian.md` *(legacy — agents now live at plugin level)* |
-| `.claude/hooks/format-python.py` | `$CLAUDE_PLUGIN_ROOT/skills/init/templates/hooks/format-python.py` |
-| `.claude/hooks/format-node.js` | `$CLAUDE_PLUGIN_ROOT/skills/init/templates/hooks/format-node.js` |
-| `.claude/hooks/format-rust.sh` | `$CLAUDE_PLUGIN_ROOT/skills/init/templates/hooks/format-rust.sh` |
-| `.claude/hooks/format-go.sh` | `$CLAUDE_PLUGIN_ROOT/skills/init/templates/hooks/format-go.sh` |
-| `.claude/hooks/format-csharp.sh` | `$CLAUDE_PLUGIN_ROOT/skills/init/templates/hooks/format-csharp.sh` |
-| `.claude/hooks/format-java.sh` | `$CLAUDE_PLUGIN_ROOT/skills/init/templates/hooks/format-java.sh` |
-| `.claude/hooks/format-cpp.sh` | `$CLAUDE_PLUGIN_ROOT/skills/init/templates/hooks/format-cpp.sh` |
-| `.claude/hooks/format-dart.sh` | `$CLAUDE_PLUGIN_ROOT/skills/init/templates/hooks/format-dart.sh` |
-| `.claude/hooks/restrict-paths.sh` | `$CLAUDE_PLUGIN_ROOT/skills/permissions/templates/hooks/restrict-paths.sh` |
-
-Formatter hooks with no row in this table (custom `format-<language>.sh` files from init's unsupported-stack fallback) have no plugin template. Classify them `LIKELY_GENERATED` if they follow the shell-hook pattern (shebang, JSON stdin parsing into a file-path variable, file-extension guard, formatter invocation — see `format-rust.sh` for the shape); otherwise `MODIFIED`.
-
-**Near-exact templates (coding-guidelines.md, skill-writing-guidelines.md):**
-
-The template body (everything after line 1) is verbatim — only line 1 has `[PROJECT NAME]` substituted by init. Compare the project file's content from line 2 onward against the template's content from line 2 onward. If identical → `UNMODIFIED`. If different → `MODIFIED`.
-
-Templates:
-- `$CLAUDE_PLUGIN_ROOT/skills/init/templates/docs/coding-guidelines.md`
-- `$CLAUDE_PLUGIN_ROOT/skills/init/templates/docs/skill-writing-guidelines.md`
-
-**Generated docs (heuristic — content filled in by init):**
-
-These files have ALL content filled in by init from project analysis — no template comparison is possible. Use heuristic fingerprinting:
-
-| Project file | Template fingerprint (line 1 HTML comment) | Template section headings |
-|---|---|---|
-| `.claude/CLAUDE.md` | `<!-- Keep this file and .claude/docs/ updated when project structure, conventions, or tooling changes -->` | *(not used — comment-only check; headings differ across the single-project and monorepo variants)* |
-| `.claude/docs/testing.md` | *(no comment — check heading)* First line: `# Testing` | `Test Runner`, `Running Tests`, `Test Structure`, `Writing Tests`, `Workflow`, `Coverage` |
-| `.claude/docs/styling.md` | *(no comment — check heading)* First line: `# Styling` | `Stack`, `Conventions`, `File Organization`, `Adding New Components` |
-| `.claude/docs/architecture.md` | *(no comment — check heading)* First line: `# Architecture` | ANY of these heading sets: (1) code-only: `Overview`, `Directory Map`, `Data Flow`, `Key Patterns`, `Dependencies Between Modules` (2) skill-authoring: `Overview`, `Directory Map`, `Skill Organization`, `Agent Boundaries`, `Reference Hierarchy`, `Orchestration Patterns` (3) hybrid: `Overview`, `Directory Map`, `Code Architecture`, `Skill Architecture` |
-
-For CLAUDE.md: check if line 1 matches the template comment. Also check for monorepo variant: `<!-- Keep this file, .claude/docs/, and subproject CLAUDE.md files updated when project structure changes -->`.
-
-For subproject CLAUDE.md files: check for `<!-- Keep this file and docs/ updated when this subproject's conventions change -->`.
-
-For workspace root CLAUDE.md: check for `<!-- Local workspace file — not version-controlled. Each repo has its own .claude/CLAUDE.md. -->`.
-
-For docs (testing.md, styling.md, architecture.md): check if the `##` section headings match the template's headings in the same order.
-
-If fingerprints match → classify as `LIKELY_GENERATED`. If fingerprints don't match → classify as `MODIFIED`.
-
-**Always safe:**
-
-`.claude/.optimus-version` — pure version tracking file with no user content → always classify as `UNMODIFIED`.
-
-**Complex (settings.json):**
-
-`.claude/settings.json` → classify as `COMPLEX`. This file is handled separately in Step 4 via surgical key removal.
-
-#### Classification summary
-
-Each file gets one of:
-- `UNMODIFIED` — exact match with plugin template (safe to remove)
-- `LIKELY_GENERATED` — has optimus fingerprints, content was filled in by init
-- `MODIFIED` — differs from current templates or lacks optimus fingerprints (user-modified, or installed by an older optimus version whose templates have since changed)
-- `COMPLEX` — settings.json (surgical removal in Step 4)
-
-### Step 3 — Present reset plan and ask user
-
-Present the full categorized file list to the user. For each file, show:
-- The file path
-- Its classification (UNMODIFIED / LIKELY_GENERATED / MODIFIED)
-- Whether it is git-tracked (if yes, note: "recoverable via `git checkout`")
-
-Group by classification. Example format:
-
-```
-## Unmodified (exact match with plugin template)
-- .claude/agents/code-simplifier.md (git-tracked)
-- .claude/hooks/format-node.js (git-tracked)
-- .claude/.optimus-version (git-tracked)
-
-## Likely generated by optimus
-- .claude/CLAUDE.md (git-tracked)
-- .claude/docs/testing.md (git-tracked)
-
-## Modified (user edits, or older optimus version)
-- .claude/docs/coding-guidelines.md (git-tracked) — user added custom rules
-
-## settings.json
-- .claude/settings.json — will remove optimus entries, preserve user config (hook entries whose hook file is kept stay wired — see Step 4)
-```
-
-If `.claude/.optimus-version` records an older plugin version, show it in the plan as evidence of possible version skew — MODIFIED files may reflect template drift since that install rather than user edits.
-
-For multi-repo workspaces, group files by repo (e.g., `### repo-name/`).
-
-Then ask the user using AskUserQuestion:
-- Header: "Reset"
-- Question: "Review the files above. Which should be removed?"
-- Options — mark exactly one "(Recommended)": "Remove all" when every MODIFIED file is git-tracked; otherwise "Keep modified", naming the untracked MODIFIED files in its option text:
-  1. "Remove all" — remove all optimus files (UNMODIFIED + LIKELY_GENERATED + MODIFIED). Safe when git-tracked; irreversible for untracked MODIFIED files
-  2. "Keep modified" — remove UNMODIFIED + LIKELY_GENERATED, keep MODIFIED files
-  3. "Unmodified only" — remove only UNMODIFIED (most conservative)
-  4. "Abort" — cancel reset, do not remove anything
-
-If user selects "Abort" → inform the user that no files were removed → stop.
-
-### Step 4 — Clean settings.json (surgical removal)
-
-*This step is a procedure — it executes during Step 5 (item 2), after file deletions; it is skipped when the user chooses Abort.*
-
-If `.claude/settings.json` exists, do NOT delete it outright. Surgically remove optimus-contributed entries:
-
-1. Read the current `.claude/settings.json`
-2. Read the init template: `$CLAUDE_PLUGIN_ROOT/skills/init/templates/settings.json`
-3. Read the permissions template: `$CLAUDE_PLUGIN_ROOT/skills/permissions/templates/settings.json`
-
-**Remove PostToolUse hooks from init:**
-In `hooks.PostToolUse`, remove any entry whose `hooks` array contains commands referencing `.claude/hooks/format-` (init's formatter hooks) — but only if the referenced hook file was deleted in Step 5 or does not exist. If the user chose to keep a hook file, keep its entry too: removing it would silently disable a hook the user elected to preserve. If the `PostToolUse` array becomes empty after removal, remove the `PostToolUse` key.
-
-**Remove PreToolUse hooks from permissions:**
-In `hooks.PreToolUse`, remove any entry whose `hooks` array contains commands referencing `.claude/hooks/restrict-paths.sh` (permissions hook) — same rule: only if the hook file was deleted in Step 5 or does not exist. If the `PreToolUse` array becomes empty after removal, remove the `PreToolUse` key.
-
-**Remove permissions entries from permissions:**
-Compare `permissions.allow` against the permissions template's `permissions.allow` list. Remove entries that match. Also remove server-level entries of the exact form `mcp__<server-name>` where `<server-name>` is a server declared in the relevant project root's `.mcp.json` (for multi-repo workspaces, check each child repo's root independently; for single projects and monorepos, check the project root) — these are the entries permissions installs. Leave all other `mcp__*` entries untouched: tool-level entries (e.g., `mcp__github__get_issue`) and entries for servers not declared in `.mcp.json` were added by the user. If no `.mcp.json` exists, leave all `mcp__*` entries untouched. If `permissions.allow` becomes empty, remove the key.
-
-Compare `permissions.deny` against the permissions template's `permissions.deny` list. Remove entries that match. If `permissions.deny` becomes empty, remove the key.
-
-If `permissions` object becomes empty, remove it. If `hooks` object becomes empty, remove it.
-
-**Final check:**
-If the entire JSON object is empty (`{}`), delete the file entirely. Otherwise, write the cleaned JSON back with proper formatting (2-space indentation).
-
-### Step 5 — Execute removals
-
-Based on the user's choice from Step 3:
-
-1. Delete the selected files (using `rm` for each file)
-2. Clean `settings.json` per Step 4 (always — regardless of user's choice, since surgical removal preserves user content)
-
-**Multi-repo workspace handling:**
-- Process each child repo independently
-- Delete workspace root `CLAUDE.md` if it was classified and selected for removal
-
-**Monorepo handling:**
-- Process root `.claude/` directory (same as single project)
-- Delete subproject `CLAUDE.md` files that were classified and selected for removal
-- Delete subproject `docs/` files (testing.md, styling.md, architecture.md) that were classified and selected for removal
-
-### Step 6 — Clean empty directories
-
-After file removal, check these directories and remove any that are now empty:
-
-- `.claude/hooks/`
-- `.claude/agents/`
-- `.claude/docs/`
-- `.claude/` (only if completely empty — no files or subdirectories remain)
-
-For monorepos: also check subproject `docs/` directories.
-
-For multi-repo workspaces: check each repo's `.claude/hooks/`, `.claude/agents/`, `.claude/docs/`, and `.claude/` directories.
-
-### Step 7 — Report results
-
-Present a summary to the user:
-
-- **Files removed** — count and list
-- **Files kept** — count and list with reason (user-modified, user chose to keep, etc.)
-- **settings.json** — entries removed, or file deleted, or "no changes needed"; if a kept hook file retained its settings entry, say so explicitly (the hook stays active)
-- **Directories cleaned** — empty directories that were removed
-
-### Step 8 — Next step
-
-Recommend the next step based on intent:
-
-- To reinstall optimus project files → `/optimus:init` (and `/optimus:permissions` for safety guardrails)
-- To uninstall the plugin itself → `/plugin uninstall optimus@optimus-claude` (Claude Code command, not an optimus skill)
-
-Tell the user: **Tip:** for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch.
+- `HOW-TO-RUN.md` at the project root — only if init generated it; it may be
+  hand-written (see Step 2)
+- Harness state from `/optimus:deep` runs: `.claude/*-deep-progress.json`,
+  `.claude/*-deep-progress.json.bak`, `.claude/*-deep-progress.done.json`,
+  `.claude/.deep-iteration-*`, `.claude/.unit-test-deep-*`
+
+## Step 2 — Classify each file
+
+Each inventoried file gets one of: **UNMODIFIED** (matches its plugin template —
+safe to remove), **LIKELY_GENERATED** (optimus wrote it; content came from project
+analysis), **MODIFIED** (user edits — or an older optimus install whose templates
+have since drifted; if `.claude/.optimus-version` records an older plugin version,
+note that in the plan as evidence of drift), or **COMPLEX** (`settings.json` only).
+Also record whether each file is git-tracked (`git ls-files --error-unmatch <file>`,
+run inside the owning repo) — tracked files are recoverable after deletion.
+
+Strategies, by how much of the file init generates:
+
+- **Exact templates — hooks.** Byte-compare each hook against its same-named
+  template in `$CLAUDE_PLUGIN_ROOT/skills/init/templates/hooks/`. Identical →
+  UNMODIFIED, different → MODIFIED. Custom fallback hooks have no template:
+  LIKELY_GENERATED if they follow the template hooks' shape (shebang, JSON stdin
+  parsed into a file path, extension guard, formatter invocation), else MODIFIED.
+- **Near-exact templates — guideline docs.** For `coding-guidelines.md` and
+  `skill-writing-guidelines.md` (root and subproject copies), init substitutes
+  `[PROJECT NAME]` on line 1 only. Compare from line 2 onward against the same-named
+  template in `$CLAUDE_PLUGIN_ROOT/skills/init/templates/docs/`. Identical →
+  UNMODIFIED, different → MODIFIED.
+- **Fingerprinted generated docs.** Content is project-specific, so compare
+  structure, not bytes:
+  - `CLAUDE.md` files: LIKELY_GENERATED when line 1 is the HTML maintenance comment
+    from the matching template in `$CLAUDE_PLUGIN_ROOT/skills/init/templates/`
+    (`single-project-claude.md`, `monorepo-claude.md`, `subproject-claude.md`,
+    `multi-repo-claude.md`); otherwise MODIFIED.
+  - `testing.md`, `styling.md`, `architecture.md`: LIKELY_GENERATED when the `##`
+    heading skeleton matches the corresponding template in
+    `$CLAUDE_PLUGIN_ROOT/skills/init/templates/docs/` in order (architecture has
+    three template variants — a match with any of them counts); otherwise MODIFIED.
+- **HOW-TO-RUN.md** — no template or fingerprint exists. Ask the user whether init
+  generated it; if it is hand-written or the user is unsure, leave it alone.
+- **Always safe.** `.claude/.optimus-version` and the harness state files are pure
+  machine state with no user content: UNMODIFIED.
+- **settings.json** — COMPLEX; never a candidate for whole-file deletion here.
+
+## Step 3 — Confirm
+
+Present the plan grouped by classification (and by repo in multi-repo workspaces),
+marking each file git-tracked (recoverable via `git checkout`) or not. Then ask what
+to remove. A single answer may cover all UNMODIFIED and LIKELY_GENERATED files;
+MODIFIED files are only ever deleted with explicit per-file approval. Always offer
+aborting — on abort, change nothing and stop.
+
+## Step 4 — Execute removals
+
+Delete the approved files. In multi-repo workspaces process each repo independently;
+in monorepos include the approved subproject `CLAUDE.md` and `docs/` files.
+
+## Step 5 — settings.json surgical cleanup
+
+Runs whenever the user did not abort — it removes only optimus-added entries, so it
+applies regardless of which deletion mix was chosen. Edit the file in place:
+
+1. In `hooks.PostToolUse`, remove individual command objects whose command
+   references a `.claude/hooks/format-*` file that no longer exists. Command-object
+   granularity matters: if the user kept a hook file, its command stays wired.
+   The shape init installs is in `$CLAUDE_PLUGIN_ROOT/skills/init/templates/settings.json`.
+2. In `hooks.PreToolUse`, remove the command object referencing
+   `.claude/hooks/restrict-paths.sh` — likewise only if that file no longer exists.
+3. In `permissions.allow` and `permissions.deny`, remove entries that exactly match
+   the guardrails template lists in
+   `$CLAUDE_PLUGIN_ROOT/skills/init/templates/permissions-settings.json`. Leave
+   every other entry untouched — anything not in the template is the user's.
+4. Prune empty containers bottom-up (empty `hooks` array → its entry → the
+   `PostToolUse`/`PreToolUse` key → the `hooks` object; same for `permissions`). If
+   the whole object ends up `{}`, delete the file; otherwise write it back with
+   2-space indentation.
+
+## Step 6 — Clean up and report
+
+Remove directories the deletions left empty: `.claude/hooks/`, `.claude/docs/`,
+subproject `docs/` in monorepos, and `.claude/` itself only if completely empty —
+per repo in multi-repo workspaces.
+
+Summarize what was removed, what was kept and why, and what changed in
+`settings.json` (call it out when a kept hook's entry stays active). Note that
+`docs/specs/` and `docs/product/` were left in place as user content.
+
+If the goal was a clean reinstall, run `/optimus:init` next; if the goal is dropping
+optimus entirely, finish with `/plugin uninstall optimus@optimus-claude`.

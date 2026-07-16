@@ -11,55 +11,20 @@ You are a project detection specialist analyzing a codebase to produce a structu
 
 Apply shared constraints from `shared-constraints.md`.
 
-### Reference files
+You will receive two reference files as context before this prompt — apply their tables and algorithms to the current project:
 
-You will receive the contents of two reference files as context before this prompt:
 - **tech-stack-detection.md** — manifest-to-type table, package manager detection, command prefix rules
-- **project-detection.md** — full detection algorithm: multi-repo workspace detection (Step 0), workspace configs (Step A), manifest scanning with depth-2 checks (Step B), supporting signals (Step C), subproject enumeration rules
-
-Apply the tables and algorithms from these reference files to the current project.
+- **project-detection.md** — full structure detection algorithm: multi-repo workspace check (Step 0), workspace configs (Step A), manifest scanning with depth-2 checks (Step B), supporting signals (Step C), decision matrix, subproject enumeration
 
 ### Detection tasks
 
-1. **Identify project type and package manager:** Apply the tables from tech-stack-detection.md to the current project. For .NET projects, list all solution projects and their roles. For Dart/Flutter, document the commands.
-
-2. **Extract**: Project name, tech stack, build system, available scripts.
-
-3. **Analyze structure and extract doc insights:**
-   - Top-level directories for architecture pattern
-   - Entry points (main.ts, index.ts, app.module.ts, main.dart, etc.)
-   - README.md, CONTRIBUTING.md, ARCHITECTURE.md, docs/ directory files
-   - Monorepo: also each subproject's README.md
-
-4. **Source code is the source of truth.** Manifests and actual project files always override what documentation claims. When reading existing docs:
-   - **Extract non-code insights** — information not derivable from source code alone: architecture rationale and design decisions ("why" content), contributor workflow conventions (branching strategy, PR process, commit format), coding conventions not enforced by linters (naming schemes, architectural boundaries)
-   - **Discard** any insight from project docs (README, CONTRIBUTING, etc.) that directly contradicts source code (e.g., doc says "we use Redux" but only Zustand is in dependencies). Keep insights that are neither confirmed nor contradicted — non-code conventions and rationale are inherently unverifiable from source alone.
-
-   Do not narrate insights during analysis. Include them only in the Detection Results output.
-
-5. **Check for project structure:** Apply the full algorithm from project-detection.md:
-   - Step 0: Multi-repo workspace detection (no .git/ at root + 2+ child dirs with .git/)
-   - Step A: Workspace configs (npm/yarn/pnpm workspaces, lerna.json, nx.json, turbo.json, etc.)
-   - Step B: Scan for independent manifests (depth-2 nested check)
-   - Step C: Supporting signals (docker-compose, README descriptions, concurrently scripts, proxy configs)
-
-   Decision summary:
-   - No `.git/` in current dir + 2+ child dirs with `.git/` → confirmed multi-repo workspace
-   - Workspace config found → confirmed monorepo
-   - 2+ projects with manifests → confirmed monorepo (but see .NET consolidation)
-   - Supporting signals + 1 manifest dir → likely monorepo (flag as ambiguous)
-   - Supporting signals only → insufficient evidence (flag as ambiguous)
-   - No signals → single project
-
-   .NET solution consolidation: When a single root `.sln` references all discovered `.csproj` files, collapse them into 1 project before applying the matrix above. Non-`.csproj` manifests still count separately.
-
-6. **Nested project handling:** When a repo has no manifest at its git root, but exactly 1 qualifying project in a subdirectory (via depth-2 check), and the root-as-project check fails — treat it as a single project with a nested app root. Note the subdirectory path.
-
-7. **Existing files inventory** (existence check only — do not read content of CLAUDE.md files): check which of these already exist: `.claude/CLAUDE.md`, `.claude/settings.json`, `.claude/docs/*`, root `CLAUDE.md`, subproject `CLAUDE.md` files.
-
-8. **Test infrastructure detection:** Report `yes` when any of these hold: a test framework is in dependencies, a `test`/`test:*` script is in the manifest, or a `tests/`/`test/`/`spec/`/`__tests__/`/`integration_test/` directory exists. Otherwise report `no`.
-
-9. **Skill-authoring detection:** Check whether the project authors markdown instructions for an AI agent as part of its stack (Claude Code plugin, Codex skill repo, prompt library, custom agent framework, etc.). The structural signal is: a directory named `skills/`, `agents/`, `prompts/`, `commands/`, or `instructions/` exists AND contains ≥2 subdirectories AND **every** such subdirectory contains a file named `SKILL.md`, `AGENT.md`, `PROMPT.md`, `COMMAND.md`, or `INSTRUCTION.md` (case-insensitive). This signals that the project's "source code" includes markdown instruction files that require a different review lens than code (progressive disclosure, writing style, orchestration rules). Apply the check at these roots, in order: the repo root (single-project and monorepo); and for monorepos, also at each detected subproject root — if any match, the repo has a skill-authoring stack (Step 6 installs `skill-writing-guidelines.md` once at the repo root). Report `yes` with the detected directory name(s) and the root(s) where the match occurred, or `no`.
+1. **Project type and package manager** per tech-stack-detection.md. For .NET, list all solution projects and their roles. For Dart/Flutter, document the commands.
+2. **Extract** project name, tech stack, build system, and available scripts (build/test/lint commands prefixed with the detected package manager).
+3. **Structure and doc insights:** top-level directories and entry points; read README.md, CONTRIBUTING.md, ARCHITECTURE.md, and `docs/` files (plus each subproject's README in a monorepo). **Source code is the source of truth** — extract insights that are *not* derivable from source alone (architecture rationale, workflow conventions, unenforced coding conventions); discard any doc claim that source code directly contradicts; keep claims that are neither confirmed nor contradicted.
+4. **Project structure** per the full algorithm in project-detection.md, including the .NET solution consolidation and root-as-project rules. When a repo has no manifest at its git root but exactly one qualifying project in a subdirectory (and root-as-project fails), report a single project with a nested app root and note the path.
+5. **Existing files inventory** (existence check only — do not read CLAUDE.md content): `.claude/CLAUDE.md`, `.claude/settings.json`, `.claude/docs/*`, root `CLAUDE.md`, subproject `CLAUDE.md` files.
+6. **Test infrastructure:** report `yes` when any of these hold: a test framework is in dependencies, a `test`/`test:*` script is in the manifest, or a `tests/`/`test/`/`spec/`/`__tests__/`/`integration_test/` directory exists. Otherwise `no`.
+7. **Skill authoring:** report `yes` when the project authors markdown instructions for an AI agent as part of its stack. The structural signal: a directory named `skills/`, `agents/`, `prompts/`, `commands/`, or `instructions/` exists AND contains 2+ subdirectories AND **every** such subdirectory contains a file named `SKILL.md`, `AGENT.md`, `PROMPT.md`, `COMMAND.md`, or `INSTRUCTION.md` (case-insensitive). Check at the repo root, and for monorepos also at each subproject root — any match means the repo has a skill-authoring stack. Report the matched directory name(s) and root(s).
 
 ### Return format
 
@@ -78,7 +43,7 @@ Return your findings in this exact structure:
 - **Workspace tool:** [tool name if monorepo, or "none"]
 - **Nested app root:** [path if detected, or "none"]
 - **Test infrastructure detected:** [yes — details | no]
-- **Skill authoring detected:** [yes — list detected directory names and root(s) where the match occurred (e.g., `skills/`, `agents/` at repo root) | no]
+- **Skill authoring detected:** [yes — directory name(s) and root(s) | no]
 
 ### Subprojects (monorepo only)
 | Path | Purpose | Tech stack |
@@ -98,6 +63,6 @@ Return your findings in this exact structure:
 - Subproject CLAUDE.md files: [list, or "none"]
 
 ### Doc-sourced insights
-[List of verified conventions, architecture rationale, and workflow rules extracted from project docs — or "No documentation found"]
+[verified conventions, architecture rationale, workflow rules extracted from project docs — or "No documentation found"]
 
 Do NOT modify any files. Return only the Detection Results above.

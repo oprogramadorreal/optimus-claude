@@ -1,110 +1,61 @@
 # optimus:reset
 
-Removes files installed by [`/optimus:init`](../init/README.md) and [`/optimus:permissions`](../permissions/README.md) from your project. Use this when you want a clean reinstall or want to stop using optimus in a project.
+Removes files installed by [`/optimus:init`](../init/README.md) from your project. Use it for a clean reinstall or to stop using optimus in a project.
 
-This skill does **not** uninstall the optimus plugin itself — it only removes files from the project's `.claude/` directory (and subproject docs for monorepos).
+It does **not** uninstall the plugin itself — that is `/plugin uninstall optimus@optimus-claude`, run afterwards if you want optimus gone entirely.
 
 ## Quick Start
 
-This skill is part of the [optimus](https://github.com/oprogramadorreal/optimus-claude) plugin. See the [main README](../../README.md) for installation instructions.
-
-**Run:** Type `/optimus:reset` in any project directory.
+Part of the [optimus](https://github.com/oprogramadorreal/optimus-claude) plugin — see the [main README](../../README.md) for installation. **Run:** type `/optimus:reset` in any project directory.
 
 ## How It Works
 
-The skill scans for all files that optimus may have installed, classifies each one, presents a categorized list, and asks before removing anything.
-
-### File Classification
-
-Every file is analyzed and placed into one of three categories:
+The skill inventories every file init can install, classifies each one against the plugin's templates, presents the categorized plan, and asks before removing anything.
 
 | Classification | Meaning | How determined |
 |---|---|---|
-| **Unmodified** | Exact match with plugin template | Byte-for-byte comparison against the template file in the plugin |
-| **Likely generated** | Created by optimus but content was filled in from project analysis | Heuristic fingerprinting — checks for template HTML comments and matching section headings |
-| **Modified** | Differs from current templates — user edits, or installed by an older optimus version whose templates have since changed | Content differs from template, or fingerprints don't match |
+| **Unmodified** | Matches the plugin template | Byte comparison for hooks; body comparison from line 2 for guideline docs (init only substitutes the project name on line 1) |
+| **Likely generated** | Written by optimus, content filled in from project analysis | Fingerprinting — `CLAUDE.md` files are checked for the template's line-1 HTML comment; `testing.md`/`styling.md`/`architecture.md` for the template's `##` heading skeleton |
+| **Modified** | User edits, or an older optimus install whose templates have since changed | Content differs from the template, or fingerprints don't match |
 
-### Git-Tracked Awareness
+Each file is also checked for git tracking — tracked files are noted as recoverable via `git checkout`, which makes bulk removal safe in version-controlled projects.
 
-For each file, the skill checks whether it is tracked by git. Git-tracked files are noted as **recoverable** via `git checkout` — this makes the "Remove all" option safe for version-controlled projects.
-
-### User Confirmation
-
-The skill **always** asks before removing anything. After presenting the categorized list, it offers four choices — which one is recommended depends on git tracking: **Remove all** when every modified file is git-tracked (recoverable), otherwise **Keep modified** (with the untracked modified files named in the option):
-
-1. **Remove all** — removes all optimus files (unmodified + likely generated + modified). Safe when git-tracked; irreversible for untracked modified files
-2. **Keep modified** — removes unmodified and likely generated files, keeps user-modified files
-3. **Unmodified only** — removes only exact template matches (most conservative)
-4. **Abort** — cancel, remove nothing
+**Confirmation is mandatory.** A single answer can approve removing all unmodified and likely-generated files, but modified files are only ever deleted with explicit per-file approval, and aborting is always an option.
 
 ## What Gets Removed
 
-### Files from `/optimus:init`
+- `.claude/CLAUDE.md` — plus subproject `CLAUDE.md` files in monorepos and the workspace-root `CLAUDE.md` in multi-repo workspaces
+- `.claude/docs/` — `coding-guidelines.md`, `testing.md`, `styling.md`, `architecture.md`, `skill-writing-guidelines.md`, plus subproject `docs/` copies and per-subproject `coding-guidelines.md` in monorepos
+- `.claude/hooks/` — formatter hooks (template and custom fallback) and the `restrict-paths.sh` guardrails hook
+- `.claude/settings.json` — optimus-added entries only (surgical cleanup, see below)
+- `.claude/.optimus-version`
+- `HOW-TO-RUN.md` — only if init generated it; the skill asks, since it may be hand-written
+- Harness state from `/optimus:deep` — `.claude/*-deep-progress.json` (with `.bak` and `.done.json` siblings) and `.claude/.deep-iteration-*` / `.claude/.unit-test-deep-*` scratch files
 
-| File | Classification method |
-|---|---|
-| `.claude/CLAUDE.md` | Heuristic (template comment + section headings) |
-| `.claude/.optimus-version` | Always unmodified (pure tracking file) |
-| `.claude/docs/coding-guidelines.md` | Near-exact (template body comparison, line 2+) |
-| `.claude/docs/testing.md` | Heuristic (section headings) |
-| `.claude/docs/skill-writing-guidelines.md` | Near-exact (template body comparison, line 2+) |
-| `.claude/docs/styling.md` | Heuristic (section headings) |
-| `.claude/docs/architecture.md` | Heuristic (section headings) |
-| `.claude/agents/code-simplifier.md` | Exact match *(legacy)* |
-| `.claude/agents/test-guardian.md` | Exact match *(legacy)* |
-| `.claude/hooks/format-*` | Exact match against the plugin template; custom fallback hooks (unsupported stacks) have no template and use a shell-hook pattern heuristic |
+## settings.json Handling
 
-### Files from `/optimus:permissions`
+The file is never deleted outright. The skill removes only what optimus added, at command-object granularity:
 
-| File | Classification method |
-|---|---|
-| `.claude/hooks/restrict-paths.sh` | Exact match |
+- Formatter hook commands whose hook file was removed (a kept hook file keeps its entry and stays active)
+- The `restrict-paths.sh` PreToolUse command, again only if the hook file was removed
+- Permission allow/deny entries that exactly match the guardrails template
 
-### Shared file: `.claude/settings.json`
-
-Both `/optimus:init` and `/optimus:permissions` merge configuration into `.claude/settings.json`. The reset skill does **not** delete this file outright — it surgically removes optimus-contributed entries while preserving user-added configuration:
-
-- **PostToolUse hooks** referencing formatter scripts → removed only when the referenced hook file was removed (entries for kept hook files stay wired)
-- **PreToolUse hooks** referencing `restrict-paths.sh` → removed only when the hook file was removed (a kept hook stays active)
-- **Permission allow/deny entries** matching the permissions template → removed
-- **MCP server allow entries** (server-level `mcp__<server-name>`) added by permissions → removed (only for servers declared in the relevant project root's `.mcp.json` — per child repo for multi-repo workspaces; tool-level `mcp__*` entries and undeclared servers preserved)
-- **User-added hooks, permissions, and other config** → preserved
-
-If the file becomes empty after cleanup, it is deleted. Otherwise, the cleaned JSON is written back.
+Everything else — user hooks, user permissions, other config — is preserved. The file is deleted only if it ends up completely empty.
 
 ## What Is Never Touched
 
-- **Test files** — even if created by `/optimus:unit-test`, tests are never removed
-- **Files outside `.claude/`** — only optimus-managed paths are scanned (with the exception of monorepo subproject docs and multi-repo workspace root `CLAUDE.md`)
-- **User-added configuration** — custom entries in `settings.json` are preserved during surgical cleanup
+- **Tests** — even tests written by `/optimus:unit-test`
+- **`docs/specs/` and `docs/product/`** — approved specs and product docs are your content; they are left in place
+- **User-added configuration** in `settings.json`
+- **Anything outside the inventoried set** above
 
-## Monorepo Support
+## Monorepos and Multi-Repo Workspaces
 
-For monorepos, the skill also scans for:
-- Subproject `CLAUDE.md` files (e.g., `packages/auth/CLAUDE.md`)
-- Subproject `docs/` directories (`testing.md`, `styling.md`, `architecture.md`)
-
-Each subproject file is classified using the same heuristic fingerprinting and included in the categorized list.
-
-## Multi-Repo Workspace Support
-
-For multi-repo workspaces (a directory containing multiple independent git repos):
-- Each child repo is processed independently
-- Files are grouped by repo in the categorized list
-- The workspace root `CLAUDE.md` (local-only, not version-controlled) is also detected and classified
-
-## Skill Structure
-
-| File | Purpose |
-|---|---|
-| `SKILL.md` | Step-by-step reset instructions |
-
-No templates or references — this skill removes files, it does not install them.
+Monorepos include subproject `CLAUDE.md` and `docs/` files in the inventory. Multi-repo workspaces are processed per child repo, with files grouped by repo in the plan, plus the local workspace-root `CLAUDE.md`.
 
 ## Requirements
 
-- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) 1.0.33+ (plugin support)
-- Git (for git-tracked status detection)
+- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) 1.0.33+ (plugin support) and git (for tracked-file detection)
 
 ## License
 

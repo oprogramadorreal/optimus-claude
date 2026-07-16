@@ -1,142 +1,71 @@
 # optimus:unit-test
 
-A [Claude Code](https://docs.anthropic.com/en/docs/claude-code) skill that improves unit test coverage for existing code — discovering gaps and generating tests that follow your project's conventions. Requires `/optimus:init` to have set up test infrastructure first.
+A [Claude Code](https://docs.anthropic.com/en/docs/claude-code) skill that improves unit test coverage for existing code — discovering gaps and writing tests that follow your project's conventions. Requires `/optimus:init` to have set up test infrastructure first.
 
-Well-maintained code has [30%+ fewer AI-introduced defects](https://arxiv.org/abs/2601.02200), and tests are what make AI agents self-correcting: make change → run tests → see failure → fix. The plugin includes a test-guardian agent that monitors coverage gaps, but it doesn't write tests. `/optimus:unit-test` is the active complement: it fills gaps deliberately.
-
-**Conservative by design** — only adds new tests (new files, or new cases appended to existing test files), never refactors or restructures existing source code. If code is untestable as-is, it flags it rather than changing it. Refactoring is the domain of `/optimus:refactor`.
+**Conservative by design** — only adds new tests (new files, or new cases appended to existing test files), never refactors or restructures source code. If code is untestable as-is, it flags it rather than changing it; restructuring is the domain of `/optimus:refactor`.
 
 ## Features
 
-- **Pre-flight check** — verifies `/optimus:init` has been run and identifies available guideline documents
-- **Project-wide discovery** — scans for test files, frameworks, coverage tooling; stops if no test framework found (recommends running `/optimus:init`)
-- **Achievable threshold estimation** — analyzes testable vs untestable code to set realistic coverage targets without requiring refactoring
-- **Prioritized test plan** — up to 10 items per run, highest-value targets first, user-approved before execution
-- **Conservative test writing** — adds new tests only (new files, or new cases appended to existing test files); may fix a newly-written test but never modifies existing test logic or source code
-- **Broken baseline handoff** — stops with a triage pointer when pre-existing tests fail; never modifies their logic
-- **Bug discovery** — reports bugs found in existing code during test writing without fixing them
-- **Monorepo & multi-repo workspace support** — detects subprojects and processes each independently
-- **Submodule exclusion** — automatically skips git submodules during discovery
-
-## Quick Start
-
-This skill is part of the [optimus](https://github.com/oprogramadorreal/optimus-claude) plugin. See the [main README](../../README.md) for installation instructions.
+- **Pre-flight check** — verifies `/optimus:init` has been run and locates the project's guideline documents
+- **Agent-assisted discovery** — a reconnaissance agent scans test infrastructure, runs the existing suite, measures baseline coverage, and classifies code testability
+- **Achievable threshold estimation** — separates testable from untestable code to set realistic coverage targets without requiring refactoring
+- **Prioritized plan** — up to 10 items per run, highest-value targets first, user-approved before any test is written
+- **Convention-following tests** — replicates existing patterns (fixtures, naming, placement) and applies mocking discipline; may fix a newly-written test, never existing test logic or source code
+- **Broken baseline gate** — stops with a triage pointer when pre-existing tests fail; never fixes them
+- **Bug discovery** — reports bugs surfaced during test writing without fixing them
+- **Monorepo & multi-repo support** — detects subprojects and processes each independently, skipping git submodules
 
 ## Usage
 
-In Claude Code, use any of these:
+- `/optimus:unit-test` — full project
+- `/optimus:unit-test src/api` — scope to a directory or monorepo subproject
 
-- `/optimus:unit-test` — full project test coverage improvement
-- `/optimus:unit-test src/api` — scope to a specific directory
-- `/optimus:unit-test packages/auth` — scope to a monorepo subproject
-
-For iterative coverage improvement with automated testability refactoring, see [`/optimus:unit-test-deep`](../unit-test-deep/README.md).
+This skill is part of the [optimus](https://github.com/oprogramadorreal/optimus-claude) plugin — see the [main README](../../README.md) for installation.
 
 ## When to Run
 
-- **After `/optimus:init`** — establish test coverage for a newly initialized project
-- **On established projects** — fill coverage gaps in codebases that grew without systematic testing
-- **Before releases** — strengthen test coverage before shipping
-- **After major refactors** — verify refactored code with new tests
-- **Periodic maintenance** — incrementally improve coverage over multiple runs (10 tests per run)
-
-## Example Output
-
-The skill produces a structured summary after completing:
-
-```
-## Unit Test Summary
-
-### Coverage
-- Coverage tooling: vitest --coverage
-- Before: 23% → After: 41%
-- Achievable target (without refactoring): ~58%
-
-### Tests Created
-| # | File | Target | Status |
-|---|------|--------|--------|
-| 1 | src/__tests__/auth.test.ts | auth module exports | ✓ Pass |
-| 2 | src/__tests__/validate.test.ts | validation utilities | ✓ Pass |
-| 3 | src/__tests__/transform.test.ts | data transformations | ✓ Pass |
-| 4 | src/__tests__/config.test.ts | config loader | ✓ Pass |
-| 5 | src/__tests__/router.test.ts | route handlers | ✓ Pass (bug found) |
-
-### Bugs Discovered
-- router.test.ts: GET /users/123 returns 500 when user has no email field (expects 200 with null email)
-
-### Not Testable Without Refactoring
-- src/services/payment.ts — inline Stripe API calls without injection
-- src/db/migrate.ts — direct database connection, no repository pattern
-- To address these, run /optimus:refactor testability to prioritize testability improvements.
-```
+- After `/optimus:init`, to establish coverage on a newly initialized project
+- On established codebases that grew without systematic testing
+- Before releases or after major refactors
+- As periodic maintenance — coverage improves incrementally, up to 10 items per run
 
 ## How It Works
 
-1. Verifies project context exists and identifies available guideline documents
-2. Discovers test infrastructure, runs existing tests, measures baseline coverage, and estimates achievable target (agent-assisted)
-3. Presents prioritized test generation plan (capped at 10 items)
-4. Writes tests following project conventions and mocking anti-patterns; self-reviews against a quality checklist before running each test
-5. Runs the full test suite with evidence-based verification, then reports coverage impact, bugs discovered, and code flagged as untestable
+1. Verifies project context exists and loads `coding-guidelines.md` / `testing.md`
+2. Dispatches a discovery agent: infrastructure scan, baseline test run, coverage measurement, testability classification
+3. Presents a prioritized test plan (capped at 10 items) for approval
+4. Writes tests following project conventions, running each immediately; failing tests get fixed (test-side only) or abandoned and reverted
+5. Runs the full suite with evidence-based verification, then reports coverage impact, bugs discovered, and code flagged as untestable
 
-## Iterative Coverage Improvement
-
-For sustained coverage improvement on codebases with untestable barriers, use the dedicated orchestrator skill [`/optimus:unit-test-deep`](../unit-test-deep/README.md). Each cycle dispatches `/optimus:unit-test` (this skill) and conditionally `/optimus:refactor testability` in fresh subagent contexts — the two work together to unblock testability and write tests in alternating phases. Default 5 cycles, hard cap 10.
-
-### Research context
-
-Iterative LLM feedback loops with automated verification consistently improve output quality, with the largest gains in early iterations and diminishing returns in later stages ([LLMLOOP, ICSME 2025](https://valerio-terragni.github.io/assets/pdf/ravi-icsme-2025.pdf)).
-
-## Relationship to Test-Guardian Agent
-
-The test-guardian agent and this skill are complementary — both use `testing.md` as their source of truth but serve different roles:
-
-| | Test-guardian agent | `/optimus:unit-test` |
-|---|---|---|
-| Trigger | Automatic, after code changes | On-demand, user-invoked |
-| Scope | Current task changes | Full project or scoped directory |
-| Action | Flags gaps, doesn't write tests | Writes and verifies new tests |
-| Infrastructure | Requires existing setup | Requires `/optimus:init` setup |
-| Coverage | Reports delta | Analyzes achievable threshold, moves toward it |
-| Role | Passive monitoring | Active test generation |
+If pre-existing tests fail or no framework is found, the skill stops instead of proceeding — a green baseline and working infrastructure are prerequisites, and their repair paths (`/optimus:init`, in-conversation triage) are outside this skill's conservative scope.
 
 ## Relationship to Other Skills
 
 | | `/optimus:unit-test` | `/optimus:refactor` |
 |---|---|---|
-| Scope | Test files only | Source code |
-| When code is untestable | Flags it, suggests `/optimus:refactor testability` | Restructures code to make it testable |
-| Modifies source? | Never | Yes, with approval |
+| Modifies | Test files only (new tests) | Source code, with approval |
+| Untestable code | Flags it | Restructures it (`testability` focus) |
 
-| | `/optimus:unit-test` | `/optimus:init` |
-|---|---|---|
-| Test infrastructure | Requires init to set it up | Installs framework, coverage tooling, testing docs |
-| Test files | Writes new tests | Does not write tests |
-| Coverage analysis | Measures and reports | Does not analyze |
+The plugin's test-guardian agent passively flags coverage gaps after code changes; this skill is the active complement that writes the tests.
 
-**Workflow**: `/optimus:init` (set up everything including test infrastructure) → `/optimus:unit-test` (write tests to increase coverage) → `/optimus:refactor testability` (restructure untestable code with testability focus) → `/optimus:unit-test` again (test the restructured code).
-
-**Automated alternative**: [`/optimus:unit-test-deep`](../unit-test-deep/README.md) runs unit-test and refactor-testability in alternating phases, with fresh context per phase, committing progress after each.
+**Typical loop**: `/optimus:unit-test` → `/optimus:refactor testability` for the flagged barriers → `/optimus:unit-test` again. `/optimus:deep coverage` automates that alternation across resumable cycles with fresh context per phase.
 
 ## Skill Structure
 
 | File | Purpose |
 |---|---|
 | `SKILL.md` | Skill definition with 6-step workflow |
-| `agents/` | Individual agent prompt files for Test Infrastructure Analysis subagent |
-| *(shared)* `init/references/multi-repo-detection.md` | Multi-repo workspace detection algorithm |
-| *(shared)* `init/references/constraint-doc-loading.md` | Constraint doc loading — Monorepo Scoping Rule |
-| *(shared)* `init/references/project-detection.md` | Project structure detection algorithm |
-| *(shared)* `init/references/verification-protocol.md` | Evidence-based test verification protocol |
+| `agents/test-infrastructure-analyzer.md` | Discovery agent prompt |
+| `agents/shared-constraints.md` | Read-only constraints for the discovery agent |
+| *(shared)* `references/coverage-harness-mode.md` | Single-pass protocol under `/optimus:deep coverage` |
+| *(shared)* `init/references/` | Multi-repo detection, monorepo doc scoping, verification protocol |
 | *(shared)* `tdd/references/testing-anti-patterns.md` | Mocking and assertion discipline |
-| *(shared)* `references/coverage-harness-mode.md` | Single-pass protocol under `/optimus:unit-test-deep` |
-| *(shared)* `references/skill-handoff.md` | Closing recommendation wording variants |
 
 ## Requirements
 
 - [Claude Code](https://docs.anthropic.com/en/docs/claude-code) 1.0.33+ (plugin support)
 - Git
-- Project initialized with `/optimus:init` (required — skill stops if CLAUDE.md is not found)
-- Test command in `.claude/CLAUDE.md` if you want to use `/optimus:unit-test-deep`
+- Project initialized with `/optimus:init` (the skill stops if `.claude/CLAUDE.md` is not found)
 
 ## License
 

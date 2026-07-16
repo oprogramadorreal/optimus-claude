@@ -1,6 +1,6 @@
 # Tech Stack Detection
 
-Shared detection tables for identifying project type and package manager from manifest files. Referenced by init (Step 1) and how-to-run (Step 1).
+Shared detection tables for identifying project type and package manager from manifest files. Provided to init's project-analyzer agent.
 
 ## Manifest → Project Type
 
@@ -48,7 +48,7 @@ If a lock file doesn't match any row above and the package manager was not alrea
 
 ## Runtime Version Constraint Fields
 
-These manifest fields specify runtime version constraints — used by how-to-run for Prerequisites sections:
+These manifest fields specify runtime version constraints — the only legitimate source for version numbers in generated docs (e.g., HOW-TO-RUN.md prerequisites):
 
 | Manifest | Field | Example |
 |----------|-------|---------|
