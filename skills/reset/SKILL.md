@@ -40,14 +40,15 @@ This is everything init can install — inventory only the files that actually e
   subproject `CLAUDE.md` files in monorepos
 - `.claude/docs/`: `coding-guidelines.md`, `testing.md`, `styling.md`,
   `architecture.md`, `skill-writing-guidelines.md`; in monorepos, subproject `docs/`
-  copies of testing/styling/architecture and per-subproject `coding-guidelines.md`
+  copies of testing/styling/architecture (the two guideline docs live at root only)
 - `.claude/hooks/`: formatter hooks (`format-python.py`, `format-node.js`,
   `format-<language>.sh` — both plugin templates and custom fallbacks init wrote for
   unsupported stacks) and the guardrails hook `restrict-paths.sh`
 - `.claude/settings.json` — optimus-added entries only, handled in Step 5
 - `.claude/.optimus-version`
 - `HOW-TO-RUN.md` at the project root — only if init generated it; it may be
-  hand-written (see Step 2)
+  hand-written (see Step 2). In multi-repo workspaces, also the workspace-root
+  `HOW-TO-RUN.md` init can generate alongside the workspace-root `CLAUDE.md`
 - Harness state from `/optimus:deep` runs: `.claude/*-deep-progress.json`,
   `.claude/*-deep-progress.json.bak`, `.claude/*-deep-progress.done.json`,
   `.claude/.deep-iteration-*`, `.claude/.unit-test-deep-*`
@@ -70,7 +71,7 @@ Strategies, by how much of the file init generates:
   LIKELY_GENERATED if they follow the template hooks' shape (shebang, JSON stdin
   parsed into a file path, extension guard, formatter invocation), else MODIFIED.
 - **Near-exact templates — guideline docs.** For `coding-guidelines.md` and
-  `skill-writing-guidelines.md` (root and subproject copies), init substitutes
+  `skill-writing-guidelines.md` (root `.claude/docs/` only), init substitutes
   `[PROJECT NAME]` on line 1 only. Compare from line 2 onward against the same-named
   template in `$CLAUDE_PLUGIN_ROOT/skills/init/templates/docs/`. Identical →
   UNMODIFIED, different → MODIFIED.
@@ -116,8 +117,10 @@ applies regardless of which deletion mix was chosen. Edit the file in place:
    `.claude/hooks/restrict-paths.sh` — likewise only if that file no longer exists.
 3. In `permissions.allow` and `permissions.deny`, remove entries that exactly match
    the guardrails template lists in
-   `$CLAUDE_PLUGIN_ROOT/skills/init/templates/permissions-settings.json`. Leave
-   every other entry untouched — anything not in the template is the user's.
+   `$CLAUDE_PLUGIN_ROOT/skills/init/templates/permissions-settings.json`, plus any
+   `mcp__<server>` allow entries whose server names appear in the project's
+   `.mcp.json` (init's guardrails step adds those beyond the template). Leave every
+   other entry untouched.
 4. Prune empty containers bottom-up (empty `hooks` array → its entry → the
    `PostToolUse`/`PreToolUse` key → the `hooks` object; same for `permissions`). If
    the whole object ends up `{}`, delete the file; otherwise write it back with

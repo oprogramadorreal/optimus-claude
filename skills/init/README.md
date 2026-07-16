@@ -32,7 +32,6 @@ This skill is part of the [optimus](https://github.com/oprogramadorreal/optimus-
 
 ```
 /optimus:init
-/optimus:init focus on the backend services
 ```
 
 ## Generated files

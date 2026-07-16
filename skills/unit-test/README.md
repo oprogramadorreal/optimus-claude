@@ -46,7 +46,7 @@ If pre-existing tests fail or no framework is found, the skill stops instead of 
 | Modifies | Test files only (new tests) | Source code, with approval |
 | Untestable code | Flags it | Restructures it (`testability` focus) |
 
-The plugin's test-guardian agent passively flags coverage gaps after code changes; this skill is the active complement that writes the tests.
+The plugin's test-guardian agent flags coverage gaps when Claude or a skill dispatches it for review; this skill is the active complement that writes the tests.
 
 **Typical loop**: `/optimus:unit-test` → `/optimus:refactor testability` for the flagged barriers → `/optimus:unit-test` again. `/optimus:deep coverage` automates that alternation across resumable cycles with fresh context per phase.
 

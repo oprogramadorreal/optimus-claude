@@ -1,6 +1,6 @@
 # Quality gate
 
-Runs the project-level quality agents after TDD cycles complete. Running them here rather than per-cycle catches cross-cycle issues — duplication between behaviors, naming drift, accumulated pattern violations, coverage gaps — that are invisible within a single cycle.
+Runs the quality-gate agents after TDD cycles complete. Running them here rather than per-cycle catches cross-cycle issues — duplication between behaviors, naming drift, accumulated pattern violations, coverage gaps — that are invisible within a single cycle.
 
 ## Scope
 

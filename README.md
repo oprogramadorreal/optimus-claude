@@ -55,7 +55,7 @@ From then on, every skill enforces those project-defined standards: `/optimus:co
 
 **A typical flow:** `/optimus:init` once → `/optimus:spec` to design a feature → `/optimus:tdd` to build it test-first (it auto-detects the approved spec) → open a PR → `/optimus:code-review` in a fresh conversation. For codebase-wide improvement, `/optimus:unit-test` and `/optimus:refactor` run standalone, and `/optimus:deep` automates either one (or review) as a resumable fix loop that runs tests after every iteration and bisects failures. After major changes, re-run `/optimus:init` to audit and refresh the docs.
 
-**Design principles:** skills never auto-trigger (`disable-model-invocation: true` everywhere — the only automatic component is a lightweight, read-only SessionStart hook that surfaces project state), and generated output is project-scoped, self-contained, and version-controlled.
+**Design principles:** skills never auto-trigger (`disable-model-invocation: true` everywhere). The only always-on component is a lightweight, read-only SessionStart hook that surfaces project state; the plugin's two quality agents (code-simplifier, test-guardian) act only when Claude or a skill dispatches them. Generated output is project-scoped, self-contained, and version-controlled.
 
 ## Why It Works
 

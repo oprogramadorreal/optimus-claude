@@ -5,7 +5,7 @@
 # Requirements: claude CLI installed and authenticated (plan subscription or API key)
 #
 # Usage:
-#   bash scripts/test-skills.sh                              # default: init + commit-message
+#   bash scripts/test-skills.sh                              # default: init on node + python fixtures
 #   bash scripts/test-skills.sh --skill init                 # test one skill
 #   bash scripts/test-skills.sh --skill init --fixture node  # test one skill + one fixture
 #   bash scripts/test-skills.sh --all                        # test all testable skills
@@ -42,7 +42,7 @@ while [[ $# -gt 0 ]]; do
     --help|-h)
       echo "Usage: bash scripts/test-skills.sh [options]"
       echo "Options:"
-      echo "  --skill <name>     Test specific skill (init, permissions, commit-message, how-to-run, prompt, branch)"
+      echo "  --skill <name>     Test specific skill (init)"
       echo "  --fixture <name>   Test against specific fixture (node, python, go, rust, csharp, monorepo, empty, multi-repo)"
       echo "  --all              Test all skill/fixture combinations"
       echo "  --fresh            Remove and regenerate all fixtures before testing"

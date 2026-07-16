@@ -48,7 +48,8 @@ installs dev dependencies).
 - Bump the version in `.claude-plugin/plugin.json` for meaningful changes, and
   update the version badge in `README.md` to match
 - Only `/optimus:init` writes `.claude/.optimus-version` in user projects —
-  other skills must never touch it
+  other skills must never update it (`/optimus:reset` deletes it as part of
+  uninstall)
 - Harness protocol strings (JSON schemas in `references/harness-mode.md` /
   `coverage-harness-mode.md`, status vocabulary in
   `references/context-injection-blocks.md`) are machine contracts with

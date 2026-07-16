@@ -25,7 +25,7 @@ Each file is also checked for git tracking — tracked files are noted as recove
 ## What Gets Removed
 
 - `.claude/CLAUDE.md` — plus subproject `CLAUDE.md` files in monorepos and the workspace-root `CLAUDE.md` in multi-repo workspaces
-- `.claude/docs/` — `coding-guidelines.md`, `testing.md`, `styling.md`, `architecture.md`, `skill-writing-guidelines.md`, plus subproject `docs/` copies and per-subproject `coding-guidelines.md` in monorepos
+- `.claude/docs/` — `coding-guidelines.md`, `testing.md`, `styling.md`, `architecture.md`, `skill-writing-guidelines.md`, plus subproject `docs/` copies of testing/styling/architecture in monorepos
 - `.claude/hooks/` — formatter hooks (template and custom fallback) and the `restrict-paths.sh` guardrails hook
 - `.claude/settings.json` — optimus-added entries only (surgical cleanup, see below)
 - `.claude/.optimus-version`

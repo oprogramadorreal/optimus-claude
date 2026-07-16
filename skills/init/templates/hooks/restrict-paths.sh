@@ -45,7 +45,7 @@
 #   Well-known sensitive files (.env, *.key, *.pem, *.sqlite, etc.) that are
 #   not tracked by git receive extra protection: edits prompt for approval,
 #   deletions are blocked. No configuration needed — patterns are hardcoded
-#   in the is_precious() function. See the skill's README for the full list.
+#   in the is_precious() function below — read it for the full list.
 #
 # CLAUDE MEMORY STORE (always-allowed):
 #   Claude Code keeps a per-project auto-memory store under

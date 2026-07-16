@@ -27,6 +27,6 @@ Run the skill's `init` invocation from its SKILL.md. Pass `--no-commit` through 
 If exit code is non-zero, surface the error and stop. Likely errors:
 
 - *"progress file already exists"* — a prior run has not been archived. Tell the user to either pass `--resume` to continue the prior run, or re-invoke the CLI `init` subcommand with `--force` to discard the prior progress and start fresh. `--force` is a flag of `cli.py init`, not of the skill — no user-visible orchestrator flag exists or is needed. Note that `resume` never re-runs the baseline: if the prior run stopped at its baseline or never completed an iteration, apply the skill's baseline step's `--resume` rule before entering the loop.
-- *"No test command"* — `.claude/CLAUDE.md` does not document a test command and `--test-command` was not supplied. Recommend `/optimus:init`.
+- *"--test-command is required"* — the init invocation was missing its test command. Capture it from `.claude/CLAUDE.md` and pass it explicitly; if the project has none documented, recommend `/optimus:init`.
 - *"Working tree has uncommitted changes"* — the CLI re-enforces the Step 2 clean-tree check (it also protects direct CLI callers). Commit or stash first, or run with `--no-commit`.
 - *"Cannot determine HEAD commit"* — the project is not a git repository or has no commits.

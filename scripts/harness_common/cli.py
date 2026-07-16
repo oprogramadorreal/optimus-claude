@@ -7,6 +7,7 @@ the CLI reads/writes a JSON progress file on disk.
 Subcommand summary:
   init                    — create initial progress file
   resume                  — validate existing progress file for continuation
+  baseline                — run the suite once, calibrate the per-run test timeout
   snapshot                — capture pre-iteration git state into progress
   parse                   — extract json:harness-output from subagent text
   deep-step               — apply/test/bisect for the review / refactor modes
@@ -15,7 +16,7 @@ Subcommand summary:
   record-cycle            — append cycle_history entry (paired variant)
   commit-checkpoint       — create git checkpoint commit
   check-termination       — print one of continue|convergence|no-actionable|
-                            all-reverted|diminishing-returns|cap
+                            all-reverted|diminishing-returns|cap|parse-failure
   advance                 — increment iteration counter (deep variant)
   pending-refactor-count  — count untestable_code items still pending refactor
   final-report            — print the cumulative report
@@ -1288,8 +1289,9 @@ def cmd_baseline(args):
     ``--allow-red``, which warns and proceeds without calibrating the timeout.
     On success, calibrates ``config.test_timeout`` from the measured wall-clock
     duration so the per-iteration runs — and bisection's re-runs — have headroom,
-    then prints ``baseline-green``. The orchestrator calls this once on a fresh
-    run only (skipped on ``--resume``, where the timeout is already persisted).
+    then prints ``baseline-green``. The orchestrator calls this on a fresh run,
+    and on ``--resume`` only when the prior run completed zero iterations/cycles
+    (otherwise the calibrated timeout is already persisted).
     The status token is always the last line so the orchestrator can read it.
     """
     progress_path = Path(args.progress_file)
@@ -1563,7 +1565,7 @@ def cmd_final_report(args):
 def _build_parser():
     parser = argparse.ArgumentParser(
         prog="harness_common.cli",
-        description="Orchestrator CLI invoked by *-deep skills",
+        description="Orchestrator CLI invoked by the /optimus:deep skill",
     )
     sub = parser.add_subparsers(dest="command", required=True)
 
@@ -1613,8 +1615,8 @@ def _build_parser():
         "--allow-red",
         action="store_true",
         help="Proceed even if the baseline suite is not green (skips timeout "
-        "calibration). The orchestrator passes this for unit-test-deep and when "
-        "the user supplied --allow-red-baseline.",
+        "calibration). The /optimus:deep orchestrator passes this in coverage "
+        "mode, where a project with no tests yet legitimately starts red.",
     )
     p.set_defaults(func=cmd_baseline)
 

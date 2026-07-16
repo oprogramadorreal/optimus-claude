@@ -1,6 +1,6 @@
 # Platform Detection & CLI Management
 
-Shared detection algorithm referenced by multiple skills. Each consuming skill reads the sections it needs and applies its own policy (e.g., whether to offer CLI installation or skip).
+Platform-detection reference for `/optimus:code-review`'s PR/MR mode. The skill reads the sections it needs; the CLI Installation section supports offering install instructions when a required CLI is missing.
 
 ## Platform Detection Algorithm
 
