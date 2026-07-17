@@ -40,7 +40,7 @@ Classify with shell comparison — do not read file bodies into context:
 
 **Verbatim templates.** The template is the same-named file in the plugin: `format-*` hooks → `$CLAUDE_PLUGIN_ROOT/skills/init/templates/hooks/`, `restrict-paths.sh` → `$CLAUDE_PLUGIN_ROOT/skills/permissions/templates/hooks/`, legacy `.claude/agents/*.md` → `$CLAUDE_PLUGIN_ROOT/agents/`. Run `cmp -s <file> <template>`: identical → `UNMODIFIED`, else `MODIFIED`. A custom `format-<language>.sh` with no same-named template is `LIKELY_GENERATED` if it follows the shell-hook pattern (shebang, JSON stdin parsed into a file-path variable, file-extension guard, formatter invocation), else `MODIFIED`.
 
-**Near-exact pair** — `docs/coding-guidelines.md` and `docs/skill-writing-guidelines.md`: line 1 carries init's `[PROJECT NAME]` substitution; the rest is verbatim from `$CLAUDE_PLUGIN_ROOT/skills/init/templates/docs/<same name>`. Run `tail -n +2 <file> | diff -q - <(tail -n +2 <template>)`: identical → `UNMODIFIED`, else `MODIFIED`.
+**Near-exact pair** — `docs/coding-guidelines.md` and `docs/skill-writing-guidelines.md`: line 1 carries init's `[PROJECT NAME]` substitution; the rest is verbatim from the same-named file under `$CLAUDE_PLUGIN_ROOT/skills/init/templates/docs/`. Run `tail -n +2 <file> | diff -q - <(tail -n +2 <template>)`: identical → `UNMODIFIED`, else `MODIFIED`.
 
 **Generated docs** — content is filled in by init, so compare structure against the plugin's own templates at runtime (all under `$CLAUDE_PLUGIN_ROOT/skills/init/templates/`):
 

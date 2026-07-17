@@ -14,9 +14,9 @@ optimus-claude/
 ├── .claude-plugin/
 │   ├── plugin.json           # Plugin metadata (name, version, author)
 │   └── marketplace.json      # Marketplace catalog (how Claude Code discovers the plugin)
-├── agents/                    # Plugin-level agents — user-invokable, also extended by skill-level agents
-│   ├── code-simplifier.md     # Code simplification agent (extended by code-review, refactor, tdd)
-│   ├── test-guardian.md       # Test coverage monitoring agent (extended by code-review, tdd)
+├── agents/                    # Plugin-level agents — standalone, user-invokable quality agents
+│   ├── code-simplifier.md     # Code simplification agent
+│   ├── test-guardian.md       # Test coverage monitoring agent
 ├── references/                # Shared reference docs consumed across skills (see the Reference Hierarchy in .claude/docs/architecture.md)
 ├── hooks/
 │   ├── hooks.json            # Plugin-level hooks (SessionStart for skill awareness)
@@ -39,26 +39,20 @@ optimus-claude/
 │       └── constants.py      # Shared status / cap constants
 ├── skills/
 │   ├── init/                 # /optimus:init
-│   ├── spec-init/            # /optimus:spec-init
 │   ├── how-to-run/           # /optimus:how-to-run
 │   ├── unit-test/            # /optimus:unit-test
-│   ├── unit-test-deep/       # /optimus:unit-test-deep
 │   ├── refactor/             # /optimus:refactor
-│   ├── refactor-deep/        # /optimus:refactor-deep
 │   ├── code-review/          # /optimus:code-review
-│   ├── code-review-deep/     # /optimus:code-review-deep
+│   ├── deep/                 # /optimus:deep (review | refactor | coverage)
 │   ├── tdd/                  # /optimus:tdd
-│   ├── workflow/             # /optimus:workflow
 │   ├── pr/                   # /optimus:pr
 │   ├── prompt/               # /optimus:prompt
 │   ├── permissions/          # /optimus:permissions
 │   ├── reset/                # /optimus:reset
-│   ├── branch/               # /optimus:branch
 │   ├── worktree/             # /optimus:worktree
-│   ├── commit/               # /optimus:commit
-│   ├── brainstorm/           # /optimus:brainstorm
+│   ├── commit/               # /optimus:commit (default | suggest | branch)
+│   ├── brainstorm/           # /optimus:brainstorm (design | scaffold)
 │   ├── handoff/              # /optimus:handoff
-│   ├── commit-message/       # /optimus:commit-message
 │   └── jira/                 # /optimus:jira
 ├── test/
 │   ├── expected-outputs.yaml # Expected outputs for skill tests
@@ -111,21 +105,7 @@ All skills **must** use `disable-model-invocation: true`. Skills that take argum
 
 ## Agent architecture
 
-The plugin uses a two-tier agent design. See `references/agent-architecture.md` for the full explanation.
-
-**Create a plugin-level agent** (`agents/`) when:
-- The agent represents a reusable quality concern (e.g., code simplification, test coverage monitoring)
-- Multiple skills will extend its core behavior via the specialization pattern
-
-**Create a skill-level agent** (`skills/<name>/agents/`) when:
-- The agent is specific to one skill's workflow (e.g., bug-detector for code-review)
-- The agent needs skill-specific scope, output format, or exclusion boundaries
-
-**Extend a plugin-level agent** from a skill-level agent when:
-- The skill needs the same core behavior but with different scope or output format
-- Use `Read $CLAUDE_PLUGIN_ROOT/agents/<name>.md for your approach` to inherit, then add skill-specific instructions
-
-**Add shared constraints** to `references/shared-agent-constraints.md` when the rule applies to all analysis agents across all skills. Add skill-specific addendums to the skill's own `shared-constraints.md`.
+Two tiers, no inheritance. **Plugin-level agents** (`agents/`) are standalone, user-invokable quality agents. **Skill-level agents** (`skills/<name>/agents/`) are self-contained prompt files a SKILL.md launches via the Agent tool — each carries its own criteria inline. Shared behavioral rules live once in `references/shared-agent-constraints.md`; a skill's own `agents/shared-constraints.md` holds only genuine addendums plus the skill's canonical output format. The dispatch-time path-substitution rule is in `references/agent-architecture.md`.
 
 ## Adding or modifying a skill
 
@@ -135,7 +115,7 @@ The plugin uses a two-tier agent design. See `references/agent-architecture.md` 
 4. Add the skill to the Skills section in the root `README.md`
 5. Add the skill directory to the project-structure tree in this file — `scripts/validate.sh` asserts every `skills/` directory appears in both the root `README.md` and this tree
 
-Follow the conventions visible in existing skills — study `skills/commit-message/` for a minimal example or `skills/init/` for a full-featured one.
+Follow the conventions visible in existing skills — study `skills/worktree/` for a minimal example or `skills/init/` for a full-featured one.
 
 ### Output tone and formatting
 
@@ -271,7 +251,7 @@ Available fixtures: `node`, `python`, `go`, `rust`, `csharp`, `monorepo`, `empty
 Runs skills against generated fixtures via `claude -p` (headless mode) and validates expected outputs against `test/expected-outputs.yaml`. Requires the `claude` CLI installed and authenticated (plan subscription or API key).
 
 ```shell
-bash scripts/test-skills.sh                              # default: init + commit-message
+bash scripts/test-skills.sh                              # default: init + commit-suggest
 bash scripts/test-skills.sh --skill init                 # test one skill
 bash scripts/test-skills.sh --skill init --fixture node  # test one skill + one fixture
 bash scripts/test-skills.sh --all                        # test all skill/fixture combinations

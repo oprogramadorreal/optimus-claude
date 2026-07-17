@@ -2,9 +2,7 @@
 
 Shared detection algorithm referenced by multiple skills. Each consuming skill applies its own policy after detection.
 
-> **Note:** This algorithm is a portable subset of `project-detection.md` Step 0. Changes to the core detection logic should be synchronized between both files.
->
-> **Behavior note:** The subdirectory skip list (step 2) is stricter than previous inline detection — it excludes dependency/build directories, matching the behavior of `project-detection.md` Step 0.
+> **Note:** This algorithm is a portable copy of `project-detection.md` Step 0. Changes to the core detection logic must be synchronized between both files.
 
 ## Detection Algorithm
 

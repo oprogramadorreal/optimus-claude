@@ -1,496 +1,60 @@
 # How-to-Run Section Templates
 
-Section templates for generating `HOW-TO-RUN.md`, consumed by Step 4 (content generation). The detection tables (signal-to-section mapping, build-system and source-dependency signals) live in [`detection-signals.md`](detection-signals.md).
-
-## Contents
-
-- [Section Skeletons](#section-skeletons) (Prerequisites, Toolchain & SDKs, Source Dependencies, Installation, External Services, Environment Setup, Build, Running in Development, Running Tests, Common Issues)
-- [Scaling Guidance](#scaling-guidance)
-- [Workspace-Kind Command Branches](#workspace-kind-command-branches)
-- [Package Manager Command Forms](#package-manager-command-forms)
-- [Schema Bootstrap](#schema-bootstrap) (Pick-one rule, Connection-mode-aware invocation)
-- [Section Depends-On Graph](#section-depends-on-graph)
-- [Diagnostic Ladders](#diagnostic-ladders) (Container running but host can't connect)
-- [Multi-Repo Workspace HOW-TO-RUN Template](#multi-repo-workspace-how-to-run-template)
-
-## Section Skeletons
-
-### Prerequisites
-
-```markdown
-### Prerequisites
-
-- [OS version constraint — MANDATORY when Task 0d returned an OS-version token; render the canonical token verbatim as the first bullet (e.g., "Windows 10 or 11", "macOS 13+", "Ubuntu 22.04+"). Skip only when Task 0d returned no OS-version token.]
-- [Hardware if detected — e.g., "NVIDIA GPU with CUDA 12+", "USB serial port for flashing"]
-- [Runtime] [version constraint from manifest] ([version manager] recommended if config file detected)
-- [Additional runtime for heterogeneous monorepo]
-- [Docker](https://www.docker.com/) (if docker-compose detected — for running external services)
-- [System tool] (if detected: make, protoc, etc.)
-
-[If the detector's Recommended Developer Tools table has entries, render a separate sub-list under the bullets above:]
-
-**Recommended developer tools**
-
-- [Token] — [why it helps for this project, e.g., "Chrome / Chromium: the Karma test runner starts a headless Chrome", "SSMS: GUI browser for the SQL Server database", "Visual Studio: IDE the README assumes"].
-```
-
-Rendering rules for *Recommended developer tools*:
-- Only emit when the detector produced at least one row. Never invent tools from general knowledge.
-- One bullet per detected token, in the order the detector returned them. When 12+ tokens, render the first 12 plus a single "+N more — see READMEs" line.
-- Keep each bullet short (one line). The "why" clause is optional — skip it when no obvious project-specific reason can be derived from detection context (e.g., a token found with no surrounding semantics).
-
-### Toolchain & SDKs
-
-```markdown
-### Toolchain & SDKs
-
-- **[Build tool]** [min version from build file] — [link or install hint]
-- **[Compiler]** [min version] ([per-OS install notes])
-- **[Domain SDK]** [version if detected] — [official install URL]
-
-[If multiple OSes are plausible, group install commands per OS:]
-
-**Windows**
-
-\`\`\`powershell
-<winget or choco install commands>
-\`\`\`
-
-**macOS**
-
-\`\`\`bash
-<brew install commands>
-\`\`\`
-
-**Linux**
-
-\`\`\`bash
-<apt / dnf / pacman install commands>
-\`\`\`
-```
-
-Only include this section when the project has a non-trivial compile/build step or a detected SDK dependency. Pure web/script projects can usually skip it and rely on Prerequisites.
-
-### Source Dependencies
-
-Scope rule: **Source Dependencies is fix-after-clone only.** The primary `git clone` lives in the Installation section below; this section documents what must be pulled or initialized after the main clone.
-
-```markdown
-### Source Dependencies
-
-[If .gitmodules detected:]
-
-This repo uses git submodules. On a fresh clone, use the `--recursive` form shown in the Installation section below. If you already cloned without it, initialize the submodules now:
-
-\`\`\`bash
-git submodule update --init --recursive
-\`\`\`
-
-[If sibling repos detected — list each with path and clone URL:]
-
-This project expects the following sibling repositories to be cloned alongside it:
-
-| Repo | Expected path | Clone URL |
-|------|---------------|-----------|
-| [name] | `../[dir]` | [url if detected] |
-
-Clone them before building:
-
-\`\`\`bash
-cd ..
-git clone <url> [dir]
-cd "<project-name>"
-\`\`\`
-
-[If CMake FetchContent/ExternalProject detected — note that deps are fetched automatically at configure time:]
-
-External sources are fetched automatically by CMake during configuration — no manual cloning required.
-```
-
-### Installation
-
-When the detector's *Setup scripts* signal is set, render a *One-shot setup* block IMMEDIATELY after the clone command and BEFORE the per-PM install commands. The reader can run one script or follow the manual steps below — both get to the same place.
-
-```markdown
-[One-shot setup block — render only when the detector's *Setup scripts* signal has entries. Use the first entry as the primary invocation; list any additional entries as alternatives.]
-
-**One-shot setup (preferred):**
-
-\`\`\`bash
-<path from detector's Setup scripts signal, e.g., ./bootstrap.sh, bin/setup, ./setup.ps1>
-\`\`\`
-
-[If the signal lists >1 script, append: "Alternate setup scripts: `<script 2>`, `<script 3>`." — don't auto-pick between them.]
-
-This runs the cumulative install + migrations + seeds pass in one command. If the script fails or you need to reproduce its individual steps, follow the manual flow below instead.
-
-**Manual setup:**
-```
-
-```markdown
-### Installation
-
-[If .gitmodules is present at the repo root:]
-
-Clone the repository with submodules:
-
-\`\`\`bash
-git clone --recursive <repo-url>
-cd "<project-name>"
-\`\`\`
-
-[Otherwise:]
-
-Clone the repository:
-
-\`\`\`bash
-git clone <repo-url>
-cd "<project-name>"
-\`\`\`
-
-[For projects with language-level package managers:]
-
-Install dependencies:
-
-\`\`\`bash
-<package-manager install command>
-\`\`\`
-
-[If vcpkg.json detected:]
-
-Install C++ dependencies via vcpkg:
-
-\`\`\`bash
-vcpkg install
-\`\`\`
-
-[If conanfile detected:]
-
-Install C++ dependencies via Conan:
-
-\`\`\`bash
-conan install . --build=missing
-\`\`\`
-
-[If code generation detected:]
-
-Generate code:
-
-\`\`\`bash
-<codegen command>
-\`\`\`
-
-[If ORM migration tooling, raw SQL bootstrap scripts, or seed files detected — emit the Schema Bootstrap sub-block shown below inside the Installation section (no sub-heading; the block lives under Installation's H3). **Pick exactly one mechanism as primary** per the [§Schema Bootstrap](#schema-bootstrap) precedence rule and render the matching invocation. Demote any other detected mechanisms to an "Alternative bootstrap script" callout — never present two schema-creating mechanisms as fungible (applying both an ORM migration history and a hand-maintained `DatabaseNew.sql` against the same database usually produces a conflicting schema). For *Docker-preferred* destination DBs, render the **full host-side invocation** per [§Schema Bootstrap](#schema-bootstrap) §Connection-mode-aware invocation rather than the detector's bare hint.]
-
-Initialize database schema:
-
-- **Primary:** `<primary-invocation>`.
-  > [When ≥2 mechanisms detected, render the demoted one(s) here as a 2-space-indented blockquote — see [§Schema Bootstrap](#schema-bootstrap) for the canonical "Alternative bootstrap script" form.]
-- [If seed / fixture-load rows exist alongside an ORM or raw-SQL primary, render them as a follow-up bullet: "After the schema is in place, populate seed data: `<seed-invocation>`".]
-```
-
-### External Services
-
-When deciding Docker vs. local install vs. shared-cloud per service, follow the heuristics, web-search recipe, and snippet templates in [`external-services-docker.md`](external-services-docker.md). Docker is never forced — local installs and shared-cloud endpoints stay first-class options.
-
-**Branch A — `docker-compose.yml` / `compose.yml` covers all infrastructure services:**
-
-```markdown
-### External Services
-
-This project requires the following services for local development:
-
-| Service | Port | Purpose |
-|---------|------|---------|
-| [service name] | [port from compose] | [role: database, cache, queue, etc.] |
-
-Start all services:
-
-\`\`\`bash
-docker compose up -d
-\`\`\`
-
-Verify services are running:
-
-\`\`\`bash
-docker compose ps
-\`\`\`
-```
-
-**Branch B — no compose file:** render a per-service overview table, then a per-service subsection per service using the templates in [`external-services-docker.md`](external-services-docker.md) — *Docker-preferred*, *Shared-cloud primary (Docker optional)*, *Shared-cloud, no Docker alternative*, or *Local install only*.
-
-**Hybrid — compose covers only some services:** render Branch A (the `docker compose up -d` block) for the services the compose file includes, listing those services in the Service/Port/Purpose table. Then append Branch B (overview table + per-service subsections) scoped to the uncovered services only. Do not duplicate a compose-covered service as a standalone subsection.
-
-```markdown
-### External Services
-
-[One-paragraph summary: how many services, where connection details live, which services use shared-cloud vs. local infrastructure.]
-
-| Service | Recommended runtime | Alternative | Role |
-|---------|---------------------|-------------|------|
-| [service] | [Docker-preferred / Local install only / Shared-cloud primary (<provider>)] | [Docker (offline) / Local install / —] | [role] |
-
-[Per service — render the matching template from `external-services-docker.md`. Cite every Docker image reference with a "- Source: [<title>](<url>)" line pointing at the vendor page. Never use a bare `:latest` tag when the vendor docs offer a stable versioned tag.]
-```
-
-Rules that apply to both branches:
-
-- The detector's *External Services* table is the source of truth for which services exist.
-- Service classification (Docker-preferred / Shared-cloud primary / Local install only) is owned by the Decision Heuristics in [`external-services-docker.md`](external-services-docker.md). Apply those rules; do not re-derive them here.
-- For credentials, note that the service uses defaults from docker-compose or shared-cloud config — never copy actual password values into the file.
-- **All-candidate compression.** When ≥3 services in the External Services table share `Confidence: candidate` AND no row is `confirmed`, drop the `(candidate)` marker from the per-service subsection headings and from the *Service* column of the overview table. Render a single overview sentence at the top of *External Services* instead — for example: "Services below were detected from `<config file>` rather than a compose file. Drop any incorrect rows via *Correct first* in Step 1." The marker discriminates only when mixed with confirmed rows; in an all-candidate table it conveys no signal.
-- **Per-service "Update `<key>` in `<config file>`" consolidation.** When ≥3 shared-cloud services in this section share the same source config file, do NOT emit the per-service "Update `<ConfigKey>` in `<config file>` when pointing at a different environment" line under each per-service subsection. Instead, render a single overview sentence at the top of *External Services*: "The shared-cloud endpoints below come from `<config-file>`; swap them per environment by editing the matching config key listed in [Environment Setup](#environment-setup)." Keep the per-service line only when there are ≤2 services or when the services span multiple config files.
-
-### Environment Setup
-
-Pick the sub-template that matches the detector's Environment Setup table. When only one kind of file exists, render only that sub-template (including its `### Environment Setup` heading). When both a dotenv file AND framework config files exist, emit the `### Environment Setup` heading once at the top and then render (a)'s body and (b)'s body **without** their own headings — strip the `### Environment Setup` line from each inner template block before pasting its body.
-
-**(a) Dotenv-driven environment**
-
-Use when the detector reports at least one Environment Setup row with `Format: dotenv`.
-
-```markdown
-### Environment Setup
-
-Copy the example environment file:
-
-\`\`\`bash
-cp .env.example .env
-\`\`\`
-
-[List key variables from .env.example with brief descriptions of what they configure. Do not include secret values — only describe what each variable is for.]
-```
-
-**(b) Config-file-driven environment (non-dotenv stacks)**
-
-Use when the detector reports Environment Setup rows with `Format: json` / `yaml` / `properties` / `exs` / `php` / `toml`. When (a) is NOT rendered above (no dotenv file detected), open with the stand-alone sentence: `There is no <code>.env.example</code> template. Local configuration lives in...`. When (a) IS rendered above, drop the "There is no `.env.example` template." sentence and open with `Additionally, local configuration lives in...`.
-
-```markdown
-### Environment Setup
-
-There is no `.env.example` template. Local configuration lives in `<config file>` (format: `<format>`). The file is committed with development defaults; override locally by editing it or by setting the matching runtime environment variables.
-
-Top-level sections that require values before running locally:
-
-- `<SectionName>` — <one-line description derived from section-name semantics>. Keys you will edit: `<leaf1>`, `<leaf2>`, `<leaf3>`.
-- ...
-
-[If the detector truncated the section list at 25 per file:] See `<config file>` for the full list of <N> sections.
-
-[If the detector's *Secrets committed* field for this file is `yes`, render the Caution block below IMMEDIATELY after the section list:]
-
-> **Caution: `<config file>` appears to contain live credentials.** Audit the file's values before running the project — the detector flagged credential-shape, not authenticity. Confirm whether the file is git-tracked with `git ls-files --error-unmatch <config file>` before treating this as a leaked-secret incident. If tracked, rotate the exposed keys, move local copies to a locally-ignored overlay (e.g., `appsettings.Local.json` / `.env.local`), and put the rotated production values in your team's secret store.
-
-**Never commit real secrets.** Treat any key whose name matches `(?i)(key|secret|password|token|credential|private)` as sensitive.
-```
-
-Rendering rules:
-- One bullet per detected top-level section, in the order the detector returned them (alphabetical when the detector truncated).
-- Derive the one-line description from section-name semantics only — never from the file's values. Example hints: `AWS` → "AWS SDK credentials and region"; `RedisSettings` → "Redis connection string and pool sizing"; `OpenIdConnect` → "OIDC authority and client credentials". When the semantics are ambiguous, emit the section name with no description (a bare bullet is better than a wrong guess).
-- **Keys you will edit:** append this clause only when the detector's `Key leaves` column has entries for the section — parse the cell by splitting on `; ` to isolate sections, then split each section's `<Section>: <leaf1>, <leaf2>, <leaf3>` on `:` to isolate its leaves, and render up to 3 leaves joined by `, ` for the matching section (the detector already caps at 3). Omit the clause entirely when the detector emitted `—` (dotenv files or sections with no first-level leaves worth surfacing).
-- Include the "See `<config file>` for the full list of <N> sections." footnote only when the detector reports `Variable count` > 25. Omit otherwise.
-- Render the Caution block only when the detector's `Secrets committed` column is `yes`. The block goes immediately after the section list and before the "Never commit real secrets" line — the Caution is specific to this file's observed state; the final line is the general rule.
-
-### Build
-
-**Default skeleton — multi-configuration build systems (CMake, MSBuild, .NET, Xcode).** Render BOTH Debug and Release code fences. For CMake with a single-config generator (Ninja / Unix Makefiles — the Linux default), `cmake --build --config` is a no-op: keep both fences but set the build type at configure time instead (`cmake -B build-debug -DCMAKE_BUILD_TYPE=Debug && cmake --build build-debug`, and the matching `Release` form).
-
-```markdown
-### Build
-
-Debug (for development):
-
-\`\`\`bash
-<build command --config Debug>
-\`\`\`
-
-Release (optimized):
-
-\`\`\`bash
-<build command --config Release>
-\`\`\`
-```
-
-**Single-configuration skeleton — Cargo / Go / single-output build systems.** Render one fence.
-
-```markdown
-### Build
-
-\`\`\`bash
-<build command — e.g., cargo build --release, go build ./...>
-\`\`\`
-```
-
-Include this section only for compiled stacks where build is distinct from run (C/C++, Rust release builds, Go with explicit compile, .NET publish, Java/Kotlin, Swift, Unreal/Unity cook, PlatformIO). Skip for interpreted stacks (Node, Python, Ruby) unless there is a distinct production build step useful for developers.
-
-### Running in Development
-
-Pick the sub-template that matches the detected run mode. **The `Expected result:` line is mandatory in every sub-template.** When no concrete check is available (no port, window, or stdout to assert), emit the literal placeholder `Expected result: <unknown — verify manually>`.
-
-**Optional `Verify:` line.** Permitted only in the 1- and 2-component layouts. When the Components table has ≥3 rows, OMIT every `Verify:` line — individual probes belong in *Common Issues* per the *Component count → layout* rules below. Otherwise, append a single `Verify:` line below the `Expected result:` line when a natural health probe exists for the component. Keep it to one command the reader can run from their terminal:
-
-- Web / API with an HTTP port (grounded via the Runtime Ports table) → `` Verify: `curl -fsS http://localhost:<port>/` `` — or the detected health endpoint if one is documented (`/healthz`, `/health`, `/_/health`, `/-/health`).
-- Database service → `` Verify: `pg_isready -h localhost` `` (Postgres), `` Verify: `mysqladmin ping -h 127.0.0.1` `` (MySQL), `` Verify: `redis-cli ping` `` (Redis), `` Verify: `mongosh --eval 'db.runCommand({ ping: 1 })'` `` (Mongo).
-- Frontend dev server → `Verify:` open `http://localhost:<port>/` in a browser; the dev server's hot-reload banner should appear within ~5 seconds.
-- Worker / scheduler (no port) → OMIT the `Verify:` line. Workers' health is best observed through their own logs or the job-queue dashboard, not via a single probe command; offering a wrong probe is worse than offering none.
-
-Never fabricate an endpoint path — when unsure, omit the `Verify:` line. The `Expected result:` line is the mandatory assertion; `Verify:` is the optional "how to confirm it".
-
-**Quick start (Dev Container) — prepend when the detector's *Containerized dev env* signal is set.** Render this block as an H4 subsection INSIDE the `### Running in Development` H3, immediately under the section heading and above the per-component layout content selected by the *Component count → layout* table below. A single `### Running in Development` H3 wraps the whole section — never emit two sibling H3s. The dev container is usually the simplest path when one is provided.
-
-```markdown
-#### Quick start (Dev Container)
-
-If you use VS Code, open the cloned repo and choose *Dev Containers: Reopen in Container* (requires the [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) and Docker Desktop). The container build runs the setup steps in `.devcontainer/devcontainer.json`; you can skip the manual Installation and run the per-component commands below once it finishes.
-
-For a terminal-only workflow (no VS Code), install the [dev container CLI](https://github.com/devcontainers/cli) and run `devcontainer up --workspace-folder .`.
-```
-
-**Component count → layout.** Pick the layout from the row count of the detector's Components table (excluding the `No runnable components detected.` sentinel and any `+N more` overflow row):
-
-| Components | Layout |
-|------------|--------|
-| 0 | Omit the entire *Running in Development* section — the repo is a library. |
-| 1-2 | *Flat layout* — sub-template (a) / (b) / (c); render one block per component. No `Boot order:` block. |
-| 3-5 | *Compact multi-component layout* — numbered Boot-order list + flat per-component bullets. No per-component H4 subsections. |
-| 6+ | *Scaling Guidance* quick-reference table from §[Scaling Guidance](#scaling-guidance) — one row per component (Subproject / Component, Path, Dev command, URL/port). No H4 subsections, no per-component bullets. |
-
-**Compact multi-component layout (3-5 components).**
-
-```markdown
-### Running in Development
-
-[Apply *Render once, not twice* (c) from SKILL.md Step 4: when every Components-table row shares the same parent directory, render `From <shared-parent>/` once here; otherwise omit this line and prepend `(from <component-path>/)` to each numbered bullet's start command below.]
-
-**Boot order:** start external services first (`docker compose up -d` or the per-service snippets above), run any one-time migrations / schema bootstrap (from [Installation](#installation)), then start each component in a separate terminal in the order below. A component that lists `Requires: <other-component>` must start AFTER that other component.
-
-1. **<Component A>** (`<kind>`) — `<start command>`. Expected result: <URL / port / stdout assertion>. Requires: <services + components, or "—">.
-2. **<Component B>** (`<kind>`) — `<start command>`. Expected result: <URL / port / stdout assertion>. Requires: <services + components, or "—">.
-3. **<Component C>** (`<kind>`) — `<start command>`. Expected result: <URL / port / stdout assertion>. Requires: <services + components, or "—">.
-[continue for 4-5 components — never exceed 5 here; emit the Scaling Guidance table when the count reaches 6.]
-
-[Wrapper-command expansion lines, if applicable — one `> <wrapper> runs: <expanded form>` line per component below the numbered list.]
-```
-
-**Flat layout (1-2 components).** Emit a single `### Running in Development` H3, render any Quick start block as an H4 nested under it, then fall through to sub-template (a) / (b) / (c) below with the sub-template's own `### Running in Development` line stripped. For the 2-component case, render two adjacent sibling blocks.
-
-**(a) Script / dev server — web or interpreted backends**
-
-```markdown
-### Running in Development
-
-\`\`\`bash
-<dev command from manifest scripts>
-\`\`\`
-
-Expected result: <URL / port / stdout line the reader can check — e.g., "Server listening on http://localhost:3000" — or the placeholder above when unknowable>.
-
-[If the detected dev command is a wrapper (a shell script / npm-script alias that executes additional steps beyond the idiomatic tool invocation), add a single-line explanation below the code block:]
-
-> `<wrapper command>` runs: `<expanded form, e.g., "npm run export-scss-vars && ng serve">`.
-
-[For monorepos — workspace-level:]
-
-Run everything:
-
-\`\`\`bash
-<workspace dev command if available>
-\`\`\`
-
-Run a specific subproject:
-
-\`\`\`bash
-<per-subproject command, e.g., "pnpm --filter @scope/app dev">
-\`\`\`
-
-[For Docker-based primary:]
-
-\`\`\`bash
-docker compose up
-\`\`\`
-
-Expected result: <service list or URL the reader can check>.
-```
-
-**(b) Compiled artifact — C/C++, Rust, Go binary, .NET, Swift**
-
-```markdown
-### Running in Development
-
-Run the produced binary:
-
-\`\`\`bash
-<path/to/built/binary [args]>
-\`\`\`
-
-Where it lands: <e.g., "build/Debug/myapp.exe" on Windows, "build/myapp" on Linux/macOS>.
-
-Expected result: <window / console output / port the reader can check — or the placeholder above>.
-
-[Common command-line flags if documented or obvious from source]
-```
-
-**(c) Engine launcher — Unreal / Unity / Godot**
-
-```markdown
-### Running in Development
-
-Open the project in [engine]:
-
-1. Launch [engine] [version]
-2. Open `<project file>` (e.g., `MyProject.uproject`, the project folder for Unity/Godot)
-3. [Engine-specific run step — e.g., "Press Play in the editor" or "Click Play button"]
-
-Expected result: <viewport content / PIE-mode indicator / title-screen stanza the reader can check — or the placeholder above>.
-```
-
-### Running Tests
-
-```markdown
-### Running Tests
-
-\`\`\`bash
-<test command>
-\`\`\`
-
-[If coverage command available:]
-
-With coverage:
-
-\`\`\`bash
-<coverage command>
-\`\`\`
-```
-
-### Common Issues
-
-Only include if clear signals exist. Examples:
-
-- `.nvmrc` detected → "Run `nvm use` before installing dependencies to ensure the correct Node.js version."
-- `.mise.toml` / `.tool-versions` detected → "Run `mise install` (or `asdf install`) to activate the correct runtime versions."
-- Docker services required → "Ensure `docker compose up -d` is running before starting the application."
-- Private registry → "Authenticate with the private registry before running install: `<auth command>`."
-- Code generation → "If you see missing file errors after pulling, re-run `<codegen command>`."
-- Git submodules → "After pulling, run `git submodule update --init --recursive` if submodule contents appear stale."
-- Sibling repos → "Build will fail if the expected sibling repo is not cloned at the documented path."
-- Multiple build configurations (C/C++, .NET) → "Use `--config Debug` for development or `--config Release` for optimized builds."
-- Python virtualenv → "Activate the virtual environment before running commands: `source .venv/bin/activate` (Linux/macOS) or `.venv\Scripts\activate` (Windows)."
-
-For multi-layer failure modes that benefit from a symptom→layered-checks playbook (e.g., "container running but host can't connect"), render a [diagnostic ladder](#diagnostic-ladders) instead of a single-line bullet. Ladders fire conditionally on the detector's outputs per §Diagnostic Ladders — the Windows IPv4/IPv6 fix lives in the ladder's step 2.
-
-## Scaling Guidance
-
-Quick-reference table skeleton for the 6+ row case selected by *Component count → layout* above — replaces inline per-component listings entirely (no H4 subsections, no per-component bullets).
-
-```markdown
-| Subproject | Path | Dev command | URL / port |
-|------------|------|-------------|------------|
-| [name] | `<path>` | `<command>` | [URL or port — from the Runtime Ports table; omit when no port is grounded] |
-```
+Rendering rules for Step 4 (content generation). Per-service Docker/local/shared-cloud logic lives in [`external-services-docker.md`](external-services-docker.md).
+
+## Signal → Section Digest
+
+| Detected signal | Render |
+|--------|----------------------|
+| Runtime version constraints / version-manager files | Prerequisites — "X ≥N required (source); M recommended (pin file)" when both exist |
+| Hardware/OS tokens; private-registry files | Prerequisites (OS-version token as the first bullet when present) |
+| Recommended Developer Tools rows | Prerequisites — *Recommended developer tools* sub-list (one bullet per detected token, detector order, optional one-line "why"; never invent tools) |
+| Build system / SDK / engine files; `vcpkg.json` / `conanfile.*` | Toolchain & SDKs (+ Build, Running in Development for the produced artifact) |
+| `.gitmodules`; sibling repos; CMake FetchContent/ExternalProject; `west.yml` / repo tool | Source Dependencies |
+| Setup scripts (Dev Workflow Signals) | Installation — *One-shot setup* block BEFORE the per-PM install ("Alternate setup scripts: …" when >1; don't auto-pick) |
+| `docker-compose.yml` services | External Services (Branch A) |
+| Framework-config candidates (detector Task 5b) | External Services (Branch B, `(candidate)` marker) |
+| `Dockerfile` without local-run scripts | Running in Development (Docker-based primary path) |
+| Dotenv templates / framework config files | Environment Setup |
+| Migration tools / codegen configs | Installation (post-install steps) |
+| `.devcontainer/devcontainer.json` | Running in Development — `#### Quick start (Dev Container)` H4 immediately under the section heading, above the component layout (VS Code *Reopen in Container*, or `devcontainer up --workspace-folder .` via the dev container CLI); the container build replaces manual Installation |
+| `.pre-commit-config.yaml` | Prerequisites (`pre-commit install` after cloning) + Common Issues |
+| `.envrc` (direnv) | Prerequisites (`direnv allow` after cloning) + Common Issues |
+| `mkcert` in scripts | Prerequisites (`mkcert -install` once per machine) + Common Issues |
+| `template.yaml` (SAM) / `serverless.yml` / `.ts` | Running in Development (`sam local start-api` / `serverless offline`) |
+| Test framework + test script | Running Tests |
+| Components table rows | Running in Development — layout by row count (below) |
+| Runtime Ports rows | `Expected result:` URLs — no grounded port means omit the port, never a framework default |
+
+## Section Shapes
+
+Write each section as a competent onboarding doc would — the rules below are the non-obvious constraints, not skeletons:
+
+- **Prerequisites** — bullets: OS-version token first (when detected), hardware, runtimes with constraints, Docker (when compose detected), system tools, then the *Recommended developer tools* sub-list.
+- **Toolchain & SDKs** — only for stacks with a non-trivial compile step or detected SDK. Group install commands per OS (Windows `powershell` / macOS + Linux `bash` fences) when multiple OSes are plausible.
+- **Source Dependencies** — fix-after-clone only; the primary clone lives in Installation (multi-repo: in the workspace template's *Source Dependencies / Clone All*). Submodules: `git submodule update --init --recursive` fence. Sibling repos: table (Repo | Expected path | Clone URL) + clone fence. FetchContent/ExternalProject: one note — fetched automatically at configure time, network required.
+- **Installation** — clone (`git clone --recursive` when `.gitmodules` exists) + `cd`, language-level install with the correct PM prefix, vcpkg/Conan bootstrap, codegen, then the Schema Bootstrap sub-block (below) when detected. One-shot setup block first when detected: script invocation verbatim, with the manual flow kept below it.
+- **Environment Setup** — pick by the detector's Environment Setup table:
+  - *(a) dotenv:* `cp .env.example .env` fence + brief per-variable descriptions (names only — never secret values).
+  - *(b) config-file-driven:* open with "There is no `.env.example` template. Local configuration lives in `<file>` (format: `<format>`)…" — or "Additionally, local configuration lives in…" when (a) also rendered. One bullet per top-level section, detector order, description derived from section-name semantics only (a bare bullet beats a wrong guess); append "Keys you will edit: `<leaf1>`, `<leaf2>`" when the detector's `Key leaves` column has entries for the section (split the cell on `; ` then `<Section>: <leaves>` on `:`). Add "See `<file>` for the full list of <N> sections." only when `Variable count` > 25. When `Secrets committed` is `yes`, render immediately after the list: a **Caution** blockquote — the file appears to contain live credentials; verify git-tracking with `git ls-files --error-unmatch <file>` before treating it as a leak; if tracked, rotate and move to a locally-ignored overlay. Close with: **Never commit real secrets** — treat keys matching `(?i)(key|secret|password|token|credential|private)` as sensitive.
+  - Both kinds → one `### Environment Setup` heading, (a)'s body then (b)'s body.
+- **Build** — compiled stacks only. Multi-configuration build systems (CMake, MSBuild, .NET, Xcode): render both a Debug and a Release fence (`--config` / `--configuration` / `/p:Configuration=` / `-configuration`; single-config CMake generators like Ninja set the type at configure time — `cmake -B build-debug -DCMAKE_BUILD_TYPE=Debug && cmake --build build-debug`). Single-output systems (Cargo, Go): one fence.
+- **Running in Development** — layout by Components-table row count (excluding the `No runnable components detected.` sentinel and `+N more` rows): **0** → omit the section (library). **1–2** → flat block per component: command fence, mandatory `Expected result:` line (URL/port/window/stdout the reader can check; literal `Expected result: <unknown — verify manually>` when nothing is assertable), optional single `Verify:` probe line only when a natural, grounded probe exists (grounded HTTP port → `curl -fsS http://localhost:<port>/`; omit for workers; never fabricate an endpoint path; drop `Verify:` when it would only restate the `Expected result:` URL). **3–5** → a `**Boot order:**` intro (services first, then migrations, then components in topological order; `Requires: <X>` starts after `<X>`) + one numbered bullet per component: `**<Component>** (<kind>) — <start command>. Expected result: <…>. Requires: <…>.` — no `Verify:` lines (probes go to Common Issues), no per-component H4s. **6+** → quick-reference table (Subproject | Path | Dev command | URL/port — port only when grounded). When every component shares a parent directory, render `From <shared-parent>/` once instead of per-component parentheticals. Wrapper commands that run non-obvious extra steps get one line below the fence: `> <wrapper> runs: <expanded form>` (skip direct aliases like `npm run dev` → `next dev`). Docker-only setups: `docker compose up` as the primary path.
+- **Running Tests** — test command fence; coverage fence when available.
+- **Common Issues** — only on clear signals: `.nvmrc` → `nvm use` before install; `.tool-versions`/`mise` → `mise install` / `asdf install`; Docker services → `docker compose up -d` must run first; private registry → authenticate before install; codegen → re-run on missing-file errors; submodules → `git submodule update --init --recursive` after pull; sibling repos → build fails when not cloned at the documented path; multi-config builds → `--config Debug` vs `Release`; Python → activate the venv. Plus *Verify `<service>` is reachable* bullets and the diagnostic ladder per [`external-services-docker.md`](external-services-docker.md) §Verify Commands and §Diagnostic Ladder trigger below.
+
+## External Services
+
+- **Branch A — compose covers all infrastructure:** table (Service | Port | Purpose from compose) + `docker compose up -d` fence + `docker compose ps` verify fence.
+- **Branch B — no compose:** overview table (Service | Recommended runtime | Alternative | Role) + one per-service subsection per service using the matching template from `external-services-docker.md` (Docker-preferred / Shared-cloud primary / Shared-cloud no-Docker / Local install only).
+- **Hybrid:** Branch A scoped to compose-covered services, then Branch B scoped to the rest — never duplicate a compose-covered service as a standalone subsection.
+- The detector's External Services table is the source of truth for which services exist; classification is owned by `external-services-docker.md` §Decision Heuristics — do not re-derive it here. Credentials: defaults from compose or shared-cloud config, never actual password values.
+- **All-candidate compression:** when ≥3 services are `Confidence: candidate` AND none is `confirmed`, drop the `(candidate)` markers (they convey no signal without confirmed rows to contrast) and render one overview sentence instead: "Services below were detected from `<config file>` rather than a compose file. Drop any incorrect rows via *Correct first* in Step 1."
+- **Per-service "Update `<key>` in `<config file>`" consolidation:** when ≥3 shared-cloud services share the same source config file, drop the per-service update line and render one overview sentence: "The shared-cloud endpoints below come from `<config-file>`; swap them per environment by editing the matching config key listed in [Environment Setup](#environment-setup)." Keep per-service lines for ≤2 services or multiple config files.
 
 ## Workspace-Kind Command Branches
 
-When the detector sets `Workspace kind` to something other than `none`, use the workspace-aware commands below instead of (or in addition to) the per-package PM commands. The point of these branches is correctness: `cargo build --workspace` builds all crates in a Cargo workspace; `cargo build` in the root builds only the root crate. `go work sync` resolves modules referenced by `go.work`; `go mod download` does not. Writing the wrong form is a silent failure — the build succeeds but only half the code compiled.
+When the detector's `Workspace kind` is not `none`, use these forms — the wrong per-package form is a silent failure (`cargo build` at a workspace root builds only the root crate; `go mod download` does not resolve `go.work` modules). Render the Install row under Installation, Build-all under Build, per-module Run rows under Running in Development.
 
 | Workspace kind | Install | Build (all) | Build (one) | Run (one) | Test (all) |
 |----------------|---------|-------------|-------------|-----------|------------|
@@ -501,56 +65,19 @@ When the detector sets `Workspace kind` to something other than `none`, use the 
 | `nx` | `npm install` (root) | `npx nx run-many -t build` | `npx nx build <pkg>` | `npx nx serve <pkg>` / `npx nx run <pkg>:<target>` | `npx nx run-many -t test` |
 | `turbo` | `npm install` (root) | `npx turbo run build` | `npx turbo run build --filter=<pkg>` | `npx turbo run <script> --filter=<pkg>` | `npx turbo run test` |
 | `cargo-workspace` | — (Cargo resolves automatically) | `cargo build --workspace` | `cargo build -p <crate>` | `cargo run -p <crate>` | `cargo test --workspace` |
-| `go-workspace` | `go work sync` (at root — resolves modules declared in `go.work`) | `go build ./...` (at root — walks every module in `go.work` on Go ≥1.18) | `go build ./<module>/...` | `go run ./<module>` (or `./cmd/<name>`) | `go test ./...` |
+| `go-workspace` | `go work sync` (at root) | `go build ./...` (at root — walks every module on Go ≥1.18) | `go build ./<module>/...` | `go run ./<module>` (or `./cmd/<name>`) | `go test ./...` |
 | `gradle-multi-module` | — (Gradle resolves automatically) | `./gradlew build` | `./gradlew :<module>:build` | `./gradlew :<module>:run` | `./gradlew test` |
-| `maven-multi-module` | — (Maven resolves automatically) | `mvn install` (from repo root; `-DskipTests` for a faster dev build) | `mvn -pl <module> -am install` | `mvn -pl <module> exec:java` (if configured) | `mvn test` |
+| `maven-multi-module` | — (Maven resolves automatically) | `mvn install` (root; `-DskipTests` for faster dev builds) | `mvn -pl <module> -am install` | `mvn -pl <module> exec:java` (if configured) | `mvn test` |
 
-Render the Install row under Installation, the Build-all row under Build, and the per-module Run rows under Running in Development (one per component from the detector's Components table). Fall back to the per-package `Package Manager Command Forms` table below only when `Workspace kind: none`.
-
-## Package Manager Command Forms
-
-Use the detected PM from `tech-stack-detection.md`. Common mappings:
-
-| PM | Install | Run script | Run dev | Run tests | Run build |
-|----|---------|-----------|---------|-----------|-----------|
-| npm | `npm install` | `npm run <script>` | `npm run dev` | `npm test` | `npm run build` |
-| pnpm | `pnpm install` | `pnpm run <script>` | `pnpm run dev` | `pnpm test` | `pnpm run build` |
-| yarn | `yarn install` | `yarn <script>` | `yarn dev` | `yarn test` | `yarn build` |
-| bun | `bun install` | `bun run <script>` | `bun run dev` | `bun test` | `bun run build` |
-| pip | `pip install -r requirements.txt` | — | varies | `pytest` | — |
-| poetry | `poetry install` | `poetry run <cmd>` | varies | `poetry run pytest` | `poetry build` |
-| uv | `uv sync` | `uv run <cmd>` | varies | `uv run pytest` | `uv build` |
-| cargo | — | `cargo <cmd>` | `cargo run` | `cargo test` | `cargo build` |
-| go | `go mod download` | `go <cmd>` | `go run .` | `go test ./...` | `go build` |
-| dotnet | `dotnet restore` | `dotnet <cmd>` | `dotnet run` | `dotnet test` | `dotnet build` |
-| flutter | `flutter pub get` | `flutter <cmd>` | `flutter run` | `flutter test` | `flutter build` |
-| dart | `dart pub get` | `dart run <cmd>` | `dart run` | `dart test` | `dart compile` |
-| bundler | `bundle install` | `bundle exec <cmd>` | varies | `bundle exec rspec` | — |
-| cmake | — | — | — | `ctest` | `cmake --build build` |
-| gradle | — | `./gradlew <task>` | `./gradlew run` | `./gradlew test` | `./gradlew build` |
-| nx | — | `npx nx run <project>:<target>` | `npx nx serve <project>` | `npx nx test <project>` | `npx nx build <project>` |
-| turbo | — | `npx turbo run <script>` | `npx turbo dev` | `npx turbo test` | `npx turbo build` |
-
-Use the actual script names from the project's manifest (e.g., `pnpm run start:dev` not `pnpm run dev` if the script is named `start:dev`).
+When `Workspace kind: none`, use the detected package manager's standard per-package commands with the **actual script names from the manifest** (e.g., `pnpm run start:dev`, not `pnpm run dev`, when the script is named `start:dev`).
 
 ## Schema Bootstrap
 
-Precedence rule and connection-mode-aware invocation forms for the Installation section's Schema Bootstrap sub-block. Two principles drive the design: (a) pick exactly one mechanism as primary; (b) the detector's bare `<tool> -i <file>` hint defaults to the local-default-instance + Windows-auth / peer-auth path, which is the wrong default when the destination DB lives in Docker.
+Rendered inside Installation. **Pick exactly one primary mechanism per destination DB** — never present two schema-creating mechanisms as fungible (an ORM history plus a hand-maintained `DatabaseNew.sql` against the same DB usually conflict). Precedence:
 
-### Pick-one rule
-
-Inputs:
-
-- Detector's *Database migrations* row in *Dev Workflow Signals* (e.g., `prisma`, `alembic`, `flyway`, `ef`, `liquibase`, `knex`, `sequelize`, `typeorm`, `gorm`, `rails`, `phoenix-ecto`).
-- Detector's *Schema Bootstrap* table rows, with their `Bootstrap mechanism` field set to `raw-sql`, `seed-script`, or `fixture-load`.
-
-Precedence (apply in order; first match selects the **primary** mechanism):
-
-1. **ORM migration tool detected.** When *Database migrations* is set to a recognized tool, render the ORM's migrate command from the table below as the primary mechanism. Demote any `raw-sql` rows in *Schema Bootstrap* to an "Alternative bootstrap script" callout.
-2. **Raw-SQL bootstrap detected (no ORM).** When *Schema Bootstrap* contains `raw-sql` rows and no ORM is detected, the first row by detector report order is primary. Demote any further `raw-sql` rows to "Alternative bootstrap script" callouts.
-3. **Seed / fixture only.** When only `seed-script` / `fixture-load` rows exist, render them as the primary "populate seed data: …" step. Seeds populate data, not schema, so they never compete with ORM/raw-SQL mechanisms — when both seeds AND a schema mechanism exist, render the schema mechanism first and the seed step as a follow-up bullet "after schema is in place, populate seed data: …" (the Installation template already shows this two-bullet layout).
-
-ORM migrate-command catalog (consumed by precedence rule 1):
+1. **ORM migration tool detected** (*Database migrations* signal) → its migrate command from the catalog below is primary; demote `raw-sql` rows.
+2. **Raw-SQL only** → the first `raw-sql` row by detector order is primary; demote the rest.
+3. **Seed / fixture only** → render as the "populate seed data" step. Seeds never compete with schema mechanisms — when both exist, schema first, then a follow-up bullet: "After the schema is in place, populate seed data: `<seed-invocation>`".
 
 | ORM tool | Migrate command |
 |---|---|
@@ -561,120 +88,64 @@ ORM migrate-command catalog (consumed by precedence rule 1):
 | `liquibase` | `liquibase update` |
 | `knex` | `npx knex migrate:latest` |
 | `sequelize` | `npx sequelize db:migrate` |
-| `typeorm` | `npm run typeorm migration:run` (or the project's `package.json` script that wraps `typeorm migration:run`) |
+| `typeorm` | `npm run typeorm migration:run` (or the project's wrapping script) |
 | `rails` | `bundle exec rails db:migrate` |
 | `phoenix-ecto` | `mix ecto.migrate` |
 
-**In-code migrations (e.g., `gorm`).** Some ORMs have no CLI — schema is migrated in application code (GORM's `db.AutoMigrate(...)` is the canonical example). When detected, skip the migrate-command bullet entirely and render this callout instead: `> Schema is migrated in application code via GORM's AutoMigrate function — there is no separate migrate command.`
+In-code migrations (e.g., GORM `AutoMigrate`): skip the migrate bullet and render `> Schema is migrated in application code — there is no separate migrate command.` Demoted mechanisms render as a 2-space-indented blockquote under the primary bullet, exactly: `> **Alternative bootstrap script:** \`<demoted-invocation>\` — apply only if the primary leaves required tables missing. Otherwise running both can conflict.`
 
-Demoted mechanisms render as a 2-space-indented blockquote directly under the primary bullet, using this exact form:
-
-  > **Alternative bootstrap script:** `<demoted-invocation>` — apply only if the primary leaves required tables missing (some projects split schema across an ORM history and hand-maintained SQL for legacy / auth tables). Otherwise running both can conflict.
-
-### Connection-mode-aware invocation
-
-When the destination DB row's *Recommended runtime* (per the Step 3 assessment table; see [`external-services-docker.md`](external-services-docker.md) §Decision Heuristics) is `Docker-preferred` OR `Shared-cloud primary` with the *Docker (offline)* alternative kept by the user via the Step 4 multi-select downgrade prompt, replace the detector's bare invocation hint with the full host-side form below. For *Local install only* services, keep the bare form — the local default-instance + Windows-auth / peer-auth path is correct in those cases.
-
-**Password handling (Docker-preferred / Docker (offline) forms below).** Each `sqlcmd` / `psql` / `mysql` row takes its password via the per-tool env var named in the *Password env var* column below; export it in the surrounding shell (`export <VAR>='<password-placeholder>'` in bash/zsh; `$env:<VAR> = '<password-placeholder>'` in PowerShell) before running the command. `mongosh` keeps the password inside the connection URI — no env-var alternative.
+**Connection-mode-aware invocation.** When the destination DB's *Recommended runtime* is `Docker-preferred` (or the user kept *Docker (offline)*), replace the detector's bare invocation hint with the host-side form below — the bare form assumes a local default instance with Windows/peer auth, wrong for Docker. Keep the bare form for *Local install only*. Passwords go through the per-tool env var (`export <VAR>='<password-placeholder>'` bash; `$env:<VAR> = '<password-placeholder>'` PowerShell); `mongosh` keeps the password in the URI (no env-var alternative).
 
 | CLI | Bare form (Local install only) | Docker-preferred / Docker (offline) form | Password env var |
 |---|---|---|---|
 | `sqlcmd` (SQL Server) | `sqlcmd -i <file>` | `sqlcmd -S "<host>,<host-port>" -U <user> -C [-d <db>] -i <file>` | `SQLCMDPASSWORD` |
 | `psql` (PostgreSQL) | `psql -f <file>` | `psql -h <host> -p <host-port> -U <user> -d <db> -f <file>` | `PGPASSWORD` |
 | `mysql` (MySQL/MariaDB) | `mysql < <file>` | `mysql -h <host> -P <host-port> -u <user> <db> < <file>` | `MYSQL_PWD` |
-| `mongosh` (MongoDB, no auth) | `mongosh --file <file>` | `mongosh "mongodb://<host>:<host-port>/<db>" --file <file>` | — |
-| `mongosh` (MongoDB, root credentials set) | `mongosh --file <file>` | `mongosh "mongodb://<user>:<password-placeholder>@<host>:<host-port>/<db>?authSource=admin" --file <file>` | (password in URI) |
+| `mongosh` (no auth) | `mongosh --file <file>` | `mongosh "mongodb://<host>:<host-port>/<db>" --file <file>` | — |
+| `mongosh` (root credentials set) | `mongosh --file <file>` | `mongosh "mongodb://<user>:<password-placeholder>@<host>:<host-port>/<db>?authSource=admin" --file <file>` | (password in URI) |
 
-ORM migrate commands from the catalog above are NOT enriched with connection flags — ORM tools read their connection details from their own config files.
+Substitution — from the same snippet the External Services subsection rendered: `<host>` → `127.0.0.1` on Windows, else `localhost` (see `external-services-docker.md` §Pre-Conditions Block); `<host-port>` → the snippet's `-p` host port; `<user>` → the snippet's user env var value or the image default (`sa` / `postgres` / `root` / `MONGO_INITDB_ROOT_USERNAME` value); `<password-placeholder>` → the snippet's password placeholder, kept as a placeholder (the file is committed); `<db>` → the placeholder `<db-name>` (the reader fills it in); `<file>` → the Schema Bootstrap row's *File* column verbatim (already root-relative — never re-join the *Directory* column). Select the `mongosh` row by snippet shape per `external-services-docker.md` §Verify Commands. ORM migrate commands are NOT enriched with connection flags — ORMs read their own config. Step 6 re-checks every rendered invocation against the flag sets and substitution rules above.
 
-Select the matching `mongosh` row by snippet shape per [`external-services-docker.md`](external-services-docker.md#verify-commands-seeds) §Verify Commands (seeds).
+## Diagnostic Ladder — container running but host can't connect
 
-Substitute every placeholder from the matching External Services snippet (the same snippet the External Services per-service subsection already rendered):
-
-- `<host>` → `127.0.0.1` on Windows, else `localhost`. See [`external-services-docker.md`](external-services-docker.md#substitution) §Pre-Conditions Block §Substitution for the full rule and IPv6 rationale.
-- `<host-port>` → the port from the snippet's `-p <host>:<host-port>:<container-port>` line.
-- `<user>` → the username from the snippet's matching `-e '<USER_VAR>=<value>'` line, OR the image's documented default — `sa` for SQL Server, `postgres` for Postgres, `root` for MySQL/MariaDB, the value of `MONGO_INITDB_ROOT_USERNAME` for MongoDB.
-- `<password-placeholder>` → the placeholder from the snippet's matching `-e '<PASSWORD_VAR>=<placeholder>'` line, kept as a placeholder (`<MSSQL_SA_PASSWORD>`, `<POSTGRES_PASSWORD>`, etc.) — do NOT substitute a real value, since `HOW-TO-RUN.md` is committed.
-- `<db>` → the schema-bootstrap target DB. Render as a placeholder `<db-name>` and let the reader fill it in; the bootstrap file's content (which the detector never reads) determines what's correct.
-- `<file>` → the row's *File* column from the detector's Schema Bootstrap table. The *File* column already contains the full relative-to-repo-root path (e.g., `db/seeds.rb`, `fixtures/initial_data.json`); the *Directory* column is informational only and must NOT be re-joined.
-
-The Step 6 audit re-checks every rendered invocation: flags must come from the per-tool flag set above; placeholders must match the snippet's `-e` lines verbatim; `<host>` must follow the OS-aware substitution rule.
-
-## Section Depends-On Graph
-
-Cross-section dependency edges consumed by Step 6's *Section ordering audit*. The audit walks the file's catalog headings in render order — H3 in single-project / monorepo, H2 in multi-repo workspace (same topology-aware aliasing the TOC count rule uses).
-
-| Dependent | Prerequisite | Trigger condition |
-|---|---|---|
-| Installation (language-level install) | Environment Setup | Detector's *Private registry* signal is set, OR detector's *Local TLS cert* signal is `mkcert`. Some installs require credentials or trusted root certs to be present first. |
-
-Edges already enforced by the canonical catalog order (Installation → External Services → Build → Running in Development) are not listed above — the audit fires only on edges whose trigger conditions express a precondition the catalog order cannot enforce by itself.
-
-## Diagnostic Ladders
-
-For multi-layer failure modes that don't fit the single-sentence preventive bullet form of [§Common Issues](#common-issues), render a *diagnostic ladder*: a numbered list of symptom→check→action steps the reader walks top-down until one matches. Ladders fire conditionally on the detector's outputs.
-
-Render the ladder as a top-level bullet under `### Common Issues`, sharing the bullet list with single-line entries. Every step's *check* must be a concrete diagnostic command (not a leading question), every *result* must be observable from the command's output, every *action* must be specific (not "investigate further").
-
-### Container running but host can't connect
-
-**Trigger.** External Services has at least one service whose Recommended runtime is `Docker-preferred` (or *Docker (offline)* was kept) AND that service has a corresponding `**Verify <service> is reachable.**` bullet rendered in §Common Issues (per SKILL.md Step 4 item 10's *Verify bullets* rule). If the Verify bullet was dropped (stale-tag re-validation failed or no catalogue seed), drop the ladder too — step 1 cross-references the Verify bullet by name.
+**Trigger:** a service is Docker-preferred (or Docker (offline) kept) AND its *Verify `<service>` is reachable* bullet rendered in Common Issues (if that bullet was dropped, drop the ladder too). Render as one bullet in Common Issues:
 
 ```markdown
 - **Host can't connect to <Service> on `<host>:<host-port>` but `docker ps` shows the container as `Up`?** Walk down this ladder:
-  1. **Does the connection work from inside the container?** Run the `**Verify <service> is reachable.**` bullet from this section above. If it succeeds inside but the host still fails, the container is up — the problem is between the host and the published port.
-  2. **(Windows hosts) Does your application's connection string or client still use `localhost`?** Replace `localhost` with `127.0.0.1` explicitly in your client / connection string. The snippet publishes the container as `-p 127.0.0.1:<host-port>:<container-port>` (IPv4-only); Windows resolves `localhost` to `::1` (IPv6) first and the IPv6 lookup times out before falling back. (Render this step only when the detector's *Hardware / OS Requirements* table contains Windows.)
-  3. **Is the host port actually mapped?** `docker port <project-slug>-<service-slug>`. The output should include `<container-port>/tcp -> 127.0.0.1:<host-port>` (or `0.0.0.0:<host-port>` if the snippet was rebound). If the listed mapping doesn't match what your connection string uses, recreate the container with the correct `-p`.
+  1. **Does the connection work from inside the container?** Run the `**Verify <service> is reachable.**` bullet above. If it succeeds inside but the host fails, the problem is between the host and the published port.
+  2. **(Windows hosts) Does your connection string still use `localhost`?** Replace `localhost` with `127.0.0.1`. The snippet publishes `-p 127.0.0.1:<host-port>:<container-port>` (IPv4-only); Windows resolves `localhost` to `::1` (IPv6) first and the lookup times out. (Render only when Hardware / OS Requirements contains Windows; otherwise drop and renumber.)
+  3. **Is the host port actually mapped?** `docker port <project-slug>-<service-slug>` — expect `<container-port>/tcp -> 127.0.0.1:<host-port>`. If not, recreate the container with the correct `-p`.
 ```
 
-Substitute `<service>`, `<host>`, `<host-port>`, and `<project-slug>-<service-slug>` from the rendered snippet's values. Step 1's *Verify* pointer references the bullet rendered earlier in the section (from the matching §Verify Commands seed). Step 2 is rendered only when *Hardware / OS Requirements* contains Windows; on pure-Unix projects, drop step 2 and renumber.
+Substitute `<service>`, `<host>`, `<host-port>`, `<project-slug>-<service-slug>` from the rendered snippet's values.
 
-## Multi-Repo Workspace HOW-TO-RUN Template
+## Multi-Repo Workspace Template
 
-For workspace root (not version-controlled):
+For the workspace root (not version-controlled). H2 sections, in this order:
 
 ```markdown
 # [Workspace Name] — How to Run
 
 ## Repositories
-
-| Repo | Path | Purpose |
-|------|------|---------|
-| [name] | `./[dir]` | [brief purpose] |
+[table: Repo | Path | Purpose]
 
 ## Source Dependencies / Clone All
-
-[If the workspace has a meta-repo with submodules:]
-
-\`\`\`bash
-git clone --recursive <meta-repo-url>
-\`\`\`
-
-[Otherwise — list per-repo clones:]
-
-\`\`\`bash
-[clone commands for each repo]
-\`\`\`
+[git clone --recursive <meta-repo-url> when a meta-repo with submodules exists; else per-repo clone commands — the primary clone lives ONLY here, never repeated under Setup]
 
 ## Prerequisites
-
-[Aggregated from all repos — OS, hardware, toolchain & SDKs]
+[aggregated across repos — OS, hardware, toolchain & SDKs]
 
 ## Environment Setup
-
-[Per-repo env files and shared config keys to set before running Setup. Override any committed defaults that conflict with External Services choices below — see [§External Services](#external-services) Pre-Conditions Blocks for the specific keys to change when a service runs in Docker but the committed default points at a local daemon, a Windows-auth string, a SQL Server named instance, or a Unix socket.]
+[per-repo env files and shared config keys to set BEFORE running Setup; point at the External Services Pre-Conditions Blocks for keys that must change when a service runs in Docker]
 
 ## Setup
-
-[Per-repo install commands, or a setup script if one exists]
+[per-repo install commands, or a setup script]
 
 ## External Services
-
-[Shared infrastructure from docker-compose across repos]
+[shared infrastructure across repos]
 
 ## Running Everything
-
-[How to start all services/apps together]
+[how to start all services/apps together]
 ```
 
-The catalog order (single-project / monorepo: items 1-10 in `SKILL.md` Step 4) places Environment Setup AFTER Installation and External Services. The multi-repo template intentionally lifts Environment Setup BEFORE Setup because per-repo Setup commands (language-level install, schema migrations, seed scripts, asset compilation) frequently read connection strings and credentials whose committed defaults must be overridden first — e.g., a private-registry token for `npm install`, a connection string for `dotnet ef database update` or `rails db:migrate`, an OAuth client secret for a build-time codegen step. The [§Section Depends-On Graph](#section-depends-on-graph) above catches the analogous case for single-project / monorepo templates without reordering them; in multi-repo the reorder is unconditional because workspace-level Setup typically aggregates per-repo migration commands across multiple language stacks, so the precondition risk is high enough to warrant the order change by default.
+Environment Setup is deliberately BEFORE Setup here: per-repo Setup commands (installs, migrations, seeds) frequently read connection strings, registry tokens, and credentials whose committed defaults must be overridden first. The single-project analog: when the *Private registry* signal is set or *Local TLS cert* is `mkcert`, Environment Setup must precede the language-level install — Step 6 surfaces a conflict when it doesn't.

@@ -1,6 +1,6 @@
 # Tech Stack Detection
 
-Shared detection tables for identifying project type and package manager from manifest files. Referenced by init (Step 1) and how-to-run (Step 1).
+Shared detection tables for identifying project type and package manager from manifest files. Referenced by init and how-to-run.
 
 ## Manifest → Project Type
 
@@ -16,17 +16,15 @@ Shared detection tables for identifying project type and package manager from ma
 | CMakeLists.txt, Makefile | C/C++ | cmake, make |
 | Gemfile | Ruby | bundler |
 | pubspec.yaml | Dart/Flutter | pub |
-| (other manifest file) | Detect language from file contents | Search web for "[language] package manager" |
-
-If a manifest file is found that doesn't match any row above, first detect the programming language by reading the manifest and nearby source files, then read and apply `$CLAUDE_PLUGIN_ROOT/skills/init/references/unsupported-stack-fallback.md` with the detected language.
+| (other manifest file) | Detect language from file contents | Apply the unsupported-stack fallback (`unsupported-stack-fallback.md`, sibling file) with the detected language |
 
 ### .NET note
 
-`.sln` files reference `.csproj` projects — they confirm .NET presence but aren't independent project manifests. Don't count a root `.sln` for root-as-project detection. When a single root `.sln` references all `.csproj` files found during detection, treat the entire solution as one project (see .NET solution consolidation in `$CLAUDE_PLUGIN_ROOT/skills/init/references/project-detection.md`). List all solution projects and their roles in documentation.
+`.sln` files reference `.csproj` projects — they confirm .NET presence but aren't independent project manifests. Don't count a root `.sln` for root-as-project detection. When a single root `.sln` references all `.csproj` files found during detection, treat the entire solution as one project (see .NET solution consolidation in `project-detection.md`). List all solution projects and their roles in documentation.
 
 ### Dart/Flutter note
 
-For Dart/Flutter projects, when `build_runner` is in `dev_dependencies`, document both `build_runner build` and `build_runner watch` commands and note that generated files (`.g.dart`, `.freezed.dart`) must not be edited manually.
+When `build_runner` is in `dev_dependencies`, document both `build_runner build` and `build_runner watch` commands and note that generated files (`.g.dart`, `.freezed.dart`) must not be edited manually.
 
 ## Package Manager Detection
 
@@ -44,7 +42,7 @@ Determines command prefixes for all generated commands.
 | Dart/Flutter | `pubspec.yaml` has Flutter SDK dependency (`dependencies.flutter.sdk: flutter`) | flutter (prefix commands with `flutter`) |
 | Dart/Flutter | `pubspec.yaml` without Flutter SDK dependency (pure Dart package) | dart (prefix commands with `dart`) |
 
-If a lock file doesn't match any row above and the package manager was not already determined by manifest detection, read and apply `$CLAUDE_PLUGIN_ROOT/skills/init/references/unsupported-stack-fallback.md` to identify the package manager via web search.
+If a lock file doesn't match any row and the package manager was not already determined by manifest detection, apply the unsupported-stack fallback (`unsupported-stack-fallback.md`) to identify it via web search.
 
 ## Runtime Version Constraint Fields
 
@@ -59,7 +57,4 @@ These manifest fields specify runtime version constraints — used by how-to-run
 
 ## Command Prefix Rules
 
-Use the detected package manager for all generated commands. Examples:
-- Node.js with pnpm → `pnpm run build` not `npm run build`
-- Python with uv → `uv run pytest` not just `pytest`
-- Dart with Flutter → `flutter pub get` not `dart pub get`, `flutter test` not `dart test`
+Use the detected package manager for all generated commands — e.g., `pnpm run build` not `npm run build`; `uv run pytest` not bare `pytest`; `flutter test` not `dart test` in Flutter projects.

@@ -1,22 +1,25 @@
-# JIRA Context Extraction
+# JIRA MCP: Detection, Safety, and Context Extraction
 
-Procedure for fetching, structuring, and searching JIRA data via MCP tools. Called by the jira skill after a server has been detected.
-
-The skill passes two variables from detection: `jira-server-name` (the MCP server key) and the tool prefix (e.g., `mcp__atlassian__` or `mcp__mcp-atlassian__`).
+Server detection, tool name resolution, MCP safety rules, and the fetch/output procedure. Read by the jira skill at Step 1. The **MCP Safety** section is the single source of truth for which tools the skill may call and at which gate.
 
 ## Contents
 
-1. [Tool Name Resolution](#tool-name-resolution) — map operations to server-specific tool names
-2. [MCP Safety](#mcp-safety) — read-only enforcement and the permitted-write table
-3. [Search Procedures](#search-procedures) — assigned issues, by project, sprint siblings
-4. [Fetch Procedure (Single Issue)](#fetch-procedure-single-issue) — issue details, links, comments, sprint context
-5. [Truncation Limits](#truncation-limits) — field-level size caps
-6. [Structured Output Format](#structured-output-format) — assembled output template
-7. [Error Handling](#error-handling) — error-to-message mapping
+1. [Detection Procedure](#detection-procedure)
+2. [Tool Name Resolution](#tool-name-resolution)
+3. [MCP Safety](#mcp-safety)
+4. [Fetch Procedure](#fetch-procedure)
+5. [Structured Output Format](#structured-output-format)
+6. [Error Handling](#error-handling)
+
+## Detection Procedure
+
+1. **Check `.mcp.json`** at the project root, if present: scan `mcpServers` keys for `atlassian` (Rovo, official), `mcp-atlassian` (sooperset, community), `jira` (generic), or any key containing `jira` or `atlassian` (case-insensitive). A match becomes the candidate server name.
+2. **Probe for tools** with `ToolSearch` (in order, stop at first match): query `jira` — look for `jira_search`, `jira_get_issue`, `searchJiraIssuesUsingJql`, or `getJiraIssue`; then query `atlassian` — look for tools containing `jira_` or `Jira`.
+3. **Tools found** → record the server name and tool prefix (`mcp__atlassian__` = Rovo, `mcp__mcp-atlassian__` = sooperset, anything else = generic) and report: `Detected: [server name] ([N] JIRA tools available)`. **No tools found** → the skill routes to `jira-setup.md`.
 
 ## Tool Name Resolution
 
-Different MCP servers expose different tool names. Use `ToolSearch` at runtime to discover available tools — never hard-code assumptions.
+Use `ToolSearch` at runtime to discover available tools — never hard-code assumptions.
 
 **Known tool names by server:**
 
@@ -41,9 +44,9 @@ Different MCP servers expose different tool names. Use `ToolSearch` at runtime t
 | Create link | `createIssueLink` | `jira_create_issue_link` | **Write** |
 | Add worklog | `addWorklogToJiraIssue` | `jira_add_worklog` | **Write** |
 
-When a **Read** tool is unavailable, fall back to the search tool with targeted JQL. For example, if `getJiraIssue` is unavailable, use `searchJiraIssuesUsingJql` with JQL `key = PROJ-123`. Write operations have no fallback — if the specified write tool is unavailable, inform the user and skip the write.
+When a **Read** tool is unavailable, fall back to the search tool with targeted JQL (e.g., `key = PROJ-123` when the get-issue tool is missing). Write operations have no fallback — if the specified write tool is unavailable, inform the user and skip the write.
 
-**Generic servers** (detection matched a key other than the two above): the tables in this file have no column for them. Map each **Read** operation by tool-name pattern via `ToolSearch` (e.g., a search tool, a get-issue tool). Treat all writes as unavailable unless a discovered tool's name unambiguously matches one of the permitted purposes in the [MCP Safety](#mcp-safety) table below (add comment, create issue, create link) — when in doubt, fail closed and skip the write.
+**Generic servers** (detection matched neither Rovo nor sooperset): map each **Read** operation by tool-name pattern via `ToolSearch`. Treat all writes as unavailable unless a discovered tool's name unambiguously matches one of the permitted purposes in the [MCP Safety](#mcp-safety) table (add comment, create issue, create link) — when in doubt, fail closed and skip the write.
 
 ## MCP Safety
 
@@ -51,7 +54,7 @@ During context extraction (Steps 1–3.5 of the jira skill, including the refres
 
 **Hard rule:** NEVER call any tool whose name **starts with** `add`, `create`, `edit`, `update`, `transition`, or `delete` during context extraction (e.g., `addCommentToJiraIssue`, `editJiraIssue`, `transitionJiraIssue`).
 
-**Comments:** Comments are embedded in the `getJiraIssue` response or in search results — there is no dedicated "get comments" tool. Do NOT use `addCommentToJiraIssue` to read comments; it is a write tool that creates a new comment on the issue.
+**Comments:** comments are embedded in the get-issue response or in search results — there is no dedicated "get comments" tool. Do NOT use `addCommentToJiraIssue` to read comments; it is a write tool that creates a new comment on the issue.
 
 Write tools are only permitted in Step 5 of the jira skill, after explicit user confirmation. The full set of writes the skill is allowed to call:
 
@@ -63,87 +66,21 @@ Write tools are only permitted in Step 5 of the jira skill, after explicit user 
 
 All other write tools (`editJiraIssue`, `jira_update_issue`, `transitionJiraIssue`, `jira_transition_issue`, `addWorklogToJiraIssue`, `jira_add_worklog`, deletes, etc.) are forbidden by this skill regardless of branch.
 
-## Search Procedures
+## Fetch Procedure
 
-### Search: Assigned Issues
+Given an issue key, fetch in this order. If an optional field fails or returns empty, skip it silently — never fail on optional fields.
 
-JQL: `assignee = currentUser() AND resolution = Unresolved ORDER BY updated DESC`
+1. **Issue details** — get-single-issue tool (`getJiraIssue` / `jira_get_issue`); if unavailable, fall back to the search tool with JQL `key = {KEY}`. Capture summary, description, issue type, status, priority, assignee, sprint, epic/parent, and labels.
+2. **Linked issues and subtasks** — from the issue details: link type + key + summary per linked issue; subtasks listed separately.
+3. **Comments** — the last 10, from the issue data already fetched in step 1 (embedded — make no separate MCP call). Record author, relative date, and body.
+4. **Sprint context** — if the issue has a sprint: record the sprint name and goal, then fetch sibling issues (keys + summaries) with JQL `sprint in openSprints() AND project = {PROJECT_KEY} ORDER BY rank ASC`. Skip entirely if sprint data is unavailable.
 
-Present results as a numbered list (max 10):
-```
-1. PROJ-101 — Add user authentication endpoint [Story, High]
-2. PROJ-98  — Fix login timeout on slow connections [Bug, Critical]
-3. PROJ-95  — Refactor payment module for testability [Task, Medium]
-...
-```
-
-### Search: By Project
-
-Ask the user for the project key. Validate it matches `^[A-Z][A-Z0-9]{1,9}$` (2-10 uppercase alphanumeric characters, starting with a letter) — reject inputs containing spaces, operators, or special characters. Then use JQL: `project = {KEY} AND resolution = Unresolved ORDER BY updated DESC`
-
-Present results in the same numbered list format (max 10).
-
-### Search: Sprint Siblings
-
-JQL: `sprint in openSprints() AND project = {PROJECT_KEY} ORDER BY rank ASC`
-
-Used internally during context extraction (Step 3 of the skill) to provide sprint awareness. Not exposed as a user-facing search mode.
-
-## Fetch Procedure (Single Issue)
-
-Given an issue key (e.g., `PROJ-123`), fetch context in this order. If any step fails or returns empty, skip it silently — never fail on optional fields.
-
-### 1. Issue Details
-
-Fetch the issue using the get-single-issue tool from the Tool Name Resolution table (`getJiraIssue` for Rovo, `jira_get_issue` for sooperset). If unavailable, fall back to the search tool with JQL `key = {KEY}`.
-
-Extract these fields:
-- **Summary** (title)
-- **Description** (full text)
-- **Issue type** (Bug, Story, Task, Epic, Sub-task, etc.)
-- **Status** (To Do, In Progress, Done, etc.)
-- **Priority** (Critical, High, Medium, Low, Trivial)
-- **Assignee**
-- **Sprint** name (from the sprint field, if present)
-- **Epic/Parent** link (parent issue key and summary)
-- **Labels** (if present)
-
-### 2. Linked Issues
-
-Extract issue links from the issue details. For each linked issue, record:
-- Link type (blocks, is blocked by, relates to, duplicates, etc.)
-- Linked issue key and summary
-
-Cap at 10 linked issues. For subtasks, list them separately.
-
-### 3. Comments
-
-Extract the last 10 comments from the issue data already fetched in step 1 (via `getJiraIssue` or search). Do not make a separate MCP call for comments — they are embedded in the issue response.
-
-For each comment:
-- Author display name
-- Date (relative, e.g., "3 days ago")
-- Body text
-
-Truncate total comment text to 2000 characters. If truncated, append "(older comments omitted)".
-
-### 4. Sprint Context
-
-If the issue has a sprint field:
-1. Record the sprint name and sprint goal (if available)
-2. Fetch sibling issues in the same sprint using JQL: `sprint in openSprints() AND project = {PROJECT_KEY} ORDER BY rank ASC`
-3. Record up to 15 sibling issues (keys + summaries only)
-
-If sprint tools (`jira_get_sprints_from_board`) are unavailable, fall back to the JQL approach. If sprint data is unavailable entirely, skip this section.
-
-## Truncation Limits
-
-These limits match the PR context injection pattern from `references/context-injection-blocks.md`:
+**Truncation limits:**
 
 | Field | Limit |
 |-------|-------|
 | Description | 2000 characters (append "(truncated)" if truncated) |
-| Comments | Max 10 comments, total text capped at 2000 characters |
+| Comments | Max 10 comments, total text capped at 2000 characters (append "(older comments omitted)" if truncated) |
 | Sprint siblings | Max 15 issues, keys + summaries only |
 | Linked issues | Max 10, keys + summaries only |
 | Subtasks | Max 10, keys + summaries only |
@@ -157,9 +94,8 @@ After fetching, assemble the data into this format:
 
 ### Goal
 [Single-sentence distilled goal — synthesized from the summary and description.
-For bugs: "Fix [symptom] in [component]."
-For stories: "Implement [capability] for [user/system]."
-For tasks: "Complete [action] for [purpose]."]
+For bugs: "Fix [symptom] in [component]." For stories: "Implement [capability]
+for [user/system]." For tasks: "Complete [action] for [purpose]."]
 
 ### Acceptance Criteria
 [Extract from the description if structured criteria exist (numbered lists,
@@ -181,10 +117,9 @@ Present as a numbered list.]
   with this task. Omit if no sprint context or no relevant siblings.]
 
 ### Key Decisions (from comments)
-[Distill key decisions, clarifications, or context from comments that would
-affect implementation. Ignore routine status updates, @mentions without
-substance, and automated comments. If no meaningful decisions found, omit
-this section entirely.]
+[Distill decisions, clarifications, or context from comments that would affect
+implementation. Ignore routine status updates, @mentions without substance,
+and automated comments. If no meaningful decisions found, omit this section.]
 ```
 
 ## Error Handling

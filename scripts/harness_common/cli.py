@@ -579,8 +579,8 @@ def _init_deep(args, project_root, test_command, base_commit):
     # under project_root. Natural-language scope ("focus on src/auth") cannot be
     # turned into a reliable pathspec, so it is recorded in config.scope.scope_text
     # for provenance only: the harness-mode dispatch does not consume it and the
-    # subagent reviews the full branch diff (see the scope note in each -deep
-    # SKILL.md / README). The containment check also rejects absolute paths (Path
+    # subagent reviews the full branch diff (see the scope note in the deep
+    # skill's SKILL.md / README). The containment check also rejects absolute paths (Path
     # semantics: `project_root / "/etc"` yields `/etc`), which would otherwise be
     # silently handed to git as a pathspec that matches nothing.
     if args.scope:

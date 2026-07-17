@@ -1,15 +1,26 @@
-# Refactor Shared Constraints
+# Refactor Agent Constraints
 
-Read `$CLAUDE_PLUGIN_ROOT/references/shared-agent-constraints.md` for the base agent constraints, quality bar, exclusion rules, and false-positive guidance that apply to all analysis agents.
+Read `$CLAUDE_PLUGIN_ROOT/references/shared-agent-constraints.md` for the base constraints that apply to every refactor agent: read-only analysis, quality bar and confidence levels, the 15-finding cap, universal exclusions (including generated source files), structural-neighbor scope expansion, and false-positive guidance.
 
-The following addendum is specific to refactor agents:
+Refactor addendums:
 
-## Quality Bar (addition)
+- Every suggested fix must be concrete and demonstrable.
+- Scope-expansion carve-out: cross-file consistency findings are a primary goal of refactor — report them even when the related file lies outside the original scope (the base rule's 3-extra-files-per-finding limit still applies).
 
-- The fix must be concrete and demonstrable
+## Output format
 
-## Scope expansion rule (structural-neighbor consistency checking)
+Report each finding in this exact format. Your agent prompt defines the **Category** values and any fields it adds or replaces.
 
-Read `$CLAUDE_PLUGIN_ROOT/references/scope-expansion-rule.md` for the shared procedure, including the sibling/import heuristics and the 3-file-per-finding limit.
-
-**Refactor carve-out:** Cross-file consistency findings are a primary goal of refactor — report them even when the related file is outside the original scope.
+- **File:** file:line
+- **Category:** [per agent prompt]
+- **Confidence:** High | Medium
+- **Guideline:** [which project guideline this addresses]
+- **Issue:** [what is wrong and why it matters]
+- **Current:**
+  ```
+  [relevant snippet — max 5 lines]
+  ```
+- **Suggested:**
+  ```
+  [fix or refactoring approach — max 5 lines]
+  ```
