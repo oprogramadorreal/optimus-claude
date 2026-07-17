@@ -122,10 +122,10 @@ echo "# Project" > .claude/CLAUDE.md
 echo "# Guidelines" > .claude/docs/coding-guidelines.md
 echo "# Testing" > .claude/docs/testing.md
 git add -A && git commit -q -m "setup"
-# Create uncommitted change
+# Create uncommitted change — git state is Claude Code's own gitStatus job, not the hook's
 echo "new content" > dirty-file.txt
 output=$(bash "$SESSION_START" 2>/dev/null || true)
-assert_output_contains "Reports uncommitted changes" "files changed" "$output"
+assert_output_empty "Stays silent on dirty tree (native gitStatus covers git state)" "$output"
 cleanup_fixture
 
 echo "[session-start: multi-repo workspace, marker in one sub-repo]"

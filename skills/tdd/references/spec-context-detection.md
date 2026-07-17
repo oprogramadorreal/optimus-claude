@@ -1,6 +1,6 @@
 # Spec / task context detection
 
-Shared procedure for skills that implement an approved spec or task (`/optimus:tdd`, `/optimus:workflow`). It resolves the task description from the project's spec and JIRA artifacts before the skill begins work. Owned by `/optimus:tdd`; consuming skills apply their own framing — the `AskUserQuestion` option wording, the inline-argument fallback, and what they do with a `## Scenarios` section are the consumer's policy.
+Resolves the task description from the project's spec and JIRA artifacts before implementation begins. Owned by `/optimus:tdd`; a consuming skill applies its own framing — the `AskUserQuestion` option wording, the inline-argument fallback, and what it does with a `## Scenarios` section are the consumer's policy.
 
 ## Context detection cascade
 

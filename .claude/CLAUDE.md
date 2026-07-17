@@ -16,7 +16,7 @@ Read the root README.md to understand the plugin's full capabilities — skills,
 - `references/` — shared reference docs consumed across skills (see the Reference Hierarchy in `.claude/docs/architecture.md`)
 - `skills/<name>/` — one directory per skill (SKILL.md + README.md + optional agents/, templates/, and references/)
 - `scripts/` — validation and test scripts (CI and local)
-- `scripts/harness_common/` — shared modules + `cli.py` invoked by the `*-deep` orchestrator skills
+- `scripts/harness_common/` — shared modules + `cli.py` invoked by the `/optimus:deep` orchestrator skill
 - `test/` — expected outputs and generated fixtures for skill tests, plus `test_format_python_hook.py` for the repo's Python formatter hook
 - `test/harness-common/` — tests for the orchestrator CLI and shared modules
 - `.claude/` — project-level Claude Code settings and hooks

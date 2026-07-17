@@ -4,7 +4,8 @@ set -euo pipefail
 # SessionStart hook — outputs dynamic project state so Claude knows what's
 # configured and what's missing. Only outputs items that need attention.
 # Fully configured projects produce no output (zero context waste).
-# Runs fast (~20-50ms — just test -f and git commands).
+# Runs fast (~20-50ms — just test -f and pruned find calls).
+# Git state is NOT reported here — Claude Code injects its own gitStatus snapshot.
 
 output=""
 
@@ -12,7 +13,7 @@ output=""
 if [ ! -f .claude/CLAUDE.md ] || [ ! -f .claude/docs/coding-guidelines.md ]; then
   # Multi-repo workspace: init may live in a sub-repo's .claude/, not the workspace root.
   # .optimus-version is uniquely written by /optimus:init, so it's the authoritative marker.
-  multi_repo_marker=$(find . -mindepth 2 -maxdepth 4 -path '*/.claude/.optimus-version' -print -quit 2>/dev/null)
+  multi_repo_marker=$(find . -mindepth 2 -maxdepth 4 \( -name node_modules -o -name .git \) -prune -o -path '*/.claude/.optimus-version' -print -quit 2>/dev/null)
   if [ -z "$multi_repo_marker" ]; then
     output+="IMPORTANT: This project has not been initialized with the optimus plugin. You MUST mention this to the user in your first response: recommend running \`/optimus:init\` to set up CLAUDE.md, coding guidelines, and auto-format hooks for effective AI-assisted development."$'\n'
   fi
@@ -20,23 +21,12 @@ else
   # 2. Check test infrastructure (only relevant if init was done)
   if [ ! -f .claude/docs/testing.md ]; then
     # Check monorepo subprojects too
-    has_testing=$(find . -maxdepth 4 -path '*/docs/testing.md' -print -quit 2>/dev/null)
+    has_testing=$(find . -maxdepth 4 \( -name node_modules -o -name .git \) -prune -o -path '*/docs/testing.md' -print -quit 2>/dev/null)
     if [ -z "$has_testing" ]; then
       output+="[optimus] Testing docs missing. Suggest re-running \`/optimus:init\` to set up test infrastructure."$'\n'
     fi
   fi
 
-fi
-
-# 3. Git state (uncommitted changes or unpushed commits)
-if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-  changed=$(git status --porcelain 2>/dev/null | wc -l | tr -d ' ')
-  unpushed=$(git log --oneline '@{u}..HEAD' 2>/dev/null | wc -l | tr -d ' ') || unpushed=0
-
-  state_parts=""
-  [ "$changed" -gt 0 ] 2>/dev/null && state_parts+="${changed} files changed"
-  [ "$unpushed" -gt 0 ] 2>/dev/null && { [ -n "$state_parts" ] && state_parts+=", "; state_parts+="${unpushed} commits unpushed"; }
-  [ -n "$state_parts" ] && output+="[optimus] ${state_parts}."$'\n'
 fi
 
 # Only output if there's something to report

@@ -8,20 +8,7 @@
 
 ## Single-Iteration Execution
 
-When running under an orchestrator skill (`/optimus:code-review-deep`, `/optimus:refactor-deep`, or the refactor phase of `/optimus:unit-test-deep`), the base skill detects `HARNESS_MODE_INLINE` in its invocation prompt and executes exactly **one iteration** of the analysis cycle, then exits. The orchestrator handles the iteration loop, test execution, bisection, termination detection, and final reporting via `python -m harness_common.cli`.
-
-### Contents
-
-1. [Read progress file](#1-read-progress-file)
-   - [Skill-step execution under harness mode](#skill-step-execution-under-harness-mode) — including `pr_description` handling
-2. [Build iteration context](#2-build-iteration-context-iterations-2)
-3. [Run one analysis cycle](#3-run-one-analysis-cycle)
-4. [Validate findings](#4-validate-findings)
-5. [Consolidate and deduplicate findings](#5-consolidate-and-deduplicate-findings)
-6. [Apply fixes](#6-apply-fixes)
-7. [Do NOT run tests](#7-do-not-run-tests)
-8. [Output structured JSON](#8-output-structured-json)
-9. [Exit](#9-exit)
+When running under the `/optimus:deep` orchestrator (a `review` or `refactor` run, or the refactor phase of `deep coverage`), the base skill detects `HARNESS_MODE_INLINE` in its invocation prompt and executes exactly **one iteration** of the analysis cycle, then exits. The orchestrator handles the iteration loop, test execution, bisection, termination detection, and final reporting via `python -m harness_common.cli`.
 
 ### 1. Read progress file
 
@@ -45,10 +32,10 @@ If `scope_files.current` is non-empty, use it as the file list for agents — th
 
 After reading the progress file, proceed through all of the skill's remaining numbered steps in order — skip only the user confirmation step (the orchestrator handles approval upfront), the interactive scope offers, and the scope summary presentation. Scope handling is skill-specific:
 
-- **code-review**: Step 3 must use the "no local changes → branch-diff" path automatically, regardless of the working tree's actual state, and skip the large-diff warning. In commit mode the orchestrator's Step 2 git-state check guarantees a clean tree before the run starts; in `--no-commit` mode the `snapshot` step (`orchestrator-loop-single.md` step 1) takes a non-destructive stash via `git stash create`/`store`, which does **not** modify the working tree — so uncommitted changes may still be present. Take the branch-diff path because harness mode instructs it (and because the orchestrator pre-populates `scope_files.current`), not because the tree is guaranteed clean.
+- **code-review**: Step 3 must use the "no local changes → branch-diff" path automatically, regardless of the working tree's actual state (in `--no-commit` mode the `snapshot` step takes a non-destructive stash via `git stash create`/`store`, so uncommitted changes may still be present), and skip the large-diff warning.
 - **refactor**: when `scope_files.current` is non-empty, derive analysis areas from it per Step 3's harness note; when empty, run Step 3's normal directory scan with full-project scope.
 
-If `config.pr_description` is non-null **and the base skill defines a PR/MR context block** (code-review does; refactor ignores `config.pr_description` — its `agents/context-blocks.md` states the PR/MR block does not apply), treat it as equivalent to the `pr-description` that interactive Step 3 captures from `gh pr view`: inject it into agent prompts per Step 5 "PR/MR context injection" and apply the Step 6 "PR/MR description as intent signal" soft-confidence adjustment during validation. Do not re-fetch via `gh pr view` — the orchestrator already captured it, and skipping the extra fetch keeps the subagent's turn budget lean.
+If `config.pr_description` is non-null **and the base skill defines a PR/MR context block** (code-review does; refactor ignores `config.pr_description` — its `agents/context-blocks.md` states the PR/MR block does not apply), treat it as equivalent to the `pr-description` that interactive Step 3 captures from `gh pr view`: inject it into agent prompts per Step 5 "PR/MR context injection" and apply the Step 6 "PR/MR description as intent signal" soft-confidence adjustment during validation. Do not re-fetch via `gh pr view` — the orchestrator already captured it.
 
 ### 2. Build iteration context (iterations 2+)
 
@@ -90,7 +77,7 @@ For fixes that span multiple locations in a single file, output one entry per ed
 
 ### 7. Do NOT run tests
 
-The orchestrator handles test execution and bisection externally. This keeps test output (stack traces, assertion failures) out of the subagent's context window. Do **not** run the project's test command, any `scripts/*.sh`, or any lint / build / coverage invocation — not even to "verify" your own fixes. Skip any test-running, build, or lint verification step the base skill's normal (interactive) flow would perform; finding validation (step 4) still applies. Under harness mode the orchestrator owns all test execution. Apply your edits and emit the JSON.
+The orchestrator owns all test execution and bisection — running them here would pull stack traces and assertion failures into the subagent's context window. Do **not** run the project's test command, any `scripts/*.sh`, or any lint / build / coverage invocation — not even to "verify" your own fixes — and skip any such verification step the base skill's normal (interactive) flow would perform; finding validation (step 4) still applies. Apply your edits and emit the JSON.
 
 ### 8. Output structured JSON
 
@@ -128,14 +115,7 @@ At the end of the response, output the iteration results in this exact format:
 
 ### 9. Exit
 
-Stop immediately after outputting the JSON block. Do NOT:
-- Loop back to the analysis step
-- Present a cumulative or per-iteration markdown report
-- Recommend next steps
-- Use `AskUserQuestion`
-- Check termination conditions (convergence, cap, all-reverted, diminishing-returns)
-
-The orchestrator parses the JSON output, runs tests via the harness CLI, updates the progress file, and decides whether to dispatch another iteration.
+Stop immediately after outputting the JSON block. Do NOT loop back to the analysis step, present a cumulative or per-iteration report, recommend next steps, use `AskUserQuestion`, or check termination conditions. The orchestrator parses the JSON output, runs tests via the harness CLI, updates the progress file, and decides whether to dispatch another iteration.
 
 ### Termination reasons
 

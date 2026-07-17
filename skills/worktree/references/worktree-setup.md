@@ -1,87 +1,52 @@
 # Worktree Setup Procedure
 
-Shared reference for creating git worktrees. Consumed by `worktree` and `tdd` skills.
+Shared reference consumed by the `worktree` and `tdd` skills. The caller runs the detection guard first, then the Setup procedure.
 
-## Worktree Detection Guard
+## Worktree detection guard
 
-Before creating a worktree, check whether you are already inside one. This prevents recursive worktrees (e.g., user runs `/optimus:worktree`, opens a session in the worktree, then runs `/optimus:tdd` which also offers worktree isolation).
+Run `git worktree list`. If the current working directory is inside a **linked** worktree (any entry other than the first, main one), skip worktree creation entirely and report the detection result — including `<worktree-path>` — to the calling skill, which defines the user-facing message and next action. This prevents recursive worktrees. Otherwise proceed with Setup.
 
-Run:
+## Setup
 
-```bash
-git worktree list
-```
+The caller provides `<branch-name>` (already created) and `<original-branch>` (the branch the main workspace must end on).
 
-Parse the output: the first entry is the **main worktree**, subsequent entries are **linked worktrees**. Check whether the current working directory (`pwd`) matches or is inside a linked worktree path.
+1. **Derive the worktree directory name**: `<worktree-dir>` = branch name with `/` replaced by `-` (e.g., `feat/add-login` → `feat-add-login`).
 
-If already inside a linked worktree:
-- **Skip worktree creation entirely**
-- Report the detection result (including `<worktree-path>`) to the calling skill — the caller defines the user-facing message and the next action
+2. **Create `.worktrees/` and ensure it is gitignored** (staged, not committed):
 
-If inside the main worktree (or not inside any worktree): proceed with the setup procedure below.
+   ```bash
+   mkdir -p .worktrees
+   grep -qF '.worktrees' .gitignore 2>/dev/null || (echo '.worktrees/' >> .gitignore && git add .gitignore)
+   ```
 
-## Setup Procedure
+3. **Switch the main workspace back** if the current branch is not `<original-branch>` (e.g., the caller used `git checkout -b`): `git checkout <original-branch>`. Skip if already on it.
 
-The caller provides `<branch-name>` (already created) and `<original-branch>` (the branch to restore on the main workspace).
+4. **Create the worktree**:
 
-### 1. Derive worktree directory name
+   ```bash
+   git worktree add .worktrees/<worktree-dir> <branch-name>
+   ```
 
-Replace `/` with `-` in the branch name:
-- `feat/add-password-reset` → `feat-add-password-reset`
-- `fix/login-email-case` → `fix-login-email-case`
+5. **Run project setup**: detect the project's setup command from `CLAUDE.md` or manifest files (`package.json`, `pyproject.toml`, `Makefile`, etc.) and run it inside the worktree directory. If none is detected, skip silently.
 
-Use this as `<worktree-dir>` in all paths below.
+6. **Verify the test baseline**: run the test command inside the worktree. If no test command is detected, note "no test command detected" in the report. If the baseline fails, the failures are pre-existing — the worktree starts from the same commit as the main workspace. Do not block or remove the worktree; report "failing (pre-existing — N failures)" so the failures are not later attributed to new work.
 
-### 2. Create `.worktrees/` directory
+## Failure handling
 
-```bash
-mkdir -p .worktrees
-```
+If worktree creation fails (git version too old, filesystem issues, branch already checked out elsewhere):
 
-### 3. Ensure `.worktrees/` is gitignored
-
-Check if `.gitignore` already contains `.worktrees/` or `.worktrees`. If not, append it and stage:
-
-```bash
-grep -qF '.worktrees' .gitignore 2>/dev/null || (echo '.worktrees/' >> .gitignore && git add .gitignore)
-```
-
-### 4. Switch main workspace back (if needed)
-
-If the current branch is not `<original-branch>` (e.g., the caller used `git checkout -b`), switch back:
-
-```bash
-git checkout <original-branch>
-```
-
-If already on `<original-branch>` (e.g., the caller used `git branch` without switching), skip this step.
-
-### 5. Create worktree
-
-```bash
-git worktree add .worktrees/<worktree-dir> <branch-name>
-```
-
-### 6. Run project setup (if applicable)
-
-Detect setup commands from `CLAUDE.md` or manifest files (`package.json` scripts, `Makefile`, `Cargo.toml`, `pyproject.toml`, etc.) and run them inside the worktree directory. Common examples:
-
-- Node.js: `cd .worktrees/<worktree-dir> && npm install` (or `yarn`, `pnpm install`)
-- Python: `cd .worktrees/<worktree-dir> && pip install -e .`
-- Rust: `cd .worktrees/<worktree-dir> && cargo build`
-
-If no setup command is detected, skip silently.
-
-### 7. Verify test baseline
-
-Run the test command inside the worktree to confirm tests pass in the isolated environment. If no test command is detected (no `testing.md`, no obvious test script), skip and note "no test command detected" in the report.
-
-If the baseline run fails, the failures are pre-existing — the worktree starts from the same commit as the main workspace. Do not block or remove the worktree; report the failing baseline (e.g., "failing (pre-existing — N failures)") so it is not later attributed to new work.
-
-### 8. Failure handling
-
-If worktree creation fails (e.g., git version too old, filesystem issues, branch already checked out in another worktree):
-- Clean up the orphaned branch if it was freshly created for this worktree: `git branch -d <branch-name>`
+- Delete the orphaned branch if it was freshly created for this worktree: `git branch -d <branch-name>`
 - Report the error with diagnostic information
-- Suggest the standard branch workflow as a fallback: "Worktree creation failed. You can work directly on the branch instead."
+- Suggest the fallback: "Worktree creation failed. You can work directly on the branch instead."
 - Return to the caller so it can decide how to proceed
+
+## Cleanup
+
+When the caller offers cleanup (after the work is merged or pushed):
+
+1. Switch to the main workspace directory (the parent of `.worktrees/`)
+2. Remove the worktree: `git worktree remove .worktrees/<worktree-dir>`
+   - If removal fails due to uncommitted changes, inform the user: commit or discard them first, or use `git worktree remove --force .worktrees/<worktree-dir>` to discard and remove
+3. If `.worktrees/` is now empty, remove it: `rmdir .worktrees 2>/dev/null`
+
+If the user prefers to keep the worktree, skip cleanup and note: "Worktree `.worktrees/<worktree-dir>` is still active. Remove it with `git worktree remove .worktrees/<worktree-dir>` when done."

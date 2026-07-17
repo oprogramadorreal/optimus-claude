@@ -5,7 +5,7 @@
 # Requirements: claude CLI installed and authenticated (plan subscription or API key)
 #
 # Usage:
-#   bash scripts/test-skills.sh                              # default: init + commit-message
+#   bash scripts/test-skills.sh                              # default: init + commit-suggest
 #   bash scripts/test-skills.sh --skill init                 # test one skill
 #   bash scripts/test-skills.sh --skill init --fixture node  # test one skill + one fixture
 #   bash scripts/test-skills.sh --all                        # test all testable skills
@@ -42,7 +42,7 @@ while [[ $# -gt 0 ]]; do
     --help|-h)
       echo "Usage: bash scripts/test-skills.sh [options]"
       echo "Options:"
-      echo "  --skill <name>     Test specific skill (init, permissions, commit-message, how-to-run, prompt, branch)"
+      echo "  --skill <name>     Test specific skill (init, permissions, commit-suggest, commit-branch, how-to-run, prompt)"
       echo "  --fixture <name>   Test against specific fixture (node, python, go, rust, csharp, monorepo, empty, multi-repo)"
       echo "  --all              Test all skill/fixture combinations"
       echo "  --fresh            Remove and regenerate all fixtures before testing"
@@ -119,11 +119,11 @@ if $ALL_MODE; then
     "init:monorepo-project"
     "init:empty-project"
     "permissions:node-project"
-    "commit-message:node-project"
+    "commit-suggest:node-project"
     "how-to-run:node-project"
     "how-to-run:python-project"
     "prompt:node-project"
-    "branch:node-project"
+    "commit-branch:node-project"
   )
 elif [ -n "$SKILL_FILTER" ] && [ -n "$FIXTURE_FILTER" ]; then
   # Map fixture shorthand to directory name
@@ -142,18 +142,18 @@ elif [ -n "$SKILL_FILTER" ]; then
       "init:rust-project" "init:csharp-project" "init:monorepo-project" "init:empty-project"
     ) ;;
     permissions)    TEST_MATRIX=("permissions:node-project") ;;
-    commit-message) TEST_MATRIX=("commit-message:node-project") ;;
+    commit-suggest) TEST_MATRIX=("commit-suggest:node-project") ;;
     how-to-run)     TEST_MATRIX=("how-to-run:node-project" "how-to-run:python-project") ;;
     prompt)         TEST_MATRIX=("prompt:node-project") ;;
-    branch)         TEST_MATRIX=("branch:node-project") ;;
-    *) echo "Unknown skill: $SKILL_FILTER. Supported: init, permissions, commit-message, how-to-run, prompt, branch"; exit 1 ;;
+    commit-branch)  TEST_MATRIX=("commit-branch:node-project") ;;
+    *) echo "Unknown skill: $SKILL_FILTER. Supported: init, permissions, commit-suggest, commit-branch, how-to-run, prompt"; exit 1 ;;
   esac
 else
   # Default: quick smoke test
   TEST_MATRIX=(
     "init:node-project"
     "init:python-project"
-    "commit-message:node-project"
+    "commit-suggest:node-project"
   )
 fi
 
@@ -195,7 +195,7 @@ run_skill_test() {
     permissions)
       prompt="Run /optimus:permissions to set up branch protection and permission rules for this project."
       ;;
-    commit-message)
+    commit-suggest)
       # Need some changes to analyze — test for file existence to avoid creating unexpected files
       if [ -f index.js ]; then
         echo "// new feature" >> index.js
@@ -204,7 +204,7 @@ run_skill_test() {
       else
         echo "# new feature" > README.md
       fi
-      prompt="Run /optimus:commit-message to suggest a conventional commit message for the current changes."
+      prompt="Run /optimus:commit suggest — suggest a conventional commit message for the current changes without committing."
       ;;
     how-to-run)
       prompt="Run /optimus:how-to-run to generate a HOW-TO-RUN.md teaching a new developer how to set up their environment and run this project locally."
@@ -212,8 +212,8 @@ run_skill_test() {
     prompt)
       prompt="Run /optimus:prompt to craft an optimized prompt for the following idea: Write a Python function that parses CSV files and returns summary statistics."
       ;;
-    branch)
-      # Need uncommitted changes for branch to have context
+    commit-branch)
+      # Need uncommitted changes for branch mode to have context
       if [ -f index.js ]; then
         echo "// add auth middleware" >> index.js
       elif [ -f README.md ]; then
@@ -221,7 +221,7 @@ run_skill_test() {
       else
         echo "# add auth middleware" > README.md
       fi
-      prompt="Run /optimus:branch to create a properly named branch for the current changes."
+      prompt="Run /optimus:commit branch — move the current changes to a properly named branch without committing."
       ;;
     *)
       echo "  ERROR  No prompt defined for skill: $skill"

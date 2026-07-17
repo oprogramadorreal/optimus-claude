@@ -18,7 +18,7 @@ Use this to understand the author's stated intent behind the changes. However:
 - Still flag genuine bugs, security issues, and guideline violations even if the description says the change is intentional
 - The description explains "why" but does not excuse "how" — incorrect implementations of a correct intent are still findings
 - Do NOT reduce confidence or skip findings just because the description mentions them
-- If the description includes a `## Intent` section with specific claims (problem, scope, non-goals, key decisions) AND your output format includes the `Intent Mismatch` category (see your per-agent PR/MR-mode addendum), check whether the diff delivers each claim. A claim with no supporting code change, or a code change that contradicts a stated non-goal, is a finding — report it under category `Intent Mismatch`. Agents without a PR/MR-mode addendum (e.g., `code-simplifier`) skip this check entirely. If no `## Intent` section is present, skip this check; never invent intent.
+- If the description states specific intent claims (problem, scope, non-goals, key decisions) AND your agent's addendum defines the `Intent Mismatch` category, check whether the diff delivers each claim — a claim with no supporting code change, or a change contradicting a stated non-goal, is an `Intent Mismatch` finding. Agents without that addendum skip this check. If the description states no intent, skip the check; never invent intent.
 ```
 
 If the PR/MR has no description (empty body), omit this block entirely — do not inject an empty context section.
@@ -60,5 +60,4 @@ Focus your review on NEW issues only. Do NOT re-flag code that was introduced by
 
 ```
 
-**Summary column**: one sentence, max 120 characters, describing the issue (not the fix).
-**Failed Fix Attempts section**: only included when there are reverted, skipped, or persistent findings. Kept compact — one line per finding with truncated test output (max ~200 chars). This gives the next iteration enough signal to try a different approach without bloating context.
+**Summary column**: one sentence, max 120 characters, describing the issue (not the fix). Failed-fix bullets stay compact — truncate test output to ~200 chars.

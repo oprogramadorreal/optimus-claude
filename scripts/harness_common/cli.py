@@ -1,17 +1,17 @@
-"""Orchestrator CLI for the *-deep skills.
+"""Orchestrator CLI for the /optimus:deep skill.
 
-Subcommands compose the per-iteration steps the `/optimus:code-review-deep`,
-`/optimus:refactor-deep`, and `/optimus:unit-test-deep` skills run via Bash.
-The skills hold no state; the CLI reads/writes a JSON progress file on disk.
+Subcommands compose the per-iteration steps that `/optimus:deep`'s three
+targets (review, refactor, coverage) run via Bash.
+The skill holds no state; the CLI reads/writes a JSON progress file on disk.
 
 Subcommand summary:
   init                    — create initial progress file
   resume                  — validate existing progress file for continuation
   snapshot                — capture pre-iteration git state into progress
   parse                   — extract json:harness-output from subagent text
-  deep-step               — apply/test/bisect for code-review-deep / refactor-deep
-  unit-test-step          — record tests + coverage for unit-test-deep
-  refactor-step           — apply/test/bisect for unit-test-deep's refactor phase
+  deep-step               — apply/test/bisect for the review / refactor targets
+  unit-test-step          — record tests + coverage for the coverage target
+  refactor-step           — apply/test/bisect for the coverage target's refactor phase
   record-cycle            — append cycle_history entry (paired variant)
   commit-checkpoint       — create git checkpoint commit
   check-termination       — print one of continue|convergence|no-actionable|
@@ -1597,7 +1597,7 @@ def cmd_final_report(args):
 def _build_parser():
     parser = argparse.ArgumentParser(
         prog="harness_common.cli",
-        description="Orchestrator CLI invoked by *-deep skills",
+        description="Orchestrator CLI invoked by the /optimus:deep skill",
     )
     sub = parser.add_subparsers(dest="command", required=True)
 
@@ -1647,8 +1647,8 @@ def _build_parser():
         "--allow-red",
         action="store_true",
         help="Proceed even if the baseline suite is not green (skips timeout "
-        "calibration). The orchestrator passes this for unit-test-deep and when "
-        "the user supplied --allow-red-baseline.",
+        "calibration). The orchestrator passes this for the coverage target and "
+        "when the user supplied --allow-red-baseline.",
     )
     p.set_defaults(func=cmd_baseline)
 

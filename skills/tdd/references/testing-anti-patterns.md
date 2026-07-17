@@ -1,124 +1,42 @@
 # Testing Anti-Patterns
 
-Load this reference when writing or reviewing tests — especially before adding mocks.
+Read when writing or reviewing tests — especially before adding mocks.
 
-## Contents
-
-- [Core Principle](#core-principle)
-- [The Three Iron Laws of Mocking](#the-three-iron-laws-of-mocking)
-- [Anti-Pattern 1: Testing Mock Behavior Instead of Real Behavior](#anti-pattern-1-testing-mock-behavior-instead-of-real-behavior)
-- [Anti-Pattern 2: Mocking Without Understanding Dependencies](#anti-pattern-2-mocking-without-understanding-dependencies)
-- [Anti-Pattern 3: Over-Mocking When Real Code Works](#anti-pattern-3-over-mocking-when-real-code-works)
-- [Anti-Pattern 4: Verifying Through Backdoors Instead of the Interface](#anti-pattern-4-verifying-through-backdoors-instead-of-the-interface)
-- [Quick Reference](#quick-reference)
-- [Red Flags — Stop and Reconsider](#red-flags--stop-and-reconsider)
-
-## Core Principle
+## Core principle
 
 **Test what the code does, not what the mocks do.** Mocks are a means to isolate; they are never the thing being tested.
 
-## The Three Iron Laws of Mocking
+## The three iron laws of mocking
 
-1. **Never assert on mock behavior** — assert on the code under test. If your assertion checks that a mock exists or was called, you're testing the mock, not your code.
-2. **Never add test-only methods to production classes** — if a method only exists for tests (e.g., `destroy()`, `reset()`), move it to test utilities instead. Test-only methods pollute the production API and are dangerous if called accidentally.
-3. **Never mock without understanding the dependency** — before mocking, ask: "What side effects does the real method have? Does this test depend on any of them?" If yes, mock at a lower level or use the real implementation.
+1. **Never assert on mock behavior** — assert on the code under test. If an assertion checks that a mock exists or was called, it tests the mock, not the code.
+2. **Never add test-only methods to production classes** — a method only tests call (e.g., `destroy()`, `reset()`) belongs in test utilities; it pollutes the production API and is dangerous if called accidentally.
+3. **Never mock without understanding the dependency** — before mocking, ask what side effects the real method has and whether the test depends on any of them. If yes, mock at a lower level or use the real implementation.
 
-## Anti-Pattern 1: Testing Mock Behavior Instead of Real Behavior
+## Four gate questions
 
-**Bad** — asserting on the mock, not the component:
-```
-test('renders sidebar', () => {
-  render(<Page />)
-  expect(screen.getByTestId('sidebar-mock')).toBeInTheDocument()
-  // ^ Testing that the mock exists, not that the page works
-})
-```
+### 1. "Am I asserting on the mock or on the code under test?"
 
-**Good** — asserting on real behavior:
-```
-test('renders sidebar', () => {
-  render(<Page />)  // Don't mock sidebar
-  expect(screen.getByRole('navigation')).toBeInTheDocument()
-})
-```
+- Bad: `expect(screen.getByTestId('sidebar-mock')).toBeInTheDocument()` — proves the mock renders, not that the page works.
+- Good: don't mock the sidebar — `expect(screen.getByRole('navigation')).toBeInTheDocument()`.
 
-**Gate question:** "Am I asserting on the mock or on the actual code under test?"
+### 2. "Does this test depend on side effects I've mocked away?"
 
-## Anti-Pattern 2: Mocking Without Understanding Dependencies
+- Bad: mocking `ConfigManager.saveConfig` in a duplicate-server test — the duplicate check reads the config the mock never wrote, so the expected error never fires.
+- Good: mock only the slow network client; let the config write happen for real.
 
-**Bad** — over-mocking breaks the test:
-```
-test('detects duplicate server', async () => {
-  vi.mock('ConfigManager', () => ({
-    saveConfig: vi.fn()  // Mock prevents config write that test depends on!
-  }))
-  await addServer(config)
-  await addServer(config)  // Should throw duplicate error, but won't
-})
-```
+### 3. "Can this test use the real implementation?"
 
-**Good** — mock only the slow/external part, preserve behavior the test needs:
-```
-test('detects duplicate server', async () => {
-  vi.mock('NetworkClient')  // Only mock the slow network call
-  await addServer(config)   // Config write happens for real
-  await addServer(config)   // Duplicate detected correctly
-})
-```
+Only mock what you must: external services (APIs, databases), non-deterministic behavior (time, randomness), and slow I/O. If the real code is fast and deterministic, use it. Over-mocking symptoms: mock setup longer than the test logic, tests that break when the mock changes while the real code is fine, mocks of internal modules rather than external services.
 
-**Gate question:** "Do I know what side effects the real method has? Does this test depend on any of them?"
+### 4. "Am I verifying through the public interface or a backdoor?"
 
-## Anti-Pattern 3: Over-Mocking When Real Code Works
+- Bad: `db.query('SELECT * FROM users WHERE name = ?', ['Alice'])` to check that `createUser` saved — couples the test to a storage decision; a schema change breaks it while the code still works.
+- Good: `getUser(user.id)` — read the result back through the API the system exposes. If no interface exists to read it back, that is a design gap.
 
-**Symptoms:**
-- Mock setup is longer than the test logic
-- Test breaks when mock structure changes but real code is fine
-- You're mocking internal modules, not external services
+## Red flags — stop and reconsider
 
-**The rule:** Only mock what you must — external services (APIs, databases), non-deterministic behavior (time, randomness), and slow I/O. If the real implementation is fast and deterministic, use it.
-
-**Gate question:** "Can this test use the real implementation? Am I mocking for isolation or out of habit?"
-
-## Anti-Pattern 4: Verifying Through Backdoors Instead of the Interface
-
-**Bad** — bypassing the public interface to verify a side effect:
-```
-test('createUser saves to database', async () => {
-  await createUser({ name: 'Alice' })
-  const rows = await db.query('SELECT * FROM users WHERE name = ?', ['Alice'])
-  expect(rows).toHaveLength(1)
-  expect(rows[0].name).toBe('Alice')
-})
-```
-
-**Good** — verifying through the interface the system exposes:
-```
-test('createUser makes user retrievable', async () => {
-  const user = await createUser({ name: 'Alice' })
-  const retrieved = await getUser(user.id)
-  expect(retrieved.name).toBe('Alice')
-})
-```
-
-The bad test couples the assertion to an internal storage decision: change the schema, switch databases, or move users into a cache, and the test breaks even though `createUser` still works.
-
-**Gate question:** "Am I verifying through the system's public interface, or am I checking internal state through a backdoor?"
-
-## Quick Reference
-
-| Anti-Pattern | Gate Question | Fix |
-|---|---|---|
-| Asserting on mock elements | "Am I testing the mock or the code?" | Test real behavior or unmock it |
-| Mocking without understanding deps | "Does this test depend on mocked side effects?" | Mock at lower level, preserve needed behavior |
-| Over-mocking | "Can this test use real code?" | Only mock external services and non-deterministic deps |
-| Verifying through a backdoor | "Am I checking via the public interface or internal state?" | Read back through the system's API; if none exists, that's a design gap |
-| Test-only methods in production | "Is this method only called from tests?" | Move to test utilities |
-| Incomplete mock data | "Does my mock mirror the real data structure?" | Include all fields the real API returns |
-
-## Red Flags — Stop and Reconsider
-
-- Assertion checks for `*-mock` test IDs
+- An assertion checks for `*-mock` test IDs
 - Mock setup is >50% of the test
-- Test fails when you remove the mock (but real code works)
-- You're mocking "just to be safe"
-- Can't explain why the mock is needed
+- The test fails when you remove the mock, but the real code works
+- Mocking "just to be safe", or you can't explain why the mock is needed
+- Mock data missing fields the real API returns

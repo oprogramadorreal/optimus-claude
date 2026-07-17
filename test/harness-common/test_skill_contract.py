@@ -1,14 +1,14 @@
 """Pins the orchestrator ↔ base-skill ↔ CLI wiring contract.
 
 These tests catch silent breakages that the unit-level CLI tests miss: a base
-SKILL.md losing its `HARNESS_MODE_INLINE` Step 2 router, an orchestrator skill
-stopping pointing at the loop reference, the harness-mode.md JSON schema
+SKILL.md losing its `HARNESS_MODE_INLINE` router, the deep orchestrator
+stopping pointing at a loop reference, the harness-mode.md JSON schema
 drifting from what `cli.py parse` actually accepts. Each assertion below
 encodes one rung of the dispatch chain.
 
 If one of these fails, the in-conversation deep-mode flow is silently broken —
-the unit tests will pass but a real `/optimus:code-review-deep` invocation will
-either hang the subagent or terminate the loop on the first iteration.
+the unit tests will pass but a real `/optimus:deep` invocation will either
+hang the subagent or terminate the loop on the first iteration.
 """
 
 import json
@@ -18,6 +18,8 @@ import pytest
 from harness_common import cli
 
 PLUGIN_ROOT = Path(__file__).resolve().parents[2]
+
+DEEP_SKILL = "skills/deep/SKILL.md"
 
 
 def _read(rel_path):
@@ -56,111 +58,85 @@ def test_base_skill_routes_harness_mode_inline(base_skill, harness_ref):
 
 
 # ---------------------------------------------------------------------------
-# Orchestrator SKILL.md must reference the right loop template + base skill
+# The deep orchestrator must wire all three targets to the CLI and loop refs
 # ---------------------------------------------------------------------------
 
 
-ORCHESTRATOR_CONTRACTS = [
-    # (orchestrator_skill, loop_reference, dispatched_base_skill_path)
-    (
-        "code-review-deep",
+def test_deep_references_both_loop_templates():
+    skill_md = _read(DEEP_SKILL)
+    for loop_ref in (
         "references/orchestrator-loop-single.md",
-        "skills/code-review/SKILL.md",
-    ),
-    (
-        "refactor-deep",
-        "references/orchestrator-loop-single.md",
-        "skills/refactor/SKILL.md",
-    ),
-    (
-        "unit-test-deep",
         "references/orchestrator-loop-paired.md",
-        # unit-test-deep dispatches both base skills; loop reference covers both.
-        None,
-    ),
-]
+        "references/harness-init-resume.md",
+    ):
+        assert loop_ref in skill_md, f"{DEEP_SKILL} must reference {loop_ref}"
 
 
-@pytest.mark.parametrize(
-    "orchestrator,loop_ref,base_skill_path", ORCHESTRATOR_CONTRACTS
-)
-def test_orchestrator_references_loop_template(orchestrator, loop_ref, base_skill_path):
-    skill_md = _read(f"skills/{orchestrator}/SKILL.md")
-    assert (
-        loop_ref in skill_md
-    ), f"skills/{orchestrator}/SKILL.md must reference {loop_ref}"
+def test_deep_pins_progress_file_paths():
+    """The per-target progress files are CLI defaults and git.py glob anchors.
 
-
-@pytest.mark.parametrize("orchestrator,_loop,_base", ORCHESTRATOR_CONTRACTS)
-def test_orchestrator_disables_model_invocation(orchestrator, _loop, _base):
-    """Orchestrators must not be reachable via slash-command dispatch from a subagent.
-
-    `disable-model-invocation: true` prevents recursive deep-mode runs (a
-    subagent cannot accidentally invoke its own orchestrator via slash). The
-    re-entry guard inside each SKILL.md is the second line of defense.
+    Renaming them silently escapes the `.claude/*-deep-progress.json` un-stage
+    and cleanup globs, so the orchestrator must name them exactly.
     """
-    skill_md = _read(f"skills/{orchestrator}/SKILL.md")
-    assert (
-        "disable-model-invocation: true" in skill_md
-    ), f"skills/{orchestrator}/SKILL.md must set disable-model-invocation: true"
+    skill_md = _read(DEEP_SKILL)
+    for progress in (
+        ".claude/code-review-deep-progress.json",
+        ".claude/refactor-deep-progress.json",
+        ".claude/unit-test-deep-progress.json",
+    ):
+        assert progress in skill_md, f"{DEEP_SKILL} must pin progress file {progress}"
 
 
-@pytest.mark.parametrize("orchestrator,_loop,_base", ORCHESTRATOR_CONTRACTS)
-def test_orchestrator_has_reentry_guard(orchestrator, _loop, _base):
-    skill_md = _read(f"skills/{orchestrator}/SKILL.md")
-    assert (
-        "Re-entry guard" in skill_md
-    ), f"skills/{orchestrator}/SKILL.md must have a Re-entry guard step"
-    # The guard's payload — looking for HARNESS_MODE_INLINE as the marker.
+def test_deep_disables_model_invocation():
+    """The orchestrator must not be reachable via slash-command dispatch from a
+    subagent — `disable-model-invocation: true` prevents recursive deep-mode
+    runs; the re-entry guard inside the SKILL.md is the second line of defense.
+    """
+    skill_md = _read(DEEP_SKILL)
+    assert "disable-model-invocation: true" in skill_md
+
+
+def test_deep_has_reentry_guard():
+    skill_md = _read(DEEP_SKILL)
+    assert "Re-entry guard" in skill_md, f"{DEEP_SKILL} must have a Re-entry guard step"
     assert "HARNESS_MODE_INLINE" in skill_md
 
 
-def _plugin_root_section(orchestrator):
-    """Return the '### Plugin root' subsection body of an orchestrator SKILL.md."""
-    skill_md = _read(f"skills/{orchestrator}/SKILL.md")
-    marker = "### Plugin root"
-    start = skill_md.index(marker) + len(marker)
-    rest = skill_md[start:]
-    return rest[: rest.index("\n### ")]
-
-
-def test_deep_skills_share_identical_plugin_root_resolution():
-    """All three orchestrators must resolve the plugin root the same way.
-
-    The resolution (env var → "Base directory" fallback → validate that the
-    candidate contains scripts/harness_common) is replicated verbatim in each
-    SKILL.md because it cannot live in a shared reference — reading that
-    reference would itself need the very root it resolves. Pin byte-identity so
-    a fix to one copy is mirrored to all three.
+def test_deep_has_plugin_root_resolution():
+    """The plugin-root resolution cannot live in a shared reference — reading
+    that reference would itself need the very root it resolves — so the deep
+    SKILL.md must carry it inline and validate the candidate root by locating
+    scripts/harness_common.
     """
-    sections = {
-        o: _plugin_root_section(o)
-        for o in ("code-review-deep", "refactor-deep", "unit-test-deep")
-    }
-    reference = sections["code-review-deep"]
-    for orchestrator, section in sections.items():
-        assert section == reference, (
-            f"skills/{orchestrator}/SKILL.md '### Plugin root' diverged from "
-            "code-review-deep — keep the resolution byte-identical across all three"
-        )
+    skill_md = _read(DEEP_SKILL)
+    assert "### Plugin root" in skill_md
+    assert "scripts/harness_common" in skill_md
 
 
-@pytest.mark.parametrize("orchestrator,_loop,_base", ORCHESTRATOR_CONTRACTS)
-def test_orchestrator_passes_test_command_and_runs_baseline(orchestrator, _loop, _base):
-    """Each orchestrator must pass --test-command to init and run the baseline gate.
+def test_deep_passes_test_command_and_runs_baseline():
+    """The orchestrator must pass --test-command to init and run the baseline gate.
 
     The CLI's CLAUDE.md parser is stricter than a human read; passing the
     command the skill already captured avoids a spurious init failure. The
     baseline run establishes a green starting tree and calibrates the per-run
     test timeout before the loop starts.
     """
-    skill_md = _read(f"skills/{orchestrator}/SKILL.md")
+    skill_md = _read(DEEP_SKILL)
+    assert "--test-command" in skill_md
+    assert "cli baseline" in skill_md
+
+
+def test_deep_documents_yes_flag():
+    """The --yes flag is the headless / CI entry point. If a future SKILL.md
+    edit silently drops it, `claude -p "/optimus:deep …"` will hang on the
+    confirmation AskUserQuestion with no test failure to flag the regression.
+    """
+    skill_md = _read(DEEP_SKILL)
+    assert "`--yes`" in skill_md
     assert (
-        "--test-command" in skill_md
-    ), f"skills/{orchestrator}/SKILL.md must pass --test-command to init"
-    assert (
-        "cli baseline" in skill_md
-    ), f"skills/{orchestrator}/SKILL.md must run the baseline gate before the loop"
+        "Skip this step entirely when `--resume` is given, or when `--yes` is given"
+        in skill_md
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -200,11 +176,6 @@ def test_loop_reference_dispatches_via_skill_md_read(loop_ref, expected_paths):
     ), f"{loop_ref} must inject HARNESS_MODE_INLINE in dispatch prompts"
     for path in expected_paths:
         assert path in ref, f"{loop_ref} must reference {path}"
-    # Pin the dispatch *mechanism*, not just the path token. A future loop-ref
-    # edit could keep the SKILL.md path string while dropping the "read from
-    # disk" instruction in favour of an alternative (slash command, cache); the
-    # PR description (#140 Key decisions item d) calls out the read-from-disk
-    # choice explicitly, so the contract must too.
     assert (
         "Read the base SKILL.md" in ref
     ), f"{loop_ref} must instruct the subagent to read the base SKILL.md from disk"
@@ -279,37 +250,10 @@ def test_harness_mode_documented_schema_round_trips_through_cli_parse(tmp_path, 
     assert parsed["no_actionable_fixes"] is False
 
 
-@pytest.mark.parametrize("orchestrator,_loop,_base", ORCHESTRATOR_CONTRACTS)
-def test_orchestrator_documents_yes_flag(orchestrator, _loop, _base):
-    """Each orchestrator SKILL.md must document the --yes flag and its Step 3 bypass.
-
-    The flag is the headless / CI entry point — the only reason the deleted
-    Python harness's CI use case still works under the new orchestrator design.
-    If a future SKILL.md edit silently drops the flag, `claude -p
-    "/optimus:*-deep …"` will hang on Step 3's AskUserQuestion with no test
-    failure to flag the regression.
-    """
-    skill_md = _read(f"skills/{orchestrator}/SKILL.md")
-    assert (
-        "`--yes`" in skill_md
-    ), f"skills/{orchestrator}/SKILL.md must document the --yes flag"
-    # The Step 3 bypass behavior must be explicitly stated — not just the
-    # argparse entry. Headless callers depend on Step 3 being skipped.
-    assert (
-        "Skip this step entirely when `--resume` is given, or when `--yes` is given"
-        in skill_md
-    ), (
-        f"skills/{orchestrator}/SKILL.md must document --yes bypassing the "
-        f"Step 3 confirmation prompt"
-    )
-
-
 def test_harness_mode_documents_all_termination_reasons():
-    """The orchestrator dispatches to harness-mode.md for termination semantics.
-
-    harness-mode.md's "Termination reasons" section must enumerate every reason
-    cli.py's check-termination can emit — otherwise the docs lie about what
-    the orchestrator might see.
+    """harness-mode.md's "Termination reasons" section must enumerate every
+    reason cli.py's check-termination can emit — otherwise the docs lie about
+    what the orchestrator might see.
     """
     ref = _read("references/harness-mode.md")
     for reason in (
