@@ -170,6 +170,52 @@ class TestInit:
         captured = capsys.readouterr()
         assert "focus" in captured.err.lower()
 
+    def test_coverage_focus_rejected(self, tmp_path, monkeypatch, capsys):
+        # The coverage variant pins its own focus ("testability") for the
+        # refactor phase, so a user-supplied --focus must be rejected rather
+        # than silently discarded — the deep skill promises the CLI rejects it.
+        # Regression: the guard lived only in _init_deep, so this path exited 0.
+        repo = _make_repo(tmp_path)
+        _stub_git(monkeypatch)
+        progress_path = repo / "progress.json"
+        exit_code = _run(
+            "init",
+            "--skill",
+            "unit-test",
+            "--focus",
+            "guidelines",
+            "--progress-file",
+            str(progress_path),
+            "--project-dir",
+            str(repo),
+        )
+        assert exit_code == 1
+        captured = capsys.readouterr()
+        assert "focus" in captured.err.lower()
+        assert not progress_path.exists()
+
+    def test_coverage_invalid_focus_rejected(self, tmp_path, monkeypatch, capsys):
+        # An unknown --focus value must fail on every target, not just the deep
+        # variants. Regression: VALID_FOCUS_MODES was only checked in _init_deep.
+        repo = _make_repo(tmp_path)
+        _stub_git(monkeypatch)
+        progress_path = repo / "progress.json"
+        exit_code = _run(
+            "init",
+            "--skill",
+            "unit-test",
+            "--focus",
+            "bogus",
+            "--progress-file",
+            str(progress_path),
+            "--project-dir",
+            str(repo),
+        )
+        assert exit_code == 1
+        captured = capsys.readouterr()
+        assert "focus" in captured.err.lower()
+        assert not progress_path.exists()
+
     def test_unknown_skill_errors(self, tmp_path, monkeypatch, capsys):
         # --skill has no argparse `choices` constraint, so an unsupported value
         # reaches cmd_init's membership check; it must fail cleanly and write no
@@ -367,6 +413,52 @@ class TestInit:
         assert data["config"]["scope"]["mode"] == "directory"
         assert data["config"]["scope"]["paths"] == ["src"]
         assert data["config"]["scope"]["scope_text"] is None
+
+    def test_coverage_natural_language_scope(self, tmp_path, monkeypatch):
+        # The coverage counterpart of test_deep_natural_language_scope. The deep
+        # skill promises non-path scope "does not filter" for every target, but
+        # _init_coverage forwarded prose straight into config.scope, which
+        # coverage-harness-mode.md tells the subagent to apply as a discovery
+        # path filter. Prose must land in scope_text and leave scope null.
+        repo = _make_repo(tmp_path)
+        _stub_git(monkeypatch)
+        progress_path = repo / "progress.json"
+        _run(
+            "init",
+            "--skill",
+            "unit-test",
+            "--scope",
+            "focus on the auth module",
+            "--progress-file",
+            str(progress_path),
+            "--project-dir",
+            str(repo),
+        )
+        data = _read_progress(progress_path)
+        assert data["config"]["scope"] is None
+        assert data["config"]["scope_text"] == "focus on the auth module"
+
+    def test_coverage_path_scope_existing(self, tmp_path, monkeypatch):
+        # Complement to test_coverage_natural_language_scope: a real path still
+        # reaches discovery as a filter.
+        repo = _make_repo(tmp_path)
+        (repo / "src").mkdir()
+        _stub_git(monkeypatch)
+        progress_path = repo / "progress.json"
+        _run(
+            "init",
+            "--skill",
+            "unit-test",
+            "--scope",
+            "src",
+            "--progress-file",
+            str(progress_path),
+            "--project-dir",
+            str(repo),
+        )
+        data = _read_progress(progress_path)
+        assert data["config"]["scope"] == "src"
+        assert data["config"]["scope_text"] is None
 
     def test_deep_absolute_path_outside_project_falls_back_to_branch_diff(
         self, tmp_path, monkeypatch

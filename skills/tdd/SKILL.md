@@ -178,10 +178,12 @@ Push the branch: `git push -u origin <branch-name>`. If the push fails, report t
 
 If behaviors remain unfinished, note them and suggest a follow-up `/optimus:tdd` run with them as the task, started from this feature branch — each run is a fresh decomposition; there is no resume.
 
-### Worktree cleanup
-
-If a worktree was used, follow the **Cleanup** section of `$CLAUDE_PLUGIN_ROOT/skills/worktree/references/worktree-setup.md`.
-
 ### Next step
 
 Recommend `/optimus:pr` to create the PR/MR — run it in this same conversation so it can read the `## TDD Summary` block above and capture the implementation context. TDD never runs `gh`/`glab` itself.
+
+### Worktree cleanup
+
+Run this last — after the `/optimus:pr` recommendation, never before it. Removing the worktree deletes the directory this conversation is working in, so `/optimus:pr` must be able to run first.
+
+If a worktree was used, **offer** cleanup rather than performing it: the user may want to keep the worktree for `/optimus:pr` or follow-up work. If they accept, follow the **Cleanup** section of `$CLAUDE_PLUGIN_ROOT/skills/worktree/references/worktree-setup.md`; if they decline, follow that section's keep-the-worktree note.

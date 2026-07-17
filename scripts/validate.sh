@@ -54,7 +54,6 @@ fi
 echo "[SKILL.md frontmatter]"
 fm_errors=""
 while IFS= read -r f; do
-  skill_name=$(basename "$(dirname "$f")")
   # Strip CR for Windows compat; read first line directly to avoid broken pipe
   first_line=$(head -1 "$f" | tr -d '\r')
   if [[ "$first_line" != "---" ]]; then
@@ -99,7 +98,9 @@ while IFS= read -r f; do
 done < <(find ./skills -name 'SKILL.md' -not -path './.git/*')
 check "SKILL.md frontmatter valid" test -z "$fm_errors"
 if [ -n "$fm_errors" ]; then
-  printf "       Issues:\n%s" "$fm_errors"
+  # %b, not %s: fm_errors is accumulated with literal \n escapes (as in every
+  # sibling check), which %s would print verbatim on one run-on line.
+  printf "       Issues:\n%b" "$fm_errors"
 fi
 
 # --- 4. No ref in marketplace.json ---
@@ -155,18 +156,20 @@ fi
 
 # --- 8. Cross-reference integrity ---
 # Every $CLAUDE_PLUGIN_ROOT/... path in skill files must point to an existing file.
+# grep -o emits one hit per occurrence, so a line carrying several references is
+# checked in full. (A `sed 's|.*ROOT/\(...\).*|\1|'` here would match greedily and
+# silently validate only the LAST reference on each such line.)
 echo "[Cross-references]"
 broken_refs=""
-while IFS= read -r ref_line; do
-  # Extract the path after $CLAUDE_PLUGIN_ROOT/ or ${CLAUDE_PLUGIN_ROOT}/
-  # Paths appear inside backticks, quotes, or bare — extract until whitespace/backtick/quote
-  ref_path=$(printf '%s' "$ref_line" | sed -n 's|.*\$[{]\{0,1\}CLAUDE_PLUGIN_ROOT[}]\{0,1\}/\([^ `"'"'"']*\).*|\1|p' | head -1)
+while IFS= read -r ref_hit; do
+  # Each hit is "<file>:<lineno>:$CLAUDE_PLUGIN_ROOT/<path>". Paths appear inside
+  # backticks, quotes, or bare — the match runs until whitespace/backtick/quote.
+  src_file=${ref_hit%%:*}
+  ref_path=$(printf '%s' "$ref_hit" | sed 's|^[^:]*:[0-9]*:||; s|^\$[{]\{0,1\}CLAUDE_PLUGIN_ROOT[}]\{0,1\}/||')
   if [ -n "$ref_path" ] && [ ! -f "./$ref_path" ] && [ ! -d "./$ref_path" ]; then
-    # Get source file for context
-    src_file=$(printf '%s' "$ref_line" | cut -d: -f1)
     broken_refs+="  $src_file -> $ref_path\n"
   fi
-done < <(grep -rn '\$[{]\{0,1\}CLAUDE_PLUGIN_ROOT[}]\{0,1\}/' skills/ references/ 2>/dev/null || true)
+done < <(grep -rnoE '\$\{?CLAUDE_PLUGIN_ROOT\}?/[^ `"'"'"']*' skills/ references/ 2>/dev/null || true)
 check "All CLAUDE_PLUGIN_ROOT references resolve" test -z "$broken_refs"
 if [ -n "$broken_refs" ]; then
   printf "       Broken references:\n%b" "$broken_refs"
@@ -384,8 +387,10 @@ deep_refs=""
 # references that themselves load more (3+ levels deep)
 while IFS= read -r ref_file; do
   # This is a level-1 reference (loaded by SKILL.md). Check what it references.
-  while IFS= read -r l2_line; do
-    l2_path=$(printf '%s' "$l2_line" | sed -n 's|.*\$[{]\{0,1\}CLAUDE_PLUGIN_ROOT[}]\{0,1\}/\([^ `"'"'"']*\).*|\1|p' | head -1)
+  # Iterate over every reference rather than every line: with one path extracted
+  # per line, a multi-ref line contributed only its last target, and a `continue`
+  # on a non-file target (e.g. a directory) discarded the rest of that line too.
+  while IFS= read -r l2_path; do
     if [ -z "$l2_path" ] || [ ! -f "./$l2_path" ]; then
       continue
     fi
@@ -395,19 +400,21 @@ while IFS= read -r ref_file; do
     if [ -n "$has_deep" ]; then
       deep_refs+="  $ref_file -> $l2_path -> (further refs)\n"
     fi
-  done < <(grep '\$[{]\{0,1\}CLAUDE_PLUGIN_ROOT[}]\{0,1\}/' "./$ref_file" 2>/dev/null || true)
+  done < <(grep -oE '\$\{?CLAUDE_PLUGIN_ROOT\}?/[^ `"'"'"']*' "./$ref_file" 2>/dev/null | sed 's|^\$[{]\{0,1\}CLAUDE_PLUGIN_ROOT[}]\{0,1\}/||' || true)
 done < <(find ./skills -path '*/references/*.md' -o -path '*/agents/*.md' | sort)
 check "Reference depth <= 2 levels" test -z "$deep_refs"
 if [ -n "$deep_refs" ]; then
   printf "       Deep reference chains (3+ levels):\n%b" "$deep_refs"
 fi
 
-# --- 17. Cross-skill contracts ---
-# Genuine two-sided contracts: a literal heading or token one skill emits and
-# another skill greps for. Drift on either side silently drops the handoff, so
-# both sides are pinned. Missing files fail first-class — a rename or deletion
-# must break the build, not skip the check.
-echo "[Cross-skill contracts]"
+# --- 17. Producer/consumer contracts ---
+# Genuine two-sided contracts: a literal heading or token one file emits and
+# another greps for. Drift on either side silently drops the handoff, so both
+# sides are pinned. The contract is file-to-file, not skill-to-skill: an agent
+# returning a heading its own SKILL.md keys off is the same failure mode as a
+# cross-skill handoff, and is pinned here too. Missing files fail first-class —
+# a rename or deletion must break the build, not skip the check.
+echo "[Producer/consumer contracts]"
 contract_errors=""
 
 # require_tokens <file> <token>...: every token must appear literally in <file>.
@@ -451,7 +458,20 @@ require_tokens skills/refactor/SKILL.md 'HARNESS_MODE_INLINE'
 require_tokens skills/unit-test/SKILL.md 'HARNESS_MODE_INLINE'
 require_tokens skills/deep/SKILL.md 'HARNESS_MODE_INLINE'
 
-check "Cross-skill contracts intact" test -z "$contract_errors"
+# Agent-return contracts inside how-to-run: the detector and auditor agents emit
+# these headings and SKILL.md waits on them by name. A rename on either side
+# silently yields an empty handoff — Step 3 then renders every aspect unknown.
+require_tokens skills/how-to-run/agents/project-environment-detector.md '## Context Detection Results'
+require_tokens skills/how-to-run/SKILL.md 'Context Detection Results'
+require_tokens skills/how-to-run/agents/how-to-run-auditor.md '## How-to-Run Audit Results'
+require_tokens skills/how-to-run/SKILL.md 'How-to-Run Audit Results'
+
+# Unsupported-stack wiring: the detector only flags the condition, SKILL.md runs
+# the fallback. Dropping either side silently loses unknown-stack support.
+require_tokens skills/how-to-run/agents/project-environment-detector.md '### Unsupported-Stack Fallback' '- **Triggered:**'
+require_tokens skills/how-to-run/SKILL.md 'Triggered: yes' 'unsupported-stack-fallback.md'
+
+check "Producer/consumer contracts intact" test -z "$contract_errors"
 if [ -n "$contract_errors" ]; then
   printf "       Contract issues:\n%b" "$contract_errors"
 fi

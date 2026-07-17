@@ -15,7 +15,7 @@ Analyze local git changes (or a PR/MR) against the project's coding guidelines w
 
 **Multi-repo**: if the current directory has no `.git/` directory, read `$CLAUDE_PLUGIN_ROOT/skills/init/references/multi-repo-detection.md` and apply it. In a workspace, run Step 3's git commands inside each child repo, PR/MR mode requires the user to name a repo, and Step 4 loads each repo's docs independently; if changed files map to no child repo, ask which repo's context applies.
 
-**Prerequisites**: if `.claude/CLAUDE.md` or `.claude/docs/coding-guidelines.md` is missing, recommend `/optimus:init` first; on the user's choice, continue with general best practices for the detected stack and note in the report that findings are generic.
+**Prerequisites**: if `.claude/CLAUDE.md` or `.claude/docs/coding-guidelines.md` is missing, recommend `/optimus:init` first. On the user's choice to continue, fall back to the bundled baseline: read `$CLAUDE_PLUGIN_ROOT/skills/init/templates/docs/coding-guidelines.md` and review against it plus general best practices for the detected stack — a shared, versioned anchor keeps findings reproducible where ad-hoc judgment would not. Note in the report that findings are generic, not project-specific.
 
 ## Step 2: Inline Harness Mode Detection
 
@@ -63,7 +63,7 @@ Entered on explicit request or via the auto-route. Detect the platform per the *
 
 ### Scope summary
 
-Present a brief `## Review Scope` summary before proceeding: mode (local changes / PR #N / branch diff since `<ref>`), files changed, lines +/-. In PR/MR mode, if the captured `pr-description` body is empty, append one note: intent-vs-implementation checks are skipped; running `/optimus:pr` in the implementation conversation can add intent metadata. This is a soft warning — the review proceeds either way.
+Present a brief `## Review Scope` summary before proceeding: mode (local changes / PR #N / branch diff since `<ref>`), files changed, lines +/-. In PR/MR mode, append one note whenever intent-vs-implementation checks will not run — either the captured `pr-description` body is empty, **or** it is non-empty but has no `## Intent` section (apply the **Detection rule** in `$CLAUDE_PLUGIN_ROOT/skills/pr/references/pr-template.md`, the same rule `/optimus:pr` writes against, so both halves of the handoff share one definition). Say which case applies: intent-vs-implementation checks are skipped; running `/optimus:pr` in the implementation conversation can add intent metadata. Without this note a rich hand-written description reads as fully reviewed while every agent silently skipped the check. This is a soft warning — the review proceeds either way.
 
 **Large diff warning**: if more than 50 files or 3000 lines are changed, warn the user and suggest narrowing the scope (e.g., a specific path or directory).
 

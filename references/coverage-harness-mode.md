@@ -2,6 +2,11 @@
 
 Single-pass protocol for `/optimus:unit-test` when invoked under the `/optimus:deep coverage` orchestrator. The orchestrator alternates unit-test and refactor phases per cycle, but each phase runs in its own fresh subagent context as a single pass.
 
+## Contents
+
+1. [Unit-Test Phase Execution](#unit-test-phase-execution) — single pass under orchestrator control (steps 1–6)
+2. [Refactor Phase Execution](#refactor-phase-execution) — single pass under orchestrator control (delegates to `harness-mode.md`)
+
 ## Unit-Test Phase Execution
 
 When the `/optimus:deep coverage` orchestrator dispatches `/optimus:unit-test` as a subagent for the unit-test phase, the base skill detects `HARNESS_MODE_INLINE` in its invocation prompt and the orchestrator's prompt body includes `Phase: unit-test`. Execute exactly **one pass** of the unit-test workflow, then output structured JSON and exit.
@@ -14,7 +19,7 @@ Read the JSON progress file at the path specified in your invocation prompt. Ext
 - `tests_created` — tests written in prior cycles
 - `untestable_code` — items flagged as untestable in prior cycles
 - `config.test_command` — the test command (for reference only — do NOT run it)
-- `config.scope` — path filter (apply to discovery)
+- `config.scope` — path filter (apply to discovery); `null` means the full project. The CLI populates it only when the user's scope resolved to a real path, so it is never free text — do not treat `config.scope_text` (recorded intent) as a filter.
 
 ### 2. Run discovery and coverage analysis
 

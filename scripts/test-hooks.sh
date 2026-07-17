@@ -72,6 +72,29 @@ assert_output_not_contains() {
   fi
 }
 
+# Capture the hook's stdout and exit status separately. The bare
+# `output=$(bash "$SESSION_START" || true)` form discards the status, so a hook
+# that aborts (it runs under `set -euo pipefail`, and a find that errors would
+# kill it) emits no output and every assert_output_empty below still passes.
+run_session_start() {
+  set +e
+  output=$(bash "$SESSION_START" 2>/dev/null)
+  hook_status=$?
+  set -e
+}
+
+assert_exit_zero() {
+  local label="$1"
+  local status="$2"
+  if [ "$status" -eq 0 ]; then
+    printf "  PASS  %s\n" "$label"
+    ((pass++)) || true
+  else
+    printf "  FAIL  %s (hook exited %s, expected 0)\n" "$label" "$status"
+    ((errors++)) || true
+  fi
+}
+
 echo "=== optimus-claude hook tests ==="
 echo
 
@@ -80,7 +103,7 @@ echo
 # ============================================================
 echo "[session-start: uninitialized project]"
 setup_fixture
-output=$(bash "$SESSION_START" 2>/dev/null || true)
+run_session_start
 assert_output_contains "Recommends /optimus:init when no .claude/" "/optimus:init" "$output"
 assert_output_contains "Mentions CLAUDE.md" "CLAUDE.md" "$output"
 cleanup_fixture
@@ -89,7 +112,7 @@ echo "[session-start: partially initialized (CLAUDE.md only)]"
 setup_fixture
 mkdir -p .claude
 echo "# Project" > .claude/CLAUDE.md
-output=$(bash "$SESSION_START" 2>/dev/null || true)
+run_session_start
 assert_output_contains "Still recommends init when coding-guidelines missing" "/optimus:init" "$output"
 cleanup_fixture
 
@@ -98,7 +121,7 @@ setup_fixture
 mkdir -p .claude/docs
 echo "# Project" > .claude/CLAUDE.md
 echo "# Guidelines" > .claude/docs/coding-guidelines.md
-output=$(bash "$SESSION_START" 2>/dev/null || true)
+run_session_start
 assert_output_contains "Suggests re-running init when testing.md missing" "/optimus:init" "$output"
 assert_output_not_contains "Does not suggest unit-test for missing testing docs" "/optimus:unit-test" "$output"
 cleanup_fixture
@@ -109,10 +132,13 @@ mkdir -p .claude/docs
 echo "# Project" > .claude/CLAUDE.md
 echo "# Guidelines" > .claude/docs/coding-guidelines.md
 echo "# Testing" > .claude/docs/testing.md
-# Stage and commit everything so working tree is clean and there's an upstream
+# Stage and commit everything so the working tree is clean
 git add -A && git commit -q -m "setup"
-output=$(bash "$SESSION_START" 2>/dev/null || true)
+run_session_start
 assert_output_empty "Zero output when fully configured and clean" "$output"
+# Empty output is the expected result here, so it cannot distinguish "correctly
+# silent" from "crashed before printing" — pin the exit status explicitly.
+assert_exit_zero "Exits 0 when fully configured and clean" "$hook_status"
 cleanup_fixture
 
 echo "[session-start: fully configured, uncommitted changes]"
@@ -124,15 +150,16 @@ echo "# Testing" > .claude/docs/testing.md
 git add -A && git commit -q -m "setup"
 # Create uncommitted change — git state is Claude Code's own gitStatus job, not the hook's
 echo "new content" > dirty-file.txt
-output=$(bash "$SESSION_START" 2>/dev/null || true)
+run_session_start
 assert_output_empty "Stays silent on dirty tree (native gitStatus covers git state)" "$output"
+assert_exit_zero "Exits 0 on a dirty tree" "$hook_status"
 cleanup_fixture
 
 echo "[session-start: multi-repo workspace, marker in one sub-repo]"
 setup_fixture
 mkdir -p sub-a/.claude
 echo "1.64.2" > sub-a/.claude/.optimus-version
-output=$(bash "$SESSION_START" 2>/dev/null || true)
+run_session_start
 assert_output_not_contains "Suppresses init notice when sub-repo carries .optimus-version" "/optimus:init" "$output"
 cleanup_fixture
 
@@ -142,7 +169,7 @@ mkdir -p sub-a/.claude
 mkdir -p sub-b/nested/.claude
 echo "1.64.2" > sub-a/.claude/.optimus-version
 echo "1.64.2" > sub-b/nested/.claude/.optimus-version
-output=$(bash "$SESSION_START" 2>/dev/null || true)
+run_session_start
 assert_output_not_contains "Suppresses init notice when markers are nested at depth 4" "/optimus:init" "$output"
 cleanup_fixture
 
@@ -153,13 +180,13 @@ echo "{}" > .claude/settings.json
 echo "# Workspace" > CLAUDE.md
 mkdir -p sub/.claude
 echo "1.64.2" > sub/.claude/.optimus-version
-output=$(bash "$SESSION_START" 2>/dev/null || true)
+run_session_start
 assert_output_not_contains "Suppresses init notice in audaces/isa-style layout" "/optimus:init" "$output"
 cleanup_fixture
 
 echo "[session-start: no markers anywhere — regression for clean dir]"
 setup_fixture
-output=$(bash "$SESSION_START" 2>/dev/null || true)
+run_session_start
 assert_output_contains "Still recommends init when no marker exists in workspace" "/optimus:init" "$output"
 cleanup_fixture
 
@@ -167,8 +194,30 @@ echo "[session-start: marker beyond maxdepth]"
 setup_fixture
 mkdir -p a/b/c/d/.claude
 echo "1.64.2" > a/b/c/d/.claude/.optimus-version
-output=$(bash "$SESSION_START" 2>/dev/null || true)
+run_session_start
 assert_output_contains "Recommends init when marker is deeper than maxdepth 4" "/optimus:init" "$output"
+cleanup_fixture
+
+# The find prunes node_modules/ and .git/ so a vendored marker cannot be mistaken
+# for the workspace's own. A `-mindepth 2` here would suppress the prune at depth
+# 1, letting a published package's .claude/.optimus-version (depth 4, inside
+# maxdepth) silently cancel the init notice — and walk all of node_modules on
+# every session start.
+echo "[session-start: vendored marker inside root node_modules]"
+setup_fixture
+mkdir -p node_modules/some-pkg/.claude
+echo "1.64.2" > node_modules/some-pkg/.claude/.optimus-version
+run_session_start
+assert_output_contains "Ignores .optimus-version vendored in root node_modules" "/optimus:init" "$output"
+assert_exit_zero "Exits 0 with a root node_modules present" "$hook_status"
+cleanup_fixture
+
+echo "[session-start: marker inside root .git]"
+setup_fixture
+mkdir -p .git/vendored/.claude
+echo "1.64.2" > .git/vendored/.claude/.optimus-version
+run_session_start
+assert_output_contains "Ignores .optimus-version inside root .git" "/optimus:init" "$output"
 cleanup_fixture
 
 # ============================================================

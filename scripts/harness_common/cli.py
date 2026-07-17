@@ -145,7 +145,13 @@ def _make_deep_progress(
 
 
 def _make_coverage_progress(
-    scope, max_cycles, test_command, project_root, base_commit, no_commit=False
+    scope,
+    max_cycles,
+    test_command,
+    project_root,
+    base_commit,
+    no_commit=False,
+    scope_text=None,
 ):
     return {
         "schema_version": 1,
@@ -155,7 +161,11 @@ def _make_coverage_progress(
             "max_cycles": max_cycles,
             "test_command": test_command,
             "test_timeout": DEFAULT_TEST_TIMEOUT,
+            # Only a resolved path reaches discovery as a filter; null means the
+            # full project. Free-text intent is parked in scope_text, which
+            # nothing consumes (see _scope_is_path).
             "scope": scope,
+            "scope_text": scope_text,
             "project_root": normalize_path(str(project_root)),
             "base_commit": base_commit,
             # The refactor phase dispatches /optimus:refactor in harness mode,
@@ -535,20 +545,40 @@ def _progress_path_for_skill(args):
     return Path(default)
 
 
+def _scope_is_path(scope, project_root):
+    """True when `scope` names an existing path inside `project_root`.
+
+    Natural-language scope ("focus on the auth module") cannot be turned into a
+    reliable path filter, so every target records it as intent text instead of
+    handing it downstream — the contract the deep skill states for all three
+    targets. The containment check also rejects absolute paths (Path semantics:
+    `project_root / "/etc"` yields `/etc`), which would otherwise be passed on
+    as a filter that matches nothing.
+    """
+    if not scope:
+        return False
+    candidate = (project_root / scope).resolve()
+    return candidate.exists() and (
+        candidate == project_root or project_root in candidate.parents
+    )
+
+
 def _init_coverage(args, project_root, test_command, base_commit):
     """Build the initial progress dict for unit-test-deep (paired variant)."""
     requested_cycles = (
         args.max_cycles if args.max_cycles is not None else DEFAULT_MAX_CYCLES
     )
     max_cycles = max(min(requested_cycles, MAX_CYCLES_HARD_CAP), 1)
+    scope_is_path = _scope_is_path(args.scope, project_root)
     return (
         _make_coverage_progress(
-            args.scope,
+            args.scope if scope_is_path else None,
             max_cycles,
             test_command,
             project_root,
             base_commit,
             args.no_commit,
+            scope_text=args.scope if (args.scope and not scope_is_path) else None,
         ),
         0,
     )
@@ -557,39 +587,17 @@ def _init_coverage(args, project_root, test_command, base_commit):
 def _init_deep(args, project_root, test_command, base_commit):
     """Build the initial progress dict for code-review-deep / refactor-deep."""
     skill = args.skill
-    if args.focus and args.focus not in VALID_FOCUS_MODES:
-        print(
-            f"ERROR: --focus must be one of {sorted(VALID_FOCUS_MODES)}",
-            file=sys.stderr,
-        )
-        return None, 1
-    if args.focus and skill != "refactor":
-        print(
-            "ERROR: --focus is only supported with --skill refactor",
-            file=sys.stderr,
-        )
-        return None, 1
     requested_iter = (
         args.max_iterations
         if args.max_iterations is not None
         else DEFAULT_MAX_ITERATIONS
     )
     max_iter = max(min(requested_iter, MAX_ITERATIONS_HARD_CAP), 1)
-    # Treat scope as a git pathspec only when it resolves to an existing path
-    # under project_root. Natural-language scope ("focus on src/auth") cannot be
-    # turned into a reliable pathspec, so it is recorded in config.scope.scope_text
-    # for provenance only: the harness-mode dispatch does not consume it and the
-    # subagent reviews the full branch diff (see the scope note in the deep
-    # skill's SKILL.md / README). The containment check also rejects absolute paths (Path
-    # semantics: `project_root / "/etc"` yields `/etc`), which would otherwise be
-    # silently handed to git as a pathspec that matches nothing.
-    if args.scope:
-        candidate = (project_root / args.scope).resolve()
-        scope_is_path = candidate.exists() and (
-            candidate == project_root or project_root in candidate.parents
-        )
-    else:
-        scope_is_path = False
+    # Treat scope as a git pathspec only when it resolves to a real path; prose
+    # is recorded in config.scope.scope_text for provenance only, so the
+    # harness-mode dispatch ignores it and the subagent reviews the full branch
+    # diff (see the scope note in the deep skill's SKILL.md / README).
+    scope_is_path = _scope_is_path(args.scope, project_root)
     progress = _make_deep_progress(
         skill,
         args.scope,
@@ -621,6 +629,24 @@ def _init_deep(args, project_root, test_command, base_commit):
 def cmd_init(args):
     skill = args.skill
     project_root = Path(args.project_dir).resolve()
+
+    # --focus is refactor-only and must name a known mode. Gated here rather than
+    # inside a single init path so every target is validated identically: the
+    # coverage variant pins its own focus, so a user-supplied one must be
+    # rejected rather than silently discarded.
+    if args.focus and args.focus not in VALID_FOCUS_MODES:
+        print(
+            f"ERROR: --focus must be one of {sorted(VALID_FOCUS_MODES)}",
+            file=sys.stderr,
+        )
+        return 1
+    if args.focus and skill != "refactor":
+        print(
+            "ERROR: --focus is only supported with --skill refactor",
+            file=sys.stderr,
+        )
+        return 1
+
     progress_path = _progress_path_for_skill(args)
 
     if progress_path.exists() and not args.force:

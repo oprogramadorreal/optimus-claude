@@ -13,7 +13,9 @@ output=""
 if [ ! -f .claude/CLAUDE.md ] || [ ! -f .claude/docs/coding-guidelines.md ]; then
   # Multi-repo workspace: init may live in a sub-repo's .claude/, not the workspace root.
   # .optimus-version is uniquely written by /optimus:init, so it's the authoritative marker.
-  multi_repo_marker=$(find . -mindepth 2 -maxdepth 4 \( -name node_modules -o -name .git \) -prune -o -path '*/.claude/.optimus-version' -print -quit 2>/dev/null)
+  # No -mindepth: it would suppress the prune at depth 1, leaving the root
+  # node_modules/ and .git/ fully walked. The -path pattern already implies depth >= 2.
+  multi_repo_marker=$(find . -maxdepth 4 \( -name node_modules -o -name .git \) -prune -o -path '*/.claude/.optimus-version' -print -quit 2>/dev/null || true)
   if [ -z "$multi_repo_marker" ]; then
     output+="IMPORTANT: This project has not been initialized with the optimus plugin. You MUST mention this to the user in your first response: recommend running \`/optimus:init\` to set up CLAUDE.md, coding guidelines, and auto-format hooks for effective AI-assisted development."$'\n'
   fi
@@ -21,7 +23,7 @@ else
   # 2. Check test infrastructure (only relevant if init was done)
   if [ ! -f .claude/docs/testing.md ]; then
     # Check monorepo subprojects too
-    has_testing=$(find . -maxdepth 4 \( -name node_modules -o -name .git \) -prune -o -path '*/docs/testing.md' -print -quit 2>/dev/null)
+    has_testing=$(find . -maxdepth 4 \( -name node_modules -o -name .git \) -prune -o -path '*/docs/testing.md' -print -quit 2>/dev/null || true)
     if [ -z "$has_testing" ]; then
       output+="[optimus] Testing docs missing. Suggest re-running \`/optimus:init\` to set up test infrastructure."$'\n'
     fi

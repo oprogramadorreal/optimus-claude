@@ -15,7 +15,7 @@ Analyze existing source code against the project's own guidelines using 4 parall
 
 If the current directory has no `.git/` directory, read `$CLAUDE_PLUGIN_ROOT/skills/init/references/multi-repo-detection.md` and apply it. In a multi-repo workspace, load each targeted repo's `.claude/CLAUDE.md` and `.claude/docs/` (not the workspace root's) and apply that repo's context to its files; if the scope doesn't determine a repo, ask which one.
 
-If `.claude/CLAUDE.md` or `.claude/docs/coding-guidelines.md` is missing, recommend `/optimus:init` first; on the user's choice, continue with general best practices.
+If `.claude/CLAUDE.md` or `.claude/docs/coding-guidelines.md` is missing, recommend `/optimus:init` first. On the user's choice to continue, fall back to the bundled baseline: read `$CLAUDE_PLUGIN_ROOT/skills/init/templates/docs/coding-guidelines.md` and work against it plus general best practices, and note in the report that findings are generic, not project-specific.
 
 **Focus:** a standalone unquoted `testability` or `guidelines` token (case-insensitive) in the arguments sets the focus and is consumed from the scope text; keywords inside quoted strings stay scope text (`"improve testability in auth"` → focus=null). If both keywords appear, use the first and warn that separate passes cover each. Everything remaining is natural-language scope.
 
@@ -29,7 +29,13 @@ For changed-since, use `git diff --name-only <ref>...HEAD` for commits, branches
 
 ## Step 2: Harness mode
 
-If your invocation prompt contains `HARNESS_MODE_INLINE`, you are a single iteration inside the `/optimus:deep` orchestrator: read `$CLAUDE_PLUGIN_ROOT/references/harness-mode.md` and follow its single-iteration protocol, which overrides the interactive steps. In brief: treat a non-empty `scope_files.current` from the progress file as the pre-resolved scope, deriving analysis areas from its files' parent directories instead of resolving scope in Step 1; take focus from `config.focus`; skip every `AskUserQuestion` and confirmation; apply validated fixes mechanically, recording the exact `pre_edit_content`/`post_edit_content` pair for each edit location (empty post = deletion) so the orchestrator can bisect; NEVER run tests, lint, or builds — the orchestrator owns all verification; emit the `json:harness-output` block and stop without looping. On iterations 2+, prepend the Iteration Context Block from `$CLAUDE_PLUGIN_ROOT/references/context-injection-blocks.md` to every agent prompt before the file list; the PR/MR context block does not apply to refactor.
+If your invocation prompt contains `HARNESS_MODE_INLINE`, you are a single iteration inside the `/optimus:deep` orchestrator: read `$CLAUDE_PLUGIN_ROOT/references/harness-mode.md` and follow its single-iteration protocol, which overrides the interactive steps — it covers progress-file reading, scope and file-list rules, agent-prompt overrides (including the Iteration Context Block on iterations 2+), and the apply/output protocol.
+
+Refactor's deltas, which that reference defers back to this note:
+
+- **Scope**: when `scope_files.current` is non-empty, treat it as the pre-resolved scope and derive analysis areas from its files' parent directories rather than resolving scope in Step 1; when empty, run Step 3's normal directory scan at full-project scope.
+- **Focus**: take the finding-cap allocation from `config.focus` (empty string = balanced).
+- **No PR/MR block**: the PR/MR context block does not apply to refactor — ignore `config.pr_description`.
 
 If `HARNESS_MODE_INLINE` is not present, continue with the interactive flow below.
 

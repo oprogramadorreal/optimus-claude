@@ -18,7 +18,7 @@ Use this to understand the author's stated intent behind the changes. However:
 - Still flag genuine bugs, security issues, and guideline violations even if the description says the change is intentional
 - The description explains "why" but does not excuse "how" — incorrect implementations of a correct intent are still findings
 - Do NOT reduce confidence or skip findings just because the description mentions them
-- If the description states specific intent claims (problem, scope, non-goals, key decisions) AND your agent's addendum defines the `Intent Mismatch` category, check whether the diff delivers each claim — a claim with no supporting code change, or a change contradicting a stated non-goal, is an `Intent Mismatch` finding. Agents without that addendum skip this check. If the description states no intent, skip the check; never invent intent.
+- If the description has a populated `## Intent` section (problem, scope, non-goals, key decisions) AND your agent's addendum defines the `Intent Mismatch` category, check whether the diff delivers each claim — a claim with no supporting code change, or a change contradicting a stated non-goal, is an `Intent Mismatch` finding. Agents without that addendum skip this check. If there is no populated `## Intent` section, skip the check; never invent intent from the Summary, commit messages, or diff.
 ```
 
 If the PR/MR has no description (empty body), omit this block entirely — do not inject an empty context section.

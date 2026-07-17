@@ -17,7 +17,7 @@ Derive a kebab-case `<slug>` from the user's arguments if given (e.g., "finish t
 
 ## Step 2: Locate the doc; create, enhance, or overwrite
 
-The handoff folder is `docs/handoffs/` under the repo root — in a multi-repo workspace, under the workspace root. If the current directory has no `.git/` directory, read `$CLAUDE_PLUGIN_ROOT/skills/init/references/multi-repo-detection.md` and apply it. Then branch:
+Resolve the root: the repo root, or the workspace root in a multi-repo workspace. If the current directory has no `.git/` directory, read `$CLAUDE_PLUGIN_ROOT/skills/init/references/multi-repo-detection.md` and apply it, then cover both of its non-workspace answers: when it finds **exactly one child repo**, treat that child repo as the root — writing above it would put the handoff outside version control, where the Step 5 `/optimus:commit` recommendation cannot reach it; when it finds **no recognized structure**, use the current directory. The handoff folder is `docs/handoffs/` under that root. Then branch:
 
 - **`<slug>.md` exists** → read it, then `AskUserQuestion`: **Enhance** (merge new context; keep still-valid content and append a History line) or **Overwrite** (fresh rewrite; the prior version stays in git history).
 - **No slug match but other handoffs exist** → list them (filename · title · Last updated), then `AskUserQuestion`: **Continue one** (pick via a follow-up question, adopt that file's slug as `<slug>`, treat as Enhance) or **Create new**.
@@ -46,7 +46,7 @@ Scan the entire drafted body — authored prose as much as inlined content — a
 
 Write the document to `docs/handoffs/<slug>.md`, creating the folder if missing. Re-scan the written file against the same table (same exemption) and fix any hits before reporting; tell the user the re-scan ran clean.
 
-Report the written path. If the resolved root is a multi-repo workspace root that is not itself a git repo, note the file is not under version control — suggest committing it inside a child repo or initializing version control at the root. Recommend `/optimus:commit` so the handoff reaches the remote — staying in this conversation, so the context being handed off is captured — and that the resumer point a fresh session at the written file. This skill writes only that one file (`docs/handoffs/<slug>.md`, creating the folder if missing); it never stages, commits, or pushes.
+Report the written path. If the resolved root is not itself a git repo — a multi-repo workspace root, or a directory with no recognized structure — note the file is not under version control; suggest committing it inside a child repo or initializing version control at the root. Recommend `/optimus:commit` so the handoff reaches the remote — staying in this conversation, so the context being handed off is captured — and that the resumer point a fresh session at the written file. This skill writes only that one file (`docs/handoffs/<slug>.md`, creating the folder if missing); it never stages, commits, or pushes.
 
 ## Handoff document template
 

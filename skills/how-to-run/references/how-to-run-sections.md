@@ -2,6 +2,16 @@
 
 Rendering rules for Step 4 (content generation). Per-service Docker/local/shared-cloud logic lives in [`external-services-docker.md`](external-services-docker.md).
 
+## Contents
+
+- [Signal → Section Digest](#signal--section-digest)
+- [Section Shapes](#section-shapes)
+- [External Services](#external-services)
+- [Workspace-Kind Command Branches](#workspace-kind-command-branches)
+- [Schema Bootstrap](#schema-bootstrap)
+- [Diagnostic Ladder](#diagnostic-ladder--container-running-but-host-cant-connect) (container running but host can't connect)
+- [Multi-Repo Workspace Template](#multi-repo-workspace-template)
+
 ## Signal → Section Digest
 
 | Detected signal | Render |

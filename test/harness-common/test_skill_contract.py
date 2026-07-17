@@ -62,29 +62,81 @@ def test_base_skill_routes_harness_mode_inline(base_skill, harness_ref):
 # ---------------------------------------------------------------------------
 
 
-def test_deep_references_both_loop_templates():
+TARGET_LOOP_REFS = [
+    # (target, the loop reference its Targets-table row must name)
+    ("review", "references/orchestrator-loop-single.md"),
+    ("refactor", "references/orchestrator-loop-single.md"),
+    ("coverage", "references/orchestrator-loop-paired.md"),
+]
+
+
+def _targets_table_row(skill_md, target):
+    """Return the Targets-table row for `target`, or None if absent."""
+    for line in skill_md.splitlines():
+        if line.startswith(f"| `{target}` |"):
+            return line
+    return None
+
+
+def _section(skill_md, heading):
+    """Return the body under `heading`, up to the next same-or-higher heading.
+
+    Assertions about one section must be scoped to it: a whole-file substring
+    check passes on an incidental mention elsewhere in the document.
+    """
+    start = skill_md.find(heading)
+    if start == -1:
+        return ""
+    rest = skill_md[start + len(heading) :]
+    ends = [i for i in (rest.find("\n### "), rest.find("\n## ")) if i != -1]
+    return rest[: min(ends)] if ends else rest
+
+
+def test_deep_references_harness_init_resume():
     skill_md = _read(DEEP_SKILL)
-    for loop_ref in (
-        "references/orchestrator-loop-single.md",
-        "references/orchestrator-loop-paired.md",
-        "references/harness-init-resume.md",
-    ):
-        assert loop_ref in skill_md, f"{DEEP_SKILL} must reference {loop_ref}"
+    assert (
+        "references/harness-init-resume.md" in skill_md
+    ), f"{DEEP_SKILL} must reference references/harness-init-resume.md"
+
+
+@pytest.mark.parametrize("target,loop_ref", TARGET_LOOP_REFS)
+def test_deep_pins_loop_reference_per_target(target, loop_ref):
+    """Each target must be wired to its own loop reference.
+
+    Asserting only that both loop filenames appear somewhere in the file lets a
+    target be rewired to the wrong loop with the whole suite green: `coverage`
+    on the single loop silently loses its paired unit-test+refactor cycle and
+    its re-snapshot guard. Pin the mapping at the Targets-table row instead.
+    """
+    skill_md = _read(DEEP_SKILL)
+    row = _targets_table_row(skill_md, target)
+    assert row is not None, f"{DEEP_SKILL} Targets table must have a `{target}` row"
+    assert loop_ref in row, f"{DEEP_SKILL} target `{target}` must use {loop_ref}"
+    wrong_ref = (
+        "references/orchestrator-loop-paired.md"
+        if "loop-single" in loop_ref
+        else "references/orchestrator-loop-single.md"
+    )
+    assert (
+        wrong_ref not in row
+    ), f"{DEEP_SKILL} target `{target}` must not also name {wrong_ref}"
 
 
 def test_deep_pins_progress_file_paths():
     """The per-target progress files are CLI defaults and git.py glob anchors.
 
     Renaming them silently escapes the `.claude/*-deep-progress.json` un-stage
-    and cleanup globs, so the orchestrator must name them exactly.
+    and cleanup globs, so the orchestrator must name them exactly. Sourced from
+    cli.DEFAULT_PROGRESS_FILES rather than frozen literals: with a private copy
+    the CLI could be renamed to a path the orchestrator never names and this
+    test would still pass, which is the exact drift it exists to catch.
     """
     skill_md = _read(DEEP_SKILL)
-    for progress in (
-        ".claude/code-review-deep-progress.json",
-        ".claude/refactor-deep-progress.json",
-        ".claude/unit-test-deep-progress.json",
-    ):
-        assert progress in skill_md, f"{DEEP_SKILL} must pin progress file {progress}"
+    assert cli.DEFAULT_PROGRESS_FILES, "CLI must define default progress paths"
+    for base_skill, progress in cli.DEFAULT_PROGRESS_FILES.items():
+        assert (
+            progress in skill_md
+        ), f"{DEEP_SKILL} must pin progress file {progress} (--skill {base_skill})"
 
 
 def test_deep_disables_model_invocation():
@@ -110,7 +162,14 @@ def test_deep_has_plugin_root_resolution():
     """
     skill_md = _read(DEEP_SKILL)
     assert "### Plugin root" in skill_md
-    assert "scripts/harness_common" in skill_md
+    # Scoped to the section: asserting against the whole file would pass on any
+    # incidental "scripts/harness_common" mention (every CLI invocation carries
+    # one), so the resolution step could lose its `test -d` guard and stay green.
+    section = _section(skill_md, "### Plugin root")
+    assert "scripts/harness_common" in section, (
+        f"{DEEP_SKILL} '### Plugin root' must validate the candidate root by "
+        "locating scripts/harness_common"
+    )
 
 
 def test_deep_passes_test_command_and_runs_baseline():

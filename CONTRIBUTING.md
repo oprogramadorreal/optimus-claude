@@ -97,9 +97,9 @@ argument-hint: "[optional-args]"
 Step-by-step instructions...
 ```
 
-All skills **must** use `disable-model-invocation: true`. Skills that take arguments should also set `argument-hint` (quoted — bare brackets parse as a YAML list); it is shown in the `/` menu autocomplete. The rationale for this rule lives in `.claude/docs/skill-writing-guidelines.md` under Design Principles.
+All skills **must** use `disable-model-invocation: true`. Skills that take arguments should also set `argument-hint` (quoted — bare brackets parse as a YAML list); it is shown in the `/` menu autocomplete. The rationale for this rule lives in `.claude/docs/skill-writing-guidelines.md` under Structure.
 
-**Shared references:** when a procedure is used by 2+ skills, extract it to a reference file owned by the canonical skill — see `.claude/docs/skill-writing-guidelines.md` under "Shared References" for the rule and examples.
+**Shared references:** when a procedure is used by 2+ skills, extract it to a reference file owned by the canonical skill — see `.claude/docs/skill-writing-guidelines.md` under Structure for the rule.
 
 **Note:** The `name` field is intentionally omitted from frontmatter. When present, it strips the plugin namespace prefix — `/optimus:init` would appear as just `/init`, shadowing the builtin command. See [anthropics/claude-code#22063](https://github.com/anthropics/claude-code/issues/22063).
 

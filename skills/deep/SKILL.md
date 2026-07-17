@@ -1,7 +1,7 @@
 ---
 description: Runs an iterative auto-fix loop on a chosen target — review, refactor, or coverage — dispatching the base skill into fresh subagent contexts per iteration, applying fixes automatically without per-change approval, running tests with bisection on failure, and checkpoint-committing until convergence or the cap. Requires /optimus:init and a test command in .claude/CLAUDE.md.
 disable-model-invocation: true
-argument-hint: "<review|refactor|coverage> [path] [--resume] [--yes] [--max-iterations N | --max-cycles N] [--no-commit] [--focus testability|guidelines] [--allow-red-baseline]"
+argument-hint: "<review|refactor|coverage> [testability|guidelines] [path] [--resume] [--yes] [--max-iterations N | --max-cycles N] [--no-commit] [--focus testability|guidelines] [--allow-red-baseline]"
 ---
 
 # Deep Mode
@@ -14,7 +14,7 @@ Orchestrate a base skill in an iterative auto-fix loop. Each iteration runs in a
 |---|---|---|---|---|---|
 | `review` | `code-review` | `.claude/code-review-deep-progress.json` | `--max-iterations` 8/20 | `references/orchestrator-loop-single.md` | no |
 | `refactor` | `refactor` | `.claude/refactor-deep-progress.json` | `--max-iterations` 8/20 | `references/orchestrator-loop-single.md` | yes |
-| `coverage` | `unit-test` | `.claude/unit-test-deep-progress.json` | `--max-cycles` 5/10 | `references/orchestrator-loop-paired.md` | refactor phase only |
+| `coverage` | `unit-test` | `.claude/unit-test-deep-progress.json` | `--max-cycles` 5/10 | `references/orchestrator-loop-paired.md` | no — pinned to `testability` for its refactor phase; a user-supplied focus is rejected |
 
 The progress-file paths are load-bearing CLI defaults — never rename them. The `coverage` target counts **cycles**, not iterations: each cycle dispatches a unit-test phase (write tests, measure coverage, flag untestable code) and, when untestable items are pending, a refactor phase with testability focus.
 
@@ -30,7 +30,7 @@ If your invocation prompt body already contains `HARNESS_MODE_INLINE`, stop imme
 2. `--resume` and `--no-commit` flags (present/absent)
 3. `--yes` flag — auto-confirm the Step 3 prompt; required when invoked under `claude -p` or any other non-interactive session that cannot answer `AskUserQuestion`.
 4. Cap — the target's cap flag from the table (`--max-iterations N` or `--max-cycles N`), default and hard cap per the table.
-5. `--focus testability|guidelines` — refactor target only; stop on any other value or any other target (the CLI rejects both).
+5. Focus — refactor target only; stop on any other value or any other target (the CLI rejects both). Accept **either** `--focus testability|guidelines` **or** a bare `testability`/`guidelines` token, applying the **Focus** detection rules in `$CLAUDE_PLUGIN_ROOT/skills/refactor/SKILL.md` (standalone unquoted token, case-insensitive; a keyword inside a quoted string stays scope text; if both keywords appear, use the first and warn that separate passes cover each). A token consumed as focus is removed from the scope text before item 7 — otherwise `deep refactor guidelines src` would lose the `src` path scope.
 6. `--allow-red-baseline` — review/refactor only; coverage always tolerates a red baseline (see Step 4).
 7. Everything else → scope text. An existing path scopes the run to that path; any other text is recorded as intent only — it does **not** filter. Default scope: `review` covers the branch diff; `refactor` covers the feature-branch diff when one exists, otherwise the full project, widening per iteration to files with active findings and newly modified files; `coverage` covers the full project.
 

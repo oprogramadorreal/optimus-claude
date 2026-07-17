@@ -17,7 +17,11 @@ When composing each prompt below, replace `[changed files]` with the file list a
 ```
 Constraints:
 - Read-only analysis: do NOT modify or create any files.
-- Read [plugin root]/references/shared-agent-constraints.md and apply it.
+- Read the "Agent Constraints", "Quality Bar", "All Agents Exclude", and
+  "False Positives to Avoid" sections of
+  [plugin root]/references/shared-agent-constraints.md and apply them. That
+  file's "Finding Cap" and "Structural-Neighbor Scope Expansion" sections do
+  NOT apply to this gate — the two limits below replace them.
 - Maximum 5 findings. Scope to the listed changed files only; do not suggest
   changes outside them.
 - Do NOT flag style/formatting, bugs, or security — out of scope for this gate.
