@@ -19,7 +19,7 @@ Read the JSON progress file at the path specified in your invocation prompt. Ext
 - `tests_created` — tests written in prior cycles
 - `untestable_code` — items flagged as untestable in prior cycles
 - `config.test_command` — the test command (for reference only — do NOT run it)
-- `config.scope` — path filter (apply to discovery); `null` means the full project. The CLI populates it only when the user's scope resolved to a real path, so it is never free text — do not treat `config.scope_text` (recorded intent) as a filter.
+- `config.scope` — path filter (apply to discovery); `null` means the full project. The CLI populates it only when the user's scope resolved to a real path, so it is never free text — do not treat `config.scope_text` (recorded intent) as a filter. (`resume` enforces the same invariant for legacy 2.x progress files: a free-text 2.x scope is migrated into `scope_text` and `scope` becomes `null` before the loop continues.)
 
 ### 2. Run discovery and coverage analysis
 

@@ -10,6 +10,7 @@ from .constants import (
     COMMIT_COMMITTED,
     COMMIT_FAILED,
     COMMIT_NOTHING,
+    SCRATCH_GLOBS,
 )
 
 _PREFIX = "[harness]"
@@ -107,15 +108,16 @@ def git_rev_parse_head(cwd):
 
 
 # Authoritative harness-state patterns matched by commit_checkpoint's un-stage
-# step and _clean_working_tree. This repo's own .gitignore mirrors them as a
-# convenience for harness development; renaming a prefix requires synchronized
-# updates here (authoritative) and in this repo's .gitignore (the dev mirror).
+# step and _clean_working_tree. The scratch prefixes come from
+# constants.SCRATCH_GLOBS (shared with cli.py's final-report cleanup); this
+# repo's own .gitignore mirrors the full set as a convenience for harness
+# development, and references/orchestrator-loop-single.md names them for the
+# orchestrator — renaming a prefix requires synchronized updates there.
 _HARNESS_STATE_EXCLUDES = (
     ".claude/*-deep-progress.json",
     ".claude/*-deep-progress.json.bak",
     ".claude/*-deep-progress.done.json",
-    ".claude/.deep-iteration-*",
-    ".claude/.unit-test-deep-*",
+    *(f".claude/{pattern}" for pattern in SCRATCH_GLOBS),
 )
 
 

@@ -46,15 +46,16 @@ from .constants import (
     DEFAULT_PROGRESS_FILES,
     DEFAULT_TEST_TIMEOUT,
     FIXED_STATUSES,
+    FOCUS_MODES_BY_SKILL,
     MAX_CYCLES_HARD_CAP,
     MAX_ITERATIONS_HARD_CAP,
     PERSISTENT_STATUS,
     PHASE_COMMIT_TYPE,
+    SCRATCH_GLOBS,
     SKILL_COMMIT_TYPE,
     SOFT_EXIT_LOW_YIELD_THRESHOLD,
     SOFT_EXIT_MIN_ITERATION,
     SOFT_EXIT_WINDOW,
-    VALID_FOCUS_MODES,
     normalize_path,
 )
 from .convergence import (
@@ -417,7 +418,7 @@ def _test_and_reconcile_fixes(
 
 
 def _make_refactor_bisect_callback(progress, cycle):
-    """Parallel of _make_bisect_callback for the unit-test-deep refactor phase.
+    """Parallel of _make_bisect_callback for the coverage target's refactor phase.
 
     Writes to progress["refactor_findings"] scoped by cycle rather than to
     progress["findings"], and skips the escalation chain (refactor findings
@@ -564,28 +565,25 @@ def _scope_is_path(scope, project_root):
 
 
 def _init_coverage(args, project_root, test_command, base_commit):
-    """Build the initial progress dict for unit-test-deep (paired variant)."""
+    """Build the initial progress dict for the coverage target (paired variant)."""
     requested_cycles = (
         args.max_cycles if args.max_cycles is not None else DEFAULT_MAX_CYCLES
     )
     max_cycles = max(min(requested_cycles, MAX_CYCLES_HARD_CAP), 1)
     scope_is_path = _scope_is_path(args.scope, project_root)
-    return (
-        _make_coverage_progress(
-            args.scope if scope_is_path else None,
-            max_cycles,
-            test_command,
-            project_root,
-            base_commit,
-            args.no_commit,
-            scope_text=args.scope if (args.scope and not scope_is_path) else None,
-        ),
-        0,
+    return _make_coverage_progress(
+        args.scope if scope_is_path else None,
+        max_cycles,
+        test_command,
+        project_root,
+        base_commit,
+        args.no_commit,
+        scope_text=args.scope if (args.scope and not scope_is_path) else None,
     )
 
 
 def _init_deep(args, project_root, test_command, base_commit):
-    """Build the initial progress dict for code-review-deep / refactor-deep."""
+    """Build the initial progress dict for the review / refactor targets."""
     skill = args.skill
     requested_iter = (
         args.max_iterations
@@ -623,26 +621,33 @@ def _init_deep(args, project_root, test_command, base_commit):
     pr_info = git_fetch_open_pr_description(project_root, pr_info=pr_data)
     if pr_info:
         progress["config"]["pr_description"] = pr_info
-    return progress, 0
+    return progress
 
 
 def cmd_init(args):
     skill = args.skill
     project_root = Path(args.project_dir).resolve()
 
-    # --focus is refactor-only and must name a known mode. Gated here rather than
-    # inside a single init path so every target is validated identically: the
-    # coverage variant pins its own focus, so a user-supplied one must be
-    # rejected rather than silently discarded.
-    if args.focus and args.focus not in VALID_FOCUS_MODES:
+    # --focus capability is data (FOCUS_MODES_BY_SKILL), not a hardcoded skill
+    # name: a newly focus-capable skill changes one constants row instead of
+    # this branch, and the error message names the supported skills from the
+    # same table so it cannot go stale. Gated here rather than inside a single
+    # init path so every target is validated identically: the coverage variant
+    # pins its own focus, so a user-supplied one must be rejected rather than
+    # silently discarded.
+    focus_modes = FOCUS_MODES_BY_SKILL.get(skill)
+    if args.focus and not focus_modes:
+        supported = " / ".join(
+            f"--skill {name}" for name in sorted(FOCUS_MODES_BY_SKILL)
+        )
         print(
-            f"ERROR: --focus must be one of {sorted(VALID_FOCUS_MODES)}",
+            f"ERROR: --focus is only supported with {supported}",
             file=sys.stderr,
         )
         return 1
-    if args.focus and skill != "refactor":
+    if args.focus and args.focus not in focus_modes:
         print(
-            "ERROR: --focus is only supported with --skill refactor",
+            f"ERROR: --focus must be one of {sorted(focus_modes)}",
             file=sys.stderr,
         )
         return 1
@@ -687,16 +692,12 @@ def cmd_init(args):
         return 1
 
     if skill in COVERAGE_VARIANT_SKILLS:
-        progress, exit_code = _init_coverage(
-            args, project_root, test_command, base_commit
-        )
+        progress = _init_coverage(args, project_root, test_command, base_commit)
     elif skill in DEEP_VARIANT_SKILLS:
-        progress, exit_code = _init_deep(args, project_root, test_command, base_commit)
+        progress = _init_deep(args, project_root, test_command, base_commit)
     else:
         print(f"ERROR: Unknown skill '{skill}'", file=sys.stderr)
         return 1
-    if exit_code != 0:
-        return exit_code
 
     write_progress(progress_path, progress)
     print(str(progress_path))
@@ -749,6 +750,27 @@ def cmd_resume(args):
     config = progress.get("config", {})
     mutated = False
     prior_reason = (progress.get("termination") or {}).get("reason")
+
+    # Migrate a legacy (2.x) coverage progress file: 2.x stored the user's
+    # scope verbatim in config.scope with no path check and no scope_text key,
+    # while 3.0's coverage-harness-mode.md promises config.scope is a resolved
+    # path or null (subagents apply it to discovery as a path filter — resumed
+    # prose would silently match nothing and degrade the run). Re-classify
+    # through the same gate init uses: prose moves to scope_text (recorded
+    # intent) and scope becomes null (full project). Files written by 3.0
+    # always carry the scope_text key, so they are never touched.
+    if _is_coverage(progress) and config.get("scope") and "scope_text" not in config:
+        scope_root = Path(config.get("project_root") or args.project_dir or ".")
+        if not _scope_is_path(config["scope"], scope_root):
+            config["scope_text"] = config["scope"]
+            config["scope"] = None
+            mutated = True
+            print(
+                "NOTE: migrated legacy free-text coverage scope to "
+                "config.scope_text (recorded intent); the resumed run covers "
+                "the full project.",
+                file=sys.stderr,
+            )
 
     # Raise the persisted cap when the user passed a higher value (the documented
     # "--resume --max-iterations <new-cap>" continuation path). Done before the
@@ -964,7 +986,7 @@ def _verify_snapshot_fresh(progress, current):
 
 
 def cmd_deep_step(args):
-    """Process a code-review-deep / refactor-deep subagent iteration result.
+    """Process a review / refactor target subagent iteration result.
 
     Inputs: progress file path, result file path (subagent JSON).
     Output (stdout): one of
@@ -1045,7 +1067,7 @@ def cmd_deep_step(args):
 
 
 def cmd_unit_test_step(args):
-    """Process the unit-test phase of a unit-test-deep cycle.
+    """Process the unit-test phase of a coverage-target cycle.
 
     Inputs: progress file path, result file path (unit-test phase JSON).
     Output: one of converged | continue
@@ -1179,7 +1201,7 @@ def cmd_unit_test_step(args):
 
 
 def cmd_refactor_step(args):
-    """Process the refactor (testability) phase of a unit-test-deep cycle.
+    """Process the refactor (testability) phase of a coverage-target cycle.
 
     Inputs: progress file path, result file path (refactor phase JSON).
     Output: one of converged | applied
@@ -1604,10 +1626,11 @@ def cmd_final_report(args):
         # Remove the per-iteration scratch files the loop wrote alongside the
         # progress file. final-report owns their lifecycle so the orchestrator
         # needn't `rm` them (a project-root deletion guard can block that). The
-        # leading-dot globs match only the dotfile temps, never the *-progress*
-        # state files or the archived .done.json.
+        # leading-dot globs (constants.SCRATCH_GLOBS — the same source git.py's
+        # commit-checkpoint excludes use) match only the dotfile temps, never
+        # the *-progress* state files or the archived .done.json.
         scratch_dir = progress_path.parent
-        for pattern in (".deep-iteration-*", ".unit-test-deep-*"):
+        for pattern in SCRATCH_GLOBS:
             for temp in scratch_dir.glob(pattern):
                 try:
                     temp.unlink()

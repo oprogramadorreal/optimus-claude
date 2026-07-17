@@ -9,13 +9,19 @@ set -euo pipefail
 
 output=""
 
+# Pruned marker search: find the first file matching the given -path pattern,
+# skipping node_modules/.git at every level. No -mindepth: it would suppress
+# the prune at depth 1, leaving the root node_modules/ and .git/ fully walked.
+# The -path patterns used here already imply depth >= 2.
+find_marker() {
+  find . -maxdepth 4 \( -name node_modules -o -name .git \) -prune -o -path "$1" -print -quit 2>/dev/null || true
+}
+
 # 1. Check if optimus:init has been run
 if [ ! -f .claude/CLAUDE.md ] || [ ! -f .claude/docs/coding-guidelines.md ]; then
   # Multi-repo workspace: init may live in a sub-repo's .claude/, not the workspace root.
   # .optimus-version is uniquely written by /optimus:init, so it's the authoritative marker.
-  # No -mindepth: it would suppress the prune at depth 1, leaving the root
-  # node_modules/ and .git/ fully walked. The -path pattern already implies depth >= 2.
-  multi_repo_marker=$(find . -maxdepth 4 \( -name node_modules -o -name .git \) -prune -o -path '*/.claude/.optimus-version' -print -quit 2>/dev/null || true)
+  multi_repo_marker=$(find_marker '*/.claude/.optimus-version')
   if [ -z "$multi_repo_marker" ]; then
     output+="IMPORTANT: This project has not been initialized with the optimus plugin. You MUST mention this to the user in your first response: recommend running \`/optimus:init\` to set up CLAUDE.md, coding guidelines, and auto-format hooks for effective AI-assisted development."$'\n'
   fi
@@ -23,7 +29,7 @@ else
   # 2. Check test infrastructure (only relevant if init was done)
   if [ ! -f .claude/docs/testing.md ]; then
     # Check monorepo subprojects too
-    has_testing=$(find . -maxdepth 4 \( -name node_modules -o -name .git \) -prune -o -path '*/docs/testing.md' -print -quit 2>/dev/null || true)
+    has_testing=$(find_marker '*/docs/testing.md')
     if [ -z "$has_testing" ]; then
       output+="[optimus] Testing docs missing. Suggest re-running \`/optimus:init\` to set up test infrastructure."$'\n'
     fi

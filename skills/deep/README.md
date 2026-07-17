@@ -38,7 +38,7 @@ The run ends with a cumulative report naming a termination reason — the six re
 
 - A finished run is archived to the progress file's `.done.json` sibling; `--resume` refuses it — re-run fresh for a second-opinion pass.
 - A `diminishing-returns` soft-exit stays un-archived so `--resume` can continue it; `--resume` can also raise the cap.
-- Press Esc twice to interrupt. Progress is written before every dispatch, so interrupts between dispatches are fully recoverable via `--resume`; a mid-dispatch interrupt may leave partial edits — inspect with `git status`, then `git restore .` to discard or `--resume` to keep them.
+- Press Esc twice to interrupt. Progress is written before every dispatch, so interrupts between dispatches are fully recoverable via `--resume`; a mid-dispatch interrupt may leave partial edits — inspect with `git status`, then discard with `git restore .` **and** `git clean -fd -e .claude/` (tracked edits plus any new untracked files the subagent created — a fresh run's init gate counts both, and `-e .claude/` preserves the progress files) or `--resume` to keep them.
 
 Progress files: `.claude/code-review-deep-progress.json`, `.claude/refactor-deep-progress.json`, `.claude/unit-test-deep-progress.json`.
 
@@ -50,7 +50,7 @@ Progress files: `.claude/code-review-deep-progress.json`, `.claude/refactor-deep
 | `/optimus:refactor-deep testability` | `/optimus:deep refactor --focus testability` |
 | `/optimus:unit-test-deep` | `/optimus:deep coverage` |
 
-Flags, progress files, and the harness CLI are unchanged; an in-flight 2.x run can be continued with the matching 3.0 target plus `--resume`.
+Flags, progress files, and the harness CLI are unchanged; an in-flight 2.x run can be continued with the matching 3.0 target plus `--resume`. One scope-semantics upgrade: 3.0 only filters discovery on real paths, so a free-text 2.x coverage scope is migrated to recorded intent (`scope_text`) on first `--resume` and the run continues over the full project.
 
 ## Cost
 

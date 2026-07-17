@@ -358,19 +358,24 @@ fi
 # --- 15. Plugin-level agents ---
 echo "[Plugin agents]"
 agent_issues=""
-for agent_file in agents/code-simplifier.md agents/test-guardian.md; do
-  if [ ! -f "$agent_file" ]; then
-    agent_issues+="  $agent_file: missing\n"
-  else
-    # Check frontmatter has tools: field
-    if ! grep -q '^tools:' "$agent_file" 2>/dev/null; then
-      agent_issues+="  $agent_file: missing 'tools:' in frontmatter\n"
-    fi
-    if ! grep -q '^name:' "$agent_file" 2>/dev/null; then
-      agent_issues+="  $agent_file: missing 'name:' in frontmatter\n"
-    fi
+agent_count=0
+# Glob the tree, not a hardcoded list: a new agent is validated automatically
+# instead of shipping unvalidated when the list goes stale (skills get the
+# same treatment in section 12 via ./skills/*/).
+for agent_file in agents/*.md; do
+  [ -e "$agent_file" ] || continue
+  agent_count=$((agent_count + 1))
+  # Check frontmatter has tools: field
+  if ! grep -q '^tools:' "$agent_file" 2>/dev/null; then
+    agent_issues+="  $agent_file: missing 'tools:' in frontmatter\n"
+  fi
+  if ! grep -q '^name:' "$agent_file" 2>/dev/null; then
+    agent_issues+="  $agent_file: missing 'name:' in frontmatter\n"
   fi
 done
+if [ "$agent_count" -eq 0 ]; then
+  agent_issues+="  agents/: no agent definitions found\n"
+fi
 # Check that old template agents directory does NOT exist
 if [ -d "skills/init/templates/agents" ] && [ "$(ls -A skills/init/templates/agents 2>/dev/null)" ]; then
   agent_issues+="  skills/init/templates/agents/ still contains files (should be moved to agents/)\n"
@@ -433,6 +438,36 @@ require_tokens() {
   done
 }
 
+# require_pattern <file> <ere>...: every extended-regex pattern must match.
+# For anchored headings ('^## Foo') where fixed-string search can't anchor.
+require_pattern() {
+  local file=$1 pattern
+  shift
+  if [ ! -f "$file" ]; then
+    contract_errors+="  missing file: $file\n"
+    return
+  fi
+  for pattern in "$@"; do
+    if ! grep -qE "$pattern" "$file" 2>/dev/null; then
+      contract_errors+="  $file missing contract pattern: $pattern\n"
+    fi
+  done
+}
+
+# require_min_count <identifier> <min> <file>: occurrence-count floor. Counts
+# pin cross-step identifiers where a one-sided rename (or a dropped
+# occurrence) silently disables a multi-step contract. `|| true` lets the
+# count=0 case reach the comparison instead of aborting under set -e — count=0
+# is exactly the failure mode this check exists to catch.
+require_min_count() {
+  local identifier=$1 expected=$2 file=$3 actual
+  actual=$(grep -cF "$identifier" "$file" 2>/dev/null || true)
+  [ -z "$actual" ] && actual=0
+  if [ "$actual" -lt "$expected" ]; then
+    contract_errors+="  $file cross-step identifier '$identifier' appears $actual times, expected >=$expected\n"
+  fi
+}
+
 # Scenario contract: brainstorm's spec template emits these headings; tdd's
 # scenario-driven shortcut greps specs for them.
 require_tokens skills/brainstorm/SKILL.md '## Scenarios' '### Scenario:'
@@ -451,11 +486,26 @@ if ! grep -rqF -- '### Refined plan' skills/jira/ 2>/dev/null; then
 fi
 
 # Harness routing: /optimus:deep dispatches the base skills with
-# HARNESS_MODE_INLINE and each base SKILL.md routes on it (runtime contract
-# with scripts/harness_common/cli.py; see test_skill_contract.py).
-require_tokens skills/code-review/SKILL.md 'HARNESS_MODE_INLINE'
-require_tokens skills/refactor/SKILL.md 'HARNESS_MODE_INLINE'
-require_tokens skills/unit-test/SKILL.md 'HARNESS_MODE_INLINE'
+# HARNESS_MODE_INLINE and each base SKILL.md routes on it to its variant's
+# reference (runtime contract with scripts/harness_common/cli.py; see
+# test_skill_contract.py). The roster is derived from constants.py's variant
+# frozensets, so a new deep target is covered here automatically instead of
+# shipping unvalidated when a hardcoded list goes stale.
+if [ -n "$py_cmd" ]; then
+  deep_variant_skills=$(PYTHONPATH=./scripts "$py_cmd" -c "from harness_common.constants import DEEP_VARIANT_SKILLS; print(' '.join(sorted(DEEP_VARIANT_SKILLS)))")
+  coverage_variant_skills=$(PYTHONPATH=./scripts "$py_cmd" -c "from harness_common.constants import COVERAGE_VARIANT_SKILLS; print(' '.join(sorted(COVERAGE_VARIANT_SKILLS)))")
+  for hs in $deep_variant_skills; do
+    require_tokens "skills/$hs/SKILL.md" 'HARNESS_MODE_INLINE' 'references/harness-mode.md'
+  done
+  for hs in $coverage_variant_skills; do
+    require_tokens "skills/$hs/SKILL.md" 'HARNESS_MODE_INLINE' 'references/coverage-harness-mode.md'
+  done
+else
+  echo "  SKIP  Harness-routing roster derivation (python not installed); frozen roster fallback"
+  require_tokens skills/code-review/SKILL.md 'HARNESS_MODE_INLINE' 'references/harness-mode.md'
+  require_tokens skills/refactor/SKILL.md 'HARNESS_MODE_INLINE' 'references/harness-mode.md'
+  require_tokens skills/unit-test/SKILL.md 'HARNESS_MODE_INLINE' 'references/coverage-harness-mode.md'
+fi
 require_tokens skills/deep/SKILL.md 'HARNESS_MODE_INLINE'
 
 # Agent-return contracts inside how-to-run: the detector and auditor agents emit
@@ -470,6 +520,130 @@ require_tokens skills/how-to-run/SKILL.md 'How-to-Run Audit Results'
 # the fallback. Dropping either side silently loses unknown-stack support.
 require_tokens skills/how-to-run/agents/project-environment-detector.md '### Unsupported-Stack Fallback' '- **Triggered:**'
 require_tokens skills/how-to-run/SKILL.md 'Triggered: yes' 'unsupported-stack-fallback.md'
+
+# --- how-to-run load-bearing wiring ---
+# Step/section navigation and agent return formats the how-to-run flow keys off
+# by literal name. A one-sided rename anywhere below fails silently — routing is
+# by literal string — with every other check green.
+how_to_run_skill="skills/how-to-run/SKILL.md"
+detector_file="skills/how-to-run/agents/project-environment-detector.md"
+auditor_agent="skills/how-to-run/agents/how-to-run-auditor.md"
+walkthrough_ref="skills/how-to-run/references/guided-walkthrough.md"
+step6_file="skills/how-to-run/references/step6-verification-audits.md"
+esd_file="skills/how-to-run/references/external-services-docker.md"
+sections_file="skills/how-to-run/references/how-to-run-sections.md"
+
+# Detector return-format contract: SKILL.md Steps 1/4 branch on these exact
+# sub-headings and fields. A silent rename collapses service coverage, drops
+# schema-bootstrap rendering, or loses workspace-aware command branching.
+require_tokens "$detector_file" \
+  '### Recommended Developer Tools' \
+  '### External Services' \
+  '### Environment Setup' \
+  '### Schema Bootstrap' \
+  '### Runtime Ports' \
+  '### Components' \
+  '- **Workspace kind:**' \
+  '- **Setup scripts:**' \
+  '- **Pre-commit hooks:**' \
+  '- **direnv:**' \
+  '- **Local TLS cert:**' \
+  '- **Database migrations:**' \
+  '| Key leaves |' \
+  '| Secrets committed |'
+
+# Walkthrough trigger keys: Step 3 routes on the literal 'Walk through it'
+# option label and jumps to the '## Step 3a:' heading; Step 3a loads
+# guided-walkthrough.md by path and exits on 'Stop the walkthrough' back to
+# Step 6. A rename on one side only silently kills the walkthrough branch.
+require_pattern "$how_to_run_skill" '^## Step 3a:' '^## Step 6\b'
+require_tokens "$how_to_run_skill" \
+  'Walk through it' \
+  'Regenerate' \
+  '**Skip**' \
+  'Stop the walkthrough' \
+  'jump to Step 6' \
+  'guided-walkthrough.md'
+require_pattern "$walkthrough_ref" \
+  '^## Pre-flight' \
+  '^## Per-step loop' \
+  '^## Advisory flags' \
+  '^## Display sanitization' \
+  '^## Completion summary'
+require_tokens "$walkthrough_ref" \
+  '"Done"' \
+  '"Skip"' \
+  '"Stop the walkthrough"' \
+  'Remote code executor' \
+  'Destructive command' \
+  'SKILL.md Step 6' \
+  '**Regenerate**' \
+  'Audit:'
+# Audit-verdict producer/consumer pair: the auditor emits these verdicts and
+# the walkthrough renders them per step (with the 'Audit:' prefix above).
+for verdict in 'Found but outdated' 'Partial' 'Missing'; do
+  require_tokens "$walkthrough_ref" "$verdict"
+  require_tokens "$auditor_agent" "$verdict"
+done
+
+# §-style section-name navigation: SKILL.md and the references reach these
+# sections exclusively by name (section 8 resolves file paths only, never
+# §-names). A rename silently degrades the Docker-suggestion path, the
+# workspace-aware command branching, and the Step 6 re-verification audits.
+require_pattern "$esd_file" \
+  '^## Service Classification Tables' \
+  '^## Decision Heuristics' \
+  '^## Web-Search Recipe' \
+  '^## Verify Commands \(seeds\)' \
+  '^## Pre-Conditions Block' \
+  '^## Citation Format' \
+  '^## Registry Allowlist' \
+  '^### Docker-preferred' \
+  '^### Local install only'
+require_tokens "$esd_file" '**Step 6 audit:**' '## Canonical Image Catalogue (seeds)'
+require_tokens "$sections_file" \
+  '## External Services' \
+  '## Workspace-Kind Command Branches' \
+  '## Multi-Repo Workspace Template'
+require_pattern "$step6_file" \
+  '^## Record-time validation' \
+  '^## Render-time sanitization' \
+  '^## Step 6 audits'
+
+# Cross-step identifiers: Step 3/4 records rendered_line entries in the
+# approved-unverifiable-items list and Step 6 exempts exactly those lines by
+# full-line equality. A one-sided rename silently breaks the exemption (or
+# exempts unintended lines). Threshold = current occurrence count.
+require_min_count 'approved-unverifiable-items' 1 "$how_to_run_skill"
+require_min_count 'rendered_line' 2 "$how_to_run_skill"
+require_min_count 'approved-unverifiable-items' 2 "$step6_file"
+require_min_count 'rendered_line' 2 "$step6_file"
+
+# Handoff skill: load-bearing tokens. Renaming any silently breaks the
+# emitted-doc shape, the save path, redaction, the unpushed-commit guard, the
+# shared-reference loads, or the enhance/overwrite re-run routing.
+require_tokens skills/handoff/SKILL.md \
+  'docs/handoffs/' \
+  '[REDACTED:' \
+  '@{upstream}..HEAD' \
+  'origin/HEAD..HEAD' \
+  '## Goal' \
+  '## Current state' \
+  '## Next steps' \
+  '## Relevant files & artifacts' \
+  '### Inlined (not yet on remote)' \
+  '## History' \
+  '## Handoff document template' \
+  '## Redaction patterns' \
+  'multi-repo-detection.md' \
+  'Enhance' \
+  'Overwrite' \
+  'Continue one' \
+  'Create new'
+
+# Brainstorm self-review reaches scenario-style.md by section name. A silent
+# rename of either heading leaves the self-review pointer dangling.
+require_pattern skills/brainstorm/references/scenario-style.md '^## Discipline' '^## Anti-patterns'
 
 check "Producer/consumer contracts intact" test -z "$contract_errors"
 if [ -n "$contract_errors" ]; then

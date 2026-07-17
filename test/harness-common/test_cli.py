@@ -216,6 +216,85 @@ class TestInit:
         assert "focus" in captured.err.lower()
         assert not progress_path.exists()
 
+    def test_focus_gate_derives_from_focus_modes_by_skill(self, tmp_path, monkeypatch):
+        # The --focus gate must follow FOCUS_MODES_BY_SKILL, not a hardcoded
+        # skill name: adding a focus-capable skill to the table is the only
+        # change needed for the CLI to accept it.
+        repo = _make_repo(tmp_path)
+        _stub_git(monkeypatch)
+        monkeypatch.setattr(
+            cli,
+            "FOCUS_MODES_BY_SKILL",
+            {"refactor": {"testability"}, "code-review": {"security"}},
+        )
+        progress_path = repo / "progress.json"
+        exit_code = _run(
+            "init",
+            "--skill",
+            "code-review",
+            "--focus",
+            "security",
+            "--progress-file",
+            str(progress_path),
+            "--project-dir",
+            str(repo),
+        )
+        assert exit_code == 0
+        assert _read_progress(progress_path)["config"]["focus"] == "security"
+
+    def test_focus_error_names_supported_skills_from_table(
+        self, tmp_path, monkeypatch, capsys
+    ):
+        # The rejection message must name the focus-capable skills from the
+        # same table, so it cannot point users at the wrong skill when the
+        # table grows.
+        repo = _make_repo(tmp_path)
+        _stub_git(monkeypatch)
+        monkeypatch.setattr(
+            cli,
+            "FOCUS_MODES_BY_SKILL",
+            {"refactor": {"testability"}, "code-review": {"security"}},
+        )
+        exit_code = _run(
+            "init",
+            "--skill",
+            "unit-test",
+            "--focus",
+            "testability",
+            "--progress-file",
+            str(repo / "p.json"),
+            "--project-dir",
+            str(repo),
+        )
+        assert exit_code == 1
+        err = capsys.readouterr().err
+        assert "--skill code-review" in err
+        assert "--skill refactor" in err
+
+    def test_init_helpers_return_bare_progress(self, tmp_path, monkeypatch):
+        # cmd_init consumes the helpers' return value directly as the progress
+        # dict; a reintroduced (progress, exit_code) tuple shape would silently
+        # write a list as the progress file (and revive the dead exit-code
+        # guard it came with).
+        repo = _make_repo(tmp_path)
+        _stub_git(monkeypatch)
+        deep_args = argparse.Namespace(
+            skill="code-review",
+            scope="",
+            max_iterations=None,
+            focus="",
+            no_commit=False,
+        )
+        deep_progress = cli._init_deep(deep_args, repo, "npm test", "abc123")
+        assert isinstance(deep_progress, dict)
+        assert deep_progress["skill"] == "code-review"
+        coverage_args = argparse.Namespace(scope="", max_cycles=None, no_commit=False)
+        coverage_progress = cli._init_coverage(
+            coverage_args, repo, "npm test", "abc123"
+        )
+        assert isinstance(coverage_progress, dict)
+        assert coverage_progress["harness"] == "test-coverage"
+
     def test_unknown_skill_errors(self, tmp_path, monkeypatch, capsys):
         # --skill has no argparse `choices` constraint, so an unsupported value
         # reaches cmd_init's membership check; it must fail cleanly and write no
@@ -682,6 +761,103 @@ class TestResume:
         )
         assert exit_code == 0
         assert capsys.readouterr().out.strip() == "code-review"
+
+    def test_resume_migrates_legacy_coverage_prose_scope(self, tmp_path, capsys):
+        # 2.x stored the user's scope verbatim in config.scope with no path
+        # check and no scope_text key. 3.0's coverage-harness-mode.md promises
+        # config.scope is a resolved path or null — subagents apply it to
+        # discovery as a path filter, so resumed prose would silently match
+        # nothing. resume must migrate legacy files: prose → scope_text,
+        # scope → null (full project).
+        progress_path = tmp_path / "progress.json"
+        progress_path.write_text(
+            json.dumps(
+                {
+                    "harness": "test-coverage",
+                    "skill": "unit-test",
+                    "config": {
+                        "project_root": str(tmp_path),
+                        "max_cycles": 5,
+                        "scope": "improve auth coverage",
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+        exit_code = _run(
+            "resume",
+            "--progress-file",
+            str(progress_path),
+            "--project-dir",
+            str(tmp_path),
+        )
+        assert exit_code == 0
+        data = _read_progress(progress_path)
+        assert data["config"]["scope"] is None
+        assert data["config"]["scope_text"] == "improve auth coverage"
+
+    def test_resume_keeps_legacy_coverage_path_scope(self, tmp_path):
+        # A legacy (no scope_text key) scope that resolves to a real path is a
+        # valid filter and must survive the migration untouched.
+        (tmp_path / "src").mkdir()
+        progress_path = tmp_path / "progress.json"
+        progress_path.write_text(
+            json.dumps(
+                {
+                    "harness": "test-coverage",
+                    "skill": "unit-test",
+                    "config": {
+                        "project_root": str(tmp_path),
+                        "max_cycles": 5,
+                        "scope": "src",
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+        exit_code = _run(
+            "resume",
+            "--progress-file",
+            str(progress_path),
+            "--project-dir",
+            str(tmp_path),
+        )
+        assert exit_code == 0
+        data = _read_progress(progress_path)
+        assert data["config"]["scope"] == "src"
+        assert "scope_text" not in data["config"]
+
+    def test_resume_leaves_current_coverage_scope_untouched(self, tmp_path):
+        # 3.0-written files always carry the scope_text key; resume must never
+        # re-classify them (a scope whose path was since deleted is the user's
+        # current-run state, not a legacy migration case).
+        progress_path = tmp_path / "progress.json"
+        progress_path.write_text(
+            json.dumps(
+                {
+                    "harness": "test-coverage",
+                    "skill": "unit-test",
+                    "config": {
+                        "project_root": str(tmp_path),
+                        "max_cycles": 5,
+                        "scope": "deleted-dir",
+                        "scope_text": None,
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+        exit_code = _run(
+            "resume",
+            "--progress-file",
+            str(progress_path),
+            "--project-dir",
+            str(tmp_path),
+        )
+        assert exit_code == 0
+        data = _read_progress(progress_path)
+        assert data["config"]["scope"] == "deleted-dir"
+        assert data["config"]["scope_text"] is None
 
     def test_missing_file(self, tmp_path, capsys):
         exit_code = _run(

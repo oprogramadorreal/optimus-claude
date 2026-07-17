@@ -117,7 +117,7 @@ git config --global http.sslBackend schannel
 | `/optimus:spec-init` | `/optimus:brainstorm scaffold` |
 | `/optimus:workflow` | Claude Code's native dynamic workflows |
 
-Headless entry points move accordingly, e.g. `claude -p "/optimus:deep review --yes 'src/auth'"`. Progress files and resume semantics are unchanged — an in-flight 2.x `*-deep` run can be resumed with the matching `/optimus:deep <target> --resume`.
+Headless entry points move accordingly, e.g. `claude -p "/optimus:deep review --yes 'src/auth'"`. Progress files are unchanged and 2.x runs remain resumable — an in-flight 2.x `*-deep` run can be resumed with the matching `/optimus:deep <target> --resume` (one scope-semantics upgrade: a free-text 2.x coverage scope is migrated to recorded intent on first resume, since 3.0 only filters on real paths).
 
 ### Upgrading from 1.x
 
