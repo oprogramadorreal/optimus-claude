@@ -33,9 +33,9 @@ If `scope_files.current` is non-empty, use it as the file list for agents — th
 After reading the progress file, proceed through all of the skill's remaining numbered steps in order — skip only the user confirmation step (the orchestrator handles approval upfront), the interactive scope offers, and the scope summary presentation. Scope handling is skill-specific:
 
 - **code-review**: Step 3 must use the "no local changes → branch-diff" path automatically, regardless of the working tree's actual state (in `--no-commit` mode the `snapshot` step takes a non-destructive stash via `git stash create`/`store`, so uncommitted changes may still be present), and skip the large-diff warning.
-- **refactor**: when `scope_files.current` is non-empty, derive analysis areas from it per Step 3's harness note; when empty, run Step 3's normal directory scan with full-project scope.
+- **refactor**: when `scope_files.current` is non-empty, derive analysis areas from it per Step 2's harness note; when empty, run Step 3's normal directory scan with full-project scope.
 
-If `config.pr_description` is non-null **and the base skill defines a PR/MR context block** (code-review does; refactor ignores `config.pr_description` — its `agents/context-blocks.md` states the PR/MR block does not apply), treat it as equivalent to the `pr-description` that interactive Step 3 captures from `gh pr view`: inject it into agent prompts per Step 5 "PR/MR context injection" and apply the Step 6 "PR/MR description as intent signal" soft-confidence adjustment during validation. Do not re-fetch via `gh pr view` — the orchestrator already captured it.
+If `config.pr_description` is non-null **and the base skill defines a PR/MR context block** (code-review does; refactor ignores `config.pr_description` — its Step 2 harness note states the PR/MR block does not apply), treat it as equivalent to the `pr-description` that interactive Step 3 captures from `gh pr view`: inject it into agent prompts per Step 5 "PR/MR context injection" and apply the Step 6 "PR/MR description as intent signal" soft-confidence adjustment during validation. Do not re-fetch via `gh pr view` — the orchestrator already captured it.
 
 ### 2. Build iteration context (iterations 2+)
 

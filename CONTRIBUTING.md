@@ -26,7 +26,7 @@ optimus-claude/
 │   ├── test-hooks.sh         # Hook execution tests (CI)
 │   ├── generate-fixtures.sh  # Generates minimal project fixtures for testing (local)
 │   ├── test-skills.sh        # Automated skill execution tests via claude -p (local)
-│   └── harness_common/       # Shared modules + cli.py invoked by the *-deep orchestrator skills
+│   └── harness_common/       # Shared modules + cli.py invoked by the /optimus:deep orchestrator skill
 │       ├── cli.py            # Subcommand CLI (init, snapshot, deep-step, etc.)
 │       ├── findings.py       # Status escalation state machine
 │       ├── convergence.py    # Coverage convergence checks

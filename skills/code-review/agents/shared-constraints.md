@@ -47,7 +47,7 @@ When a PR/MR Context Block is present in your prompt **and** the description inc
 
 **Skip silently** when: there is no populated `## Intent` section — **never invent intent** from the Summary, commit messages, or diff; the claim is ambiguous or aspirational (e.g., "improve performance" with no metric) — omit rather than flag; or the claim is already satisfied elsewhere in the codebase — verify with Grep/Read before flagging.
 
-**Budget:** Intent Mismatch findings do not count against the 15-finding cap — up to **+5 per agent per pass** (canonical rule: `$CLAUDE_PLUGIN_ROOT/references/shared-agent-constraints.md` "Per-category budget exceptions").
+**Budget:** Intent Mismatch findings do not count against the 15-finding cap — up to **+5 per agent per pass** (canonical rule: `$CLAUDE_PLUGIN_ROOT/references/shared-agent-constraints.md` "Finding Cap").
 
 **Fix the code, never the PR description.** A suggested fix MUST edit code (or tests, or config — anything that ships in the diff) to deliver the stated intent. Never propose updating the PR description to match the code — that silently rewrites the author's stated intent and defeats the check, and the harness auto-applies emitted fixes, so a description fix would destroy the intent record. If you are confident the intent itself is wrong, write in `Suggested:` that *"the author should reconsider the stated intent"* instead.
 

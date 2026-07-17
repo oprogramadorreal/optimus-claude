@@ -1525,11 +1525,12 @@ def cmd_pending_refactor_count(args):
 def cmd_mark_termination(args):
     """Write a terminal reason to progress["termination"] without other side effects.
 
-    The orchestrator skill calls this when it must end the loop for a reason
-    the per-iteration steps don't naturally surface — currently the
-    parse-failure recovery path (per references/orchestrator-loop-single.md).
-    Keeps the orchestrator out of the progress file's internals so the
-    "slice-only progress reads" invariant holds.
+    Retained escape hatch: no orchestrator doc currently invokes it (the
+    parse-failure path is fully automatic via the parse counter and
+    check-termination), but it lets an orchestrator end the loop for a reason
+    the per-iteration steps don't naturally surface without touching the
+    progress file's internals — preserving the "slice-only progress reads"
+    invariant.
     """
     progress_path = Path(args.progress_file)
     progress = read_progress(progress_path)

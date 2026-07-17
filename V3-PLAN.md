@@ -162,3 +162,18 @@ Every 2.x capability survives. Only `workflow` is dropped (native dynamic workfl
    test alignment (serial).
 4. Full gate: `bash scripts/validate.sh && bash scripts/test-hooks.sh && python -m pytest test/`.
 5. Adversarial verification fan-out; fix findings; final summary with before/after counts.
+
+---
+
+# Execution record
+
+Executed 2026-07-16/17 on `feat/v3-lean` in one autonomous session; verified against tool output.
+
+- **Audit:** 26-agent parallel workflow (one per skill + 4 infra auditors) against master 29e96a5, run BEFORE reading PR #163; per-skill digests with essential-behavior inventories drove every rewrite.
+- **Phase 1 (orchestrating session, serial):** skill-handoff.md deleted (plan-mode carve-out preserved at brainstorm/references/plan-mode-handoff.md), scope-expansion-rule merged into shared-agent-constraints, agent-architecture/sdd-mapping shrunk to contracts, plugin agents trimmed + extension pattern removed, SessionStart hook git-state block dropped (test scenario updated), skill-writing-guidelines rewritten.
+- **Phase 2 (parallel agents, one per skill dir):** 18 jobs — 16 skills + validate.sh + harness-reference trims. First run completed 10/18; 8 hit a session usage limit mid-run. Their partial edits were REVERTED to master state and re-run fresh after the limit reset (lesson inherited from PR #163: never trust a partially-completed fan-out). Second run: 8/8 clean.
+- **Phase 3 (serial):** dead dirs deleted, orphaned cross-skill references deleted, test_skill_contract.py collapsed to one deep-orchestrator contract, test-skills.sh matrix retargeted (commit-suggest / commit-branch), cli.py user-visible strings, root README (with 2.x→3.0 migration table), CONTRIBUTING, .claude docs, plugin.json 3.0.0 + badge.
+- **Verification:** 8 adversarial auditors (stale-sweep, contract chains, deep-vs-CLI, reset-vs-init, 3× dropped-behavior vs audit digests, fresh-user walkthrough) → 12 confirmed findings, all fixed. Notables: deep's coverage-target baseline resume-skip read a field that only exists for the other targets (`iteration.completed` vs `cycle.completed`); reset's architecture.md structure check misclassified every legitimately generated file; reset's monorepo inventory missed subproject coding-guidelines.md.
+- **Gate at HEAD:** validate.sh 13/13, test-hooks.sh 45/45, pytest 442/442 (jq/python-dependent validate checks SKIP locally, CI covers them).
+- **Sizes:** total instruction footprint (skills + references + agents + hooks + validate.sh) 17,940 → 9,511 lines (−47%); SKILL.md bodies 4,457 → 1,981 (−56%).
+- **Open item:** `bash scripts/test-skills.sh --fresh --all --worktree` (paid, needs authenticated headless `claude`) not run — run before merging; matrix covers init, permissions, commit-suggest, commit-branch, how-to-run, prompt.

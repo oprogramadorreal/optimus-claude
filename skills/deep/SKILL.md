@@ -103,7 +103,7 @@ Pass `--focus` only for the refactor target, and only with the value from Step 1
 
 ### Baseline
 
-Run `cli baseline` before entering the loop. Skip it on `--resume` only when the progress file's `iteration.completed` field is greater than 0 (a targeted read — do not load the `findings` array into context); if it is 0, the prior run never entered the loop and `resume` never re-checks the baseline — run it after `resume`.
+Run `cli baseline` before entering the loop. Skip it on `--resume` only when the progress file's completed counter is greater than 0 — `iteration.completed` for the review and refactor targets, `cycle.completed` for the coverage target (a targeted read — do not load the `findings` array into context); if it is 0, the prior run never entered the loop and `resume` never re-checks the baseline — run it after `resume`.
 
 ```bash
 PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli baseline \

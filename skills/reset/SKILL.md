@@ -27,7 +27,7 @@ Inventory optimus-managed files, listing only what exists:
 - `.claude/hooks/format-*` — the plugin's template hooks plus any custom `format-<language>.sh` from init's unsupported-stack fallback
 - `.claude/hooks/restrict-paths.sh`
 - `.claude/agents/{code-simplifier,test-guardian}.md` (legacy — installed by older optimus versions)
-- Monorepo: subproject `CLAUDE.md` and `docs/{testing,styling,architecture}.md`
+- Monorepo: subproject `CLAUDE.md` and `docs/{coding-guidelines,testing,styling,architecture}.md` (subproject `coding-guidelines.md` exists only when init found the subproject's conventions differ from root — classify it via the near-exact-pair rule below)
 - Multi-repo: the above per child repo, plus the workspace-root `CLAUDE.md`
 
 If no optimus files are found anywhere → say "Nothing to reset — no optimus files found" and stop. If `.claude/.optimus-version` is missing, warn that the project may not have been initialized by optimus, but proceed.
@@ -45,7 +45,7 @@ Classify with shell comparison — do not read file bodies into context:
 **Generated docs** — content is filled in by init, so compare structure against the plugin's own templates at runtime (all under `$CLAUDE_PLUGIN_ROOT/skills/init/templates/`):
 
 - CLAUDE.md files: compare line 1 (`head -n 1`) against the template's line-1 HTML comment. Root `.claude/CLAUDE.md` matches `single-project-claude.md` or `monorepo-claude.md`; subproject `CLAUDE.md` → `subproject-claude.md`; workspace-root `CLAUDE.md` → `multi-repo-claude.md`.
-- `docs/testing.md`, `docs/styling.md`, `docs/architecture.md`: compare `##` headings, same order: `diff <(grep '^## ' <file>) <(grep '^## ' <template>)` against `docs/<same name>`.
+- `docs/testing.md`, `docs/styling.md`, `docs/architecture.md`: compare `##` headings against the same-named template under `templates/docs/`. For testing.md and styling.md the headings must match in order: `diff <(grep '^## ' <file>) <(grep '^## ' <template>)`. For architecture.md, init deletes the template's HTML-comment-marked conditional sections per project type, so require only that the file's `##` headings are an in-order subset of the template's headings.
 
 Structure matches → `LIKELY_GENERATED`; otherwise → `MODIFIED`.
 
