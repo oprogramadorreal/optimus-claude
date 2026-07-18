@@ -14,6 +14,8 @@
 # WHAT THIS SCRIPT DOES:
 #   - Edit/Write operations inside the project  → silently allowed
 #   - Edit/Write operations outside the project → prompts you for approval
+#   - Edit/Write under the OS temp root         → redirected to the exempt
+#                                                 session scratchpad (no prompt)
 #   - Edit/Write/delete in Claude's memory store → silently allowed
 #   - Edit/Write/delete in Claude's scratchpad   → silently allowed
 #   - rm/rmdir commands outside the project     → hard blocked
@@ -65,6 +67,14 @@
 #   (both <project> and <session> are single path segments), so it can't stretch
 #   to an unrelated 'scratchpad' dir elsewhere under the temp root. If the temp
 #   root can't be resolved, the path falls back to the normal out-of-project prompt.
+#
+#   TEMP-WRITE REDIRECT: the exemption only helps if the model knows the path,
+#   so a write that lands under the temp root WITHOUT this shape (an invented
+#   temp dir) is denied with the exact exempt path as the reason — model-facing
+#   feedback, not a user prompt — and the retry at the scratchpad proceeds
+#   unprompted (see redirect_temp_write). The redirect fails silent to the
+#   normal prompt when the scratchpad path can't be resolved, and never fires
+#   on ".." traversals or paths outside the temp root.
 #
 # TO DISABLE OR REMOVE:
 #   1. Delete this file: rm .claude/hooks/restrict-paths.sh
@@ -218,16 +228,19 @@ is_claude_memory() {
 # equal to a normalized file_path.
 _scratch_bases_resolved=""
 _scratch_bases=()
+resolve_scratch_bases() {
+  [[ -n "$_scratch_bases_resolved" ]] && return
+  local candidate norm_candidate
+  for candidate in "${TMPDIR:-}" "${TEMP:-}" "${TMP:-}" /tmp; do
+    [[ -n "$candidate" ]] || continue
+    norm_candidate="$(normalize "$candidate")"
+    [[ -n "$norm_candidate" ]] && _scratch_bases+=("$norm_candidate")
+  done
+  _scratch_bases_resolved=1
+}
+
 is_claude_scratchpad() {
-  if [[ -z "$_scratch_bases_resolved" ]]; then
-    local candidate norm_candidate
-    for candidate in "${TMPDIR:-}" "${TEMP:-}" "${TMP:-}" /tmp; do
-      [[ -n "$candidate" ]] || continue
-      norm_candidate="$(normalize "$candidate")"
-      [[ -n "$norm_candidate" ]] && _scratch_bases+=("$norm_candidate")
-    done
-    _scratch_bases_resolved=1
-  fi
+  resolve_scratch_bases
   local norm_path
   norm_path="$(normalize "$1")"
   # Fail closed on an unresolved ".." (same guard as is_claude_memory): a traversal
@@ -236,6 +249,9 @@ is_claude_scratchpad() {
   # Match exactly <temp>/claude/<project>/<session>/scratchpad[/...]. <project> and
   # <session> must each be a SINGLE path segment so the exemption can't stretch to a
   # 'scratchpad' dir nested arbitrarily deep under <temp>/claude/.
+  # SYNC: session_scratchpad_path() below builds the redirect target from the same
+  # temp ladder and path shape — keep them identical or the redirect points at a
+  # non-exempt path.
   local base prefix rest proj after sess
   for base in "${_scratch_bases[@]}"; do
     prefix="$base/claude/"
@@ -250,6 +266,53 @@ is_claude_scratchpad() {
     case "${after#"$sess"}" in
       /scratchpad|/scratchpad/*) return 0 ;;
     esac
+  done
+  return 1
+}
+
+# --- Temp-write redirect (see header: CLAUDE SESSION SCRATCHPAD) ---
+# The scratchpad exemption is useless if the model never learns the path, so a
+# write that lands under the temp root WITHOUT the exempt shape (an invented
+# temp dir) is denied with the exact exempt path as the reason instead of
+# prompting the user: a PreToolUse deny reason goes back to the model, which
+# retries at the scratchpad and proceeds unprompted. Fails silent (returns 1,
+# and the caller falls back to the normal ask) whenever the scratchpad path
+# can't be resolved — never redirect to a path that might not be exempt.
+session_scratchpad_path() {
+  # Raw temp root (NOT normalized) so the advertised path is one the Write
+  # tool accepts verbatim; the hook normalizes both sides when matching, so
+  # the verbatim string still satisfies is_claude_scratchpad() on retry.
+  local base="" candidate
+  for candidate in "${TMPDIR:-}" "${TEMP:-}" "${TMP:-}" /tmp; do
+    if [[ -n "$candidate" ]]; then base="$candidate"; break; fi
+  done
+  [[ -n "$base" ]] || return 1
+  local sid=""
+  [[ "$input" =~ \"session_id\"[[:space:]]*:[[:space:]]*\"([^\"]+)\" ]] && sid="${BASH_REMATCH[1]}"
+  [[ -n "$sid" ]] || return 1
+  # Any single segment satisfies the exemption's <project>; the project dir's
+  # basename keeps scratchpads per-project (same cygpath guard as normalize()).
+  local proj_dir="$root"
+  command -v cygpath &>/dev/null && proj_dir="$(cygpath -u "$proj_dir" 2>/dev/null || echo "$proj_dir")"
+  local proj
+  proj="$(basename "$proj_dir" 2>/dev/null)"
+  [[ -n "$proj" ]] || return 1
+  echo "$base/claude/$proj/$sid/scratchpad"
+}
+
+# Either denies (exits via deny_operation) or returns 1 — never prints otherwise.
+redirect_temp_write() {
+  resolve_scratch_bases
+  ((${#_scratch_bases[@]})) || return 1
+  local norm_path
+  norm_path="$(normalize "$1")"
+  # Same ".." fail-closed guard as is_claude_scratchpad: never redirect a traversal.
+  case "$norm_path" in */../*|*/..|../*|..) return 1 ;; esac
+  local base scratch
+  for base in "${_scratch_bases[@]}"; do
+    [[ "$norm_path" == "$base/"* ]] || continue
+    scratch="$(session_scratchpad_path)" || return 1
+    deny_operation "Temp/scratch writes belong in this session's scratchpad, which is exempt from path restrictions: $scratch — retry there instead. If this exact path is mandatory, ask the user to approve it."
   done
   return 1
 }
@@ -546,7 +609,9 @@ case "$tool_name" in
     # Outside the project prompts — except Claude's own auto-memory store and session
     # scratchpad, which are writable by design. This skips only the out-of-project
     # prompt; the precious-file check below still runs, so it is not a blanket bypass.
+    # Temp-root misses are redirected to the scratchpad (model-facing deny), not prompted.
     if ! is_inside_project "$filepath" && ! is_claude_memory "$filepath" && ! is_claude_scratchpad "$filepath"; then
+      redirect_temp_write "$filepath"
       ask_permission "File '$filepath' is outside project root. Allow this write?"
     fi
     # Precious file protection: prompt before modifying sensitive unversioned files
@@ -562,7 +627,9 @@ case "$tool_name" in
     # Outside the project prompts — except Claude's own auto-memory store and session
     # scratchpad, which are writable by design. This skips only the out-of-project
     # prompt; the precious-file check below still runs, so it is not a blanket bypass.
+    # Temp-root misses are redirected to the scratchpad (model-facing deny), not prompted.
     if ! is_inside_project "$filepath" && ! is_claude_memory "$filepath" && ! is_claude_scratchpad "$filepath"; then
+      redirect_temp_write "$filepath"
       ask_permission "Notebook '$filepath' is outside project root. Allow this edit?"
     fi
     # Precious file protection: prompt before modifying sensitive unversioned notebooks

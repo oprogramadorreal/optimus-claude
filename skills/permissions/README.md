@@ -62,7 +62,7 @@ Blocks 30 dangerous Bash patterns across six categories: git history rewriting (
 | Delete (`rm`/`rmdir`) | Allow | **BLOCKED** |
 | Delete precious unversioned file | **BLOCKED** | **BLOCKED** |
 
-Two out-of-project locations are exempt (writes and deletes allowed without prompts): Claude's per-project memory store (`~/.claude/projects/.../memory/`) and the session scratchpad (`<temp>/claude/<project>/<session>/scratchpad/`). Both are Claude's own recoverable scratch space; the path matches are tightly scoped, `..`-traversal out of them is rejected, and the rest of `~/.claude` (notably `settings.json`) still prompts. Details in the header of [`templates/hooks/restrict-paths.sh`](templates/hooks/restrict-paths.sh).
+Two out-of-project locations are exempt (writes and deletes allowed without prompts): Claude's per-project memory store (`~/.claude/projects/.../memory/`) and the session scratchpad (`<temp>/claude/<project>/<session>/scratchpad/`). Both are Claude's own recoverable scratch space; the path matches are tightly scoped, `..`-traversal out of them is rejected, and the rest of `~/.claude` (notably `settings.json`) still prompts. A write that lands under the temp root but misses the scratchpad shape — an invented temp dir — is denied with the exact exempt path as model-facing feedback instead of a user prompt, so the retry lands in the scratchpad and proceeds unprompted. Details in the header of [`templates/hooks/restrict-paths.sh`](templates/hooks/restrict-paths.sh).
 
 For structured tools the hook validates the `file_path` field directly — it cannot be obfuscated, making this the most reliable layer. Bash parsing is best-effort and covers only `rm`/`rmdir`; other Bash writes (`cp`, `mv`, `echo >`) are not intercepted.
 

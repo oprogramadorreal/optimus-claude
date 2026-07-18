@@ -41,7 +41,7 @@ Pick the mode from the arguments: `suggest` → Suggest mode; `branch` (optional
      ```
 
    - If the commit fails, report the error and stop — never proceed to push.
-   - Push only if the user chose a push option; use `git push -u origin <branch>` when no upstream exists.
+   - Push only if the user chose a push option; use `git push -u origin <branch>` when no upstream exists. If the push fails, retry once on an obviously transient error (network, remote unavailable); otherwise report the error and stop — the commit is already safe locally. Never retry a rejected push with `--force` without explicit user approval.
 
 7. **Report**: created branch (if any), `Committed: <short-hash> <subject>` per repo, `Pushed to: origin/<branch>` if pushed. If a feature branch was created, tell the user they are now on it.
 

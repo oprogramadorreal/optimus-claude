@@ -412,7 +412,8 @@ assert_decision "Scratchpad delete allowed"            ALLOW "$(rp_decision_scra
 # Negative boundary: the exemption needs the full <temp>/claude/<project>/<session>/
 # scratchpad shape. A scratchpad missing the session segment, a look-alike sibling, a
 # scratchpad nested deeper than two segments, and a traversal escape must all still
-# ask (or, for a delete, be denied).
+# ask (or, for a delete, be denied). rp_json carries no session_id, so the temp-write
+# redirect (tested below) stays silent here — with one, the shape misses deny instead.
 assert_decision "Shallow scratchpad asks"              ASK   "$(rp_decision_scratch Write file_path "$scratch_root/claude/E--proj/scratchpad/x.md")"
 assert_decision "Look-alike my-scratchpad asks"        ASK   "$(rp_decision_scratch Write file_path "$scratch_root/claude/E--proj/session-uuid/my-scratchpad/x.md")"
 assert_decision "Nested scratchpad (deep) asks"        ASK   "$(rp_decision_scratch Write file_path "$scratch_root/claude/E--proj/session-uuid/a/scratchpad/x.md")"
@@ -427,6 +428,54 @@ assert_decision "Scratchpad traversal asks when realpath can't resolve .." ASK \
   "$(rp_decision_env HOME="$rp_tmp/home" CLAUDE_PROJECT_DIR="$rp_tmp/proj" TMPDIR="$scratch_root" PATH="$rp_stub_bin:$PATH" -- Write file_path "$scratch/../../settings.json")"
 assert_decision "Scratchpad write asks when temp vars unset" ASK \
   "$(rp_decision_env -u TMPDIR -u TEMP -u TMP HOME="$rp_tmp/home" CLAUDE_PROJECT_DIR="$rp_tmp/proj" -- Write file_path "$scratch/notes.md")"
+
+# ============================================================
+# Temp-write redirect tests (restrict-paths.sh redirect_temp_write)
+# ============================================================
+# A write that lands under the temp root WITHOUT the exempt scratchpad shape
+# (an invented temp dir) is denied with the exact exempt path as the reason —
+# model-facing feedback, not a user prompt — so the retry lands in the
+# scratchpad and proceeds unprompted. The critical invariant: the path in the
+# deny reason MUST satisfy is_claude_scratchpad()'s shape, or the model is
+# sent to a path that prompts anyway — so the integration test runs it through
+# the real hook. The redirect fails silent (falls back to the ask) without a
+# session_id, on ".." traversals, and outside the temp root — note rp_json in
+# the sections above carries no session_id, which is why those temp-root paths
+# still ask. (Reuses the rp_tmp / rp_decision_env / assert_decision fixtures.)
+echo
+echo "[restrict-paths: temp-write redirect]"
+rp_json_sid() { # $1=session-id $2=tool $3=input-field $4=path
+  printf '{"session_id":"%s","tool_name":"%s","tool_input":{"%s":"%s"}}' "$1" "$2" "$3" "$4"
+}
+rp_run_sid() { # $1=session-id $2=tool $3=input-field $4=path  ->  hook stdout
+  rp_json_sid "$1" "$2" "$3" "$4" | env HOME="$rp_tmp/home" CLAUDE_PROJECT_DIR="$rp_tmp/proj" TMPDIR="$scratch_root" bash "$RESTRICT" 2>/dev/null
+}
+
+# Invented temp dirs (any temp-root path missing the scratchpad shape) deny
+# with the exact exempt path; the project segment is the project dir basename.
+redir_target="$scratch_root/claude/proj/session-abc/scratchpad"
+assert_decision "Invented temp dir write denies (redirect)" DENY "$(rp_classify "$(rp_run_sid session-abc Write file_path "$scratch_root/scratch-foo/x.md")")"
+assert_decision "Temp-root direct child denies (redirect)"  DENY "$(rp_classify "$(rp_run_sid session-abc Write file_path "$scratch_root/notes.md")")"
+assert_decision "Shallow scratchpad denies with session"    DENY "$(rp_classify "$(rp_run_sid session-abc Write file_path "$scratch_root/claude/E--proj/scratchpad/x.md")")"
+assert_decision "Notebook in temp dir denies (redirect)"    DENY "$(rp_classify "$(rp_run_sid session-abc NotebookEdit notebook_path "$scratch_root/scratch-foo/nb.ipynb")")"
+assert_output_contains "Deny reason names the exempt scratchpad path" "$redir_target" "$(rp_run_sid session-abc Write file_path "$scratch_root/scratch-foo/x.md")"
+# Integration: the redirect target must be exempt under the real hook (it sits
+# outside CLAUDE_PROJECT_DIR, so only the scratchpad exemption allows it).
+assert_decision "Redirect target is exempt (write allowed)" ALLOW "$(rp_decision_scratch Write file_path "$redir_target/notes.md")"
+
+echo "[restrict-paths: redirect fails silent to the ask]"
+# Non-temp out-of-project paths, a missing session_id, and ".." traversals the
+# realpath stub can't resolve must all fall back to the normal prompt — never
+# deny a path the exemption wouldn't cover. (The non-temp path must sit outside
+# every ladder base: rp_tmp lives under /tmp, which IS a base on POSIX.)
+assert_decision "Non-temp outside path still asks"          ASK "$(rp_classify "$(rp_run_sid session-abc Write file_path "/var/opt/optimus-not-temp/a.txt")")"
+assert_decision "Temp write without session_id asks"        ASK "$(rp_decision_scratch Write file_path "$scratch_root/scratch-foo/x.md")"
+assert_decision "Traversal asks when realpath can't resolve .." ASK \
+  "$(rp_classify "$(rp_json_sid session-abc Write file_path "$scratch_root/scratch-foo/../../x.md" | env HOME="$rp_tmp/home" CLAUDE_PROJECT_DIR="$rp_tmp/proj" TMPDIR="$scratch_root" PATH="$rp_stub_bin:$PATH" bash "$RESTRICT" 2>/dev/null)")"
+# Deletes under the temp root stay hard-blocked with the plain BLOCKED reason —
+# the redirect exists for writes only.
+assert_decision "Temp-root delete stays blocked"            DENY "$(rp_classify "$(rp_run_sid session-abc Bash command "rm $scratch_root/scratch-foo/x.md")")"
+assert_output_contains "Delete block is not a redirect" "Cannot delete" "$(rp_run_sid session-abc Bash command "rm $scratch_root/scratch-foo/x.md")"
 
 # ============================================================
 # Summary
