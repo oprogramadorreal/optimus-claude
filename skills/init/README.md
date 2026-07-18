@@ -66,7 +66,7 @@ Templates live in [`templates/`](templates/) — CLAUDE.md variants, doc skeleto
 
 ## Relationship to Other Skills
 
-init is the foundation: `/optimus:tdd`, `/optimus:unit-test`, `/optimus:brainstorm`, and `/optimus:deep` require an initialized project (CLAUDE.md — deep additionally requires a documented test command); `/optimus:refactor` and `/optimus:code-review` use its guidelines (falling back to general best practices when missing); `/optimus:permissions` shares `.claude/settings.json`. After init, `/optimus:how-to-run` generates the human-facing onboarding doc.
+init is the foundation: `/optimus:unit-test` and `/optimus:deep` require an initialized project (CLAUDE.md — deep additionally requires a documented test command); `/optimus:tdd` and `/optimus:brainstorm` recommend it and, on the user's choice, continue with general best practices; `/optimus:refactor` and `/optimus:code-review` use its guidelines (falling back to general best practices when missing); `/optimus:permissions` shares `.claude/settings.json`. After init, `/optimus:how-to-run` generates the human-facing onboarding doc.
 
 ## Requirements
 

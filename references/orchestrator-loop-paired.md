@@ -76,7 +76,7 @@ Stdout is one of:
 
 | Output | Meaning |
 |---|---|
-| `converged` | Skill reported plateau (`no_new_tests` + `no_untestable_code` or `no_coverage_gained`) — cycle ends, loop terminates. |
+| `converged` | Skill reported plateau (`no_new_tests` + `no_untestable_code`, or `no_new_tests` + `no_coverage_gained`) — cycle ends, loop terminates. |
 | `continue` | Unit-test phase complete — proceed to step 5. Also printed after a red-suite rollback (the CLI reverts the cycle's tests and drops the phase JSON without a distinct token — see Per-phase notes). |
 
 ### 5. Commit the unit-test phase checkpoint
@@ -131,6 +131,7 @@ Agent tool call:
     Apply fixes. Do NOT run the test command, any `scripts/*.sh`, or any
     lint/build — the orchestrator owns all test execution. Emit a single
     ```json:harness-output fenced block and stop.
+    Do not use AskUserQuestion. Do not loop.
 ```
 
 ### 7. Save the refactor return + extract the refactor JSON

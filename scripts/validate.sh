@@ -165,7 +165,7 @@ while IFS= read -r ref_hit; do
   # Each hit is "<file>:<lineno>:$CLAUDE_PLUGIN_ROOT/<path>". Paths appear inside
   # backticks, quotes, or bare — the match runs until whitespace/backtick/quote.
   src_file=${ref_hit%%:*}
-  ref_path=$(printf '%s' "$ref_hit" | sed 's|^[^:]*:[0-9]*:||; s|^\$[{]\{0,1\}CLAUDE_PLUGIN_ROOT[}]\{0,1\}/||')
+  ref_path=$(printf '%s' "$ref_hit" | sed 's|^[^:]*:[0-9]*:||; s|^\$[{]\{0,1\}CLAUDE_PLUGIN_ROOT[}]\{0,1\}/||; s|\r$||')
   if [ -n "$ref_path" ] && [ ! -f "./$ref_path" ] && [ ! -d "./$ref_path" ]; then
     broken_refs+="  $src_file -> $ref_path\n"
   fi
@@ -476,7 +476,7 @@ require_tokens skills/tdd/SKILL.md '## Scenarios' '### Scenario:'
 # TDD-summary handoff: tdd emits the summary block; pr detects the
 # '## TDD Summary' heading to populate Intent and the per-item Test plan.
 require_tokens skills/tdd/SKILL.md '## TDD Summary' '### Behaviors Implemented' '### Coverage'
-require_tokens skills/pr/SKILL.md '## TDD Summary'
+require_tokens skills/pr/SKILL.md '## TDD Summary' '### Behaviors Implemented' '### Coverage'
 
 # Plan-mode handoff: the canonical '### Refined plan' heading defined in
 # plan-mode-handoff.md is consumed by jira's refresh/codebase-analysis flows.
@@ -556,7 +556,7 @@ require_tokens "$detector_file" \
 # option label and jumps to the '## Step 3a:' heading; Step 3a loads
 # guided-walkthrough.md by path and exits on 'Stop the walkthrough' back to
 # Step 6. A rename on one side only silently kills the walkthrough branch.
-require_pattern "$how_to_run_skill" '^## Step 3a:' '^## Step 6\b'
+require_pattern "$how_to_run_skill" '^## Step 3a:' '^## Step 6:'
 require_tokens "$how_to_run_skill" \
   'Walk through it' \
   'Regenerate' \
@@ -585,6 +585,10 @@ for verdict in 'Found but outdated' 'Partial' 'Missing'; do
   require_tokens "$walkthrough_ref" "$verdict"
   require_tokens "$auditor_agent" "$verdict"
 done
+# 'Documented but unverifiable' is consumed by SKILL.md's Step 3 per-item
+# prompts, not the walkthrough — pin its own producer/consumer pair.
+require_tokens "$auditor_agent" 'Documented but unverifiable'
+require_tokens "$how_to_run_skill" 'Documented but unverifiable'
 
 # §-style section-name navigation: SKILL.md and the references reach these
 # sections exclusively by name (section 8 resolves file paths only, never
@@ -609,6 +613,19 @@ require_pattern "$step6_file" \
   '^## Record-time validation' \
   '^## Render-time sanitization' \
   '^## Step 6 audits'
+# SKILL.md Steps 3/4 reach those sections by §-name only — pin the consumer side.
+require_tokens "$how_to_run_skill" '§Record-time validation' '§Render-time sanitization'
+# Audit-suite completeness: Step 6 applies "every Step 6 audit" in the audits
+# file, so a silently dropped audit passes every other gate (the v3 rewrite
+# dropped Template-shape this way while its render rules stayed mandated).
+require_tokens "$step6_file" \
+  'External Services re-verification' \
+  'Pre-Conditions Block audit' \
+  'Detector-token re-validation' \
+  'Specific-Token Audit' \
+  'Unverified-Count filter' \
+  'Section ordering' \
+  'Template-shape audit'
 
 # Cross-step identifiers: Step 3/4 records rendered_line entries in the
 # approved-unverifiable-items list and Step 6 exempts exactly those lines by

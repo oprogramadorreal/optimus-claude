@@ -41,7 +41,7 @@ Each behavior runs one cycle: a failing test, the minimum code to pass it, a cle
 
 ## Prerequisites
 
-1. **`/optimus:init`** — required. Installs `CLAUDE.md`, `coding-guidelines.md`, test infrastructure, and `testing.md`
+1. **`/optimus:init`** — recommended; without it the skill continues with general best practices on your choice. Installs `CLAUDE.md`, `coding-guidelines.md`, test infrastructure, and `testing.md`
 2. **`/optimus:permissions`** — recommended. Branch-aware git protection: TDD always works on a feature branch, so it commits and pushes freely while main/master stay protected
 3. **`gh` or `glab` CLI** — optional; needed by `/optimus:pr` afterwards (which offers to install it)
 

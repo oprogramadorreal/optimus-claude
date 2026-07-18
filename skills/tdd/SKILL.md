@@ -1,5 +1,5 @@
 ---
-description: Guides test-driven development — decomposes a feature or bug fix into testable behaviors, then runs Red-Green-Refactor cycles with a failing test before every implementation. Auto-detects specs from docs/specs/ or docs/jira/, creates a feature branch (optional worktree), commits per cycle, runs a quality gate, and pushes. Requires /optimus:init and a passing test suite.
+description: Guides test-driven development — decomposes a feature or bug fix into testable behaviors, then runs Red-Green-Refactor cycles with a failing test before every implementation. Auto-detects specs from docs/specs/ or docs/jira/, creates a feature branch (optional worktree), commits per cycle, runs a quality gate, and pushes. Recommends /optimus:init (falls back to general best practices on your choice); requires a passing test suite.
 disable-model-invocation: true
 argument-hint: "[task description]"
 ---

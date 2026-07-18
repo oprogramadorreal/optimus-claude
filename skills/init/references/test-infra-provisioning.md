@@ -14,6 +14,7 @@ Recommend the stack's dominant framework — these pins override general knowled
 - C#/.NET → xUnit + coverlet; coverlet emits machine-readable output only, so also install `dotnet-reportgenerator-globaltool` for readable reports.
 - Flutter → flutter_test (`flutter test --coverage`, LCOV); pure Dart → package:test. Filter generated files (`*.g.dart`, `*.freezed.dart`) from coverage reports; integration tests go in `integration_test/`.
 - Python → pytest + pytest-cov; Java → JUnit 5 + JaCoCo; C/C++ → Google Test or Catch2 + gcov/lcov (report via `genhtml`).
+- PHP → PHPUnit (coverage via Xdebug or PCOV); Ruby → RSpec + SimpleCov.
 - Unknown stack → search the web for the most popular framework and coverage tooling, applying the command validation and approval rules from `$CLAUDE_PLUGIN_ROOT/skills/init/references/unsupported-stack-fallback.md`.
 
 Ask for **explicit user approval** before installing anything. If installation fails (network issues, version conflicts, incompatible environments), report the error and stop — do not proceed without a working framework.

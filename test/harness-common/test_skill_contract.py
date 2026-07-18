@@ -104,7 +104,8 @@ def _section(skill_md, heading):
     if start == -1:
         return ""
     rest = skill_md[start + len(heading) :]
-    ends = [i for i in (rest.find("\n### "), rest.find("\n## ")) if i != -1]
+    stops = ("\n### ", "\n## ") if heading.startswith("###") else ("\n## ",)
+    ends = [i for i in (rest.find(stop) for stop in stops) if i != -1]
     return rest[: min(ends)] if ends else rest
 
 
@@ -199,7 +200,7 @@ def test_deep_targets_table_has_no_rogue_rows():
     """A table row with no constants entry would dispatch an unknown target."""
     row_targets = {
         line.split("`")[1]
-        for line in _read(DEEP_SKILL).splitlines()
+        for line in _section(_read(DEEP_SKILL), "## Targets").splitlines()
         if line.startswith("| `")
     }
     assert row_targets == set(DEEP_TARGETS)

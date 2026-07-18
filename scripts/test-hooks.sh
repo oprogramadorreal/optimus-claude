@@ -161,6 +161,7 @@ mkdir -p sub-a/.claude
 echo "1.64.2" > sub-a/.claude/.optimus-version
 run_session_start
 assert_output_not_contains "Suppresses init notice when sub-repo carries .optimus-version" "/optimus:init" "$output"
+assert_exit_zero "Exits 0 when sub-repo carries .optimus-version" "$hook_status"
 cleanup_fixture
 
 echo "[session-start: multi-repo workspace, markers at different depths]"
@@ -171,6 +172,7 @@ echo "1.64.2" > sub-a/.claude/.optimus-version
 echo "1.64.2" > sub-b/nested/.claude/.optimus-version
 run_session_start
 assert_output_not_contains "Suppresses init notice when markers are nested at depth 4" "/optimus:init" "$output"
+assert_exit_zero "Exits 0 when markers are nested at depth 4" "$hook_status"
 cleanup_fixture
 
 echo "[session-start: workspace root with settings only, marker in sub-repo (mirrors audaces/isa)]"
@@ -182,6 +184,7 @@ mkdir -p sub/.claude
 echo "1.64.2" > sub/.claude/.optimus-version
 run_session_start
 assert_output_not_contains "Suppresses init notice in audaces/isa-style layout" "/optimus:init" "$output"
+assert_exit_zero "Exits 0 in audaces/isa-style layout" "$hook_status"
 cleanup_fixture
 
 echo "[session-start: no markers anywhere — regression for clean dir]"

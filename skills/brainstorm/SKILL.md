@@ -59,7 +59,7 @@ Present the design in conversation and iterate through an Approve / Adjust AskUs
 
 ## Step 5: Write the Spec
 
-Write to `docs/specs/YYYY-MM-DD-<topic-slug>.md` (lowercase hyphenated slug from the goal, max 5 words; create `docs/specs/` if needed). If the file already exists, ask the user whether to overwrite or append a `-2`, `-3`, … suffix; on overwrite, carry any existing `### Refined plan` section into the new file — it holds plan-mode iteration. Set Status to `Approved`. Keep the spec under 200 lines.
+Write to `docs/specs/YYYY-MM-DD-<topic-slug>.md` (lowercase hyphenated slug from the goal, max 5 words; create `docs/specs/` if needed). The slug must match `[a-z0-9]+(-[a-z0-9]+)*` — reject and re-derive any slug that does not match (tdd's spec discovery and the plan-mode append target depend on a shell-safe, date-prefixed path). If the file already exists, ask the user whether to overwrite or append a `-2`, `-3`, … suffix; on overwrite, carry any existing `### Refined plan` section into the new file — it holds plan-mode iteration. Set Status to `Approved`. Keep the spec under 200 lines.
 
 ```markdown
 # Spec: <Title>

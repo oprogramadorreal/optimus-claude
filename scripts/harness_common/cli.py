@@ -546,6 +546,15 @@ def _progress_path_for_skill(args):
     return Path(default)
 
 
+# DOS device names resolve as "existing" in every directory on Windows — they
+# are never real scope paths, so reject them before the filesystem check.
+_DOS_DEVICE_NAMES = frozenset(
+    {"nul", "con", "prn", "aux"}
+    | {f"com{i}" for i in range(1, 10)}
+    | {f"lpt{i}" for i in range(1, 10)}
+)
+
+
 def _scope_is_path(scope, project_root):
     """True when `scope` names an existing path inside `project_root`.
 
@@ -557,6 +566,9 @@ def _scope_is_path(scope, project_root):
     as a filter that matches nothing.
     """
     if not scope:
+        return False
+    leaf = scope.replace("\\", "/").rstrip("/").rsplit("/", 1)[-1]
+    if leaf.split(".")[0].lower() in _DOS_DEVICE_NAMES:
         return False
     candidate = (project_root / scope).resolve()
     return candidate.exists() and (
@@ -628,6 +640,37 @@ def cmd_init(args):
     skill = args.skill
     project_root = Path(args.project_dir).resolve()
 
+    # Unknown-skill check first: a doubly-invalid invocation (typo'd skill plus
+    # a misplaced flag) must name the real problem, not a downstream gate's.
+    if skill not in COVERAGE_VARIANT_SKILLS and skill not in DEEP_VARIANT_SKILLS:
+        print(f"ERROR: Unknown skill '{skill}'", file=sys.stderr)
+        return 1
+
+    # The cap flag is per-variant — reject the other variant's flag loudly
+    # rather than silently dropping it (a discarded --max-iterations on a
+    # coverage run caps at the default 5 cycles while the caller believes
+    # their value was applied).
+    if skill in COVERAGE_VARIANT_SKILLS and args.max_iterations is not None:
+        print(
+            "ERROR: --max-iterations does not apply to the coverage target; "
+            "use --max-cycles.",
+            file=sys.stderr,
+        )
+        return 1
+    if skill in DEEP_VARIANT_SKILLS and args.max_cycles is not None:
+        print(
+            "ERROR: --max-cycles does not apply to the review/refactor "
+            "targets; use --max-iterations.",
+            file=sys.stderr,
+        )
+        return 1
+
+    # Skill-side focus matching is case-insensitive (refactor SKILL.md is the
+    # declared single source for the rule) — normalize so the gate below
+    # enforces the same contract instead of rejecting what the skill accepted.
+    if args.focus:
+        args.focus = args.focus.lower()
+
     # --focus capability is data (FOCUS_MODES_BY_SKILL), not a hardcoded skill
     # name: a newly focus-capable skill changes one constants row instead of
     # this branch, and the error message names the supported skills from the
@@ -693,11 +736,8 @@ def cmd_init(args):
 
     if skill in COVERAGE_VARIANT_SKILLS:
         progress = _init_coverage(args, project_root, test_command, base_commit)
-    elif skill in DEEP_VARIANT_SKILLS:
-        progress = _init_deep(args, project_root, test_command, base_commit)
     else:
-        print(f"ERROR: Unknown skill '{skill}'", file=sys.stderr)
-        return 1
+        progress = _init_deep(args, project_root, test_command, base_commit)
 
     write_progress(progress_path, progress)
     print(str(progress_path))
@@ -747,6 +787,25 @@ def cmd_resume(args):
             )
             return 1
 
+    # The cap flag is per-variant — reject the other variant's flag loudly
+    # rather than silently leaving the persisted cap unchanged while the user
+    # believes their raise was applied.
+    if _is_coverage(progress):
+        if args.max_iterations is not None:
+            print(
+                "ERROR: --max-iterations does not apply to a coverage run; "
+                "use --max-cycles.",
+                file=sys.stderr,
+            )
+            return 1
+    elif args.max_cycles is not None:
+        print(
+            "ERROR: --max-cycles does not apply to a review/refactor run; "
+            "use --max-iterations.",
+            file=sys.stderr,
+        )
+        return 1
+
     config = progress.get("config", {})
     mutated = False
     prior_reason = (progress.get("termination") or {}).get("reason")
@@ -760,7 +819,7 @@ def cmd_resume(args):
     # intent) and scope becomes null (full project). Files written by 3.0
     # always carry the scope_text key, so they are never touched.
     if _is_coverage(progress) and config.get("scope") and "scope_text" not in config:
-        scope_root = Path(config.get("project_root") or args.project_dir or ".")
+        scope_root = Path(config.get("project_root") or args.project_dir or ".").resolve()
         if not _scope_is_path(config["scope"], scope_root):
             config["scope_text"] = config["scope"]
             config["scope"] = None
@@ -970,14 +1029,16 @@ def _verify_snapshot_fresh(progress, current):
 
     ``snapshot`` stamps the current iteration/cycle into
     ``_snapshot.iteration_token``. A step running against a token from a prior
-    unit means ``snapshot`` was skipped this iteration, so ``pre_head`` /
-    ``pre_stash`` are stale — restoring on a test failure would revert to the
-    wrong commit. Fail loudly instead.
+    unit — or with no token at all, meaning ``snapshot`` never ran (e.g. a
+    first-iteration skip) — means ``pre_head`` / ``pre_stash`` are stale or
+    absent, so restoring on a test failure would revert to the wrong commit or
+    silently keep test-breaking fixes. Fail loudly instead.
     """
     token = (progress.get("_snapshot") or {}).get("iteration_token")
-    if token is not None and token != current:
+    if token != current:
+        state = "none recorded" if token is None else f"taken at unit {token}"
         print(
-            f"ERROR: snapshot is stale (taken at unit {token}, current is "
+            f"ERROR: snapshot is missing or stale ({state}, current is "
             f"{current}). Run `snapshot` before this step.",
             file=sys.stderr,
         )
@@ -1111,6 +1172,15 @@ def cmd_unit_test_step(args):
     before = cov.get("before")
     after = cov.get("after")
     delta = cov.get("delta")
+    if delta is not None and not isinstance(delta, (int, float)):
+        # A string-typed delta ("0", "0%") stored verbatim never satisfies
+        # check_coverage_plateau's `delta == 0`, silently defeating the
+        # diminishing-returns net — coerce numeric-looking strings and drop
+        # anything else into the before/after derivation below.
+        try:
+            delta = float(str(delta).strip().rstrip("%"))
+        except (TypeError, ValueError):
+            delta = None
     if (
         delta is None
         and isinstance(before, (int, float))

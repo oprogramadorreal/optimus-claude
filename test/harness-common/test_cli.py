@@ -216,6 +216,114 @@ class TestInit:
         assert "focus" in captured.err.lower()
         assert not progress_path.exists()
 
+    def test_init_rejects_max_cycles_on_deep_target(self, tmp_path, monkeypatch, capsys):
+        # The cap flag is per-variant; the wrong one must fail loudly instead of
+        # being silently dropped (the run would cap at the default while the
+        # caller believes their value was applied).
+        repo = _make_repo(tmp_path)
+        _stub_git(monkeypatch)
+        progress_path = repo / "progress.json"
+        exit_code = _run(
+            "init",
+            "--skill",
+            "code-review",
+            "--max-cycles",
+            "3",
+            "--progress-file",
+            str(progress_path),
+            "--project-dir",
+            str(repo),
+        )
+        assert exit_code == 1
+        assert "--max-cycles" in capsys.readouterr().err
+        assert not progress_path.exists()
+
+    def test_init_rejects_max_iterations_on_coverage_target(
+        self, tmp_path, monkeypatch, capsys
+    ):
+        repo = _make_repo(tmp_path)
+        _stub_git(monkeypatch)
+        progress_path = repo / "progress.json"
+        exit_code = _run(
+            "init",
+            "--skill",
+            "unit-test",
+            "--max-iterations",
+            "3",
+            "--progress-file",
+            str(progress_path),
+            "--project-dir",
+            str(repo),
+        )
+        assert exit_code == 1
+        assert "--max-iterations" in capsys.readouterr().err
+        assert not progress_path.exists()
+
+    def test_focus_is_case_normalized(self, tmp_path, monkeypatch):
+        # The skill layer matches focus case-insensitively (refactor SKILL.md is
+        # the declared single source for that rule) — the CLI must accept and
+        # canonicalize rather than reject what the skill accepted.
+        repo = _make_repo(tmp_path)
+        _stub_git(monkeypatch)
+        progress_path = repo / "progress.json"
+        exit_code = _run(
+            "init",
+            "--skill",
+            "refactor",
+            "--focus",
+            "Testability",
+            "--progress-file",
+            str(progress_path),
+            "--project-dir",
+            str(repo),
+        )
+        assert exit_code == 0
+        assert _read_progress(progress_path)["config"]["focus"] == "testability"
+
+    def test_unknown_skill_reports_skill_not_focus(
+        self, tmp_path, monkeypatch, capsys
+    ):
+        # A doubly-invalid invocation (typo'd skill + misplaced --focus) must
+        # name the real problem first, not a downstream gate's error.
+        repo = _make_repo(tmp_path)
+        _stub_git(monkeypatch)
+        progress_path = repo / "progress.json"
+        exit_code = _run(
+            "init",
+            "--skill",
+            "codereview",
+            "--focus",
+            "testability",
+            "--progress-file",
+            str(progress_path),
+            "--project-dir",
+            str(repo),
+        )
+        assert exit_code == 1
+        assert "Unknown skill" in capsys.readouterr().err
+
+    def test_scope_dos_device_name_recorded_as_intent(self, tmp_path, monkeypatch):
+        # DOS device names (nul/con/...) resolve as "existing" in every Windows
+        # directory — they must never be treated as a path filter.
+        repo = _make_repo(tmp_path)
+        _stub_git(monkeypatch)
+        progress_path = repo / "progress.json"
+        exit_code = _run(
+            "init",
+            "--skill",
+            "unit-test",
+            "--scope",
+            "nul",
+            "--progress-file",
+            str(progress_path),
+            "--project-dir",
+            str(repo),
+        )
+        assert exit_code == 0
+        data = _read_progress(progress_path)
+        assert data["config"]["scope"] is None
+        assert data["config"]["scope_text"] == "nul"
+
     def test_focus_gate_derives_from_focus_modes_by_skill(self, tmp_path, monkeypatch):
         # The --focus gate must follow FOCUS_MODES_BY_SKILL, not a hardcoded
         # skill name: adding a focus-capable skill to the table is the only
@@ -1074,6 +1182,7 @@ class TestResume:
             json.dumps(
                 {
                     "skill": "unit-test",
+                    "harness": "test-coverage",
                     "config": {"project_root": str(tmp_path), "max_cycles": 5},
                 }
             ),
@@ -1090,6 +1199,83 @@ class TestResume:
         )
         assert exit_code == 0
         assert _read_progress(progress_path)["config"]["max_cycles"] == 8
+
+    def test_resume_rejects_max_cycles_on_deep_run(self, tmp_path, capsys):
+        # The wrong variant's cap flag must fail loudly, not vanish while the
+        # persisted cap stays unchanged.
+        progress_path = tmp_path / "progress.json"
+        progress_path.write_text(
+            json.dumps(
+                {
+                    "skill": "code-review",
+                    "config": {"project_root": str(tmp_path), "max_iterations": 8},
+                }
+            ),
+            encoding="utf-8",
+        )
+        exit_code = _run(
+            "resume",
+            "--progress-file",
+            str(progress_path),
+            "--project-dir",
+            str(tmp_path),
+            "--max-cycles",
+            "9",
+        )
+        assert exit_code == 1
+        assert "--max-cycles" in capsys.readouterr().err
+
+    def test_resume_rejects_max_iterations_on_coverage_run(self, tmp_path, capsys):
+        progress_path = tmp_path / "progress.json"
+        progress_path.write_text(
+            json.dumps(
+                {
+                    "skill": "unit-test",
+                    "harness": "test-coverage",
+                    "config": {"project_root": str(tmp_path), "max_cycles": 5},
+                }
+            ),
+            encoding="utf-8",
+        )
+        exit_code = _run(
+            "resume",
+            "--progress-file",
+            str(progress_path),
+            "--project-dir",
+            str(tmp_path),
+            "--max-iterations",
+            "9",
+        )
+        assert exit_code == 1
+        assert "--max-iterations" in capsys.readouterr().err
+
+    def test_legacy_scope_migration_resolves_relative_root(
+        self, tmp_path, monkeypatch
+    ):
+        # A legacy coverage file without project_root, resumed with a relative
+        # --project-dir, must keep a real path scope: an unresolved root made
+        # the containment check always fail and silently widened the run to the
+        # full project.
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / "scripts").mkdir()
+        progress_path = tmp_path / "progress.json"
+        progress_path.write_text(
+            json.dumps(
+                {
+                    "skill": "unit-test",
+                    "harness": "test-coverage",
+                    "config": {"scope": "scripts", "max_cycles": 5},
+                }
+            ),
+            encoding="utf-8",
+        )
+        exit_code = _run(
+            "resume", "--progress-file", str(progress_path), "--project-dir", "."
+        )
+        assert exit_code == 0
+        config = _read_progress(progress_path)["config"]
+        assert config["scope"] == "scripts"
+        assert "scope_text" not in config
 
 
 # ---------------------------------------------------------------------------
@@ -3522,6 +3708,33 @@ class TestSnapshotFreshnessGuard:
         assert exit_code == 1
         assert "stale" in capsys.readouterr().err
 
+    def test_deep_step_errors_on_missing_token(self, tmp_path, capsys):
+        # A first-iteration snapshot skip leaves no token at all — the guard
+        # must still fail, otherwise a test failure keeps the broken fixes the
+        # loop promised to revert.
+        ppath = _seed_deep_progress(tmp_path, iteration=1)
+        data = _read_progress(ppath)
+        del data["_snapshot"]
+        ppath.write_text(json.dumps(data), encoding="utf-8")
+        result = tmp_path / "result.json"
+        result.write_text(
+            json.dumps(
+                {
+                    "iteration": 1,
+                    "new_findings": [],
+                    "fixes_applied": [],
+                    "no_new_findings": False,
+                    "no_actionable_fixes": True,
+                }
+            ),
+            encoding="utf-8",
+        )
+        exit_code = _run(
+            "deep-step", "--progress-file", str(ppath), "--result-file", str(result)
+        )
+        assert exit_code == 1
+        assert "missing or stale" in capsys.readouterr().err
+
 
 # ---------------------------------------------------------------------------
 # unit-test-step state-merge substructure
@@ -3576,6 +3789,37 @@ class TestUnitTestStepStateMerge:
         assert data["scope_files"]["current"] == ["u.py"]
         # bugs tagged with the discovering cycle
         assert data["bugs_discovered"][0]["cycle_discovered"] == 1
+
+    def test_string_coverage_delta_coerced(self, tmp_path, monkeypatch):
+        # A string-typed delta ("0") stored verbatim never satisfies
+        # check_coverage_plateau's `delta == 0`, silently defeating the
+        # diminishing-returns net — it must be coerced to a number on storage.
+        ppath = _seed_coverage_progress(tmp_path, cycle=1)
+        monkeypatch.setattr(cli, "run_tests", lambda *a, **kw: (True, "ok"))
+        result = tmp_path / "result.json"
+        result.write_text(
+            json.dumps(
+                {
+                    "coverage": {"before": 42, "after": 42, "delta": "0"},
+                    "tests_written": [],
+                    "untestable_code": [],
+                    "bugs_discovered": [],
+                    "no_new_tests": False,
+                    "no_untestable_code": False,
+                    "no_coverage_gained": False,
+                }
+            ),
+            encoding="utf-8",
+        )
+        exit_code = _run(
+            "unit-test-step",
+            "--progress-file",
+            str(ppath),
+            "--result-file",
+            str(result),
+        )
+        assert exit_code == 0
+        assert _read_progress(ppath)["coverage"]["history"][0]["delta"] == 0
 
     def test_untestable_file_path_normalized_on_storage(self, tmp_path, monkeypatch):
         # A unit-test subagent that reports an untestable file with OS-native

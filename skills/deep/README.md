@@ -28,7 +28,7 @@ Natural-language scope text is recorded as intent but does not filter — only a
 ## How a run behaves
 
 - **Confirmation upfront, then autonomy.** One approval covers the whole loop; fixes and tests are applied without per-change confirmation.
-- **Checkpoint commits.** Each iteration (or phase, for coverage) produces a tagged commit unless `--no-commit` is set.
+- **Checkpoint commits.** Each iteration (or phase, for coverage) produces a checkpoint commit unless `--no-commit` is set.
 - **Verification + bisection.** The full test suite runs after each iteration's fixes; on failure the CLI reverts everything and re-applies fixes one at a time, keeping only those that pass.
 - **Coverage cycles.** The `coverage` target alternates a unit-test phase (write tests, measure coverage, flag untestable code) with a conditional testability-refactor phase, so neither concern can stall the other.
 
@@ -38,7 +38,7 @@ The run ends with a cumulative report naming a termination reason — the six re
 
 - A finished run is archived to the progress file's `.done.json` sibling; `--resume` refuses it — re-run fresh for a second-opinion pass.
 - A `diminishing-returns` soft-exit stays un-archived so `--resume` can continue it; `--resume` can also raise the cap.
-- Press Esc twice to interrupt. Progress is written before every dispatch, so interrupts between dispatches are fully recoverable via `--resume`; a mid-dispatch interrupt may leave partial edits — inspect with `git status`, then discard with `git restore .` **and** `git clean -fd -e .claude/` (tracked edits plus any new untracked files the subagent created — a fresh run's init gate counts both, and `-e .claude/` preserves the progress files) or `--resume` to keep them.
+- Press Esc twice to interrupt. Progress is written before every dispatch, so interrupts between dispatches are fully recoverable via `--resume`; a mid-dispatch interrupt may leave partial edits — inspect with `git status`, then discard with `git restore .` **and** `git clean -fd -e .claude/` (tracked edits plus any new untracked files the subagent created — a fresh run's init gate counts both, and `-e .claude/` preserves the progress files) or `--resume` to keep them. In projects configured by `/optimus:permissions`, that skill's deny list blocks Claude from running `git clean` — run the command yourself in a separate terminal there.
 
 Progress files: `.claude/code-review-deep-progress.json`, `.claude/refactor-deep-progress.json`, `.claude/unit-test-deep-progress.json`.
 

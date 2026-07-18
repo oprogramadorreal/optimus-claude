@@ -87,7 +87,7 @@ mkdir -p .claude/docs .claude/hooks
 
 ## Step 4: Create CLAUDE.md
 
-Fill every template placeholder with real detected values — no `[placeholder]` text may survive (Step 7 verifies). In each template, resolve the skill-authoring HTML comment: if skill authoring was detected in Step 1, replace it with the concrete sentence the comment carries; otherwise delete the comment. **When updating an existing CLAUDE.md** (not Fresh start): edit in place per File semantics — never regenerate from template.
+Fill every template placeholder with real detected values — no `[placeholder]` text may survive (Step 7 verifies). In each template that carries one (single-project, monorepo, and subproject CLAUDE.md templates — the multi-repo template has none), resolve the skill-authoring HTML comment: if skill authoring was detected in Step 1, replace it with the concrete sentence the comment carries; otherwise delete the comment. **When updating an existing CLAUDE.md** (not Fresh start): edit in place per File semantics — never regenerate from template.
 
 **Single project** — template `$CLAUDE_PLUGIN_ROOT/skills/init/templates/single-project-claude.md`:
 - Conventions: 2-5 bullets from doc-sourced insights, or inferred from structure (entry points, routing/layout patterns, non-obvious rules).
@@ -151,7 +151,7 @@ Cross-check README.md (root, and each subproject's in monorepos), CONTRIBUTING.m
 Run this checklist and fix any failure before reporting:
 
 - **File existence** — every expected file exists: `.claude/` files (`*.md`, `*.json`, `hooks/*`); monorepo subproject `CLAUDE.md` + `docs/*.md`; multi-repo per-repo files.
-- **Content** — no `[placeholder]` text anywhere; CLAUDE.md has the real project name, real commands, Conventions and Documentation sections, and <= 60 lines (soft — verify any overage isn't template bloat); `settings.json` `hooks.PostToolUse` ↔ installed hook files match in both directions and custom sections survived; each template-based hook matches its template; custom hooks follow the shell-hook pattern and unsupported-stack-fallback validation rules; each doc references the project's actual frameworks, tooling, and directories; applied sync edits left valid, untruncated markdown.
+- **Content** — no `[placeholder]` text and no unresolved template HTML comments anywhere (each file's line-1 identity comment is the only `<!--` allowed to remain); CLAUDE.md has the real project name, real commands, Conventions and Documentation sections, and <= 60 lines (soft — verify any overage isn't template bloat); `settings.json` `hooks.PostToolUse` ↔ installed hook files match in both directions and custom sections survived; each template-based hook matches its template; custom hooks follow the shell-hook pattern and unsupported-stack-fallback validation rules; each doc references the project's actual frameworks, tooling, and directories; applied sync edits left valid, untruncated markdown.
 - **Cross-references** — every doc listed in a CLAUDE.md Documentation section exists, and every created `testing.md`/`styling.md`/`architecture.md` is listed in the CLAUDE.md that scopes it; monorepo: every subproject in the root table has its CLAUDE.md; multi-repo: every repo listed in the workspace CLAUDE.md has its own self-contained `.claude/`.
 
 **Write the plugin version** to `.claude/.optimus-version` after all checks pass — version string only (e.g., `3.0.0`), read from `$CLAUDE_PLUGIN_ROOT/.claude-plugin/plugin.json`; per repo in multi-repo workspaces. Only init ever writes this file.

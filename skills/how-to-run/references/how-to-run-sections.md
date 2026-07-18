@@ -25,6 +25,8 @@ Rendering rules for Step 4 (content generation). Per-service Docker/local/shared
 | `docker-compose.yml` services | External Services (Branch A) |
 | Framework-config candidates (detector Task 5b) | External Services (Branch B, `(candidate)` marker) |
 | `Dockerfile` without local-run scripts | Running in Development (Docker-based primary path) |
+| `Makefile` / `Justfile` dev targets (`dev` / `start` / `setup` / `run` / `serve` / `up` / `docker-up`) | Running in Development (invoke the make/just target) |
+| `flake.nix` / `shell.nix` / `default.nix` | Prerequisites + Installation (`nix develop` / `nix-shell` replaces manual toolchain setup) |
 | Dotenv templates / framework config files | Environment Setup |
 | Migration tools / codegen configs | Installation (post-install steps) |
 | `.devcontainer/devcontainer.json` | Running in Development — `#### Quick start (Dev Container)` H4 immediately under the section heading, above the component layout (VS Code *Reopen in Container*, or `devcontainer up --workspace-folder .` via the dev container CLI); the container build replaces manual Installation |
