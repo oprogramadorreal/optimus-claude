@@ -432,16 +432,21 @@ assert_decision "Scratchpad write asks when temp vars unset" ASK \
 # ============================================================
 # Temp-write redirect tests (restrict-paths.sh redirect_temp_write)
 # ============================================================
-# A write that lands under the temp root WITHOUT the exempt scratchpad shape
+# Creating a NEW file under the temp root WITHOUT the exempt scratchpad shape
 # (an invented temp dir) is denied with the exact exempt path as the reason —
 # model-facing feedback, not a user prompt — so the retry lands in the
 # scratchpad and proceeds unprompted. The critical invariant: the path in the
-# deny reason MUST satisfy is_claude_scratchpad()'s shape, or the model is
-# sent to a path that prompts anyway — so the integration test runs it through
-# the real hook. The redirect fails silent (falls back to the ask) without a
-# session_id, on ".." traversals, and outside the temp root — note rp_json in
-# the sections above carries no session_id, which is why those temp-root paths
-# still ask. (Reuses the rp_tmp / rp_decision_env / assert_decision fixtures.)
+# deny reason MUST satisfy is_claude_scratchpad()'s shape, or the model is sent
+# to a path that prompts anyway (or, worse, that the hook denies again — an
+# unescapable loop, since a deny never reaches the user). Two things make that
+# invariant tested rather than assumed: the retry path is PARSED OUT of the deny
+# reason instead of being rebuilt from the same fixture variable (which would be
+# circular), and it is replayed under the platform shapes that used to break it.
+# The redirect fails silent (falls back to the ask) for existing files, home-dir
+# paths, a missing or multi-segment session_id, unresolved ".." traversals, and
+# paths outside the temp root — note rp_json in the sections above carries no
+# session_id, which is why those temp-root paths still ask.
+# (Reuses the rp_tmp / rp_stub_bin / rp_decision_env / assert_decision fixtures.)
 echo
 echo "[restrict-paths: temp-write redirect]"
 rp_json_sid() { # $1=session-id $2=tool $3=input-field $4=path
@@ -450,28 +455,114 @@ rp_json_sid() { # $1=session-id $2=tool $3=input-field $4=path
 rp_run_sid() { # $1=session-id $2=tool $3=input-field $4=path  ->  hook stdout
   rp_json_sid "$1" "$2" "$3" "$4" | env HOME="$rp_tmp/home" CLAUDE_PROJECT_DIR="$rp_tmp/proj" TMPDIR="$scratch_root" bash "$RESTRICT" 2>/dev/null
 }
+# Same call, but with a custom environment and the hook's exit status recorded in
+# rp_last_status. An ALLOW verdict is inferred from SILENT stdout, so without the
+# status a hook that died before printing would be scored "allowed" and every
+# exemption assertion would pass vacuously (the same trap run_session_start
+# documents above).
+# Usage: rp_status_sid <env-operand>... -- <session-id> <tool> <input-field> <path>
+rp_last_status=0
+rp_status_sid() {
+  local -a envargs=()
+  while [ "${1:-}" != "--" ]; do envargs+=("$1"); shift; done
+  shift  # drop the '--' separator
+  local out
+  set +e
+  out=$(rp_json_sid "$1" "$2" "$3" "$4" | env "${envargs[@]}" bash "$RESTRICT" 2>/dev/null)
+  rp_last_status=$?
+  set -e
+  printf '%s' "$out"
+}
+# The scratchpad path the hook actually advertised, lifted out of its deny
+# reason — i.e. the retry the model would really make.
+rp_reason_path() { # $1=hook stdout  ->  advertised scratchpad path
+  local r="${1#*path restrictions: }"
+  printf '%s' "${r%%[[:space:]]*}"
+}
 
-# Invented temp dirs (any temp-root path missing the scratchpad shape) deny
+# Invented temp dirs (any NEW temp-root file missing the scratchpad shape) deny
 # with the exact exempt path; the project segment is the project dir basename.
 redir_target="$scratch_root/claude/proj/session-abc/scratchpad"
 assert_decision "Invented temp dir write denies (redirect)" DENY "$(rp_classify "$(rp_run_sid session-abc Write file_path "$scratch_root/scratch-foo/x.md")")"
-assert_decision "Temp-root direct child denies (redirect)"  DENY "$(rp_classify "$(rp_run_sid session-abc Write file_path "$scratch_root/notes.md")")"
 assert_decision "Shallow scratchpad denies with session"    DENY "$(rp_classify "$(rp_run_sid session-abc Write file_path "$scratch_root/claude/E--proj/scratchpad/x.md")")"
 assert_decision "Notebook in temp dir denies (redirect)"    DENY "$(rp_classify "$(rp_run_sid session-abc NotebookEdit notebook_path "$scratch_root/scratch-foo/nb.ipynb")")"
 assert_output_contains "Deny reason names the exempt scratchpad path" "$redir_target" "$(rp_run_sid session-abc Write file_path "$scratch_root/scratch-foo/x.md")"
-# Integration: the redirect target must be exempt under the real hook (it sits
-# outside CLAUDE_PROJECT_DIR, so only the scratchpad exemption allows it).
-assert_decision "Redirect target is exempt (write allowed)" ALLOW "$(rp_decision_scratch Write file_path "$redir_target/notes.md")"
+# Integration: retry the path the hook itself named. It must be exempt (it sits
+# outside CLAUDE_PROJECT_DIR, so only the scratchpad exemption allows it) AND the
+# hook must still be alive when it says so.
+rp_advertised="$(rp_reason_path "$(rp_run_sid session-abc Write file_path "$scratch_root/scratch-foo/x.md")")"
+assert_decision "Advertised path has the scratchpad shape" "$redir_target" "$rp_advertised"
+rp_exempt_out="$(rp_status_sid HOME="$rp_tmp/home" CLAUDE_PROJECT_DIR="$rp_tmp/proj" TMPDIR="$scratch_root" -- session-abc Write file_path "$rp_advertised/notes.md")"
+assert_decision "Retry at the advertised path is exempt"   ALLOW "$(rp_classify "$rp_exempt_out")"
+assert_exit_zero "Exempt retry is a real allow, not a crash" "$rp_last_status"
+
+echo "[restrict-paths: redirect survives the platform path shapes]"
+# macOS ships a TMPDIR that always ends in '/' and (13+) a realpath that rejects
+# GNU's '-m'. Either shape used to leave a '//' spliced into the advertised path
+# — matched by the redirect's own prefix test but NOT by the exemption — so the
+# hook denied its own redirect target forever, and on the second shape the
+# scratchpad exemption went dead entirely. Replay the whole round trip on each.
+rp_shape_roundtrip() { # $1=label $2..=env operands
+  local label="$1"; shift
+  local out adv
+  out="$(rp_status_sid "$@" -- session-abc Write file_path "$scratch_root/scratch-foo/x.md")"
+  assert_decision "$label: invented temp write denies" DENY "$(rp_classify "$out")"
+  adv="$(rp_reason_path "$out")"
+  assert_output_not_contains "$label: advertised path has no '//'" "//" "$adv"
+  out="$(rp_status_sid "$@" -- session-abc Write file_path "$adv/notes.md")"
+  assert_decision "$label: retry at advertised path is exempt" ALLOW "$(rp_classify "$out")"
+}
+rp_shape_roundtrip "Trailing-slash temp root" \
+  HOME="$rp_tmp/home" CLAUDE_PROJECT_DIR="$rp_tmp/proj" TMPDIR="$scratch_root/"
+rp_shape_roundtrip "Non-GNU realpath" \
+  HOME="$rp_tmp/home" CLAUDE_PROJECT_DIR="$rp_tmp/proj" TMPDIR="$scratch_root" PATH="$rp_stub_bin:$PATH"
+rp_shape_roundtrip "Trailing slash + non-GNU realpath" \
+  HOME="$rp_tmp/home" CLAUDE_PROJECT_DIR="$rp_tmp/proj" TMPDIR="$scratch_root/" PATH="$rp_stub_bin:$PATH"
+# The plain exemption (not just the redirect) must survive the same shapes.
+assert_decision "Scratchpad write allowed with trailing-slash temp root" ALLOW \
+  "$(rp_decision_env HOME="$rp_tmp/home" CLAUDE_PROJECT_DIR="$rp_tmp/proj" TMPDIR="$scratch_root/" -- Write file_path "$scratch/notes.md")"
+assert_decision "Scratchpad write allowed under non-GNU realpath" ALLOW \
+  "$(rp_decision_env HOME="$rp_tmp/home" CLAUDE_PROJECT_DIR="$rp_tmp/proj" TMPDIR="$scratch_root/" PATH="$rp_stub_bin:$PATH" -- Write file_path "$scratch/notes.md")"
 
 echo "[restrict-paths: redirect fails silent to the ask]"
-# Non-temp out-of-project paths, a missing session_id, and ".." traversals the
-# realpath stub can't resolve must all fall back to the normal prompt — never
-# deny a path the exemption wouldn't cover. (The non-temp path must sit outside
-# every ladder base: rp_tmp lives under /tmp, which IS a base on POSIX.)
+# Non-temp out-of-project paths, a missing or non-single-segment session_id, and
+# ".." traversals the realpath stub can't resolve must all fall back to the
+# normal prompt — never deny a path the exemption wouldn't cover, and never
+# advertise one the hook would just deny again. (The non-temp path must sit
+# outside every ladder base: rp_tmp lives under /tmp, which IS a base on POSIX.)
 assert_decision "Non-temp outside path still asks"          ASK "$(rp_classify "$(rp_run_sid session-abc Write file_path "/var/opt/optimus-not-temp/a.txt")")"
 assert_decision "Temp write without session_id asks"        ASK "$(rp_decision_scratch Write file_path "$scratch_root/scratch-foo/x.md")"
-assert_decision "Traversal asks when realpath can't resolve .." ASK \
-  "$(rp_classify "$(rp_json_sid session-abc Write file_path "$scratch_root/scratch-foo/../../x.md" | env HOME="$rp_tmp/home" CLAUDE_PROJECT_DIR="$rp_tmp/proj" TMPDIR="$scratch_root" PATH="$rp_stub_bin:$PATH" bash "$RESTRICT" 2>/dev/null)")"
+assert_decision "Multi-segment session_id asks"             ASK "$(rp_classify "$(rp_run_sid "a/b" Write file_path "$scratch_root/scratch-foo/x.md")")"
+assert_decision "Dot-segment session_id asks"               ASK "$(rp_classify "$(rp_run_sid ".." Write file_path "$scratch_root/scratch-foo/x.md")")"
+assert_decision "Redirect traversal asks when realpath can't resolve .." ASK \
+  "$(rp_classify "$(rp_status_sid HOME="$rp_tmp/home" CLAUDE_PROJECT_DIR="$rp_tmp/proj" TMPDIR="$scratch_root" PATH="$rp_stub_bin:$PATH" -- session-abc Write file_path "$scratch_root/scratch-foo/../../x.md")")"
+
+# Scoping: the redirect only ever claims NEW files outside the home dir. An
+# EXISTING temp file keeps the normal prompt — a deny goes to the model, not the
+# user, so redirecting an Edit of a file that cannot move would leave nobody able
+# to approve it. And ~/.claude keeps prompting even when HOME itself sits under
+# the temp root, as it does in CI images.
+rp_existing="$scratch_root/pre-existing/tool-output.md"
+mkdir -p "$scratch_root/pre-existing"
+: > "$rp_existing"
+assert_decision "Existing temp file edit asks (not redirected)" ASK  "$(rp_classify "$(rp_run_sid session-abc Edit file_path "$rp_existing")")"
+assert_decision "New file in the same dir still denies"         DENY "$(rp_classify "$(rp_run_sid session-abc Write file_path "$scratch_root/pre-existing/new.md")")"
+rp_temp_home="$scratch_root/ci-home"
+mkdir -p "$rp_temp_home/.claude/projects/hash/memory"
+assert_decision "HOME under temp root: settings.json still asks" ASK \
+  "$(rp_classify "$(rp_status_sid HOME="$rp_temp_home" CLAUDE_PROJECT_DIR="$rp_tmp/proj" TMPDIR="$scratch_root" -- session-abc Write file_path "$rp_temp_home/.claude/settings.json")")"
+assert_decision "HOME under temp root: memory store still allowed" ALLOW \
+  "$(rp_classify "$(rp_status_sid HOME="$rp_temp_home" CLAUDE_PROJECT_DIR="$rp_tmp/proj" TMPDIR="$scratch_root" -- session-abc Write file_path "$rp_temp_home/.claude/projects/hash/memory/M.md")")"
+
+# The deny reason interpolates raw environment values, so a control character in
+# the temp root (a CRLF-sourced TEMP on Windows is the easy way to get one) must
+# not reach the output: a bare control char makes the decision unparseable JSON,
+# which the harness reads as "no decision" — silently dropping the deny.
+rp_tab_root="$(printf '%s/tab\there' "$scratch_root")"
+rp_tab_out="$(rp_status_sid HOME="$rp_tmp/home" CLAUDE_PROJECT_DIR="$rp_tmp/proj" TMPDIR="$rp_tab_root" -- session-abc Write file_path "$rp_tab_root/inv/x.md")"
+assert_decision "Control char in temp root still denies" DENY "$(rp_classify "$rp_tab_out")"
+assert_output_not_contains "Deny reason escapes control characters" "$(printf '\t')" "$rp_tab_out"
+
 # Deletes under the temp root stay hard-blocked with the plain BLOCKED reason —
 # the redirect exists for writes only.
 assert_decision "Temp-root delete stays blocked"            DENY "$(rp_classify "$(rp_run_sid session-abc Bash command "rm $scratch_root/scratch-foo/x.md")")"

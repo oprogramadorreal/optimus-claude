@@ -14,8 +14,9 @@
 # WHAT THIS SCRIPT DOES:
 #   - Edit/Write operations inside the project  → silently allowed
 #   - Edit/Write operations outside the project → prompts you for approval
-#   - Edit/Write under the OS temp root         → redirected to the exempt
-#                                                 session scratchpad (no prompt)
+#   - Creating a NEW file under the OS temp root → redirected to the exempt
+#                                                 session scratchpad (no prompt);
+#                                                 existing files prompt as usual
 #   - Edit/Write/delete in Claude's memory store → silently allowed
 #   - Edit/Write/delete in Claude's scratchpad   → silently allowed
 #   - rm/rmdir commands outside the project     → hard blocked
@@ -69,12 +70,20 @@
 #   root can't be resolved, the path falls back to the normal out-of-project prompt.
 #
 #   TEMP-WRITE REDIRECT: the exemption only helps if the model knows the path,
-#   so a write that lands under the temp root WITHOUT this shape (an invented
+#   so CREATING A NEW FILE under the temp root without this shape (an invented
 #   temp dir) is denied with the exact exempt path as the reason — model-facing
 #   feedback, not a user prompt — and the retry at the scratchpad proceeds
-#   unprompted (see redirect_temp_write). The redirect fails silent to the
-#   normal prompt when the scratchpad path can't be resolved, and never fires
-#   on ".." traversals or paths outside the temp root.
+#   unprompted (see redirect_temp_write). It is deliberately scoped so it can
+#   never trap a write you should be deciding on yourself: a file that ALREADY
+#   EXISTS is never redirected (an Edit of it cannot be satisfied elsewhere, and
+#   a hook deny goes to Claude, not to you, so you would have no way to approve
+#   it), paths under your home dir are never redirected (HOME can itself sit
+#   under the temp root in CI images, where ~/.claude/settings.json must keep
+#   prompting), and the redirect falls back to the normal prompt whenever the
+#   scratchpad path cannot be built as an absolute path with single-segment
+#   <project> and <session>, or when the path contains a ".." this platform's
+#   realpath left unresolved. A ".." that realpath DOES resolve back under the
+#   temp root is redirected on its resolved path, like any other temp path.
 #
 # TO DISABLE OR REMOVE:
 #   1. Delete this file: rm .claude/hooks/restrict-paths.sh
@@ -172,9 +181,52 @@ normalize() {
   elif [[ -d "$(dirname "$p")" ]]; then
     p="$(cd "$(dirname "$p")" 2>/dev/null && pwd)/$(basename "$p")"
   fi
+  # Collapse repeated slashes and drop a trailing one (pure bash, no fork) so
+  # every spelling of a path compares equal whichever branch above ran. This is
+  # load-bearing, not cosmetic: macOS TMPDIR ends in '/', a non-GNU realpath
+  # that rejects '-m' returns the string untouched, and the cd/pwd fallback
+  # splices '//tmp' when the parent is '/' — each would otherwise leave a temp
+  # base that stops matching paths written the ordinary way, silently killing
+  # the scratchpad exemption and the temp-write redirect built on it.
+  while [[ "$p" == *//* ]]; do p="${p//\/\//\/}"; done
+  [[ "$p" == "/" ]] || p="${p%/}"
   # Case-insensitive on Windows (NTFS)
   [[ "${OSTYPE:-}" == msys* || "${OSTYPE:-}" == cygwin* ]] && p="${p,,}"
   echo "$p"
+}
+
+# --- Shared path predicates (used by every exemption gate below) ---
+# Fail closed on an unresolved ".." (e.g. a non-GNU realpath that ignored '-m'):
+# a traversal like memory/../../settings.json must never reach an auto-allow.
+# Defined once so the gates cannot drift apart — a weaker copy in any one of
+# them would silently reopen the escape the others reject.
+has_unresolved_traversal() {
+  case "$1" in */../*|*/..|../*|..) return 0 ;; esac
+  return 1
+}
+
+# A path the Write tool can actually act on: POSIX absolute or Windows
+# drive-qualified. A relative temp root is unusable as a redirect target (the
+# tool requires an absolute file_path). Deliberately strict: a bare leading
+# backslash is drive-RELATIVE on Windows, and a UNC share (\\server\share) is
+# not recognized either — a temp root is effectively never one, and the only
+# cost of rejecting one is that the redirect falls back to the normal prompt.
+is_absolute_path() {
+  case "$1" in
+    /*) return 0 ;;
+    [A-Za-z]:[/\\]*) return 0 ;;
+  esac
+  return 1
+}
+
+# One path segment an exemption shape can match: non-empty, separator-free, and
+# not a dot-segment that normalize() would collapse away on a retry.
+is_single_segment() {
+  case "$1" in
+    ""|.|..) return 1 ;;
+    */*|*\\*) return 1 ;;
+  esac
+  return 0
 }
 
 norm_root="$(normalize "$root")"
@@ -193,17 +245,30 @@ is_inside_project() {
 # fork on the common read/search/Bash/in-project paths.
 _norm_home=""
 _norm_home_resolved=""
+resolve_norm_home() {
+  [[ -n "$_norm_home_resolved" ]] && return
+  _norm_home="$(normalize "${HOME:-${USERPROFILE:-}}")"
+  _norm_home_resolved=1
+}
+
+# True when a normalized path sits anywhere under the home dir. The temp-write
+# redirect consults this to keep its hands off ~/.claude: HOME can itself live
+# under the temp root (CI images, sandboxes), and settings.json there must keep
+# prompting rather than be told to "retry in the scratchpad".
+is_under_home() {
+  resolve_norm_home
+  [[ -n "$_norm_home" ]] || return 1
+  [[ "$1" == "$_norm_home/"* ]]
+}
+
 is_claude_memory() {
-  if [[ -z "$_norm_home_resolved" ]]; then
-    _norm_home="$(normalize "${HOME:-${USERPROFILE:-}}")"
-    _norm_home_resolved=1
-  fi
+  resolve_norm_home
   [[ -n "$_norm_home" ]] || return 1
   local norm_path
   norm_path="$(normalize "$1")"
-  # Fail closed on an unresolved ".." (e.g. non-GNU realpath ignoring '-m'): a
-  # traversal like memory/../../settings.json must not reach the auto-allow below.
-  case "$norm_path" in */../*|*/..|../*|..) return 1 ;; esac
+  # Fail closed on an unresolved ".." (shared guard): a traversal like
+  # memory/../../settings.json must not reach the auto-allow below.
+  has_unresolved_traversal "$norm_path" && return 1
   # Match exactly <home>/.claude/projects/<project>/memory[/...]. <project> must be
   # a SINGLE path segment: a bare case-glob '*' also spans '/', which would stretch
   # the exemption to a 'memory' dir nested arbitrarily deep under projects/. Every
@@ -228,13 +293,31 @@ is_claude_memory() {
 # equal to a normalized file_path.
 _scratch_bases_resolved=""
 _scratch_bases=()
+_scratch_base_raw=""
 resolve_scratch_bases() {
   [[ -n "$_scratch_bases_resolved" ]] && return
-  local candidate norm_candidate
+  local candidate norm_candidate raw
   for candidate in "${TMPDIR:-}" "${TEMP:-}" "${TMP:-}" /tmp; do
     [[ -n "$candidate" ]] || continue
     norm_candidate="$(normalize "$candidate")"
-    [[ -n "$norm_candidate" ]] && _scratch_bases+=("$norm_candidate")
+    [[ -n "$norm_candidate" ]] || continue
+    _scratch_bases+=("$norm_candidate")
+    # The first ABSOLUTE candidate also seeds the redirect target that
+    # session_scratchpad_path advertises, so one ladder walk feeds both the
+    # matcher and the builder and they cannot drift out of sync. The raw
+    # spelling is kept — normalize() would rewrite C:\Users\... into MSYS form
+    # (/c/users/...), which the Write tool cannot use — minus any trailing
+    # separator, which would otherwise splice a '//' into the advertised path
+    # on macOS (TMPDIR there always ends in '/'). A bare drive root ("C:\")
+    # keeps its separator: "C:" alone is drive-relative, not absolute.
+    if [[ -z "$_scratch_base_raw" ]] && is_absolute_path "$candidate"; then
+      raw="$candidate"
+      while [[ "$raw" == */ || "$raw" == *\\ ]]; do
+        [[ ${#raw} -gt 1 && "$raw" != ?:[/\\] ]] || break
+        raw="${raw%?}"
+      done
+      _scratch_base_raw="$raw"
+    fi
   done
   _scratch_bases_resolved=1
 }
@@ -243,15 +326,15 @@ is_claude_scratchpad() {
   resolve_scratch_bases
   local norm_path
   norm_path="$(normalize "$1")"
-  # Fail closed on an unresolved ".." (same guard as is_claude_memory): a traversal
-  # like scratchpad/../../settings.json must not reach the auto-allow below.
-  case "$norm_path" in */../*|*/..|../*|..) return 1 ;; esac
+  # Fail closed on an unresolved ".." (shared guard): a traversal like
+  # scratchpad/../../settings.json must not reach the auto-allow below.
+  has_unresolved_traversal "$norm_path" && return 1
   # Match exactly <temp>/claude/<project>/<session>/scratchpad[/...]. <project> and
   # <session> must each be a SINGLE path segment so the exemption can't stretch to a
   # 'scratchpad' dir nested arbitrarily deep under <temp>/claude/.
-  # SYNC: session_scratchpad_path() below builds the redirect target from the same
-  # temp ladder and path shape — keep them identical or the redirect points at a
-  # non-exempt path.
+  # SYNC: session_scratchpad_path() below builds the redirect target to this exact
+  # shape, from the base this same function resolved (_scratch_base_raw) — keep the
+  # two shapes identical or the redirect points at a path this gate never exempts.
   local base prefix rest proj after sess
   for base in "${_scratch_bases[@]}"; do
     prefix="$base/claude/"
@@ -279,48 +362,77 @@ is_claude_scratchpad() {
 # and the caller falls back to the normal ask) whenever the scratchpad path
 # can't be resolved — never redirect to a path that might not be exempt.
 session_scratchpad_path() {
-  # Raw temp root (NOT normalized) so the advertised path is one the Write
-  # tool accepts verbatim; the hook normalizes both sides when matching, so
-  # the verbatim string still satisfies is_claude_scratchpad() on retry.
-  local base="" candidate
-  for candidate in "${TMPDIR:-}" "${TEMP:-}" "${TMP:-}" /tmp; do
-    if [[ -n "$candidate" ]]; then base="$candidate"; break; fi
-  done
+  # Built from the raw base resolved alongside the normalized ones (see
+  # resolve_scratch_bases): absolute, trailing-separator free, and in a spelling
+  # the Write tool accepts verbatim. Every component is validated against the
+  # exemption's own shape below — an advertised path is only useful if
+  # is_claude_scratchpad() will exempt it on the retry, so anything that would
+  # not survive normalize() as <temp>/claude/<project>/<session>/scratchpad
+  # fails silent (return 1) and the caller falls back to the normal prompt.
+  resolve_scratch_bases
+  local base="$_scratch_base_raw"
   [[ -n "$base" ]] || return 1
   local sid=""
   [[ "$input" =~ \"session_id\"[[:space:]]*:[[:space:]]*\"([^\"]+)\" ]] && sid="${BASH_REMATCH[1]}"
-  [[ -n "$sid" ]] || return 1
-  # Any single segment satisfies the exemption's <project>; the project dir's
-  # basename keeps scratchpads per-project (same cygpath guard as normalize()).
-  local proj_dir="$root"
-  command -v cygpath &>/dev/null && proj_dir="$(cygpath -u "$proj_dir" 2>/dev/null || echo "$proj_dir")"
-  local proj
-  proj="$(basename "$proj_dir" 2>/dev/null)"
-  [[ -n "$proj" ]] || return 1
+  # A <session> carrying a separator or a dot-segment would shift or collapse on
+  # retry and land outside the shape — never advertise a path we'd re-deny.
+  is_single_segment "$sid" || return 1
+  # Any single segment satisfies the exemption's <project>; reuse the root that
+  # was normalized once at startup instead of re-deriving it (both sides are
+  # normalized when matched, so its basename is exactly as good, and a root like
+  # '/srv/app/.' is already collapsed rather than yielding a bare dot-segment).
+  local proj="${norm_root%/}"
+  proj="${proj##*/}"
+  is_single_segment "$proj" || return 1
   echo "$base/claude/$proj/$sid/scratchpad"
 }
 
 # Either denies (exits via deny_operation) or returns 1 — never prints otherwise.
 redirect_temp_write() {
+  # Only a NEW file is redirected. A file that already exists under the temp
+  # root keeps the normal out-of-project prompt: "retry in the scratchpad"
+  # cannot satisfy an Edit of a file that lives somewhere else, and a hook deny
+  # is terminal (it goes to the model, never the user, and outranks allow
+  # rules), so redirecting it would leave no way to approve the write at all.
+  [[ -e "$1" ]] && return 1
   resolve_scratch_bases
-  ((${#_scratch_bases[@]})) || return 1
   local norm_path
   norm_path="$(normalize "$1")"
-  # Same ".." fail-closed guard as is_claude_scratchpad: never redirect a traversal.
-  case "$norm_path" in */../*|*/..|../*|..) return 1 ;; esac
+  # Shared fail-closed guard: never redirect a path whose '..' went unresolved.
+  has_unresolved_traversal "$norm_path" && return 1
+  # ~/.claude is Claude's own config, not scratch — and HOME itself can sit
+  # under the temp root in CI images, where settings.json must still prompt.
+  is_under_home "$norm_path" && return 1
   local base scratch
   for base in "${_scratch_bases[@]}"; do
     [[ "$norm_path" == "$base/"* ]] || continue
     scratch="$(session_scratchpad_path)" || return 1
-    deny_operation "Temp/scratch writes belong in this session's scratchpad, which is exempt from path restrictions: $scratch — retry there instead. If this exact path is mandatory, ask the user to approve it."
+    deny_operation "Temp/scratch writes belong in this session's scratchpad, which is exempt from path restrictions: $scratch — retry there instead. Only new files are redirected; an existing file under the temp root prompts as usual. If creating this exact path is mandatory, stop and tell the user — a hook deny cannot be approved from chat."
   done
   return 1
 }
 
 # --- JSON response helpers ---
+# Escape a reason for embedding in a JSON string. Backslash and quote are the
+# obvious ones; the control characters matter because a reason can carry raw
+# environment values (a temp root or directory name may legally contain a tab,
+# CR or newline — a CRLF-sourced TEMP on Windows is the easy way to get one),
+# and a bare control character makes the whole decision unparseable JSON, which
+# the harness reads as "no decision" — silently dropping the deny or the ask.
+json_escape() {
+  local s="${1//\\/\\\\}"
+  s="${s//\"/\\\"}"
+  s="${s//$'\n'/\\n}"
+  s="${s//$'\r'/\\r}"
+  s="${s//$'\t'/\\t}"
+  # Remaining C0/DEL controls have no short escape — drop them.
+  s="${s//[$'\001'-$'\010'$'\013'$'\014'$'\016'-$'\037'$'\177']/}"
+  printf '%s' "$s"
+}
+
 ask_permission() {
-  local reason="${1//\\/\\\\}"
-  reason="${reason//\"/\\\"}"
+  local reason
+  reason="$(json_escape "$1")"
   cat <<JSONEOF
 {"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":"$reason"}}
 JSONEOF
@@ -328,12 +440,32 @@ JSONEOF
 }
 
 deny_operation() {
-  local reason="${1//\\/\\\\}"
-  reason="${reason//\"/\\\"}"
+  local reason
+  reason="$(json_escape "$1")"
   cat <<JSONEOF
 {"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"$reason"}}
 JSONEOF
   exit 0
+}
+
+# --- Out-of-project gate for the structured write tools ---
+# The Edit/Write and NotebookEdit branches ran identical exemption ladders that
+# differed only in wording, so the policy lives here once: the next exemption or
+# write tool is a one-line change instead of a synchronized pair.
+# Returns 0 when the write may continue to the precious-file check;
+# ask_permission / deny_operation exit the script.
+guard_out_of_project_write() {
+  local filepath="$1" ask_reason="$2"
+  is_inside_project "$filepath" && return 0
+  # Claude's own auto-memory store and session scratchpad are writable by
+  # design. This skips only the out-of-project prompt; the caller's
+  # precious-file check still runs, so it is not a blanket bypass.
+  is_claude_memory "$filepath" && return 0
+  is_claude_scratchpad "$filepath" && return 0
+  # A new file under the temp root is redirected to the scratchpad with
+  # model-facing feedback; everything else prompts.
+  redirect_temp_write "$filepath"
+  ask_permission "$ask_reason"
 }
 
 # --- Git branch protection ---
@@ -606,14 +738,7 @@ case "$tool_name" in
     # Fail-open: if file_path cannot be extracted, allow rather than block
     [[ "$input" =~ \"file_path\"[[:space:]]*:[[:space:]]*\"([^\"]+)\" ]] || exit 0
     filepath="${BASH_REMATCH[1]}"
-    # Outside the project prompts — except Claude's own auto-memory store and session
-    # scratchpad, which are writable by design. This skips only the out-of-project
-    # prompt; the precious-file check below still runs, so it is not a blanket bypass.
-    # Temp-root misses are redirected to the scratchpad (model-facing deny), not prompted.
-    if ! is_inside_project "$filepath" && ! is_claude_memory "$filepath" && ! is_claude_scratchpad "$filepath"; then
-      redirect_temp_write "$filepath"
-      ask_permission "File '$filepath' is outside project root. Allow this write?"
-    fi
+    guard_out_of_project_write "$filepath" "File '$filepath' is outside project root. Allow this write?"
     # Precious file protection: prompt before modifying sensitive unversioned files
     if [[ -e "$filepath" ]] && is_precious "$filepath" && ! is_git_tracked "$filepath"; then
       ask_permission "File '$(basename "$filepath")' is a precious file not tracked by git. Changes may be permanent. Allow this write?"
@@ -624,14 +749,7 @@ case "$tool_name" in
     # Fail-open: if notebook_path cannot be extracted, allow rather than block
     [[ "$input" =~ \"notebook_path\"[[:space:]]*:[[:space:]]*\"([^\"]+)\" ]] || exit 0
     filepath="${BASH_REMATCH[1]}"
-    # Outside the project prompts — except Claude's own auto-memory store and session
-    # scratchpad, which are writable by design. This skips only the out-of-project
-    # prompt; the precious-file check below still runs, so it is not a blanket bypass.
-    # Temp-root misses are redirected to the scratchpad (model-facing deny), not prompted.
-    if ! is_inside_project "$filepath" && ! is_claude_memory "$filepath" && ! is_claude_scratchpad "$filepath"; then
-      redirect_temp_write "$filepath"
-      ask_permission "Notebook '$filepath' is outside project root. Allow this edit?"
-    fi
+    guard_out_of_project_write "$filepath" "Notebook '$filepath' is outside project root. Allow this edit?"
     # Precious file protection: prompt before modifying sensitive unversioned notebooks
     if [[ -e "$filepath" ]] && is_precious "$filepath" && ! is_git_tracked "$filepath"; then
       ask_permission "File '$(basename "$filepath")' is a precious file not tracked by git. Changes may be permanent. Allow this edit?"
