@@ -108,6 +108,16 @@ echo "[Manifests]"
 check "No ref field in marketplace.json" \
   bash -c '! grep -q "\"ref\"" .claude-plugin/marketplace.json'
 
+# --- 4b. Dogfooded hook matches the shipped template ---
+# .claude/hooks/restrict-paths.sh is a copy of the template users install, and
+# only the template is exercised by scripts/test-hooks.sh. Nothing else pins them
+# together, and they have drifted before (commits that hardened the memory-store
+# exemption and broadened the precious-file patterns landed in the template
+# alone, leaving this repo running stale security logic). A template-only fix
+# leaves this repo unprotected; a .claude/-only fix ships nothing to users.
+check "restrict-paths hook copies are in sync" \
+  cmp -s .claude/hooks/restrict-paths.sh skills/permissions/templates/hooks/restrict-paths.sh
+
 # --- 5. plugin.json validity ---
 if command -v jq &>/dev/null; then
   check "plugin.json is valid JSON" jq empty .claude-plugin/plugin.json

@@ -207,7 +207,7 @@ Tests all state combinations (uninitialized, partial, fully configured, dirty tr
 - Correct recommendations for each project state
 - Zero-output guarantee for fully configured projects
 - Formatter hooks parse JSON input and filter by file extension correctly
-- restrict-paths hook enforces the tiered path model (in-project writes allowed, out-of-project writes ask, outside deletes denied) with memory-store/scratchpad exemptions and fail-closed fallbacks; creating a new file under the OS temp root is denied with the exempt scratchpad path as model-facing feedback instead of asking (existing files, home-dir paths, and unusable scratchpad shapes still ask), and the redirect is replayed under the macOS path shapes — trailing-slash temp root, non-GNU realpath — that the exemption must survive
+- restrict-paths hook enforces the tiered path model (in-project writes allowed, out-of-project writes ask, outside deletes denied) with memory-store/scratchpad exemptions and fail-closed fallbacks; creating a new file under the OS temp root still asks but adds a scratchpad reminder to the reason (and must never deny — a deny cannot be approved by the user), while existing files and `~/.claude` keep the plain prompt. Covers the macOS path shapes the exemption must survive (trailing-slash temp root, non-GNU realpath), rejection of relative and root temp roots, UNC-vs-local path distinction, and a self-check proving the harness reports a crashed hook rather than scoring its silence as an allow
 
 ### Python unit tests (CI)
 
