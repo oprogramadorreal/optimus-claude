@@ -481,6 +481,20 @@ rp_collapse() { # $1=path -> lexically resolved, driving the function directly
     'collapse_dot_segments "$1"; printf "%s" "$_collapsed"' "$1"
 }
 
+# The two defensive predicates, driven directly. normalize() resolves '.' and
+# '..' before any gate sees them, so these can no longer be reached through a
+# tool call — removing either leaves the suite green. That is what makes a
+# direct test the only thing standing between them and silent rot.
+rp_has_traversal() { # $1=path -> YES | NO
+  rp_drive_fn "" has_unresolved_traversal \
+    'has_unresolved_traversal "$1" && echo YES || echo NO' "$1"
+}
+
+rp_single_segment() { # $1=segment -> YES | NO
+  rp_drive_fn "" is_single_segment \
+    'is_single_segment "$1" && echo YES || echo NO' "$1"
+}
+
 rp_normalize_msys() { # $1=path -> normalized with cygpath+distinct-// realpath
   local d="$rp_tmp/msysbin"
   if [ ! -x "$d/cygpath" ]; then
@@ -933,6 +947,24 @@ assert_decision "collapse: UNC cannot climb above its root" "//" "$(rp_collapse 
 # that is what leaves has_unresolved_traversal a real case to fail closed on.
 assert_decision "collapse: relative keeps leading '..'" "../x" "$(rp_collapse ../x)"
 assert_decision "collapse: relative resolves what it can" "../b" "$(rp_collapse ../a/../b)"
+
+echo "[restrict-paths: defensive predicates]"
+# These two are backstops behind normalize()'s central resolution, so no tool
+# call can reach them any more — delete either and every end-to-end assertion
+# still passes. Pin them directly, or they rot silently while looking guarded.
+assert_decision "traversal: bare '..'"            YES "$(rp_has_traversal '..')"
+assert_decision "traversal: leading '../'"        YES "$(rp_has_traversal '../x')"
+assert_decision "traversal: embedded '/../'"      YES "$(rp_has_traversal '/a/../b')"
+assert_decision "traversal: trailing '/..'"       YES "$(rp_has_traversal '/a/..')"
+assert_decision "traversal: ordinary path"        NO  "$(rp_has_traversal '/a/b')"
+assert_decision "traversal: dotted filename"      NO  "$(rp_has_traversal '/a/b..c')"
+assert_decision "traversal: filename ending '..'" NO  "$(rp_has_traversal '/a/b..')"
+assert_decision "segment: ordinary"               YES "$(rp_single_segment 'proj-1')"
+assert_decision "segment: empty"                  NO  "$(rp_single_segment '')"
+assert_decision "segment: '.'"                    NO  "$(rp_single_segment '.')"
+assert_decision "segment: '..'"                   NO  "$(rp_single_segment '..')"
+assert_decision "segment: contains a slash"       NO  "$(rp_single_segment 'a/b')"
+assert_decision "segment: dotted name is fine"    YES "$(rp_single_segment 'a..b')"
 
 # A UNC root spelled the NATIVE Windows way. cygpath is what turns it into
 # '//server/share', so the UNC probe has to read the post-cygpath spelling — not
