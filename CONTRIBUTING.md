@@ -194,6 +194,8 @@ Checks include:
 - `hooks.json` references existing scripts
 - Plugin-level agent files have required frontmatter fields
 - Reference depth does not exceed 2 levels (SKILL → A → B max)
+- `.claude/hooks/restrict-paths.sh` is byte-identical to the template users install
+- The restrict-paths template declares a `HOOK_VERSION` (bump it on every behavioural change — the SessionStart hook uses it to spot projects running a stale copy)
 
 ### Hook execution tests (CI)
 
@@ -207,7 +209,13 @@ Tests all state combinations (uninitialized, partial, fully configured, dirty tr
 - Correct recommendations for each project state
 - Zero-output guarantee for fully configured projects
 - Formatter hooks parse JSON input and filter by file extension correctly
-- restrict-paths hook enforces the tiered path model (in-project writes allowed, out-of-project writes ask, outside deletes denied) with memory-store/scratchpad exemptions and fail-closed fallbacks; creating a new file under the OS temp root still asks but adds a scratchpad reminder to the reason (and must never deny — a deny cannot be approved by the user), while existing files and `~/.claude` keep the plain prompt. Covers the macOS path shapes the exemption must survive (trailing-slash temp root, non-GNU realpath), rejection of relative and root temp roots, UNC-vs-local path distinction, and a self-check proving the harness reports a crashed hook rather than scoring its silence as an allow
+- restrict-paths hook enforces the tiered path model (in-project writes allowed, out-of-project writes ask, outside deletes denied) with memory-store/scratchpad exemptions and fail-closed fallbacks
+- Temp-write nudge: a new file under the OS temp root still asks (never denies — a deny cannot be approved by the user) and carries the scratchpad reminder in `additionalContext`, the field Claude reads, not in the user-facing reason; existing files and `~/.claude` keep the plain prompt
+- Platform path shapes the exemptions must survive: trailing-slash temp root, a realpath that rejects `-m`, and a realpath that is absent entirely (the cd/pwd fallback, reached by overriding the `command` builtin — a stripped PATH breaks bash on Windows)
+- Fail-closed gates: unresolved `..` at every rung of the exemption ladder including the project root, relative and root temp roots rejected, UNC temp roots accepted, dot segments rejected in both single-segment slots, and an unset HOME that must not anchor the memory store on the hook's CWD
+- `//`-leading paths follow the platform's own realpath rather than a hardcoded verdict, so the suite passes on both Cygwin and Linux
+- SessionStart flags an installed `restrict-paths.sh` whose `HOOK_VERSION` is behind the plugin's
+- Every verdict is scored from the hook's exit status as well as its output, so a hook that dies before printing scores CRASH rather than being mistaken for a silent allow; a self-check pins that guard
 
 ### Python unit tests (CI)
 

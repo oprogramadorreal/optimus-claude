@@ -115,8 +115,19 @@ check "No ref field in marketplace.json" \
 # exemption and broadened the precious-file patterns landed in the template
 # alone, leaving this repo running stale security logic). A template-only fix
 # leaves this repo unprotected; a .claude/-only fix ships nothing to users.
-check "restrict-paths hook copies are in sync" \
-  cmp -s .claude/hooks/restrict-paths.sh skills/permissions/templates/hooks/restrict-paths.sh
+# Guarded like every other optional tool below: a missing cmp must SKIP, not FAIL.
+if command -v cmp &>/dev/null; then
+  check "restrict-paths hook copies are in sync" \
+    cmp -s .claude/hooks/restrict-paths.sh skills/permissions/templates/hooks/restrict-paths.sh
+else
+  echo "  SKIP  restrict-paths hook sync check (cmp not installed)"
+fi
+
+# The hook carries a HOOK_VERSION that the SessionStart hook compares against a
+# project's installed copy. A behavioural change that forgets to bump it ships
+# silently to everyone who already ran /optimus:permissions.
+check "restrict-paths template declares a HOOK_VERSION" \
+  grep -qE '^# HOOK_VERSION: [0-9]+' skills/permissions/templates/hooks/restrict-paths.sh
 
 # --- 5. plugin.json validity ---
 if command -v jq &>/dev/null; then
