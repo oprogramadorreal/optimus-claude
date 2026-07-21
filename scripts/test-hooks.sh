@@ -448,8 +448,15 @@ RP_NO_PATH_TOOLS='command() { if [ "$1" = "-v" ]; then case "$2" in realpath|cyg
 # regression in it.
 # $1=prelude, $2=comma-separated function names to extract, $3=driver, $4...=args.
 # Every helper the extracted function calls must be listed, or it dies with
-# "command not found" and returns empty — which an assertion would report as a
-# wrong value rather than a broken harness.
+# "command not found" and returns empty.
+#
+# Mind the failure mode that costs you: for a driver printing a VALUE (rp_collapse,
+# rp_normalize_*) empty is a wrong answer and the assertion fails, as you want.
+# But a driver shaped `pred "$1" && echo YES || echo NO` prints the FALSE token
+# when the predicate is missing — bash returns 127, the `||` branch runs — so
+# every negative assertion passes against a hook that does not exist. That is why
+# each predicate below also carries at least one POSITIVE assertion: those are the
+# ones that actually pin it. Do not add a predicate here with negatives only.
 rp_drive_fn() {
   local prelude="$1" fns="$2" driver="$3"; shift 3
   local f="$rp_tmp/drive-fn.sh" fn
@@ -479,6 +486,21 @@ rp_normalize_no_realpath() { # $1=path -> normalized on a realpath-less platform
 rp_collapse() { # $1=path -> lexically resolved, driving the function directly
   rp_drive_fn "" collapse_dot_segments \
     'collapse_dot_segments "$1"; printf "%s" "$_collapsed"' "$1"
+}
+
+# As rp_collapse, but from a CWD holding three known entries. The splitting loop
+# is necessarily unquoted (that is what splits on IFS), so without `set -f` each
+# segment is also pathname-expanded against the CWD — and a '*' segment that
+# expands to N names absorbs N of the following '..'. The plain rp_collapse
+# above cannot see this: it inherits the caller's CWD, so the match count (and
+# therefore the resolved path) would depend on whatever the repo happens to
+# contain that day.
+rp_glob_cwd="$rp_tmp/globcwd"
+mkdir -p "$rp_glob_cwd"
+: > "$rp_glob_cwd/aaa"; : > "$rp_glob_cwd/bbb"; : > "$rp_glob_cwd/ccc"
+rp_collapse_globcwd() { # $1=path -> lexically resolved, CWD = 3 known entries
+  (cd "$rp_glob_cwd" && rp_drive_fn "" collapse_dot_segments \
+    'collapse_dot_segments "$1"; printf "%s" "$_collapsed"' "$1")
 }
 
 # The two defensive predicates, driven directly. normalize() resolves '.' and
@@ -807,6 +829,21 @@ assert_decision "Project-root traversal cannot bypass the rm block" DENY \
 assert_decision "Project root itself is in-project" ALLOW \
   "$(rp_decision_env HOME="$rp_tmp/home" CLAUDE_PROJECT_DIR="$rp_tmp/proj" -- Write file_path "$rp_tmp/proj")"
 
+# ...and the same escape dressed up with a glob. The hook runs with its CWD set
+# to the project root, so an unguarded split expands a '*' segment into one name
+# per entry there; those extra segments swallow the '..' and the path reads as
+# in-project to every gate while the OS still resolves it outside. Run from a CWD
+# with three known entries so the assertion does not depend on the repo's shape.
+# The '*' directory the OS needs is free: Write mkdir -p's its parent.
+assert_decision "Glob segment cannot absorb a traversal (write)" ASK \
+  "$(cd "$rp_glob_cwd" && rp_decision_env HOME="$rp_tmp/home" CLAUDE_PROJECT_DIR="$rp_tmp/proj" PATH="$rp_stub_bin:$PATH" -- Write file_path "$rp_tmp/proj/*/../../victim/.env")"
+assert_decision "Glob segment cannot bypass the rm block" DENY \
+  "$(cd "$rp_glob_cwd" && rp_decision_env HOME="$rp_tmp/home" CLAUDE_PROJECT_DIR="$rp_tmp/proj" PATH="$rp_stub_bin:$PATH" -- Bash command "rm -f $rp_tmp/proj/*/../../victim/.env")"
+# Control: a literal '*' in a filename is an ordinary in-project write, not a
+# traversal — the guard must not turn it into a prompt.
+assert_decision "Literal '*' in an in-project filename still allowed" ALLOW \
+  "$(cd "$rp_glob_cwd" && rp_decision_env HOME="$rp_tmp/home" CLAUDE_PROJECT_DIR="$rp_tmp/proj" PATH="$rp_stub_bin:$PATH" -- Write file_path "$rp_tmp/proj/star*file.txt")"
+
 echo "[restrict-paths: no realpath at all (cd/pwd fallback)]"
 # $rp_stub_bin models a realpath that EXISTS and rejects '-m'. A realpath that is
 # absent entirely is a different platform (older macOS, distroless) and reaches
@@ -947,6 +984,15 @@ assert_decision "collapse: UNC cannot climb above its root" "//" "$(rp_collapse 
 # that is what leaves has_unresolved_traversal a real case to fail closed on.
 assert_decision "collapse: relative keeps leading '..'" "../x" "$(rp_collapse ../x)"
 assert_decision "collapse: relative resolves what it can" "../b" "$(rp_collapse ../a/../b)"
+# Glob metacharacters must survive the split as ONE literal segment. Without the
+# `set -f` guard a '*' expands to every name in the CWD, so it consumes several
+# '..' that were meant to climb — the resolved path then lands arbitrarily deep
+# inside the project instead of outside it. (CWD here holds aaa, bbb, ccc.)
+assert_decision "collapse: '*' segment stays literal"   "/x/*/y" "$(rp_collapse_globcwd '/x/*/y')"
+assert_decision "collapse: '?' segment stays literal"   "/x/?bb/y" "$(rp_collapse_globcwd '/x/?bb/y')"
+assert_decision "collapse: '[..]' segment stays literal" "/x/[ab]/y" "$(rp_collapse_globcwd '/x/[ab]/y')"
+assert_decision "collapse: '*' consumes exactly one '..'" "/x/y" "$(rp_collapse_globcwd '/x/*/../y')"
+assert_decision "collapse: '*' cannot absorb a climb out" "/y" "$(rp_collapse_globcwd '/x/*/../../y')"
 
 echo "[restrict-paths: defensive predicates]"
 # These two are backstops behind normalize()'s central resolution, so no tool

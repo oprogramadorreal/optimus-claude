@@ -5,7 +5,7 @@
 # Source:       https://github.com/oprogramadorreal/optimus-claude
 # Docs:         skills/permissions/README.md
 # ============================================================================
-# HOOK_VERSION: 2
+# HOOK_VERSION: 3
 # ^ Bump on every behavioural change. The plugin's SessionStart hook compares
 #   this against the copy installed in a project and recommends re-running
 #   /optimus:permissions when the project's copy is older — a plugin update
@@ -79,9 +79,9 @@
 #   so a temp path you asked for yourself still comes to you for approval.
 #
 #   TWO AUDIENCES, TWO FIELDS. For a PreToolUse "ask", Claude Code shows
-#   permissionDecisionReason to the USER and gives additionalContext to CLAUDE
-#   ("appears next to the tool result for Claude to see on the next model
-#   request"). Only "deny" sends its reason to the model. So the prompt text is
+#   permissionDecisionReason to the USER, while additionalContext injects
+#   information for CLAUDE alongside the tool decision. Only "deny" sends its
+#   reason to the model. So the prompt text is
 #   written for you, and the scratchpad reminder — the part only Claude can act
 #   on — rides additionalContext. Putting the reminder in the reason instead
 #   would deliver it to the one party who cannot act on it.
@@ -231,6 +231,17 @@ collapse_dot_segments() {
   esac
   local -a parts=()
   local IFS='/'
+  # noglob around the split. `for seg in $p` is unquoted — it MUST be, that is
+  # what splits on IFS — so without this every segment is also pathname-expanded
+  # against the hook's CWD (the project root). A '*' segment then becomes N
+  # segments here but stays ONE for the OS, and the extra segments absorb the
+  # following '..', so '<proj>/*/../../../etc/evil' looks in-project to every
+  # gate while the OS resolves it outside: a silent allow on the write AND an
+  # escape from the rm hard-block. has_unresolved_traversal cannot backstop it,
+  # since the '..' are gone by then. Restored only if we set it, so an outer
+  # `set -f` survives.
+  local _noglob_set=""
+  [[ -o noglob ]] || { _noglob_set=1; set -f; }
   for seg in $p; do
     case "$seg" in
       ""|.) ;;
@@ -248,6 +259,7 @@ collapse_dot_segments() {
       *) parts+=("$seg") ;;
     esac
   done
+  [[ -n "$_noglob_set" ]] && set +f
   _collapsed="$lead${parts[*]-}"
 }
 
