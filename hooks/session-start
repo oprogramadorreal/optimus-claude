@@ -37,6 +37,33 @@ else
 
 fi
 
+# 3. Check the installed path-restriction hook is current.
+# templates/hooks/restrict-paths.sh is COPIED into a project by
+# /optimus:permissions. Updating the plugin never re-copies it, so a project can
+# keep running a hook that predates a security fix with nothing to say so. The
+# HOOK_VERSION line in each copy makes that drift visible. Silent unless the
+# project actually has the hook installed and the plugin's copy is newer.
+hook_version() { # $1=file -> integer; a copy with no marker predates versioning
+  local v
+  v="$(sed -n 's/^# HOOK_VERSION:[[:space:]]*\([0-9][0-9]*\).*/\1/p' "$1" 2>/dev/null | head -1)" || v=""
+  # Strip leading zeros: `[ 010 -gt 8 ]` evaluates 010 as OCTAL. No extglob needed.
+  while [ "${#v}" -gt 1 ] && [ "${v#0}" != "$v" ]; do v="${v#0}"; done
+  # Clamp absurd values: `[ -gt ]` writes "integer expected" to stderr on every
+  # session start for anything past int64, and the check would silently do nothing.
+  [ "${#v}" -gt 9 ] && v="999999999"
+  printf '%s' "${v:-0}"
+}
+
+installed_hook=".claude/hooks/restrict-paths.sh"
+template_hook="${CLAUDE_PLUGIN_ROOT:-}/skills/permissions/templates/hooks/restrict-paths.sh"
+if [ -f "$installed_hook" ] && [ -n "${CLAUDE_PLUGIN_ROOT:-}" ] && [ -f "$template_hook" ]; then
+  have="$(hook_version "$installed_hook")"
+  want="$(hook_version "$template_hook")"
+  if [ "$want" -gt "$have" ]; then
+    output+="[optimus] The path-restriction hook installed in this project (\`.claude/hooks/restrict-paths.sh\`, v$have) is older than the plugin's (v$want) and may be missing security fixes. Suggest re-running \`/optimus:permissions\` to update it."$'\n'
+  fi
+fi
+
 # Only output if there's something to report
 [ -n "$output" ] && printf '%s' "$output"
 

@@ -194,6 +194,8 @@ Checks include:
 - `hooks.json` references existing scripts
 - Plugin-level agent files have required frontmatter fields
 - Reference depth does not exceed 2 levels (SKILL → A → B max)
+- `.claude/hooks/restrict-paths.sh` is byte-identical to the template users install
+- The restrict-paths template declares a `HOOK_VERSION` (bump it on every behavioural change — the SessionStart hook uses it to spot projects running a stale copy)
 
 ### Hook execution tests (CI)
 
@@ -208,6 +210,13 @@ Tests all state combinations (uninitialized, partial, fully configured, dirty tr
 - Zero-output guarantee for fully configured projects
 - Formatter hooks parse JSON input and filter by file extension correctly
 - restrict-paths hook enforces the tiered path model (in-project writes allowed, out-of-project writes ask, outside deletes denied) with memory-store/scratchpad exemptions and fail-closed fallbacks
+- Temp-write nudge: a new file under the OS temp root still asks (never denies — a deny cannot be approved by the user) and carries the scratchpad reminder in `additionalContext`, the field Claude reads, not in the user-facing reason; existing files and `~/.claude` keep the plain prompt
+- Platform path shapes the exemptions must survive: trailing-slash temp root, a realpath that rejects `-m`, and a realpath that is absent entirely (the cd/pwd fallback, reached by overriding the `command` builtin — a stripped PATH breaks bash on Windows)
+- Fail-closed gates: unresolved `..` at every rung of the exemption ladder including the project root, relative and root temp roots rejected, UNC temp roots accepted, a dot segment rejected in the `<project>` slot of either exemption shape, and an unset HOME that must not anchor the memory store on the hook's CWD
+- Glob metacharacters survive path splitting as one literal segment. Without `set -f` around the unquoted split in `collapse_dot_segments`, a `*` segment expands to one name per entry in the hook's CWD, and those extra segments absorb the following `..` — an out-of-project write reads as in-project (silent allow) and an out-of-project `rm` escapes the hard block. Reachable wherever `realpath -m` is unavailable (macOS/BSD), which is the platform that function exists for
+- `//`-leading paths follow the platform's own realpath rather than a hardcoded verdict, so the suite passes on both Cygwin and Linux
+- SessionStart flags an installed `restrict-paths.sh` whose `HOOK_VERSION` is behind the plugin's
+- Every verdict is scored from the hook's exit status as well as its output, so a hook that dies before printing scores CRASH rather than being mistaken for a silent allow; a self-check pins that guard
 
 ### Python unit tests (CI)
 
