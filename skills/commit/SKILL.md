@@ -1,5 +1,5 @@
 ---
-description: Stages, commits, and optionally pushes local changes with a Conventional Commits message — always previews and confirms first, and offers a feature branch on protected branches. Modes: "suggest" proposes a message without committing (read-only); "branch [description]" creates and switches to a conventionally named branch, never committing or altering local changes. Multi-repo aware.
+description: 'Stages, commits, and optionally pushes local changes with a Conventional Commits message — always previews and confirms first, and offers a feature branch on protected branches. Modes: "suggest" proposes a message without committing (read-only); "branch [description]" creates and switches to a conventionally named branch, never committing or altering local changes. Multi-repo aware.'
 disable-model-invocation: true
 argument-hint: "[suggest | branch [description]]"
 ---

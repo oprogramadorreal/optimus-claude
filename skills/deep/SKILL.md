@@ -28,7 +28,7 @@ If your invocation prompt body already contains `HARNESS_MODE_INLINE`, stop imme
 
 1. Target — the first standalone token must be `review`, `refactor`, or `coverage`; otherwise stop and show the usage from the argument hint. All table lookups below use this target's row.
 2. `--resume` and `--no-commit` flags (present/absent)
-3. `--yes` flag — auto-confirm the Step 3 prompt; required when invoked under `claude -p` or any other non-interactive session that cannot answer `AskUserQuestion`.
+3. `--yes` flag — auto-confirm every confirmation prompt in this skill (the Step 3 prompt and Step 4's coverage red-baseline confirmation); required when invoked under `claude -p` or any other non-interactive session that cannot answer `AskUserQuestion`.
 4. Cap — the target's cap flag from the table (`--max-iterations N` or `--max-cycles N`), default and hard cap per the table.
 5. Focus — refactor target only; stop on any other value or any other target (the CLI rejects both). Accept **either** `--focus testability|guidelines` **or** a bare `testability`/`guidelines` token, applying the **Focus** detection rules in `$CLAUDE_PLUGIN_ROOT/skills/refactor/SKILL.md` — read that section when parsing this item; it is the single source for the rule (do not paraphrase it here). A token consumed as focus is removed from the scope text before item 7 — otherwise `deep refactor guidelines src` would lose the `src` path scope.
 6. `--allow-red-baseline` — review/refactor only; coverage always tolerates a red baseline (see Step 4).
@@ -114,7 +114,7 @@ PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli baseline \
 `baseline` runs the test command once and calibrates the per-iteration timeout from its duration. Per target:
 
 - **review / refactor** — green required. On `baseline-red`, stop and show the failing tests (a red starting tree makes bisection blame the iteration's fixes and revert good work); the user can fix them or re-run with `--allow-red-baseline`. Pass the CLI `--allow-red` only when the user supplied `--allow-red-baseline` — the CLI's own failure message names its internal flag, not the skill flag.
-- **coverage** — always pass `--allow-red`: a coverage run legitimately starts with little or no passing coverage. If the CLI prints `baseline-red-allowed` and the project already has tests (or the baseline hit the test timeout), warn the user and confirm before entering the loop: a failing suite trips the unit-test phase's `blocked` stop gate at cycle 1, and a timing-out suite silently rolls every cycle's tests back.
+- **coverage** — always pass `--allow-red`: a coverage run legitimately starts with little or no passing coverage. If the CLI prints `baseline-red-allowed` and the project already has tests (or the baseline hit the test timeout), warn the user and confirm before entering the loop — under `--yes`, print the warning and proceed without confirming: a failing suite trips the unit-test phase's `blocked` stop gate at cycle 1, and a timing-out suite silently rolls every cycle's tests back.
 
 ## Step 5: Run the Loop
 
