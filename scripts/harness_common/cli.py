@@ -151,13 +151,17 @@ def _make_coverage_progress(
     test_command,
     project_root,
     base_commit,
+    skill="unit-test",
     no_commit=False,
     scope_text=None,
 ):
+    # `skill` is the requested COVERAGE_VARIANT_SKILLS member: resume/current
+    # re-dispatch from this field, so pinning it to one skill name would break
+    # any future second coverage variant the roster otherwise supports.
     return {
         "schema_version": 1,
         "harness": "test-coverage",
-        "skill": "unit-test",
+        "skill": skill,
         "config": {
             "max_cycles": max_cycles,
             "test_command": test_command,
@@ -568,7 +572,9 @@ def _scope_is_path(scope, project_root):
     if not scope:
         return False
     leaf = scope.replace("\\", "/").rstrip("/").rsplit("/", 1)[-1]
-    if leaf.split(".")[0].lower() in _DOS_DEVICE_NAMES:
+    # Windows only: a POSIX tree can legitimately contain an aux/ or con.py,
+    # and demoting those to prose scope would silently widen the run.
+    if os.name == "nt" and leaf.split(".")[0].lower() in _DOS_DEVICE_NAMES:
         return False
     candidate = (project_root / scope).resolve()
     return candidate.exists() and (
@@ -589,7 +595,8 @@ def _init_coverage(args, project_root, test_command, base_commit):
         test_command,
         project_root,
         base_commit,
-        args.no_commit,
+        skill=args.skill,
+        no_commit=args.no_commit,
         scope_text=args.scope if (args.scope and not scope_is_path) else None,
     )
 
@@ -819,7 +826,9 @@ def cmd_resume(args):
     # intent) and scope becomes null (full project). Files written by 3.0
     # always carry the scope_text key, so they are never touched.
     if _is_coverage(progress) and config.get("scope") and "scope_text" not in config:
-        scope_root = Path(config.get("project_root") or args.project_dir or ".").resolve()
+        scope_root = Path(
+            config.get("project_root") or args.project_dir or "."
+        ).resolve()
         if not _scope_is_path(config["scope"], scope_root):
             config["scope_text"] = config["scope"]
             config["scope"] = None
@@ -1181,6 +1190,11 @@ def cmd_unit_test_step(args):
             delta = float(str(delta).strip().rstrip("%"))
         except (TypeError, ValueError):
             delta = None
+    if isinstance(delta, float) and not math.isfinite(delta):
+        # json.loads lets NaN/Infinity literals through and the coercion above
+        # accepts "nan"; a non-finite delta never compares == 0, which would
+        # defeat the plateau net — drop it into the before/after derivation.
+        delta = None
     if (
         delta is None
         and isinstance(before, (int, float))

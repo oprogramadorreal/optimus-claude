@@ -216,7 +216,9 @@ class TestInit:
         assert "focus" in captured.err.lower()
         assert not progress_path.exists()
 
-    def test_init_rejects_max_cycles_on_deep_target(self, tmp_path, monkeypatch, capsys):
+    def test_init_rejects_max_cycles_on_deep_target(
+        self, tmp_path, monkeypatch, capsys
+    ):
         # The cap flag is per-variant; the wrong one must fail loudly instead of
         # being silently dropped (the run would cap at the default while the
         # caller believes their value was applied).
@@ -280,9 +282,7 @@ class TestInit:
         assert exit_code == 0
         assert _read_progress(progress_path)["config"]["focus"] == "testability"
 
-    def test_unknown_skill_reports_skill_not_focus(
-        self, tmp_path, monkeypatch, capsys
-    ):
+    def test_unknown_skill_reports_skill_not_focus(self, tmp_path, monkeypatch, capsys):
         # A doubly-invalid invocation (typo'd skill + misplaced --focus) must
         # name the real problem first, not a downstream gate's error.
         repo = _make_repo(tmp_path)
@@ -396,12 +396,15 @@ class TestInit:
         deep_progress = cli._init_deep(deep_args, repo, "npm test", "abc123")
         assert isinstance(deep_progress, dict)
         assert deep_progress["skill"] == "code-review"
-        coverage_args = argparse.Namespace(scope="", max_cycles=None, no_commit=False)
+        coverage_args = argparse.Namespace(
+            skill="unit-test", scope="", max_cycles=None, no_commit=False
+        )
         coverage_progress = cli._init_coverage(
             coverage_args, repo, "npm test", "abc123"
         )
         assert isinstance(coverage_progress, dict)
         assert coverage_progress["harness"] == "test-coverage"
+        assert coverage_progress["skill"] == "unit-test"
 
     def test_unknown_skill_errors(self, tmp_path, monkeypatch, capsys):
         # --skill has no argparse `choices` constraint, so an unsupported value
@@ -1249,9 +1252,7 @@ class TestResume:
         assert exit_code == 1
         assert "--max-iterations" in capsys.readouterr().err
 
-    def test_legacy_scope_migration_resolves_relative_root(
-        self, tmp_path, monkeypatch
-    ):
+    def test_legacy_scope_migration_resolves_relative_root(self, tmp_path, monkeypatch):
         # A legacy coverage file without project_root, resumed with a relative
         # --project-dir, must keep a real path scope: an unresolved root made
         # the containment check always fail and silently widened the run to the

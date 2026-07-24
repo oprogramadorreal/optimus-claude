@@ -513,8 +513,13 @@ fi
 # frozensets, so a new deep target is covered here automatically instead of
 # shipping unvalidated when a hardcoded list goes stale.
 if [ -n "$py_cmd" ]; then
-  deep_variant_skills=$(PYTHONPATH=./scripts "$py_cmd" -c "from harness_common.constants import DEEP_VARIANT_SKILLS; print(' '.join(sorted(DEEP_VARIANT_SKILLS)))")
-  coverage_variant_skills=$(PYTHONPATH=./scripts "$py_cmd" -c "from harness_common.constants import COVERAGE_VARIANT_SKILLS; print(' '.join(sorted(COVERAGE_VARIANT_SKILLS)))")
+  # `|| true`: an import-time failure in constants.py must surface as a contract
+  # FAIL below, not abort the whole run via set -e with no summary printed.
+  deep_variant_skills=$(PYTHONPATH=./scripts "$py_cmd" -c "from harness_common.constants import DEEP_VARIANT_SKILLS; print(' '.join(sorted(DEEP_VARIANT_SKILLS)))" 2>/dev/null) || true
+  coverage_variant_skills=$(PYTHONPATH=./scripts "$py_cmd" -c "from harness_common.constants import COVERAGE_VARIANT_SKILLS; print(' '.join(sorted(COVERAGE_VARIANT_SKILLS)))" 2>/dev/null) || true
+  if [ -z "$deep_variant_skills" ] || [ -z "$coverage_variant_skills" ]; then
+    contract_errors+="  harness roster derivation failed: scripts/harness_common/constants.py did not yield DEEP_VARIANT_SKILLS/COVERAGE_VARIANT_SKILLS\n"
+  fi
   for hs in $deep_variant_skills; do
     require_tokens "skills/$hs/SKILL.md" 'HARNESS_MODE_INLINE' 'references/harness-mode.md'
   done
