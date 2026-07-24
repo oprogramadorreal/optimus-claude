@@ -792,16 +792,56 @@ rp_run_scratch Bash command "rm $scratch_root/scratch-foo/x.md"
 assert_decision "Temp-root delete stays blocked"      DENY "$(rp_verdict)"
 assert_reason_has "Delete block is a plain block" "Cannot delete"
 
+echo "[restrict-paths: Bash command extraction and git protection]"
+# The command value is a JSON string: extraction must walk over escaped quotes,
+# not stop at the first \" — truncating there silently skipped EVERY Bash guard
+# for commands as ordinary as `git commit -m "msg" && ...`.
+assert_decision "Guard survives a quoted prefix" DENY \
+  "$(rp_decision Bash command 'echo \"hi\" && rm /outside/victim.txt')"
+# A pipe hands the delete to xargs; the rm guard must see through the wrapper.
+assert_decision "Piped xargs rm outside project denied" DENY \
+  "$(rp_decision Bash command "find . | xargs rm $rp_tmp/outside/a.txt")"
+assert_decision "Piped xargs -0 rm outside project denied" DENY \
+  "$(rp_decision Bash command "find . -print0 | xargs -0 rm $rp_tmp/outside/a.txt")"
+assert_decision "Piped xargs rm inside project allowed" ALLOW \
+  "$(rp_decision Bash command "find . | xargs rm $rp_tmp/proj/src/a.txt")"
+
+# Branch protection resolves the CURRENT branch via git, so these fixtures need
+# a real checkout on a protected branch — a bare directory cannot exercise them.
+rp_git="$rp_tmp/gitrepo"
+mkdir -p "$rp_git"
+git -C "$rp_git" init -q -b master 2>/dev/null \
+  || { git -C "$rp_git" init -q && git -C "$rp_git" checkout -q -b master; }
+git -C "$rp_git" -c user.email=t@t -c user.name=t -c commit.gpgsign=false \
+  commit -q --allow-empty -m init
+rp_git_decision() { # $1=raw JSON command value
+  rp_decision_env HOME="$rp_tmp/home" CLAUDE_PROJECT_DIR="$rp_git" -- Bash command "$1"
+}
+assert_decision "Push to protected branch denied"      DENY  "$(rp_git_decision 'git push origin master')"
+# HEAD/@ name the current branch indirectly — they must resolve, not fail open.
+assert_decision "Push via HEAD refspec denied"         DENY  "$(rp_git_decision 'git push origin HEAD')"
+assert_decision "Push via @ refspec denied"            DENY  "$(rp_git_decision 'git push origin @')"
+assert_decision "Push to feature branch allowed"       ALLOW "$(rp_git_decision 'git push origin feature-x')"
+assert_decision "Push HEAD to feature refspec allowed" ALLOW "$(rp_git_decision 'git push origin HEAD:feature-x')"
+# -Df bundles --delete and --force into one short-flag cluster.
+assert_decision "Bundled -Df branch delete denied"     DENY  "$(rp_git_decision 'git branch -Df master')"
+assert_decision "Bundled -Df feature delete allowed"   ALLOW "$(rp_git_decision 'git branch -Df feature-x')"
+assert_decision "Commit with quoted message still guarded" DENY \
+  "$(rp_git_decision 'git commit -m \"fix: something\"')"
+
 echo "[restrict-paths: path normalization]"
 # EXACTLY two leading slashes are a UNC network root on MSYS/Cygwin, but plain
 # '/' on Linux/glibc — POSIX leaves the case implementation-defined. normalize()
 # must AGREE with whatever the platform's realpath does, so the expected verdict
 # is DERIVED from a probe rather than hardcoded. Hardcoding ASK here passed on
 # Cygwin and failed the whole suite on the ubuntu-latest CI runner.
-if [ "$(realpath -m -- //probe/x 2>/dev/null)" = "//probe/x" ]; then
-  rp_unc_expect=ASK      # distinct root: //proj is NOT the project at /proj
-else
+if [ "$(realpath -m -- //probe/x 2>/dev/null)" = "/probe/x" ]; then
   rp_unc_expect=ALLOW    # '//' collapses to '/': //proj IS the project
+else
+  # Distinct root kept — or realpath ERRORED (present but no '-m', macOS 13+):
+  # normalize() preserves the // root on failure, so only a positive collapse
+  # predicts ALLOW. An empty probe result must never read as "collapsed".
+  rp_unc_expect=ASK
 fi
 assert_decision "UNC-style //path follows the platform ($rp_unc_expect)" "$rp_unc_expect" \
   "$(rp_decision_env HOME="$rp_tmp/home" CLAUDE_PROJECT_DIR="$rp_tmp/proj" -- Write file_path "/$rp_tmp/proj/x.txt")"
@@ -1038,10 +1078,17 @@ assert_reason_has "Backspace is escaped as \\b, not dropped" 'a\bb'
 rp_run HOME="$rp_tmp/home" CLAUDE_PROJECT_DIR="$rp_tmp/proj" -- Write file_path "/out/$rp_ff.md"
 assert_reason_has "Formfeed is escaped as \\f, not dropped" 'a\fb'
 # Every decision must be parseable JSON — that is what makes escaping load-bearing.
-if command -v python >/dev/null 2>&1; then
+# Probe by RUNNING the interpreter, not `command -v`: on Windows a bare `python`
+# can resolve to the Store alias stub, which exists but cannot run anything
+# (same probe validate.sh uses).
+rp_py=""
+if python3 --version >/dev/null 2>&1; then rp_py="python3"
+elif python --version >/dev/null 2>&1; then rp_py="python"
+fi
+if [ -n "$rp_py" ]; then
   rp_run HOME="$rp_tmp/home" CLAUDE_PROJECT_DIR="$rp_tmp/proj" -- \
     Write file_path "$(printf '/out/q"b\\s %%s\t%%d\bx.md')"
-  if printf '%s' "$rp_out" | python -c 'import json,sys; json.loads(sys.stdin.read())' 2>/dev/null; then
+  if printf '%s' "$rp_out" | "$rp_py" -c 'import json,sys; json.loads(sys.stdin.read())' 2>/dev/null; then
     printf "  PASS  %s\n" "Decision is valid JSON for a hostile path"; ((pass++)) || true
   else
     printf "  FAIL  %s (unparseable: %s)\n" "Decision is valid JSON for a hostile path" "$rp_out"; ((errors++)) || true
