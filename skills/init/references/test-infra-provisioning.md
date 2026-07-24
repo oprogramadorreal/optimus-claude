@@ -1,57 +1,54 @@
 # Test Infrastructure Provisioning
 
-This reference covers the complete test infrastructure setup: framework and coverage tooling installation, health check, and Optimus documentation provisioning. Read by init's test infrastructure step.
+Complete test infrastructure setup: framework and coverage tooling installation, health check, and Optimus documentation provisioning. Read by init's test infrastructure step.
 
 ## Framework and Coverage Tooling Installation
 
-### Subprojects without a test framework
+### Framework selection
 
-Analyze the tech stack and recommend the most popular framework with appropriate coverage tooling. Consult `$CLAUDE_PLUGIN_ROOT/skills/init/references/test-framework-recommendations.md` for stack-specific recommendations. For unsupported stacks, read `$CLAUDE_PLUGIN_ROOT/skills/init/references/unsupported-stack-fallback.md` and apply its command validation and approval rules. These are starting points — analyze the actual project to decide. Ask for **explicit user approval** before installing anything.
+Recommend the stack's dominant framework — these pins override general knowledge; analyze the actual project to decide:
 
-If installation fails (network issues, version conflicts, incompatible environments), report the error to the user and stop — do not proceed without a working framework.
+- Prefer whatever framework the project or its peer projects already use; keep an existing Jest setup unless migration is explicitly requested.
+- Node.js/TypeScript with Vite, ESBuild, or SWC → Vitest (built-in v8 coverage); otherwise Jest (`--coverage`). New Angular projects → Vitest; existing Angular tests → keep what's there.
+- Go and Rust → built-in test tooling (no third-party framework). Rust coverage: cargo-tarpaulin (`--out Html`) or cargo-llvm-cov (`--html`).
+- C#/.NET → xUnit + coverlet; coverlet emits machine-readable output only, so also install `dotnet-reportgenerator-globaltool` for readable reports.
+- Flutter → flutter_test (`flutter test --coverage`, LCOV); pure Dart → package:test. Filter generated files (`*.g.dart`, `*.freezed.dart`) from coverage reports; integration tests go in `integration_test/`.
+- Python → pytest + pytest-cov; Java → JUnit 5 + JaCoCo; C/C++ → Google Test or Catch2 + gcov/lcov (report via `genhtml`).
+- PHP → PHPUnit (coverage via Xdebug or PCOV); Ruby → RSpec + SimpleCov.
+- Unknown stack → search the web for the most popular framework and coverage tooling, applying the command validation and approval rules from `$CLAUDE_PLUGIN_ROOT/skills/init/references/unsupported-stack-fallback.md`.
 
-### Subprojects with framework but without coverage tooling
+Ask for **explicit user approval** before installing anything. If installation fails (network issues, version conflicts, incompatible environments), report the error and stop — do not proceed without a working framework.
 
-Detect this gap separately and recommend installing coverage tooling. Coverage measurement is essential for reporting meaningful results and setting achievable targets. Ask for explicit user approval.
+### Coverage tooling gaps
 
-### Coverage report tooling
-
-If the installed coverage tool only generates machine-readable output (XML, JSON) without a built-in human-readable report, install a report generator alongside it. Consult the "Report Tool" column in `$CLAUDE_PLUGIN_ROOT/skills/init/references/test-framework-recommendations.md`. Ask for explicit user approval. Include the report command in `testing.md` and `CLAUDE.md` coverage sections.
+If a framework exists but coverage tooling is missing, recommend installing it (approval required) — coverage measurement is essential for meaningful results and achievable targets. If the coverage tool only produces machine-readable output (XML, JSON), also install a report generator (see the pins above) and include the report command in `testing.md` and CLAUDE.md.
 
 ## Test Infrastructure Health Check
 
-After framework exists (pre-existing or just installed), run the test suite once to verify it works. Distinguish between failure types:
+After a framework exists (pre-existing or just installed), run the test suite once. Distinguish failure types:
 
-- **Build/bootstrap failure** (test runner cannot start, or test files fail to compile — broken imports, missing polyfills, deprecated paths in setup files like `src/test.ts`, `jest.config.*`, `conftest.py`, or compilation errors in `.spec`/`.test` files due to renamed/removed APIs) — these are build-level issues, not test logic. Report the specific errors, ask the user for approval to fix them, and re-run. Apply minimal changes: update import paths, fix type references, adjust mocks to match current signatures. If the fix requires more than build-level corrections, stop and report.
-- **Test assertion failures** (tests compile and run, but some fail) — report but continue. These are logic bugs, not infrastructure issues. Record `{ scope, failing_count }` where `scope` is one of `project`, `subproject`, or `repo`, and carry it into Step 7's summary (consumed by the broken-baseline modifier).
-- **All pass** — proceed normally.
+- **Build/bootstrap failure** (runner cannot start, or test files fail to compile — broken imports, missing polyfills, deprecated paths in setup files like `src/test.ts`, `jest.config.*`, `conftest.py`, or compilation errors in `.spec`/`.test` files from renamed/removed APIs): build-level issues, not test logic. Report the specific errors, ask user approval to fix, and re-run. Apply minimal changes only (import paths, type references, mock signatures). If the fix needs more than build-level corrections, stop and report.
+- **Test assertion failures** (tests compile and run, some fail): report but continue — these are logic bugs, not infrastructure. Record `{ scope, failing_count }` where `scope` is `project`, `subproject`, or `repo`, and carry it into Step 7's summary (consumed by the broken-baseline modifier).
+- **All pass** → proceed normally.
 
 ## Optimus Infrastructure Provisioning
 
-This phase runs **regardless** of whether the steps above installed anything — test infrastructure may have been added manually. Provision what is missing:
+This phase runs **regardless** of whether anything was installed above — test infrastructure may have been added manually. Provision what is missing:
 
 ### Testing documentation
 
-**Placement:** single project — `.claude/docs/testing.md`. Monorepo — `<subproject>/docs/testing.md` for each subproject with test infrastructure, scoped to that subproject's framework and commands; create root `.claude/docs/testing.md` only when the root is itself a project (root-as-project). The create/review semantics below apply per file.
+**Placement:** single project — `.claude/docs/testing.md`. Monorepo — `<subproject>/docs/testing.md` per subproject with test infrastructure, scoped to that subproject's framework and commands; root `.claude/docs/testing.md` only for root-as-project.
 
-If the testing.md doesn't exist, create it using `$CLAUDE_PLUGIN_ROOT/skills/init/templates/docs/testing.md` as the skeleton. Fill in all placeholders with actual project details (framework name, test commands, directory structure, conventions from existing test files). Don't leave any `[placeholder]` text.
-
-If it already exists, review it for accuracy. Propose updates if outdated — especially if a new framework was just installed. Ask user approval before modifying.
+If testing.md doesn't exist, create it from `$CLAUDE_PLUGIN_ROOT/skills/init/templates/docs/testing.md`, filling every placeholder with actual project details (framework, commands, directory structure, conventions from existing test files). If it exists, review for accuracy and propose updates — especially after installing a new framework — with user approval (Customizable semantics).
 
 ### CLAUDE.md testing references
 
-If `.claude/CLAUDE.md` doesn't reference testing, add test commands and a testing.md reference. In monorepos without root-as-project, add workspace-wide test commands only — do not reference a root testing.md that was not created; subproject testing.md references are handled below. Keep within init's compact ~60-line style — add to existing sections rather than creating new ones.
-
-### Monorepo subprojects
-
-For monorepos, update subproject-level `CLAUDE.md` files too. Each subproject with test infrastructure should reference its own `docs/testing.md` (created above) and test commands.
+If `.claude/CLAUDE.md` doesn't reference testing, add test commands and a testing.md reference — extend existing sections, keep the compact ~60-line style. Monorepos without root-as-project: add workspace-wide test commands only (no root testing.md reference); each subproject's CLAUDE.md references its own `docs/testing.md` and commands.
 
 ### README testing section
 
-If `README.md` exists at the project root and doesn't already have a testing section (scan for headings containing "test", case-insensitive), append a concise section with: test command, coverage command (if configured), and test project/directory location. Match the README's existing heading level, language, and formatting style. Use `.claude/docs/testing.md` as the source of truth for commands and paths — do not duplicate its full content. Keep the section to 5-10 lines.
-
-For monorepos, update each subproject's `README.md` too if it exists and lacks a testing section.
+If `README.md` exists at the project root and has no testing heading (scan for headings containing "test", case-insensitive), append a concise 5-10-line section: test command, coverage command (if configured), test directory location. Match the README's heading level and style; source commands from testing.md, don't duplicate its content. Monorepos: same for each subproject README that exists and lacks one.
 
 ### Gitignore test artifacts
 
-If `.gitignore` exists and doesn't already ignore the test output directory (e.g., `TestResults/` for .NET, `htmlcov/` for Python, `coverage/` for Node.js), append the appropriate entry. One line, matching the file's existing style.
+If `.gitignore` exists and doesn't ignore the test output directory (e.g., `TestResults/`, `htmlcov/`, `coverage/`), append the appropriate entry — one line, matching the file's style.

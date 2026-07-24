@@ -1,17 +1,17 @@
-"""Orchestrator CLI for the *-deep skills.
+"""Orchestrator CLI for the /optimus:deep skill.
 
-Subcommands compose the per-iteration steps the `/optimus:code-review-deep`,
-`/optimus:refactor-deep`, and `/optimus:unit-test-deep` skills run via Bash.
-The skills hold no state; the CLI reads/writes a JSON progress file on disk.
+Subcommands compose the per-iteration steps that `/optimus:deep`'s three
+targets (review, refactor, coverage) run via Bash.
+The skill holds no state; the CLI reads/writes a JSON progress file on disk.
 
 Subcommand summary:
   init                    — create initial progress file
   resume                  — validate existing progress file for continuation
   snapshot                — capture pre-iteration git state into progress
   parse                   — extract json:harness-output from subagent text
-  deep-step               — apply/test/bisect for code-review-deep / refactor-deep
-  unit-test-step          — record tests + coverage for unit-test-deep
-  refactor-step           — apply/test/bisect for unit-test-deep's refactor phase
+  deep-step               — apply/test/bisect for the review / refactor targets
+  unit-test-step          — record tests + coverage for the coverage target
+  refactor-step           — apply/test/bisect for the coverage target's refactor phase
   record-cycle            — append cycle_history entry (paired variant)
   commit-checkpoint       — create git checkpoint commit
   check-termination       — print one of continue|convergence|no-actionable|
@@ -46,15 +46,16 @@ from .constants import (
     DEFAULT_PROGRESS_FILES,
     DEFAULT_TEST_TIMEOUT,
     FIXED_STATUSES,
+    FOCUS_MODES_BY_SKILL,
     MAX_CYCLES_HARD_CAP,
     MAX_ITERATIONS_HARD_CAP,
     PERSISTENT_STATUS,
     PHASE_COMMIT_TYPE,
+    SCRATCH_GLOBS,
     SKILL_COMMIT_TYPE,
     SOFT_EXIT_LOW_YIELD_THRESHOLD,
     SOFT_EXIT_MIN_ITERATION,
     SOFT_EXIT_WINDOW,
-    VALID_FOCUS_MODES,
     normalize_path,
 )
 from .convergence import (
@@ -145,17 +146,31 @@ def _make_deep_progress(
 
 
 def _make_coverage_progress(
-    scope, max_cycles, test_command, project_root, base_commit, no_commit=False
+    scope,
+    max_cycles,
+    test_command,
+    project_root,
+    base_commit,
+    skill="unit-test",
+    no_commit=False,
+    scope_text=None,
 ):
+    # `skill` is the requested COVERAGE_VARIANT_SKILLS member: resume/current
+    # re-dispatch from this field, so pinning it to one skill name would break
+    # any future second coverage variant the roster otherwise supports.
     return {
         "schema_version": 1,
         "harness": "test-coverage",
-        "skill": "unit-test",
+        "skill": skill,
         "config": {
             "max_cycles": max_cycles,
             "test_command": test_command,
             "test_timeout": DEFAULT_TEST_TIMEOUT,
+            # Only a resolved path reaches discovery as a filter; null means the
+            # full project. Free-text intent is parked in scope_text, which
+            # nothing consumes (see _scope_is_path).
             "scope": scope,
+            "scope_text": scope_text,
             "project_root": normalize_path(str(project_root)),
             "base_commit": base_commit,
             # The refactor phase dispatches /optimus:refactor in harness mode,
@@ -407,7 +422,7 @@ def _test_and_reconcile_fixes(
 
 
 def _make_refactor_bisect_callback(progress, cycle):
-    """Parallel of _make_bisect_callback for the unit-test-deep refactor phase.
+    """Parallel of _make_bisect_callback for the coverage target's refactor phase.
 
     Writes to progress["refactor_findings"] scoped by cycle rather than to
     progress["findings"], and skips the escalation chain (refactor findings
@@ -535,61 +550,71 @@ def _progress_path_for_skill(args):
     return Path(default)
 
 
+# DOS device names resolve as "existing" in every directory on Windows — they
+# are never real scope paths, so reject them before the filesystem check.
+_DOS_DEVICE_NAMES = frozenset(
+    {"nul", "con", "prn", "aux"}
+    | {f"com{i}" for i in range(1, 10)}
+    | {f"lpt{i}" for i in range(1, 10)}
+)
+
+
+def _scope_is_path(scope, project_root):
+    """True when `scope` names an existing path inside `project_root`.
+
+    Natural-language scope ("focus on the auth module") cannot be turned into a
+    reliable path filter, so every target records it as intent text instead of
+    handing it downstream — the contract the deep skill states for all three
+    targets. The containment check also rejects absolute paths (Path semantics:
+    `project_root / "/etc"` yields `/etc`), which would otherwise be passed on
+    as a filter that matches nothing.
+    """
+    if not scope:
+        return False
+    leaf = scope.replace("\\", "/").rstrip("/").rsplit("/", 1)[-1]
+    # Windows only: a POSIX tree can legitimately contain an aux/ or con.py,
+    # and demoting those to prose scope would silently widen the run.
+    if os.name == "nt" and leaf.split(".")[0].lower() in _DOS_DEVICE_NAMES:
+        return False
+    candidate = (project_root / scope).resolve()
+    return candidate.exists() and (
+        candidate == project_root or project_root in candidate.parents
+    )
+
+
 def _init_coverage(args, project_root, test_command, base_commit):
-    """Build the initial progress dict for unit-test-deep (paired variant)."""
+    """Build the initial progress dict for the coverage target (paired variant)."""
     requested_cycles = (
         args.max_cycles if args.max_cycles is not None else DEFAULT_MAX_CYCLES
     )
     max_cycles = max(min(requested_cycles, MAX_CYCLES_HARD_CAP), 1)
-    return (
-        _make_coverage_progress(
-            args.scope,
-            max_cycles,
-            test_command,
-            project_root,
-            base_commit,
-            args.no_commit,
-        ),
-        0,
+    scope_is_path = _scope_is_path(args.scope, project_root)
+    return _make_coverage_progress(
+        args.scope if scope_is_path else None,
+        max_cycles,
+        test_command,
+        project_root,
+        base_commit,
+        skill=args.skill,
+        no_commit=args.no_commit,
+        scope_text=args.scope if (args.scope and not scope_is_path) else None,
     )
 
 
 def _init_deep(args, project_root, test_command, base_commit):
-    """Build the initial progress dict for code-review-deep / refactor-deep."""
+    """Build the initial progress dict for the review / refactor targets."""
     skill = args.skill
-    if args.focus and args.focus not in VALID_FOCUS_MODES:
-        print(
-            f"ERROR: --focus must be one of {sorted(VALID_FOCUS_MODES)}",
-            file=sys.stderr,
-        )
-        return None, 1
-    if args.focus and skill != "refactor":
-        print(
-            "ERROR: --focus is only supported with --skill refactor",
-            file=sys.stderr,
-        )
-        return None, 1
     requested_iter = (
         args.max_iterations
         if args.max_iterations is not None
         else DEFAULT_MAX_ITERATIONS
     )
     max_iter = max(min(requested_iter, MAX_ITERATIONS_HARD_CAP), 1)
-    # Treat scope as a git pathspec only when it resolves to an existing path
-    # under project_root. Natural-language scope ("focus on src/auth") cannot be
-    # turned into a reliable pathspec, so it is recorded in config.scope.scope_text
-    # for provenance only: the harness-mode dispatch does not consume it and the
-    # subagent reviews the full branch diff (see the scope note in each -deep
-    # SKILL.md / README). The containment check also rejects absolute paths (Path
-    # semantics: `project_root / "/etc"` yields `/etc`), which would otherwise be
-    # silently handed to git as a pathspec that matches nothing.
-    if args.scope:
-        candidate = (project_root / args.scope).resolve()
-        scope_is_path = candidate.exists() and (
-            candidate == project_root or project_root in candidate.parents
-        )
-    else:
-        scope_is_path = False
+    # Treat scope as a git pathspec only when it resolves to a real path; prose
+    # is recorded in config.scope.scope_text for provenance only, so the
+    # harness-mode dispatch ignores it and the subagent reviews the full branch
+    # diff (see the scope note in the deep skill's SKILL.md / README).
+    scope_is_path = _scope_is_path(args.scope, project_root)
     progress = _make_deep_progress(
         skill,
         args.scope,
@@ -615,12 +640,68 @@ def _init_deep(args, project_root, test_command, base_commit):
     pr_info = git_fetch_open_pr_description(project_root, pr_info=pr_data)
     if pr_info:
         progress["config"]["pr_description"] = pr_info
-    return progress, 0
+    return progress
 
 
 def cmd_init(args):
     skill = args.skill
     project_root = Path(args.project_dir).resolve()
+
+    # Unknown-skill check first: a doubly-invalid invocation (typo'd skill plus
+    # a misplaced flag) must name the real problem, not a downstream gate's.
+    if skill not in COVERAGE_VARIANT_SKILLS and skill not in DEEP_VARIANT_SKILLS:
+        print(f"ERROR: Unknown skill '{skill}'", file=sys.stderr)
+        return 1
+
+    # The cap flag is per-variant — reject the other variant's flag loudly
+    # rather than silently dropping it (a discarded --max-iterations on a
+    # coverage run caps at the default 5 cycles while the caller believes
+    # their value was applied).
+    if skill in COVERAGE_VARIANT_SKILLS and args.max_iterations is not None:
+        print(
+            "ERROR: --max-iterations does not apply to the coverage target; "
+            "use --max-cycles.",
+            file=sys.stderr,
+        )
+        return 1
+    if skill in DEEP_VARIANT_SKILLS and args.max_cycles is not None:
+        print(
+            "ERROR: --max-cycles does not apply to the review/refactor "
+            "targets; use --max-iterations.",
+            file=sys.stderr,
+        )
+        return 1
+
+    # Skill-side focus matching is case-insensitive (refactor SKILL.md is the
+    # declared single source for the rule) — normalize so the gate below
+    # enforces the same contract instead of rejecting what the skill accepted.
+    if args.focus:
+        args.focus = args.focus.lower()
+
+    # --focus capability is data (FOCUS_MODES_BY_SKILL), not a hardcoded skill
+    # name: a newly focus-capable skill changes one constants row instead of
+    # this branch, and the error message names the supported skills from the
+    # same table so it cannot go stale. Gated here rather than inside a single
+    # init path so every target is validated identically: the coverage variant
+    # pins its own focus, so a user-supplied one must be rejected rather than
+    # silently discarded.
+    focus_modes = FOCUS_MODES_BY_SKILL.get(skill)
+    if args.focus and not focus_modes:
+        supported = " / ".join(
+            f"--skill {name}" for name in sorted(FOCUS_MODES_BY_SKILL)
+        )
+        print(
+            f"ERROR: --focus is only supported with {supported}",
+            file=sys.stderr,
+        )
+        return 1
+    if args.focus and args.focus not in focus_modes:
+        print(
+            f"ERROR: --focus must be one of {sorted(focus_modes)}",
+            file=sys.stderr,
+        )
+        return 1
+
     progress_path = _progress_path_for_skill(args)
 
     if progress_path.exists() and not args.force:
@@ -661,16 +742,9 @@ def cmd_init(args):
         return 1
 
     if skill in COVERAGE_VARIANT_SKILLS:
-        progress, exit_code = _init_coverage(
-            args, project_root, test_command, base_commit
-        )
-    elif skill in DEEP_VARIANT_SKILLS:
-        progress, exit_code = _init_deep(args, project_root, test_command, base_commit)
+        progress = _init_coverage(args, project_root, test_command, base_commit)
     else:
-        print(f"ERROR: Unknown skill '{skill}'", file=sys.stderr)
-        return 1
-    if exit_code != 0:
-        return exit_code
+        progress = _init_deep(args, project_root, test_command, base_commit)
 
     write_progress(progress_path, progress)
     print(str(progress_path))
@@ -720,9 +794,51 @@ def cmd_resume(args):
             )
             return 1
 
+    # The cap flag is per-variant — reject the other variant's flag loudly
+    # rather than silently leaving the persisted cap unchanged while the user
+    # believes their raise was applied.
+    if _is_coverage(progress):
+        if args.max_iterations is not None:
+            print(
+                "ERROR: --max-iterations does not apply to a coverage run; "
+                "use --max-cycles.",
+                file=sys.stderr,
+            )
+            return 1
+    elif args.max_cycles is not None:
+        print(
+            "ERROR: --max-cycles does not apply to a review/refactor run; "
+            "use --max-iterations.",
+            file=sys.stderr,
+        )
+        return 1
+
     config = progress.get("config", {})
     mutated = False
     prior_reason = (progress.get("termination") or {}).get("reason")
+
+    # Migrate a legacy (2.x) coverage progress file: 2.x stored the user's
+    # scope verbatim in config.scope with no path check and no scope_text key,
+    # while 3.0's coverage-harness-mode.md promises config.scope is a resolved
+    # path or null (subagents apply it to discovery as a path filter — resumed
+    # prose would silently match nothing and degrade the run). Re-classify
+    # through the same gate init uses: prose moves to scope_text (recorded
+    # intent) and scope becomes null (full project). Files written by 3.0
+    # always carry the scope_text key, so they are never touched.
+    if _is_coverage(progress) and config.get("scope") and "scope_text" not in config:
+        scope_root = Path(
+            config.get("project_root") or args.project_dir or "."
+        ).resolve()
+        if not _scope_is_path(config["scope"], scope_root):
+            config["scope_text"] = config["scope"]
+            config["scope"] = None
+            mutated = True
+            print(
+                "NOTE: migrated legacy free-text coverage scope to "
+                "config.scope_text (recorded intent); the resumed run covers "
+                "the full project.",
+                file=sys.stderr,
+            )
 
     # Raise the persisted cap when the user passed a higher value (the documented
     # "--resume --max-iterations <new-cap>" continuation path). Done before the
@@ -922,14 +1038,16 @@ def _verify_snapshot_fresh(progress, current):
 
     ``snapshot`` stamps the current iteration/cycle into
     ``_snapshot.iteration_token``. A step running against a token from a prior
-    unit means ``snapshot`` was skipped this iteration, so ``pre_head`` /
-    ``pre_stash`` are stale — restoring on a test failure would revert to the
-    wrong commit. Fail loudly instead.
+    unit — or with no token at all, meaning ``snapshot`` never ran (e.g. a
+    first-iteration skip) — means ``pre_head`` / ``pre_stash`` are stale or
+    absent, so restoring on a test failure would revert to the wrong commit or
+    silently keep test-breaking fixes. Fail loudly instead.
     """
     token = (progress.get("_snapshot") or {}).get("iteration_token")
-    if token is not None and token != current:
+    if token != current:
+        state = "none recorded" if token is None else f"taken at unit {token}"
         print(
-            f"ERROR: snapshot is stale (taken at unit {token}, current is "
+            f"ERROR: snapshot is missing or stale ({state}, current is "
             f"{current}). Run `snapshot` before this step.",
             file=sys.stderr,
         )
@@ -938,7 +1056,7 @@ def _verify_snapshot_fresh(progress, current):
 
 
 def cmd_deep_step(args):
-    """Process a code-review-deep / refactor-deep subagent iteration result.
+    """Process a review / refactor target subagent iteration result.
 
     Inputs: progress file path, result file path (subagent JSON).
     Output (stdout): one of
@@ -1019,7 +1137,7 @@ def cmd_deep_step(args):
 
 
 def cmd_unit_test_step(args):
-    """Process the unit-test phase of a unit-test-deep cycle.
+    """Process the unit-test phase of a coverage-target cycle.
 
     Inputs: progress file path, result file path (unit-test phase JSON).
     Output: one of converged | continue
@@ -1063,6 +1181,20 @@ def cmd_unit_test_step(args):
     before = cov.get("before")
     after = cov.get("after")
     delta = cov.get("delta")
+    if delta is not None and not isinstance(delta, (int, float)):
+        # A string-typed delta ("0", "0%") stored verbatim never satisfies
+        # check_coverage_plateau's `delta == 0`, silently defeating the
+        # diminishing-returns net — coerce numeric-looking strings and drop
+        # anything else into the before/after derivation below.
+        try:
+            delta = float(str(delta).strip().rstrip("%"))
+        except (TypeError, ValueError):
+            delta = None
+    if isinstance(delta, float) and not math.isfinite(delta):
+        # json.loads lets NaN/Infinity literals through and the coercion above
+        # accepts "nan"; a non-finite delta never compares == 0, which would
+        # defeat the plateau net — drop it into the before/after derivation.
+        delta = None
     if (
         delta is None
         and isinstance(before, (int, float))
@@ -1153,7 +1285,7 @@ def cmd_unit_test_step(args):
 
 
 def cmd_refactor_step(args):
-    """Process the refactor (testability) phase of a unit-test-deep cycle.
+    """Process the refactor (testability) phase of a coverage-target cycle.
 
     Inputs: progress file path, result file path (refactor phase JSON).
     Output: one of converged | applied
@@ -1525,11 +1657,12 @@ def cmd_pending_refactor_count(args):
 def cmd_mark_termination(args):
     """Write a terminal reason to progress["termination"] without other side effects.
 
-    The orchestrator skill calls this when it must end the loop for a reason
-    the per-iteration steps don't naturally surface — currently the
-    parse-failure recovery path (per references/orchestrator-loop-single.md).
-    Keeps the orchestrator out of the progress file's internals so the
-    "slice-only progress reads" invariant holds.
+    Retained escape hatch: no orchestrator doc currently invokes it (the
+    parse-failure path is fully automatic via the parse counter and
+    check-termination), but it lets an orchestrator end the loop for a reason
+    the per-iteration steps don't naturally surface without touching the
+    progress file's internals — preserving the "slice-only progress reads"
+    invariant.
     """
     progress_path = Path(args.progress_file)
     progress = read_progress(progress_path)
@@ -1577,10 +1710,11 @@ def cmd_final_report(args):
         # Remove the per-iteration scratch files the loop wrote alongside the
         # progress file. final-report owns their lifecycle so the orchestrator
         # needn't `rm` them (a project-root deletion guard can block that). The
-        # leading-dot globs match only the dotfile temps, never the *-progress*
-        # state files or the archived .done.json.
+        # leading-dot globs (constants.SCRATCH_GLOBS — the same source git.py's
+        # commit-checkpoint excludes use) match only the dotfile temps, never
+        # the *-progress* state files or the archived .done.json.
         scratch_dir = progress_path.parent
-        for pattern in (".deep-iteration-*", ".unit-test-deep-*"):
+        for pattern in SCRATCH_GLOBS:
             for temp in scratch_dir.glob(pattern):
                 try:
                     temp.unlink()
@@ -1597,7 +1731,7 @@ def cmd_final_report(args):
 def _build_parser():
     parser = argparse.ArgumentParser(
         prog="harness_common.cli",
-        description="Orchestrator CLI invoked by *-deep skills",
+        description="Orchestrator CLI invoked by the /optimus:deep skill",
     )
     sub = parser.add_subparsers(dest="command", required=True)
 
@@ -1647,8 +1781,8 @@ def _build_parser():
         "--allow-red",
         action="store_true",
         help="Proceed even if the baseline suite is not green (skips timeout "
-        "calibration). The orchestrator passes this for unit-test-deep and when "
-        "the user supplied --allow-red-baseline.",
+        "calibration). The orchestrator passes this for the coverage target and "
+        "when the user supplied --allow-red-baseline.",
     )
     p.set_defaults(func=cmd_baseline)
 

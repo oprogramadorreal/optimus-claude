@@ -1,62 +1,23 @@
 # Platform Detection & CLI Management
 
-Shared detection algorithm referenced by multiple skills. Each consuming skill reads the sections it needs and applies its own policy (e.g., whether to offer CLI installation or skip).
+Shared reference (also consumed by `/optimus:code-review`). Each consuming skill reads the sections it needs and applies its own policy (e.g., whether to offer CLI installation, whether to stop on failure).
 
 ## Platform Detection Algorithm
 
-Determine the hosting platform for the current repository:
-
-1. **Check the `origin` remote URL:** `git remote get-url origin`
-   - Contains `gitlab` → **GitLab**
-   - Contains `github` → **GitHub**
-
-2. **If neither matches, check other remotes:** `git remote -v`
-   - If multiple remotes point to different platforms, ask the user which one to use (via `AskUserQuestion` — header "Platform", question "Multiple platforms detected. Which one should be used for the PR/MR?" with the detected platforms as options)
-
-3. **If no remote matches, fall back to CI file detection:**
-   - `.gitlab-ci.yml` at repo root → **GitLab**
-   - `.github/` directory → **GitHub**
-
-4. **If platform is still unknown** → platform could not be determined. The consuming skill decides how to handle this (stop, skip, or ask the user).
+1. **`origin` remote URL** (`git remote get-url origin`) — URL identifies GitHub or GitLab → use that platform.
+2. **Other remotes** (`git remote -v`) — if multiple remotes point to different platforms, ask the user which one to use.
+3. **CI-file fallback** — `.gitlab-ci.yml` at the repo root → GitLab; `.github/` directory → GitHub.
+4. **Still unknown** → detection failed; the consuming skill decides how to handle it (stop, skip, or ask).
 
 ### Signal Conflict Resolution
 
-If signals conflict (e.g., GitHub remote URL but `.gitlab-ci.yml` exists), use the **remote URL as authoritative** and note the discrepancy to the user.
+If signals conflict (e.g., GitHub remote URL but `.gitlab-ci.yml` exists), the **remote URL is authoritative** — note the discrepancy to the user.
 
 ## CLI Verification
 
-Check that the required CLI tool is installed and authenticated:
-
-### Availability check
-
-- **GitHub** → run `gh --version`
-- **GitLab** → run `glab --version`
-
-### Authentication check
-
-- **GitHub:** `gh auth status`. If not authenticated → inform the user: "Run `gh auth login` to authenticate."
-- **GitLab:** `glab auth status`. If not authenticated → inform the user: "Run `glab auth login` to authenticate."
-
-> The consuming skill decides whether to stop or continue after an authentication failure.
+- Installed: `gh --version` / `glab --version`
+- Authenticated: `gh auth status` / `glab auth status` — if not, tell the user to run `gh auth login` / `glab auth login`. The consuming skill decides whether to stop or continue.
 
 ## CLI Installation
 
-If the CLI is not installed and the consuming skill offers installation:
-
-**GitHub CLI (`gh`):**
-- macOS: `brew install gh`
-- Debian/Ubuntu: `sudo apt install gh` (if available) or install from GitHub releases
-- Fedora/RHEL: `sudo dnf install gh`
-- Arch: `sudo pacman -S github-cli`
-- Windows: `winget install GitHub.cli`
-
-**GitLab CLI (`glab`):**
-- macOS: `brew install glab`
-- Debian/Ubuntu: check if available via apt, otherwise `go install gitlab.com/gitlab-org/cli/cmd/glab@latest`
-- Fedora/RHEL: `sudo dnf install glab`
-- Arch: `sudo pacman -S glab`
-- Windows: `winget install GLab.GLab`
-
-After installation, verify:
-1. `gh --version` / `glab --version` — if the command still fails, inform the user the installation did not succeed and provide manual instructions
-2. `gh auth status` / `glab auth status` — if not authenticated, inform the user to run the auth login command
+Install via the OS package manager — e.g. `brew install gh|glab`, `winget install GitHub.cli` / `winget install GLab.GLab`, or the `apt`/`dnf`/`pacman` equivalents. Afterwards re-run both verification checks; if the command still fails, report that the installation did not succeed and provide manual instructions.

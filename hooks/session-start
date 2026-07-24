@@ -4,15 +4,28 @@ set -euo pipefail
 # SessionStart hook — outputs dynamic project state so Claude knows what's
 # configured and what's missing. Only outputs items that need attention.
 # Fully configured projects produce no output (zero context waste).
-# Runs fast (~20-50ms — just test -f and git commands).
+# Runs fast (~20-50ms — test -f, pruned find calls, and one git log).
+# Working-tree status is NOT reported here — Claude Code injects its own
+# gitStatus snapshot (branch, porcelain status, recent commits). That snapshot
+# has NO upstream-divergence line, so unpushed commits are the one git signal
+# this hook still reports: without it, local-only work from a previous session
+# looks delivered.
 
 output=""
+
+# Pruned marker search: find the first file matching the given -path pattern,
+# skipping node_modules/.git at every level. No -mindepth: it would suppress
+# the prune at depth 1, leaving the root node_modules/ and .git/ fully walked.
+# The -path patterns used here already imply depth >= 2.
+find_marker() {
+  find . -maxdepth 4 \( -name node_modules -o -name .git \) -prune -o -path "$1" -print -quit 2>/dev/null || true
+}
 
 # 1. Check if optimus:init has been run
 if [ ! -f .claude/CLAUDE.md ] || [ ! -f .claude/docs/coding-guidelines.md ]; then
   # Multi-repo workspace: init may live in a sub-repo's .claude/, not the workspace root.
   # .optimus-version is uniquely written by /optimus:init, so it's the authoritative marker.
-  multi_repo_marker=$(find . -mindepth 2 -maxdepth 4 -path '*/.claude/.optimus-version' -print -quit 2>/dev/null)
+  multi_repo_marker=$(find_marker '*/.claude/.optimus-version')
   if [ -z "$multi_repo_marker" ]; then
     output+="IMPORTANT: This project has not been initialized with the optimus plugin. You MUST mention this to the user in your first response: recommend running \`/optimus:init\` to set up CLAUDE.md, coding guidelines, and auto-format hooks for effective AI-assisted development."$'\n'
   fi
@@ -20,7 +33,7 @@ else
   # 2. Check test infrastructure (only relevant if init was done)
   if [ ! -f .claude/docs/testing.md ]; then
     # Check monorepo subprojects too
-    has_testing=$(find . -maxdepth 4 -path '*/docs/testing.md' -print -quit 2>/dev/null)
+    has_testing=$(find_marker '*/docs/testing.md')
     if [ -z "$has_testing" ]; then
       output+="[optimus] Testing docs missing. Suggest re-running \`/optimus:init\` to set up test infrastructure."$'\n'
     fi
@@ -28,15 +41,37 @@ else
 
 fi
 
-# 3. Git state (uncommitted changes or unpushed commits)
+# 3. Unpushed commits — the one git signal gitStatus lacks (see header).
 if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-  changed=$(git status --porcelain 2>/dev/null | wc -l | tr -d ' ')
   unpushed=$(git log --oneline '@{u}..HEAD' 2>/dev/null | wc -l | tr -d ' ') || unpushed=0
+  [ "$unpushed" -gt 0 ] 2>/dev/null && output+="[optimus] ${unpushed} commits unpushed to upstream."$'\n'
+fi
 
-  state_parts=""
-  [ "$changed" -gt 0 ] 2>/dev/null && state_parts+="${changed} files changed"
-  [ "$unpushed" -gt 0 ] 2>/dev/null && { [ -n "$state_parts" ] && state_parts+=", "; state_parts+="${unpushed} commits unpushed"; }
-  [ -n "$state_parts" ] && output+="[optimus] ${state_parts}."$'\n'
+# 4. Check the installed path-restriction hook is current.
+# templates/hooks/restrict-paths.sh is COPIED into a project by
+# /optimus:permissions. Updating the plugin never re-copies it, so a project can
+# keep running a hook that predates a security fix with nothing to say so. The
+# HOOK_VERSION line in each copy makes that drift visible. Silent unless the
+# project actually has the hook installed and the plugin's copy is newer.
+hook_version() { # $1=file -> integer; a copy with no marker predates versioning
+  local v
+  v="$(sed -n 's/^# HOOK_VERSION:[[:space:]]*\([0-9][0-9]*\).*/\1/p' "$1" 2>/dev/null | head -1)" || v=""
+  # Strip leading zeros: `[ 010 -gt 8 ]` evaluates 010 as OCTAL. No extglob needed.
+  while [ "${#v}" -gt 1 ] && [ "${v#0}" != "$v" ]; do v="${v#0}"; done
+  # Clamp absurd values: `[ -gt ]` writes "integer expected" to stderr on every
+  # session start for anything past int64, and the check would silently do nothing.
+  [ "${#v}" -gt 9 ] && v="999999999"
+  printf '%s' "${v:-0}"
+}
+
+installed_hook=".claude/hooks/restrict-paths.sh"
+template_hook="${CLAUDE_PLUGIN_ROOT:-}/skills/permissions/templates/hooks/restrict-paths.sh"
+if [ -f "$installed_hook" ] && [ -n "${CLAUDE_PLUGIN_ROOT:-}" ] && [ -f "$template_hook" ]; then
+  have="$(hook_version "$installed_hook")"
+  want="$(hook_version "$template_hook")"
+  if [ "$want" -gt "$have" ]; then
+    output+="[optimus] The path-restriction hook installed in this project (\`.claude/hooks/restrict-paths.sh\`, v$have) is older than the plugin's (v$want) and may be missing security fixes. Suggest re-running \`/optimus:permissions\` to update it."$'\n'
+  fi
 fi
 
 # Only output if there's something to report

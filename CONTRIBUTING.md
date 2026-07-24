@@ -14,9 +14,9 @@ optimus-claude/
 ├── .claude-plugin/
 │   ├── plugin.json           # Plugin metadata (name, version, author)
 │   └── marketplace.json      # Marketplace catalog (how Claude Code discovers the plugin)
-├── agents/                    # Plugin-level agents — user-invokable, also extended by skill-level agents
-│   ├── code-simplifier.md     # Code simplification agent (extended by code-review, refactor, tdd)
-│   ├── test-guardian.md       # Test coverage monitoring agent (extended by code-review, tdd)
+├── agents/                    # Plugin-level agents — standalone, user-invokable quality agents
+│   ├── code-simplifier.md     # Code simplification agent
+│   ├── test-guardian.md       # Test coverage monitoring agent
 ├── references/                # Shared reference docs consumed across skills (see the Reference Hierarchy in .claude/docs/architecture.md)
 ├── hooks/
 │   ├── hooks.json            # Plugin-level hooks (SessionStart for skill awareness)
@@ -26,7 +26,7 @@ optimus-claude/
 │   ├── test-hooks.sh         # Hook execution tests (CI)
 │   ├── generate-fixtures.sh  # Generates minimal project fixtures for testing (local)
 │   ├── test-skills.sh        # Automated skill execution tests via claude -p (local)
-│   └── harness_common/       # Shared modules + cli.py invoked by the *-deep orchestrator skills
+│   └── harness_common/       # Shared modules + cli.py invoked by the /optimus:deep orchestrator skill
 │       ├── cli.py            # Subcommand CLI (init, snapshot, deep-step, etc.)
 │       ├── findings.py       # Status escalation state machine
 │       ├── convergence.py    # Coverage convergence checks
@@ -39,26 +39,20 @@ optimus-claude/
 │       └── constants.py      # Shared status / cap constants
 ├── skills/
 │   ├── init/                 # /optimus:init
-│   ├── spec-init/            # /optimus:spec-init
 │   ├── how-to-run/           # /optimus:how-to-run
 │   ├── unit-test/            # /optimus:unit-test
-│   ├── unit-test-deep/       # /optimus:unit-test-deep
 │   ├── refactor/             # /optimus:refactor
-│   ├── refactor-deep/        # /optimus:refactor-deep
 │   ├── code-review/          # /optimus:code-review
-│   ├── code-review-deep/     # /optimus:code-review-deep
+│   ├── deep/                 # /optimus:deep (review | refactor | coverage)
 │   ├── tdd/                  # /optimus:tdd
-│   ├── workflow/             # /optimus:workflow
 │   ├── pr/                   # /optimus:pr
 │   ├── prompt/               # /optimus:prompt
 │   ├── permissions/          # /optimus:permissions
 │   ├── reset/                # /optimus:reset
-│   ├── branch/               # /optimus:branch
 │   ├── worktree/             # /optimus:worktree
-│   ├── commit/               # /optimus:commit
-│   ├── brainstorm/           # /optimus:brainstorm
+│   ├── commit/               # /optimus:commit (default | suggest | branch)
+│   ├── brainstorm/           # /optimus:brainstorm (design | scaffold)
 │   ├── handoff/              # /optimus:handoff
-│   ├── commit-message/       # /optimus:commit-message
 │   └── jira/                 # /optimus:jira
 ├── test/
 │   ├── expected-outputs.yaml # Expected outputs for skill tests
@@ -103,29 +97,15 @@ argument-hint: "[optional-args]"
 Step-by-step instructions...
 ```
 
-All skills **must** use `disable-model-invocation: true`. Skills that take arguments should also set `argument-hint` (quoted — bare brackets parse as a YAML list); it is shown in the `/` menu autocomplete. The rationale for this rule lives in `.claude/docs/skill-writing-guidelines.md` under Design Principles.
+All skills **must** use `disable-model-invocation: true`. Skills that take arguments should also set `argument-hint` (quoted — bare brackets parse as a YAML list); it is shown in the `/` menu autocomplete. The rationale for this rule lives in `.claude/docs/skill-writing-guidelines.md` under Structure.
 
-**Shared references:** when a procedure is used by 2+ skills, extract it to a reference file owned by the canonical skill — see `.claude/docs/skill-writing-guidelines.md` under "Shared References" for the rule and examples.
+**Shared references:** when a procedure is used by 2+ skills, extract it to a reference file owned by the canonical skill — see `.claude/docs/skill-writing-guidelines.md` under Structure for the rule.
 
 **Note:** The `name` field is intentionally omitted from frontmatter. When present, it strips the plugin namespace prefix — `/optimus:init` would appear as just `/init`, shadowing the builtin command. See [anthropics/claude-code#22063](https://github.com/anthropics/claude-code/issues/22063).
 
 ## Agent architecture
 
-The plugin uses a two-tier agent design. See `references/agent-architecture.md` for the full explanation.
-
-**Create a plugin-level agent** (`agents/`) when:
-- The agent represents a reusable quality concern (e.g., code simplification, test coverage monitoring)
-- Multiple skills will extend its core behavior via the specialization pattern
-
-**Create a skill-level agent** (`skills/<name>/agents/`) when:
-- The agent is specific to one skill's workflow (e.g., bug-detector for code-review)
-- The agent needs skill-specific scope, output format, or exclusion boundaries
-
-**Extend a plugin-level agent** from a skill-level agent when:
-- The skill needs the same core behavior but with different scope or output format
-- Use `Read $CLAUDE_PLUGIN_ROOT/agents/<name>.md for your approach` to inherit, then add skill-specific instructions
-
-**Add shared constraints** to `references/shared-agent-constraints.md` when the rule applies to all analysis agents across all skills. Add skill-specific addendums to the skill's own `shared-constraints.md`.
+Two tiers, no inheritance. **Plugin-level agents** (`agents/`) are standalone, user-invokable quality agents. **Skill-level agents** (`skills/<name>/agents/`) are self-contained prompt files a SKILL.md launches via the Agent tool — each carries its own criteria inline. Shared behavioral rules live once in `references/shared-agent-constraints.md`; a skill's own `agents/shared-constraints.md` holds only genuine addendums plus the skill's canonical output format. The dispatch-time path-substitution rule is in `references/agent-architecture.md`.
 
 ## Adding or modifying a skill
 
@@ -135,7 +115,7 @@ The plugin uses a two-tier agent design. See `references/agent-architecture.md` 
 4. Add the skill to the Skills section in the root `README.md`
 5. Add the skill directory to the project-structure tree in this file — `scripts/validate.sh` asserts every `skills/` directory appears in both the root `README.md` and this tree
 
-Follow the conventions visible in existing skills — study `skills/commit-message/` for a minimal example or `skills/init/` for a full-featured one.
+Follow the conventions visible in existing skills — study `skills/worktree/` for a minimal example or `skills/init/` for a full-featured one.
 
 ### Output tone and formatting
 
@@ -214,6 +194,8 @@ Checks include:
 - `hooks.json` references existing scripts
 - Plugin-level agent files have required frontmatter fields
 - Reference depth does not exceed 2 levels (SKILL → A → B max)
+- `.claude/hooks/restrict-paths.sh` is byte-identical to the template users install
+- The restrict-paths template declares a `HOOK_VERSION` (bump it on every behavioural change — the SessionStart hook uses it to spot projects running a stale copy)
 
 ### Hook execution tests (CI)
 
@@ -228,6 +210,13 @@ Tests all state combinations (uninitialized, partial, fully configured, dirty tr
 - Zero-output guarantee for fully configured projects
 - Formatter hooks parse JSON input and filter by file extension correctly
 - restrict-paths hook enforces the tiered path model (in-project writes allowed, out-of-project writes ask, outside deletes denied) with memory-store/scratchpad exemptions and fail-closed fallbacks
+- Temp-write nudge: a new file under the OS temp root still asks (never denies — a deny cannot be approved by the user) and carries the scratchpad reminder in `additionalContext`, the field Claude reads, not in the user-facing reason; existing files and `~/.claude` keep the plain prompt
+- Platform path shapes the exemptions must survive: trailing-slash temp root, a realpath that rejects `-m`, and a realpath that is absent entirely (the cd/pwd fallback, reached by overriding the `command` builtin — a stripped PATH breaks bash on Windows)
+- Fail-closed gates: unresolved `..` at every rung of the exemption ladder including the project root, relative and root temp roots rejected, UNC temp roots accepted, a dot segment rejected in the `<project>` slot of either exemption shape, and an unset HOME that must not anchor the memory store on the hook's CWD
+- Glob metacharacters survive path splitting as one literal segment. Without `set -f` around the unquoted split in `collapse_dot_segments`, a `*` segment expands to one name per entry in the hook's CWD, and those extra segments absorb the following `..` — an out-of-project write reads as in-project (silent allow) and an out-of-project `rm` escapes the hard block. Reachable wherever `realpath -m` is unavailable (macOS/BSD), which is the platform that function exists for
+- `//`-leading paths follow the platform's own realpath rather than a hardcoded verdict, so the suite passes on both Cygwin and Linux
+- SessionStart flags an installed `restrict-paths.sh` whose `HOOK_VERSION` is behind the plugin's
+- Every verdict is scored from the hook's exit status as well as its output, so a hook that dies before printing scores CRASH rather than being mistaken for a silent allow; a self-check pins that guard
 
 ### Python unit tests (CI)
 
@@ -271,7 +260,7 @@ Available fixtures: `node`, `python`, `go`, `rust`, `csharp`, `monorepo`, `empty
 Runs skills against generated fixtures via `claude -p` (headless mode) and validates expected outputs against `test/expected-outputs.yaml`. Requires the `claude` CLI installed and authenticated (plan subscription or API key).
 
 ```shell
-bash scripts/test-skills.sh                              # default: init + commit-message
+bash scripts/test-skills.sh                              # default: init + commit-suggest
 bash scripts/test-skills.sh --skill init                 # test one skill
 bash scripts/test-skills.sh --skill init --fixture node  # test one skill + one fixture
 bash scripts/test-skills.sh --all                        # test all skill/fixture combinations

@@ -54,7 +54,6 @@ fi
 echo "[SKILL.md frontmatter]"
 fm_errors=""
 while IFS= read -r f; do
-  skill_name=$(basename "$(dirname "$f")")
   # Strip CR for Windows compat; read first line directly to avoid broken pipe
   first_line=$(head -1 "$f" | tr -d '\r')
   if [[ "$first_line" != "---" ]]; then
@@ -99,13 +98,36 @@ while IFS= read -r f; do
 done < <(find ./skills -name 'SKILL.md' -not -path './.git/*')
 check "SKILL.md frontmatter valid" test -z "$fm_errors"
 if [ -n "$fm_errors" ]; then
-  printf "       Issues:\n%s" "$fm_errors"
+  # %b, not %s: fm_errors is accumulated with literal \n escapes (as in every
+  # sibling check), which %s would print verbatim on one run-on line.
+  printf "       Issues:\n%b" "$fm_errors"
 fi
 
 # --- 4. No ref in marketplace.json ---
 echo "[Manifests]"
 check "No ref field in marketplace.json" \
   bash -c '! grep -q "\"ref\"" .claude-plugin/marketplace.json'
+
+# --- 4b. Dogfooded hook matches the shipped template ---
+# .claude/hooks/restrict-paths.sh is a copy of the template users install, and
+# only the template is exercised by scripts/test-hooks.sh. Nothing else pins them
+# together, and they have drifted before (commits that hardened the memory-store
+# exemption and broadened the precious-file patterns landed in the template
+# alone, leaving this repo running stale security logic). A template-only fix
+# leaves this repo unprotected; a .claude/-only fix ships nothing to users.
+# Guarded like every other optional tool below: a missing cmp must SKIP, not FAIL.
+if command -v cmp &>/dev/null; then
+  check "restrict-paths hook copies are in sync" \
+    cmp -s .claude/hooks/restrict-paths.sh skills/permissions/templates/hooks/restrict-paths.sh
+else
+  echo "  SKIP  restrict-paths hook sync check (cmp not installed)"
+fi
+
+# The hook carries a HOOK_VERSION that the SessionStart hook compares against a
+# project's installed copy. A behavioural change that forgets to bump it ships
+# silently to everyone who already ran /optimus:permissions.
+check "restrict-paths template declares a HOOK_VERSION" \
+  grep -qE '^# HOOK_VERSION: [0-9]+' skills/permissions/templates/hooks/restrict-paths.sh
 
 # --- 5. plugin.json validity ---
 if command -v jq &>/dev/null; then
@@ -145,7 +167,7 @@ fi
 # --- 7. Portable mktemp invocation in SKILL.md ---
 # Forbid non-portable mktemp forms. The [^`]{0,200} cap stops matching at the
 # closing backtick of an inline code span and bounds runaway matching across
-# the line. Pattern rationale: skills/pr/references/body-file-tempfile.md.
+# the line.
 echo "[Portability]"
 tmp_hits=$(grep -rnE 'mktemp[^`]{0,200}(/tmp/|TMPDIR:-/tmp|--tmpdir| -p | -t )' skills/*/SKILL.md 2>/dev/null || true)
 check "Portable mktemp in skills (use mktemp ./<template> for Win+macOS portability)" test -z "$tmp_hits"
@@ -155,18 +177,20 @@ fi
 
 # --- 8. Cross-reference integrity ---
 # Every $CLAUDE_PLUGIN_ROOT/... path in skill files must point to an existing file.
+# grep -o emits one hit per occurrence, so a line carrying several references is
+# checked in full. (A `sed 's|.*ROOT/\(...\).*|\1|'` here would match greedily and
+# silently validate only the LAST reference on each such line.)
 echo "[Cross-references]"
 broken_refs=""
-while IFS= read -r ref_line; do
-  # Extract the path after $CLAUDE_PLUGIN_ROOT/ or ${CLAUDE_PLUGIN_ROOT}/
-  # Paths appear inside backticks, quotes, or bare — extract until whitespace/backtick/quote
-  ref_path=$(printf '%s' "$ref_line" | sed -n 's|.*\$[{]\{0,1\}CLAUDE_PLUGIN_ROOT[}]\{0,1\}/\([^ `"'"'"']*\).*|\1|p' | head -1)
+while IFS= read -r ref_hit; do
+  # Each hit is "<file>:<lineno>:$CLAUDE_PLUGIN_ROOT/<path>". Paths appear inside
+  # backticks, quotes, or bare — the match runs until whitespace/backtick/quote.
+  src_file=${ref_hit%%:*}
+  ref_path=$(printf '%s' "$ref_hit" | sed 's|^[^:]*:[0-9]*:||; s|^\$[{]\{0,1\}CLAUDE_PLUGIN_ROOT[}]\{0,1\}/||; s|\r$||')
   if [ -n "$ref_path" ] && [ ! -f "./$ref_path" ] && [ ! -d "./$ref_path" ]; then
-    # Get source file for context
-    src_file=$(printf '%s' "$ref_line" | cut -d: -f1)
     broken_refs+="  $src_file -> $ref_path\n"
   fi
-done < <(grep -rn '\$[{]\{0,1\}CLAUDE_PLUGIN_ROOT[}]\{0,1\}/' skills/ references/ 2>/dev/null || true)
+done < <(grep -rnoE '\$\{?CLAUDE_PLUGIN_ROOT\}?/[^ `"'"'"']*' skills/ references/ 2>/dev/null || true)
 check "All CLAUDE_PLUGIN_ROOT references resolve" test -z "$broken_refs"
 if [ -n "$broken_refs" ]; then
   printf "       Broken references:\n%b" "$broken_refs"
@@ -319,8 +343,8 @@ for skill in $actual_skills; do
     readme_mismatch+="  skills/$skill: not listed in README.md\n"
   fi
 done
-# CONTRIBUTING.md's project-structure tree has drifted before (missing
-# spec-init/ and handoff/) — assert every skill directory appears there too.
+# CONTRIBUTING.md's project-structure tree has drifted before — assert
+# every skill directory appears there too.
 for skill in $actual_skills; do
   if ! grep -qE "(├──|└──) $skill/" CONTRIBUTING.md 2>/dev/null; then
     readme_mismatch+="  skills/$skill: not listed in CONTRIBUTING.md project structure\n"
@@ -355,19 +379,24 @@ fi
 # --- 15. Plugin-level agents ---
 echo "[Plugin agents]"
 agent_issues=""
-for agent_file in agents/code-simplifier.md agents/test-guardian.md; do
-  if [ ! -f "$agent_file" ]; then
-    agent_issues+="  $agent_file: missing\n"
-  else
-    # Check frontmatter has tools: field
-    if ! grep -q '^tools:' "$agent_file" 2>/dev/null; then
-      agent_issues+="  $agent_file: missing 'tools:' in frontmatter\n"
-    fi
-    if ! grep -q '^name:' "$agent_file" 2>/dev/null; then
-      agent_issues+="  $agent_file: missing 'name:' in frontmatter\n"
-    fi
+agent_count=0
+# Glob the tree, not a hardcoded list: a new agent is validated automatically
+# instead of shipping unvalidated when the list goes stale (skills get the
+# same treatment in section 12 via ./skills/*/).
+for agent_file in agents/*.md; do
+  [ -e "$agent_file" ] || continue
+  agent_count=$((agent_count + 1))
+  # Check frontmatter has tools: field
+  if ! grep -q '^tools:' "$agent_file" 2>/dev/null; then
+    agent_issues+="  $agent_file: missing 'tools:' in frontmatter\n"
+  fi
+  if ! grep -q '^name:' "$agent_file" 2>/dev/null; then
+    agent_issues+="  $agent_file: missing 'name:' in frontmatter\n"
   fi
 done
+if [ "$agent_count" -eq 0 ]; then
+  agent_issues+="  agents/: no agent definitions found\n"
+fi
 # Check that old template agents directory does NOT exist
 if [ -d "skills/init/templates/agents" ] && [ "$(ls -A skills/init/templates/agents 2>/dev/null)" ]; then
   agent_issues+="  skills/init/templates/agents/ still contains files (should be moved to agents/)\n"
@@ -384,8 +413,10 @@ deep_refs=""
 # references that themselves load more (3+ levels deep)
 while IFS= read -r ref_file; do
   # This is a level-1 reference (loaded by SKILL.md). Check what it references.
-  while IFS= read -r l2_line; do
-    l2_path=$(printf '%s' "$l2_line" | sed -n 's|.*\$[{]\{0,1\}CLAUDE_PLUGIN_ROOT[}]\{0,1\}/\([^ `"'"'"']*\).*|\1|p' | head -1)
+  # Iterate over every reference rather than every line: with one path extracted
+  # per line, a multi-ref line contributed only its last target, and a `continue`
+  # on a non-file target (e.g. a directory) discarded the rest of that line too.
+  while IFS= read -r l2_path; do
     if [ -z "$l2_path" ] || [ ! -f "./$l2_path" ]; then
       continue
     fi
@@ -395,664 +426,246 @@ while IFS= read -r ref_file; do
     if [ -n "$has_deep" ]; then
       deep_refs+="  $ref_file -> $l2_path -> (further refs)\n"
     fi
-  done < <(grep '\$[{]\{0,1\}CLAUDE_PLUGIN_ROOT[}]\{0,1\}/' "./$ref_file" 2>/dev/null || true)
+  done < <(grep -oE '\$\{?CLAUDE_PLUGIN_ROOT\}?/[^ `"'"'"']*' "./$ref_file" 2>/dev/null | sed 's|^\$[{]\{0,1\}CLAUDE_PLUGIN_ROOT[}]\{0,1\}/||' || true)
 done < <(find ./skills -path '*/references/*.md' -o -path '*/agents/*.md' | sort)
 check "Reference depth <= 2 levels" test -z "$deep_refs"
 if [ -n "$deep_refs" ]; then
   printf "       Deep reference chains (3+ levels):\n%b" "$deep_refs"
 fi
 
-# --- 17. Load-bearing wiring assertions ---
-# Textual section references and cross-skill reference-file wiring that the
-# generic cross-reference check (check 8) does not cover. A failure here means
-# a silent regression in how a skill reaches a capability it depends on.
-echo "[Load-bearing wiring]"
-wiring_errors=""
+# --- 17. Producer/consumer contracts ---
+# Genuine two-sided contracts: a literal heading or token one file emits and
+# another greps for. Drift on either side silently drops the handoff, so both
+# sides are pinned. The contract is file-to-file, not skill-to-skill: an agent
+# returning a heading its own SKILL.md keys off is the same failure mode as a
+# cross-skill handoff, and is pinned here too. Missing files fail first-class —
+# a rename or deletion must break the build, not skip the check.
+echo "[Producer/consumer contracts]"
+contract_errors=""
 
-sections_file="skills/how-to-run/references/how-to-run-sections.md"
-detection_signals_file="skills/how-to-run/references/detection-signals.md"
-
-# how-to-run must wire to the unsupported-stack fallback procedure from the main
-# SKILL context — the detector agent is read-only and cannot run it. Dropping
-# this reference silently loses unknown-stack support.
-if ! grep -q 'unsupported-stack-fallback.md' skills/how-to-run/SKILL.md 2>/dev/null; then
-  wiring_errors+="  skills/how-to-run/SKILL.md no longer references unsupported-stack-fallback.md\n"
-fi
-
-# Trigger-key contract: SKILL.md checks the literal string
-# "Unsupported-Stack Fallback → Triggered: yes" to decide whether to run the
-# 5-step fallback, and the detector agent emits that key under a matching
-# heading in its return format. If either side drifts, the fallback silently
-# never fires.
-if ! grep -q 'Unsupported-Stack Fallback → Triggered: yes' skills/how-to-run/SKILL.md 2>/dev/null; then
-  wiring_errors+="  skills/how-to-run/SKILL.md no longer checks 'Unsupported-Stack Fallback → Triggered: yes' trigger key\n"
-fi
-if ! grep -q '^### Unsupported-Stack Fallback' skills/how-to-run/agents/project-environment-detector.md 2>/dev/null; then
-  wiring_errors+="  skills/how-to-run/agents/project-environment-detector.md missing '### Unsupported-Stack Fallback' return-format heading\n"
-fi
-# Trigger-key contract (continued): the 'Triggered:' key must literally appear
-# inside the detector's Unsupported-Stack Fallback return-format section. SKILL.md
-# greps for "Unsupported-Stack Fallback → Triggered: yes" — if a future edit renames
-# Triggered: to Fired: or similar, the heading check above would still pass while
-# the fallback silently never fires. Scope the search to the section body.
-if [ -f skills/how-to-run/agents/project-environment-detector.md ]; then
-  usf_body=$(awk '/^### Unsupported-Stack Fallback/{f=1;next}/^### /{f=0}f' skills/how-to-run/agents/project-environment-detector.md 2>/dev/null)
-  if ! printf '%s' "$usf_body" | grep -qF 'Triggered:' 2>/dev/null; then
-    wiring_errors+="  skills/how-to-run/agents/project-environment-detector.md Unsupported-Stack Fallback section missing 'Triggered:' key\n"
+# require_tokens <file> <token>...: every token must appear literally in <file>.
+# A missing file is itself a failure, never a silent skip.
+require_tokens() {
+  local file=$1 token
+  shift
+  if [ ! -f "$file" ]; then
+    contract_errors+="  missing file: $file\n"
+    return
   fi
-fi
-
-# The 'Additional Detection Hints' heading in detection-signals.md is referenced
-# by name from SKILL.md, README.md, and the detector agent. A rename would
-# silently break all three without the generic cross-ref check catching it.
-if ! grep -q '^## Additional Detection Hints' "$detection_signals_file" 2>/dev/null; then
-  wiring_errors+="  $detection_signals_file missing '## Additional Detection Hints' heading\n"
-fi
-# The 'Build System Detection' heading is load-bearing for Task 0a of the
-# detector agent, which delegates its entire build-file enumeration to the table.
-if ! grep -q '^## Build System Detection' "$detection_signals_file" 2>/dev/null; then
-  wiring_errors+="  $detection_signals_file missing '## Build System Detection' heading\n"
-fi
-
-# Build System Detection table rows that the detector agent depends on. Before
-# the consolidation the agent had these signals inlined in its own Task 0a list.
-# Now Task 0a delegates entirely to this table, so a silent row deletion during
-# a table cleanup would drop a detection signal the agent used to guarantee.
-# Scope the grep to the "## Build System Detection" section body so incidental
-# mentions elsewhere in the file (Signal → Section Mapping) cannot satisfy the
-# check. Each token must appear in the table body.
-if [ -f "$detection_signals_file" ]; then
-  bsd_body=$(awk '/^## Build System Detection/{f=1;next}/^## /{f=0}f' "$detection_signals_file" 2>/dev/null)
-  for token in 'CMakeLists.txt' 'meson.build' 'BUILD.bazel' 'WORKSPACE' '*.sln' '*.vcxproj' '*.xcodeproj' '*.xcworkspace' 'build.gradle' 'settings.gradle' 'AndroidManifest.xml' 'compileSdkVersion' '*.uproject' 'ProjectSettings/ProjectVersion.txt' 'project.godot' 'platformio.ini' '*.ino' 'Package.swift' 'Podfile' 'Makefile'; do
-    if ! printf '%s' "$bsd_body" | grep -qF "$token" 2>/dev/null; then
-      wiring_errors+="  Build System Detection table body missing row for: $token\n"
-    fi
-  done
-fi
-
-# Signal → Section Mapping rows that wire the detector's Components (Task 5d)
-# and Runtime Ports (Task 5c) tables to the Running-in-Development layout
-# selection. Silent removal would drop the layout wiring at its source.
-if [ -f "$detection_signals_file" ]; then
-  for detection_token in \
-    'Components table (Task 5d)' \
-    'Runtime Ports table (Task 5c)'; do
-    if ! grep -qF -- "$detection_token" "$detection_signals_file" 2>/dev/null; then
-      wiring_errors+="  $detection_signals_file missing detection wiring token: $detection_token\n"
-    fi
-  done
-fi
-
-# Load-bearing headings in external-services-docker.md: SKILL.md Step 4 and
-# Step 6 reach these sections by name, and the Decision Heuristics link the
-# snippet-template H3s by anchor. A silent rename breaks the entire
-# Docker-suggestion path.
-esd_file="skills/how-to-run/references/external-services-docker.md"
-if [ -f "$esd_file" ]; then
-  for heading in \
-    '^## Service Classification Tables' \
-    '^## Decision Heuristics' \
-    '^## Web-Search Recipe' \
-    '^## Verify Commands \(seeds\)' \
-    '^## Pre-Conditions Block' \
-    '^### Trigger' \
-    '^### Block format' \
-    '^### Substitution' \
-    '^### Step 6 audit' \
-    '^## Citation Format' \
-    '^## Registry Allowlist' \
-    '^### Docker-preferred' \
-    '^### Local install only'; do
-    if ! grep -qE "$heading" "$esd_file" 2>/dev/null; then
-      wiring_errors+="  $esd_file missing heading matching: $heading\n"
-    fi
-  done
-  for esd_token in \
-    '### Shared-cloud primary (Docker optional)' \
-    '### Shared-cloud, no Docker alternative' \
-    '### Known Vendor Emulators' \
-    '## Vendor-Service → Emulator Index' \
-    '**PowerShell caveat (Windows host).**' \
-    '**GUI-client connect note.**' \
-    'SQLCMDPASSWORD' \
-    'MYSQL_PWD' \
-    '--authenticationDatabase admin' \
-    'MONGO_INITDB_ROOT_USERNAME' \
-    'Stale-tag re-validation' \
-    '^[A-Za-z_][A-Za-z0-9_.:-]{0,127}$' \
-    '**Pre-condition — update before running Setup or starting the backend.**' \
-    '^([0-9]{4}-)?(latest|stable|edge|nightly|canary|main|current|rolling)$' \
-    'pg_isready -U postgres' \
-    'redis-cli ping' \
-    '/opt/mssql-tools18/bin/sqlcmd' \
-    'mongosh' \
-    'mysqladmin -u root ping' \
-    'SSMS' \
-    'pgAdmin' \
-    '- Connection details for' \
-    'the block subsumes it' \
-    'GUI-client → supported-DB mapping' \
-    '| Matches per-service heading |' \
-    'DBeaver' \
-    'DataGrip'; do
-    if ! grep -qF -- "$esd_token" "$esd_file" 2>/dev/null; then
-      wiring_errors+="  $esd_file missing wiring token: $esd_token\n"
-    fi
-  done
-fi
-
-# Return-format heading contracts: SKILL.md consumes the detector's
-# "## Context Detection Results" and the auditor's "## How-to-Run Audit Results"
-# headings by name. A rename silently drops all findings from the context summary.
-if ! grep -q '^## Context Detection Results' skills/how-to-run/agents/project-environment-detector.md 2>/dev/null; then
-  wiring_errors+="  skills/how-to-run/agents/project-environment-detector.md missing '## Context Detection Results' return-format heading\n"
-fi
-if ! grep -q '^## How-to-Run Audit Results' skills/how-to-run/agents/how-to-run-auditor.md 2>/dev/null; then
-  wiring_errors+="  skills/how-to-run/agents/how-to-run-auditor.md missing '## How-to-Run Audit Results' return-format heading\n"
-fi
-
-# Detector return-format sub-headings and column contracts added by the
-# framework-config detection feature. SKILL.md Step 1 / Step 4 branch on
-# these exact strings; a silent rename would collapse service coverage,
-# drop schema-bootstrap rendering, or hide the (candidate) marker.
-detector_file="skills/how-to-run/agents/project-environment-detector.md"
-if [ -f "$detector_file" ]; then
-  for detector_heading in \
-    '### Recommended Developer Tools' \
-    '### External Services' \
-    '### Environment Setup' \
-    '### Schema Bootstrap' \
-    '### Runtime Ports' \
-    '### Components'; do
-    if ! grep -qF "$detector_heading" "$detector_file" 2>/dev/null; then
-      wiring_errors+="  $detector_file missing sub-heading: $detector_heading\n"
-    fi
-  done
-  for detector_token in \
-    '| Confidence |' \
-    '| Format |' \
-    '| Invocation hint |' \
-    '| Endpoint semantics |' \
-    '| Bootstrap mechanism |' \
-    '`local-windows-auth`' \
-    '`local-named-instance`' \
-    '`local-socket`' \
-    '`local-default`' \
-    '`remote`' \
-    '`ambiguous`' \
-    '`docker-compose`' \
-    '`raw-sql`' \
-    '`seed-script`' \
-    '`fixture-load`' \
-    '`confirmed`' \
-    '`candidate`' \
-    'Format: dotenv' \
-    '#### Task 5c' \
-    '#### Task 5d' \
-    'No bound runtime ports detected.' \
-    'No runnable components detected.' \
-    '| Requires (services) | Requires (components) |' \
-    'Integrated Security=(True|Yes|SSPI)' \
-    'Trusted_Connection=(Yes|True|1)' \
-    'mongodb://%2Ftmp%2F' \
-    'mongodb+unix://' \
-    '\(local\)\\[A-Za-z0-9_-]+'; do
-    if ! grep -qF "$detector_token" "$detector_file" 2>/dev/null; then
-      wiring_errors+="  $detector_file missing return-format token: $detector_token\n"
-    fi
-  done
-fi
-
-# Component-layout wiring in how-to-run-sections.md. Silent rename of
-# any token below would collapse the rendered layout to a
-# single-component or H4-per-component shape and lose worker/scheduler
-# documentation.
-if [ -f "$sections_file" ]; then
-  for sections_token in \
-    '**Boot order:**' \
-    '**Component count → layout.**' \
-    'Compact multi-component layout' \
-    '**Flat layout (1-2 components).**' \
-    '## Workspace-Kind Command Branches' \
-    '`npm-workspaces`' \
-    '`pnpm-workspaces`' \
-    '`yarn-workspaces`' \
-    '`lerna`' \
-    '`nx`' \
-    '`turbo`' \
-    '`cargo-workspace`' \
-    '`go-workspace`' \
-    '`gradle-multi-module`' \
-    '`maven-multi-module`' \
-    '#### Quick start (Dev Container)' \
-    '**One-shot setup (preferred):**' \
-    '**Manual setup:**' \
-    '**All-candidate compression.**' \
-    '**Per-service "Update `<key>` in `<config file>`" consolidation.**' \
-    '## Source Dependencies / Clone All' \
-    '## Running Everything' \
-    '## Schema Bootstrap' \
-    '### Pick-one rule' \
-    '### Connection-mode-aware invocation' \
-    '## Section Depends-On Graph' \
-    '## Diagnostic Ladders' \
-    '## Environment Setup' \
-    '**Alternative bootstrap script:**' \
-    'PGPASSWORD' \
-    'alembic upgrade head' \
-    'npx prisma migrate deploy' \
-    'dotnet ef database update' \
-    'bundle exec rails db:migrate' \
-    'mix ecto.migrate' \
-    'flyway migrate' \
-    'liquibase update' \
-    'npx knex migrate:latest' \
-    'npx sequelize db:migrate' \
-    'npm run typeorm migration:run' \
-    'AutoMigrate function — there is no separate migrate command' \
-    '### Container running but host can'"'"'t connect' \
-    'Default skeleton — multi-configuration build systems' \
-    'Single-configuration skeleton — Cargo / Go / single-output build systems' \
-    '| 3-5 |' \
-    '| 6+ |' \
-    '| Subproject | Path | Dev command | URL / port |'; do
-    if ! grep -qF -- "$sections_token" "$sections_file" 2>/dev/null; then
-      wiring_errors+="  $sections_file missing component-layout wiring token: $sections_token\n"
-    fi
-  done
-fi
-
-# Dev Workflow Signals fields (setup scripts, pre-commit, direnv, mkcert).
-# Detector emits these signal rows; main skill templates branch on them to
-# render one-shot setup / quick start / prereq notes. A silent field rename
-# would drop the entire branch.
-if [ -f "$detector_file" ]; then
-  for dws_token in \
-    '- **Setup scripts:**' \
-    '- **Pre-commit hooks:**' \
-    '- **direnv:**' \
-    '- **Local TLS cert:**' \
-    '- **Database migrations:**'; do
-    if ! grep -qF -- "$dws_token" "$detector_file" 2>/dev/null; then
-      wiring_errors+="  $detector_file missing Dev Workflow Signals field: $dws_token\n"
-    fi
-  done
-fi
-
-# Env-Setup key-leafs / secrets-committed wiring: leaf-property + secrets
-# columns in the detector's Environment Setup table, Verify: guidance in
-# how-to-run-sections.md, and the committed-secrets Caution block.
-if [ -f "$detector_file" ]; then
-  for env_setup_token in \
-    '| Key leaves |' \
-    '| Secrets committed |'; do
-    if ! grep -qF -- "$env_setup_token" "$detector_file" 2>/dev/null; then
-      wiring_errors+="  $detector_file missing Env-Setup key-leaves/secrets column: $env_setup_token\n"
-    fi
-  done
-fi
-if [ -f "$sections_file" ]; then
-  for env_setup_token in \
-    'Keys you will edit:' \
-    '**Optional `Verify:` line.**' \
-    'appears to contain live credentials'; do
-    if ! grep -qF -- "$env_setup_token" "$sections_file" 2>/dev/null; then
-      wiring_errors+="  $sections_file missing Env-Setup key-leaves/secrets token: $env_setup_token\n"
-    fi
-  done
-fi
-
-# Specific-Token Audit + Unverified-Count filter wiring in SKILL.md.
-# Step 6 relies on these tokens to run the audit passes that catch
-# hallucinated ports/paths/counts (port 5000 vs actual 51914, unverified
-# "15 .csproj projects" prose, etc.). Step 4 Content Principles must cite
-# the same rules so the two steps stay in sync. The audit rule bodies
-# live in references/step6-verification-audits.md; SKILL.md Step 6 keeps
-# pointer wiring that carries the same literal audit names.
-how_to_run_skill="skills/how-to-run/SKILL.md"
-if [ -f "$how_to_run_skill" ]; then
-  for token in \
-    'Specific-Token Audit' \
-    'Unverified-Count filter' \
-    'Never assert an unobserved path' \
-    'Never guess runtime ports' \
-    'grounded-tokens' \
-    'Runtime Ports table' \
-    'Section ordering audit' \
-    'Pre-Conditions Block audit' \
-    'Reconcile rendered commands against project script runners' \
-    '**Verify bullets:**' \
-    '**Diagnostic ladders:**' \
-    'Stale-tag re-validation'; do
-    if ! grep -qF "$token" "$how_to_run_skill" 2>/dev/null; then
-      wiring_errors+="  $how_to_run_skill missing token-audit wiring token: $token\n"
-    fi
-  done
-fi
-
-# The Step 6 audit rule bodies were moved verbatim into
-# references/step6-verification-audits.md (SKILL.md keeps the pointer
-# bullets above). Pin the rule bodies in their new home so a silent
-# rename or deletion there cannot disable an audit while SKILL.md's
-# pointer keeps naming it.
-step6_audits_file="skills/how-to-run/references/step6-verification-audits.md"
-if [ -f "$step6_audits_file" ]; then
-  for token in \
-    'Specific-Token Audit' \
-    'Unverified-Count filter' \
-    'grounded-tokens' \
-    'Runtime Ports table' \
-    'Section ordering audit' \
-    'Pre-Conditions Block audit' \
-    'Template-shape audit' \
-    'OS-version line in Prerequisites' \
-    'Build Debug+Release pair' \
-    'Running-in-Development layout vs Components-table row count' \
-    '`Verify:` permitted only'; do
-    if ! grep -qF -- "$token" "$step6_audits_file" 2>/dev/null; then
-      wiring_errors+="  $step6_audits_file missing audit rule body: $token\n"
-    fi
-  done
-else
-  wiring_errors+="  missing file: $step6_audits_file (Step 6 audit rule bodies)\n"
-fi
-
-# The Step 3/4 sanitization rule bodies live in
-# references/unverifiable-content-sanitization.md; SKILL.md Steps 3/4
-# navigate to them by section name. Pin the headings and SKILL.md's
-# section pointers so a silent rename on either side cannot detach the
-# pointers from the rules.
-sanitization_file="skills/how-to-run/references/unverifiable-content-sanitization.md"
-if [ -f "$sanitization_file" ]; then
-  for token in \
-    '## Record-time validation' \
-    '## Render-time sanitization'; do
-    if ! grep -qF -- "$token" "$sanitization_file" 2>/dev/null; then
-      wiring_errors+="  $sanitization_file missing rule-body heading: $token\n"
-    fi
-  done
-else
-  wiring_errors+="  missing file: $sanitization_file (Step 3/4 sanitization rule bodies)\n"
-fi
-for token in \
-  '§Record-time validation' \
-  '§Render-time sanitization'; do
-  if ! grep -qF -- "$token" "$how_to_run_skill" 2>/dev/null; then
-    wiring_errors+="  $how_to_run_skill missing sanitization section pointer: $token\n"
-  fi
-done
-
-# Workspace-kind wiring in detector.md. Detector must emit the Workspace kind
-# field that SKILL.md Step 1 Checkpoint and Step 4 branch on. Silent rename
-# loses the per-kind command branching.
-wk_token='- **Workspace kind:**'
-if [ -f "$detector_file" ] && ! grep -qF -- "$wk_token" "$detector_file" 2>/dev/null; then
-  wiring_errors+="  $detector_file missing Workspace kind field: $wk_token\n"
-fi
-
-# Version-manager file wiring in detector.md. These are the authoritative
-# runtime pins when the manifest is silent. Silent removal of any filename
-# would drop support for that language's pyenv/nvm/asdf flow.
-if [ -f "$detector_file" ]; then
-  for vm_token in \
-    '.python-version' \
-    '.ruby-version' \
-    '.nvmrc' \
-    '.node-version' \
-    '.java-version' \
-    'rust-toolchain.toml' \
-    '.tool-versions' \
-    'recommended pin'; do
-    if ! grep -qF -- "$vm_token" "$detector_file" 2>/dev/null; then
-      wiring_errors+="  $detector_file missing version-manager token: $vm_token\n"
-    fi
-  done
-fi
-# Template-shape audit + Content Principle anchors in SKILL.md.
-# A silent rename of any of these would let the corresponding
-# layout/audit regression slip through unnoticed.
-if [ -f "$how_to_run_skill" ]; then
-  for shape_token in \
-    'Template-shape audit' \
-    'Render once, not twice.' \
-    'all-candidate compression' \
-    'Compact multi-component layout' \
-    '`Verify:` permitted only' \
-    'OS-version line in Prerequisites' \
-    'Build Debug+Release pair' \
-    'Running-in-Development layout vs Components-table row count' \
-    'Detector-internal fields' \
-    'Workspace-aware commands.' \
-    'count is 7 or more' \
-    '## Contents'; do
-    if ! grep -qF -- "$shape_token" "$how_to_run_skill" 2>/dev/null; then
-      wiring_errors+="  $how_to_run_skill missing template-shape wiring token: $shape_token\n"
-    fi
-  done
-fi
-
-# Brainstorm/TDD scenario contract: TDD's Step 3 scenario-driven shortcut greps
-# for the literal '## Scenarios' and '### Scenario:' strings in specs that
-# brainstorm produces from the spec-format template. A silent rename of
-# either heading on either side would cause TDD's shortcut to never fire — the
-# user would silently fall back to the generic decomposition path with no error.
-brainstorm_template="skills/brainstorm/references/spec-format.md"
-tdd_skill="skills/tdd/SKILL.md"
-if [ -f "$brainstorm_template" ]; then
-  for scenario_token in '## Scenarios' '### Scenario:'; do
-    if ! grep -qF -- "$scenario_token" "$brainstorm_template" 2>/dev/null; then
-      wiring_errors+="  $brainstorm_template missing scenario contract token: $scenario_token\n"
-    fi
-  done
-fi
-if [ -f "$tdd_skill" ]; then
-  for scenario_token in '## Scenarios' '### Scenario:'; do
-    if ! grep -qF -- "$scenario_token" "$tdd_skill" 2>/dev/null; then
-      wiring_errors+="  $tdd_skill missing scenario contract token: $scenario_token\n"
-    fi
-  done
-fi
-
-# TDD-summary and Implementation-summary handoff contracts: /optimus:tdd Step 9
-# and /optimus:workflow Step 6 each emit a summary block whose heading strings
-# /optimus:pr Step 5 greps to detect the handoff and populate Intent (Scope,
-# Non-goals, Key decisions) and the per-item Test plan. A silent rename of either
-# the producer or the /optimus:pr consumer side would silently drop the handoff —
-# /optimus:pr would fall back to the generic state-1 conversation signals and the
-# summary-specific population rule would never fire. Each side is checked
-# independently so the failure message identifies which surface drifted.
-#
-# Scope note: this guards the detection headings only — the load-bearing trigger.
-# The row-level tokens the population rule reads (Status `✓ Complete` /
-# `Not started`, coverage `Before:`/`After:`/`Delta:` labels) are intentionally
-# not asserted: their drift degrades gracefully (detection still fires, only
-# population is affected), unlike a heading rename, which drops the handoff whole.
-pr_skill="skills/pr/SKILL.md"
-workflow_skill="skills/workflow/SKILL.md"
-check_handoff_tokens() {
-  local producer_file=$1 producer_label=$2 consumer_file=$3
-  shift 3
-  local token
   for token in "$@"; do
-    if [ -f "$producer_file" ] && ! grep -qF -- "$token" "$producer_file" 2>/dev/null; then
-      wiring_errors+="  $producer_file missing $producer_label handoff token: $token\n"
-    fi
-    if [ -f "$consumer_file" ] && ! grep -qF -- "$token" "$consumer_file" 2>/dev/null; then
-      wiring_errors+="  $consumer_file missing $producer_label handoff consumer token: $token\n"
+    if ! grep -qF -- "$token" "$file" 2>/dev/null; then
+      contract_errors+="  $file missing contract token: $token\n"
     fi
   done
 }
-check_handoff_tokens "$tdd_skill" 'TDD-summary' "$pr_skill" '## TDD Summary' '### Behaviors Implemented' '### Coverage'
-check_handoff_tokens "$workflow_skill" 'Implementation-summary' "$pr_skill" '## Implementation Summary' '### Components Built' '### Coverage'
 
-# Brainstorm self-review reaches scenario-style.md by section name. Silent
-# rename of either heading would leave the self-review pointer dangling.
-scenario_style="skills/brainstorm/references/scenario-style.md"
-if [ -f "$scenario_style" ]; then
-  for scenario_style_heading in '^## Discipline' '^## Anti-patterns'; do
-    if ! grep -qE "$scenario_style_heading" "$scenario_style" 2>/dev/null; then
-      wiring_errors+="  $scenario_style missing heading matching: $scenario_style_heading\n"
+# require_pattern <file> <ere>...: every extended-regex pattern must match.
+# For anchored headings ('^## Foo') where fixed-string search can't anchor.
+require_pattern() {
+  local file=$1 pattern
+  shift
+  if [ ! -f "$file" ]; then
+    contract_errors+="  missing file: $file\n"
+    return
+  fi
+  for pattern in "$@"; do
+    if ! grep -qE "$pattern" "$file" 2>/dev/null; then
+      contract_errors+="  $file missing contract pattern: $pattern\n"
     fi
   done
-fi
+}
 
-# Trigger-key contract for the walkthrough branch added by the guided
-# walkthrough feature. SKILL.md Step 3 routes on the literal "Walk through it"
-# AskUserQuestion option string and jumps to the "## Step 3a" heading; Step 3a
-# loads guided-walkthrough.md by path. The walkthrough's own "Stop the
-# walkthrough" exit string is referenced from SKILL.md Step 3a. If any of these
-# strings drifts, the entire branch silently dies — the generic cross-ref
-# check (check 8) only validates path resolution, not these textual contracts.
-walkthrough_ref="skills/how-to-run/references/guided-walkthrough.md"
-auditor_agent="skills/how-to-run/agents/how-to-run-auditor.md"
-# Audit verdict list — producer/consumer contract between Step 2 auditor
-# agent (producer) and the walkthrough's per-step Audit: prefix (consumer).
-# Applied to each side independently below.
-audit_verdicts=('Found & accurate' 'Found but outdated' 'Partial' 'Documented but unverifiable' 'Missing')
-# Assert file presence as first-class checks (not `if [ -f ]` guards) so a
-# rename or deletion fails the build instead of silently skipping the
-# downstream wiring loops.
-check "how-to-run SKILL.md present" test -f "$how_to_run_skill"
-check "how-to-run guided-walkthrough.md present" test -f "$walkthrough_ref"
-check "how-to-run auditor agent present" test -f "$auditor_agent"
-# Heading anchor uses regex; literal triggers use fixed-string match so a
-# typo like 'guided-walkthroughxmd' (where . matches any char in regex mode)
-# cannot satisfy the wiring contract.
-if ! grep -qE '^## Step 3a:' "$how_to_run_skill" 2>/dev/null; then
-  wiring_errors+="  $how_to_run_skill missing walkthrough heading: ^## Step 3a:\n"
-fi
-# Step 6 is the jump target for Step 3 Skip and Step 3a completion; ensure
-# the heading exists. The textual 'jump to Step 6' references are validated
-# below in the control-flow phrases loop.
-if ! grep -qE '^## Step 6\b' "$how_to_run_skill" 2>/dev/null; then
-  wiring_errors+="  $how_to_run_skill missing jump target: ^## Step 6\n"
-fi
-# Step 3 option labels — silent rename without matching update in the
-# per-answer routing block would silently send the user down the wrong
-# branch. '**Skip**' uses bold form because bare 'Skip' would also match
-# 'skipped' / 'Skip the prompt' in unrelated prose elsewhere in SKILL.md.
-for option_label in 'Walk through it' 'Regenerate' '**Skip**'; do
-  if ! grep -qF "$option_label" "$how_to_run_skill" 2>/dev/null; then
-    wiring_errors+="  $how_to_run_skill missing Step 3 option label: $option_label\n"
-  fi
-done
-# Control-flow phrases — exit strings and cross-step jump targets. A silent
-# rename here dangles the SKILL→walkthrough→SKILL handoff.
-for control_phrase in 'Stop the walkthrough' 'jump to Step 3a' 'jump to Step 6'; do
-  if ! grep -qF "$control_phrase" "$how_to_run_skill" 2>/dev/null; then
-    wiring_errors+="  $how_to_run_skill missing control-flow phrase: $control_phrase\n"
-  fi
-done
-# Discoverability strings — the AskUserQuestion header that the user sees,
-# the reference file path SKILL.md loads, and the frontmatter phrase that
-# surfaces this option in skill descriptions.
-for discoverability_string in 'guided-walkthrough.md' 'guided in-chat walkthrough' 'How to Run Documentation'; do
-  if ! grep -qF "$discoverability_string" "$how_to_run_skill" 2>/dev/null; then
-    wiring_errors+="  $how_to_run_skill missing discoverability string: $discoverability_string\n"
-  fi
-done
-for heading in '^## Pre-flight' '^## Per-step loop' '^## Advisory flags' '^## Display sanitization' '^## Heavy-staleness handling' '^## Completion summary' '^## What this walkthrough never modifies'; do
-  if ! grep -qE "$heading" "$walkthrough_ref" 2>/dev/null; then
-    wiring_errors+="  $walkthrough_ref missing heading matching: $heading\n"
-  fi
-done
-# Option labels — the per-step loop renders these via AskUserQuestion.
-# Silent rename desyncs the rendered options from the SKILL.md routing
-# contract (Step 3a jumps back to Step 6 on "Stop the walkthrough").
-for option_label in '"Done"' '"Skip"' '"Stop the walkthrough"'; do
-  if ! grep -qF "$option_label" "$walkthrough_ref" 2>/dev/null; then
-    wiring_errors+="  $walkthrough_ref missing option label: $option_label\n"
-  fi
-done
-# Advisory prepends in the walkthrough — silent rename drops the warning
-# surface the user sees before each per-step prompt.
-for advisory_string in 'Remote code executor' 'Destructive command'; do
-  if ! grep -qF "$advisory_string" "$walkthrough_ref" 2>/dev/null; then
-    wiring_errors+="  $walkthrough_ref missing advisory string: $advisory_string\n"
-  fi
-done
-# Control-flow / exit strings — 'SKILL.md Step 6' is the post-walkthrough
-# jump target, '**Regenerate**' is the recovery recommendation. Silent
-# rename dangles the SKILL→walkthrough→SKILL handoff or the recovery
-# cross-reference. ('Stop the walkthrough' is covered by the option_label
-# loop above — the quoted form there is a strict superset of the bare form.)
-for control_phrase in 'SKILL.md Step 6' '**Regenerate**'; do
-  if ! grep -qF "$control_phrase" "$walkthrough_ref" 2>/dev/null; then
-    wiring_errors+="  $walkthrough_ref missing control-flow phrase: $control_phrase\n"
-  fi
-done
-# Per-step audit-verdict prefix — the literal label ('Audit:') that ties
-# the rendered verdict to its auditor source. A silent rename to 'Verdict:'
-# or 'Status:' would still pass the verdict-string check below but would
-# disconnect the rendered prefix from the audit surface.
-if ! grep -qF 'Audit:' "$walkthrough_ref" 2>/dev/null; then
-  wiring_errors+="  $walkthrough_ref missing audit-verdict prefix: Audit:\n"
-fi
-for verdict in "${audit_verdicts[@]}"; do
-  if ! grep -qF "$verdict" "$walkthrough_ref" 2>/dev/null; then
-    wiring_errors+="  $walkthrough_ref missing audit verdict: $verdict\n"
-  fi
-  if ! grep -qF "$verdict" "$auditor_agent" 2>/dev/null; then
-    wiring_errors+="  $auditor_agent missing audit verdict: $verdict\n"
-  fi
-done
-# Cross-file return-format header — auditor agent emits this section header
-# and SKILL.md Steps 2/3 consume it by name. A silent rename in either file
-# would break the Step 2 → Step 3 handoff that feeds the walkthrough's audit
-# verdict surfaces.
-if ! grep -qF 'How-to-Run Audit Results' "$auditor_agent" 2>/dev/null; then
-  wiring_errors+="  $auditor_agent missing return-format header: How-to-Run Audit Results\n"
-fi
-if ! grep -qF 'How-to-Run Audit Results' "$how_to_run_skill" 2>/dev/null; then
-  wiring_errors+="  $how_to_run_skill missing return-format consumer: How-to-Run Audit Results\n"
-fi
-# Cross-step identifiers — these list/field names are referenced from
-# multiple Steps (3 record, 4 populate, 6 exempt); a silent rename in only
-# one location would silently disable the cross-step contract (e.g., Step 6
-# would reject legitimately approved unverifiable items). The contract now
-# spans SKILL.md (pointer wiring) plus the two reference files that hold
-# the rule bodies (unverifiable-content-sanitization.md for Steps 3/4,
-# step6-verification-audits.md for the Step 6 exemption), so each surface
-# is pinned independently.
-# Threshold = current occurrence count; one location renamed = check fails.
-# `|| true` lets the count=0 case reach the threshold comparison instead
-# of aborting the script under `set -euo pipefail` — count=0 is exactly
-# the failure mode this check is designed to catch.
-check_cross_step_identifier() {
-  local identifier=$1 expected=$2 file=$3
-  local actual
+# require_min_count <identifier> <min> <file>: occurrence-count floor. Counts
+# pin cross-step identifiers where a one-sided rename (or a dropped
+# occurrence) silently disables a multi-step contract. `|| true` lets the
+# count=0 case reach the comparison instead of aborting under set -e — count=0
+# is exactly the failure mode this check exists to catch.
+require_min_count() {
+  local identifier=$1 expected=$2 file=$3 actual
   actual=$(grep -cF "$identifier" "$file" 2>/dev/null || true)
   [ -z "$actual" ] && actual=0
   if [ "$actual" -lt "$expected" ]; then
-    wiring_errors+="  $file cross-step identifier '$identifier' appears $actual times, expected >=$expected\n"
+    contract_errors+="  $file cross-step identifier '$identifier' appears $actual times, expected >=$expected\n"
   fi
 }
-check_cross_step_identifier 'approved-unverifiable-items' 3 "$how_to_run_skill"
-check_cross_step_identifier 'rendered_line' 3 "$how_to_run_skill"
-check_cross_step_identifier 'approved-unverifiable-items' 1 "$sanitization_file"
-check_cross_step_identifier 'rendered_line' 1 "$sanitization_file"
-check_cross_step_identifier 'approved-unverifiable-items' 3 "$step6_audits_file"
-check_cross_step_identifier 'rendered_line' 2 "$step6_audits_file"
-# Stale-info report identifiers — Step 4/5 prose references the Step 6
-# "Outdated info" report by name; a silent rename of either side breaks
-# the path from principle to report. Each side is checked independently
-# so the failure message identifies which surface drifted.
-if ! grep -qF 'Outdated info found in other files' "$how_to_run_skill" 2>/dev/null; then
-  wiring_errors+="  $how_to_run_skill missing Step 6 stale-info report heading: Outdated info found in other files\n"
-fi
-if ! grep -qF 'Outdated info elsewhere' "$how_to_run_skill" 2>/dev/null; then
-  wiring_errors+="  $how_to_run_skill missing Step 4/5 cross-reference to stale-info report: Outdated info elsewhere\n"
+
+# Scenario contract: brainstorm's spec template emits these headings; tdd's
+# scenario-driven shortcut greps specs for them.
+require_tokens skills/brainstorm/SKILL.md '## Scenarios' '### Scenario:'
+require_tokens skills/tdd/SKILL.md '## Scenarios' '### Scenario:'
+
+# TDD-summary handoff: tdd emits the summary block; pr detects the
+# '## TDD Summary' heading to populate Intent and the per-item Test plan.
+require_tokens skills/tdd/SKILL.md '## TDD Summary' '### Behaviors Implemented' '### Coverage'
+require_tokens skills/pr/SKILL.md '## TDD Summary' '### Behaviors Implemented' '### Coverage'
+
+# Plan-mode handoff: the canonical '### Refined plan' heading defined in
+# plan-mode-handoff.md is consumed by jira's refresh/codebase-analysis flows.
+require_tokens skills/brainstorm/references/plan-mode-handoff.md '### Refined plan'
+if ! grep -rqF -- '### Refined plan' skills/jira/ 2>/dev/null; then
+  contract_errors+="  skills/jira/ has no file containing contract token: ### Refined plan\n"
 fi
 
+# Harness routing: /optimus:deep dispatches the base skills with
+# HARNESS_MODE_INLINE and each base SKILL.md routes on it to its variant's
+# reference (runtime contract with scripts/harness_common/cli.py; see
+# test_skill_contract.py). The roster is derived from constants.py's variant
+# frozensets, so a new deep target is covered here automatically instead of
+# shipping unvalidated when a hardcoded list goes stale.
+if [ -n "$py_cmd" ]; then
+  # `|| true`: an import-time failure in constants.py must surface as a contract
+  # FAIL below, not abort the whole run via set -e with no summary printed.
+  deep_variant_skills=$(PYTHONPATH=./scripts "$py_cmd" -c "from harness_common.constants import DEEP_VARIANT_SKILLS; print(' '.join(sorted(DEEP_VARIANT_SKILLS)))" 2>/dev/null) || true
+  coverage_variant_skills=$(PYTHONPATH=./scripts "$py_cmd" -c "from harness_common.constants import COVERAGE_VARIANT_SKILLS; print(' '.join(sorted(COVERAGE_VARIANT_SKILLS)))" 2>/dev/null) || true
+  if [ -z "$deep_variant_skills" ] || [ -z "$coverage_variant_skills" ]; then
+    contract_errors+="  harness roster derivation failed: scripts/harness_common/constants.py did not yield DEEP_VARIANT_SKILLS/COVERAGE_VARIANT_SKILLS\n"
+  fi
+  for hs in $deep_variant_skills; do
+    require_tokens "skills/$hs/SKILL.md" 'HARNESS_MODE_INLINE' 'references/harness-mode.md'
+  done
+  for hs in $coverage_variant_skills; do
+    require_tokens "skills/$hs/SKILL.md" 'HARNESS_MODE_INLINE' 'references/coverage-harness-mode.md'
+  done
+else
+  echo "  SKIP  Harness-routing roster derivation (python not installed); frozen roster fallback"
+  require_tokens skills/code-review/SKILL.md 'HARNESS_MODE_INLINE' 'references/harness-mode.md'
+  require_tokens skills/refactor/SKILL.md 'HARNESS_MODE_INLINE' 'references/harness-mode.md'
+  require_tokens skills/unit-test/SKILL.md 'HARNESS_MODE_INLINE' 'references/coverage-harness-mode.md'
+fi
+require_tokens skills/deep/SKILL.md 'HARNESS_MODE_INLINE'
+
+# Agent-return contracts inside how-to-run: the detector and auditor agents emit
+# these headings and SKILL.md waits on them by name. A rename on either side
+# silently yields an empty handoff — Step 3 then renders every aspect unknown.
+require_tokens skills/how-to-run/agents/project-environment-detector.md '## Context Detection Results'
+require_tokens skills/how-to-run/SKILL.md 'Context Detection Results'
+require_tokens skills/how-to-run/agents/how-to-run-auditor.md '## How-to-Run Audit Results'
+require_tokens skills/how-to-run/SKILL.md 'How-to-Run Audit Results'
+
+# Unsupported-stack wiring: the detector only flags the condition, SKILL.md runs
+# the fallback. Dropping either side silently loses unknown-stack support.
+require_tokens skills/how-to-run/agents/project-environment-detector.md '### Unsupported-Stack Fallback' '- **Triggered:**'
+require_tokens skills/how-to-run/SKILL.md 'Triggered: yes' 'unsupported-stack-fallback.md'
+
+# --- how-to-run load-bearing wiring ---
+# Step/section navigation and agent return formats the how-to-run flow keys off
+# by literal name. A one-sided rename anywhere below fails silently — routing is
+# by literal string — with every other check green.
+how_to_run_skill="skills/how-to-run/SKILL.md"
+detector_file="skills/how-to-run/agents/project-environment-detector.md"
+auditor_agent="skills/how-to-run/agents/how-to-run-auditor.md"
+walkthrough_ref="skills/how-to-run/references/guided-walkthrough.md"
+step6_file="skills/how-to-run/references/step6-verification-audits.md"
+esd_file="skills/how-to-run/references/external-services-docker.md"
+sections_file="skills/how-to-run/references/how-to-run-sections.md"
+
+# Detector return-format contract: SKILL.md Steps 1/4 branch on these exact
+# sub-headings and fields. A silent rename collapses service coverage, drops
+# schema-bootstrap rendering, or loses workspace-aware command branching.
+require_tokens "$detector_file" \
+  '### Recommended Developer Tools' \
+  '### External Services' \
+  '### Environment Setup' \
+  '### Schema Bootstrap' \
+  '### Runtime Ports' \
+  '### Components' \
+  '- **Workspace kind:**' \
+  '- **Setup scripts:**' \
+  '- **Pre-commit hooks:**' \
+  '- **direnv:**' \
+  '- **Local TLS cert:**' \
+  '- **Database migrations:**' \
+  '| Key leaves |' \
+  '| Secrets committed |'
+
+# Walkthrough trigger keys: Step 3 routes on the literal 'Walk through it'
+# option label and jumps to the '## Step 3a:' heading; Step 3a loads
+# guided-walkthrough.md by path and exits on 'Stop the walkthrough' back to
+# Step 6. A rename on one side only silently kills the walkthrough branch.
+require_pattern "$how_to_run_skill" '^## Step 3a:' '^## Step 6:'
+require_tokens "$how_to_run_skill" \
+  'Walk through it' \
+  'Regenerate' \
+  '**Skip**' \
+  'Stop the walkthrough' \
+  'jump to Step 6' \
+  'guided-walkthrough.md'
+require_pattern "$walkthrough_ref" \
+  '^## Pre-flight' \
+  '^## Per-step loop' \
+  '^## Advisory flags' \
+  '^## Display sanitization' \
+  '^## Completion summary'
+require_tokens "$walkthrough_ref" \
+  '"Done"' \
+  '"Skip"' \
+  '"Stop the walkthrough"' \
+  'Remote code executor' \
+  'Destructive command' \
+  'SKILL.md Step 6' \
+  '**Regenerate**' \
+  'Audit:'
+# Audit-verdict producer/consumer pair: the auditor emits these verdicts and
+# the walkthrough renders them per step (with the 'Audit:' prefix above).
+for verdict in 'Found but outdated' 'Partial' 'Missing'; do
+  require_tokens "$walkthrough_ref" "$verdict"
+  require_tokens "$auditor_agent" "$verdict"
+done
+# 'Documented but unverifiable' is consumed by SKILL.md's Step 3 per-item
+# prompts, not the walkthrough — pin its own producer/consumer pair.
+require_tokens "$auditor_agent" 'Documented but unverifiable'
+require_tokens "$how_to_run_skill" 'Documented but unverifiable'
+
+# §-style section-name navigation: SKILL.md and the references reach these
+# sections exclusively by name (section 8 resolves file paths only, never
+# §-names). A rename silently degrades the Docker-suggestion path, the
+# workspace-aware command branching, and the Step 6 re-verification audits.
+require_pattern "$esd_file" \
+  '^## Service Classification Tables' \
+  '^## Decision Heuristics' \
+  '^## Web-Search Recipe' \
+  '^## Verify Commands \(seeds\)' \
+  '^## Pre-Conditions Block' \
+  '^## Citation Format' \
+  '^## Registry Allowlist' \
+  '^### Docker-preferred' \
+  '^### Local install only'
+require_tokens "$esd_file" '**Step 6 audit:**' '## Canonical Image Catalogue (seeds)'
+require_tokens "$sections_file" \
+  '## External Services' \
+  '## Workspace-Kind Command Branches' \
+  '## Multi-Repo Workspace Template'
+require_pattern "$step6_file" \
+  '^## Record-time validation' \
+  '^## Render-time sanitization' \
+  '^## Step 6 audits'
+# SKILL.md Steps 3/4 reach those sections by §-name only — pin the consumer side.
+require_tokens "$how_to_run_skill" '§Record-time validation' '§Render-time sanitization'
+# Audit-suite completeness: Step 6 applies "every Step 6 audit" in the audits
+# file, so a silently dropped audit passes every other gate (the v3 rewrite
+# dropped Template-shape this way while its render rules stayed mandated).
+require_tokens "$step6_file" \
+  'External Services re-verification' \
+  'Pre-Conditions Block audit' \
+  'Detector-token re-validation' \
+  'Specific-Token Audit' \
+  'Unverified-Count filter' \
+  'Section ordering' \
+  'Template-shape audit'
+
+# Cross-step identifiers: Step 3/4 records rendered_line entries in the
+# approved-unverifiable-items list and Step 6 exempts exactly those lines by
+# full-line equality. A one-sided rename silently breaks the exemption (or
+# exempts unintended lines). Threshold = current occurrence count.
+require_min_count 'approved-unverifiable-items' 1 "$how_to_run_skill"
+require_min_count 'rendered_line' 2 "$how_to_run_skill"
+require_min_count 'approved-unverifiable-items' 2 "$step6_file"
+require_min_count 'rendered_line' 2 "$step6_file"
+
 # Handoff skill: load-bearing tokens. Renaming any silently breaks the
-# emitted-doc shape, the save path, redaction, the unpushed-commit guard,
-# the shared-reference loads, the enhance/overwrite re-run routing, or the
-# closing-tip variant.
-handoff_skill="skills/handoff/SKILL.md"
-# Assert presence as a first-class check (not an `if [ -f ]` guard) so a rename
-# or deletion fails the build instead of silently skipping the wiring loop.
-check "handoff SKILL.md present" test -f "$handoff_skill"
-for token in \
+# emitted-doc shape, the save path, redaction, the unpushed-commit guard, the
+# shared-reference loads, or the enhance/overwrite re-run routing.
+require_tokens skills/handoff/SKILL.md \
   'docs/handoffs/' \
   '[REDACTED:' \
   '@{upstream}..HEAD' \
@@ -1065,49 +678,19 @@ for token in \
   '## History' \
   '## Handoff document template' \
   '## Redaction patterns' \
-  'references/skill-handoff.md' \
   'multi-repo-detection.md' \
   'Enhance' \
   'Overwrite' \
   'Continue one' \
-  'Create new' \
-  'Variant A'; do
-  if ! grep -qF -- "$token" "$handoff_skill" 2>/dev/null; then
-    wiring_errors+="  $handoff_skill missing handoff wiring token: $token\n"
-  fi
-done
+  'Create new'
 
-check "Load-bearing wiring intact" test -z "$wiring_errors"
-if [ -n "$wiring_errors" ]; then
-  printf "       Wiring issues:\n%b" "$wiring_errors"
-fi
+# Brainstorm self-review reaches scenario-style.md by section name. A silent
+# rename of either heading leaves the self-review pointer dangling.
+require_pattern skills/brainstorm/references/scenario-style.md '^## Discipline' '^## Anti-patterns'
 
-# Closing-tip drift guard: references/skill-handoff.md mandates verbatim
-# variant wording for closing tips, but inline copies in SKILL.md files are
-# otherwise unpinned. Any **Tip:** line about conversation hygiene (contains
-# "conversation") must match a canonical variant: Variant C verbatim, or the
-# Variant A/B invariant text with skill-specific substitutions in the
-# placeholder slots. Other **Tip:** lines (e.g. deep-mode pointers) are not
-# closing tips and are ignored.
-tip_errors=""
-variant_c='for best results, start a fresh conversation for the next skill — each skill gathers its own context from scratch.'
-while IFS= read -r match; do
-  tip_file="${match%%:*}"
-  tip_text="${match#*"**Tip:** "}"
-  case "$tip_text" in
-    *conversation*) ;;
-    *) continue ;;
-  esac
-  case "$tip_text" in
-    "$variant_c"*) ;;
-    "stay in this conversation when running "*" so the implementation context is captured. Other downstream skills ("*") should still run in fresh conversations."*) ;;
-    "for \`"*", stay in this conversation so they can capture the implementation context. For other downstream skills ("*"), start a fresh conversation — each gathers its own context from scratch."*) ;;
-    *) tip_errors+="  $tip_file: closing tip does not match a skill-handoff.md variant: $tip_text\n" ;;
-  esac
-done < <(grep -H -- '\*\*Tip:\*\*' skills/*/SKILL.md)
-check "Closing tips match skill-handoff.md variants" test -z "$tip_errors"
-if [ -n "$tip_errors" ]; then
-  printf "       Tip drift:\n%b" "$tip_errors"
+check "Producer/consumer contracts intact" test -z "$contract_errors"
+if [ -n "$contract_errors" ]; then
+  printf "       Contract issues:\n%b" "$contract_errors"
 fi
 
 # --- Summary ---

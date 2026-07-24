@@ -1,115 +1,76 @@
 # New Project Scaffolding
 
-Procedure for scaffolding a new project from scratch in an empty directory. Referenced from Step 1 of the init skill when an empty or near-empty directory is detected.
-
-## Contents
-
-- [Scope Guard](#scope-guard)
-- [Section 1: Gather Project Intent](#section-1-gather-project-intent)
-- [Section 2: Scaffold Commands Table](#section-2-scaffold-commands-table) (Web app, Backend/API, CLI tool, Other stacks)
-- [Section 3: Post-Scaffold](#section-3-post-scaffold) (.gitignore, README, Verify, Git init)
+Procedure for scaffolding a new project from scratch in an empty directory. Referenced from Step 1 of the init skill.
 
 ## Scope Guard
 
-This procedure creates a **minimal hello-world project** — the absolute baseline for the chosen stack. The project description provided by the user is used ONLY for naming and the README description line. Do NOT implement features, business logic, or architecture based on the project description. The result must be a buildable, runnable, minimal project with zero custom code beyond what the official scaffolding tool generates.
+This procedure creates a **minimal hello-world project** — the absolute baseline for the chosen stack. The user's project description is used ONLY for naming and the README description line. Do NOT implement features, business logic, or architecture based on it. The result must be a buildable, runnable, minimal project with zero custom code beyond what the official scaffolding tool generates.
 
-## Section 1: Gather Project Intent
+## Gather Project Intent
 
-Use `AskUserQuestion` — header "New Project", question "What would you like to build?" with options:
-- **Web app** — "Frontend or full-stack web application"
-- **Backend / API** — "Server, REST API, or microservice"
-- **CLI tool** — "Command-line application"
-- **Other** — "Library, mobile app, or something else"
+Use `AskUserQuestion` — header "New Project", question "What would you like to build?": **Web app** (frontend or full-stack) / **Backend / API** / **CLI tool** / **Other** (library, mobile app, or something else). Follow up with header "Tech Stack", question "Which stack would you like to use?" — options from the matching table below, always including an "Other" option.
 
-Based on the answer, ask a follow-up `AskUserQuestion` — header "Tech Stack", question "Which stack would you like to use?" with options appropriate to the category (see Scaffold Commands Table below for the full list of built-in options). Always include an "Other" option for unlisted stacks.
+Ask for the **project name** if not clear from context. It must match `^[a-zA-Z][a-zA-Z0-9._-]{0,99}$` (no spaces or shell metacharacters). If invalid, ask again with guidance on valid naming for the chosen stack (lowercase-hyphens for Node.js; underscores for Python/Rust; PascalCase for .NET; etc.).
 
-Then ask for the **project name** if not already clear from context. Validate it before use: it must match `^[a-zA-Z][a-zA-Z0-9._-]{0,99}$` (no spaces or shell metacharacters). If invalid, ask again with guidance on valid naming for the chosen stack (lowercase with hyphens for Node.js; underscores for Python/Rust; PascalCase for .NET; etc.).
+## Scaffold Commands
 
-## Section 2: Scaffold Commands Table
+Use the official scaffolding CLI — do NOT hand-generate boilerplate the official tool produces. Adjust the package-manager prefix per detection (`pnpm create`, `yarn create`, `bun create`).
 
-Use the official scaffolding CLI for each stack. Do NOT manually generate boilerplate — official tools produce correct, up-to-date project structures with proper configs.
+### Web app
 
-### Web app stacks
+| Framework | Scaffold Command |
+|-----------|-----------------|
+| React (Vite) | `npm create vite@latest <name> -- --template react-ts` |
+| Next.js | `npx create-next-app@latest <name> --ts --app` |
+| Vue (Vite) | `npm create vite@latest <name> -- --template vue-ts` |
+| Nuxt | `npx nuxi@latest init <name>` |
+| Svelte (SvelteKit) | `npx sv create <name>` |
+| Angular | `npx @angular/cli@latest new <name>` |
+| Flutter (web) | `flutter create --platforms web <name>` |
 
-| Framework | Scaffold Command | Notes |
-|-----------|-----------------|-------|
-| React (Vite) | `npm create vite@latest <name> -- --template react-ts` | Adjust PM prefix per detection: `pnpm create`, `yarn create`, `bun create` |
-| Next.js | `npx create-next-app@latest <name> --ts --app` | Uses App Router by default |
-| Vue (Vite) | `npm create vite@latest <name> -- --template vue-ts` | Adjust PM prefix |
-| Nuxt | `npx nuxi@latest init <name>` | |
-| Svelte (SvelteKit) | `npx sv create <name>` | |
-| Angular | `npx @angular/cli@latest new <name>` | |
-| Flutter (web) | `flutter create --platforms web <name>` | |
+### Backend / API
 
-### Backend / API stacks
+| Framework | Scaffold Command |
+|-----------|-----------------|
+| Node.js / Express | `mkdir <name> && cd <name> && npm init -y`, then `npm install express` + minimal `index.js` hello-world route + `start` script |
+| Python / FastAPI | `uv init <name>`, then `cd <name> && uv add fastapi` + minimal `main.py` endpoint. No uv → manual venv (`python3 -m venv .venv`), `pip install fastapi uvicorn` |
+| Rust / Axum | `cargo init <name>`, then add `axum` + `tokio` to `Cargo.toml` + minimal hello-world server in `main.rs` |
+| Go | `mkdir <name> && cd <name> && go mod init <name>` + minimal `main.go` HTTP server. Bare-name module path is the starter — offer a URL-like path (e.g., `github.com/user/<name>`); validate custom paths against `^[a-zA-Z0-9][a-zA-Z0-9._/-]*$` before use |
+| C# / .NET Web API | `dotnet new webapi -o <name>` |
+| Java / Spring Boot | `mkdir -p <name> && curl --fail -sSL https://start.spring.io/starter.tgz -d type=maven-project -d language=java -d name=<name> -d artifactId=<name> -d baseDir= \| tar -xzf - -C <name>` (if unavailable, search web for the current alternative) |
 
-| Framework | Scaffold Command | Notes |
-|-----------|-----------------|-------|
-| Node.js / Express | `mkdir <name> && cd <name> && npm init -y` | After init: `npm install express` + create minimal `index.js` with hello-world route and `start` script in package.json |
-| Python / FastAPI | `uv init <name>` | After init: `cd <name> && uv add fastapi` + create minimal `main.py` with hello-world endpoint. If uv not available: `mkdir <name> && cd <name> && python3 -m venv .venv` then install with `.venv/bin/pip` (Unix/macOS) or `.venv/Scripts/pip` (Windows): `pip install fastapi uvicorn` + create `main.py` |
-| Rust / Axum | `cargo init <name>` | After init: add `axum` and `tokio` to `Cargo.toml` + replace `main.rs` with minimal hello-world server |
-| Go | `mkdir <name> && cd <name> && go mod init <name>` | Create minimal `main.go` with hello-world HTTP server. Module path uses bare name as starter — ask the user if they prefer a URL-like path (e.g., `github.com/user/<name>`). Validate custom paths match `^[a-zA-Z0-9][a-zA-Z0-9._/-]*$` before use |
-| C# / .NET Web API | `dotnet new webapi -o <name>` | Generates a complete hello-world API |
-| Java / Spring Boot | `mkdir -p <name> && curl --fail -sSL https://start.spring.io/starter.tgz -d type=maven-project -d language=java -d name=<name> -d artifactId=<name> -d baseDir= \| tar -xzf - -C <name>` | If curl/Spring Initializr unavailable, search web for current alternative |
+### CLI tool
 
-### CLI tool stacks
+| Language | Scaffold Command |
+|----------|-----------------|
+| Node.js | `mkdir <name> && cd <name> && npm init -y` + `bin/<name>.js` with shebang + `bin` field |
+| Python | `uv init <name>` + `<name>/__main__.py` hello-world (no uv → manual venv) |
+| Rust | `cargo init <name>` |
+| Go | `mkdir <name> && cd <name> && go mod init <name>` + hello-world `main.go` (same module-path rule as Backend) |
 
-| Language | Scaffold Command | Notes |
-|----------|-----------------|-------|
-| Node.js | `mkdir <name> && cd <name> && npm init -y` | Create `bin/<name>.js` with shebang + `bin` field in package.json |
-| Python | `uv init <name>` | Create `<name>/__main__.py` with hello-world print. If uv not available: manual venv setup |
-| Rust | `cargo init <name>` | Generates a complete hello-world CLI |
-| Go | `mkdir <name> && cd <name> && go mod init <name>` | Create `main.go` with hello-world print. Module path uses bare name as starter — ask the user if they prefer a URL-like path. Validate custom paths match `^[a-zA-Z0-9][a-zA-Z0-9._/-]*$` before use |
+### Other
 
-### Other stacks
+| Type | Scaffold Command |
+|------|-----------------|
+| Flutter (mobile) | `flutter create <name>` |
+| React Native | `npx react-native@latest init <name>` |
+| Dart (package) | `dart create -t package <name>` |
+| Node.js (library) | `mkdir <name> && cd <name> && npm init -y` + `src/index.ts` placeholder export |
+| Python (library) | `uv init --lib <name>` (no uv → manual setup) |
+| Rust (library) | `cargo init --lib <name>` |
+| C/C++ (CMake) | `mkdir -p <name>/src && cd <name>` + `CMakeLists.txt` + hello-world `src/main.cpp` |
 
-| Type | Scaffold Command | Notes |
-|------|-----------------|-------|
-| Flutter (mobile) | `flutter create <name>` | Generates a complete hello-world app |
-| React Native | `npx react-native@latest init <name>` | |
-| Dart (package) | `dart create -t package <name>` | |
-| Node.js (library) | `mkdir <name> && cd <name> && npm init -y` | Create `src/index.ts` with placeholder export |
-| Python (library) | `uv init --lib <name>` | If uv not available: manual setup |
-| Rust (library) | `cargo init --lib <name>` | |
-| C/C++ (CMake) | `mkdir -p <name>/src && cd <name>` | Create `CMakeLists.txt` + `src/main.cpp` with hello-world |
+**CLI not installed:** if the required tool (e.g., `cargo`, `flutter`, `dotnet`, `uv`) is missing, use `AskUserQuestion` — header "Missing Tool", question "[tool] is not installed. How would you like to proceed?": **Install it** (provide the standard install command for the platform, proceed after) / **Manual setup** (minimal manifest + hello-world entry point + `.gitignore`).
 
-### CLI not installed
+**Unsupported stacks:** if the user selects "Other" with a stack not in the tables, return an **unsupported-stack signal** to the caller (SKILL.md) with the chosen stack name — the caller applies the fallback procedure.
 
-If the required CLI tool (e.g., `cargo`, `flutter`, `dotnet`, `uv`) is not installed, inform the user and use `AskUserQuestion` — header "Missing Tool", question "[tool] is not installed. How would you like to proceed?":
-- **Install it** — provide the standard installation command for the platform and proceed after installation
-- **Manual setup** — create a minimal project manually: manifest file, entry point with hello-world code, and `.gitignore`
+## Post-Scaffold
 
-### Unsupported stacks
+Scaffold commands create a `<name>/` subdirectory — `cd <name>` before these steps so everything (including init re-detection) runs from the project root. Skip the `cd` only if files landed directly in the CWD (rare — manual setup).
 
-If the user selects "Other" and specifies a stack not in the tables above: return an **unsupported-stack signal** to the caller (SKILL.md) with the user's chosen stack name, so the caller can apply the unsupported-stack fallback procedure directly.
+- **.gitignore:** verify the scaffold-generated one covers build artifacts and dependencies; create a standard one for the stack if missing; if one pre-existed, append missing stack entries without overwriting.
+- **README.md:** must tell a developer how to build and run. Keep an adequate scaffold-generated README (updating name/description to the user's input); otherwise create a minimal one — title, one-line description, `## Development` section with install/dev/build/test commands that actually exist in the scaffolded project.
+- **Verify the project works:** run the build or dev command and confirm success; diagnose and fix failures before proceeding. For dev servers: start with a 30-second timeout, verify a ready signal ("listening on port", "ready"), then stop it; no signal within the timeout → stop the process and report for diagnosis.
+- **Git init:** run `git init` if `.git/` does not exist.
 
-## Section 3: Post-Scaffold
-
-All scaffold commands create a `<name>/` subdirectory. Before post-scaffold steps, `cd` into it so all subsequent operations (and init re-detection) run from the project root: `cd <name>`. If the scaffold tool placed files directly in the CWD (rare — e.g., manual setup), skip the `cd`.
-
-### .gitignore
-
-Most official scaffold tools generate a `.gitignore`. After scaffolding:
-1. If `.gitignore` was generated by the scaffold tool — verify it covers the stack's build artifacts and dependencies. If adequate, keep as-is.
-2. If no `.gitignore` exists — create one with standard entries for the detected stack (e.g., `node_modules/`, `dist/`, `.env` for Node.js; `__pycache__/`, `.venv/`, `*.pyc` for Python; `target/` for Rust; `bin/`, `obj/` for .NET; etc.). Use web search for the stack's standard `.gitignore` patterns if needed.
-3. If `.gitignore` existed before scaffolding (pre-existing repo) — append any missing stack-specific entries without overwriting existing content.
-
-### README
-
-The project must have a `README.md` that tells a human developer how to build and run it.
-
-1. If the scaffold tool generated a README with adequate build/run instructions (e.g., `create-next-app`, `create-react-app`) — keep it. Update the project name and description line to match the user's input if the scaffold README is generic.
-2. If the scaffold tool generated a README without run instructions, or no README exists — create or update a minimal README:
-   - `# <project-name>`
-   - One-line description from the user's project description
-   - `## Development` section with commands for: install dependencies, run in dev mode, build for production, and run tests — using the package manager detected from the scaffold command (npm/pnpm/yarn/bun for JS; uv/pip for Python; cargo for Rust; go for Go; dotnet for .NET). Only include commands that are actually available in the scaffolded project.
-
-### Verify project works
-
-Run the build or dev command to confirm the scaffolded project compiles/starts successfully. If it fails, diagnose and fix before proceeding. The project must be in a buildable, runnable state. For dev servers, start the command with a 30-second timeout, verify it begins serving (check for the expected output like "listening on port" or "ready"), then stop it. If no ready signal appears within the timeout, stop the process and report the issue for diagnosis.
-
-### Git init
-
-1. If `.git/` does not exist, run `git init`.
-
-After git init, print: **"Scaffolding complete. Resuming project detection..."** and return control to init Step 1 at the "Project detection" subsection to re-detect the now-populated project from scratch.
+Then print **"Scaffolding complete. Resuming project detection..."** and return control to init Step 1's project detection to re-detect the now-populated project from scratch.

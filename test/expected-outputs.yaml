@@ -81,9 +81,9 @@ permissions:
       .claude/hooks/restrict-paths.sh:
         - "#!/usr/bin/env bash"
 
-commit-message:
+commit-suggest:
   node-project:
-    # Read-only skill: suggests a message but changes nothing
+    # Read-only mode: suggests a message but changes nothing
     files_not_modified: true
 
 how-to-run:
@@ -108,8 +108,8 @@ prompt:
     # Read-only skill: crafts a prompt but changes nothing
     files_not_modified: true
 
-branch:
+commit-branch:
   node-project:
-    # Branch skill creates a new branch — check for conventional prefix
+    # Branch mode creates a new branch — check for conventional prefix
     output_contains:
       - "feat/"

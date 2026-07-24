@@ -11,7 +11,7 @@ Common constraints, quality bar, exclusion rules, and false-positive guidance fo
 
 - Every finding must have real impact, not be a nitpick
 - Be specific and actionable (not vague "consider refactoring")
-- Be high confidence — assign a confidence level to each finding: **High** (clear evidence), **Medium** (plausible with some evidence), or **Low** (uncertain — prefer to omit)
+- Assign a confidence level to each finding: **High** (clear evidence), **Medium** (plausible with some evidence), or **Low** (uncertain — prefer to omit)
 
 ## All Agents Exclude
 
@@ -24,15 +24,16 @@ Common constraints, quality bar, exclusion rules, and false-positive guidance fo
 
 ## Finding Cap
 
-Up to **15** findings — only when each is a distinct root cause with supporting evidence. Do NOT pad to reach the cap: 3 strong findings are preferred over 15 weak ones.
+Up to **15** findings — only when each is a distinct root cause with supporting evidence. Do NOT pad to reach the cap: 3 strong findings are preferred over 15 weak ones. One exception composes on top of the cap: **`Intent Mismatch`** findings (code-review, PR/MR mode only — defined in `skills/code-review/agents/shared-constraints.md`) have a separate budget of up to **5** per agent per pass.
 
-### Per-category budget exceptions
+## Structural-Neighbor Scope Expansion
 
-Some categories defined in skill-specific `shared-constraints.md` files have **separate per-pass budgets** that compose *on top of* the 15 cap above — they are not crowded out by domain findings. Currently the only such category is:
+When you flag an issue in file `X`, before returning your findings also inspect related files for the same pattern (or the same pattern **missing** where it should mirror `X`):
 
-- **`Intent Mismatch`** (code-review, PR/MR mode only) — up to **5** additional findings per agent per pass. Defined in `skills/code-review/agents/shared-constraints.md`. The rationale is in that file; the cap exception lives here so it composes correctly with the 15-cap rule and is visible to any agent that reads this file.
+1. **Sibling files** — the same filename under a parallel directory one level up, or files in `X`'s directory whose filename stem before the first `_`, `-`, or `.` matches `X`'s stem (e.g., `auth.js` ↔ `auth.utils.js`).
+2. **Files that import or re-export** any symbol named in your finding.
 
-Skill-specific `shared-constraints.md` files MAY define additional per-category exceptions, but each must be listed here so the composition is explicit. Do not introduce hidden per-category budgets in skill-specific files.
+Report a related-file occurrence (or gap) as a **new consistency finding** referencing the original as its trigger. Limits: at most **3** extra files per original finding; only structural and explicit links (same name prefix, direct import, shared symbol) — no fuzzy expansion, no browsing for unrelated issues; never duplicate the original finding. If no related file matches, do nothing — expansion is opportunistic, not mandatory.
 
 ## False Positives to Avoid
 

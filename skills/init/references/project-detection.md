@@ -1,20 +1,15 @@
 # Project Structure Detection Logic
 
-Detailed detection algorithm for identifying monorepo and multi-repo workspace structures. Referenced from Step 1 of the init skill.
+Detection algorithm for identifying monorepo and multi-repo workspace structures.
 
-## Step 0 — Check for multi-repo workspace (runs before Steps A/B/C)
+## Step 0 — Multi-repo workspace check (runs before Steps A/B/C)
 
-If the current directory has no `.git/` directory:
-- Scan immediate subdirectories for `.git/` directories (skip dot-directories and non-project dirs from the Step B skip list)
-- If 2+ subdirectories have `.git/`: confirmed **multi-repo workspace** — each is an independent repo
-- If 1 subdirectory has `.git/`: not a workspace — suggest user cd into that repo and run init there
-- If 0 `.git/` found: not a recognized project structure — inform user
+If the current directory has no `.git/` directory, scan immediate subdirectories (skipping dot-directories and the Step B skip list) for `.git` **directories** — a `.git` *file* marks a git submodule, not an independent repo:
+- **2+ found** → confirmed multi-repo workspace. Enumerate each repo (path + name), then run Steps A/B/C inside each repo to classify it as single project or monorepo
+- **1 found** → not a workspace — suggest the user cd into that repo and run init there
+- **0 found** → not a recognized project structure — inform the user
 
-When multi-repo workspace is detected:
-- Enumerate each repo with its path and name
-- For each repo, run Steps A/B/C internally to detect if the repo is itself a monorepo or single project
-
-If `.git/` exists in the current directory, skip this step and proceed to Step A (standard monorepo detection within a single repo).
+If `.git/` exists in the current directory, skip to Step A. (Canonical shared copy of this check for other skills: `multi-repo-detection.md` in this directory — keep the two in sync.)
 
 **Manifest validity (applies to all steps):** A lock file without its corresponding manifest (e.g., `package-lock.json` without `package.json`) does not count as a valid manifest.
 
@@ -30,15 +25,15 @@ If `.git/` exists in the current directory, skip this step and proceed to Step A
 
 ## Step B — Scan for Independent Manifests (confirms monorepo if 2+ projects found)
 
-Scan top-level directories for manifest files (from the manifest table in SKILL.md). Skip:
+Scan top-level directories for manifest files (manifest table in `tech-stack-detection.md`). Skip:
 - **Dot-directories**: `.git`, `.github`, `.vscode`, etc.
 - **Dependencies**: `node_modules`, `vendor`, `.venv`, `venv`, `env`
 - **Build output**: `dist`, `build`, `out`, `target`, `bin`, `obj`
 - **Framework/cache**: `.next`, `.nuxt`, `__pycache__`, `.cache`, `.tox`
 - **Non-project**: `examples`, `demos`, `test-fixtures`, `e2e`, `__tests__`, `.storybook`, `samples`, `experiments`, `scripts`, `tools`, `docs`
-- **Git submodules**: Any directory containing a `.git` *file* (not directory) is a submodule pointing to an external repository — skip it
+- **Git submodules**: Any directory containing a `.git` *file* (not directory) — skip it
 
-**Depth-2 check for container directories:** For any scanned top-level directory that has no manifest and is not in the skip list, check its immediate subdirectories for manifest files (applying the same skip rules). This catches nested subprojects inside container directories (e.g., `app/API/` and `app/client/` inside `app/`). Count each qualifying subdirectory as a separate project using its full relative path (e.g., `app/API`, `app/client`).
+**Depth-2 check for container directories:** For any scanned top-level directory that has no manifest and is not in the skip list, check its immediate subdirectories for manifest files (same skip rules). This catches nested subprojects inside container directories (e.g., `app/API/` and `app/client/` inside `app/`). Count each qualifying subdirectory as a separate project using its full relative path.
 
 **Root-as-project check** (only when the total number of qualifying projects found in Step B — including depth-2 results — equals exactly 1):
 The root itself may be an independent project. Count it as an additional project if the root has a manifest file AND at least one of:
@@ -51,7 +46,7 @@ If a single `.sln` file exists at the root, parse its `Project(...)` entries to 
 
 ## Step C — Check Supporting Signals (cannot confirm alone)
 
-- `README.md` describes multi-component architecture (mentions separate apps, services, or components: "frontend and backend", "client and server", "API server", "microservices", etc.)
+- `README.md` describes multi-component architecture ("frontend and backend", "client and server", "API server", "microservices", etc.)
 - `docker-compose.yml` / `compose.yml` defines multiple services with `build:` contexts pointing to different subdirectories
 - Root manifest scripts use `concurrently`, `npm-run-all`, or `run-p`/`run-s` to launch multiple processes
 - Proxy configuration exists (`proxy.conf.json`, `proxy.conf.js`, `setupProxy.js`) indicating a frontend proxying to a local backend
@@ -63,7 +58,7 @@ If a single `.sln` file exists at the root, parse its `Project(...)` entries to 
 - 2+ projects with manifests (Step B) → confirmed monorepo, enumerate from projects
 - Supporting signals (Step C) + 1 dir with manifest → likely monorepo, ask user to confirm
 - Supporting signals only → insufficient evidence, ask user to identify subproject dirs
-- No signals → single project (one repo, one codebase — not a monorepo)
+- No signals → single project
 
 ## Subproject Enumeration
 

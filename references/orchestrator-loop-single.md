@@ -6,9 +6,7 @@
 3. [Parse-failure recovery](#parse-failure-recovery)
 4. [After the loop](#after-the-loop)
 
-Shared iteration template for `/optimus:code-review-deep` and `/optimus:refactor-deep`. Each orchestrator skill dispatches its base skill into a fresh subagent context per iteration, parses the structured JSON the base skill emits, and uses the harness CLI to manage state, test/bisect, and decide termination.
-
-The orchestrator never holds findings or fixes in conversation prose. All state lives in the progress file. Each Bash invocation of the CLI is a discrete operation; the orchestrator skill reads the CLI's stdout to make decisions.
+Shared iteration template for `/optimus:deep review` and `/optimus:deep refactor`. The orchestrator dispatches its base skill into a fresh subagent context per iteration, parses the structured JSON the base skill emits, and uses the harness CLI to manage state, test/bisect, and decide termination. All state lives in the progress file — the orchestrator never holds findings or fixes in conversation prose; it reads the CLI's stdout to make decisions.
 
 **Plugin root.** Every command below writes `$CLAUDE_PLUGIN_ROOT` to mean the plugin root the orchestrator skill resolved in its Step 2. Bash-tool environment variables do **not** persist across separate Bash calls and may read empty on some platforms (notably Windows); if `echo $CLAUDE_PLUGIN_ROOT` was empty there, substitute the resolved absolute path **literally** into every `PYTHONPATH=...` command and into every dispatch prompt in this file.
 
@@ -22,7 +20,7 @@ The orchestrator skill repeats steps 1–8 below until step 7 (`check-terminatio
 PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli snapshot --progress-file "<progress-path>"
 ```
 
-Records `HEAD` into `progress["_snapshot"]["pre_head"]` and stamps the current iteration into `progress["_snapshot"]["iteration_token"]` (step 5 errors out if a stale token reveals a skipped snapshot). In no-commit mode — the run was started `--no-commit`, or a prior commit failed — `snapshot` also captures a working-tree stash automatically, so the iteration stays restorable; you do **not** need to pass `--include-stash` (it remains an explicit override).
+Records `HEAD` into `progress["_snapshot"]["pre_head"]` and stamps the current iteration into `progress["_snapshot"]["iteration_token"]`. In no-commit mode — the run was started `--no-commit`, or a prior commit failed — `snapshot` also captures a working-tree stash automatically, so the iteration stays restorable; you do **not** need to pass `--include-stash` (it remains an explicit override).
 
 ### 2. Dispatch the base skill into a fresh subagent
 
@@ -76,7 +74,7 @@ PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli parse \
     --progress-file "<progress-path>"
 ```
 
-Errors on missing `json:harness-output` block. Passing `--progress-file` lets the CLI track consecutive parse failures across iterations (and across `--resume`); a single failure is a no-op — the CLI also rolls the failed dispatch's partial edits back to the iteration snapshot so nothing half-done is left for a later checkpoint to commit — and the loop moves on, while two consecutive failures cause step 7 to return `parse-failure` and terminate the loop. See "Parse-failure recovery" below.
+Errors on missing `json:harness-output` block. Passing `--progress-file` lets the CLI track consecutive parse failures across iterations (and across `--resume`) — see "Parse-failure recovery" below.
 
 ### 5. Process the iteration
 
@@ -110,7 +108,7 @@ TERMINATION=$(PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.
     --progress-file "<progress-path>")
 ```
 
-Possible values: `continue`, `convergence`, `no-actionable`, `all-reverted`, `cap`, `diminishing-returns`, `parse-failure`. If the value is anything other than `continue`, exit the loop. (`parse-failure` is surfaced automatically when the CLI's `parse_failure_count` reaches its threshold — the orchestrator doesn't need to call `mark-termination` for it.)
+Possible values: `continue`, `convergence`, `no-actionable`, `all-reverted`, `cap`, `diminishing-returns`, `parse-failure`. If the value is anything other than `continue`, exit the loop.
 
 ### 8. Advance the iteration counter
 
@@ -123,34 +121,20 @@ Increments `iteration.current`. Then loop back to step 1.
 ## Loop control invariants
 
 - **Snapshot before dispatch.** The CLI's `deep-step` needs a fresh `pre_head` to recover from test failures, and verifies the snapshot's `iteration_token` matches the current iteration — a skipped snapshot makes `deep-step` exit non-zero rather than restore to a stale commit.
-- **Always write progress before dispatching.** Cancellation between dispatches is recoverable via `--resume`; cancellation mid-dispatch may leave the working tree inconsistent but the progress file remains valid as of the prior iteration.
-- **Slice-only progress reads.** Do not read the full progress file's `findings` array between iterations in the orchestrator's own context. The CLI's `check-termination` returns a single word; trust it.
-- **Subagent output is text, not state.** Treat each subagent's return as a one-time payload. Save it to a temp file verbatim, parse it, then forget it. Do not keep the raw output in the orchestrator's conversation.
-- **Re-entry guard.** If the orchestrator's own invocation prompt body already contains `HARNESS_MODE_INLINE`, stop with `"Deep mode cannot run inside deep mode"`. This prevents a misbehaving subagent from triggering recursion.
-- **Don't end a turn on a promise.** Mid-loop, if the next step is a tool call, issue it — never end a turn with a bare "I'll run X next" or a plan. End only at termination or when blocked on input only the user can provide.
-- **Report only what the CLI confirmed.** Per-iteration status comes from `deep-step` / `check-termination` stdout — don't assert results the CLI did not return, and if a step was skipped or a count is unverified, say so.
+- **Always write progress before dispatching.** Cancellation between dispatches is recoverable via `--resume`; cancellation mid-dispatch leaves the progress file valid as of the prior iteration.
+- **Slice-only progress reads.** Never read the full progress file's `findings` array in the orchestrator's own context. `check-termination` returns a single word; trust it.
+- **Subagent output is text, not state.** Save each subagent's return to a temp file verbatim, parse it, then forget it — do not keep the raw output in the orchestrator's conversation.
+- **Re-entry guard.** If the orchestrator's own invocation prompt body already contains `HARNESS_MODE_INLINE`, stop with `"Deep mode cannot run inside deep mode"` — this prevents a misbehaving subagent from triggering recursion.
+- **Don't end a turn on a promise.** Mid-loop, if the next step is a tool call, issue it — end only at termination or when blocked on input only the user can provide.
+- **Report only what the CLI confirmed.** Per-iteration status comes from `deep-step` / `check-termination` stdout — if a step was skipped or a count is unverified, say so.
 
 ## Parse-failure recovery
 
-If the CLI's `parse` subcommand exits non-zero, the subagent emitted no `json:harness-output` block. Common causes:
-- The subagent hit its tool budget or token limit and stopped mid-response.
-- The base SKILL.md does not detect `HARNESS_MODE_INLINE` in the prompt body (regression — see `references/harness-mode.md`).
-- The subagent fell into interactive mode and hung on `AskUserQuestion`.
+If the CLI's `parse` subcommand exits non-zero, the subagent emitted no `json:harness-output` block. Common causes: the subagent hit its tool or token budget mid-response; the base SKILL.md lost its `HARNESS_MODE_INLINE` detection (regression — see `references/harness-mode.md`); the subagent fell into interactive mode and hung on `AskUserQuestion`.
 
-When this happens once: warn the user but continue (the iteration is a no-op — the CLI's `parse_failure_count` is now 1). Skip steps 5–6 for this iteration — `parse` only rewrites `$TMP_RESULT` on success, so it still holds the previous iteration's JSON and `deep-step` would silently re-process it — and continue at step 7 (`check-termination`) then step 8 (`advance`). When this happens twice in a row: `check-termination` at step 7 will return `parse-failure` automatically, and the orchestrator should exit the loop and surface the error for the user to investigate.
+On a single failure: warn the user but continue — the iteration is a no-op (the CLI rolls the failed dispatch's partial edits back to the iteration snapshot, so nothing half-done is left for a later checkpoint to commit). Skip steps 5–6 for this iteration — `parse` only rewrites `$TMP_RESULT` on success, so it still holds the previous iteration's JSON and `deep-step` would silently re-process it — and continue at step 7 (`check-termination`) then step 8 (`advance`). On two consecutive failures: `check-termination` at step 7 returns `parse-failure` automatically; exit the loop and surface the error for the user to investigate.
 
-The counter lives in the progress file under `parse_failure_count` and is reset to 0 on every successful parse, so an isolated earlier failure cannot poison a later run. The counter also survives `--resume`, so a Ctrl-C between the failed parse and the next iteration's parse doesn't lose state.
-
-If for some reason the orchestrator needs to record `parse-failure` explicitly (e.g., the parse subcommand wasn't called with `--progress-file`), use:
-
-```bash
-PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli mark-termination \
-    --progress-file "<progress-path>" \
-    --reason parse-failure \
-    --message "<short detail, e.g. 'two consecutive iterations produced no json:harness-output block'>"
-```
-
-This is an escape hatch — the standard recovery path is the automatic `check-termination` route above.
+The counter lives in the progress file under `parse_failure_count`, resets to 0 on every successful parse, and survives `--resume`.
 
 ## After the loop
 
@@ -160,4 +144,4 @@ Print the final report:
 PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli final-report --progress-file "<progress-path>" --archive
 ```
 
-The `--archive` flag moves the progress file to its `.done.json` sibling (the `.json` suffix is replaced — e.g. `.claude/code-review-deep-progress.done.json`) and removes the backup, signaling that this run is complete (a subsequent `--resume` will refuse the archived path) — **except** when the run ended in `diminishing-returns`, a resumable soft-exit: the CLI then leaves the active progress file in place (prints `not-archived`) so `--resume` can continue it. The archived `.done.json` is a historical artifact the user may delete at any time; a later fresh run (`init`) checks only the active progress path and won't clean it up.
+The `--archive` flag moves the progress file to its `.done.json` sibling (the `.json` suffix is replaced — e.g. `.claude/code-review-deep-progress.done.json`) and removes the backup; a subsequent `--resume` refuses the archived path. **Exception**: when the run ended in `diminishing-returns`, a resumable soft-exit, the CLI leaves the active progress file in place (prints `not-archived`) so `--resume` can continue it.

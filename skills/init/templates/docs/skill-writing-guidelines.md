@@ -45,7 +45,7 @@ Default to high freedom unless the task is fragile. Provide a sensible default w
 
 - Load only metadata (description) at startup.
 - Load the full instruction file only when it is invoked.
-- Load reference files only as needed within the instruction's execution.
+- Load reference files only as needed within the instruction's execution. An instruction's real invocation cost is the main file plus every reference it loads unconditionally — budget the sum, and gate conditional reads behind cheap inline conditions.
 - Reference depth should not exceed two levels from the main instruction file (INSTRUCTION→A→B maximum). If you need A→B→C→D, restructure by flattening the chain — make the main instruction reference the deeper files directly. Only inline content when the extracted file is small, single-use, and tightly coupled to its parent; otherwise inlining violates SRP by mixing concerns in one file. Circular references between files are never allowed.
 - For reference files longer than 100 lines, include a table of contents at the top so the agent can see the full scope even when previewing with partial reads.
 

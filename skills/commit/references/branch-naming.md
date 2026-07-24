@@ -1,6 +1,6 @@
 # Branch Naming Convention
 
-Shared reference for generating feature branch names. Consumed by `branch`, `commit`, `tdd`, `workflow`, and `worktree` skills.
+Shared reference for generating feature branch names. Consumed by the commit, tdd, and worktree skills.
 
 ## Format
 
@@ -8,52 +8,32 @@ Shared reference for generating feature branch names. Consumed by `branch`, `com
 <type>/<slugified-description>
 ```
 
-## Type
-
-Use the conventional commit type that best describes the change:
-
-| Type | Use when |
-|------|----------|
-| `feat` | New feature or capability |
-| `fix` | Bug fix |
-| `refactor` | Code restructuring without behavior change |
-| `docs` | Documentation only |
-| `style` | Formatting, whitespace (no logic change) |
-| `test` | Adding or updating tests |
-| `chore` | Build, CI, dependencies, tooling |
-| `perf` | Performance improvement |
+`<type>` is the conventional commit type that best describes the change: `feat`, `fix`, `refactor`, `docs`, `style`, `test`, `chore`, or `perf`.
 
 ## Type Detection Keywords
 
 When inferring `<type>` from a description or context:
-- Keywords like "add", "implement", "create", "new" → `feat`
-- Keywords like "fix", "bug", "broken", "error", "crash" → `fix`
-- Keywords like "refactor", "restructure", "clean up", "simplify" → `refactor`
-- Keywords like "test", "coverage", "spec" → `test`
-- Keywords like "docs", "readme", "documentation", "comment" → `docs`
-- Keywords like "style", "format", "lint", "whitespace" → `style`
-- Keywords like "performance", "optimize", "speed", "cache" → `perf`
-- Keywords like "build", "ci", "dependency", "upgrade", "config" → `chore`
+
+- "add", "implement", "create", "new" → `feat`
+- "fix", "bug", "broken", "error", "crash" → `fix`
+- "refactor", "restructure", "clean up", "simplify" → `refactor`
+- "test", "coverage", "spec" → `test`
+- "docs", "readme", "documentation" → `docs`
+- "style", "format", "lint", "whitespace" → `style`
+- "performance", "optimize", "speed", "cache" → `perf`
+- "build", "ci", "dependency", "upgrade", "config" → `chore`
 - When ambiguous, default to `feat` for new files or `fix` for modifications
 
 ## Slug Rules
 
-1. Start from the description (commit message subject, task description, etc.)
-2. Convert to lowercase
-3. Replace spaces with hyphens
-4. Strip characters not in `[a-z0-9-]`
-5. Collapse consecutive hyphens into one
-6. Remove leading and trailing hyphens
-7. Truncate to keep the total branch name (`<type>/` + slug) at max 50 characters
+Lowercase the description, replace spaces with hyphens, strip characters outside `[a-z0-9-]`, collapse consecutive hyphens, and trim leading/trailing hyphens. Truncate so the total branch name (`<type>/` + slug) stays at max 50 characters.
 
 ## Collision Handling
 
-Default policy when the derived name already exists: if `git show-ref --verify --quiet refs/heads/<branch-name>` succeeds (branch exists), append `-2` to the slug. If that also exists, try `-3`, and so on up to `-9`. If all collide, inform the user and stop.
+Default policy when the derived name already exists (`git show-ref --verify --quiet refs/heads/<branch-name>` succeeds): append `-2` to the slug; if taken, try `-3` through `-9`. If all collide, inform the user and stop.
 
 ## Examples
 
 - `feat/add-user-authentication`
 - `fix/login-validation-error`
-- `refactor/extract-payment-module`
-- `test/add-cart-endpoint-coverage`
 - `chore/upgrade-eslint-to-v9`

@@ -1,6 +1,6 @@
 # Coverage command detection
 
-Shared by the spec-implementing skills (`/optimus:tdd`, `/optimus:workflow`) for the `### Coverage` section of their summary block. This reference covers only *how to detect the command* and *when to omit the section*; each skill decides **when** to run it (before/after its build) and records the Before and After percentages itself.
+Used by `/optimus:tdd` for the `### Coverage` section of its summary block. This reference covers only *how to detect the command* and *when to omit the section*; the consuming skill decides **when** to run it (before/after its build) and records the Before and After percentages itself.
 
 ## Detecting the command
 

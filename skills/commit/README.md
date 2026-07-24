@@ -1,44 +1,26 @@
 # optimus:commit
 
-A [Claude Code](https://docs.anthropic.com/en/docs/claude-code) skill that stages, commits, and optionally pushes your local git changes with a [conventional commit](https://www.conventionalcommits.org/) message — all in one step.
+A [Claude Code](https://docs.anthropic.com/en/docs/claude-code) git-hygiene skill: commit local changes with a [Conventional Commits](https://www.conventionalcommits.org/) message, preview a message without committing, or create a conventionally named branch.
 
-## Conversation discipline — run in the implementation conversation
+## Modes
 
-`/optimus:commit` is a **continuation skill** (see [`references/skill-handoff.md`](../../references/skill-handoff.md) under "Continuation skills"). It produces the highest-fidelity commit message when run in the same conversation as the implementation — the conversation contains the *why* behind the changes, which the skill can capture into the message body alongside the *what* synthesized from the diff. A fresh conversation strips that context and limits the message to mechanical diff summarization.
-
-Upstream skills like `/optimus:branch`, `/optimus:refactor`, `/optimus:code-review`, and `/optimus:prompt` already nudge you to stay in the implementation conversation when they recommend `/optimus:commit` — follow that nudge.
+| Invocation | What it does | Modifies repo |
+|---|---|---|
+| `/optimus:commit` | Stages, commits, and optionally pushes after you confirm | Yes |
+| `/optimus:commit suggest` | Proposes a commit message in a copyable code block | No — read-only |
+| `/optimus:commit branch "description"` | Creates and switches to a `<type>/<slug>` branch (description optional — falls back to conversation context, then local diffs) | Branch only — never commits, stashes, or touches files |
 
 ## Features
 
-- Analyzes staged, unstaged, and untracked changes to generate a conventional commit message
-- Confirms with the user before committing — shows the message, branch, and file list
-- Offers "Commit and push" or "Commit only" — user decides per invocation
-- Protected branch handling — detects protected branches and offers to create a feature branch automatically
-- Handles untracked files — asks whether to include, exclude, or choose individually
-- Supports multi-repo workspaces — detects repos with changes and commits each independently
+- Analyzes staged, unstaged, and untracked changes; asks before including untracked files and flags secret-looking ones (`.env`, keys, credentials) for individual confirmation
+- Always previews the branch, full message, and file list before committing — commit and push, commit only, edit the message, or cancel
+- Detects protected branches via `.claude/hooks/restrict-paths.sh` and offers to create a feature branch automatically
+- Suggests splitting into separate commits when changes span multiple concerns, with the files to stage for each
+- Captures the implementation conversation's *why* into the commit body — run it in the conversation where the work happened
+- Multi-repo workspaces: detects repos with changes and processes each independently
+- Branch mode preserves all local changes exactly as they are and stops rather than invent a meaningless name when there is no naming signal
 
-## Quick Start
-
-This skill is part of the [optimus](https://github.com/oprogramadorreal/optimus-claude) plugin. See the [main README](../../README.md) for installation instructions.
-
-## Usage
-
-In Claude Code:
-
-- `/optimus:commit`
-
-The skill will analyze your local changes, generate a commit message, and ask you to confirm before committing. You choose whether to also push.
-
-## When to Run
-
-- **After making changes** — commit your work with a well-structured message without manual effort
-- **After `/optimus:code-review`** — once fixes pass review, commit and push in one step
-- **After `/optimus:refactor`** — commit the refactoring changes
-- **When you want to push immediately** — choose "Commit and push" to avoid a separate push step
-
-## Example Flow
-
-Given staged changes that add email validation:
+## Example — default mode
 
 ```
 Branch: feat/signup-validation
@@ -59,43 +41,26 @@ Committed: a1b2c3d feat(auth): add email format validation to signup form
 Pushed to: origin/feat/signup-validation
 ```
 
-## How It Works
+## Example — branch mode
 
-The skill runs `git diff` (staged and unstaged) and `git status` to collect all local changes, then analyzes the diff to generate a [Conventional Commits](https://www.conventionalcommits.org/) message. Before committing, it checks if the permissions hook (`.claude/hooks/restrict-paths.sh`) marks the current branch as protected and, if so, offers to create a feature branch automatically. The user always confirms via `AskUserQuestion` before any changes are made.
+```
+> /optimus:commit branch "fix login timeout"
 
-## Relationship to Other Skills
+## Branch
 
-| | `/optimus:commit` | `/optimus:commit-message` |
-|---|---|---|
-| Purpose | Commit (and optionally push) changes | Suggest a commit message |
-| Output | Git commit + optional push | Copyable code block |
-| Modifies repo | Yes — stages, commits, pushes | No — read-only |
-| User confirmation | Always asks before committing | N/A |
-| When to use | Ready to commit | Want to preview the message first |
+Created `fix/login-timeout` from `main`.
+Local changes preserved (nothing committed or pushed).
+```
 
-| | `/optimus:commit` | `/optimus:pr` |
-|---|---|---|
-| Scope | Individual commit(s) | Pull request creation |
-| Complement | Commit first, then create PR | Expects changes already committed |
-| Conversation | Same conversation as implementation (continuation skill) | Same conversation as implementation (continuation skill) |
-| Workflow | Run `/optimus:commit` first, then `/optimus:pr` | |
+## Related skills
 
-**Canonical sequence**: **implement → `/optimus:commit` → `/optimus:pr` → `/optimus:code-review`**. Steps 1–3 run in the same conversation as the implementation (continuation skills); `/optimus:code-review` runs in a fresh conversation and reads the PR description as author intent context.
+- `/optimus:pr` — create a pull request after committing (commit first, then pr, in the same conversation)
+- `/optimus:code-review` — review changes before committing
+- `/optimus:worktree` — parallel work in an isolated directory (also creates a branch)
 
-**Optional pre-commit self-review**: you can also run `/optimus:code-review` on local uncommitted changes *before* committing — it catches bugs and guideline violations without needing a PR. The post-PR review remains the canonical intent-vs-implementation check.
+## Quick Start
 
-Use `/optimus:commit-message` if you only want to preview the message without committing.
-
-## Skill Structure
-
-| File | Purpose |
-|---|---|
-| `SKILL.md` | Skill definition with step-by-step workflow |
-| `references/branch-naming.md` | Branch naming convention and collision handling (shared with the branch, tdd, workflow, and worktree skills) |
-| `references/gather-changes.md` | Git change collection procedure (shared with commit-message) |
-| *(shared)* `commit-message/references/conventional-commit-format.md` | Conventional commit format specification |
-| *(shared)* `init/references/multi-repo-detection.md` | Multi-repo workspace detection algorithm |
-| *(shared)* `references/skill-handoff.md` | Closing-tip wording variants and continuation-skill rules |
+This skill is part of the [optimus](https://github.com/oprogramadorreal/optimus-claude) plugin. See the [main README](../../README.md) for installation instructions.
 
 ## Requirements
 
