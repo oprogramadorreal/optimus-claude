@@ -5,7 +5,7 @@
 # Source:       https://github.com/oprogramadorreal/optimus-claude
 # Docs:         skills/permissions/README.md
 # ============================================================================
-# HOOK_VERSION: 3
+# HOOK_VERSION: 4
 # ^ Bump on every behavioural change. The plugin's SessionStart hook compares
 #   this against the copy installed in a project and recommends re-running
 #   /optimus:permissions when the project's copy is older — a plugin update
@@ -489,6 +489,10 @@ nudge_temp_write() {
 # Writes to a global rather than stdout so the caller pays no subshell fork.
 _json_escaped=""
 json_escape() {
+  # C locale pins the [$'\001'-$'\037'] range below to byte order: before bash
+  # 4.3's globasciiranges default (stock macOS ships 3.2), bracket ranges follow
+  # locale collation, which can let a control char through in a UTF-8 locale.
+  local LC_ALL=C
   local s="${1//\\/\\\\}"
   s="${s//\"/\\\"}"
   s="${s//$'\n'/\\n}"
@@ -647,6 +651,12 @@ check_git_push() {
         target="${refspec#+}" # strip + force prefix
       fi
       target="${target#refs/heads/}" # strip refs/heads/ prefix
+      # 'git push origin HEAD' (or '@') pushes the CURRENT branch — resolve it,
+      # or a protected branch is reachable by naming it indirectly.
+      if [[ "$target" == "HEAD" || "$target" == "@" ]]; then
+        target="$(get_current_branch "${git_repo_dir:-}")" || continue
+        [[ "$target" == "HEAD" ]] && continue # detached — no branch to protect
+      fi
       [[ -n "$target" ]] && targets+=("$target")
     done
   fi
@@ -795,8 +805,9 @@ check_git_command() {
       return 0
       ;;
     branch)
-      # Block deletion of protected branches: -d, -D, --delete, or --force-delete flag
-      [[ "$git_portion" =~ \ -[dD]\ |\ -[dD]$|\ --delete\ |\ --delete$|\ --force-delete\ |\ --force-delete$ ]] || return 0
+      # Block deletion of protected branches: -d/-D (also bundled with other
+      # short flags, e.g. -Df), --delete, or --force-delete flag
+      [[ "$git_portion" =~ \ -[a-zA-Z]*[dD][a-zA-Z]*(\ |$)|\ --delete(\ |$)|\ --force-delete(\ |$) ]] || return 0
       # Check ALL non-flag arguments (git branch -d accepts multiple branch names)
       local bi
       for ((bi=git_subcmd_idx+1; bi<${#tokens[@]}; bi++)); do
@@ -839,9 +850,23 @@ case "$tool_name" in
     exit 0
     ;;
   Bash)
-    # Fail-open: if command cannot be extracted, allow rather than block
-    [[ "$input" =~ \"command\"[[:space:]]*:[[:space:]]*\"([^\"]+)\" ]] || exit 0
+    # Fail-open: if command cannot be extracted, allow rather than block.
+    # The value is a JSON string, so the match must walk over escaped quotes
+    # ([^"\]|\\.) — stopping at the first \" truncated the command and silently
+    # skipped every guard for anything as ordinary as `git commit -m "msg"`.
+    _bash_cmd_re='"command"[[:space:]]*:[[:space:]]*"(([^"\]|\\.)*)"'
+    [[ "$input" =~ $_bash_cmd_re ]] || exit 0
     cmd="${BASH_REMATCH[1]}"
+    # Undo the JSON escapes so the guards see what the shell will run. \001
+    # shields literal backslashes from the later passes; cmd never reaches the
+    # emitted JSON, so the sentinel cannot leak into output.
+    cmd="${cmd//\\\\/$'\001'}"
+    cmd="${cmd//\\\"/\"}"
+    cmd="${cmd//\\\//\/}"
+    cmd="${cmd//\\n/$'\n'}"
+    cmd="${cmd//\\r/$'\r'}"
+    cmd="${cmd//\\t/$'\t'}"
+    cmd="${cmd//$'\001'/\\}"
 
     # --- Git branch protection + Delete protection ---
     # Split command on shell operators (&&, ||, ;) and check each sub-command.
@@ -868,11 +893,14 @@ case "$tool_name" in
       # Git branch protection (feature branches allowed, protected branches blocked)
       check_git_command "$_subcmd" "$_cd_dir"
 
-      # Delete protection (rm/rmdir outside project or precious unversioned)
-      if [[ "$_subcmd" =~ ^(rm|rmdir)[[:space:]] ]]; then
+      # Delete protection (rm/rmdir outside project or precious unversioned).
+      # A pipe hands the post-'|' fragment here as its own sub-command, so the
+      # anchor must also see through an xargs wrapper (and its flags) — else
+      # `find ... | xargs rm <path>` skips the guard entirely.
+      if [[ "$_subcmd" =~ ^(xargs[[:space:]]+(-[^[:space:]]+[[:space:]]+)*)?(rm|rmdir)[[:space:]] ]]; then
         read -ra words <<< "$_subcmd"
         for word in "${words[@]}"; do
-          [[ "$word" == rm || "$word" == rmdir || "$word" == -* ]] && continue
+          [[ "$word" == rm || "$word" == rmdir || "$word" == xargs || "$word" == -* ]] && continue
           # Claude's own auto-memory store and session scratchpad are writable AND
           # prunable by design, so deletes there are allowed like writes — via the
           # SAME ladder the write gate uses. Everything else outside the project
