@@ -47,7 +47,7 @@ Branch: `<branch-name>` (from `<original-branch>`)
 Main workspace: `<original-branch>` (unchanged)
 Tests: passing / failing (pre-existing — N failures) / no test command detected
 
-Open it: `code .worktrees/<worktree-dir>` (VSCode) or `cd .worktrees/<worktree-dir> && claude`
+Open it: `code .worktrees/<worktree-dir>` (VSCode), or start a new session of the current coding agent in that directory.
 Cleanup when done: `git worktree remove .worktrees/<worktree-dir>`
 ```
 
@@ -55,4 +55,4 @@ If Setup modified `.gitignore`, add after "Main workspace": `.gitignore updated 
 
 Never commit or push in the main workspace; it must end on `<original-branch>`.
 
-Recommend starting a Claude Code session inside the new worktree to begin the work there.
+Recommend starting a fresh session inside the new worktree to begin the work there.

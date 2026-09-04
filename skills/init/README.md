@@ -13,7 +13,7 @@ What makes a good developer productive in a codebase also makes Claude Code prod
 - **Skill-authoring projects as a first-class stack** — detects AI-agent instruction projects (Claude Code plugins, prompt libraries, agent frameworks) via a structural signal and installs [`skill-writing-guidelines.md`](templates/docs/skill-writing-guidelines.md); review/refactor skills then route markdown instruction files through that lens via the shared [`constraint-doc-loading.md`](references/constraint-doc-loading.md) contract.
 - **Test infrastructure** — detects or installs (with approval) a test framework and coverage tooling, runs a health check, and provisions testing docs. Enables the plugin's [test-guardian](../../agents/test-guardian.md) agent and the skills that depend on a test command.
 - **Documentation freshness** — audits generated docs on re-run (Outdated / Missing / Accurate / User-added, with user-added content always preserved) and syncs project docs (README, CONTRIBUTING, ...) against source code, fixing only factual contradictions.
-- **Monorepo & multi-repo workspace support** — hierarchical CLAUDE.md files for monorepos; fully self-contained `.claude/` per repo in multi-repo workspaces.
+- **Monorepo & multi-repo workspace support** — hierarchical CLAUDE.md files for monorepos; fully self-contained `.claude/` per repo plus workspace-root context pointers in multi-repo workspaces.
 
 ## Quick Start
 
@@ -31,7 +31,7 @@ Part of the [optimus](https://github.com/oprogramadorreal/optimus-claude) plugin
 2. **Audits existing documentation** (if present) — you choose what to update; user-added content survives even "Fresh start"
 3. **Creates directory structure** — `.claude/docs/`, `.claude/hooks/`
 4. **Generates CLAUDE.md** — identity, commands, a doc-routing table, and the gotchas detection turned up; <=60 lines (soft limit when preserving user content)
-5. **Installs formatter hooks** — per detected stack, asking before installing anything new
+5. **Installs formatter hooks** — per detected stack, asking before installing anything new; skipped under Codex
 6. **Sets up test infrastructure** — framework/coverage install (with approval), health check, testing docs
 7. **Creates scoped documentation** — coding guidelines (always); styling, architecture, skill-writing guidelines (when detected)
 8. **Syncs project docs** — surgical fixes for claims the source code contradicts, with your approval
@@ -39,6 +39,8 @@ Part of the [optimus](https://github.com/oprogramadorreal/optimus-claude) plugin
 File-write safety: hooks and `coding-guidelines.md` are always refreshed from templates; everything else (CLAUDE.md, testing.md, styling.md, architecture.md, skill-writing-guidelines.md) is never silently overwritten, and `settings.json` is always merged.
 
 ## Formatter Hooks
+
+Claude Code only. Under Codex, init skips formatter installation, preserves existing hooks/settings, and reports automatic formatting as unsupported. Documentation and test-infrastructure setup still run.
 
 Auto-installed per detected stack: Python (black + isort), Node.js (prettier), Rust (rustfmt), Go (gofmt), C#/.NET (csharpier), Java (google-java-format), C/C++ (clang-format), Dart/Flutter (dart format). Other stacks get a custom hook via web-search fallback with user approval. External formatters are only installed after you approve. See [`references/formatter-setup.md`](references/formatter-setup.md) for the exact install conditions.
 
@@ -55,8 +57,9 @@ Auto-installed per detected stack: Python (black + isort), Node.js (prettier), R
 | `.claude/docs/architecture.md` | Architecture map (complex structure or skill authoring; optional Skill Architecture section) |
 | `.claude/hooks/` | Auto-format hooks per detected stack |
 | `.claude/.optimus-version` | Plugin version that last generated these files (written only by init) |
+| `AGENTS.md` | Codex pointer to the applicable project/workspace CLAUDE.md and nested package instructions; existing marked blocks are refreshed without changing surrounding user content |
 
-**Monorepo:** each subproject also gets its own `CLAUDE.md` and scoped `docs/`. **Multi-repo workspace:** each repo gets its own complete `.claude/` (version-controlled), plus a lightweight local-only workspace CLAUDE.md.
+**Monorepo:** each subproject also gets its own `CLAUDE.md` and scoped `docs/`; the root Codex pointer explicitly routes to those instructions because Codex does not load them automatically. **Multi-repo workspace:** each repo gets its own complete `.claude/` and, when Codex use is detected, a pointer (version-controlled), plus lightweight local-only workspace `CLAUDE.md` and `AGENTS.md` pointer files.
 
 ## Customization
 

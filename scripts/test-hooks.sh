@@ -160,6 +160,70 @@ setup_fixture
 run_session_start
 assert_output_contains "Recommends /optimus:init when no .claude/" "/optimus:init" "$output"
 assert_output_contains "Mentions CLAUDE.md" "CLAUDE.md" "$output"
+assert_output_not_contains "No Codex line under Claude Code" "Running under Codex" "$output"
+cleanup_fixture
+
+# Codex loads the same hooks.json and sets PLUGIN_ROOT next to
+# CLAUDE_PLUGIN_ROOT (Claude Code sets only the latter). Under Codex the
+# suggestions take the `$optimus:` form and one line names the plugin root;
+# the Claude Code cases above pin that nothing else changes.
+run_session_start_codex() {
+  set +e
+  output=$(PLUGIN_ROOT="$PLUGIN_ROOT" CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT" bash "$SESSION_START" 2>/dev/null)
+  hook_status=$?
+  set -e
+}
+
+echo "[session-start: uninitialized project under Codex]"
+setup_fixture
+run_session_start_codex
+assert_output_contains "Recommends \$optimus:init under Codex" "\$optimus:init" "$output"
+assert_output_not_contains "Drops the /optimus: form under Codex" "/optimus:init" "$output"
+assert_output_contains "Names the plugin root under Codex" "Plugin root: $PLUGIN_ROOT" "$output"
+assert_output_contains "Names slash-form skill mentions in the Codex mapping" "/optimus:<skill>" "$output"
+assert_output_contains "Names dollar-form skill mentions in the Codex mapping" "\$optimus:<skill>" "$output"
+assert_output_contains "Maps AskUserQuestion to plain text under Codex" "AskUserQuestion" "$output"
+assert_output_not_contains "Does not promise formatter hooks under Codex" "and auto-format hooks." "$output"
+assert_exit_zero "Exits 0 under Codex" "$hook_status"
+cleanup_fixture
+
+echo "[session-start: fully configured, clean tree, under Codex]"
+setup_fixture
+mkdir -p .claude/docs
+echo "# Project" > .claude/CLAUDE.md
+echo "# Guidelines" > .claude/docs/coding-guidelines.md
+echo "# Testing" > .claude/docs/testing.md
+git add -A && git commit -q -m "setup"
+run_session_start_codex
+# The plugin root is the one line a configured project still needs under Codex —
+# every skill resolves $CLAUDE_PLUGIN_ROOT through it — so silence here is wrong.
+assert_output_contains "Still names the plugin root when configured" "Plugin root: $PLUGIN_ROOT" "$output"
+assert_output_not_contains "No init nag when configured under Codex" "optimus:init" "$output"
+assert_exit_zero "Exits 0 when configured under Codex" "$hook_status"
+cleanup_fixture
+
+echo "[session-start: Claude-only hook update is not recommended under Codex]"
+setup_fixture
+mkdir -p .claude/hooks
+printf '#!/usr/bin/env bash\n# HOOK_VERSION: 0\nexit 0\n' > .claude/hooks/restrict-paths.sh
+run_session_start_codex
+assert_output_not_contains "Does not recommend an unsupported permissions skill" '$optimus:permissions' "$output"
+assert_output_not_contains "Does not report an inactive Claude hook as stale" 'older than the plugin' "$output"
+assert_exit_zero "Exits 0 with a stale Claude hook under Codex" "$hook_status"
+cleanup_fixture
+
+echo "[session-start: stray PLUGIN_ROOT that is not the plugin's is not Codex]"
+setup_fixture
+# Prefix assignments expand left to right, so `PLUGIN_ROOT=/x CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT"`
+# would hand the hook two equal values and test nothing — capture the real root first.
+real_root="$PLUGIN_ROOT"
+set +e
+output=$(PLUGIN_ROOT="/somewhere/else" CLAUDE_PLUGIN_ROOT="$real_root" bash "$SESSION_START" 2>/dev/null)
+hook_status=$?
+set -e
+assert_output_contains "Keeps the /optimus: form for a stray PLUGIN_ROOT" "/optimus:init" "$output"
+assert_output_not_contains "No Codex line for a stray PLUGIN_ROOT" "Running under Codex" "$output"
+assert_exit_zero "Exits 0 with a stray PLUGIN_ROOT" "$hook_status"
 cleanup_fixture
 
 echo "[session-start: partially initialized (CLAUDE.md only)]"

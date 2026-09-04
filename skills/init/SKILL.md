@@ -105,7 +105,27 @@ Fill every template placeholder with real detected values — no `[placeholder]`
 
 **Step 4b — subproject CLAUDE.md files (monorepo only):** for each subproject except root-as-project/root-as-member (root CLAUDE.md covers those), use `$CLAUDE_PLUGIN_ROOT/skills/init/templates/subproject-claude.md`: commands run from its directory, that package's own gotchas, local `docs/` routes, parent monorepo named in the opening line.
 
+**Step 4c — Codex pointers (root `AGENTS.md`):** When the project shows Codex use — a `.codex/` directory or an existing root `AGENTS.md` — or this session runs under Codex, append the applicable block below or refresh an existing `optimus:pointer` block, preserving everything outside it. For a single project or monorepo, use the project block at its root. For a multi-repo workspace, use the project block in every child repo and the workspace block at the workspace root. The explicit nested-file routing is necessary because Codex does not automatically load CLAUDE.md files.
+
+Project or child repo:
+
+```
+<!-- optimus:pointer -->
+Agent instructions for this project live in `.claude/CLAUDE.md`. Read it first; it routes to the docs under `.claude/docs/`. Before working in a subdirectory, also read the applicable nested `CLAUDE.md` files for package-specific commands, constraints, and doc routes; they are not loaded automatically.
+<!-- /optimus:pointer -->
+```
+
+Multi-repo workspace root:
+
+```
+<!-- optimus:pointer -->
+Agent instructions for this workspace live in `CLAUDE.md`. Read it first; it maps the child repositories. Before working in a child repo, read its `.claude/CLAUDE.md` and the applicable nested `CLAUDE.md` files.
+<!-- /optimus:pointer -->
+```
+
 ## Step 5: Install Formatter Hooks
+
+Under Codex, skip this step, preserve existing hooks/settings, and report automatic formatting as unsupported. The remaining documentation and test-infrastructure steps still apply.
 
 Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/formatter-setup.md` and install the applicable hooks so files are auto-formatted after every Edit/Write (templates in `$CLAUDE_PLUGIN_ROOT/skills/init/templates/hooks/`; supported: Python, Node.js, Rust, Go, C#/.NET, Java, C/C++, Dart/Flutter — other stacks via `$CLAUDE_PLUGIN_ROOT/skills/init/references/unsupported-stack-fallback.md`). Hooks are Generated files; `settings.json` follows its merge semantics. External formatters not already in deps → ask the user before installing.
 
@@ -149,12 +169,12 @@ Cross-check README.md (root, and each subproject's in monorepos), CONTRIBUTING.m
 
 ## Step 7: Verify and Report
 
-Two gates before reporting, both against state this skill did not author on its own:
+When Step 5 ran, verify the hooks and settings against their sources before reporting:
 
 - **Hooks match their source** — each template-based hook in `.claude/hooks/` is byte-identical to its template (`diff` them); custom hooks from the unsupported-stack fallback follow the shell-hook pattern and that reference's validation rules.
 - **settings.json survived the merge** — every format hook *this skill* installed has a matching `hooks.PostToolUse` entry, and every `PostToolUse` entry resolves to a file that exists in `.claude/hooks/`. Hooks owned by another skill are out of scope: `/optimus:permissions` installs `restrict-paths.sh` into that same directory and registers it under **PreToolUse**, so comparing the directory listing against `PostToolUse` "in both directions" reads it as a missing entry — and "fixing" that breaks it. Every pre-existing section must also be intact: this file was merged into user state, so a dropped entry silently disables a hook with no other symptom.
 
-Then sweep the files you wrote for surviving `[placeholder]` text and unresolved template HTML comments — each file's line-1 identity comment is the only `<!--` allowed to remain. Fix any failure before reporting.
+Then sweep template-derived content for surviving `[placeholder]` text and unresolved template HTML comments — retain each file's line-1 identity comment, the `optimus:pointer` markers in `AGENTS.md`, and user-authored content. Fix any failure before reporting.
 
 **Write the plugin version** to `.claude/.optimus-version` after all checks pass — version string only (e.g., `3.0.0`), read from `$CLAUDE_PLUGIN_ROOT/.claude-plugin/plugin.json`; per repo in multi-repo workspaces. Only init ever writes this file.
 

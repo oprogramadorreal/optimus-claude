@@ -22,3 +22,12 @@ The directory layout is discoverable; what follows is what reading it does not t
 ## Agents and references
 
 Two tiers, no inheritance: `agents/` holds standalone user-invocable agents, and `skills/<name>/agents/` holds prompt files scoped to one skill, each carrying its criteria inline. `deep` owns none — it dispatches base skills, which own the analysis agents. The dispatch-time path-substitution rule is in `references/agent-architecture.md`; the rest of the authoring rules are in `.claude/docs/skill-writing-guidelines.md`, which `validate.sh` enforces the two-level reference depth cap for.
+
+## Two hosts, one plugin
+
+OpenAI Codex loads this plugin through the Claude Code files: it accepts `.claude-plugin/plugin.json` as a legacy manifest, reads `.agents/plugins/marketplace.json` (installing from `./`), and runs `hooks/hooks.json` with `CLAUDE_PLUGIN_ROOT` set. What the layout does not tell you:
+
+- **`hooks/session-start` is the only host-aware code.** It detects Codex by `PLUGIN_ROOT` being set and equal to `CLAUDE_PLUGIN_ROOT` (Codex sets both, Claude Code only the latter), switches its skill mentions to `$optimus:`, supplies the plugin root and question mapping, and states the unsupported Claude features. This extra context is emitted only under Codex. Absolute paths let shared agent prompts be used with either host's subagent tools; execution compatibility still needs the contributor smoke test.
+- **`skills/*/agents/openai.yaml` is metadata, not an agent.** It carries Codex's `allow_implicit_invocation: false`, the twin of `disable-model-invocation: true`; the prompt files beside it are unrelated to it.
+- **The hook command in `hooks/hooks.json` is bash-first with a git fallback.** Claude Code keeps its direct Bash launch. Codex runs Windows hooks through `cmd.exe`, where Git for Windows may expose only `Git\cmd`, so the fallback uses Git's bundled shell. Claude Code's schema rejects unknown keys, ruling out `commandWindows`; the alias body carries no POSIX path lists or `$` expansions that MSYS might rewrite. Git starts shell aliases at the repository root: `--git-alias` tells the hook to restore the caller's directory using `GIT_PREFIX` before inspecting project state. Normal launches ignore that variable.
+- **Claude Code-only by design:** `permissions`, `dream`, init's formatter hooks, Claude `/goal` and `/workflows` handoffs, and the two plugin-level agents. Claude-specific plan-mode handoffs need manual adaptation. The README's support matrix is the user-facing list — extend it before extending the code.

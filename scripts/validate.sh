@@ -58,63 +58,28 @@ if [ -n "$bad_shebangs" ]; then
   printf "       Non-portable shebangs:\n%s" "$bad_shebangs"
 fi
 
-# --- 3. SKILL.md frontmatter ---
-echo "[SKILL.md frontmatter]"
-fm_errors=""
-while IFS= read -r f; do
-  # Strip CR for Windows compat; read first line directly to avoid broken pipe
-  first_line=$(head -1 "$f" | tr -d '\r')
-  if [[ "$first_line" != "---" ]]; then
-    fm_errors+="  $f: missing frontmatter delimiter\n"
-    continue
-  fi
-  # Extract frontmatter between --- delimiters (lines 2..closing ---)
-  frontmatter=$(sed -n '2,/^---$/{ /^---$/d; p; }' "$f" | tr -d '\r')
-  # Check description
-  if ! grep -q '^description:' <<< "$frontmatter"; then
-    fm_errors+="  $f: missing description field\n"
-  fi
-  # Check disable-model-invocation
-  if ! grep -q 'disable-model-invocation: true' <<< "$frontmatter"; then
-    fm_errors+="  $f: missing disable-model-invocation: true\n"
-  fi
-  # Check no name field (would shadow builtins)
-  if grep -q '^name:' <<< "$frontmatter"; then
-    fm_errors+="  $f: has 'name:' field (shadows builtin commands)\n"
-  fi
-  # Check argument-hint is quoted (bare brackets parse as a YAML list)
-  if grep -q '^argument-hint:[[:space:]]*\[' <<< "$frontmatter"; then
-    fm_errors+="  $f: argument-hint value must be quoted (bare brackets parse as a YAML list)\n"
-  fi
-  # Check rendered description length against the 1024-char platform cap
-  # (handles both single-line and folded ">-" scalars)
-  description=$(awk '
-    /^description:[[:space:]]*>-?[[:space:]]*$/ { folded = 1; next }
-    folded {
-      if ($0 ~ /^[[:space:]]/) {
-        line = $0; sub(/^[[:space:]]+/, "", line)
-        text = (text == "" ? line : text " " line); next
-      }
-      folded = 0
-    }
-    /^description:[[:space:]]/ { text = $0; sub(/^description:[[:space:]]*/, "", text) }
-    END { print text }
-  ' <<< "$frontmatter")
-  if [ "${#description}" -gt 1024 ]; then
-    fm_errors+="  $f: description exceeds the 1024-char platform cap (${#description})\n"
-  fi
-done < <(find ./skills -name 'SKILL.md' -not -path './.git/*')
-check "SKILL.md frontmatter valid" test -z "$fm_errors"
-if [ -n "$fm_errors" ]; then
-  # %b, not %s: fm_errors is accumulated with literal \n escapes (as in every
-  # sibling check), which %s would print verbatim on one run-on line.
-  printf "       Issues:\n%b" "$fm_errors"
+# --- 3. Parsed skill metadata for both hosts ---
+echo "[Skill metadata]"
+if metadata_errors=$(python scripts/validate_skill_metadata.py 2>&1); then
+  check "Skill YAML is valid and disables implicit invocation on both hosts" true
+else
+  check "Skill YAML is valid and disables implicit invocation on both hosts" false
+  printf '       Requires Python and requirements-dev.txt. Issues:\n%s\n' "$metadata_errors"
 fi
 
 # --- 4. No ref in marketplace.json ---
 echo "[Manifests]"
 check "No ref field in marketplace.json" \
   bash -c '! grep -q "\"ref\"" .claude-plugin/marketplace.json'
+
+# The Codex marketplace mirrors the Claude one. Codex reads
+# .agents/plugins/marketplace.json first and installs the plugin from "./",
+# then finds .claude-plugin/plugin.json as a legacy manifest — so the plugin
+# name there has to be the one plugin.json declares, or Codex installs a
+# plugin it cannot find skills for. Read without jq so the pin never SKIPs.
+plugin_name=$(sed -n 's/^ *"name": *"\([^"]*\)".*/\1/p' .claude-plugin/plugin.json | head -1)
+check "Codex marketplace installs plugin '$plugin_name' from ./" \
+  bash -c "grep -q '\"name\": \"$plugin_name\"' .agents/plugins/marketplace.json && grep -q '\"path\": \"./\"' .agents/plugins/marketplace.json"
 
 # --- 4b. Dogfooded hook matches the shipped template ---
 # .claude/hooks/restrict-paths.sh is a copy of the template users install, and
@@ -176,6 +141,7 @@ if command -v jq &>/dev/null; then
   check "plugin.json has name" bash -c 'jq -e ".name" .claude-plugin/plugin.json >/dev/null'
   check "plugin.json has version" bash -c 'jq -e ".version" .claude-plugin/plugin.json >/dev/null'
   check "plugin.json has description" bash -c 'jq -e ".description" .claude-plugin/plugin.json >/dev/null'
+  check "Codex marketplace.json is valid JSON" jq empty .agents/plugins/marketplace.json
 else
   echo "  SKIP  plugin.json checks (jq not installed)"
 fi
@@ -243,9 +209,11 @@ echo "[Orphan detection]"
 orphan_files=""
 # Build the set of all reference and template files
 while IFS= read -r f; do
-  # Skip README.md files in skill dirs (they're documentation, not referenced by SKILL.md via CLAUDE_PLUGIN_ROOT)
+  # Skip README.md files in skill dirs (they're documentation, not referenced by
+  # SKILL.md via CLAUDE_PLUGIN_ROOT) and agents/openai.yaml (Codex reads it by
+  # location; no skill file names it — section 12 checks its presence instead).
   basename_f=$(basename "$f")
-  if [ "$basename_f" = "README.md" ]; then
+  if [ "$basename_f" = "README.md" ] || [ "$basename_f" = "openai.yaml" ]; then
     continue
   fi
   # Normalize: strip leading ./
@@ -376,8 +344,12 @@ for skill_dir in ./skills/*/; do
   if [ ! -f "$skill_dir/README.md" ]; then
     missing_files+="  skills/$skill_name/README.md\n"
   fi
+  # Section 3 parses the invocation policy; this section checks the layout.
+  if [ ! -f "$skill_dir/agents/openai.yaml" ]; then
+    missing_files+="  skills/$skill_name/agents/openai.yaml\n"
+  fi
 done
-check "Every skill has SKILL.md and README.md" test -z "$missing_files"
+check "Every skill has SKILL.md, README.md, and agents/openai.yaml" test -z "$missing_files"
 if [ -n "$missing_files" ]; then
   printf "       Missing files:\n%b" "$missing_files"
 fi
@@ -415,11 +387,15 @@ if command -v jq &>/dev/null; then
   # Check that referenced command scripts exist
   hook_missing=""
   while IFS= read -r cmd; do
-    # Extract script path from command string (strip quotes and $CLAUDE_PLUGIN_ROOT)
-    script_path=$(printf '%s' "$cmd" | sed "s|.*'\${CLAUDE_PLUGIN_ROOT}/\([^']*\)'.*|\1|" | sed 's|"${CLAUDE_PLUGIN_ROOT}/||;s|"||g')
-    if [ -n "$script_path" ] && [ ! -f "./$script_path" ]; then
-      hook_missing+="  $script_path\n"
-    fi
+    # Check every plugin-relative path the command names, whatever wraps it.
+    # SessionStart names its script twice: once for the direct `bash` launch
+    # and once inside the git-alias fallback Codex's cmd.exe host needs when
+    # bash.exe is not on PATH.
+    while IFS= read -r script_path; do
+      if [ -n "$script_path" ] && [ ! -f "./$script_path" ]; then
+        hook_missing+="  $script_path\n"
+      fi
+    done < <(printf '%s' "$cmd" | grep -oE '\$\{CLAUDE_PLUGIN_ROOT\}/[^"[:space:]\\]+' | sed 's|^${CLAUDE_PLUGIN_ROOT}/||' | sort -u)
   done < <(jq -r '.. | .command? // empty' hooks/hooks.json 2>/dev/null)
   check "Hook command scripts exist" test -z "$hook_missing"
   if [ -n "$hook_missing" ]; then

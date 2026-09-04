@@ -1,5 +1,11 @@
 ---
-description: Reviews local changes, an open PR/MR, or a branch diff against the project's own coding guidelines through the review lenses — bugs, security, guidelines, architecture, simplification, plus test coverage and API contracts when relevant — inline on a small diff, in parallel agents on a larger one. Excludes style and linter-catchable issues. Read-only: applies fixes or posts PR/MR comments only on explicit approval. For an iterative auto-fix loop, use /optimus:deep review.
+description: >-
+  Reviews local changes, an open PR/MR, or a branch diff against the project's own coding
+  guidelines through the review lenses — bugs, security, guidelines, architecture,
+  simplification, plus test coverage and API contracts when relevant — inline on a small diff,
+  in parallel agents on a larger one. Excludes style and linter-catchable issues. Read-only:
+  applies fixes or posts PR/MR comments only on explicit approval. For an iterative auto-fix
+  loop, use /optimus:deep review.
 disable-model-invocation: true
 argument-hint: "[--pr N | --branch | path]"
 ---

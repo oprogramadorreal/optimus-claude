@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Git runs shell aliases from the repository root and records the caller's
+# relative directory in GIT_PREFIX. Only the fallback launcher needs this.
+if [ "${1:-}" = "--git-alias" ] && [ -n "${GIT_PREFIX:-}" ]; then
+  cd -- "$GIT_PREFIX"
+fi
+
 # SessionStart hook — outputs dynamic project state so Claude knows what's
 # configured and what's missing. Only outputs items that need attention.
 # Fully configured projects produce no output (zero context waste).
@@ -10,8 +16,29 @@ set -euo pipefail
 # has NO upstream-divergence line, so unpushed commits are the one git signal
 # this hook still reports: without it, local-only work from a previous session
 # looks delivered.
+#
+# Host detection: Codex loads this plugin through the same hooks.json and sets
+# PLUGIN_ROOT next to CLAUDE_PLUGIN_ROOT; Claude Code sets only the latter.
+# Under Codex the skill mentions take the `$optimus:` form and one extra line
+# names the plugin root, because Codex neither substitutes $CLAUDE_PLUGIN_ROOT
+# in skill text nor offers an AskUserQuestion tool. Under Claude Code the
+# output is unchanged.
 
 output=""
+
+# Codex sets PLUGIN_ROOT and CLAUDE_PLUGIN_ROOT to the same path; Claude Code
+# sets only the latter. Requiring equality keeps a stray PLUGIN_ROOT in a
+# user's shell from flipping the wording.
+codex_host=""
+if [ -n "${PLUGIN_ROOT:-}" ] && [ "${PLUGIN_ROOT}" = "${CLAUDE_PLUGIN_ROOT:-}" ]; then
+  codex_host=1
+fi
+skill_prefix="/optimus:"
+setup_features="project context, coding guidelines, and auto-format hooks"
+if [ -n "$codex_host" ]; then
+  skill_prefix='$optimus:'
+  setup_features="project context, coding guidelines, and test infrastructure"
+fi
 
 # Pruned marker search: find the first file matching the given -path pattern,
 # skipping node_modules/.git at every level. No -mindepth: it would suppress
@@ -27,7 +54,7 @@ if [ ! -f .claude/CLAUDE.md ] || [ ! -f .claude/docs/coding-guidelines.md ]; the
   # .optimus-version is uniquely written by /optimus:init, so it's the authoritative marker.
   multi_repo_marker=$(find_marker '*/.claude/.optimus-version')
   if [ -z "$multi_repo_marker" ]; then
-    output+="[optimus] Not initialized — no \`.claude/CLAUDE.md\` or \`.claude/docs/coding-guidelines.md\`. Suggest \`/optimus:init\` to set up project context, coding guidelines, and auto-format hooks."$'\n'
+    output+="[optimus] Not initialized — no \`.claude/CLAUDE.md\` or \`.claude/docs/coding-guidelines.md\`. Suggest \`${skill_prefix}init\` to set up ${setup_features}."$'\n'
   fi
 else
   # 2. Check test infrastructure (only relevant if init was done)
@@ -35,7 +62,7 @@ else
     # Check monorepo subprojects too
     has_testing=$(find_marker '*/docs/testing.md')
     if [ -z "$has_testing" ]; then
-      output+="[optimus] Testing docs missing. Suggest re-running \`/optimus:init\` to set up test infrastructure."$'\n'
+      output+="[optimus] Testing docs missing. Suggest re-running \`${skill_prefix}init\` to set up test infrastructure."$'\n'
     fi
   fi
 
@@ -111,12 +138,19 @@ fi
 
 installed_hook=".claude/hooks/restrict-paths.sh"
 template_hook="$plugin_root/skills/permissions/templates/hooks/restrict-paths.sh"
-if [ -f "$installed_hook" ] && [ -f "$template_hook" ]; then
+if [ -z "$codex_host" ] && [ -f "$installed_hook" ] && [ -f "$template_hook" ]; then
   read_hook_version "$installed_hook"; have="$_hook_version"
   read_hook_version "$template_hook"; want="$_hook_version"
   if [ "$want" -gt "$have" ]; then
-    output+="[optimus] The path-restriction hook installed in this project (\`.claude/hooks/restrict-paths.sh\`, v$have) is older than the plugin's (v$want) and may be missing security fixes. Suggest re-running \`/optimus:permissions\` to update it."$'\n'
+    output+="[optimus] The path-restriction hook installed in this project (\`.claude/hooks/restrict-paths.sh\`, v$have) is older than the plugin's (v$want) and may be missing security fixes. Suggest re-running \`${skill_prefix}permissions\` to update it."$'\n'
   fi
+fi
+
+# 5. Codex context line — emitted even for a fully configured project, because
+# it carries the plugin root every skill resolves $CLAUDE_PLUGIN_ROOT through.
+if [ -n "$codex_host" ]; then
+  output+="[optimus] Running under Codex. Plugin root: ${PLUGIN_ROOT} — skill text calls it \$CLAUDE_PLUGIN_ROOT. Map skill mentions from /optimus:<skill> to \$optimus:<skill>. Where a skill says AskUserQuestion, ask in plain text with numbered options and wait for the answer."$'\n'
+  output+="[optimus] Under Codex, skip the Claude-only permissions and dream skills, formatter installation, and /goal or /workflows handoffs; report the limitation. Claude-specific plan-mode handoff instructions require manual adaptation."$'\n'
 fi
 
 # Only output if there's something to report

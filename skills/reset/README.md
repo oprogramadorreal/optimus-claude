@@ -2,7 +2,7 @@
 
 Removes files installed by [`/optimus:init`](../init/README.md) and [`/optimus:permissions`](../permissions/README.md) from your project. Use it for a clean reinstall or to stop using optimus in a project.
 
-It does **not** uninstall the optimus plugin itself — it only removes optimus-managed files from the project (root `.claude/`, monorepo subproject docs, multi-repo workspace-root `CLAUDE.md`).
+It does **not** uninstall the optimus plugin itself — it only removes optimus-managed files from the project (root `.claude/`, monorepo subproject docs, multi-repo workspace-root `CLAUDE.md`, and optimus pointer blocks in root `AGENTS.md` files).
 
 ## Quick Start
 

@@ -1,0 +1,4 @@
+# Codex reads this file; Claude Code reads disable-model-invocation in SKILL.md.
+# Both say the same thing: this skill runs only when the user invokes it.
+policy:
+  allow_implicit_invocation: false

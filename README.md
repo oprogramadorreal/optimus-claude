@@ -3,13 +3,13 @@
 </div>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-3.10.4-blue" alt="Version">
+  <img src="https://img.shields.io/badge/version-3.11.1-blue" alt="Version">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
   <img src="https://img.shields.io/badge/Claude_Code-1.0.33+-blueviolet" alt="Claude Code">
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey" alt="Platform">
 </p>
 
-**A Claude Code plugin that sets up your project for effective AI-assisted engineering.**
+**A Claude Code plugin that sets up your project for effective AI-assisted engineering.** Includes [best-effort OpenAI Codex support](#using-with-openai-codex).
 
 ---
 
@@ -95,6 +95,56 @@ AI assistants also tend toward [sycophancy](https://blog.scielo.org/en/2026/03/1
 optimus-claude works alongside official tools, not against them. Use Anthropic's official [code-review](https://github.com/anthropics/claude-code/tree/main/plugins/code-review) plugin for post-push PR review, the builtin `/simplify` for per-change cleanup (complemented by `/optimus:refactor` for project-wide restructuring), Claude Code's native [dynamic workflows](https://code.claude.com/docs/en/workflows) for one-off background multi-agent builds and sweeps, and [built-in sandboxing](https://code.claude.com/docs/en/sandboxing) for autonomous execution with OS-level isolation.
 
 Claude Code's [`/goal`](https://code.claude.com/docs/en/goal) is complementary to `/optimus:deep`: reach for `/goal` for lightweight "work until a condition holds" in a single session; reach for `/optimus:deep` for the deterministic, resumable fix loop — fresh subagent per iteration, test bisection that reverts the exact fix that broke the build, and on-disk state that survives across sessions.
+
+## Using with OpenAI Codex
+
+Codex support targets the CLI and desktop app (CLI 0.143+). Claude Code remains the reference host: both hosts share one manifest, the skill source, and the session hook. Support covers portable workflows, not every Claude Code feature. The IDE extension does not load plugins; use the CLI or desktop app. See [Codex plugin availability](https://learn.chatgpt.com/docs/plugins).
+
+```shell
+/plugin marketplace add oprogramadorreal/optimus-claude
+```
+
+Enable `optimus` from `/plugins`, then **review and trust its session-start hook** when prompted. Enabling a plugin does not trust its hooks; the hook supplies the plugin path and compatibility guidance. Start a new session and confirm the `[optimus] Running under Codex` line appears. If it is missing, check hook trust before running skills. See [Codex hook trust](https://learn.chatgpt.com/docs/hooks#review-and-trust-hooks).
+
+Invoke skills with a `$` mention: `$optimus:init`, `$optimus:commit suggest`, `$optimus:deep review`.
+
+### Support matrix
+
+**Portable** means the workflow is intended to work through shared instructions, not that every skill has passed an end-to-end Codex run. **Partial** excludes the named features. **Experimental** needs execution testing before relying on it unattended.
+
+| Skill or feature | Codex status | Limits and requirements |
+|---|---|---|
+| `commit`, `pr`, `handoff` | Portable | Git and any required hosting CLI/authentication must be available; host permissions still apply |
+| `worktree`, `how-to-run`, `paper-init` | Portable | Project setup, services, downloads, and extraction tools retain their normal prerequisites |
+| `code-review`, `refactor`, `unit-test`, `tdd` | Portable; agent execution needs smoke verification | Follow the skill's init/test prerequisites; available subagent capacity can reduce parallelism |
+| `init`, `reset` | Partial | Shared docs, test infrastructure, and `AGENTS.md` pointers; init skips formatter installation under Codex and preserves existing hooks/settings |
+| `brainstorm`, `jira`, `prompt` | Partial | Core design, issue, and prompt work; Jira needs a compatible MCP server. Claude-specific plan-mode handoffs require manual adaptation; `prompt`'s `/workflows` handoff is unsupported |
+| `deep` | Experimental | Nested agents, multiple iterations, resume, and headless execution need Codex smoke verification; see headless requirements below |
+| `gauntlet` | Partial; agent execution needs smoke verification | In-session lead-agent path only; Claude's "Copy as /goal prompt" handoff is unsupported |
+| `permissions` | Unsupported | Writes Claude rules and parses Claude tool inputs. Configure Codex's own sandbox and approval policy instead |
+| `dream` | Unsupported | Operates on Claude auto-memory. Use Codex's memory controls instead |
+| Formatter hooks | Unsupported | Codex edit events supply patch text rather than the file-path payload these hooks expect. Use editor formatting or pre-commit hooks |
+| Standalone `optimus:code-simplifier` / `optimus:test-guardian` agents | Unsupported | Codex custom agents use TOML configuration; use the portable `refactor` / `unit-test` workflows instead |
+
+Validation status: metadata parsing and launcher behavior are checked automatically, including the Windows Git fallback from a subdirectory. End-to-end Codex skill validation, including the advertised minimum CLI version, is still pending. Record the tested Codex version, OS, and results using the [contributor smoke test](CONTRIBUTING.md#codex-smoke-test-local).
+
+What differs under Codex:
+
+- Skills never auto-trigger on either host (`agents/openai.yaml` carries the Codex-side flag), and they stay out of the model's skill list until you mention one.
+- Confirmation prompts arrive as plain-text questions instead of the pick-list Claude Code shows; answer in the chat.
+- On Windows, the session-start hook tries `bash` first and falls back to Git for Windows' bundled Bash through `git.exe`, preserving the starting directory. Git must be on `PATH`; `bash.exe` need not be.
+- `/optimus:init` writes or refreshes root `AGENTS.md` pointers when Codex use is detected. They route to existing CLAUDE.md files, including package-specific instructions in monorepos. Multi-repo workspaces get pointers at the workspace root and in each child repo. User content outside the marked blocks is preserved; `/optimus:reset` removes only those blocks.
+- Subagent parallelism depends on Codex's version and configuration. Current releases use `agents.max_concurrent_threads_per_session` (`agents.max_threads` is a legacy alias); no fixed concurrency is guaranteed. See [Codex subagent configuration](https://learn.chatgpt.com/docs/agent-configuration/subagents#global-settings).
+
+### Headless runs
+
+After installation, hook trust, and project initialization, an experimental Bash/PowerShell example is:
+
+```shell
+codex exec --sandbox workspace-write '$optimus:deep review --yes'
+```
+
+`codex exec` defaults to read-only, so editing workflows need an explicit write-capable sandbox. `--yes` answers Optimus confirmations only; it does not grant filesystem, Git, network, or subagent permissions. Deep writes state under `.claude/`, uses Git snapshots, and checkpoint-commits: preconfigure the permissions needed for the run, since headless execution cannot obtain fresh interactive approvals. `--no-commit` disables checkpoints but still uses Git snapshots. See [Codex non-interactive execution](https://learn.chatgpt.com/docs/non-interactive-mode).
 
 ## Troubleshooting
 

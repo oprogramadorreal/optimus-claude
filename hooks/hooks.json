@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "'${CLAUDE_PLUGIN_ROOT}/hooks/session-start'",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/session-start\" || git -c \"alias.optimus-session-start=!exec bash \\\"${CLAUDE_PLUGIN_ROOT}/hooks/session-start\\\" --git-alias\" optimus-session-start",
             "async": false
           }
         ]
