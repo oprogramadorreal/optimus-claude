@@ -256,3 +256,13 @@ The `/optimus:gauntlet` skill implements the [Gauntlet Loop](https://somethingbi
 - [AI-Friendly Code Design](https://www.thoughtworks.com/radar/techniques/ai-friendly-code-design) — Thoughtworks Tech Radar Vol. 32
 - [AI Developer Productivity: Perception vs. Reality](https://arxiv.org/abs/2507.09089) — METR 2025: developers 19% slower with AI while believing they were faster
 - [Sycophancy in AI: The Risk of Complacency](https://blog.scielo.org/en/2026/03/13/sycophancy-in-ai-the-risk-of-complacency/) — SciELO 2026
+
+## Testing
+
+Run from the repository root with the development environment activated:
+```shell
+bash scripts/validate.sh && bash scripts/test-hooks.sh && python -m pytest test/
+python -m pytest test/harness-common/ --cov scripts/harness_common --cov-report=term-missing
+```
+Python tests live in `test/`, with orchestrator tests under `test/harness-common/`. On Windows, `test-coverage.cmd` also generates `htmlcov/index.html`.
+See [CONTRIBUTING.md](CONTRIBUTING.md#testing) for setup and the separate skill execution tests.
