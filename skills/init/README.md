@@ -73,7 +73,7 @@ init is the foundation: `/optimus:unit-test` and `/optimus:deep` require an init
 
 ## Requirements
 
-- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) 1.0.33+ (plugin support)
+- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) 1.0.33+ (plugin support), or a plugin-capable Codex host ([experimental support](../../README.md#using-with-openai-codex))
 - Git
 
 ## License

@@ -75,7 +75,7 @@ On Abort: confirm nothing was removed and stop.
    - `hooks.PreToolUse`: same rule for entries referencing `.claude/hooks/restrict-paths.sh`.
    - `permissions.allow` / `permissions.deny`: remove entries matching the permissions template's lists. Also remove server-level entries of the exact form `mcp__<server-name>` only for servers declared in the relevant project root's `.mcp.json` (per child repo in multi-repo workspaces). Preserve tool-level entries (e.g. `mcp__github__get_issue`) and entries for undeclared servers — those are the user's. If no `.mcp.json` exists, leave all `mcp__*` entries untouched.
    - Prune arrays, keys, and objects that became empty. If the whole object is now `{}`, delete the file; otherwise write it back with 2-space indentation.
-3. Each project- or workspace-root `AGENTS.md`: delete it when it is exactly the pointer block; otherwise remove only the block — both markers, the line between them, and the blank line before it — and keep everything else.
+3. Each project- or workspace-root `AGENTS.md`: delete it when it is exactly the pointer block; otherwise remove only both markers and the content between them, preserving all surrounding content and whitespace.
 
 ## Step 5 — Clean up and report
 

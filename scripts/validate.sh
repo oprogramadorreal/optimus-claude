@@ -60,7 +60,15 @@ fi
 
 # --- 3. Parsed skill metadata for both hosts ---
 echo "[Skill metadata]"
-if metadata_errors=$(python scripts/validate_skill_metadata.py 2>&1); then
+# Prefer the activated environment's Python, then python3 on Unix; ignore
+# Python 2 installs and broken Windows aliases.
+py_cmd=""
+if python -c 'import sys; sys.exit(sys.version_info[0] != 3)' &>/dev/null; then
+  py_cmd="python"
+elif python3 -c 'import sys; sys.exit(sys.version_info[0] != 3)' &>/dev/null; then
+  py_cmd="python3"
+fi
+if metadata_errors=$("$py_cmd" scripts/validate_skill_metadata.py 2>&1); then
   check "Skill YAML is valid and disables implicit invocation on both hosts" true
 else
   check "Skill YAML is valid and disables implicit invocation on both hosts" false
@@ -285,13 +293,7 @@ else
   echo "  SKIP  Node.js syntax checks (node not installed)"
 fi
 
-# Python scripts — detect working python command (python3 may be a broken Windows alias)
-py_cmd=""
-if python3 --version &>/dev/null; then
-  py_cmd="python3"
-elif python --version &>/dev/null; then
-  py_cmd="python"
-fi
+# Python scripts
 if [ -n "$py_cmd" ]; then
   while IFS= read -r f; do
     if ! "$py_cmd" -c "import py_compile, sys; py_compile.compile(sys.argv[1], doraise=True)" "$f" 2>/dev/null; then

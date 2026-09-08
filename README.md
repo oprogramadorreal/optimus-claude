@@ -3,7 +3,7 @@
 </div>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-3.11.0-blue" alt="Version">
+  <img src="https://img.shields.io/badge/version-3.11.1-blue" alt="Version">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
   <img src="https://img.shields.io/badge/Claude_Code-1.0.33+-blueviolet" alt="Claude Code">
   <img src="https://img.shields.io/badge/OpenAI_Codex-experimental-orange" alt="OpenAI Codex: experimental">
@@ -160,7 +160,14 @@ All Codex workflows below remain experimental. **Portable** means code review fo
 | Formatter hooks | Unsupported | Codex edit events supply patch text rather than the file-path payload these hooks expect. Use editor formatting or pre-commit hooks |
 | Standalone `optimus:code-simplifier` / `optimus:test-guardian` agents | Unsupported | Codex custom agents use TOML configuration; use the portable `refactor` / `unit-test` workflows instead |
 
-Validation status: metadata parsing and launcher behavior are checked automatically, including Windows `cmd.exe`, PowerShell 5.1, PowerShell 7, and nested working directories. Authenticated native smoke on **Windows 11 Pro** (Codex CLI **0.153.4**, Claude Code **2.1.259**, 2026-09-08) exercised repeated init, root/package instruction routing, reset preservation, and Claude Write-triggered formatting in one Python monorepo. The Git launcher delivered compatibility context in fresh native Codex sessions, including `codex exec`, where `$optimus:commit suggest` read its bundled references and suggested a message without writing; Claude Code 2.1.263 loaded all 19 skills and both agents through the same hook. `codex plugin marketplace add oprogramadorreal/optimus-claude@<branch>` followed by `codex plugin add optimus@optimus-claude` installed the plugin from GitHub into an isolated Codex home, but no session was run on that install. Earlier Linux loader checks used a local test server without model execution. Desktop use and orchestration remain unverified. The [contributor smoke test](CONTRIBUTING.md#codex-smoke-test-local) separates the small core check from optional orchestration checks; these results do not establish untested workflows.
+Validation status (Windows, 2026-09-08):
+
+- **Automated checks, version 3.11.1:** 29 structural checks passed; pytest passed 562 tests with 2 platform/tool-availability skips. Hook tests passed 403 assertions; one UNC-path assertion also fails on unchanged `master` with the installed Git Bash. All 11 native launcher tests passed, including `cmd.exe`, PowerShell 5.1/7, WSL interference, and nested directories.
+- **Claude Code 2.1.263:** loaded all 19 skills and both agents, completed Python init while preserving custom settings/hooks, created no `AGENTS.md`, formatted an actual Write-tool edit, and ran read-only commit suggest. These final skill changes were exercised before the metadata-only version bump from 3.11.0 to 3.11.1. Hook output matched `master` across five project states.
+- **Codex CLI 0.153.4:** installed the local plugin, delivered compatibility context, and ran authenticated commit suggest. A clean snapshot of version 3.11.1 passed init, repeat init, root/nested instruction routing, reset preservation, and the permissions/dream/missing-Jira compatibility checks. Init/reset required host approval review for protected files; the isolated Windows setup used the documented `unelevated` sandbox fallback. Tests used the one-run trust override for the reviewed hook; the interactive `/hooks` trust UI was not exercised.
+- **Remote installation:** the documented GitHub branch marketplace/add commands installed the expected branch revision into an isolated home; its files matched the fetched commit. No model session was run on that remote installation.
+
+These are targeted smoke results, not the full skill/stack matrix. Native Linux/macOS workflows, desktop use, live Jira, multi-repo init, and deep/gauntlet orchestration remain unverified in this review. See the [contributor smoke test](CONTRIBUTING.md#codex-smoke-test-local) for the remaining checks.
 
 What differs under Codex:
 
@@ -172,13 +179,17 @@ What differs under Codex:
 
 ### Headless runs
 
-After installation, hook trust, and project initialization, an experimental Bash/PowerShell example is:
+After installation, hook trust, project trust, and initialization, an experimental Bash/PowerShell example is:
 
 ```shell
 codex exec --sandbox workspace-write '$optimus:deep review --yes'
 ```
 
 `codex exec` defaults to read-only, so editing workflows need an explicit write-capable sandbox. `--yes` answers Optimus confirmations only; it does not grant filesystem, Git, network, or subagent permissions. Deep writes state under `.claude/`, uses Git snapshots, and checkpoint-commits: preconfigure the permissions needed for the run, since headless execution cannot obtain fresh interactive approvals. `--no-commit` disables checkpoints but still uses Git snapshots. See [Codex non-interactive execution](https://learn.chatgpt.com/docs/non-interactive-mode).
+
+On native Windows, complete [Codex's sandbox setup](https://learn.chatgpt.com/docs/windows/windows-sandbox) as well. A fresh configuration can block even read commands; trusting a plugin hook does not configure the project or its sandbox. Check the session's effective permissions before starting a long run.
+
+Supported CLIs offer `--approve-for-me` for automatic permission review, in place of `--sandbox workspace-write`; the two flags cannot be combined. The Windows init smoke needed this review for protected `.claude/` writes. This grants no blanket approval and does not establish that deep orchestration works unattended.
 
 ## Troubleshooting
 

@@ -25,6 +25,7 @@ Git-tracked files are flagged as recoverable via `git checkout`.
 - **Always asks first.** Nothing is removed until you pick one of four options: **Remove all**, **Keep modified**, **Unmodified only**, or **Abort**. The recommended option depends on git tracking — "Remove all" only when every modified file is recoverable.
 - **User-modified files are never deleted without your explicit approval.**
 - **`.claude/settings.json` is never deleted outright.** Optimus-added hook entries, permissions, and MCP server allows are removed surgically; everything you added yourself is preserved. Hook entries whose hook file you chose to keep stay wired. The file is only deleted if it ends up completely empty.
+- **Shared `AGENTS.md` files retain all content and whitespace outside Optimus's pointer markers.** A file containing only the pointer block is deleted.
 - **Tests are never touched** — even tests created by `/optimus:unit-test`.
 - **Nothing outside optimus-managed paths is scanned or removed.**
 

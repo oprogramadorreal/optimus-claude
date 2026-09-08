@@ -11,6 +11,8 @@ argument-hint: "[optional focus, e.g. a memory file or topic]"
 
 # Dream — prune and consolidate auto-memory
 
+Under Codex, stop without reading or changing memory: this skill requires Claude Code auto-memory. Recommend Codex's own memory controls instead.
+
 A reflective pass over this project's auto-memory, biased toward shrinking it. Memory is context debt: every entry loads into future sessions whether it helps or not, stale entries actively mislead, and near-duplicates dilute the entries that matter. The best memory store is the smallest one that still changes what a future session does. This skill therefore only removes, merges, and tightens — capturing new facts is the job of regular sessions, not of a dream.
 
 **Hard rules:**

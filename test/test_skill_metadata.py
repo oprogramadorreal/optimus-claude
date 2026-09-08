@@ -1,8 +1,14 @@
 """Regressions for invalid metadata silently dropping invocation restrictions."""
 
+import os
+import shlex
+import shutil
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
+from harness_common.runner import _find_bash
 from validate_skill_metadata import validate_skill
 
 FRONTMATTER = "description: Reviews changes\ndisable-model-invocation: true\n"
@@ -90,3 +96,60 @@ def test_shipped_skill_metadata():
         for error in validate_skill(skill)
     ]
     assert errors == []
+
+
+@pytest.mark.parametrize("python_available", [True, False])
+def test_validation_selects_working_python3(tmp_path, python_available):
+    repo = Path(__file__).resolve().parent.parent
+    scripts = tmp_path / "scripts"
+    scripts.mkdir()
+    shutil.copy(repo / "scripts" / "validate_skill_metadata.py", scripts)
+    skill = tmp_path / "skills" / "review"
+    skill.mkdir(parents=True)
+    write_skill(skill)
+
+    launchers = tmp_path / "bin"
+    launchers.mkdir()
+    selected = tmp_path / "selected-python"
+    executable = shlex.quote(Path(sys.executable).as_posix())
+    for command in ("python", "python3"):
+        launcher = launchers / command
+        launcher.write_text(
+            "#!/usr/bin/env bash\n"
+            + (
+                "exit 127\n"
+                if command == "python" and not python_available
+                else f'{executable} "$@" || exit $?\n'
+                'if [[ "$1" == scripts/validate_skill_metadata.py ]]; then\n'
+                f'  printf "%s\\n" {command} > "$SELECTED_PYTHON"\n'
+                "fi\n"
+            ),
+            encoding="utf-8",
+            newline="\n",
+        )
+        launcher.chmod(0o755)
+
+    bash = Path(_find_bash())
+    env = {**os.environ, "SELECTED_PYTHON": str(selected)}
+    env["PATH"] = os.pathsep.join(
+        [
+            str(launchers),
+            str(bash.parent),
+            str(bash.parent.parent / "usr/bin"),
+            env["PATH"],
+        ]
+    )
+    # Execute the real entrypoint. Later manifest checks fail in this intentionally
+    # small fixture; the marker is written only after real metadata validation passes.
+    result = subprocess.run(
+        [str(bash), str(repo / "scripts" / "validate.sh")],
+        cwd=tmp_path,
+        env=env,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=30,
+    )
+    assert selected.is_file(), result.stdout + result.stderr
+    assert selected.read_text().strip() == ("python" if python_available else "python3")
