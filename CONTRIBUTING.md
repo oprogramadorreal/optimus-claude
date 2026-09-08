@@ -179,7 +179,7 @@ Not intended for CI — run locally before merging significant changes.
 
 Codex support is experimental. CI checks metadata and launcher behavior; it does not run model-driven workflows. Record the date, exact plugin commit/version, host version, OS, and pass/fail/untested results. No minimum Codex version is claimed. Use this small core check before promoting the core workflows beyond experimental:
 
-1. **Install, trust, invoke** — in an authenticated Codex CLI, run `/plugin marketplace add oprogramadorreal/optimus-claude` (or follow the [Codex feature-branch setup](#codex) to test another branch), enable `optimus` from `/plugins`, and review/trust its hooks. In a fresh session, confirm `[optimus] Running under Codex` and the installed plugin path appear without a hook error. In a disposable repo with a change, run `$optimus:commit suggest`; it must read its bundled references and suggest a message without writing. A separate plain "write a commit message for this" request must not auto-load the skill.
+1. **Install, trust, invoke** — with an authenticated Codex CLI, run `codex plugin marketplace add oprogramadorreal/optimus-claude` and `codex plugin add optimus@optimus-claude` from a terminal (or follow the [Codex feature-branch setup](#codex) to test another branch), then review/trust its hooks in `/hooks`. In a fresh session, confirm the agent received `[optimus] Running under Codex` and the installed plugin path without a hook error — ask it, or read the `developer` message in the session rollout under `~/.codex/sessions/`. In a disposable repo with a change, run `$optimus:commit suggest`; it must read its bundled references and suggest a message without writing. A separate plain "write a commit message for this" request must not auto-load the skill.
 2. **Init, routing, preservation, reset** — generate fixtures with `bash scripts/generate-fixtures.sh monorepo multi-repo`. In `test/fixtures/monorepo-project`, run `$optimus:init`; add user text/comments outside its `AGENTS.md` block and custom Claude hooks/settings, then re-run init. Compare the original hook/settings bytes and surrounding user text; only one pointer block should remain. In fresh root and package sessions ask "Which test command applies here? Read the project instructions without editing." Confirm the applicable CLAUDE.md files were read. Run `$optimus:reset` and confirm only the managed pointer is removed from `AGENTS.md`. Repeat the routing/pointer check at `test/fixtures/multi-repo-workspace` and inside a child repo. Also verify `$optimus:jira TEST-1` without MCP tools stops at Codex setup guidance, and `permissions`/`dream` explain their exclusion without changing Claude state.
 3. **Shared hook regression** — run `bash scripts/validate.sh`, `bash scripts/test-hooks.sh`, and `python -m pytest test/`. Start `claude --plugin-dir <absolute-plugin-path> --debug-file <log> -p 'Reply OK.'` from root and nested disposable directories with different initialization state; compare hook events, confirm all 19 skills and both agents load, and verify a fully initialized Claude project adds no hook context. Check native Windows loading as well, including Codex with only `Git\cmd` and `System32` on PATH. A hook that runs before an authentication failure is loader evidence only.
 
@@ -253,8 +253,11 @@ No `ref` field is needed for local paths — Claude Code reads directly from the
 Codex takes the branch on the marketplace-add command and installs the plugin from that same checkout, so no `ref` edit is needed:
 
 ```shell
-/plugin marketplace add oprogramadorreal/optimus-claude@your-branch-name
+codex plugin marketplace add oprogramadorreal/optimus-claude@your-branch-name
+codex plugin add optimus@optimus-claude
 ```
+
+A local checkout works too: `codex plugin marketplace add ./path/to/optimus-claude` registers the working tree as the marketplace, and Codex re-caches the plugin whenever the version in `plugin.json` changes.
 
 ## Version bumping
 

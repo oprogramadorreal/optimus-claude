@@ -388,9 +388,8 @@ if command -v jq &>/dev/null; then
   hook_missing=""
   while IFS= read -r cmd; do
     # Check every plugin-relative path the command names, whatever wraps it.
-    # SessionStart names its script twice: once for the direct `bash` launch
-    # and once inside the git-alias fallback Codex's cmd.exe host needs when
-    # bash.exe is not on PATH.
+    # SessionStart passes its script as an argument to a git shell alias, so
+    # the path is not the first word and may sit inside double quotes.
     while IFS= read -r script_path; do
       if [ -n "$script_path" ] && [ ! -f "./$script_path" ]; then
         hook_missing+="  $script_path\n"

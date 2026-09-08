@@ -3,7 +3,7 @@
 </div>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-3.11.3+codex.20260908104245-blue" alt="Version">
+  <img src="https://img.shields.io/badge/version-3.11.0-blue" alt="Version">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
   <img src="https://img.shields.io/badge/Claude_Code-1.0.33+-blueviolet" alt="Claude Code">
   <img src="https://img.shields.io/badge/OpenAI_Codex-experimental-orange" alt="OpenAI Codex: experimental">
@@ -35,15 +35,16 @@ Then start a new session and type `/optimus:init` in any project directory. Havi
 
 ### OpenAI Codex (experimental)
 
-Use a plugin-capable Codex CLI with Git on `PATH` (Git for Windows on Windows). Inside Codex CLI, add the marketplace:
+Use a plugin-capable Codex CLI with Git on `PATH` (Git for Windows on Windows). From a terminal, add the marketplace and install the plugin:
 
 ```shell
-/plugin marketplace add oprogramadorreal/optimus-claude
+codex plugin marketplace add oprogramadorreal/optimus-claude
+codex plugin add optimus@optimus-claude
 ```
 
-Install and enable `optimus` from `/plugins`. Open `/hooks` to **review and trust its session-start hook**, then start a new session in your project directory. Confirm the `[optimus] Running under Codex` line appears before invoking `$optimus:init`. Plugin installation alone does not trust hooks. See [Codex hook trust](https://learn.chatgpt.com/docs/hooks#review-and-trust-hooks).
+(`/plugins` inside a Codex session lists the same marketplace and can install or enable `optimus` instead.) Open `/hooks` in a Codex session to **review and trust its session-start hook**, then start a new session in your project directory. Plugin installation alone does not trust hooks, and an untrusted hook delivers no `[optimus] Running under Codex` context — confirm the hook shows as trusted before invoking `$optimus:init`. See [Codex hook trust](https://learn.chatgpt.com/docs/hooks#review-and-trust-hooks).
 
-Use `$optimus:<skill>` mentions in Codex, for example `$optimus:commit suggest`. **Skip `permissions` and `dream`; formatter installation is also unsupported.** Configure Codex's own sandbox and approval policy for guardrails. Desktop use and remote marketplace installation remain unverified for this plugin; see the [support matrix and validation status](#support-matrix).
+Use `$optimus:<skill>` mentions in Codex, for example `$optimus:commit suggest`. **Skip `permissions` and `dream`; formatter installation is also unsupported.** Configure Codex's own sandbox and approval policy for guardrails. Desktop use remains unverified for this plugin; see the [support matrix and validation status](#support-matrix).
 
 ## How It Works
 
@@ -136,7 +137,7 @@ Codex support is experimental and opt-in. Claude Code remains the primary host: 
 
 Follow the [Codex Quick Start](#openai-codex-experimental) to install, enable, trust the hook, and initialize your project.
 
-The session-start hook supplies the plugin path and compatibility guidance. If the `[optimus] Running under Codex` line is missing in a fresh session, check `/hooks` before running skills. Codex's hook-path substitution does not safely handle shell metacharacters such as `$` or backticks in the installation path; use a path without them (spaces are supported).
+The session-start hook supplies the plugin path and compatibility guidance. If the `[optimus] Running under Codex` line is missing from the agent's session context in a fresh session (ask it what its session context says), check `/hooks` before running skills. Codex's hook-path substitution does not safely handle shell metacharacters such as `$` or backticks in the installation path; use a path without them (spaces are supported).
 
 Invoke skills with a `$` mention: `$optimus:init`, `$optimus:commit suggest`, `$optimus:deep review`.
 
@@ -159,7 +160,7 @@ All Codex workflows below remain experimental. **Portable** means code review fo
 | Formatter hooks | Unsupported | Codex edit events supply patch text rather than the file-path payload these hooks expect. Use editor formatting or pre-commit hooks |
 | Standalone `optimus:code-simplifier` / `optimus:test-guardian` agents | Unsupported | Codex custom agents use TOML configuration; use the portable `refactor` / `unit-test` workflows instead |
 
-Validation status: metadata parsing and launcher behavior are checked automatically, including Windows `cmd.exe`, PowerShell 5.1, PowerShell 7, and nested working directories. Authenticated native smoke on **Windows 11 Pro** (Codex CLI **0.153.4**, Claude Code **2.1.259**, 2026-09-08) exercised repeated init, root/package instruction routing, reset preservation, and Claude Write-triggered formatting in one Python monorepo. The corrected Git launcher also delivered compatibility context in a fresh native Codex session. Earlier Linux loader checks used a local test server without model execution. Remote marketplace installation, desktop use, and orchestration remain unverified. The [contributor smoke test](CONTRIBUTING.md#codex-smoke-test-local) separates the small core check from optional orchestration checks; these results do not establish untested workflows.
+Validation status: metadata parsing and launcher behavior are checked automatically, including Windows `cmd.exe`, PowerShell 5.1, PowerShell 7, and nested working directories. Authenticated native smoke on **Windows 11 Pro** (Codex CLI **0.153.4**, Claude Code **2.1.259**, 2026-09-08) exercised repeated init, root/package instruction routing, reset preservation, and Claude Write-triggered formatting in one Python monorepo. The Git launcher delivered compatibility context in fresh native Codex sessions, including `codex exec`, where `$optimus:commit suggest` read its bundled references and suggested a message without writing; Claude Code 2.1.263 loaded all 19 skills and both agents through the same hook. `codex plugin marketplace add oprogramadorreal/optimus-claude@<branch>` followed by `codex plugin add optimus@optimus-claude` installed the plugin from GitHub into an isolated Codex home, but no session was run on that install. Earlier Linux loader checks used a local test server without model execution. Desktop use and orchestration remain unverified. The [contributor smoke test](CONTRIBUTING.md#codex-smoke-test-local) separates the small core check from optional orchestration checks; these results do not establish untested workflows.
 
 What differs under Codex:
 
