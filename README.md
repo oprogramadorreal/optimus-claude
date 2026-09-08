@@ -3,7 +3,7 @@
 </div>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-3.11.2-blue" alt="Version">
+  <img src="https://img.shields.io/badge/version-3.11.3-blue" alt="Version">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
   <img src="https://img.shields.io/badge/Claude_Code-1.0.33+-blueviolet" alt="Claude Code">
   <img src="https://img.shields.io/badge/OpenAI_Codex-experimental-orange" alt="OpenAI Codex: experimental">
@@ -256,3 +256,13 @@ The `/optimus:gauntlet` skill implements the [Gauntlet Loop](https://somethingbi
 - [AI-Friendly Code Design](https://www.thoughtworks.com/radar/techniques/ai-friendly-code-design) — Thoughtworks Tech Radar Vol. 32
 - [AI Developer Productivity: Perception vs. Reality](https://arxiv.org/abs/2507.09089) — METR 2025: developers 19% slower with AI while believing they were faster
 - [Sycophancy in AI: The Risk of Complacency](https://blog.scielo.org/en/2026/03/13/sycophancy-in-ai-the-risk-of-complacency/) — SciELO 2026
+
+## Testing
+
+Run from the repository root with the development environment activated:
+```shell
+bash scripts/validate.sh && bash scripts/test-hooks.sh && python -m pytest test/
+python -m pytest test/harness-common/ --cov scripts/harness_common --cov-report=term-missing
+```
+Python tests live in `test/`, with orchestrator tests under `test/harness-common/`. On Windows, `test-coverage.cmd` also generates `htmlcov/index.html`.
+See [CONTRIBUTING.md](CONTRIBUTING.md#testing) for setup and the separate skill execution tests.
