@@ -8,7 +8,7 @@ It does **not** uninstall the optimus plugin itself — it only removes optimus-
 
 This skill is part of the [optimus](https://github.com/oprogramadorreal/optimus-claude) plugin. See the [main README](../../README.md) for installation instructions.
 
-**Run:** Type `/optimus:reset` in any project directory.
+**Run:** Type `/optimus:reset` in Claude Code, or `$optimus:reset` in Codex, from the project directory.
 
 ## How It Works
 
@@ -33,11 +33,11 @@ Git-tracked files are flagged as recoverable via `git checkout`.
 - **Monorepo:** subproject `CLAUDE.md` and `docs/` files installed by init are classified and included in the plan.
 - **Multi-repo workspace:** each child repo is processed independently, files are grouped by repo, and the local workspace-root `CLAUDE.md` is included.
 
-After a reset, run `/optimus:init` (and `/optimus:permissions`) to reinstall, or `/plugin uninstall optimus@optimus-claude` to remove the plugin itself.
+After a reset, start a fresh conversation to reinstall: `/optimus:init` (and `/optimus:permissions`) in Claude Code, or `$optimus:init` in Codex. The permissions skill is Claude-only. To uninstall the plugin itself, use `/plugin uninstall optimus@optimus-claude` in Claude Code, or run `codex plugin remove optimus@optimus-claude` in your terminal for Codex CLI. Reset does not run either uninstall command.
 
 ## Requirements
 
-- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) 1.0.33+ (plugin support)
+- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) 1.0.33+ (plugin support), or a plugin-capable Codex host ([experimental support](../../README.md#using-with-openai-codex))
 - Git (for git-tracked status detection)
 
 ## License

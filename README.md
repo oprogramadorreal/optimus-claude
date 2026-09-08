@@ -3,7 +3,7 @@
 </div>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-3.11.2-blue" alt="Version">
+  <img src="https://img.shields.io/badge/version-3.11.3+codex.20260908104245-blue" alt="Version">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
   <img src="https://img.shields.io/badge/Claude_Code-1.0.33+-blueviolet" alt="Claude Code">
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey" alt="Platform">
@@ -126,13 +126,13 @@ All Codex workflows below remain experimental. **Portable** means code review fo
 | Formatter hooks | Unsupported | Codex edit events supply patch text rather than the file-path payload these hooks expect. Use editor formatting or pre-commit hooks |
 | Standalone `optimus:code-simplifier` / `optimus:test-guardian` agents | Unsupported | Codex custom agents use TOML configuration; use the portable `refactor` / `unit-test` workflows instead |
 
-Validation status: metadata parsing and launcher behavior are checked automatically, including the Windows Git fallback from a subdirectory. Local loader checks used Codex CLI **0.153.4 on Linux**: local marketplace installation, all 19 namespaced skills, hook trust, compatibility-context delivery, and explicit loading of only the requested skill passed. Requests were captured by a local test server without model execution. Authenticated skill execution, remote marketplace installation, desktop use, and native Windows host integration remain unverified. The [contributor smoke test](CONTRIBUTING.md#codex-smoke-test-local) separates the small core check from optional orchestration checks; passing CI alone does not establish these workflows.
+Validation status: metadata parsing and launcher behavior are checked automatically, including Windows `cmd.exe`, PowerShell 5.1, PowerShell 7, and nested working directories. Authenticated native smoke on **Windows 11 Pro** (Codex CLI **0.153.4**, Claude Code **2.1.259**, 2026-09-08) exercised repeated init, root/package instruction routing, reset preservation, and Claude Write-triggered formatting in one Python monorepo. The corrected Git launcher also delivered compatibility context in a fresh native Codex session. Earlier Linux loader checks used a local test server without model execution. Remote marketplace installation, desktop use, and orchestration remain unverified. The [contributor smoke test](CONTRIBUTING.md#codex-smoke-test-local) separates the small core check from optional orchestration checks; these results do not establish untested workflows.
 
 What differs under Codex:
 
 - Skills never auto-trigger on either host (`agents/openai.yaml` carries the Codex-side flag), and they stay out of the model's skill list until you mention one.
 - Confirmation prompts arrive as plain-text questions instead of the pick-list Claude Code shows; answer in the chat.
-- On Windows, the session-start hook tries `bash` first and falls back to Git for Windows' bundled Bash through `git.exe`, preserving the starting directory. Git must be on `PATH`; `bash.exe` need not be.
+- The session-start hook uses a Git shell alias, preserving the starting directory. On Windows this selects Git for Windows' bundled Bash under `cmd.exe` or PowerShell, without invoking WSL's `bash.exe`. Git must be on `PATH`; `bash.exe` need not be.
 - `/optimus:init` writes or refreshes root `AGENTS.md` pointers when Codex use is detected. They route to existing CLAUDE.md files, including package-specific instructions in monorepos. Multi-repo workspaces get pointers at the workspace root and in each child repo. User content outside the marked blocks is preserved; `/optimus:reset` removes only those blocks. An `AGENTS.override.md` in the same directory takes precedence in Codex: add an equivalent pointer there yourself if you use it; init/reset manage only `AGENTS.md`.
 - Subagent parallelism depends on Codex's version and configuration. Current releases use `agents.max_concurrent_threads_per_session` (`agents.max_threads` is a legacy alias); no fixed concurrency is guaranteed. See [Codex subagent configuration](https://learn.chatgpt.com/docs/agent-configuration/subagents#global-settings).
 

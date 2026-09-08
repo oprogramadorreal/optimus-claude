@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Git runs shell aliases from the repository root and records the caller's
-# relative directory in GIT_PREFIX. Only the fallback launcher needs this.
+# relative directory in GIT_PREFIX. Restore it only for the Git launcher.
 if [ "${1:-}" = "--git-alias" ] && [ -n "${GIT_PREFIX:-}" ]; then
   cd -- "$GIT_PREFIX"
 fi

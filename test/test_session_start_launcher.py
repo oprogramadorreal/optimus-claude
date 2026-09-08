@@ -24,7 +24,7 @@ def _session_start_command():
 @pytest.mark.parametrize(
     "noisy_bash", [False, True], ids=["system-path", "utf16-error"]
 )
-def test_windows_launcher_falls_back_to_git_bash(tmp_path, location, noisy_bash):
+def test_windows_launcher_uses_git_bash(tmp_path, location, noisy_bash):
     git = shutil.which("git")
     if git is None:
         pytest.skip("git is not installed")
@@ -47,7 +47,7 @@ def test_windows_launcher_falls_back_to_git_bash(tmp_path, location, noisy_bash)
     )
     assert shutil.which("git", path=env["PATH"]) is not None
     # System32 may hold WSL's bash.exe, which cannot open C:/ paths. The
-    # launcher must recover from that too, so its presence is not asserted away.
+    # launcher must use Git's Bash instead, so its presence is not asserted away.
     if noisy_bash:
         # Reproduce WSL's UTF-16 stdout diagnostic without depending on whether
         # the machine has WSL or a Linux distribution installed.
@@ -63,9 +63,9 @@ def test_windows_launcher_falls_back_to_git_bash(tmp_path, location, noisy_bash)
     plugin_root = str(REPO_ROOT)
     env["PLUGIN_ROOT"] = plugin_root
     env["CLAUDE_PLUGIN_ROOT"] = plugin_root
-    command = _session_start_command().replace(
-        "${CLAUDE_PLUGIN_ROOT}", plugin_root.replace("\\", "/")
-    )
+    # Codex substitutes a native Windows path, including backslashes. Testing
+    # only a normalized path misses quoting failures in the Git launcher.
+    command = _session_start_command().replace("${CLAUDE_PLUGIN_ROOT}", plugin_root)
     cwd = tmp_path
     if location != "outside-repo":
         subprocess.run([git, "init", "-q", str(tmp_path)], check=True)
@@ -112,18 +112,9 @@ def test_windows_launcher_falls_back_to_git_bash(tmp_path, location, noisy_bash)
 
     assert result.returncode == 0, result.stderr
     assert direct.returncode == 0, direct.stderr
-    # WSL may emit UTF-16 startup diagnostics before Git Bash takes over.
-    # Compare the entire hook output, retaining missing/extra-line detection.
-    startup_output, marker, hook_output = result.stdout.partition(
-        "Optimus session context:"
-    )
-    assert marker, result.stdout
-    assert marker + hook_output == direct.stdout
-    if noisy_bash:
-        assert (
-            startup_output.replace("\x00", "").strip()
-            == "Simulated WSL startup failure"
-        )
+    # Failed WSL startup must not contaminate model-visible hook context.
+    assert result.stdout == direct.stdout
+    assert not result.stderr
     if location == "subdirectory":
         assert "Testing docs missing" not in result.stdout
         assert "Not initialized" not in result.stdout
@@ -131,6 +122,31 @@ def test_windows_launcher_falls_back_to_git_bash(tmp_path, location, noisy_bash)
         assert "$optimus:init" in result.stdout
     assert "/optimus:<skill>" in result.stdout
     assert "$optimus:<skill>" in result.stdout
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows PowerShell behavior")
+@pytest.mark.parametrize("shell_name", ["powershell", "pwsh"])
+def test_codex_powershell_launcher_delivers_context(tmp_path, shell_name):
+    shell = shutil.which(shell_name)
+    if shell is None:
+        pytest.skip(f"{shell_name} is not installed")
+    env = os.environ.copy()
+    env["PLUGIN_ROOT"] = env["CLAUDE_PLUGIN_ROOT"] = str(REPO_ROOT)
+    command = _session_start_command().replace("${CLAUDE_PLUGIN_ROOT}", str(REPO_ROOT))
+    result = subprocess.run(
+        [shell, "-NoProfile", "-Command", command],
+        cwd=tmp_path,
+        env=env,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=30,
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.startswith("Optimus session context:")
+    assert "Running under Codex" in result.stdout
+    assert f"Plugin root: {REPO_ROOT}" in result.stdout
 
 
 @pytest.mark.parametrize("initialized", [False, True])

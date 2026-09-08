@@ -83,4 +83,4 @@ Remove now-empty directories: `.claude/hooks`, `.claude/agents`, `.claude/docs`,
 
 Report files removed, files kept (with reason), settings.json changes, and directories cleaned. If a kept hook file retained its settings entry, say so explicitly — that hook stays active.
 
-Recommend the next step in a fresh conversation: `/optimus:init` (plus `/optimus:permissions`) to reinstall, or `/plugin uninstall optimus@optimus-claude` (a Claude Code command) to remove the plugin itself.
+Recommend reinstalling in a fresh conversation using the current host: Claude Code → `/optimus:init` (plus `/optimus:permissions`); Codex → `$optimus:init` only, since permissions is Claude-only. To remove the plugin itself, give the current host's command: Claude Code → `/plugin uninstall optimus@optimus-claude`; Codex CLI → `codex plugin remove optimus@optimus-claude` in the terminal. Do not run the uninstall command as part of reset.

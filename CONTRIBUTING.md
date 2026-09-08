@@ -78,7 +78,7 @@ The routing rule itself lives in `references/shared-agent-constraints.md` under 
 
 `.claude-plugin/marketplace.json` is how Claude Code discovers the plugin. Its `source` object accepts an optional `ref` to pin plugin code to a branch, tag, or SHA; that is only for the feature-branch testing flow below, and `validate.sh` fails while it is present.
 
-`.agents/plugins/marketplace.json` is the same catalog for OpenAI Codex. Codex reads it before the Claude one, installs the plugin from `./`, and accepts `.claude-plugin/plugin.json` as a legacy manifest — one manifest, one version. `validate.sh` pins the plugin name across the catalogs. Codex runs the shared `hooks/hooks.json` after the user trusts it. Its command launches Bash directly, falling back to Git for Windows' bundled shell when necessary. The fallback restores the invoking directory through `GIT_PREFIX`; `.claude/docs/architecture.md` explains the cross-host constraints on this command.
+`.agents/plugins/marketplace.json` is the same catalog for OpenAI Codex. Codex reads it before the Claude one, installs the plugin from `./`, and accepts `.claude-plugin/plugin.json` as a legacy manifest — one manifest, one version. `validate.sh` pins the plugin name across the catalogs. Codex runs the shared `hooks/hooks.json` after the user trusts it. Its command launches Bash through a Git shell alias, passing the script path as a separate argument for portable quoting across Bash, `cmd.exe`, and PowerShell. The launcher restores the invoking directory through `GIT_PREFIX`; `.claude/docs/architecture.md` explains the cross-host constraints on this command.
 
 ## Testing
 
