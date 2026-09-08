@@ -6,20 +6,23 @@
   <img src="https://img.shields.io/badge/version-3.11.3+codex.20260908104245-blue" alt="Version">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
   <img src="https://img.shields.io/badge/Claude_Code-1.0.33+-blueviolet" alt="Claude Code">
+  <img src="https://img.shields.io/badge/OpenAI_Codex-experimental-orange" alt="OpenAI Codex: experimental">
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey" alt="Platform">
 </p>
 
-**A Claude Code plugin that sets up your project for effective AI-assisted engineering.** Includes [experimental OpenAI Codex support](#using-with-openai-codex).
+**A plugin that sets up your project for effective AI-assisted engineering in Claude Code, with [experimental OpenAI Codex support](#using-with-openai-codex).**
 
 ---
 
 **The problem:** AI amplifies whatever it finds. Messy code leads to messier AI-generated code, which becomes the new context for even worse output — a vicious cycle that compounds faster than any human could create technical debt. Without maintained context, any AI coding tool's quality degrades with every file it reads.
 
-**The solution:** Optimus Claude generates tailored CLAUDE.md files, coding guidelines, formatter hooks, and test infrastructure from your actual codebase, then enforces those standards in every quality pass — code review, refactoring, TDD, and a resumable deep-fix loop. Use it regularly and your project stays clean, consistent, tested, and well-documented: exactly the conditions where Claude Code performs at its prime.
+**The solution:** Optimus Claude generates tailored project instructions, coding guidelines, and test infrastructure from your actual codebase, then enforces those standards in every quality pass — code review, refactoring, TDD, and a resumable deep-fix loop. Claude Code also gets formatter hooks; Codex gets `AGENTS.md` pointers to the shared CLAUDE.md instructions. Use it regularly and your project stays clean, consistent, tested, and well-documented: the context your coding agent needs to work effectively.
 
-**The philosophy:** It's all about perfecting context. The codebase, prompts, unit tests, docs, commit messages, PR descriptions — it all adds up to shape how well Claude Code performs. Every skill is lean by design: 3.0 cut the plugin's own instruction footprint by more than half so the skills spend your context window on your project, not on themselves.
+**The philosophy:** It's all about perfecting context. The codebase, prompts, unit tests, docs, commit messages, PR descriptions — it all adds up to shape how well your coding agent performs. Every skill is lean by design: 3.0 cut the plugin's own instruction footprint by more than half so the skills spend your context window on your project, not on themselves.
 
 ## Quick Start
+
+### Claude Code
 
 Run these commands inside Claude Code:
 
@@ -30,13 +33,27 @@ Run these commands inside Claude Code:
 
 Then start a new session and type `/optimus:init` in any project directory. Having trouble? See [Troubleshooting](#troubleshooting).
 
+### OpenAI Codex (experimental)
+
+Use a plugin-capable Codex CLI with Git on `PATH` (Git for Windows on Windows). Inside Codex CLI, add the marketplace:
+
+```shell
+/plugin marketplace add oprogramadorreal/optimus-claude
+```
+
+Install and enable `optimus` from `/plugins`. Open `/hooks` to **review and trust its session-start hook**, then start a new session in your project directory. Confirm the `[optimus] Running under Codex` line appears before invoking `$optimus:init`. Plugin installation alone does not trust hooks. See [Codex hook trust](https://learn.chatgpt.com/docs/hooks#review-and-trust-hooks).
+
+Use `$optimus:<skill>` mentions in Codex, for example `$optimus:commit suggest`. **Skip `permissions` and `dream`; formatter installation is also unsupported.** Configure Codex's own sandbox and approval policy for guardrails. Desktop use and remote marketplace installation remain unverified for this plugin; see the [support matrix and validation status](#support-matrix).
+
 ## How It Works
 
-`/optimus:init` analyzes your codebase and generates constraint docs — coding guidelines, CLAUDE.md, formatter hooks, and test infrastructure — into your `.claude/` directory, detecting your stacks (Python, Node, Rust, UI frameworks, and more). It also recognizes **skill authoring** as a stack: if your project's "source code" includes markdown instructions authored for an AI agent (a Claude Code plugin, a prompt library), init installs `skill-writing-guidelines.md`, and the review/refactor skills route markdown instruction files through that lens while code files go through `coding-guidelines.md`.
+`/optimus:init` in Claude Code, or `$optimus:init` in Codex, analyzes your codebase and generates coding guidelines, CLAUDE.md instructions, and test infrastructure, detecting your stacks (Python, Node, Rust, UI frameworks, and more). Shared project docs live under `.claude/`, with package-specific docs in monorepos. Claude Code also gets formatter hooks. Under Codex, init preserves existing hooks/settings, skips formatter installation, and creates or refreshes `AGENTS.md` pointers so Codex reads the shared instructions. It also recognizes **skill authoring** as a stack: if your project's "source code" includes markdown instructions authored for an AI agent (a Claude Code plugin, a Codex skill repo, a prompt library), init installs `skill-writing-guidelines.md`, and the review/refactor skills route markdown instruction files through that lens while code files go through `coding-guidelines.md`.
+
+**Command notation:** shared examples and skill links below use Claude Code's `/optimus:<skill>` form. In Codex, use `$optimus:<skill>` with the same arguments for supported workflows. The [support matrix](#support-matrix) lists partial and unsupported features; changing the prefix does not make Claude-only features portable.
 
 From then on, the quality skills enforce *your* standards, not generic ones: `/optimus:code-review` checks your naming conventions and architectural patterns alongside bugs and security; `/optimus:tdd` applies your guidelines during the Refactor step; `/optimus:refactor` uses them as its quality lens; `/optimus:unit-test` follows your testing conventions. `/optimus:deep` sustains any of those passes across iterations — a fresh subagent per pass, tests and deterministic bisection between passes, resumable on-disk state.
 
-**Design principles:** skills never auto-trigger (the only always-on component is a lightweight read-only SessionStart hook that surfaces project state), and generated output is project-scoped — guidelines and hooks travel with the repo via git and work for every teammate without the plugin.
+**Design principles:** skills never auto-trigger. A lightweight read-only SessionStart hook surfaces project state and, under Codex, compatibility guidance once trusted. Generated repo docs travel via git and remain usable without the plugin; formatter hooks apply to Claude Code, while Codex follows the shared docs through `AGENTS.md`. Multi-repo workspace-root pointers are local-only.
 
 ## Skills
 
@@ -44,7 +61,7 @@ From then on, the quality skills enforce *your* standards, not generic ones: `/o
 
 | Skill | Description |
 |-------|-------------|
-| [`/optimus:init`](skills/init/README.md) | Initializes project documentation, formatter hooks, and test infrastructure from your actual codebase. Offers new-project scaffolding on empty directories; audits and syncs on re-run. |
+| [`/optimus:init`](skills/init/README.md) | Initializes project documentation and test infrastructure from your actual codebase, plus formatter hooks in Claude Code or `AGENTS.md` pointers in Codex. Offers new-project scaffolding on empty directories; audits and syncs on re-run. |
 | [`/optimus:brainstorm`](skills/brainstorm/README.md) | Structured design brainstorming — explores the codebase, proposes approaches with trade-offs, writes an approved spec to `docs/specs/` that `/optimus:tdd` consumes. `scaffold` mode stamps an empty docs-first steering cascade (product vision, MVP PRD, tech stack) for a human to fill. |
 | [`/optimus:jira`](skills/jira/README.md) | Fetches a JIRA issue via MCP and distills it into a structured task at `docs/jira/` that downstream skills auto-detect. Analyzes the codebase for missing criteria and risks; recommends the next skill by complexity. |
 | [`/optimus:tdd`](skills/tdd/README.md) | Test-driven development through Red-Green-Refactor cycles with per-behavior commits and branch push. Auto-detects specs from `docs/specs/` or `docs/jira/`. *Requires init.* |
@@ -64,25 +81,36 @@ From then on, the quality skills enforce *your* standards, not generic ones: `/o
 | [`/optimus:worktree`](skills/worktree/README.md) | Creates an isolated git worktree for parallel development, running project setup and a test baseline automatically. |
 | [`/optimus:handoff`](skills/handoff/README.md) | Compacts the current conversation into a self-contained, redacted handoff doc under `docs/handoffs/` so any fresh agent can resume the work. |
 | [`/optimus:how-to-run`](skills/how-to-run/README.md) | Generates a `HOW-TO-RUN.md` that teaches a new developer how to set up and run the project locally; audits it against actual project state on re-run. |
-| [`/optimus:permissions`](skills/permissions/README.md) | Configures branch protection, precious-file safety, and auto-approved routine tool calls via allow/deny rules and a PreToolUse hook. |
+| [`/optimus:permissions`](skills/permissions/README.md) | **Claude Code only.** Configures branch protection, precious-file safety, and auto-approved routine tool calls via allow/deny rules and a PreToolUse hook. Use Codex's own sandbox and approval policy in Codex. |
 | [`/optimus:prompt`](skills/prompt/README.md) | Crafts optimized, copy-ready prompts for any AI tool — extracts intent, selects a template, audits for token efficiency. |
-| [`/optimus:reset`](skills/reset/README.md) | Removes files installed by init and permissions. Classifies each file before deletion and always asks for confirmation. |
-| [`/optimus:dream`](skills/dream/README.md) | Prunes and consolidates the project's auto-memory — deletes stale, wrong, or redundant memories and merges overlaps into existing files, never creating new ones. Verifies staleness against the codebase and always asks before deleting. |
+| [`/optimus:reset`](skills/reset/README.md) | Cleans up Optimus-managed project docs, hooks/settings entries, and `AGENTS.md` pointer blocks; preserves tests and test configuration. Classifies each file before deletion and always asks for confirmation. Does not uninstall the plugin. |
+| [`/optimus:dream`](skills/dream/README.md) | **Claude Code only.** Prunes and consolidates the project's auto-memory — deletes stale, wrong, or redundant memories and merges overlaps into existing files, never creating new ones. Verifies staleness against the codebase and always asks before deleting. |
 
 ## Recommended Workflow
+
+### Claude Code
 
 1. **Setup** — `/optimus:permissions` for guardrails, then `/optimus:init` to generate project context and test infrastructure.
 2. **Strengthen** — `/optimus:unit-test` for coverage (or `/optimus:deep coverage` for the automated loop), `/optimus:refactor` for code quality.
 3. **Build** — pick the entry point that matches the task: `/optimus:tdd "description"` directly for small clear work; `/optimus:jira PROJ-123` first for tracked work; `/optimus:brainstorm` first when design decisions are needed (greenfield products start with `/optimus:brainstorm scaffold`); `/optimus:paper-init <paper>` first when implementing a research paper; `/optimus:gauntlet <goal>` for ambitious long-horizon goals judged against a concrete quality bar.
 4. **Ship** — `/optimus:commit` → `/optimus:pr` → `/optimus:code-review` in a fresh conversation (or `/optimus:deep review` for iterative auto-fix).
 
-**Keep intent flowing from implementation to review:** stay in the implementation conversation when running `/optimus:commit` and `/optimus:pr` — they capture *why* the change was made into the commit message and PR description. Then review in a fresh conversation: `/optimus:code-review` reads the PR description as author intent and checks whether the implementation delivers what it claims, not just whether it follows style rules. (`/optimus:tdd` auto-commits per cycle and pushes at the end, so its flow collapses to `tdd` → `pr` → review.)
+### Codex (experimental)
 
-**After major changes** — re-run `/optimus:init` to audit and refresh the generated docs. **New to a codebase?** — `/optimus:how-to-run`. **Auto-memory grown stale?** — `/optimus:dream`. **Removing optimus** — `/optimus:reset`.
+1. **Setup** — configure Codex's sandbox and approval policy, then run `$optimus:init` to generate shared project context, `AGENTS.md` pointers, and test infrastructure. `permissions` and formatter installation are Claude-only.
+2. **Strengthen** — `$optimus:unit-test` for coverage and `$optimus:refactor` for code quality.
+3. **Build** — `$optimus:tdd "description"` for clear work; `$optimus:brainstorm` for design decisions; `$optimus:jira PROJ-123` for tracked work after configuring a compatible Jira MCP server in Codex; `$optimus:paper-init <paper>` for research preparation. Claude-specific plan-mode handoffs need manual adaptation.
+4. **Ship** — `$optimus:commit` → `$optimus:pr` → `$optimus:code-review` in a fresh conversation.
+
+`deep` and `gauntlet` orchestration need additional Codex execution testing before unattended use; see the [support matrix](#support-matrix) and [headless requirements](#headless-runs). Claude's `/goal`, `/workflows`, and `/effort` → ultracode handoffs do not apply.
+
+**On either host, keep intent flowing from implementation to review:** stay in the implementation conversation when running `commit` and `pr` — they capture *why* the change was made into the commit message and PR description. Then review in a fresh conversation: `code-review` reads the PR description as author intent and checks whether the implementation delivers what it claims, not just whether it follows style rules. (`tdd` auto-commits per cycle and pushes at the end, so its flow collapses to `tdd` → `pr` → review.)
+
+**Maintenance on either host** — re-run `init` after major changes to audit and refresh generated docs; use `how-to-run` when new to a codebase, and `reset` to clean up Optimus-managed project files. Use your host's skill prefix. For stale auto-memory in **Claude Code only**, run `/optimus:dream`. To uninstall the plugin itself, follow the [reset documentation](skills/reset/README.md).
 
 ## Why It Works
 
-What makes a good developer productive also makes Claude Code productive: **clean code, good tests, and clear docs.**
+What makes a good developer productive also helps AI coding agents: **clean code, good tests, and clear docs.**
 
 Research backs this up: AI tools introduce [30%+ more defects](https://arxiv.org/abs/2601.02200) on poorly maintained code, and LLM performance [degrades up to 85%](https://arxiv.org/abs/2510.05381) as context length grows. Clean, DRY code with meaningful names keeps context lean and gives the LLM better semantic signals. The [2025 DORA report](https://cloud.google.com/discover/how-test-driven-development-amplifies-ai-success) puts it simply: AI amplifies existing practices, good or bad.
 
@@ -92,32 +120,37 @@ AI assistants also tend toward [sycophancy](https://blog.scielo.org/en/2026/03/1
 
 ## Complementary Tools
 
+### Claude Code
+
 optimus-claude works alongside official tools, not against them. Use Anthropic's official [code-review](https://github.com/anthropics/claude-code/tree/main/plugins/code-review) plugin for post-push PR review, the builtin `/simplify` for per-change cleanup (complemented by `/optimus:refactor` for project-wide restructuring), Claude Code's native [dynamic workflows](https://code.claude.com/docs/en/workflows) for one-off background multi-agent builds and sweeps, and [built-in sandboxing](https://code.claude.com/docs/en/sandboxing) for autonomous execution with OS-level isolation.
 
 Claude Code's [`/goal`](https://code.claude.com/docs/en/goal) is complementary to `/optimus:deep`: reach for `/goal` for lightweight "work until a condition holds" in a single session; reach for `/optimus:deep` for the deterministic, resumable fix loop — fresh subagent per iteration, test bisection that reverts the exact fix that broke the build, and on-disk state that survives across sessions.
 
+### Codex
+
+Use Codex's own sandbox and approval policy for execution controls, a compatible MCP server for Jira, and editor formatting or pre-commit hooks for formatting. The Claude Code commands and plugins above are not Codex setup instructions; Optimus's Codex limits are listed below.
+
 ## Using with OpenAI Codex
 
-Codex support is experimental and opt-in. Claude Code remains the primary host: both hosts share one manifest, one set of 19 skill sources, and the session hook. No additional setup is required for Claude Code. The integration targets plugin-capable Codex CLI and desktop releases, but no minimum CLI version or desktop execution has been verified. See [Codex plugin availability](https://learn.chatgpt.com/docs/plugins).
+Codex support is experimental and opt-in. Claude Code remains the primary host: both hosts share one manifest, one set of 19 skill sources, and the session hook, with the exclusions below. No additional setup is required for Claude Code. The integration targets plugin-capable Codex CLI and desktop releases. Codex CLI 0.153.4 has limited native smoke coverage; no minimum version is established, and desktop use remains unverified. See [Codex plugin availability](https://learn.chatgpt.com/docs/plugins).
 
-```shell
-/plugin marketplace add oprogramadorreal/optimus-claude
-```
+Follow the [Codex Quick Start](#openai-codex-experimental) to install, enable, trust the hook, and initialize your project.
 
-Enable `optimus` from `/plugins`, then **review and trust its session-start hook** when prompted. Enabling a plugin does not trust its hooks; the hook supplies the plugin path and compatibility guidance. Start a new session and confirm the `[optimus] Running under Codex` line appears. If it is missing, check hook trust before running skills. Codex's hook-path substitution does not safely handle shell metacharacters such as `$` or backticks in the installation path; use a path without them (spaces are supported). See [Codex hook trust](https://learn.chatgpt.com/docs/hooks#review-and-trust-hooks).
+The session-start hook supplies the plugin path and compatibility guidance. If the `[optimus] Running under Codex` line is missing in a fresh session, check `/hooks` before running skills. Codex's hook-path substitution does not safely handle shell metacharacters such as `$` or backticks in the installation path; use a path without them (spaces are supported).
 
 Invoke skills with a `$` mention: `$optimus:init`, `$optimus:commit suggest`, `$optimus:deep review`.
 
 ### Support matrix
 
-All Codex workflows below remain experimental. **Portable** means code review found no known host-specific dependency in the core workflow; it is not an end-to-end execution result. **Partial** excludes the named features. **Experimental orchestration** needs separate execution testing before relying on it unattended.
+All Codex workflows below remain experimental. **Portable** means code review found no known host-specific dependency in the core workflow; it is not an end-to-end execution result. **Partial** excludes the named features. Agent-based workflows still need execution verification, and available subagent capacity can reduce parallelism. **Experimental orchestration** needs separate execution testing before relying on it unattended.
 
 | Skill or feature | Codex status | Limits and requirements |
 |---|---|---|
 | `commit`, `pr`, `handoff` | Portable | Git and any required hosting CLI/authentication must be available; host permissions still apply |
 | `worktree`, `how-to-run`, `paper-init` | Portable | Project setup, services, downloads, and extraction tools retain their normal prerequisites |
-| `code-review`, `refactor`, `unit-test`, `tdd` | Portable; agent execution needs smoke verification | Follow the skill's init/test prerequisites; available subagent capacity can reduce parallelism |
-| `init`, `reset` | Partial | Shared docs, test infrastructure, and `AGENTS.md` pointers; init skips formatter installation under Codex and preserves existing hooks/settings |
+| `code-review`, `refactor`, `unit-test`, `tdd` | Portable | Follow the skill's init/test prerequisites; agent execution needs smoke verification |
+| `init` | Partial | Shared docs, test infrastructure, and `AGENTS.md` pointers; skips formatter installation under Codex and preserves existing hooks/settings |
+| `reset` | Portable | Cleans up selected Optimus-managed docs, hooks/settings entries, and pointer blocks after confirmation; preserves tests/test configuration and user content outside pointer blocks; does not uninstall the plugin |
 | `brainstorm`, `jira`, `prompt` | Partial | Core design, issue, and prompt work; Jira requires a compatible MCP server already configured in Codex (bundled setup is Claude-only). Claude-specific plan-mode handoffs require manual adaptation; `prompt`'s `/workflows` handoff is unsupported |
 | `deep` | Experimental orchestration | Nested agents, multiple iterations, resume, and headless execution need Codex smoke verification; see headless requirements below |
 | `gauntlet` | Partial; experimental orchestration | In-session lead-agent path only; Claude's `/effort` → ultracode prerequisite and "Copy as /goal prompt" handoff do not apply |
@@ -133,7 +166,7 @@ What differs under Codex:
 - Skills never auto-trigger on either host (`agents/openai.yaml` carries the Codex-side flag), and they stay out of the model's skill list until you mention one.
 - Confirmation prompts arrive as plain-text questions instead of the pick-list Claude Code shows; answer in the chat.
 - The session-start hook uses a Git shell alias, preserving the starting directory. On Windows this selects Git for Windows' bundled Bash under `cmd.exe` or PowerShell, without invoking WSL's `bash.exe`. Git must be on `PATH`; `bash.exe` need not be.
-- `/optimus:init` writes or refreshes root `AGENTS.md` pointers when Codex use is detected. They route to existing CLAUDE.md files, including package-specific instructions in monorepos. Multi-repo workspaces get pointers at the workspace root and in each child repo. User content outside the marked blocks is preserved; `/optimus:reset` removes only those blocks. An `AGENTS.override.md` in the same directory takes precedence in Codex: add an equivalent pointer there yourself if you use it; init/reset manage only `AGENTS.md`.
+- `$optimus:init` writes or refreshes root `AGENTS.md` pointers when Codex use is detected. They route to existing CLAUDE.md files, including package-specific instructions in monorepos. Multi-repo workspaces get pointers at the workspace root and in each child repo. User content outside the marked blocks is preserved; `$optimus:reset` removes only Optimus's blocks from those files (deleting a pointer-only file). An `AGENTS.override.md` in the same directory takes precedence in Codex: add an equivalent pointer there yourself if you use it; init/reset manage only `AGENTS.md`.
 - Subagent parallelism depends on Codex's version and configuration. Current releases use `agents.max_concurrent_threads_per_session` (`agents.max_threads` is a legacy alias); no fixed concurrency is guaranteed. See [Codex subagent configuration](https://learn.chatgpt.com/docs/agent-configuration/subagents#global-settings).
 
 ### Headless runs
@@ -148,6 +181,10 @@ codex exec --sandbox workspace-write '$optimus:deep review --yes'
 
 ## Troubleshooting
 
+### Codex: skills or compatibility context missing
+
+Confirm `optimus` is installed and enabled in `/plugins`, review/trust its session-start hook in `/hooks`, and start a fresh session. Git must be on `PATH`; on Windows, use Git for Windows. Use `$optimus:<skill>` mentions rather than `/optimus:<skill>`. If installing from a feature branch, follow the [Codex feature-branch testing instructions](CONTRIBUTING.md#codex) to select the intended branch.
+
 ### Windows: SSL certificate error during install
 
 If you see `SSL certificate OpenSSL verify result: unable to get local issuer certificate` when running `/plugin marketplace add`, Git for Windows is using an outdated OpenSSL CA bundle. Switch to the native Windows certificate store, then retry:
@@ -158,6 +195,8 @@ git config --global http.sslBackend schannel
 
 ### Upgrading from 3.5.0 or earlier
 
+**Claude Code formatter migration only.** Codex init preserves existing hooks/settings and does not perform this migration; run it from Claude Code if the project also uses Claude formatting.
+
 3.5.1 replaced the Python formatter hook `.claude/hooks/format-python.py` with a portable bash one, `format-python.sh`, because the Python version needed a `python` on PATH — which on Windows hits the Store alias stub and fails on every edit.
 
 Re-running `/optimus:init` performs the swap, including deleting the old file and its `settings.json` entry. To do it by hand instead: delete `.claude/hooks/format-python.py` and remove the `PostToolUse` entry whose command references it. Leaving it in place means two Python hooks fire per edit.
@@ -165,6 +204,8 @@ Re-running `/optimus:init` performs the swap, including deleting the old file an
 The replacement resolves `black` and `isort` from a `.venv`, `venv`, or `env` directory at or above the edited file, then from PATH — so a virtualenv kept outside the project (Poetry's default, pipenv, conda) needs the formatters on PATH instead. The hook prints a one-line notice to stderr when it cannot find them.
 
 ### Upgrading from 2.x
+
+These are historical Claude Code migration instructions. Codex users should follow the [Codex Quick Start](#openai-codex-experimental), [support matrix](#support-matrix), and [Codex headless example](#headless-runs).
 
 3.0 consolidated 22 skills into 16 with no functionality loss except `/optimus:workflow` (Claude Code's native dynamic workflows cover it):
 
@@ -182,11 +223,11 @@ Headless entry points move accordingly, e.g. `claude -p "/optimus:deep review --
 
 ### Upgrading from 1.x
 
-The two terminal-run Python harnesses were replaced in 2.0 by in-conversation orchestration — now `/optimus:deep` (see the 2.x table above).
+In Claude Code, the two terminal-run Python harnesses were replaced in 2.0 by in-conversation orchestration — now `/optimus:deep` (see the 2.x table above). This migration does not establish Codex orchestration support.
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for project structure, skill anatomy, feature branch testing, and local development setup.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for project structure, skill anatomy, and local development setup, including feature-branch testing in [Claude Code](CONTRIBUTING.md#testing-a-feature-branch) and [Codex](CONTRIBUTING.md#codex).
 
 ## Acknowledgements
 
