@@ -130,5 +130,5 @@ and automated comments. If no meaningful decisions found, omit this section.]
 | 403 Forbidden | "You don't have permission to view {KEY}. Check your JIRA project access with your JIRA admin." |
 | 404 Not Found | "Issue {KEY} not found. Verify the key is correct (format: PROJECT-NUMBER) and that you have access to the project." |
 | 429 Rate Limited | Retry once after 2 seconds. If still rate limited: "JIRA rate limit reached. Wait a moment and try `/optimus:jira {KEY}` again." |
-| MCP tool error | "The JIRA MCP tool returned an error: {error message}. This may be a server configuration issue — verify the MCP server is running with `claude mcp list`." |
+| MCP tool error | "The JIRA MCP tool returned an error: {error message}. This may be a server configuration issue — in Claude Code, verify the MCP server is running with `claude mcp list`; in Codex, check its own MCP configuration." |
 | Empty response | "The JIRA server returned no data for {KEY}. The issue may exist but have restricted visibility." |

@@ -21,5 +21,5 @@ Load the doc that matches the change — not all of them.
 ## Key rules
 
 - Never leave a `ref` field in `marketplace.json` on the master branch
-- Bump the version in `.claude-plugin/plugin.json` for meaningful changes, and update the version badge in `README.md` to match
+- Bump the matching versions in `.claude-plugin/plugin.json` and `.codex-plugin/plugin.json` for meaningful changes, and update the version badge in `README.md` to match
 - Only `/optimus:init` writes `.claude/.optimus-version` in user projects — other skills that install template files must NOT update this file (it tracks init's full template audit, not individual file freshness)

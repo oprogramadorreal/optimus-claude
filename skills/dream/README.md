@@ -10,6 +10,8 @@ This skill is part of the [optimus](https://github.com/oprogramadorreal/optimus-
 
 **Run:** Type `/optimus:dream` in a project where Claude Code auto-memory is enabled. Pass an optional focus to narrow the pass, e.g. `/optimus:dream the deploy notes`.
 
+Claude Code only. In Codex, this skill stops without reading or changing memory; use Codex's own memory controls instead.
+
 ## How It Works
 
 1. **Inventory** — reads every memory file and the index; records the baseline footprint (file count, bytes).

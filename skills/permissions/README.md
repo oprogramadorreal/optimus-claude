@@ -6,6 +6,8 @@ Claude Code's [built-in sandboxing](https://code.claude.com/docs/en/sandboxing) 
 
 Part of the [optimus](https://github.com/oprogramadorreal/optimus-claude) plugin — see the [main README](../../README.md) for installation. Then type `/optimus:permissions` in any project directory.
 
+Claude Code only. In Codex, this skill stops without changing files; configure Codex's own sandbox and approval policy instead.
+
 ## Where This Fits
 
 | Approach | Prompts | Safety | Native Windows | Autonomous loops |

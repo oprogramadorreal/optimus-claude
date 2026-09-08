@@ -23,6 +23,8 @@ Instead of producing one decent result and stopping, the agent must keep compari
 
 This skill is part of the [optimus](https://github.com/oprogramadorreal/optimus-claude) plugin. See the [main README](../../README.md) for installation instructions.
 
+Under Codex, the in-session lead-agent path is experimental; agent execution still needs native smoke testing. Claude Code's `/effort` → ultracode setting and **Copy as /goal prompt** handoff do not apply; see the [Codex support matrix](../../README.md#using-with-openai-codex).
+
 ## Usage
 
 - `/optimus:gauntlet <goal>` — proposes a bar, writes the prompt, confirms, runs

@@ -150,10 +150,9 @@ condition into /goal's 4,000-character message cap, and those need the rest.
 
 ## 3. Confirm and run
 
-Show the user the bar and the prompt. Recommend ultracode for serious runs
-(`/effort` → ultracode). On "Start the run" it must be set before approving
-because the run starts immediately after; on "Copy as /goal prompt" the user
-sets it later, in the fresh session.
+Show the user the bar and the prompt. Under Claude Code, recommend ultracode
+for serious runs (`/effort` → ultracode): set it before approving "Start the run",
+because the run starts immediately after, or in the fresh session for "Copy as /goal prompt".
 
 Run `git status --porcelain`. If it reports anything, say so before asking:
 this run rewrites the same files for hours with no per-change approval, and
@@ -165,7 +164,8 @@ Then use `AskUserQuestion` — header "Gauntlet", question confirming the start
 of a long-running multi-agent run that spawns many subagents, edits files
 without per-change approval, and consumes credits in proportion to how long it
 runs — with options "Start the run", "Adjust first", "Copy as /goal prompt",
-and "Cancel". Apply requested adjustments and ask again. On "Cancel", stop.
+and "Cancel". Under Codex, omit "Copy as /goal prompt"; that handoff is Claude-only.
+Apply requested adjustments and ask again. On "Cancel", stop.
 On "Copy as /goal prompt", read
 `$CLAUDE_PLUGIN_ROOT/skills/gauntlet/references/goal-handoff.md` and follow
 it: the run is handed to a fresh session instead of executed here.

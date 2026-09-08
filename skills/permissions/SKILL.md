@@ -5,6 +5,8 @@ disable-model-invocation: true
 
 # Optimus Permissions
 
+Under Codex, stop without changing files: this skill configures Claude Code only. Recommend configuring Codex's own sandbox and approval policy instead.
+
 Configure permission rules and a path-restriction hook so Claude Code agents can work autonomously inside the project without constant prompts, while destructive operations outside it stay gated.
 
 Security model in brief: the installed hook prompts on writes and blocks deletes outside the project (Claude's memory store and session scratchpad are exempt), asks before editing any precious unversioned file and blocks deleting the unrecoverable ones (a backup or IDE scratch file only asks), and blocks history-modifying git operations on protected branches. Inside the project, operations not on the deny list run without prompts.

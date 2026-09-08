@@ -1,5 +1,6 @@
 pytest
 pytest-cov
+PyYAML
 # black and isort are pinned exactly, unlike the test runners above, because
 # .claude/hooks/format-python.sh rewrites shared .py files with whatever version
 # it resolves. Unpinned, two contributors on different majors reformat each

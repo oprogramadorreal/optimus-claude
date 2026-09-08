@@ -43,8 +43,8 @@ Headless / CI example (skips the Step 3 confirmation): `claude -p "/optimus:deep
 Resolve `plugin_root` (the absolute path to the installed plugin) and keep it for every CLI call and subagent dispatch below — the env var does not persist across separate Bash tool calls and reads empty on some platforms (notably Windows):
 
 1. Run `echo $CLAUDE_PLUGIN_ROOT` via Bash. If it is non-empty **and** `<value>/scripts/harness_common` exists (`test -d`), use it.
-2. Otherwise derive the root from the "Base directory for this skill:" line in your invocation context — strip the trailing `/skills/...` segment (this skill's own directory) — and use it if `<derived>/scripts/harness_common` exists.
-3. If neither candidate contains `scripts/harness_common`, stop: *"Cannot resolve plugin root — ensure optimus-claude is installed via the Claude Code plugin system."*
+2. Otherwise derive the root from this skill's own location — the "Base directory for this skill:" line in your invocation context (Claude Code), the `Plugin root:` in the session-start note (Codex), or the path of this SKILL.md — strip the trailing `/skills/...` segment and use it if `<derived>/scripts/harness_common` exists.
+3. If neither candidate contains `scripts/harness_common`, stop: *"Cannot resolve plugin root — ensure optimus-claude is installed as a plugin."*
 
 Wherever the steps below (and `orchestrator-loop-*.md`) write `$CLAUDE_PLUGIN_ROOT`, use this resolved `plugin_root`; if `echo $CLAUDE_PLUGIN_ROOT` was empty, substitute the absolute path literally.
 

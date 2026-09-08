@@ -16,8 +16,11 @@ A [Claude Code](https://docs.anthropic.com/en/docs/claude-code) skill that runs 
 | `... --no-commit` | Skip checkpoint commits (also allows starting with a dirty working tree) |
 | `... --allow-red-baseline` | review/refactor only: proceed even if the pre-loop test baseline is red |
 | `claude -p "/optimus:deep review --yes"` | Headless / CI; auto-confirms the upfront prompt |
+| `codex exec --sandbox workspace-write '$optimus:deep review --yes'` | Experimental Codex headless run; requires preconfigured permissions and trusted plugin hooks |
 
 Natural-language scope text is recorded as intent but does not filter — only an existing path restricts the run.
+
+Under Codex, `--yes` answers skill confirmations, not host approvals. The run needs permission to write `.claude/` state and use Git snapshots/checkpoints; `--no-commit` still uses snapshots. Headless sessions cannot obtain fresh interactive approvals. See the [Codex support matrix and headless requirements](../../README.md#using-with-openai-codex); nested agents, multi-iteration runs, and resume remain unverified end to end.
 
 ## Requirements
 

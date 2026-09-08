@@ -18,7 +18,7 @@ Content written back to JIRA MUST stay in the issue's original language — neve
 
 ## Step 1: Detect JIRA MCP Server
 
-Read `$CLAUDE_PLUGIN_ROOT/skills/jira/references/jira-context-extraction.md` and follow its **Detection Procedure**. Server detected → record the server name and tool prefix, continue. None detected → read `$CLAUDE_PLUGIN_ROOT/skills/jira/references/jira-setup.md` and follow it; if the user skips setup, stop.
+Read `$CLAUDE_PLUGIN_ROOT/skills/jira/references/jira-context-extraction.md` and follow its **Detection Procedure**. Server detected → record the server name and tool prefix, continue. None detected under Codex → stop and ask the user to configure a compatible JIRA MCP server in Codex, then re-run this skill; the bundled setup configures Claude Code only. Otherwise read `$CLAUDE_PLUGIN_ROOT/skills/jira/references/jira-setup.md` and follow it; if the user skips setup, stop.
 
 ## Step 2: Find the Issue
 

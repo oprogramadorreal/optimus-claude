@@ -17,7 +17,7 @@ A [Claude Code](https://docs.anthropic.com/en/docs/claude-code) skill that fetch
 
 This skill is part of the [optimus](https://github.com/oprogramadorreal/optimus-claude) plugin. See the [main README](../../README.md) for installation.
 
-A JIRA MCP server must be configured — the skill guides setup interactively if none is detected.
+A JIRA MCP server must be configured — in Claude Code, the skill guides setup interactively if none is detected. Under Codex, configure a compatible server in Codex first, then invoke `$optimus:jira`; the setup commands below configure Claude Code only. Claude-specific plan-mode handoffs require manual adaptation, as described in the [Codex support matrix](../../README.md#using-with-openai-codex).
 
 **Atlassian Rovo** (official, JIRA Cloud, OAuth):
 

@@ -34,7 +34,7 @@ Branch: `fix/login-timeout` (from `main`)
 Main workspace: `main` (unchanged)
 Tests: passing
 
-Open it: `code .worktrees/fix-login-timeout` (VSCode) or `cd .worktrees/fix-login-timeout && claude`
+Open it: `code .worktrees/fix-login-timeout` (VSCode), or start a new session of the current coding agent in that directory.
 Cleanup when done: `git worktree remove .worktrees/fix-login-timeout`
 ```
 
