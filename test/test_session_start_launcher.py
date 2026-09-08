@@ -1,4 +1,4 @@
-"""Integration tests for the SessionStart command in hooks/hooks.json."""
+"""Integration tests for the Claude and Codex SessionStart launchers."""
 
 import json
 import os
@@ -12,11 +12,44 @@ from harness_common.runner import _find_bash
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 HOOKS_PATH = REPO_ROOT / "hooks" / "hooks.json"
+CODEX_MANIFEST_PATH = REPO_ROOT / ".codex-plugin" / "plugin.json"
 
 
-def _session_start_command():
-    config = json.loads(HOOKS_PATH.read_text(encoding="utf-8"))
-    return config["hooks"]["SessionStart"][0]["hooks"][0]["command"]
+def _session_start_command(host="claude", windows=None):
+    hooks_path = HOOKS_PATH
+    if host == "codex":
+        manifest = json.loads(CODEX_MANIFEST_PATH.read_text(encoding="utf-8"))
+        hooks_path = REPO_ROOT / manifest["hooks"]
+    config = json.loads(hooks_path.read_text(encoding="utf-8"))
+    hook = config["hooks"]["SessionStart"][0]["hooks"][0]
+    if windows is None:
+        windows = sys.platform == "win32"
+    if host == "codex" and windows:
+        return hook["commandWindows"]
+    return hook["command"]
+
+
+def _codex_windows_command():
+    # Codex substitutes native Windows paths before invoking the shell.
+    return (
+        _session_start_command("codex")
+        .replace("${PLUGIN_ROOT}", str(REPO_ROOT))
+        .replace("${CLAUDE_PLUGIN_ROOT}", str(REPO_ROOT))
+    )
+
+
+def test_hosts_select_separate_hooks_with_matching_plugin_identity():
+    claude = json.loads(
+        (REPO_ROOT / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8")
+    )
+    codex = json.loads(CODEX_MANIFEST_PATH.read_text(encoding="utf-8"))
+    assert (codex["name"], codex["version"]) == (claude["name"], claude["version"])
+    # Claude must continue using its standard hooks/hooks.json discovery.
+    assert "hooks" not in claude
+    assert (REPO_ROOT / codex["hooks"]).resolve() != HOOKS_PATH.resolve()
+    assert _session_start_command("claude").startswith("bash ")
+    assert _session_start_command("codex", windows=False).startswith("bash ")
+    assert "session-start.ps1" in _session_start_command("codex", windows=True)
 
 
 @pytest.mark.skipif(sys.platform != "win32", reason="Windows cmd.exe behavior")
@@ -41,9 +74,14 @@ def test_windows_launcher_uses_git_bash(tmp_path, location, noisy_bash):
         pytest.skip("git on PATH is not a Git for Windows install")
 
     env = os.environ.copy()
+    env.pop("CLAUDE_CODE_GIT_BASH_PATH", None)
     windows_root = Path(env.get("SystemRoot", "C:/Windows"))
     env["PATH"] = os.pathsep.join(
-        [str(git_from_cmd.parent), str(windows_root / "System32")]
+        [
+            str(git_from_cmd.parent),
+            str(windows_root / "System32"),
+            str(windows_root / "System32" / "WindowsPowerShell" / "v1.0"),
+        ]
     )
     assert shutil.which("git", path=env["PATH"]) is not None
     # System32 may hold WSL's bash.exe, which cannot open C:/ paths. The
@@ -63,9 +101,7 @@ def test_windows_launcher_uses_git_bash(tmp_path, location, noisy_bash):
     plugin_root = str(REPO_ROOT)
     env["PLUGIN_ROOT"] = plugin_root
     env["CLAUDE_PLUGIN_ROOT"] = plugin_root
-    # Codex substitutes a native Windows path, including backslashes. Testing
-    # only a normalized path misses quoting failures in the Git launcher.
-    command = _session_start_command().replace("${CLAUDE_PLUGIN_ROOT}", plugin_root)
+    command = _codex_windows_command()
     cwd = tmp_path
     if location != "outside-repo":
         subprocess.run([git, "init", "-q", str(tmp_path)], check=True)
@@ -132,7 +168,7 @@ def test_codex_powershell_launcher_delivers_context(tmp_path, shell_name):
         pytest.skip(f"{shell_name} is not installed")
     env = os.environ.copy()
     env["PLUGIN_ROOT"] = env["CLAUDE_PLUGIN_ROOT"] = str(REPO_ROOT)
-    command = _session_start_command().replace("${CLAUDE_PLUGIN_ROOT}", str(REPO_ROOT))
+    command = _codex_windows_command()
     result = subprocess.run(
         [shell, "-NoProfile", "-Command", command],
         cwd=tmp_path,
@@ -165,8 +201,14 @@ def test_codex_context_is_not_misdetected_as_json(tmp_path, initialized):
         env["PATH"] = os.pathsep.join(
             [str(git_root / "usr" / "bin"), str(git_root / "bin"), env["PATH"]]
         )
+    command = (
+        _codex_windows_command()
+        if sys.platform == "win32"
+        else [bash, "-c", _session_start_command("codex", windows=False)]
+    )
     result = subprocess.run(
-        [bash, str(REPO_ROOT / "hooks" / "session-start")],
+        command,
+        shell=sys.platform == "win32",
         cwd=tmp_path,
         env=env,
         capture_output=True,
@@ -218,3 +260,57 @@ def test_bash_launcher_preserves_claude_cwd_and_output(tmp_path):
     assert outputs[0] == outputs[1]
     assert "/optimus:init" in outputs[1]
     assert "Running under Codex" not in outputs[1]
+
+
+def test_claude_launcher_delivers_context_without_git_on_path(tmp_path):
+    bash = shutil.which(_find_bash())
+    assert bash is not None
+    env = os.environ.copy()
+    env["CLAUDE_PLUGIN_ROOT"] = REPO_ROOT.as_posix()
+    env.pop("PLUGIN_ROOT", None)
+    env["OPTIMUS_TEST_BASH"] = Path(bash).as_posix()
+    env["OPTIMUS_TEST_EMPTY_PATH"] = tmp_path.as_posix()
+    # Keep only a Bash lookup helper: it runs the real executable and hook in
+    # a child process, while every Git invocation encounters an empty PATH.
+    command = (
+        'bash() { "$OPTIMUS_TEST_BASH" "$@"; }; '
+        'PATH="$OPTIMUS_TEST_EMPTY_PATH"; ' + _session_start_command()
+    )
+    result = subprocess.run(
+        [bash, "-c", command],
+        cwd=tmp_path,
+        env=env,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=30,
+    )
+    assert result.returncode == 0, result.stderr
+    assert not result.stderr
+    assert "/optimus:init" in result.stdout
+    assert "Running under Codex" not in result.stdout
+
+
+def test_claude_launcher_keeps_non_git_context_with_invalid_git_config(tmp_path):
+    git = shutil.which("git")
+    if git is None:
+        pytest.skip("git is not installed")
+    subprocess.run([git, "init", "-q", str(tmp_path)], check=True)
+    (tmp_path / ".git" / "config").write_text("invalid config file\n", encoding="utf-8")
+    env = os.environ.copy()
+    env["CLAUDE_PLUGIN_ROOT"] = REPO_ROOT.as_posix()
+    env.pop("PLUGIN_ROOT", None)
+    result = subprocess.run(
+        [_find_bash(), "-c", _session_start_command()],
+        cwd=tmp_path,
+        env=env,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=30,
+    )
+    assert result.returncode == 0, result.stderr
+    assert not result.stderr
+    assert "/optimus:init" in result.stdout

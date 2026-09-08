@@ -1,12 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Git runs shell aliases from the repository root and records the caller's
-# relative directory in GIT_PREFIX. Restore it only for the Git launcher.
-if [ "${1:-}" = "--git-alias" ] && [ -n "${GIT_PREFIX:-}" ]; then
-  cd -- "$GIT_PREFIX"
-fi
-
 # SessionStart hook — outputs dynamic project state so Claude knows what's
 # configured and what's missing. Only outputs items that need attention.
 # Fully configured projects produce no output (zero context waste).
@@ -17,7 +11,7 @@ fi
 # this hook still reports: without it, local-only work from a previous session
 # looks delivered.
 #
-# Host detection: Codex loads this plugin through the same hooks.json and sets
+# Host detection: both hosts launch this shared script, and Codex sets
 # PLUGIN_ROOT next to CLAUDE_PLUGIN_ROOT; Claude Code sets only the latter.
 # Under Codex the skill mentions take the `$optimus:` form and one extra line
 # names the plugin root, because Codex neither substitutes $CLAUDE_PLUGIN_ROOT

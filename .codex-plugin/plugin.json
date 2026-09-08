@@ -9,5 +9,6 @@
   "homepage": "https://github.com/oprogramadorreal/optimus-claude",
   "repository": "https://github.com/oprogramadorreal/optimus-claude",
   "license": "MIT",
-  "keywords": ["optimus", "setup", "claude-md", "brainstorm", "sdd", "tdd", "acceptance-criteria", "refactor", "code-review", "unit-test", "deep", "gauntlet", "pr", "permissions", "reset", "commit", "how-to-run", "worktree", "handoff", "prompt", "jira", "dream", "paper-init", "memory", "formatter", "agents", "codex"]
+  "keywords": ["optimus", "setup", "claude-md", "brainstorm", "sdd", "tdd", "acceptance-criteria", "refactor", "code-review", "unit-test", "deep", "gauntlet", "pr", "permissions", "reset", "commit", "how-to-run", "worktree", "handoff", "prompt", "jira", "dream", "paper-init", "memory", "formatter", "agents", "codex"],
+  "hooks": "./hooks/codex-hooks.json"
 }

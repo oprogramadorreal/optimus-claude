@@ -3,7 +3,7 @@
 </div>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-3.11.1-blue" alt="Version">
+  <img src="https://img.shields.io/badge/version-3.11.2-blue" alt="Version">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
   <img src="https://img.shields.io/badge/Claude_Code-1.0.33+-blueviolet" alt="Claude Code">
   <img src="https://img.shields.io/badge/OpenAI_Codex-experimental-orange" alt="OpenAI Codex: experimental">
@@ -35,7 +35,7 @@ Then start a new session and type `/optimus:init` in any project directory. Havi
 
 ### OpenAI Codex (experimental)
 
-Use a plugin-capable Codex CLI with Git on `PATH` (Git for Windows on Windows). From a terminal, add the marketplace and install the plugin:
+Use a plugin-capable Codex CLI with Bash available (Git for Windows supplies it on Windows). Git is also needed for the GitHub installation below and Git workflows, but is optional for the session-start hook. From a terminal, add the marketplace and install the plugin:
 
 ```shell
 codex plugin marketplace add oprogramadorreal/optimus-claude
@@ -133,7 +133,7 @@ Use Codex's own sandbox and approval policy for execution controls, a compatible
 
 ## Using with OpenAI Codex
 
-Codex support is experimental and opt-in. Claude Code remains the primary host: both hosts share one manifest, one set of 19 skill sources, and the session hook, with the exclusions below. No additional setup is required for Claude Code. The integration targets plugin-capable Codex CLI and desktop releases. Codex CLI 0.153.4 has limited native smoke coverage; no minimum version is established, and desktop use remains unverified. See [Codex plugin availability](https://learn.chatgpt.com/docs/plugins).
+Codex support is experimental and opt-in. Claude Code remains the primary host: both hosts share one set of 19 skill sources and the session-start script, with separate manifests and hook configurations. Claude Code launches Bash directly through `hooks/hooks.json`; Codex's `.codex-plugin/plugin.json` selects `hooks/codex-hooks.json`. No additional setup is required for Claude Code. The integration targets plugin-capable Codex CLI and desktop releases. Codex CLI 0.153.4 has limited native smoke coverage from the prior release; no minimum version is established, and desktop use remains unverified. See [Codex plugin availability](https://learn.chatgpt.com/docs/plugins).
 
 Follow the [Codex Quick Start](#openai-codex-experimental) to install, enable, trust the hook, and initialize your project.
 
@@ -160,20 +160,18 @@ All Codex workflows below remain experimental. **Portable** means code review fo
 | Formatter hooks | Unsupported | Codex edit events supply patch text rather than the file-path payload these hooks expect. Use editor formatting or pre-commit hooks |
 | Standalone `optimus:code-simplifier` / `optimus:test-guardian` agents | Unsupported | Codex custom agents use TOML configuration; use the portable `refactor` / `unit-test` workflows instead |
 
-Validation status (Windows, 2026-09-08):
+Validation status (Windows, 2026-09-08), targeted smoke results rather than the full skill/stack matrix:
 
-- **Automated checks, version 3.11.1:** 29 structural checks passed; pytest passed 562 tests with 2 platform/tool-availability skips. Hook tests passed 403 assertions; one UNC-path assertion also fails on unchanged `master` with the installed Git Bash. All 11 native launcher tests passed, including `cmd.exe`, PowerShell 5.1/7, WSL interference, and nested directories.
-- **Claude Code 2.1.263:** loaded all 19 skills and both agents, completed Python init while preserving custom settings/hooks, created no `AGENTS.md`, formatted an actual Write-tool edit, and ran read-only commit suggest. These final skill changes were exercised before the metadata-only version bump from 3.11.0 to 3.11.1. Hook output matched `master` across five project states.
-- **Codex CLI 0.153.4:** installed the local plugin, delivered compatibility context, and ran authenticated commit suggest. A clean snapshot of version 3.11.1 passed init, repeat init, root/nested instruction routing, reset preservation, and the permissions/dream/missing-Jira compatibility checks. Init/reset required host approval review for protected files; the isolated Windows setup used the documented `unelevated` sandbox fallback. Tests used the one-run trust override for the reviewed hook; the interactive `/hooks` trust UI was not exercised.
-- **Remote installation:** the documented GitHub branch marketplace/add commands installed the expected branch revision into an isolated home; its files matched the fetched commit. No model session was run on that remote installation.
-
-These are targeted smoke results, not the full skill/stack matrix. Native Linux/macOS workflows, desktop use, live Jira, multi-repo init, and deep/gauntlet orchestration remain unverified in this review. See the [contributor smoke test](CONTRIBUTING.md#codex-smoke-test-local) for the remaining checks.
+- **Automated gates:** `validate.sh`, `test-hooks.sh`, and pytest pass; one pre-existing UNC-path hook assertion also fails on unchanged `master` with the installed Git Bash.
+- **Claude Code 2.1.263:** loaded all 19 skills and both agents, completed Python init while preserving custom settings/hooks, created no `AGENTS.md`, formatted an actual Write-tool edit, and ran read-only commit suggest.
+- **Codex CLI 0.153.4:** installed the local plugin and ran the session hook exactly once through the Windows launcher, also with only `System32` and `Git\cmd` on PATH, delivering the compatibility context from a nested directory. An earlier snapshot passed init, repeat init, root/nested instruction routing, reset preservation, and the permissions/dream/missing-Jira checks, and the documented GitHub install commands fetched the expected branch revision. The interactive `/hooks` trust UI was not exercised.
+- **Unverified:** native Linux/macOS workflows, desktop use, live Jira, multi-repo init, and deep/gauntlet orchestration. See the [contributor smoke test](CONTRIBUTING.md#codex-smoke-test-local) for the remaining checks.
 
 What differs under Codex:
 
 - Skills never auto-trigger on either host (`agents/openai.yaml` carries the Codex-side flag), and they stay out of the model's skill list until you mention one.
 - Confirmation prompts arrive as plain-text questions instead of the pick-list Claude Code shows; answer in the chat.
-- The session-start hook uses a Git shell alias, preserving the starting directory. On Windows this selects Git for Windows' bundled Bash under `cmd.exe` or PowerShell, without invoking WSL's `bash.exe`. Git must be on `PATH`; `bash.exe` need not be.
+- Codex uses Bash directly on macOS/Linux and a PowerShell launcher on Windows. The Windows launcher finds native Bash, honors `CLAUDE_CODE_GIT_BASH_PATH`, and skips WSL's `bash.exe`; Git for Windows is the recommended provider. Both launchers preserve the starting directory without running a Git alias. Git is optional for startup and needed for Git workflows.
 - `$optimus:init` writes or refreshes root `AGENTS.md` pointers when Codex use is detected. They route to existing CLAUDE.md files, including package-specific instructions in monorepos. Multi-repo workspaces get pointers at the workspace root and in each child repo. User content outside the marked blocks is preserved; `$optimus:reset` removes only Optimus's blocks from those files (deleting a pointer-only file). An `AGENTS.override.md` in the same directory takes precedence in Codex: add an equivalent pointer there yourself if you use it; init/reset manage only `AGENTS.md`.
 - Subagent parallelism depends on Codex's version and configuration. Current releases use `agents.max_concurrent_threads_per_session` (`agents.max_threads` is a legacy alias); no fixed concurrency is guaranteed. See [Codex subagent configuration](https://learn.chatgpt.com/docs/agent-configuration/subagents#global-settings).
 
@@ -195,7 +193,7 @@ Supported CLIs offer `--approve-for-me` for automatic permission review, in plac
 
 ### Codex: skills or compatibility context missing
 
-Confirm `optimus` is installed and enabled in `/plugins`, review/trust its session-start hook in `/hooks`, and start a fresh session. Git must be on `PATH`; on Windows, use Git for Windows. Use `$optimus:<skill>` mentions rather than `/optimus:<skill>`. If installing from a feature branch, follow the [Codex feature-branch testing instructions](CONTRIBUTING.md#codex) to select the intended branch.
+Confirm `optimus` is installed and enabled in `/plugins`, review/trust its session-start hook in `/hooks`, and start a fresh session. Bash must be available; on Windows, install Git for Windows or point `CLAUDE_CODE_GIT_BASH_PATH` at a native `bash.exe`. A plugin update that changes the hook definition resets its trust, so review it again if `/hooks` marks it as untrusted. Use `$optimus:<skill>` mentions rather than `/optimus:<skill>`. If installing from a feature branch, follow the [Codex feature-branch testing instructions](CONTRIBUTING.md#codex) to select the intended branch.
 
 ### Windows: SSL certificate error during install
 

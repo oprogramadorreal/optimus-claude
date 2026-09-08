@@ -163,7 +163,7 @@ assert_output_contains "Mentions CLAUDE.md" "CLAUDE.md" "$output"
 assert_output_not_contains "No Codex line under Claude Code" "Running under Codex" "$output"
 cleanup_fixture
 
-# Codex loads the same hooks.json and sets PLUGIN_ROOT next to
+# Codex launches the same session-start script and sets PLUGIN_ROOT next to
 # CLAUDE_PLUGIN_ROOT (Claude Code sets only the latter). Under Codex the
 # suggestions take the `$optimus:` form and one line names the plugin root;
 # the Claude Code cases above pin that nothing else changes.
