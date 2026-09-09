@@ -1,10 +1,23 @@
+import os
 import subprocess
+import sys
 from unittest.mock import MagicMock, patch
 
-from harness_common.runner import _find_bash, run_tests
+import pytest
+from harness_common.runner import _find_bash, bash_environment, run_tests
+
+
+@pytest.fixture(autouse=True)
+def isolate_bash_override(monkeypatch):
+    """Discovery tests supply their own override instead of inheriting one."""
+    monkeypatch.delenv("CLAUDE_CODE_GIT_BASH_PATH", raising=False)
 
 
 class TestFindBash:
+    def test_explicit_windows_override(self, monkeypatch):
+        monkeypatch.setenv("CLAUDE_CODE_GIT_BASH_PATH", "D:/Custom Git/bin/bash.exe")
+        assert _find_bash(platform="win32") == "D:/Custom Git/bin/bash.exe"
+
     @patch("harness_common.runner.sys")
     def test_non_windows(self, mock_sys):
         mock_sys.platform = "linux"
@@ -184,6 +197,36 @@ class TestRunTestsEndToEnd:
         assert passed is True
         assert "ok" in summary
         assert "”" in summary
+
+    @pytest.mark.skipif(sys.platform != "win32", reason="Git for Windows PATH")
+    def test_native_utilities_with_only_git_cmd_on_path(self, tmp_path, monkeypatch):
+        bash = _find_bash()
+        from pathlib import Path
+
+        root = Path(bash).parent.parent
+        if root.name.lower() == "usr":
+            root = root.parent
+        if not (root / "cmd" / "git.exe").exists():
+            pytest.skip("Git for Windows installation is unavailable")
+        monkeypatch.setenv(
+            "PATH", str(root / "cmd") + ";" + os.environ["SystemRoot"] + "/System32"
+        )
+        (tmp_path / "sample.txt").write_text("utility-ok", encoding="utf-8")
+        passed, summary = run_tests("cat sample.txt && dirname sample.txt", tmp_path)
+        assert passed, summary
+        assert "utility-ok" in summary
+
+
+def test_bash_environment_preserves_input_and_collapses_windows_path(tmp_path):
+    bash = tmp_path / "usr" / "bin" / "bash.exe"
+    bash.parent.mkdir(parents=True)
+    bash.write_text("", encoding="utf-8")
+    original = {"Path": "old-path", "PATH": "effective-path", "KEEP": "yes"}
+    env = bash_environment(str(bash), original, platform="win32")
+    assert original["Path"] == "old-path"
+    assert "Path" not in env
+    assert env["PATH"] == str(bash.parent) + ";effective-path"
+    assert env["KEEP"] == "yes"
 
 
 class TestFindBashGitExecPath:

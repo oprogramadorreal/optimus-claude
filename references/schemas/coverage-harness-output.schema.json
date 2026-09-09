@@ -56,7 +56,7 @@
     },
     "untestable_code": {
       "type": "array",
-      "description": "Items the refactor phase of the next cycle targets with testability focus.",
+      "description": "Items the refactor phase later in the same cycle targets with testability focus.",
       "items": {
         "type": "object",
         "required": ["file", "line", "barrier"],

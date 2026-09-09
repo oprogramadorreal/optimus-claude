@@ -1,4 +1,5 @@
 import fnmatch
+import hashlib
 import json
 import os
 import subprocess
@@ -18,6 +19,66 @@ _PREFIX = "[harness]"
 # Sentinel distinguishing "PR data not provided → fetch it" from "provided as
 # None" (an explicit no-open-PR result that must NOT trigger a re-fetch).
 _UNSET = object()
+
+
+def git_test_tree_state(cwd, progress_file):
+    """Fingerprint the source bytes a checkpoint would include, without writes.
+
+    Ignore only the same harness state excluded from checkpoint commits. Include
+    non-ignored untracked files and HEAD; a green result cannot authorize later
+    edits or a different base. Binary Git output avoids locale/decoding loss.
+    """
+    root = Path(cwd).resolve()
+    excludes = list(_HARNESS_STATE_EXCLUDES)
+    try:
+        relative = Path(progress_file).resolve().relative_to(root).as_posix()
+        excludes.extend([relative, relative + BACKUP_SUFFIX])
+    except ValueError:
+        pass  # A progress file outside the repo is not part of its tree.
+    pathspec = [".", *(f":(exclude){pattern}" for pattern in excludes)]
+
+    def git_bytes(*args):
+        result = subprocess.run(["git", *args], cwd=str(root), capture_output=True)
+        if result.returncode:
+            raise RuntimeError(f"Cannot inspect test tree: git {args[0]} failed")
+        return result.stdout
+
+    digest = hashlib.sha256(git_bytes("rev-parse", "HEAD"))
+    diff = git_bytes(
+        "diff", "--binary", "--no-ext-diff", "--no-textconv", "HEAD", "--", *pathspec
+    )
+    digest.update(diff)
+    untracked = git_bytes(
+        "ls-files", "--others", "--exclude-standard", "-z", "--", *pathspec
+    )
+    tracked = git_bytes("ls-files", "--cached", "-z", "--", *pathspec)
+    # Hash actual tracked bytes too: clean/smudge filters and autocrlf can make
+    # different test inputs appear identical in a Git diff. Stream large files.
+    for name in sorted(set(filter(None, (tracked + untracked).split(b"\0")))):
+        path = root / os.fsdecode(name)
+        digest.update(len(name).to_bytes(8, "big") + name)
+        if path.is_symlink():
+            digest.update(b"link\0" + os.fsencode(os.readlink(path)))
+        elif path.is_file():
+            digest.update(b"file\0")
+            file_digest = hashlib.sha256()
+            with path.open("rb") as stream:
+                for block in iter(lambda: stream.read(1024 * 1024), b""):
+                    file_digest.update(block)
+            digest.update(file_digest.digest())
+        elif not path.exists():
+            digest.update(b"deleted\0")
+        elif path.is_dir() and (path / ".git").exists():
+            if git_bytes("-C", str(path), "status", "--porcelain"):
+                raise RuntimeError(
+                    f"Validate and commit dirty nested repository separately: {path}"
+                )
+            digest.update(
+                b"gitlink\0" + git_bytes("-C", str(path), "rev-parse", "HEAD")
+            )
+        else:
+            raise RuntimeError(f"Cannot verify untracked directory: {path}")
+    return digest.hexdigest(), bool(diff or untracked)
 
 
 def _run_git_text(_run, args, cwd, **extra):
@@ -121,31 +182,30 @@ _HARNESS_STATE_EXCLUDES = (
 )
 
 
-def _clean_working_tree(cwd, _run=None):
+def _clean_working_tree(cwd, _run=None, *, reset_tracked=True):
     """Reset tracked files and remove untracked files/dirs.
 
     Preserves orchestrator state files (progress JSON, backups, per-iteration
     temp files) so the user can `--resume` after a clean-triggered restore.
     """
     _run = _run or subprocess.run
-    checkout = _run_git_text(_run, ["git", "checkout", "."], cwd)
-    if checkout.returncode != 0:
-        print(f"{_PREFIX} WARNING: git checkout . failed: {checkout.stderr[:200]}")
+    if reset_tracked:
+        checkout = _run_git_text(_run, ["git", "checkout", "."], cwd)
+        if checkout.returncode != 0:
+            raise RuntimeError(f"git checkout . failed: {checkout.stderr[:200]}")
     clean_cmd = ["git", "clean", "-fd"]
     for pattern in _HARNESS_STATE_EXCLUDES:
         clean_cmd.extend(["-e", pattern])
     clean = _run_git_text(_run, clean_cmd, cwd)
     if clean.returncode != 0:
-        print(f"{_PREFIX} WARNING: git clean -fd failed: {clean.stderr[:200]}")
+        raise RuntimeError(f"git clean -fd failed: {clean.stderr[:200]}")
 
 
 def git_restore_to(commit, cwd, _run=None):
     """Restore working tree to match a commit (resets tracked, removes untracked)."""
     _run = _run or subprocess.run
-    result = _run_git_text(_run, ["git", "checkout", commit, "--", "."], cwd)
-    if result.returncode != 0:
-        raise RuntimeError(f"git checkout {commit} failed: {result.stderr}")
-    _clean_working_tree(cwd, _run=_run)
+    git_restore_tracked_to(commit, cwd, _run=_run)
+    _clean_working_tree(cwd, _run=_run, reset_tracked=False)
 
 
 def git_restore_tracked_to(commit, cwd, _run=None):
@@ -161,9 +221,12 @@ def git_restore_tracked_to(commit, cwd, _run=None):
     base.
     """
     _run = _run or subprocess.run
-    result = _run_git_text(_run, ["git", "checkout", commit, "--", "."], cwd)
+    # Unlike checkout <commit> -- ., read-tree also removes index additions
+    # created during this iteration, without moving HEAD or cleaning unrelated
+    # untracked files used by bisection's retained fixes.
+    result = _run_git_text(_run, ["git", "read-tree", "--reset", "-u", commit], cwd)
     if result.returncode != 0:
-        raise RuntimeError(f"git checkout {commit} failed: {result.stderr}")
+        raise RuntimeError(f"git read-tree {commit} failed: {result.stderr}")
 
 
 def _is_harness_state_path(path):
@@ -182,11 +245,9 @@ def _untracked_snapshot_commit(cwd, _run):
         _run, ["git", "ls-files", "--others", "--exclude-standard", "-z"], cwd
     )
     if listed.returncode != 0:
-        print(
-            f"{_PREFIX} WARNING: could not list untracked files for snapshot: "
-            f"{listed.stderr[:200]}"
+        raise RuntimeError(
+            "Could not list untracked files for snapshot: " f"{listed.stderr[:200]}"
         )
-        return None
     files = [
         path
         for path in listed.stdout.split("\0")
@@ -204,18 +265,15 @@ def _untracked_snapshot_commit(cwd, _run):
             env=env,
         )
         if added.returncode != 0:
-            print(
-                f"{_PREFIX} WARNING: could not index untracked files for "
-                f"snapshot: {added.stderr[:200]}"
+            raise RuntimeError(
+                "Could not index untracked files for " f"snapshot: {added.stderr[:200]}"
             )
-            return None
         tree = _run_git_text(_run, ["git", "write-tree"], cwd, env=env)
         if tree.returncode != 0:
-            print(
-                f"{_PREFIX} WARNING: could not write untracked-files tree for "
+            raise RuntimeError(
+                "Could not write untracked-files tree for "
                 f"snapshot: {tree.stderr[:200]}"
             )
-            return None
         commit = _run_git_text(
             _run,
             [
@@ -228,11 +286,10 @@ def _untracked_snapshot_commit(cwd, _run):
             cwd,
         )
         if commit.returncode != 0:
-            print(
-                f"{_PREFIX} WARNING: could not commit untracked-files tree for "
+            raise RuntimeError(
+                "Could not commit untracked-files tree for "
                 f"snapshot: {commit.stderr[:200]}"
             )
-            return None
         return commit.stdout.strip()
 
 
@@ -243,8 +300,8 @@ def _stash_commit_with_untracked(base, untracked_commit, cwd, _run):
     the shape ``git stash apply`` requires to restore untracked files — without
     modifying the working tree. *base* is the 2-parent commit from ``git stash
     create``, or empty when only untracked files changed. Returns the commit
-    SHA on success, or *base* unchanged (possibly empty) if synthesis fails,
-    degrading to a tracked-only snapshot rather than losing it entirely.
+    SHA on success. Raise if any part cannot be captured: a partial snapshot
+    is unsafe because restoring it removes untracked files first.
     """
     head = _rev_parse("HEAD", cwd, _run)
     tree = index_commit = None
@@ -270,8 +327,7 @@ def _stash_commit_with_untracked(base, untracked_commit, cwd, _run):
             )
             index_commit = made.stdout.strip() if made.returncode == 0 else None
     if not (head and tree and index_commit):
-        print(f"{_PREFIX} WARNING: could not build untracked-files snapshot commit")
-        return base
+        raise RuntimeError("Could not build untracked-files snapshot commit")
     made = _run_git_text(
         _run,
         [
@@ -290,19 +346,18 @@ def _stash_commit_with_untracked(base, untracked_commit, cwd, _run):
         cwd,
     )
     if made.returncode != 0:
-        print(
-            f"{_PREFIX} WARNING: could not build untracked-files snapshot "
-            f"commit: {made.stderr[:200]}"
+        raise RuntimeError(
+            "Could not build untracked-files snapshot " f"commit: {made.stderr[:200]}"
         )
-        return base
     return made.stdout.strip()
 
 
 def git_stash_snapshot(cwd, _run=None):
     """Create a stash snapshot of current working tree without modifying it.
 
-    Returns a stash commit SHA that can be restored later, or None if no
-    changes. ``git stash create`` captures tracked changes as a commit object
+    Returns a complete stash commit SHA, or None only if there are no changes.
+    Raises RuntimeError on capture/registration failure. ``git stash create``
+    captures tracked changes as a commit object
     without touching the working tree, index, or stash reflog — but it cannot
     capture untracked files (it has no ``--include-untracked``; passing the
     flag is silently consumed as the stash message). Untracked files are
@@ -311,28 +366,21 @@ def git_stash_snapshot(cwd, _run=None):
     registered in the stash reflog so apply can process it.
     """
     _run = _run or subprocess.run
-    base = _run_git_text(_run, ["git", "stash", "create"], cwd).stdout.strip()
+    created = _run_git_text(_run, ["git", "stash", "create"], cwd)
+    if created.returncode != 0:
+        raise RuntimeError(f"git stash create failed: {created.stderr[:200]}")
+    base = created.stdout.strip()
     untracked_commit = _untracked_snapshot_commit(cwd, _run)
     sha = base
     if untracked_commit:
         sha = _stash_commit_with_untracked(base, untracked_commit, cwd, _run)
     if not sha:
-        # With untracked_commit set but no usable stash SHA, synthesis failed on
-        # the untracked-only path (empty tracked base) — the untracked files
-        # could not be captured at all. Say so loudly: a later restore's
-        # ``git clean`` will delete them, so this is not a silent no-op.
-        if untracked_commit:
-            print(
-                f"{_PREFIX} WARNING: untracked files could not be captured in "
-                f"the snapshot and will not be restorable"
-            )
         return None
     store = _run_git_text(
         _run, ["git", "stash", "store", "-m", "harness snapshot", sha], cwd
     )
     if store.returncode != 0:
-        print(f"{_PREFIX} WARNING: git stash store failed: {store.stderr[:200]}")
-        return None
+        raise RuntimeError(f"git stash store failed: {store.stderr[:200]}")
     return sha
 
 
@@ -364,10 +412,15 @@ def git_apply_snapshot(snapshot_sha, cwd, _run=None):
     rebuilds in no-commit mode. Returns True on success.
     """
     _run = _run or subprocess.run
-    # Clean working tree so stash apply can recreate files cleanly
-    _clean_working_tree(cwd, _run=_run)
+    # Rebuild from the stash's base, not the current index. This removes new
+    # staged files from the failed iteration and prevents a preserved staged
+    # user edit from conflicting with its own snapshot on apply.
+    git_restore_tracked_to(f"{snapshot_sha}^1", cwd, _run=_run)
+    _clean_working_tree(cwd, _run=_run, reset_tracked=False)
     # Then apply the snapshot (includes the untracked-files tree if present)
-    result = _run_git_text(_run, ["git", "stash", "apply", snapshot_sha], cwd)
+    result = _run_git_text(
+        _run, ["git", "stash", "apply", "--index", snapshot_sha], cwd
+    )
     if result.returncode != 0:
         print(f"{_PREFIX} WARNING: Could not restore snapshot: {result.stderr[:200]}")
         print(

@@ -1,76 +1,97 @@
-from harness_common.parser import parse_harness_output
+import json
+from pathlib import Path
+
+import pytest
+from harness_common.parser import parse_harness_output, validate_harness_output
 
 
-class TestParseHarnessOutput:
-    def test_none_input(self):
-        assert parse_harness_output(None) is None
-
-    def test_empty_string(self):
-        assert parse_harness_output("") is None
-
-    def test_no_json_block(self):
-        assert parse_harness_output("some random text") is None
-
-    def test_valid_json_block(self):
-        raw = '```json:harness-output\n{"iteration": 1, "no_new_findings": false}\n```'
-        result = parse_harness_output(raw)
-        assert result == {"iteration": 1, "no_new_findings": False}
-
-    def test_json_block_with_surrounding_text(self):
-        raw = (
-            "Some analysis...\n"
-            '```json:harness-output\n{"iteration": 2}\n```\n'
-            "Done."
+def _valid(coverage=False):
+    name = "coverage-harness-output" if coverage else "harness-output"
+    return json.loads(
+        (Path(__file__).parent / "fixtures" / f"{name}.golden.json").read_text(
+            encoding="utf-8"
         )
-        result = parse_harness_output(raw)
-        assert result == {"iteration": 2}
+    )
 
-    def test_invalid_json_in_block(self):
-        raw = "```json:harness-output\n{invalid json}\n```"
-        assert parse_harness_output(raw) is None
 
-    def test_returns_last_parseable_block_when_template_echoed(self):
-        # The subagent echoed the harness-mode.md template (placeholder
-        # values => invalid JSON) before emitting its real block. The last
-        # block that parses as valid JSON must win.
-        raw = (
-            "```json:harness-output\n"
-            '{"iteration": <number>, "no_new_findings": <bool>}\n'
-            "```\n"
-            "...real output below...\n"
-            "```json:harness-output\n"
-            '{"iteration": 3, "no_new_findings": true}\n'
-            "```"
+def _block(value):
+    return "```json:harness-output\n" + json.dumps(value) + "\n```"
+
+
+@pytest.mark.parametrize(
+    "raw", [None, "", "random text", "```json:harness-output\n{invalid}\n```"]
+)
+def test_missing_or_invalid_block(raw):
+    assert parse_harness_output(raw) is None
+
+
+@pytest.mark.parametrize("coverage", [False, True])
+def test_complete_documented_output(coverage):
+    value = _valid(coverage)
+    assert parse_harness_output("Analysis\n" + _block(value) + "\nDone") == value
+
+
+@pytest.mark.parametrize("bad", [{}, [], "text", {"iteration": 1}])
+def test_incomplete_output_rejected(bad):
+    assert parse_harness_output(_block(bad)) is None
+
+
+def test_last_complete_block_wins_after_echoed_template():
+    first, last = _valid(), _valid()
+    first["iteration"], last["iteration"] = 1, 2
+    raw = (
+        _block(first)
+        + "\n```json:harness-output\n{<template>}\n```\n"
+        + _block(last)
+        + _block([])
+    )
+    assert parse_harness_output(raw) == last
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("iteration", True),
+        ("iteration", 0),
+        ("fixes_applied", {}),
+        ("new_findings", ["not an object"]),
+        ("no_new_findings", "maybe"),
+    ],
+)
+def test_wrong_types_rejected_before_step(field, value):
+    output = _valid()
+    output[field] = value
+    with pytest.raises(ValueError):
+        validate_harness_output(output, "deep")
+
+
+@pytest.mark.parametrize("coverage", [False, True])
+def test_missing_required_envelope_field_rejected(coverage):
+    output = _valid(coverage)
+    required = (
+        (
+            "cycle",
+            "phase",
+            "coverage",
+            "tests_written",
+            "untestable_code",
+            "bugs_discovered",
+            "no_new_tests",
+            "no_untestable_code",
+            "no_coverage_gained",
+            "blocked",
         )
-        assert parse_harness_output(raw) == {
-            "iteration": 3,
-            "no_new_findings": True,
-        }
-
-    def test_last_block_wins_when_multiple_valid(self):
-        raw = (
-            '```json:harness-output\n{"iteration": 1}\n```\n'
-            '```json:harness-output\n{"iteration": 2}\n```'
+        if coverage
+        else (
+            "iteration",
+            "new_findings",
+            "fixes_applied",
+            "fixes_skipped_persistent",
+            "no_new_findings",
+            "no_actionable_fixes",
         )
-        assert parse_harness_output(raw) == {"iteration": 2}
-
-    def test_non_dict_array_block_returns_none(self):
-        # A valid-JSON-but-non-object block (the subagent emitted just the
-        # findings list) must NOT be returned — callers immediately call
-        # `.get(...)` on the result. Returning None makes the orchestrator
-        # count a parse failure instead of crashing the step on it.
-        raw = "```json:harness-output\n[1, 2, 3]\n```"
-        assert parse_harness_output(raw) is None
-
-    def test_non_dict_scalar_block_returns_none(self):
-        raw = '```json:harness-output\n"just a string"\n```'
-        assert parse_harness_output(raw) is None
-
-    def test_skips_non_dict_block_and_falls_back_to_object(self):
-        # Last block is a (malformed) array; an earlier real object block must
-        # still win, mirroring the unparseable-block fallback.
-        raw = (
-            '```json:harness-output\n{"iteration": 5}\n```\n'
-            "```json:harness-output\n[1, 2, 3]\n```"
-        )
-        assert parse_harness_output(raw) == {"iteration": 5}
+    )
+    for field in required:
+        candidate = {k: v for k, v in output.items() if k != field}
+        with pytest.raises(ValueError, match="requires|invalid"):
+            validate_harness_output(candidate, "coverage" if coverage else "deep")

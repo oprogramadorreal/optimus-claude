@@ -172,9 +172,18 @@ def build_coverage_commit_body(progress, cycle, phase, max_entries=10):
 def _print_rollback_footer(progress, has_changes_to_undo):
     if not has_changes_to_undo:
         return
+    if progress["config"].get("no_commit") or progress.get("commit_disabled"):
+        print()
+        print(
+            "Changes remain uncommitted. Inspect git diff and git status; preserve existing work before selectively undoing this run's edits."
+        )
+        return
     base = (progress["config"].get("base_commit") or "?")[:8]
     print()
     print(f"To squash checkpoint commits: git rebase -i {base}")
+    print(
+        "Before rollback, inspect and back up any work added outside these checkpoints."
+    )
     print(f"To rollback everything:       git reset --hard {base}")
     branch = git_current_branch(progress["config"]["project_root"])
     if branch and branch not in ("main", "master"):

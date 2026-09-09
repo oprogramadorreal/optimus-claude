@@ -3,6 +3,7 @@ import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import pytest
 from harness_common.constants import (
     COMMIT_COMMITTED,
     COMMIT_FAILED,
@@ -80,24 +81,23 @@ class TestCleanWorkingTree:
         assert mock_run.call_count == 2
 
     @patch("harness_common.git.subprocess.run")
-    def test_clean_failure_prints_warning(self, mock_run, capsys):
+    def test_clean_failure_stops_restore(self, mock_run):
         mock_run.side_effect = [
             MagicMock(returncode=0),
             MagicMock(returncode=1, stderr="permission denied"),
         ]
-        _clean_working_tree("/tmp/project")
-        assert "WARNING" in capsys.readouterr().out
+        with pytest.raises(RuntimeError, match="git clean"):
+            _clean_working_tree("/tmp/project")
 
     @patch("harness_common.git.subprocess.run")
-    def test_checkout_failure_prints_warning(self, mock_run, capsys):
+    def test_checkout_failure_stops_before_clean(self, mock_run):
         mock_run.side_effect = [
             MagicMock(returncode=1, stderr="error: checkout failed"),
             MagicMock(returncode=0),
         ]
-        _clean_working_tree("/tmp/project")
-        output = capsys.readouterr().out
-        assert "WARNING" in output
-        assert "git checkout" in output
+        with pytest.raises(RuntimeError, match="git checkout"):
+            _clean_working_tree("/tmp/project")
+        assert mock_run.call_count == 1
 
     @patch("harness_common.git.subprocess.run")
     def test_clean_excludes_harness_state_files(self, mock_run):
@@ -307,7 +307,7 @@ class TestGitRestoreTo:
         mock_run.return_value = MagicMock(returncode=1, stderr="error: pathspec")
         import pytest
 
-        with pytest.raises(RuntimeError, match="git checkout .* failed"):
+        with pytest.raises(RuntimeError, match="git read-tree .* failed"):
             git_restore_to("abc123", "/tmp")
 
 
@@ -409,14 +409,14 @@ class TestGitStashSnapshot:
         assert git_stash_snapshot("/tmp") is None
 
     @patch("harness_common.git.subprocess.run")
-    def test_store_failure_returns_none(self, mock_run, capsys):
+    def test_store_failure_raises(self, mock_run):
         mock_run.side_effect = [
             MagicMock(returncode=0, stdout="abc123\n"),
             MagicMock(returncode=0, stdout=""),
             MagicMock(returncode=1, stderr="error storing"),
         ]
-        assert git_stash_snapshot("/tmp") is None
-        assert "WARNING" in capsys.readouterr().out
+        with pytest.raises(RuntimeError, match="git stash store failed"):
+            git_stash_snapshot("/tmp")
 
     @patch("harness_common.git.subprocess.run")
     def test_untracked_files_grafted_as_third_parent(self, mock_run):
@@ -468,122 +468,44 @@ class TestGitStashSnapshot:
         ]
         assert git_stash_snapshot("/tmp") == "base1"
 
-    # --- Snapshot-synthesis failure/degrade paths ---------------------------
-    # `git stash create` cannot capture untracked files, so the snapshot
-    # synthesizes them (temp index → write-tree → commit-tree → 3-parent
-    # graft). Every intermediate git failure must degrade to a tracked-only
-    # snapshot rather than lose the snapshot silently or emit a corrupt SHA.
-    # One test pins each degrade branch (all mocks feed all-success codes).
+    @pytest.mark.parametrize(
+        "failed",
+        [
+            ("stash", "create"),
+            ("ls-files", "--others"),
+            ("update-index", "--add"),
+            ("write-tree",),
+            ("commit-tree", "utree"),
+            ("rev-parse", "HEAD"),
+            ("commit-tree", "wtree"),
+            ("stash", "store"),
+        ],
+    )
+    def test_partial_capture_is_never_a_usable_snapshot(self, failed):
+        calls = []
 
-    @patch("harness_common.git.subprocess.run")
-    def test_untracked_ls_files_failure_degrades_to_tracked(self, mock_run, capsys):
-        # ls-files nonzero → _untracked_snapshot_commit warns and returns None.
-        mock_run.side_effect = [
-            MagicMock(returncode=0, stdout="base1\n"),  # stash create
-            MagicMock(returncode=1, stdout="", stderr="ls-files boom"),  # ls-files
-            MagicMock(returncode=0),  # stash store
-        ]
-        assert git_stash_snapshot("/tmp") == "base1"
-        assert "WARNING" in capsys.readouterr().out
+        def run(args, **kwargs):
+            command = tuple(args[1:])
+            calls.append(command)
+            if command[: len(failed)] == failed:
+                return subprocess.CompletedProcess(args, 1, "", "capture failed")
+            outputs = {
+                ("stash", "create"): "base1",
+                ("ls-files", "--others"): "new.txt\0",
+                ("write-tree",): "utree",
+                ("commit-tree", "utree"): "ucommit",
+                ("rev-parse", "HEAD"): "headsha",
+                ("rev-parse", "base1^{tree}"): "wtree",
+                ("rev-parse", "base1^2"): "idxcommit",
+                ("commit-tree", "wtree"): "stash3p",
+            }
+            output = next((v for k, v in outputs.items() if command[: len(k)] == k), "")
+            return subprocess.CompletedProcess(args, 0, output, "")
 
-    @patch("harness_common.git.subprocess.run")
-    def test_untracked_update_index_failure_degrades_with_warning(
-        self, mock_run, capsys
-    ):
-        # update-index nonzero → WARNING, degrade to tracked-only base.
-        mock_run.side_effect = [
-            MagicMock(returncode=0, stdout="base1\n"),  # stash create
-            MagicMock(returncode=0, stdout="new.txt\0"),  # ls-files
-            MagicMock(returncode=1, stderr="cannot add"),  # update-index
-            MagicMock(returncode=0),  # stash store
-        ]
-        assert git_stash_snapshot("/tmp") == "base1"
-        assert "WARNING" in capsys.readouterr().out
-
-    @patch("harness_common.git.subprocess.run")
-    def test_untracked_write_tree_failure_degrades_to_tracked(self, mock_run, capsys):
-        # write-tree nonzero → WARNING, None → tracked-only base.
-        mock_run.side_effect = [
-            MagicMock(returncode=0, stdout="base1\n"),  # stash create
-            MagicMock(returncode=0, stdout="new.txt\0"),  # ls-files
-            MagicMock(returncode=0),  # update-index
-            MagicMock(returncode=1, stdout=""),  # write-tree
-            MagicMock(returncode=0),  # stash store
-        ]
-        assert git_stash_snapshot("/tmp") == "base1"
-        assert "WARNING" in capsys.readouterr().out
-
-    @patch("harness_common.git.subprocess.run")
-    def test_untracked_commit_tree_failure_degrades_to_tracked(self, mock_run, capsys):
-        # commit-tree (untracked) nonzero → WARNING, None → tracked-only base.
-        mock_run.side_effect = [
-            MagicMock(returncode=0, stdout="base1\n"),  # stash create
-            MagicMock(returncode=0, stdout="new.txt\0"),  # ls-files
-            MagicMock(returncode=0),  # update-index
-            MagicMock(returncode=0, stdout="utree\n"),  # write-tree
-            MagicMock(returncode=1, stdout=""),  # commit-tree (untracked)
-            MagicMock(returncode=0),  # stash store
-        ]
-        assert git_stash_snapshot("/tmp") == "base1"
-        assert "WARNING" in capsys.readouterr().out
-
-    @patch("harness_common.git.subprocess.run")
-    def test_stash_synthesis_missing_prereq_degrades_with_warning(
-        self, mock_run, capsys
-    ):
-        # A missing prerequisite (rev-parse HEAD fails) → WARNING, return base.
-        mock_run.side_effect = [
-            MagicMock(returncode=0, stdout="base1\n"),  # stash create
-            MagicMock(returncode=0, stdout="new.txt\0"),  # ls-files
-            MagicMock(returncode=0),  # update-index
-            MagicMock(returncode=0, stdout="utree\n"),  # write-tree
-            MagicMock(returncode=0, stdout="ucommit\n"),  # commit-tree untracked
-            MagicMock(returncode=1, stdout=""),  # rev-parse HEAD → head=None
-            MagicMock(returncode=0, stdout="wtree\n"),  # rev-parse base^{tree}
-            MagicMock(returncode=0, stdout="idxcommit\n"),  # rev-parse base^2
-            MagicMock(returncode=0),  # stash store
-        ]
-        assert git_stash_snapshot("/tmp") == "base1"
-        assert "WARNING" in capsys.readouterr().out
-
-    @patch("harness_common.git.subprocess.run")
-    def test_stash_three_parent_failure_degrades_with_warning(self, mock_run, capsys):
-        # The final 3-parent commit-tree nonzero → WARNING, return base.
-        mock_run.side_effect = [
-            MagicMock(returncode=0, stdout="base1\n"),  # stash create
-            MagicMock(returncode=0, stdout="new.txt\0"),  # ls-files
-            MagicMock(returncode=0),  # update-index
-            MagicMock(returncode=0, stdout="utree\n"),  # write-tree
-            MagicMock(returncode=0, stdout="ucommit\n"),  # commit-tree untracked
-            MagicMock(returncode=0, stdout="headsha\n"),  # rev-parse HEAD
-            MagicMock(returncode=0, stdout="wtree\n"),  # rev-parse base^{tree}
-            MagicMock(returncode=0, stdout="idxcommit\n"),  # rev-parse base^2
-            MagicMock(returncode=1, stderr="commit-tree boom"),  # 3-parent commit-tree
-            MagicMock(returncode=0),  # stash store
-        ]
-        assert git_stash_snapshot("/tmp") == "base1"
-        assert "WARNING" in capsys.readouterr().out
-
-    @patch("harness_common.git.subprocess.run")
-    def test_untracked_only_synthesis_failure_warns_not_restorable(
-        self, mock_run, capsys
-    ):
-        # Untracked-only work (empty tracked base) whose synthesis fails has no
-        # tracked snapshot to degrade to: the snapshot is abandoned (None), and
-        # the loss must be surfaced loudly since a later `git clean` deletes the
-        # untracked files rather than restoring them.
-        mock_run.side_effect = [
-            MagicMock(returncode=0, stdout=""),  # stash create → empty base
-            MagicMock(returncode=0, stdout="new.txt\0"),  # ls-files
-            MagicMock(returncode=0),  # update-index
-            MagicMock(returncode=0, stdout="utree\n"),  # write-tree
-            MagicMock(returncode=0, stdout="ucommit\n"),  # commit-tree untracked
-            MagicMock(returncode=0, stdout="headsha\n"),  # rev-parse HEAD
-            MagicMock(returncode=0, stdout="htree\n"),  # rev-parse HEAD^{tree}
-            MagicMock(returncode=1, stderr="boom"),  # commit-tree index → fails
-        ]
-        assert git_stash_snapshot("/tmp") is None
-        assert "will not be restorable" in capsys.readouterr().out
+        with pytest.raises(RuntimeError):
+            git_stash_snapshot("/tmp", _run=run)
+        if failed != ("stash", "store"):
+            assert not any(c[:2] == ("stash", "store") for c in calls)
 
 
 class TestGitApplySnapshot:
@@ -595,13 +517,22 @@ class TestGitApplySnapshot:
         mock_run.return_value = MagicMock(returncode=0)
         assert git_apply_snapshot("abc123", "/tmp") is True
         mock_clean.assert_called_once()
-        assert mock_run.call_count == 1
-        assert mock_run.call_args.args[0] == ["git", "stash", "apply", "abc123"]
+        assert mock_run.call_count == 2
+        assert mock_run.call_args.args[0] == [
+            "git",
+            "stash",
+            "apply",
+            "--index",
+            "abc123",
+        ]
 
     @patch("harness_common.git.subprocess.run")
     @patch("harness_common.git._clean_working_tree")
     def test_failure_returns_false(self, mock_clean, mock_run, capsys):
-        mock_run.return_value = MagicMock(returncode=1, stderr="conflict")
+        mock_run.side_effect = [
+            MagicMock(returncode=0),
+            MagicMock(returncode=1, stderr="conflict"),
+        ]
         assert git_apply_snapshot("abc123", "/tmp") is False
         assert "git stash apply abc123" in capsys.readouterr().out
 
@@ -617,7 +548,10 @@ class TestGitRestoreSnapshot:
     @patch("harness_common.git.subprocess.run")
     @patch("harness_common.git._clean_working_tree")
     def test_failure(self, mock_clean, mock_run, capsys):
-        mock_run.return_value = MagicMock(returncode=1, stderr="conflict")
+        mock_run.side_effect = [
+            MagicMock(returncode=0),
+            MagicMock(returncode=1, stderr="conflict"),
+        ]
         assert git_restore_snapshot("abc123", "/tmp") is False
         assert "WARNING" in capsys.readouterr().out
 
@@ -626,11 +560,12 @@ class TestGitRestoreSnapshot:
     def test_success_drops_matching_stash(self, mock_clean, mock_run):
         mock_run.side_effect = [
             MagicMock(returncode=0),
+            MagicMock(returncode=0),
             MagicMock(returncode=0, stdout="stash@{0} abc123\nstash@{1} def456\n"),
             MagicMock(returncode=0),
         ]
         assert git_restore_snapshot("abc123", "/tmp") is True
-        drop_call = mock_run.call_args_list[2]
+        drop_call = mock_run.call_args_list[3]
         assert drop_call[0][0] == ["git", "stash", "drop", "stash@{0}"]
 
     @patch("harness_common.git.subprocess.run")
@@ -641,13 +576,21 @@ class TestGitRestoreSnapshot:
         # On a failed `stash apply`, the snapshot must NOT be dropped and the
         # user must be told how to recover it manually (regression for the
         # restore-recovery hardening in commit fac1fec).
-        mock_run.return_value = MagicMock(returncode=1, stderr="conflict")
+        mock_run.side_effect = [
+            MagicMock(returncode=0),
+            MagicMock(returncode=1, stderr="conflict"),
+        ]
         assert git_restore_snapshot("abc123", "/tmp") is False
         assert "git stash apply abc123" in capsys.readouterr().out
-        # The failure path returns before listing/dropping, so the only
-        # subprocess call was the `stash apply` itself — the stash survives.
-        assert mock_run.call_count == 1
-        assert mock_run.call_args.args[0] == ["git", "stash", "apply", "abc123"]
+        # Base restoration and apply ran, but listing/dropping did not.
+        assert mock_run.call_count == 2
+        assert mock_run.call_args.args[0] == [
+            "git",
+            "stash",
+            "apply",
+            "--index",
+            "abc123",
+        ]
 
 
 class TestGitDropStash:
@@ -1182,5 +1125,5 @@ class TestGitRestoreTrackedTo:
         import pytest
 
         _init_repo(tmp_path)
-        with pytest.raises(RuntimeError, match="git checkout .* failed"):
+        with pytest.raises(RuntimeError, match="git read-tree .* failed"):
             git_restore_tracked_to("does-not-exist-ref", tmp_path)
