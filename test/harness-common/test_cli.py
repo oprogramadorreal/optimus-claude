@@ -53,11 +53,12 @@ def _coverage_result(values):
 def _tree_state_for_repo_like_scaffolds(monkeypatch):
     """Mock only non-Git unit scaffolds; real-repository safety tests use Git."""
     actual = cli.git_test_tree_state
+    actual_nested_check = cli.git_check_nested_repositories
     original_dirty = cli.git_diff_has_changes
 
-    def state(root, progress_file):
+    def state(root, progress_file, **kwargs):
         if (Path(root) / ".git").exists():
-            return actual(root, progress_file)
+            return actual(root, progress_file, **kwargs)
         dirty = (
             cli.git_diff_has_changes(root)
             if cli.git_diff_has_changes is not original_dirty
@@ -66,6 +67,12 @@ def _tree_state_for_repo_like_scaffolds(monkeypatch):
         return cli.TreeState("fixture-green", dirty, "fixture-green", {})
 
     monkeypatch.setattr(cli, "git_test_tree_state", state)
+
+    def nested_check(root, **kwargs):
+        if (Path(root) / ".git").exists():
+            return actual_nested_check(root, **kwargs)
+
+    monkeypatch.setattr(cli, "git_check_nested_repositories", nested_check)
 
 
 def _run(*argv):
@@ -2102,6 +2109,7 @@ class TestDeepStep:
         # special-case in _make_bisect_callback could drift unnoticed.
         ppath = _seed_deep_progress(tmp_path)
         monkeypatch.setattr(cli, "run_tests", lambda *a, **kw: (False, "FAIL"))
+        monkeypatch.setattr(cli, "restore_working_tree", lambda *a, **kw: True)
 
         def _stub_bisect(
             fixes, _tc, _cwd, run_tests_fn=None, on_outcome=None, reset_to_clean=None
@@ -2889,6 +2897,7 @@ class TestRefactorStep:
         ppath = _seed_coverage_progress_with_untestable(tmp_path, files=["u.py"])
         (tmp_path / "u.py").write_text("a", encoding="utf-8")
         monkeypatch.setattr(cli, "run_tests", lambda *a, **kw: (False, "FAIL"))
+        monkeypatch.setattr(cli, "restore_working_tree", lambda *a, **kw: True)
 
         def _stub_bisect(
             fixes, _tc, _cwd, run_tests_fn=None, on_outcome=None, reset_to_clean=None

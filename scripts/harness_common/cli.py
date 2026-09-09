@@ -79,6 +79,7 @@ from .git import commit_checkpoint as git_commit_checkpoint
 from .git import (
     get_open_pr_data,
     git_apply_snapshot,
+    git_check_nested_repositories,
     git_diff_has_changes,
     git_discover_branch_files,
     git_drop_stash,
@@ -86,6 +87,7 @@ from .git import (
     git_restore_tracked_to,
     git_rev_parse_head,
     git_stash_snapshot,
+    git_test_output_paths,
     git_test_tree_state,
     restore_working_tree,
 )
@@ -346,7 +348,12 @@ class HarnessSafetyError(RuntimeError):
 
 def _tree_state(progress, project_root):
     try:
-        return git_test_tree_state(project_root, progress["_progress_file"])
+        outputs = progress.get("_test_outputs", [])
+        if outputs:
+            outputs = git_test_output_paths(project_root, outputs)
+            progress["_test_outputs"] = outputs
+        kwargs = {"exclude_paths": outputs} if outputs else {}
+        return git_test_tree_state(project_root, progress["_progress_file"], **kwargs)
     except (RuntimeError, OSError) as exc:
         raise HarnessSafetyError(str(exc)) from exc
 
@@ -358,8 +365,8 @@ def _run_verified_tests(progress, project_root, test_command):
         test_command, project_root, timeout=_effective_timeout(progress)
     )
     after = _tree_state(progress, project_root)
-    # Files the run created (coverage reports, caches) are artifacts, not
-    # tampered evidence; a change to anything that existed beforehand is.
+    # Previously recorded test outputs are excluded by _tree_state. Files that
+    # existed before their first test run remain protected inputs.
     if before.base != after.base or any(
         after.entries.get(name) != digest for name, digest in before.entries.items()
     ):
@@ -367,13 +374,22 @@ def _run_verified_tests(progress, project_root, test_command):
         summary += (
             "\nSource files changed during tests; review them and rerun validation."
         )
-    created = sorted(set(after.entries) - set(before.entries))
+    created = sorted(
+        name
+        for name in set(after.entries) - set(before.entries)
+        if after.entries[name].startswith("file:")
+    )
     if created:
+        progress["_test_outputs"] = sorted(
+            set(progress.get("_test_outputs", [])) | set(created)
+        )
         shown = ", ".join(created[:5]) + (" ..." if len(created) > 5 else "")
         print(
             f"[harness] NOTE: the test run created {len(created)} untracked "
-            f"file(s) ({shown}); gitignore them to keep checkpoints clean"
+            f"file(s) ({shown}); recorded as test outputs, excluded from "
+            "validation inputs and checkpoints"
         )
+        after = _tree_state(progress, project_root)
     record_test_result(progress, passed, summary)
     if passed:
         progress["_validated_tree"] = after.digest
@@ -427,7 +443,6 @@ def _test_and_reconcile(
                 progress, project_root, test_command, pre_stash, pre_head
             ),
         )
-    timeout = _effective_timeout(progress)
     passed, summary = _run_verified_tests(progress, project_root, test_command)
     if passed:
         on_all_pass()
@@ -447,7 +462,7 @@ def _test_and_reconcile(
         fixes,
         test_command,
         project_root,
-        run_tests_fn=lambda tc, cwd: run_tests(tc, cwd, timeout=timeout),
+        run_tests_fn=lambda tc, cwd: _run_verified_tests(progress, cwd, tc),
         on_outcome=on_outcome,
         reset_to_clean=tracked_reset if reset_to_clean else None,
     )
@@ -462,10 +477,10 @@ def _test_and_reconcile(
             on_full_revert()
             reverted += fixed
             fixed = 0
-    elif reverted > 0:
-        # Bisection reverted every fix. Its resets touch tracked files only, so
-        # rebuild the whole pre-iteration tree: nothing from this iteration is
-        # kept, and stray files the subagent created must not reach a checkpoint.
+    else:
+        # Bisection reverted or skipped every fix. Its resets touch tracked files
+        # only, so rebuild the whole pre-iteration tree: nothing from this
+        # iteration is kept, and stray subagent files must not reach a checkpoint.
         _restore_or_stop(progress, pre_stash, pre_head, project_root)
     return fixed, reverted, passed
 
@@ -991,8 +1006,11 @@ def cmd_snapshot(args):
     previous = progress.get("_snapshot") or {}
     new_stash = None
     try:
+        _tree_state(progress, project_root)
         if args.include_stash or _is_no_commit(progress):
             new_stash = git_stash_snapshot(project_root)
+        else:
+            git_check_nested_repositories(project_root, restore_commit=head)
     except (RuntimeError, OSError) as exc:
         # Keep the last recovery object, but invalidate its dispatch token even
         # if a retry failed within the same iteration. Never equate failure
@@ -1657,10 +1675,13 @@ def cmd_commit_checkpoint(args):
             file=sys.stderr,
         )
         return 1
+    outputs = progress.get("_test_outputs", [])
+    kwargs = {"exclude_paths": outputs} if outputs else {}
     status = git_commit_checkpoint(
         commit_message,
         project_root,
         str(progress_path),
+        **kwargs,
     )
     if status == COMMIT_COMMITTED:
         print("committed")

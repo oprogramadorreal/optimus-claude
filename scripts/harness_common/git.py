@@ -25,12 +25,48 @@ _UNSET = object()
 TreeState = namedtuple("TreeState", "digest dirty base entries")
 
 
-def git_test_tree_state(cwd, progress_file):
+def git_test_output_paths(cwd, paths):
+    """Keep output exclusions only for untracked regular files (or absent files)."""
+    root = Path(cwd).resolve()
+    candidates = []
+    for name in paths:
+        path = root / name
+        try:
+            path.resolve().relative_to(root)
+        except ValueError:
+            continue
+        if Path(name).is_absolute() or path.is_symlink() or path.is_dir():
+            continue
+        if not path.exists() or path.is_file():
+            candidates.append(name)
+    if not candidates:
+        return []
+    tracked = subprocess.run(
+        [
+            "git",
+            "ls-files",
+            "--cached",
+            "--with-tree=HEAD",
+            "-z",
+            "--",
+            *(f":(literal){name}" for name in candidates),
+        ],
+        cwd=str(root),
+        capture_output=True,
+    )
+    if tracked.returncode:
+        raise RuntimeError("Cannot check tracked test outputs")
+    tracked_names = {os.fsdecode(name) for name in tracked.stdout.split(b"\0")}
+    return [name for name in candidates if name not in tracked_names]
+
+
+def git_test_tree_state(cwd, progress_file, *, exclude_paths=()):
     """Fingerprint the source bytes a checkpoint would include, without writes.
 
-    Ignore only the same harness state excluded from checkpoint commits. Include
-    non-ignored untracked files and HEAD; a green result cannot authorize later
-    edits or a different base. Binary Git output avoids locale/decoding loss.
+    Ignore harness state and caller-verified test outputs, matching checkpoint
+    exclusions. Include other non-ignored untracked files and HEAD; a green
+    result cannot authorize later edits or a different base. Binary Git output
+    avoids locale/decoding loss.
 
     Returns a ``TreeState``: ``digest`` covers everything, ``base`` covers HEAD
     plus the tracked diff, and ``entries`` maps each tracked or untracked path
@@ -44,7 +80,11 @@ def git_test_tree_state(cwd, progress_file):
         excludes.extend([relative, relative + BACKUP_SUFFIX])
     except ValueError:
         pass  # A progress file outside the repo is not part of its tree.
-    pathspec = [".", *(f":(exclude){pattern}" for pattern in excludes)]
+    pathspec = [
+        ".",
+        *(f":(exclude){pattern}" for pattern in excludes),
+        *(f":(exclude,literal){path}" for path in exclude_paths),
+    ]
 
     def git_bytes(*args):
         result = subprocess.run(["git", *args], cwd=str(root), capture_output=True)
@@ -99,6 +139,7 @@ def _tree_entry_digest(path, gitlink_sha, progress_file):
     if path.is_dir() and (path / ".git").exists():
         # A checked-out submodule or nested repository: fingerprint it the same
         # way, so edits inside it during a test run are detected as well.
+        _require_clean_nested_repository(path, subprocess.run)
         return "repo:" + git_test_tree_state(path, progress_file).digest
     if gitlink_sha:
         return "gitlink:" + gitlink_sha.decode("ascii")  # registered, not checked out
@@ -133,7 +174,106 @@ def _rev_parse(ref, cwd, _run):
     return result.stdout.strip() if result.returncode == 0 else None
 
 
-def commit_checkpoint(commit_message, cwd, progress_file, _run=None):
+def _require_clean_nested_repository(path, _run):
+    status = _run_git_text(
+        _run,
+        [
+            "git",
+            "status",
+            "--porcelain",
+            "--untracked-files=normal",
+            "--ignore-submodules=none",
+        ],
+        path,
+    )
+    if status.returncode != 0:
+        raise RuntimeError(f"Cannot inspect nested repository: {path}")
+    if status.stdout:
+        raise RuntimeError(
+            f"Validate and commit dirty nested repository separately: {path}"
+        )
+    flags = _run(
+        ["git", "ls-files", "-v", "-z"],
+        capture_output=True,
+        cwd=str(path),
+    )
+    if flags.returncode != 0:
+        raise RuntimeError(f"Cannot inspect nested repository tracking flags: {path}")
+    # These index flags can hide changed bytes from an otherwise clean status.
+    if any(
+        entry[:1].islower() or entry.startswith("S ")
+        for entry in os.fsdecode(flags.stdout).split("\0")
+    ):
+        raise RuntimeError(
+            f"Nested repository has assume-unchanged or skip-worktree tracking flags: "
+            f"{path}. Clear those flags or manage this repository separately before "
+            "retrying."
+        )
+
+
+def git_check_nested_repositories(cwd, _run=None, *, restore_commit=None):
+    """Refuse unsafe child state; return whether checked-out children exist."""
+    _run = _run or subprocess.run
+    root = Path(cwd)
+    listed = _run(
+        ["git", "ls-files", "--stage", "--others", "--exclude-standard", "-z"],
+        capture_output=True,
+        cwd=str(root),
+    )
+    if listed.returncode != 0:
+        raise RuntimeError(f"Cannot inspect nested repositories: {listed.stderr[:200]}")
+    repositories = set()
+    for record in filter(None, os.fsdecode(listed.stdout).split("\0")):
+        meta, separator, name = record.partition("\t")
+        fields = meta.split(" ")
+        if not (
+            separator
+            and len(fields) == 3
+            and fields[0] in {"100644", "100755", "120000", "160000"}
+        ):
+            name = record
+        path = root / name
+        if not path.is_symlink() and path.is_dir() and (path / ".git").exists():
+            repositories.add(name.rstrip("/"))
+    if not repositories:
+        return False
+
+    expected = {}
+    if restore_commit:
+        tree = _run(
+            ["git", "ls-tree", "-r", "-z", restore_commit],
+            capture_output=True,
+            cwd=str(root),
+        )
+        if tree.returncode != 0:
+            raise RuntimeError(
+                f"Cannot inspect restore tree {restore_commit}: {tree.stderr[:200]}"
+            )
+        for record in filter(None, os.fsdecode(tree.stdout).split("\0")):
+            meta, _, name = record.partition("\t")
+            mode, _kind, sha = meta.split(" ")
+            if mode == "160000":
+                expected[name] = sha
+
+    for name in sorted(repositories):
+        path = root / name
+        _require_clean_nested_repository(path, _run)
+        if restore_commit and _rev_parse("HEAD", path, _run) != expected.get(name):
+            raise RuntimeError(
+                f"Cannot restore nested repository checkout from the parent: {path}. "
+                "Restore its recorded commit separately before retrying."
+            )
+        git_check_nested_repositories(
+            path,
+            _run=_run,
+            restore_commit=expected.get(name) if restore_commit else None,
+        )
+    return True
+
+
+def commit_checkpoint(
+    commit_message, cwd, progress_file, _run=None, *, exclude_paths=()
+):
     """Stage all changes, un-stage harness state files, and commit.
 
     Returns one of ``COMMIT_COMMITTED`` (a checkpoint was created),
@@ -148,7 +288,17 @@ def commit_checkpoint(commit_message, cwd, progress_file, _run=None):
     commit failure (that would durably disable checkpoint commits).
     """
     _run = _run or subprocess.run
-    add_result = _run_git_text(_run, ["git", "add", "-A"], cwd)
+    try:
+        git_check_nested_repositories(cwd, _run=_run)
+    except RuntimeError as exc:
+        print(f"{_PREFIX} WARNING: checkpoint refused: {exc}")
+        return COMMIT_FAILED
+    add_args = ["git", "add", "-A"]
+    if exclude_paths:
+        add_args.extend(
+            ["--", ".", *(f":(exclude,literal){path}" for path in exclude_paths)]
+        )
+    add_result = _run_git_text(_run, add_args, cwd)
     if add_result.returncode != 0:
         print(f"{_PREFIX} WARNING: git add -A failed: {add_result.stderr[:200]}")
         return COMMIT_FAILED
@@ -247,6 +397,11 @@ def git_restore_tracked_to(commit, cwd, _run=None):
     base.
     """
     _run = _run or subprocess.run
+    git_check_nested_repositories(cwd, _run=_run, restore_commit=commit)
+    _read_tree(commit, cwd, _run)
+
+
+def _read_tree(commit, cwd, _run):
     # Unlike checkout <commit> -- ., read-tree also removes index additions
     # created during this iteration, without moving HEAD or cleaning unrelated
     # untracked files used by bisection's retained fixes.
@@ -392,6 +547,7 @@ def git_stash_snapshot(cwd, _run=None):
     registered in the stash reflog so apply can process it.
     """
     _run = _run or subprocess.run
+    has_nested_repositories = git_check_nested_repositories(cwd, _run=_run)
     created = _run_git_text(_run, ["git", "stash", "create"], cwd)
     if created.returncode != 0:
         raise RuntimeError(f"git stash create failed: {created.stderr[:200]}")
@@ -400,6 +556,10 @@ def git_stash_snapshot(cwd, _run=None):
     sha = base
     if untracked_commit:
         sha = _stash_commit_with_untracked(base, untracked_commit, cwd, _run)
+    if has_nested_repositories:
+        # Git stash omits an unstaged child HEAD advance. Check the actual
+        # recovery tree before registering it or claiming a clean HEAD snapshot.
+        git_check_nested_repositories(cwd, _run=_run, restore_commit=sha or "HEAD")
     if not sha:
         return None
     store = _run_git_text(
@@ -438,10 +598,11 @@ def git_apply_snapshot(snapshot_sha, cwd, _run=None):
     rebuilds in no-commit mode. Returns True on success.
     """
     _run = _run or subprocess.run
+    git_check_nested_repositories(cwd, _run=_run, restore_commit=snapshot_sha)
     # Rebuild from the stash's base, not the current index. This removes new
     # staged files from the failed iteration and prevents a preserved staged
     # user edit from conflicting with its own snapshot on apply.
-    git_restore_tracked_to(f"{snapshot_sha}^1", cwd, _run=_run)
+    _read_tree(f"{snapshot_sha}^1", cwd, _run)
     _clean_working_tree(cwd, _run=_run, reset_tracked=False)
     # Then apply the snapshot (includes the untracked-files tree if present)
     result = _run_git_text(

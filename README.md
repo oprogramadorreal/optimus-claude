@@ -3,7 +3,7 @@
 </div>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-3.12.0-blue" alt="Version">
+  <img src="https://img.shields.io/badge/version-3.12.1-blue" alt="Version">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
   <img src="https://img.shields.io/badge/Claude_Code-plugin-blueviolet" alt="Claude Code">
   <img src="https://img.shields.io/badge/OpenAI_Codex-experimental-orange" alt="OpenAI Codex: experimental">
@@ -144,7 +144,7 @@ This is the version reference for all skill READMEs. Versions below identify act
 | Surface | Version/evidence as of 2026-09-09 | Support boundary |
 |---|---|---|
 | Claude Code, native Windows CLI | 2.1.263 and 2.1.266: `--plugin-dir` load of this checkout with all 19 skills, both plugin agents, and the startup hook; 2.1.266 also ran the authenticated `commit suggest` and Python `init` smoke pairs with Claude Fable 5.1 (see the follow-up observations below) | Primary host. Smoke oracles check files and Git state, not semantic quality; use the execution tests before certifying changed skill behavior |
-| Codex, native Windows CLI/app-server | 0.153.4: isolated local marketplace installation of 3.12.0, all 19 enabled skills, cache/source prompt comparison, and launcher tests (repeated 2026-09-09) | Experimental. Loader success does not establish init, delegation, deep resume, or GPT-6 Astra task correctness |
+| Codex, native Windows CLI/app-server | 0.153.4: isolated local marketplace installation of 3.12.1, all 19 enabled skills, cache/source prompt comparison, and launcher tests (repeated 2026-09-09) | Experimental. Loader success does not establish init, delegation, deep resume, or GPT-6 Astra task correctness |
 | Codex desktop/local | Existing cached plugin startup context observed; desktop version not recorded | Full controlled desktop skill workflows and updates unverified |
 | macOS/Linux CLI, including WSL as a separate environment | Host plugin support is documented; this audit did not execute these surfaces | Native Windows results do not certify their shell, permissions, or filesystem behavior |
 | Codex IDE extension | Current OpenAI documentation does not support plugins in this surface | Separately copying skills is a different setup and is not plugin support |
@@ -252,6 +252,14 @@ Headless entry points move accordingly, e.g. `claude -p "/optimus:deep review --
 ### Upgrading from 1.x
 
 In Claude Code, the two terminal-run Python harnesses were replaced in 2.0 by in-conversation orchestration — now `/optimus:deep` (see the 2.x table above). This migration does not establish Codex orchestration support.
+
+## Release notes — 3.12.1
+
+- Refuse dirty nested repositories, child index flags that hide edits, and unrecoverable submodule checkout changes before parent-only snapshots, rollback, or checkpoints can claim success. Clean submodules without those flags and uninitialized submodules remain supported.
+- Remember exact files first created by tests across repeated runs and resume; keep those outputs out of validation inputs and checkpoints. Pre-existing files stay protected, and staging generated source makes it a normal validated input.
+- Restore the complete iteration snapshot when every fix is skipped as well as when every fix is reverted.
+- Preserve independent user edits on every TDD rollback, verify the actual recoverable bytes, and keep ordinary merges into user files from establishing whole-file ownership.
+- Invoke the command registered by the local CSharpier tool manifest for both 0.x and 1.x releases.
 
 ## Release notes — 3.12.0
 

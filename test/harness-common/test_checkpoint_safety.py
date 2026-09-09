@@ -205,13 +205,157 @@ def test_full_restore_removes_iteration_only_staged_additions(tmp_path):
 
 def test_artifacts_created_by_tests_do_not_fail_validation(tmp_path, capsys):
     command = _python_command(
-        "Path('coverage.xml').write_text('run'); "
+        "p = Path('coverage.xml'); "
+        "p.write_text(str(int(p.read_text()) + 1) if p.exists() else '1'); "
         "sys.exit(b'BAD' in Path('app.txt').read_bytes())"
     )
     progress = _setup(tmp_path, test_command=command)
     assert (tmp_path / "coverage.xml").is_file()
     assert "created 1 untracked file(s) (coverage.xml)" in capsys.readouterr().out
+    # Every command reloads progress from disk, including after a resume.
+    assert _cmd(progress, "resume", "--project-dir", str(tmp_path)) == 0
+    assert _cmd(progress, "baseline") == 0
+    (tmp_path / "app.txt").write_bytes(b"new GOOD\n")
+    assert (
+        _cmd(progress, "deep-step", "--result-file", _result(tmp_path, _empty_valid()))
+        == 0
+    )
     assert _cmd(progress, "commit-checkpoint") == 0
+    assert (tmp_path / "coverage.xml").read_text() == "3"
+    assert _git(tmp_path, "show", "HEAD:app.txt") == b"new GOOD\n"
+    assert not _git(tmp_path, "ls-files", "coverage.xml")
+    assert _cmd(progress, "baseline") == 0
+
+
+def test_preexisting_test_report_remains_a_protected_input(tmp_path):
+    command = _python_command("Path('coverage.xml').write_text('regenerated')")
+    progress = _setup(tmp_path, test_command=command, baseline=False)
+    (tmp_path / "coverage.xml").write_text("user report", encoding="utf-8")
+    assert _cmd(progress, "baseline") == 1
+    assert "coverage.xml" not in json.loads(progress.read_text()).get(
+        "_test_outputs", []
+    )
+    assert _cmd(progress, "commit-checkpoint") == 1
+
+
+def test_failed_tests_still_record_output_provenance(tmp_path):
+    command = _python_command(
+        "p = Path('coverage.xml'); "
+        "p.write_text(str(int(p.read_text()) + 1) if p.exists() else '1'); "
+        "sys.exit(b'BAD' in Path('app.txt').read_bytes())"
+    )
+    progress = _setup(tmp_path, test_command=command, baseline=False)
+    (tmp_path / "app.txt").write_bytes(b"BAD\n")
+    assert _cmd(progress, "baseline") == 1
+    (tmp_path / "app.txt").write_bytes(b"GOOD\n")
+    assert _cmd(progress, "baseline") == 0
+    assert (tmp_path / "coverage.xml").read_text() == "2"
+
+
+def test_no_commit_recovery_preserves_user_work_and_output_provenance(tmp_path):
+    command = _python_command(
+        "p = Path('coverage.xml'); "
+        "p.write_text(str(int(p.read_text()) + 1) if p.exists() else '1'); "
+        "sys.exit(b'BAD' in Path('app.txt').read_bytes())"
+    )
+    progress = _setup(tmp_path, test_command=command, baseline=False)
+    data = json.loads(progress.read_text())
+    data["config"]["no_commit"] = True
+    progress.write_text(json.dumps(data), encoding="utf-8")
+    (tmp_path / "app.txt").write_bytes(b"staged GOOD\n")
+    _git(tmp_path, "add", "app.txt")
+    index_before = _git(tmp_path, "diff", "--cached", "--binary")
+    (tmp_path / "app.txt").write_bytes(b"unstaged GOOD\n")
+    assert _cmd(progress, "baseline") == 0
+    assert _cmd(progress, "snapshot") == 0
+    (tmp_path / "app.txt").write_bytes(b"BAD\n")
+    assert (
+        _cmd(progress, "deep-step", "--result-file", _result(tmp_path, _empty_valid()))
+        == 0
+    )
+    assert (tmp_path / "app.txt").read_bytes() == b"unstaged GOOD\n"
+    assert _git(tmp_path, "diff", "--cached", "--binary") == index_before
+    assert (tmp_path / "coverage.xml").read_text() == "1"
+    assert _cmd(progress, "baseline") == 0
+    assert (tmp_path / "coverage.xml").read_text() == "2"
+
+
+def test_bisection_records_outputs_created_only_by_a_passing_candidate(tmp_path):
+    _init_repo(tmp_path)
+    (tmp_path / "flag.txt").write_bytes(b"GOOD\n")
+    _git(tmp_path, "add", "flag.txt")
+    _git(tmp_path, "commit", "-m", "flag")
+    command = _python_command(
+        "bad = b'BAD' in Path('flag.txt').read_bytes(); "
+        "p = Path('candidate.xml'); "
+        "(not bad and b'new' in Path('app.txt').read_bytes()) and "
+        "p.write_text(str(int(p.read_text()) + 1) if p.exists() else '1'); "
+        "sys.exit(bad)"
+    )
+    progress = _setup(tmp_path, init_repo=False, test_command=command)
+    (tmp_path / "app.txt").write_bytes(b"new GOOD\n")
+    (tmp_path / "flag.txt").write_bytes(b"BAD\n")
+    fixes = [
+        dict(
+            file=name,
+            line=1,
+            category="Bug",
+            summary=name,
+            pre_edit_content="GOOD",
+            post_edit_content=post,
+        )
+        for name, post in (("app.txt", "new GOOD"), ("flag.txt", "BAD"))
+    ]
+    output = dict(_empty_valid(), new_findings=fixes, fixes_applied=fixes)
+    assert _cmd(progress, "deep-step", "--result-file", _result(tmp_path, output)) == 0
+    assert (tmp_path / "app.txt").read_text() == "new GOOD\n"
+    assert (tmp_path / "flag.txt").read_bytes() == b"GOOD\n"
+    assert _cmd(progress, "commit-checkpoint") == 0
+    assert not _git(tmp_path, "ls-files", "candidate.xml")
+
+
+def test_test_output_exclusions_are_literal_paths(tmp_path):
+    command = _python_command("Path('run[1].xml').write_text('generated')")
+    progress = _setup(tmp_path, test_command=command)
+    (tmp_path / "run1.xml").write_text("user input", encoding="utf-8")
+    assert _cmd(progress, "baseline") == 0
+    data = json.loads(progress.read_text())
+    data["config"]["test_command"] = _python_command(
+        "Path('run[1].xml').write_text('regenerated'); "
+        "Path('run1.xml').write_text('corrupted')"
+    )
+    progress.write_text(json.dumps(data), encoding="utf-8")
+    assert _cmd(progress, "baseline") == 1
+    assert _cmd(progress, "commit-checkpoint") == 1
+
+
+def test_staging_generated_source_revokes_output_exclusion(tmp_path):
+    command = _python_command(
+        "p = Path('generated.py'); p.exists() or p.write_text('# generated')"
+    )
+    progress = _setup(tmp_path, test_command=command)
+    _git(tmp_path, "add", "generated.py")
+    assert _cmd(progress, "baseline") == 0
+    assert "generated.py" not in json.loads(progress.read_text())["_test_outputs"]
+    assert _cmd(progress, "commit-checkpoint") == 0
+    assert _git(tmp_path, "show", "HEAD:generated.py") == b"# generated"
+
+
+def test_directory_replacing_output_is_a_protected_input(tmp_path):
+    progress = _setup(
+        tmp_path, test_command=_python_command("Path('report').write_text('output')")
+    )
+    report = tmp_path / "report"
+    report.unlink()
+    report.mkdir()
+    (report / "source.py").write_text("user source", encoding="utf-8")
+    data = json.loads(progress.read_text())
+    data["config"]["test_command"] = _python_command(
+        "Path('report/source.py').write_text('corrupted')"
+    )
+    progress.write_text(json.dumps(data), encoding="utf-8")
+    assert _cmd(progress, "baseline") == 1
+    assert _cmd(progress, "commit-checkpoint") == 1
 
 
 def test_source_edited_during_tests_fails_validation(tmp_path, capsys):
@@ -271,6 +415,31 @@ def test_all_reverted_removes_files_the_subagent_created(tmp_path, capsys):
     assert _git(tmp_path, "rev-parse", "HEAD") == head
 
 
+def test_all_skipped_removes_files_the_subagent_created(tmp_path, capsys):
+    progress = _setup(tmp_path)
+    head = _git(tmp_path, "rev-parse", "HEAD")
+    (tmp_path / "app.txt").write_bytes(b"BAD\n")
+    (tmp_path / "helper.py").write_bytes(b"# left behind by the subagent\n")
+    fix = dict(
+        file="app.txt",
+        line=1,
+        category="Bug",
+        summary="fixture",
+        pre_edit_content="DOES_NOT_MATCH",
+        post_edit_content="BAD",
+    )
+    output = dict(_empty_valid(), new_findings=[fix], fixes_applied=[fix])
+    capsys.readouterr()
+    assert _cmd(progress, "deep-step", "--result-file", _result(tmp_path, output)) == 0
+    assert "applied fixed=0 reverted=0" in capsys.readouterr().out
+    assert (tmp_path / "app.txt").read_bytes() == b"GOOD\n"
+    assert not (tmp_path / "helper.py").exists()
+    data = json.loads(progress.read_text())
+    assert data["findings"][0]["status"].startswith("skipped")
+    assert _cmd(progress, "commit-checkpoint") == 0
+    assert _git(tmp_path, "rev-parse", "HEAD") == head
+
+
 def test_resume_after_safety_error_points_to_baseline(tmp_path, capsys):
     progress = _setup(tmp_path)
     (tmp_path / "app.txt").write_bytes(b"BAD\n")
@@ -294,3 +463,313 @@ def test_uncommitted_report_never_suggests_destructive_rollback(mode, capsys):
     assert "uncommitted" in output
     assert "reset --hard" not in output
     assert "rebase" not in output
+
+
+def _nested_repository_fixture(tmp_path, kind="submodule"):
+    from harness_common.runner import _find_bash, bash_environment
+
+    root = tmp_path / "project"
+    root.mkdir()
+    _init_repo(root)
+    if kind == "submodule":
+        upstream = tmp_path / "upstream"
+        upstream.mkdir()
+        _init_repo(upstream)
+        subprocess.run(
+            [
+                "git",
+                "-c",
+                "protocol.file.allow=always",
+                "submodule",
+                "add",
+                upstream.as_posix(),
+                "library",
+            ],
+            cwd=root,
+            env=bash_environment(_find_bash()),
+            capture_output=True,
+            check=True,
+        )
+        _git(root, "commit", "-m", "add library")
+    progress = _setup(root, init_repo=False)
+    library = root / "library"
+    if kind == "nested":
+        library.mkdir()
+        _init_repo(library)
+    _git(library, "config", "user.name", "Fixture")
+    _git(library, "config", "user.email", "fixture@example.invalid")
+    return root, library, progress
+
+
+@pytest.mark.parametrize("kind", ["submodule", "nested"])
+@pytest.mark.parametrize("operation", ["capture", "restore", "checkpoint"])
+def test_dirty_nested_repository_rejected_before_parent_mutation(
+    tmp_path, kind, operation
+):
+    root, library, progress = _nested_repository_fixture(tmp_path, kind)
+    head = _git(root, "rev-parse", "HEAD").decode().strip()
+    (root / "app.txt").write_bytes(b"staged GOOD\n")
+    _git(root, "add", "app.txt")
+    (root / "app.txt").write_bytes(b"unstaged GOOD\n")
+    (library / "app.txt").write_bytes(b"BAD nested edit\n")
+    index_before = _git(root, "diff", "--cached", "--binary")
+
+    if operation == "checkpoint":
+        assert (
+            git.commit_checkpoint("checkpoint", root, str(progress))
+            == git.COMMIT_FAILED
+        )
+    else:
+        with pytest.raises(RuntimeError, match="dirty nested repository"):
+            if operation == "capture":
+                git.git_stash_snapshot(root)
+            else:
+                git.git_restore_to(head, root)
+
+    assert _git(root, "rev-parse", "HEAD").decode().strip() == head
+    assert _git(root, "diff", "--cached", "--binary") == index_before
+    assert (root / "app.txt").read_bytes() == b"unstaged GOOD\n"
+    assert (library / "app.txt").read_bytes() == b"BAD nested edit\n"
+
+
+@pytest.mark.parametrize("no_commit", [False, True])
+def test_dirty_submodule_snapshot_keeps_previous_recovery(tmp_path, no_commit):
+    root, library, progress = _nested_repository_fixture(tmp_path)
+    if no_commit:
+        data = json.loads(progress.read_text(encoding="utf-8"))
+        data["config"]["no_commit"] = True
+        progress.write_text(json.dumps(data), encoding="utf-8")
+        (root / "app.txt").write_bytes(b"user GOOD\n")
+    assert _cmd(progress, "snapshot") == 0
+    previous = json.loads(progress.read_text(encoding="utf-8"))["_snapshot"]
+    (library / "app.txt").write_bytes(b"BAD nested edit\n")
+
+    assert _cmd(progress, "snapshot") == 1
+    current = json.loads(progress.read_text(encoding="utf-8"))["_snapshot"]
+    assert current["pre_stash"] == previous["pre_stash"]
+    assert current["pre_head"] == previous["pre_head"]
+    assert "iteration_token" not in current
+    assert (library / "app.txt").read_bytes() == b"BAD nested edit\n"
+
+
+def test_dirty_submodule_cannot_authorize_parent_checkpoint(tmp_path):
+    root, library, progress = _nested_repository_fixture(tmp_path)
+    head = _git(root, "rev-parse", "HEAD")
+    (root / "app.txt").write_bytes(b"new GOOD\n")
+    (library / "app.txt").write_bytes(b"new GOOD\n")
+
+    assert (
+        _cmd(progress, "deep-step", "--result-file", _result(root, _empty_valid())) == 1
+    )
+    assert _cmd(progress, "commit-checkpoint") == 1
+    assert json.loads(progress.read_text(encoding="utf-8"))["_safety_error"]
+    assert _git(root, "rev-parse", "HEAD") == head
+    assert (root / "app.txt").read_bytes() == b"new GOOD\n"
+    assert (library / "app.txt").read_bytes() == b"new GOOD\n"
+
+
+@pytest.mark.parametrize("stash", [False, True])
+def test_changed_submodule_checkout_refuses_restore_before_parent_edits(
+    tmp_path, stash
+):
+    root, library, _progress = _nested_repository_fixture(tmp_path)
+    head = _git(root, "rev-parse", "HEAD").decode().strip()
+    (root / "app.txt").write_bytes(b"user GOOD\n")
+    snapshot = git.git_stash_snapshot(root) if stash else None
+    (library / "app.txt").write_bytes(b"committed child change\n")
+    _git(library, "add", "app.txt")
+    _git(library, "commit", "-m", "move library checkout")
+    child_head = _git(library, "rev-parse", "HEAD")
+    (root / "app.txt").write_bytes(b"parent iteration edit\n")
+    _git(root, "add", "app.txt")
+    index_before = _git(root, "diff", "--cached", "--binary")
+
+    with pytest.raises(RuntimeError, match="nested repository checkout"):
+        if stash:
+            git.git_apply_snapshot(snapshot, root)
+        else:
+            git.git_restore_to(head, root)
+
+    assert _git(root, "diff", "--cached", "--binary") == index_before
+    assert (root / "app.txt").read_bytes() == b"parent iteration edit\n"
+    assert _git(library, "rev-parse", "HEAD") == child_head
+
+
+@pytest.mark.parametrize("move_child_head", [False, True])
+def test_clean_submodule_still_allows_checkpoint(tmp_path, move_child_head):
+    root, library, progress = _nested_repository_fixture(tmp_path)
+    if move_child_head:
+        (library / "app.txt").write_bytes(b"committed child change\n")
+        _git(library, "add", "app.txt")
+        _git(library, "commit", "-m", "advance library")
+    child_head = _git(library, "rev-parse", "HEAD").decode().strip()
+    (root / "app.txt").write_bytes(b"new GOOD\n")
+
+    assert _cmd(progress, "baseline") == 0
+    assert _cmd(progress, "commit-checkpoint") == 0
+    assert _git(root, "show", "HEAD:app.txt") == b"new GOOD\n"
+    assert _git(root, "rev-parse", "HEAD:library").decode().strip() == child_head
+
+
+@pytest.mark.parametrize("no_commit", [False, True])
+@pytest.mark.parametrize("parent_dirty", [False, True])
+def test_unstaged_submodule_checkout_change_cannot_be_snapshotted(
+    tmp_path, no_commit, parent_dirty
+):
+    root, library, progress = _nested_repository_fixture(tmp_path)
+    data = json.loads(progress.read_text(encoding="utf-8"))
+    previous = data["_snapshot"].copy()
+    data["config"]["no_commit"] = no_commit
+    progress.write_text(json.dumps(data), encoding="utf-8")
+    (library / "app.txt").write_bytes(b"committed child change\n")
+    _git(library, "add", "app.txt")
+    _git(library, "commit", "-m", "advance library")
+    child_head = _git(library, "rev-parse", "HEAD")
+    if parent_dirty:
+        (root / "app.txt").write_bytes(b"user GOOD\n")
+    parent_before = (root / "app.txt").read_bytes()
+
+    assert _cmd(progress, "snapshot") == 1
+    current = json.loads(progress.read_text(encoding="utf-8"))["_snapshot"]
+    assert current["pre_head"] == previous["pre_head"]
+    assert current["pre_stash"] == previous["pre_stash"]
+    assert "iteration_token" not in current
+    assert _git(library, "rev-parse", "HEAD") == child_head
+    assert (root / "app.txt").read_bytes() == parent_before
+
+
+def test_staged_submodule_update_round_trips_snapshot(tmp_path):
+    root, library, _progress = _nested_repository_fixture(tmp_path)
+    (library / "app.txt").write_bytes(b"committed child change\n")
+    _git(library, "add", "app.txt")
+    _git(library, "commit", "-m", "advance library")
+    _git(root, "add", "library")
+    (root / "app.txt").write_bytes(b"user GOOD\n")
+    child_head = _git(library, "rev-parse", "HEAD")
+    index_before = _git(root, "diff", "--cached", "--binary")
+    snapshot = git.git_stash_snapshot(root)
+    (root / "app.txt").write_bytes(b"BAD parent iteration\n")
+
+    assert git.git_apply_snapshot(snapshot, root)
+    assert (root / "app.txt").read_bytes() == b"user GOOD\n"
+    assert _git(root, "diff", "--cached", "--binary") == index_before
+    assert _git(library, "rev-parse", "HEAD") == child_head
+
+
+def test_parse_failure_with_dirty_submodule_stops_before_parent_restore(tmp_path):
+    root, library, progress = _nested_repository_fixture(tmp_path)
+    (root / "app.txt").write_bytes(b"staged GOOD\n")
+    _git(root, "add", "app.txt")
+    (root / "app.txt").write_bytes(b"unstaged GOOD\n")
+    (library / "app.txt").write_bytes(b"BAD nested change\n")
+    index_before = _git(root, "diff", "--cached", "--binary")
+    raw = root / ".claude" / ".deep-iteration-raw.txt"
+    raw.write_text("no harness result", encoding="utf-8")
+
+    assert (
+        _cmd(
+            progress,
+            "parse",
+            "--input-file",
+            str(raw),
+            "--output-file",
+            _result(root, _empty_valid()),
+        )
+        == 1
+    )
+    data = json.loads(progress.read_text(encoding="utf-8"))
+    assert "dirty nested repository" in data["_safety_error"]
+    assert _git(root, "diff", "--cached", "--binary") == index_before
+    assert (root / "app.txt").read_bytes() == b"unstaged GOOD\n"
+    assert (library / "app.txt").read_bytes() == b"BAD nested change\n"
+    assert _cmd(progress, "snapshot") == 1
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX byte filenames")
+def test_non_utf8_nested_repository_name_cannot_bypass_restore_guard(tmp_path):
+    import os
+
+    root = tmp_path / "project"
+    root.mkdir()
+    _setup(root)
+    head = _git(root, "rev-parse", "HEAD").decode().strip()
+    library = root / os.fsdecode(b"library-\xff")
+    library.mkdir()
+    _init_repo(library)
+    (root / "app.txt").write_bytes(b"user GOOD\n")
+    (library / "app.txt").write_bytes(b"BAD nested edit\n")
+
+    with pytest.raises(RuntimeError, match="dirty nested repository"):
+        git.git_restore_to(head, root)
+    assert (root / "app.txt").read_bytes() == b"user GOOD\n"
+    assert (library / "app.txt").read_bytes() == b"BAD nested edit\n"
+
+
+@pytest.mark.parametrize("flag", ["--assume-unchanged", "--skip-worktree"])
+def test_hidden_submodule_edits_block_git_operations_without_changing_flags(
+    tmp_path, flag
+):
+    root, library, progress = _nested_repository_fixture(tmp_path)
+    head = _git(root, "rev-parse", "HEAD").decode().strip()
+    _git(library, "update-index", flag, "app.txt")
+    (library / "app.txt").write_bytes(b"hidden child GOOD\n")
+    assert not _git(library, "status", "--porcelain")
+    flags_before = _git(library, "ls-files", "-v", "-z")
+    (root / "app.txt").write_bytes(b"staged GOOD\n")
+    _git(root, "add", "app.txt")
+    (root / "app.txt").write_bytes(b"unstaged GOOD\n")
+    index_before = _git(root, "diff", "--cached", "--binary")
+
+    with pytest.raises(RuntimeError, match="tracking flags"):
+        git.git_test_tree_state(root, str(progress))
+    with pytest.raises(RuntimeError, match="tracking flags"):
+        git.git_stash_snapshot(root)
+    assert git.commit_checkpoint("checkpoint", root, str(progress)) == git.COMMIT_FAILED
+    with pytest.raises(RuntimeError, match="tracking flags"):
+        git.git_restore_to(head, root)
+
+    assert _git(root, "rev-parse", "HEAD").decode().strip() == head
+    assert _git(root, "diff", "--cached", "--binary") == index_before
+    assert (root / "app.txt").read_bytes() == b"unstaged GOOD\n"
+    assert (library / "app.txt").read_bytes() == b"hidden child GOOD\n"
+    assert _git(library, "ls-files", "-v", "-z") == flags_before
+
+
+def test_hidden_grandchild_edits_cannot_bypass_capture_or_restore(tmp_path):
+    from harness_common.runner import _find_bash, bash_environment
+
+    root, library, _progress = _nested_repository_fixture(tmp_path)
+    upstream = tmp_path / "leaf-upstream"
+    upstream.mkdir()
+    _init_repo(upstream)
+    subprocess.run(
+        [
+            "git",
+            "-c",
+            "protocol.file.allow=always",
+            "submodule",
+            "add",
+            upstream.as_posix(),
+            "leaf",
+        ],
+        cwd=library,
+        env=bash_environment(_find_bash()),
+        capture_output=True,
+        check=True,
+    )
+    _git(library, "commit", "-m", "add leaf")
+    _git(root, "add", "library")
+    _git(root, "commit", "-m", "update library")
+    head = _git(root, "rev-parse", "HEAD").decode().strip()
+    leaf = library / "leaf"
+    _git(leaf, "update-index", "--assume-unchanged", "app.txt")
+    (leaf / "app.txt").write_bytes(b"hidden leaf GOOD\n")
+    assert not _git(library, "status", "--porcelain", "--ignore-submodules=none")
+    (root / "app.txt").write_bytes(b"user GOOD\n")
+
+    with pytest.raises(RuntimeError, match="tracking flags"):
+        git.git_stash_snapshot(root)
+    with pytest.raises(RuntimeError, match="tracking flags"):
+        git.git_restore_to(head, root)
+    assert (root / "app.txt").read_bytes() == b"user GOOD\n"
+    assert (leaf / "app.txt").read_bytes() == b"hidden leaf GOOD\n"

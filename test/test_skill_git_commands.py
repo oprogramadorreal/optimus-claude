@@ -159,6 +159,30 @@ def test_tdd_exact_path_commit_preserves_unrelated_index_and_worktree(git_projec
     assert git("diff", "--cached", "--name-only").stdout == b"user file.txt\n"
 
 
+@pytest.mark.parametrize("original", [b"baseline\n", b"raw\x00\r\n\xff bytes\n"])
+def test_tdd_saved_blob_preserves_raw_bytes_after_index_changes(git_project, original):
+    project, environment, git = git_project
+    target = project / "cycle file.txt"
+    target.write_bytes(original)
+    git("add", "cycle file.txt")
+    git("commit", "-m", "cycle baseline")
+    blob_oid = git("rev-parse", "HEAD:cycle file.txt").stdout.decode("ascii").strip()
+
+    target.write_bytes(b"independent staged edit\n")
+    git("add", "cycle file.txt")
+    index_before = git("show", ":cycle file.txt").stdout
+    target.write_bytes(b"cycle implementation\n")
+
+    source = (ROOT / "skills/tdd/SKILL.md").read_text(encoding="utf-8")
+    command = re.search(r"`(git cat-file blob <blob-oid>)`", source).group(1)
+    result = _run_snippet(project, environment, command.replace("<blob-oid>", blob_oid))
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout == original
+    assert target.read_bytes() == b"cycle implementation\n"
+    assert git("show", ":cycle file.txt").stdout == index_before
+
+
 def test_paired_refactor_dispatch_names_existing_field_adapter():
     loop = (ROOT / "references/orchestrator-loop-paired.md").read_text(encoding="utf-8")
     dispatch = loop.split("    Phase: refactor\n", 1)[1].split("```", 1)[0]

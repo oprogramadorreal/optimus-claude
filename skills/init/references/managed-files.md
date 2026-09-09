@@ -67,8 +67,10 @@ A generated file may be refreshed without another prompt only when its entry has
 `refresh: "template"` **and** its current hash matches its recorded installed hash.
 Read changed, review-only, or unrecorded files, show the concrete differences, and
 offer **Merge** (apply the template's changes while keeping the file's customizations;
-record `refresh: "review"`), **Keep existing** (leave the file and its record as they
-are), or **Replace** (install the template verbatim; record `refresh: "template"`).
+update its hash and `refresh: "review"` only if already owned; keep an unrecorded file
+unrecorded unless whole-file adoption was separately selected), **Keep existing**
+(leave the file and its record as they are), or **Replace** (install the template
+verbatim; record `refresh: "template"`).
 Preserve conventions and custom code by default. Existing authorization for that
 exact change is sufficient; do not ask twice. Customizable documents always retain
 init's review-and-propose semantics.

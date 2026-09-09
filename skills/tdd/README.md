@@ -65,6 +65,8 @@ Each behavior runs one cycle: a failing test, the minimum code to pass it, a cle
 3. Pushes the branch to `origin`
 4. Recommends `/optimus:code-review` for the cross-cycle pass, then `/optimus:pr` in the same conversation — the latter reads the `## TDD Summary` block to populate the PR's Intent and per-behavior Test plan
 
+Rollback verifies the starting bytes against a saved Git blob or private copy and checks for independent edits before restoring any file. An empty Git status alone is insufficient; unrelated staged and unstaged work stays intact.
+
 Earlier versions ran a two-agent quality gate inline at the end of the run. That reviewed work this same conversation had just written, and duplicated a weaker version of `/optimus:code-review`; the review now happens in the skill built for it, where the full agent fan-out and finding validation apply.
 
 ## Skill structure

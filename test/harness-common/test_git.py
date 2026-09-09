@@ -4,11 +4,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
-from harness_common.constants import (
-    COMMIT_COMMITTED,
-    COMMIT_FAILED,
-    COMMIT_NOTHING,
-)
+from harness_common.constants import COMMIT_COMMITTED, COMMIT_FAILED, COMMIT_NOTHING
 from harness_common.git import (
     _HARNESS_STATE_EXCLUDES,
     _PR_BODY_TRUNCATE_LIMIT,
@@ -164,7 +160,8 @@ class TestCommitCheckpoint:
             "feat: x", tmp_path, ".claude/progress.json", _run=run
         )
         assert status == COMMIT_COMMITTED
-        assert calls[0][:2] == ["git", "add"]
+        assert calls[0][:2] == ["git", "ls-files"]
+        assert calls[1][:2] == ["git", "add"]
         reset_calls = [c for c in calls if c[:3] == ["git", "reset", "HEAD"]]
         reset_targets = [c[-1] for c in reset_calls]
         # The progress file and its .bak sibling are un-staged...
@@ -298,13 +295,16 @@ class TestGitRestoreTo:
     @patch("harness_common.git._clean_working_tree")
     @patch("harness_common.git.subprocess.run")
     def test_success(self, mock_run, mock_clean):
-        mock_run.return_value = MagicMock(returncode=0)
+        mock_run.return_value = MagicMock(returncode=0, stdout="")
         git_restore_to("abc123", "/tmp")
         mock_clean.assert_called_once()
 
     @patch("harness_common.git.subprocess.run")
     def test_failure_raises(self, mock_run):
-        mock_run.return_value = MagicMock(returncode=1, stderr="error: pathspec")
+        mock_run.side_effect = [
+            MagicMock(returncode=0, stdout=""),
+            MagicMock(returncode=1, stderr="error: pathspec"),
+        ]
         import pytest
 
         with pytest.raises(RuntimeError, match="git read-tree .* failed"):
@@ -397,6 +397,7 @@ class TestGitStashSnapshot:
     @patch("harness_common.git.subprocess.run")
     def test_success(self, mock_run):
         mock_run.side_effect = [
+            MagicMock(returncode=0, stdout=""),  # no nested repositories
             MagicMock(returncode=0, stdout="abc123\n"),  # stash create
             MagicMock(returncode=0, stdout=""),  # ls-files: no untracked
             MagicMock(returncode=0),  # stash store
@@ -411,6 +412,7 @@ class TestGitStashSnapshot:
     @patch("harness_common.git.subprocess.run")
     def test_store_failure_raises(self, mock_run):
         mock_run.side_effect = [
+            MagicMock(returncode=0, stdout=""),
             MagicMock(returncode=0, stdout="abc123\n"),
             MagicMock(returncode=0, stdout=""),
             MagicMock(returncode=1, stderr="error storing"),
@@ -424,6 +426,7 @@ class TestGitStashSnapshot:
         # synthesizes a 3-parent stash commit — the shape `git stash apply`
         # restores untracked files from.
         mock_run.side_effect = [
+            MagicMock(returncode=0, stdout=""),  # no nested repositories
             MagicMock(returncode=0, stdout="base1\n"),  # stash create
             MagicMock(returncode=0, stdout="new.txt\0"),  # ls-files
             MagicMock(returncode=0),  # update-index (temp index)
@@ -436,7 +439,7 @@ class TestGitStashSnapshot:
             MagicMock(returncode=0),  # stash store
         ]
         assert git_stash_snapshot("/tmp") == "stash3p"
-        three_parent = mock_run.call_args_list[8].args[0]
+        three_parent = mock_run.call_args_list[9].args[0]
         assert three_parent[:3] == ["git", "commit-tree", "wtree"]
         assert three_parent[3:9] == [
             "-p",
@@ -446,7 +449,7 @@ class TestGitStashSnapshot:
             "-p",
             "ucommit",
         ]
-        stored = mock_run.call_args_list[9].args[0]
+        stored = mock_run.call_args_list[10].args[0]
         assert stored == ["git", "stash", "store", "-m", "harness snapshot", "stash3p"]
 
     @patch("harness_common.git.subprocess.run")
@@ -456,6 +459,7 @@ class TestGitStashSnapshot:
         # must not be captured (re-applying a stale copy would corrupt the
         # run's state). Only harness paths untracked → plain 2-parent stash.
         mock_run.side_effect = [
+            MagicMock(returncode=0, stdout=""),  # no nested repositories
             MagicMock(returncode=0, stdout="base1\n"),
             MagicMock(
                 returncode=0,
@@ -514,10 +518,10 @@ class TestGitApplySnapshot:
     def test_success_does_not_drop(self, mock_clean, mock_run):
         # The repeatable variant must leave the stash reflog entry in place —
         # it backs the bisect's clean-reset rebuilds in no-commit mode.
-        mock_run.return_value = MagicMock(returncode=0)
+        mock_run.return_value = MagicMock(returncode=0, stdout="")
         assert git_apply_snapshot("abc123", "/tmp") is True
         mock_clean.assert_called_once()
-        assert mock_run.call_count == 2
+        assert mock_run.call_count == 3
         assert mock_run.call_args.args[0] == [
             "git",
             "stash",
@@ -530,6 +534,7 @@ class TestGitApplySnapshot:
     @patch("harness_common.git._clean_working_tree")
     def test_failure_returns_false(self, mock_clean, mock_run, capsys):
         mock_run.side_effect = [
+            MagicMock(returncode=0, stdout=""),
             MagicMock(returncode=0),
             MagicMock(returncode=1, stderr="conflict"),
         ]
@@ -541,7 +546,7 @@ class TestGitRestoreSnapshot:
     @patch("harness_common.git.subprocess.run")
     @patch("harness_common.git._clean_working_tree")
     def test_success(self, mock_clean, mock_run):
-        mock_run.return_value = MagicMock(returncode=0)
+        mock_run.return_value = MagicMock(returncode=0, stdout="")
         assert git_restore_snapshot("abc123", "/tmp") is True
         mock_clean.assert_called_once()
 
@@ -549,6 +554,7 @@ class TestGitRestoreSnapshot:
     @patch("harness_common.git._clean_working_tree")
     def test_failure(self, mock_clean, mock_run, capsys):
         mock_run.side_effect = [
+            MagicMock(returncode=0, stdout=""),
             MagicMock(returncode=0),
             MagicMock(returncode=1, stderr="conflict"),
         ]
@@ -559,13 +565,14 @@ class TestGitRestoreSnapshot:
     @patch("harness_common.git._clean_working_tree")
     def test_success_drops_matching_stash(self, mock_clean, mock_run):
         mock_run.side_effect = [
+            MagicMock(returncode=0, stdout=""),
             MagicMock(returncode=0),
             MagicMock(returncode=0),
             MagicMock(returncode=0, stdout="stash@{0} abc123\nstash@{1} def456\n"),
             MagicMock(returncode=0),
         ]
         assert git_restore_snapshot("abc123", "/tmp") is True
-        drop_call = mock_run.call_args_list[3]
+        drop_call = mock_run.call_args_list[4]
         assert drop_call[0][0] == ["git", "stash", "drop", "stash@{0}"]
 
     @patch("harness_common.git.subprocess.run")
@@ -577,13 +584,14 @@ class TestGitRestoreSnapshot:
         # user must be told how to recover it manually (regression for the
         # restore-recovery hardening in commit fac1fec).
         mock_run.side_effect = [
+            MagicMock(returncode=0, stdout=""),
             MagicMock(returncode=0),
             MagicMock(returncode=1, stderr="conflict"),
         ]
         assert git_restore_snapshot("abc123", "/tmp") is False
         assert "git stash apply abc123" in capsys.readouterr().out
-        # Base restoration and apply ran, but listing/dropping did not.
-        assert mock_run.call_count == 2
+        # Nested-state inspection, base restoration and apply ran; no stash drop.
+        assert mock_run.call_count == 3
         assert mock_run.call_args.args[0] == [
             "git",
             "stash",

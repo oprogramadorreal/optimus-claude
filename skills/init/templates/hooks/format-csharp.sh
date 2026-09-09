@@ -19,25 +19,30 @@ if ! cd "$(dirname "$file_path")" 2>/dev/null; then
   exit 0
 fi
 file_path="$PWD/$(basename "$file_path")"
-if ! version=$(dotnet tool run csharpier -- --version 2>&1); then
-  echo "[format-csharp] local csharpier unavailable — run dotnet tool restore in this package." >&2
+if ! local_tools=$(dotnet tool list --local 2>&1); then
+  echo "[format-csharp] cannot inspect local dotnet tools — skipped." >&2
   exit 0
 fi
-# The tool prints its version last; a dotnet first-run banner can precede it
-# with its own numbers, so keep the last line that carries one.
-version_re='(^|[[:space:]])([0-9]+)\.[0-9]+'
+# The local manifest supplies both the pinned version and command: 0.x uses
+# dotnet-csharpier, while 1.x uses csharpier. Match the package row, not the
+# localized table headings or a dotnet first-run banner's version numbers.
+tool_re='^[[:space:]]*csharpier[[:space:]]+([0-9]+)\.[^[:space:]]+[[:space:]]+(dotnet-csharpier|csharpier)[[:space:]]'
 major=""
+tool_command=""
 while IFS= read -r line || [[ -n "$line" ]]; do
-  [[ "$line" =~ $version_re ]] && major="${BASH_REMATCH[2]}"
-done <<< "$version"
-if [[ -z "$major" ]]; then
-  echo "[format-csharp] cannot determine the pinned csharpier version — skipped." >&2
+  [[ "$line" =~ $tool_re ]] || continue
+  major="${BASH_REMATCH[1]}"
+  tool_command="${BASH_REMATCH[2]}"
+  break
+done <<< "$local_tools"
+if [[ -z "$tool_command" ]]; then
+  echo "[format-csharp] local csharpier unavailable — check this package's tool manifest and run dotnet tool restore." >&2
   exit 0
 fi
 args=()
 [[ "$major" == 0 ]] || args=(format)
 
-if ! output=$(dotnet tool run csharpier -- ${args[@]+"${args[@]}"} "$file_path" 2>&1); then
+if ! output=$(dotnet tool run "$tool_command" -- ${args[@]+"${args[@]}"} "$file_path" 2>&1); then
   echo "[format-csharp] csharpier failed: $(echo "$output" | head -1)" >&2
 fi
 exit 0

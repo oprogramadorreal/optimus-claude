@@ -16,6 +16,27 @@ RESTRICT = ROOT / "skills/permissions/templates/hooks/restrict-paths.sh"
 BASH = _find_bash()
 NODE = shutil.which("node")
 
+CSHARPIER_STUB = r"""
+dotnet() {
+  printf '%s\n' "$PWD|$*" >> "$HOOK_CALLS"
+  if [[ "$*" == 'tool list --local' ]]; then
+    printf '%s\n' "$LOCAL_TOOL_LIST"
+    return "${LIST_EXIT:-0}"
+  fi
+  [[ "$1" == tool && "$2" == run && "$3" == "$CSHARPIER_COMMAND" && "$4" == -- ]] || {
+    echo 'Unknown local tool command' >&2
+    return 1
+  }
+  if [[ "${RUN_EXIT:-0}" != 0 ]]; then
+    echo 'Local tool failed' >&2
+    return "$RUN_EXIT"
+  fi
+  { pwd; printf '%s\n' "$@"; } > "$HOOK_LOG"
+}
+export -f dotnet
+bash "$1"
+"""
+
 
 def _bash(script, tmp_path, *args, payload="", env=None):
     driver = tmp_path / "driver.sh"
@@ -76,29 +97,32 @@ def test_node_hook_preserves_literal_path_in_each_package_type(
 
 
 @pytest.mark.parametrize(
-    "version, prefix",
+    "version, command, prefix",
     [
-        ("0.30.6", []),
-        ("1.0.0", ["format"]),
-        ("1.2.5", ["format"]),
-        # A dotnet first-run banner precedes the tool's own version line.
-        ("Welcome to .NET 8.0!\n\n0.30.6", []),
+        ("0.30.6", "dotnet-csharpier", []),
+        ("1.0.0", "csharpier", ["format"]),
+        ("1.2.5", "csharpier", ["format"]),
+        # A dotnet first-run banner precedes the local tool table.
+        ("Welcome to .NET 8.0!\n\n0.30.6", "dotnet-csharpier", []),
     ],
 )
 @pytest.mark.parametrize("native_path", [False, True])
 def test_csharp_hook_uses_package_cwd_and_pinned_cli_syntax(
-    tmp_path, version, prefix, native_path
+    tmp_path, version, command, prefix, native_path
 ):
     package = tmp_path / "package with spaces"
     package.mkdir()
     target = package / "source.cs"
     target.write_text("class C{}")
     log = tmp_path / "calls.txt"
+    calls = tmp_path / "dotnet-calls.txt"
+    banner, _, pinned_version = version.rpartition("\n")
+    local_tools = (
+        f"{banner}\nPaquete    Versión    Comandos    Manifiesto\n"
+        f"csharpier    {pinned_version}    {command}    {package}/.config/dotnet-tools.json\n"
+    )
     result = _bash(
-        "dotnet() {\n"
-        '  if [[ "$*" == *--version ]]; then printf "%s\\n" "$CSHARPIER_VERSION"; return; fi\n'
-        '  { pwd; printf "%s\\n" "$@"; } > "$HOOK_LOG"\n'
-        '}\nexport -f dotnet\nbash "$1"\n',
+        CSHARPIER_STUB,
         tmp_path,
         HOOKS / "format-csharp.sh",
         payload=json.dumps(
@@ -108,14 +132,63 @@ def test_csharp_hook_uses_package_cwd_and_pinned_cli_syntax(
                 }
             }
         ),
-        env={"CSHARPIER_VERSION": version, "HOOK_LOG": log.as_posix()},
+        env={
+            "LOCAL_TOOL_LIST": local_tools,
+            "CSHARPIER_COMMAND": command,
+            "HOOK_LOG": log.as_posix(),
+            "HOOK_CALLS": calls.as_posix(),
+        },
     )
     assert result.returncode == 0, result.stderr
     assert log.exists(), result.stderr
     lines = log.read_text().splitlines()
     assert lines[0].endswith("/package with spaces"), lines
-    assert lines[1:-1] == ["tool", "run", "csharpier", "--", *prefix], lines
+    assert lines[1:-1] == ["tool", "run", command, "--", *prefix], lines
     assert lines[-1].endswith("/package with spaces/source.cs"), lines
+    actual_calls = calls.read_text().splitlines()
+    assert len(actual_calls) == 2, actual_calls
+    assert actual_calls[0] == f"{lines[0]}|tool list --local"
+    assert actual_calls[1].startswith(f"{lines[0]}|tool run {command} -- ")
+
+
+@pytest.mark.parametrize("failure", ["missing", "list", "run"])
+def test_csharp_hook_does_not_fall_back_from_unavailable_local_tool(tmp_path, failure):
+    target = tmp_path / "source.cs"
+    target.write_text("class C{}")
+    calls = tmp_path / "dotnet-calls.txt"
+    log = tmp_path / "formatted.txt"
+    result = _bash(
+        CSHARPIER_STUB,
+        tmp_path,
+        HOOKS / "format-csharp.sh",
+        payload=json.dumps({"tool_input": {"file_path": str(target)}}),
+        env={
+            "LOCAL_TOOL_LIST": (
+                "Package Id    Version    Commands    Manifest\n"
+                + (
+                    "csharpier    1.2.5    csharpier    /project/.config/dotnet-tools.json\n"
+                    if failure != "missing"
+                    else ""
+                )
+            ),
+            "CSHARPIER_COMMAND": "csharpier",
+            "LIST_EXIT": "1" if failure == "list" else "0",
+            "RUN_EXIT": "1" if failure == "run" else "0",
+            "HOOK_LOG": log.as_posix(),
+            "HOOK_CALLS": calls.as_posix(),
+        },
+    )
+    assert result.returncode == 0, result.stderr
+    assert not log.exists()
+    actual_calls = [line.split("|", 1)[1] for line in calls.read_text().splitlines()]
+    assert actual_calls[0] == "tool list --local"
+    assert len(actual_calls) == (2 if failure == "run" else 1), actual_calls
+    expected_error = {
+        "missing": "local csharpier unavailable",
+        "list": "cannot inspect local dotnet tools",
+        "run": "Local tool failed",
+    }[failure]
+    assert expected_error in result.stderr
 
 
 def test_normalize_keeps_parent_when_cd_fails(tmp_path):

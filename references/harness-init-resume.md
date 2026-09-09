@@ -30,3 +30,7 @@ If exit code is non-zero, surface the error and stop. Likely errors:
 - *"No test command"* — `.claude/CLAUDE.md` does not document a test command and `--test-command` was not supplied. Recommend `/optimus:init`.
 - *"Working tree has uncommitted changes"* — the CLI re-enforces the Step 2 clean-tree check (it also protects direct CLI callers). Commit or stash first, or run with `--no-commit`.
 - *"Cannot determine HEAD commit"* — the project is not a git repository or has no commits.
+
+Dirty nested repositories (including submodules) must be handled inside their own repository, even with `--no-commit`; a parent snapshot cannot preserve those edits. Child assume-unchanged or skip-worktree index flags also block the run, even on currently clean files, because they can hide edits; resolve them in that repository first. A recovery error naming a changed child checkout requires restoring that child's recorded commit separately before retrying. Preserve the files and progress on these errors.
+
+The CLI records exact regular files first created by tests as test outputs, including during failed runs and bisection. It excludes those paths from later input comparisons and checkpoints, persisting them across resume. Do not manually classify pre-existing files as outputs; use the project's ignore rules for existing disposable reports before starting. If generated source belongs in the change, deliberately stage it and validate again; staging revokes its output exclusion.
