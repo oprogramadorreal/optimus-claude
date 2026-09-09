@@ -10,7 +10,7 @@
 |---------|---------|-------|
 | `[path]` | [purpose] | [stack] |
 
-Each subproject has its own CLAUDE.md, loaded automatically when working in that directory.
+Read the applicable subproject CLAUDE.md before working there. Claude Code discovers these files natively; Codex follows the root AGENTS.md pointer and reads them explicitly.
 
 ## Commands
 

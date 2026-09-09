@@ -2,7 +2,7 @@
 
 The main skill of the [optimus](https://github.com/oprogramadorreal/optimus-claude) plugin. Analyzes your project and sets up Claude Code for optimal performance — documentation, formatter hooks, and test infrastructure, all scoped to the project directory so they travel with the repo via git.
 
-What makes a good developer productive in a codebase also makes Claude Code productive: clean code, good test coverage, and clear documentation. AI tools introduce [30%+ more defects](https://arxiv.org/abs/2601.02200) on poorly maintained code, LLM performance [degrades up to 85%](https://arxiv.org/abs/2510.05381) as context grows, and Anthropic's [#1 best practice](https://code.claude.com/docs/en/best-practices) is giving Claude a way to verify its own work.
+The design emphasizes readable code, project-specific guidance, and reproducible checks. Research on [code health](https://arxiv.org/abs/2601.02200) and [long contexts](https://arxiv.org/abs/2510.05381), plus Anthropic's [verification guidance](https://code.claude.com/docs/en/best-practices), motivates those choices. The studies concern their own tasks and models; they do not measure Optimus or establish a GPT-6 Astra/Claude Fable 5.1 performance improvement.
 
 ## Features
 
@@ -36,13 +36,13 @@ Part of the [optimus](https://github.com/oprogramadorreal/optimus-claude) plugin
 7. **Creates scoped documentation** — coding guidelines (always); styling, architecture, skill-writing guidelines (when detected)
 8. **Syncs project docs** — surgical fixes for claims the source code contradicts, with your approval
 
-File-write safety: hooks and `coding-guidelines.md` are always refreshed from templates; everything else (CLAUDE.md, testing.md, styling.md, architecture.md, skill-writing-guidelines.md) is never silently overwritten, and `settings.json` is always merged.
+File-write safety: init refreshes recorded, unchanged template copies. Customized guidance/hooks remain subject to review even after an approved merge updates their recorded hash. Unrecorded user files stay unowned after ordinary init edits; only explicit whole-file adoption/replacement changes that. Customizable documents are reconciled with approval, and `settings.json` is merged. A small `.claude/.optimus-managed.json` record tracks installed file hashes, refresh eligibility, and only settings entries actually added.
 
 ## Formatter Hooks
 
-Claude Code only. Under Codex, init skips formatter installation, preserves existing hooks/settings, and reports automatic formatting as unsupported. Documentation and test-infrastructure setup still run.
+Claude Code only. Under Codex, init preserves existing hooks/settings and documents the project's formatter/check command for task boundaries and editor/CI use. This plugin does not install its Claude PostToolUse formatters in Codex. Documentation and test-infrastructure setup still run.
 
-Auto-installed per detected stack: Python (black + isort), Node.js (prettier), Rust (rustfmt), Go (gofmt), C#/.NET (csharpier), Java (google-java-format), C/C++ (clang-format), Dart/Flutter (dart format). Other stacks get a custom hook via web-search fallback with user approval. External formatters are only installed after you approve. See [`references/formatter-setup.md`](references/formatter-setup.md) for the exact install conditions.
+Existing formatter configuration, pinned versions, ignore rules, and editor/CI integration take priority. If a new integration is appropriate, defaults are available for Python (black + isort), Node.js (prettier), Rust (rustfmt with an explicit project edition), Go (gofmt), C#/.NET (local csharpier), Java, C/C++, and Dart/Flutter. Other stacks use a reviewed fallback. Setup does not reformat the repository or replace a competing formatter silently. See [`references/formatter-setup.md`](references/formatter-setup.md) for requirements and legacy `.js`/Python migrations.
 
 ## Generated Files
 
@@ -50,20 +50,21 @@ Auto-installed per detected stack: Python (black + isort), Node.js (prettier), R
 |------|---------|
 | `.claude/CLAUDE.md` | Project overview, commands, doc references |
 | `.claude/settings.json` | Formatter hook configuration (merged, never overwritten) |
-| `.claude/docs/coding-guidelines.md` | Coding standards (always refreshed from template) |
+| `.claude/docs/coding-guidelines.md` | Coding baseline; existing customizations are preserved and reviewed |
 | `.claude/docs/skill-writing-guidelines.md` | Markdown-instruction standards (when skill authoring detected) |
 | `.claude/docs/testing.md` | Testing conventions (when test infrastructure exists) |
 | `.claude/docs/styling.md` | UI/CSS guidelines (when frontend detected) |
 | `.claude/docs/architecture.md` | Architecture map (complex structure or skill authoring; optional Skill Architecture section) |
 | `.claude/hooks/` | Auto-format hooks per detected stack |
 | `.claude/.optimus-version` | Plugin version that last generated these files (written only by init) |
+| `.claude/.optimus-managed.json` | Installed file hashes, refresh eligibility, and settings additions; shared with permissions/reset |
 | `AGENTS.md` | Codex pointer to the applicable project/workspace CLAUDE.md and nested package instructions; existing marked blocks are refreshed without changing surrounding user content |
 
 **Monorepo:** each subproject also gets its own `CLAUDE.md` and scoped `docs/`; the root Codex pointer explicitly routes to those instructions because Codex does not load them automatically. **Multi-repo workspace:** each repo gets its own complete `.claude/` and, when Codex use is detected, a pointer (version-controlled), plus lightweight local-only workspace `CLAUDE.md` and `AGENTS.md` pointer files.
 
 ## Customization
 
-`.claude/docs/coding-guidelines.md` is the baseline the code-simplifier agent, `/optimus:refactor`, and `/optimus:code-review` judge code against. It is regenerated from the plugin template on every re-run, so don't edit it — put rules specific to your codebase in the Gotchas section of `.claude/CLAUDE.md`, or (for skill-authoring projects) in `skill-writing-guidelines.md`. Both are preserved across re-runs.
+`.claude/docs/coding-guidelines.md` is the baseline used by code-simplifier, refactor, and code-review. Init refreshes recorded unchanged template copies; customized, changed, or unrecorded versions are reviewed. Keep project-specific rules there or in an existing routed guide, with key gotchas in `.claude/CLAUDE.md`. Architecture documentation stays conditional and records non-obvious boundaries and rationale rather than prescribing a new design.
 
 Templates live in [`templates/`](templates/) — CLAUDE.md variants, doc skeletons, and hook scripts.
 
@@ -73,7 +74,7 @@ init is the foundation: `/optimus:unit-test` and `/optimus:deep` require an init
 
 ## Requirements
 
-- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) 1.0.33+ (plugin support), or a plugin-capable Codex host ([experimental support](../../README.md#using-with-openai-codex))
+- A plugin-capable [Claude Code](https://code.claude.com/docs/en/plugins) or Codex host (see the [supported hosts and versions](../../README.md#supported-hosts-and-versions))
 - Git
 
 ## License

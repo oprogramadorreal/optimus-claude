@@ -2,6 +2,25 @@
 
 Shared procedure for skills that hand a design off through Claude Code's plan mode (`brainstorm`, `jira`). Owned by brainstorm.
 
+## Codex handoff
+
+Under Codex, use this branch instead of the Claude-specific toggle/approval steps
+below. Keep the same Prompt skeleton and exact `### Refined plan` artifact heading,
+using `$optimus:tdd` in the execution prompt.
+
+Offer plan review in the host's available plan mode, or an ordinary conversation
+explicitly scoped to reviewing the plan without implementation. Do not prescribe
+Claude keyboard shortcuts, ExitPlanMode, or assume that approving a Codex plan
+dispatches a skill. After review, save the refined plan to the actual source path
+only in a write-enabled conversation with the user's authorization. If the host
+cannot save it yet, provide a copyable refined plan and execution prompt containing
+the unresolved decisions and source path; do not claim the file was updated.
+
+For implementation, give a copyable `$optimus:tdd` prompt referencing the approved
+plan in a fresh conversation. For prose, continue writing the approved deliverable
+when authorized, then recommend `$optimus:commit` in that conversation. Use the
+native host controls where available; the durable plan is the shared handoff.
+
 ## Plan-mode facts the handoff relies on
 
 - **Approving a plan executes it immediately in the same conversation.** That is the intended flow and the right default for most deliverables.

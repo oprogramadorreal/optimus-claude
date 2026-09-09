@@ -486,6 +486,7 @@ chmod +x bin/rustfmt
 export PATH="$tmpdir/bin:$PATH"
 
 echo "fn main() {}" > test.rs
+printf 'edition = "2021"\n' > rustfmt.toml
 exit_code=0
 output=$(echo '{"tool_input":{"file_path":"test.rs"}}' | bash "$PLUGIN_ROOT/skills/init/templates/hooks/format-rust.sh" 2>&1) || exit_code=$?
 # Hook should exit 0 (no error output) for a .rs file
@@ -581,7 +582,7 @@ MOCK
   export PATH="$tmpdir/node_modules/.bin:$PATH"
 
   echo "const x = 1" > test.js
-  output=$(echo '{"tool_input":{"file_path":"test.js"}}' | node "$PLUGIN_ROOT/skills/init/templates/hooks/format-node.js" 2>&1 || true)
+  output=$(echo '{"tool_input":{"file_path":"test.js"}}' | node "$PLUGIN_ROOT/skills/init/templates/hooks/format-node.cjs" 2>&1 || true)
   # The node hook may fail if prettier isn't really there, but it shouldn't crash on JSON parsing
   # Just verify it doesn't throw a JSON parse error
   if echo "$output" | grep -q "SyntaxError"; then

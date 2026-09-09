@@ -14,7 +14,7 @@ Before implementing a new feature or significant change — especially when the 
 2. Gathers intent — JIRA auto-detection, then up to 3 clarifying questions
 3. Proposes 2-3 approaches with trade-offs and a marked recommendation
 4. Iterates the design with you until approved
-5. Writes the spec — including a conditional Given/When/Then **Scenarios** section that `/optimus:tdd` maps to Red-Green-Refactor cycles — and self-reviews it
+5. Writes the approved spec, including a conditional Given/When/Then **Scenarios** section that `/optimus:tdd` maps to Red-Green-Refactor cycles
 6. Routes to the right next step (refactor, unit-test, TDD, or a plan-mode handoff)
 
 ## Scaffold mode
@@ -31,6 +31,8 @@ Before implementing a new feature or significant change — especially when the 
 | Greenfield product | brainstorm scaffold → fill the cascade → brainstorm |
 
 Brainstorm generates the plan-mode prompt inline — no separate `/optimus:prompt` step needed for this chain.
+
+Under Codex, the handoff uses its available plan/review controls and `$optimus:tdd`, with a copyable plan when the host cannot save it yet. Claude-specific toggle/approval instructions are not applied to Codex. The durable spec and `### Refined plan` heading are shared between hosts.
 
 ## Relationship to other skills
 
@@ -56,7 +58,7 @@ Brainstorm generates the plan-mode prompt inline — no separate `/optimus:promp
 
 ## Requirements
 
-- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) 1.0.33+ (plugin support)
+- A plugin-capable [Claude Code](https://code.claude.com/docs/en/plugins) or Codex host (see the [supported hosts and versions](../../README.md#supported-hosts-and-versions))
 
 ## License
 

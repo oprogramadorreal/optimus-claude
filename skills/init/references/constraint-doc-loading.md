@@ -35,4 +35,4 @@ When operating on a subproject's code, apply its own constraint docs — not ano
 
 ## Submodule Exclusion
 
-Exclude git submodule directories from analysis. A directory is a git submodule if it contains a `.git` *file* (not a `.git` directory). Files inside submodules belong to an external repository and should be analyzed in that repository's context, not the parent project's.
+Exclude confirmed git submodule directories from analysis of their parent project: `git -C "<directory>" rev-parse --show-superproject-working-tree` identifies the superproject, or the parent's `.gitmodules` registers that path. A `.git` file alone is insufficient — linked worktrees also use it. Analyze an explicitly targeted submodule in its own repository context.

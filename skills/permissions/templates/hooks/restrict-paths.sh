@@ -5,7 +5,7 @@
 # Source:       https://github.com/oprogramadorreal/optimus-claude
 # Docs:         skills/permissions/README.md
 # ============================================================================
-# HOOK_VERSION: 9
+# HOOK_VERSION: 10
 # ^ Bump on every behavioural change. The plugin's SessionStart hook compares
 #   this against the copy installed in a project and recommends re-running
 #   /optimus:permissions when the project's copy is older — a plugin update
@@ -265,7 +265,13 @@ basename_of() {
 precious_basename() {
   basename_of "$1"
   # Case-insensitive matching for Windows (NTFS) and macOS (APFS)
-  [[ "${OSTYPE:-}" == msys* || "${OSTYPE:-}" == cygwin* || "${OSTYPE:-}" == darwin* ]] && _basename="${_basename,,}"
+  if [[ "${OSTYPE:-}" == msys* || "${OSTYPE:-}" == cygwin* || "${OSTYPE:-}" == darwin* ]]; then
+    if (( BASH_VERSINFO[0] >= 4 )); then
+      _basename="${_basename,,}"
+    else
+      _basename="$(printf '%s' "$_basename" | tr '[:upper:]' '[:lower:]')"
+    fi
+  fi
 }
 
 is_precious() {
@@ -439,7 +445,11 @@ normalize() {
   if command -v realpath &>/dev/null; then
     p="$(realpath -m -- "$p" 2>/dev/null || printf '%s\n' "$p")"
   elif [[ -d "$(dirname "$p")" ]]; then
-    p="$(cd "$(dirname "$p")" 2>/dev/null && pwd)/$(basename "$p")"
+    local resolved_parent
+    # -d does not imply traversal permission; preserve the input if cd fails.
+    if resolved_parent="$(cd "$(dirname "$p")" 2>/dev/null && pwd)"; then
+      p="$resolved_parent/$(basename "$p")"
+    fi
   fi
   # Collapse repeated slashes, drop a trailing one (see header: PATH
   # NORMALIZATION). Requiring the UNC shape in BOTH the OS spelling and the
@@ -457,7 +467,13 @@ normalize() {
     */../*|*/..|../*|..|*/./*|*/.|./*|.) collapse_dot_segments "$p"; p="$_collapsed" ;;
   esac
   # Case-insensitive on Windows (NTFS)
-  [[ "${OSTYPE:-}" == msys* || "${OSTYPE:-}" == cygwin* ]] && p="${p,,}"
+  if [[ "${OSTYPE:-}" == msys* || "${OSTYPE:-}" == cygwin* ]]; then
+    if (( BASH_VERSINFO[0] >= 4 )); then
+      p="${p,,}"
+    else
+      p="$(printf '%s' "$p" | tr '[:upper:]' '[:lower:]')"
+    fi
+  fi
   # printf, not echo: a path of exactly '-n'/'-e'/'-E' is an echo FLAG and would
   # come back as the empty string, silently dropping the path from every gate.
   printf '%s\n' "$p"

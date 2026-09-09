@@ -2,6 +2,20 @@
 
 Instructions for installing auto-format hooks per tech stack. Referenced from Step 5 of the init skill.
 
+## Prefer the project's existing workflow
+
+Inspect formatter configuration, package scripts, local tool manifests, editor settings,
+and CI before choosing a hook. Reuse the project's formatter, pinned version,
+ignore rules, and command. Existing editor, pre-commit, or CI integration is a
+valid outcome; do not add a competing formatter or duplicate trigger. If its command
+cannot safely target the edited file, document using it at a task boundary instead
+of wrapping a whole-project rewrite.
+
+Offer the defaults below only when no configured formatter exists or the user
+requests the change. Present exact dependency/configuration changes and affected
+file scope before installation. Never reformat the repository as part of setup.
+Preserve unrecorded/custom hooks under init's ownership rules.
+
 ## Hook Templates
 
 All templates are in `$CLAUDE_PLUGIN_ROOT/skills/init/templates/hooks/`.
@@ -9,8 +23,8 @@ All templates are in `$CLAUDE_PLUGIN_ROOT/skills/init/templates/hooks/`.
 | Stack | Template | Formatter | Install when |
 |-------|----------|-----------|--------------|
 | Python | `format-python.sh` | black + isort | In project deps (requirements*.txt, pyproject.toml, Pipfile), or user approves |
-| Node.js | `format-node.js` | prettier | In package.json devDependencies, or user approves |
-| Rust | `format-rust.sh` | rustfmt | Always (built-in) |
+| Node.js | `format-node.cjs` | prettier | In package.json devDependencies, or user approves |
+| Rust | `format-rust.sh` | rustfmt | Installed toolchain has rustfmt and nearest project rustfmt config declares its edition; otherwise retain Cargo workflow |
 | Go | `format-go.sh` | gofmt | Always (built-in) |
 | C#/.NET | `format-csharp.sh` | csharpier | `csharpier` entry exists in `.config/dotnet-tools.json` (do NOT check `dotnet csharpier --version` or PATH — a global-only install is not sufficient), or user approves |
 | Java | `format-java.sh` | google-java-format | On PATH, or user approves (JAR from github.com/google/google-java-format releases, placed on PATH) |
@@ -24,10 +38,11 @@ All templates are in `$CLAUDE_PLUGIN_ROOT/skills/init/templates/hooks/`.
 
 ## Installation Steps
 
-1. Copy the applicable template(s) to `.claude/hooks/` (custom hooks per the unsupported-stacks rule above).
-   - **Legacy cleanup (required):** optimus <= 3.5.0 installed the Python hook as `.claude/hooks/format-python.py`. If that file exists, delete it and remove its `PostToolUse` entry (the command containing `format-python.py`) from `.claude/settings.json`. The rename puts it out of reach of the Generated-file overwrite, and settings.json is merge-only — so without this step the stale hook and its entry both survive a re-run and fire on every edit alongside the new one. On a machine with no `python` on PATH, which is why the hook was rewritten in bash, that entry errors on every edit forever.
+1. Establish ownership and migration choices before copying applicable templates to `.claude/hooks/`.
+   - **Legacy migration:** `format-python.py` (Optimus <= 3.5.0) is replaced by `format-python.sh`; `format-node.js` is replaced by `format-node.cjs` for ESM compatibility. Show the old file and exact `PostToolUse` entries. Remove an unchanged recorded legacy file/entry as part of the approved migration; modified/unrecorded versions need an explicit reviewed choice. Never delete solely by filename or leave both registrations active. If the old hook is kept, skip the competing new hook and report the incomplete migration.
 2. External formatters not in deps → ask the user "Add [formatter] as dev dependency and install format hook?" If declined, skip that stack's hook entirely. If approved, install with the detected package manager's standard dev-dependency command. Non-obvious flows:
    - **C#/.NET (csharpier):** install as a local tool so all developers get it via `dotnet tool restore` — if `.config/dotnet-tools.json` is missing run `dotnet new tool-manifest`, then `dotnet tool install csharpier`, then `dotnet tool restore`. "In deps" always means the tool-manifest entry, never PATH.
+     Preserve existing pinned versions. The hook resolves the local tool from the edited package and uses pre-1.0 syntax for 0.x or the `format` subcommand for 1.x and later; it does not upgrade tools.
    - **Unsupported stacks:** use the installation command identified via web search — present the exact command for user approval before executing.
-3. **Python only — confirm the formatters are reachable.** `format-python.sh` resolves `black` and `isort` from a `.venv`, `venv`, or `env` directory at or above the edited file, falling back to PATH. It reports a missing formatter on stderr but never blocks an edit, so a virtualenv the hook cannot see means formatting silently never happens. Verify at least one of those locations has both. If the project keeps its virtualenv outside the tree — Poetry with the default `virtualenvs.in-project=false`, pipenv, conda, tox — say so explicitly: **"Python formatter hook installed, but black/isort are in a virtualenv outside the project — the hook will not find them. Run `poetry config virtualenvs.in-project true` (or install black/isort on PATH) to enable it."** Do not skip installing the hook over this; it starts working as soon as the tools are reachable.
-4. If any hooks were installed, create or update `.claude/settings.json` using `$CLAUDE_PLUGIN_ROOT/skills/init/templates/settings.json` as reference, keeping only entries for hooks actually installed. Node.js hooks run via `node "..."`; all shell hooks (Python, Rust, Go, C#, Java, C/C++, Dart/Flutter, custom) via `bash "..."`. Monorepos: install all applicable hooks — each self-filters by file extension. settings.json follows the merge semantics in the skill's File semantics block (merge, never overwrite; don't create it when no hooks were installed unless it already exists).
+3. **Confirm reachability before claiming hooks work.** Python resolves black/isort in `.venv`, `venv`, or `env` above the edited file, then PATH. For an external Poetry/pipenv/conda environment, prefer the existing project command at task boundaries; do not move its environment merely to fit this hook. Rust requires an explicit `edition` in the nearest `rustfmt.toml` or `.rustfmt.toml`, runs from the edited package to honor its toolchain, and retains that config's style options. Verify edition and `style_edition` against Cargo/the pinned toolchain during setup; mixed-edition workspaces need package-specific config or the existing `cargo fmt` command. Do not invent an edition or change configuration without approval. Rustfmt can follow out-of-line modules; retain the task-boundary workflow if that scope is inappropriate per edit. Missing/unsupported setup skips the hook with a useful command alternative.
+4. If hooks were installed, merge `.claude/settings.json` using `$CLAUDE_PLUGIN_ROOT/skills/init/templates/settings.json`. Add a separate matcher group per new hook; preserve existing groups, permissions, and other sections. Node hooks run via `node "..."`; shell hooks via `bash "..."`. Keep new entries only for hooks actually installed, record only those additions, and do not create settings.json when no hooks were installed.

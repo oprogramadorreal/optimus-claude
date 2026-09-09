@@ -4,12 +4,13 @@
  * so it works in both single projects and monorepos without workspaces.
  */
 const { readFileSync, existsSync } = require('fs');
-const { execSync } = require('child_process');
+const { execFileSync } = require('child_process');
 const path = require('path');
 
 const data = JSON.parse(readFileSync(0, 'utf8'));
-const filePath = (data.tool_input || {}).file_path || '';
-if (!filePath) process.exit(0);
+const inputPath = (data.tool_input || {}).file_path || '';
+if (typeof inputPath !== 'string' || !inputPath) process.exit(0);
+const filePath = path.resolve(inputPath);
 
 const exts = ['.js', '.jsx', '.ts', '.tsx', '.mjs', '.cjs', '.mts', '.cts', '.vue', '.svelte', '.astro', '.css', '.scss', '.html', '.json', '.yaml', '.yml', '.graphql'];
 if (!exts.some(ext => filePath.endsWith(ext))) process.exit(0);
@@ -23,7 +24,8 @@ while (dir !== path.dirname(dir)) {
       const binEntry = typeof pkg.bin === 'string' ? pkg.bin : (pkg.bin || {}).prettier;
       if (!binEntry) break;
       const cli = path.resolve(dir, 'node_modules', 'prettier', binEntry);
-      execSync(`"${process.execPath}" "${cli}" --write --log-level silent "${filePath}"`, {
+      // An argv array keeps shell metacharacters and Windows %VAR% paths literal.
+      execFileSync(process.execPath, [cli, '--write', '--log-level', 'silent', filePath], {
         cwd: dir,
         stdio: ['pipe', 'pipe', 'pipe'],
       });

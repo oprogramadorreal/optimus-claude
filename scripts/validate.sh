@@ -298,7 +298,7 @@ if command -v node &>/dev/null; then
     if ! node --check "$f" 2>/dev/null; then
       syntax_errors+="  $f: node syntax error\n"
     fi
-  done < <(find ./skills -path '*/templates/*.js' -o -path '*/templates/**/*.js' 2>/dev/null | sort)
+  done < <(find ./skills -type f -path '*/templates/*' \( -name '*.js' -o -name '*.cjs' -o -name '*.mjs' \) 2>/dev/null | sort)
 else
   echo "  SKIP  Node.js syntax checks (node not installed)"
 fi

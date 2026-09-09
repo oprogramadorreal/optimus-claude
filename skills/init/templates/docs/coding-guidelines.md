@@ -1,6 +1,6 @@
 # Coding principles for [PROJECT NAME]
 
-> Regenerated from the plugin template on every `/optimus:init` run — edits here are lost. Rules specific to this codebase belong in the Gotchas section of `.claude/CLAUDE.md`, which is preserved.
+> Optimus baseline. Init refreshes recorded, unchanged template copies; customized copies remain subject to review. Keep project-specific rules here or in a routed project guide.
 
 ## Follow existing patterns
 

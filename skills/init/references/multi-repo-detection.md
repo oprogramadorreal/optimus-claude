@@ -6,16 +6,18 @@ Canonical detection algorithm, read by every skill that needs it — including `
 
 A **multi-repo workspace** is a directory that meets ALL of these conditions:
 
-1. No `.git/` directory at the root (i.e., it is not itself a git repository)
-2. Two or more immediate child directories contain a `.git` **directory** (not `.git` files, which indicate submodules)
+1. The current directory is outside a Git working tree and is not a bare repository.
+2. Two or more immediate child directories are independent Git working-tree roots, including linked worktrees; confirmed submodules are excluded.
 
 ### Steps
 
-1. Check whether `.git/` exists in the current directory
-   - If it exists → **not a multi-repo workspace** — stop detection, proceed with normal single-repo flow
+1. Run `git rev-parse --is-inside-work-tree` in the current directory.
+   - `true` → **not a multi-repo workspace**. Resolve `git rev-parse --show-toplevel` and proceed in that working tree. This covers normal checkouts, linked worktrees, and a session started in a subdirectory.
+   - Otherwise check `git rev-parse --is-bare-repository`: `true` → stop and explain that a working checkout is required.
+   - A Git access/configuration failure is not evidence that no repository exists. Report it and preserve files; do not repair Git configuration silently or infer submodules from `.git` file shape. If Git is unavailable, detection remains unverified.
 2. Scan immediate subdirectories (skip dot-directories like `.git`, `.vscode`, and non-project directories like `node_modules`, `vendor`, `dist`, `build`, `target`, etc.)
-   - For each subdirectory, check if it contains a `.git` **directory** (use `test -d "$child/.git"`)
-   - Ignore `.git` **files** — those indicate git submodules, not independent repos
+   - For each candidate, run `git -C "<child>" rev-parse --is-inside-work-tree` and `git -C "<child>" rev-parse --show-toplevel`. Count it only when the resolved toplevel is that child, not an inherited ancestor repository.
+   - Exclude confirmed submodules: `git -C "<child>" rev-parse --show-superproject-working-tree` is nonempty, or the containing repository's `.gitmodules` explicitly registers that path. A `.git` file alone proves neither submodule nor linked-worktree status.
 3. Count qualifying subdirectories:
    - **2+** → confirmed multi-repo workspace. Enumerate repos with their paths
    - **1** → not a workspace. The single repo is the likely target — suggest the user `cd` into it
