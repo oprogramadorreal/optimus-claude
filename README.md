@@ -3,7 +3,7 @@
 </div>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-3.12.1-blue" alt="Version">
+  <img src="https://img.shields.io/badge/version-3.12.2-blue" alt="Version">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
   <img src="https://img.shields.io/badge/Claude_Code-plugin-blueviolet" alt="Claude Code">
   <img src="https://img.shields.io/badge/OpenAI_Codex-experimental-orange" alt="OpenAI Codex: experimental">
@@ -186,7 +186,7 @@ Follow-up observations (3.12.0 candidate, Windows, 2026-09-09):
 What differs under Codex:
 
 - Skills never auto-trigger on either host (`agents/openai.yaml` carries the Codex-side flag), and they stay out of the model's skill list until you mention one.
-- Questions use a native host question tool when it is available in the current mode; otherwise answer the plain-text question in chat. Prior authorization remains applicable; a plugin prompt does not override host permissions.
+- The session-start hook adapts questions centrally: prefer `request_user_input_async`, then `request_user_input`, only when available and permitted for the current mode and purpose; otherwise ask in chat. Adapt to the tool's schema, preserving choices through chat when the native form cannot represent them. Dependent work waits for an actual answer; an asynchronous receipt or timeout is not consent. Prior authorization and noninteractive skill choices remain applicable; host permissions still apply. Native question UX needs the [manual smoke checks](CONTRIBUTING.md#native-question-ux-manual).
 - Codex uses Bash directly on macOS/Linux and a PowerShell launcher on Windows. The Windows launcher finds native Bash, honors `CLAUDE_CODE_GIT_BASH_PATH`, and skips WSL's `bash.exe`; Git for Windows is the recommended provider. Both launchers preserve the starting directory without running a Git alias. Git is optional for startup and needed for Git workflows.
 - `$optimus:init` writes or refreshes root `AGENTS.md` pointers when Codex use is detected. They route to existing CLAUDE.md files, including package-specific instructions in monorepos. Multi-repo workspaces get pointers at the workspace root and in each child repo. User content outside the marked blocks is preserved; `$optimus:reset` removes only Optimus's blocks from those files (deleting a pointer-only file). An `AGENTS.override.md` in the same directory takes precedence in Codex: add an equivalent pointer there yourself if you use it; init/reset manage only `AGENTS.md`.
 - Subagent parallelism depends on Codex's version and configuration. Current releases use `agents.max_concurrent_threads_per_session` (`agents.max_threads` is a legacy alias); no fixed concurrency is guaranteed. See [Codex subagent configuration](https://learn.chatgpt.com/docs/agent-configuration/subagents#global-settings).
@@ -252,6 +252,11 @@ Headless entry points move accordingly, e.g. `claude -p "/optimus:deep review --
 ### Upgrading from 1.x
 
 In Claude Code, the two terminal-run Python harnesses were replaced in 2.0 by in-conversation orchestration — now `/optimus:deep` (see the 2.x table above). This migration does not establish Codex orchestration support.
+
+## Release notes — 3.12.2
+
+- Map shared `AskUserQuestion` instructions to available, permitted Codex question tools through the session-start hook, with schema-aware chat fallback and actual-answer gating. Individual skills keep one shared prompt source.
+- Add manual question UX checks across hosts and modes; hook tests do not establish native popup behavior.
 
 ## Release notes — 3.12.1
 

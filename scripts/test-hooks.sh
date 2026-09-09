@@ -161,6 +161,7 @@ run_session_start
 assert_output_contains "Recommends /optimus:init when no .claude/" "/optimus:init" "$output"
 assert_output_contains "Mentions CLAUDE.md" "CLAUDE.md" "$output"
 assert_output_not_contains "No Codex line under Claude Code" "Running under Codex" "$output"
+assert_output_not_contains "No Codex question tools under Claude Code" "request_user_input" "$output"
 cleanup_fixture
 
 # Codex launches the same session-start script and sets PLUGIN_ROOT next to
@@ -182,7 +183,11 @@ assert_output_not_contains "Drops the /optimus: form under Codex" "/optimus:init
 assert_output_contains "Names the plugin root under Codex" "Plugin root: $PLUGIN_ROOT" "$output"
 assert_output_contains "Names slash-form skill mentions in the Codex mapping" "/optimus:<skill>" "$output"
 assert_output_contains "Names dollar-form skill mentions in the Codex mapping" "\$optimus:<skill>" "$output"
-assert_output_contains "Maps AskUserQuestion to plain text under Codex" "AskUserQuestion" "$output"
+assert_output_contains "Maps AskUserQuestion under Codex" "AskUserQuestion" "$output"
+# Check tool identifiers delivered to the model, not exact instruction prose.
+# Interactive routing and answer handling require the contributor smoke checks.
+assert_output_contains "Names the async Codex question tool" "request_user_input_async" "$output"
+assert_output_contains "Names the synchronous Codex question tool" " request_user_input " "$output"
 assert_output_not_contains "Does not promise formatter hooks under Codex" "and auto-format hooks." "$output"
 assert_exit_zero "Exits 0 under Codex" "$hook_status"
 cleanup_fixture
@@ -198,6 +203,7 @@ run_session_start_codex
 # The plugin root is the one line a configured project still needs under Codex —
 # every skill resolves $CLAUDE_PLUGIN_ROOT through it — so silence here is wrong.
 assert_output_contains "Still names the plugin root when configured" "Plugin root: $PLUGIN_ROOT" "$output"
+assert_output_contains "Still supplies question mapping when configured" "request_user_input_async" "$output"
 assert_output_not_contains "No init nag when configured under Codex" "optimus:init" "$output"
 assert_exit_zero "Exits 0 when configured under Codex" "$hook_status"
 cleanup_fixture

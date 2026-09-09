@@ -189,6 +189,20 @@ Use an isolated Codex configuration and a disposable project. Trust the project 
 
 **Optional orchestration checks:** keep these unverified/experimental until needed; they are not prerequisites for the documented experimental core. Run `$optimus:code-review` with more lenses than available agent slots and verify no lens is dropped. For deep, run `$optimus:deep review --yes src/<path>` across multiple iterations, interrupt between iterations, then resume with `$optimus:deep review --yes --resume`; inspect checkpoints and the final report. Exercise coverage's paired phases separately. For unattended use, run the README's explicit-model `codex exec` example in an initialized fixture after granting the necessary host permissions, and verify actual edits, Git snapshots, and tests. Optimus `--yes` does not grant host permissions. Gauntlet's in-session path needs its own builder/critic execution check; do not offer Claude `/goal`, `/workflows`, or ultracode as Codex features.
 
+#### Native question UX (manual)
+
+These are manual acceptance checks, not recorded passes. Use a disposable project and a fresh session with the candidate plugin. Record the exact plugin commit/version and loaded cache path, host build/surface, OS, model, current mode, exposed question tools and their purpose/schema restrictions. Do not enable tools or change modes merely to force a popup; mark unavailable cases untested. Save the tool call, visible question, answer, and resulting action. Loader and hook assertions do not verify this UI.
+
+| Case | Expected behavior |
+|---|---|
+| Claude Code, interactive | A skill's decision uses `AskUserQuestion` as before; no Codex adapter context appears. |
+| Codex desktop, Default, permitted async tool | An unresolved preference uses `request_user_input_async`; choices and free text reach the agent. Independent work may continue, but answer-dependent work waits. |
+| Codex Plan, async unavailable, permitted synchronous tool | The same preference uses `request_user_input` with its current schema; the returned answer determines the next step. |
+| No available/permitted native question tool | The question appears in chat with the original choices; no unavailable tool call or mode switch occurs. Include a question whose purpose the exposed tool forbids. |
+| Unsupported multi-select or option shape | Exercise `how-to-run`'s Docker alternative choice with multiple services. Preserve all choices and multi-select meaning through chat when the native form cannot represent them; do not silently make the choice exclusive. |
+| Existing authorization or noninteractive defaults | Reuse an explicit decision, and separately exercise an applicable `--yes`/noninteractive path. Neither repeats a resolved question nor treats those choices as host permission grants. |
+| Unanswered, dismissed, or delayed async question | Withhold the answer, then reply later. A receipt, empty result, dismissal, or elapsed time never authorizes dependent work; the actual answer releases only that dependency. |
+
 ## Testing a feature branch
 
 This plugin's marketplace catalog and plugin code live in the same repository. Claude Code fetches them in two separate steps, which means testing from a feature branch requires changes at both levels:
