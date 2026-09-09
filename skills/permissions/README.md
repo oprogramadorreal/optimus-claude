@@ -47,7 +47,7 @@ Installs a hook and merges settings, recording only file changes and settings ad
 
 ### Allow list
 
-Auto-approves 13 built-in tools (`Bash`, `Read`, `Edit`, `Write`, `Task`, ...) so routine work is prompt-free. MCP servers found in `.mcp.json` are auto-added as `mcp__<server>` entries. Source of truth: [`templates/settings.json`](templates/settings.json).
+Auto-approves 14 built-in tools (`Bash`, `Read`, `Edit`, `Write`, `Agent` and its legacy alias `Task`, ...) so routine work is prompt-free. MCP servers found in `.mcp.json` are auto-added as `mcp__<server>` entries. Source of truth: [`templates/settings.json`](templates/settings.json).
 
 ### Deny list
 

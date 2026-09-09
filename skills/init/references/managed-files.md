@@ -20,16 +20,23 @@ Use `.claude/.optimus-managed.json` per project, with this shape:
 }
 ```
 
-- `files` maps each installed relative path to an object with `sha256` (the
-  SHA-256 of the bytes written) and `refresh` (`"template"` or `"review"`). For
+- `files` maps each installed path — relative to the directory that holds the
+  `.claude/` being recorded; each repo in a multi-repo workspace keeps its own
+  record, and monorepo subproject files appear in the root record by repo-relative
+  path — to an object with `sha256` and `refresh` (`"template"` or `"review"`). For
   example: `".claude/hooks/format-node.cjs": {"sha256": "<64 lowercase hex digits>",
-  "refresh": "template"}`.
+  "refresh": "template"}`. Compute `sha256` over the file bytes with CRLF normalized
+  to LF, so checkouts with different line-ending settings compare equal. Commit the
+  record alongside `.claude/.optimus-version`; it holds only paths, hashes, and
+  settings entries.
   Record only files Optimus created or already recorded. A preexisting user file
   does not become whole-file owned because init merged approved changes into it;
   keep it unrecorded unless the user explicitly selected whole-file adoption or
-  replacement. Update an already-owned file's hash after its approved edits.
-  A skipped preexisting file never becomes owned. Do not record settings.json or
-  shared AGENTS.md as whole-file ownership.
+  replacement. One exception needs no question: an unrecorded file whose bytes equal
+  the current shipped template (allowing the coding guide's project heading) contains
+  no user content — record it with `refresh: "template"`. Update an already-owned
+  file's hash after its approved edits. A skipped preexisting file never becomes
+  owned. Do not record settings.json or shared AGENTS.md as whole-file ownership.
 - `refresh: "template"` is only for generated files whose installed bytes match
   the shipped template, allowing the coding guide's project-heading substitution.
   Set `refresh: "review"` for customized hooks/guides, adapted project documents,
@@ -58,10 +65,13 @@ Use `.claude/.optimus-managed.json` per project, with this shape:
 
 A generated file may be refreshed without another prompt only when its entry has
 `refresh: "template"` **and** its current hash matches its recorded installed hash.
-Read changed, review-only, or unrecorded files and present a concrete
-merge/replacement, preserving their conventions and custom code by default.
-Existing authorization for that exact change is sufficient; do not ask twice.
-Customizable documents always retain init's review-and-propose semantics.
+Read changed, review-only, or unrecorded files, show the concrete differences, and
+offer **Merge** (apply the template's changes while keeping the file's customizations;
+record `refresh: "review"`), **Keep existing** (leave the file and its record as they
+are), or **Replace** (install the template verbatim; record `refresh: "template"`).
+Preserve conventions and custom code by default. Existing authorization for that
+exact change is sufficient; do not ask twice. Customizable documents always retain
+init's review-and-propose semantics.
 
 For older installations without provenance, template equality can show there is
 no content change, but filename/heading similarity never authorizes removal.

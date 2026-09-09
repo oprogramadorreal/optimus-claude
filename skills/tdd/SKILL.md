@@ -20,9 +20,9 @@ If `git rev-parse --is-inside-work-tree` does not return `true`, read `$CLAUDE_P
 
 Record the current branch/HEAD and staged, unstaged, and untracked paths before setup or edits. These changes belong to the user unless the conversation explicitly includes them in this task. Existing authorization persists; ask only when ownership or scope is genuinely ambiguous. A new branch does not isolate dirty work, and a new worktree starts from committed state rather than carrying the user's dirty changes.
 
-Before each cycle, record its owned paths. Before the first edit to each file in that cycle, preserve its exact bytes and existence in the private session scratchpad, outside staged project paths; verify the copy before editing, and keep it until the cycle is committed or safely rolled back. Record the last version written by the cycle too. If the file changes independently, reconcile that work before restoring anything. Do not use whole-file Git checkout, hard reset, broad stash/pop, or cleanup as a substitute for this boundary.
+When a file the cycle is about to edit is clean in Git (no staged or unstaged changes at that moment), Git is the rollback: `git checkout -- <path>` restores it, and a file the cycle created is deleted. Only a file that already carries uncommitted changes needs a byte copy: before the cycle's first edit to it, copy its exact bytes to the private session scratchpad — or, when the host offers none, a temporary directory outside the repository — verify the copy, and keep it until the cycle is committed or rolled back; record the last version the cycle wrote as well. If such a file changes independently, reconcile that work before restoring anything. Never use hard reset, broad stash/pop, or cleanup as a substitute for this boundary.
 
-Rollback restores the pre-cycle copy only when the current file is still the cycle's last written version; otherwise remove only identifiable cycle changes. Remove a newly created file only when it did not exist at the boundary and contains no independent work. If separation is uncertain, preserve it and show the ambiguity. Never replace the user's starting index with a scratch index or stage unrelated work.
+Rollback restores a pre-cycle copy only when the current file is still the cycle's last written version; otherwise remove only identifiable cycle changes. Remove a newly created file only when it did not exist at the boundary and contains no independent work. If separation is uncertain, preserve it and show the ambiguity. Never replace the user's starting index with a scratch index or stage unrelated work.
 
 If `.claude/CLAUDE.md` or `.claude/docs/coding-guidelines.md` is missing, recommend `/optimus:init` first; on the user's choice, continue with general best practices. Load:
 
@@ -114,7 +114,7 @@ Run the test suite — all tests must pass.
 
 Only when the current behavior is a bug reproduction (skip for feature behaviors). This proves the test catches the bug and the fix resolves it:
 
-1. Preserve the green implementation bytes in the scratchpad. Commit the test separately only when it can follow Step 7's ownership rules; the regression proof does not require a commit.
+1. Preserve the green implementation bytes in the scratchpad (or the temporary directory chosen in Step 1). Commit the test separately only when it can follow Step 7's ownership rules; the regression proof does not require a commit.
 2. Restore the saved Red implementation state using Step 1's ownership checks, leaving the regression test in place. Confirm that only this cycle's fix was removed, not earlier user work.
 3. Run the test — it **must fail**.
 4. Restore the saved green implementation, applying the same independent-change check.

@@ -23,7 +23,7 @@ Read these reference files before starting (the dispatcher has resolved the path
 
 6. **Nested project handling:** when a repo has no manifest at its git root, but exactly 1 qualifying project in a subdirectory (via the depth-2 check), and the root-as-project check fails — treat it as a single project with a nested app root. Note the subdirectory path.
 
-7. **Existing files inventory** (existence check only — do not read the content of CLAUDE.md files): `.claude/CLAUDE.md`, `.claude/settings.json`, `.claude/docs/*`, root `CLAUDE.md`, subproject `CLAUDE.md` files.
+7. **Existing files inventory** (existence check only — do not read the content of CLAUDE.md files): `.claude/CLAUDE.md`, `.claude/settings.json`, `.claude/docs/*`, `.claude/hooks/*`, `.claude/.optimus-version`, `.claude/.optimus-managed.json`, root `CLAUDE.md`, root `AGENTS.md`, a `.codex/` directory, subproject `CLAUDE.md` files.
 
 8. **Test infrastructure detection:** Report `yes` when any of these hold: a test framework is in dependencies, a `test`/`test:*` script is in the manifest, or a `tests/`/`test/`/`spec/`/`__tests__/`/`integration_test/` directory exists. Otherwise report `no`.
 

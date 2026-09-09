@@ -14,7 +14,7 @@ Two primary goals:
 - **Test verification** — runs your test suite after applying changes and reverts any change that causes failures
 - **Conservative by default** — only suggests changes justified by the project's own guidelines; falls back to general best practices without `/optimus:init`
 - **Prioritized findings** — Critical/Warning/Suggestion severity, capped at 15 per run with before/after sketches
-- **Smart exclusions** — skips git submodules, generated sources (build_runner output, Designer files, migration directories), lock and minified files
+- **Smart exclusions** — skips git submodules, generated sources (build_runner output, Designer files, confirmed generated migration snapshots), lock and minified files
 - **Multi-repo and monorepo aware** — per-repo and per-subproject doc resolution
 
 ## Quick Start

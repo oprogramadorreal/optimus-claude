@@ -5,16 +5,17 @@ Instructions for installing auto-format hooks per tech stack. Referenced from St
 ## Prefer the project's existing workflow
 
 Inspect formatter configuration, package scripts, local tool manifests, editor settings,
-and CI before choosing a hook. Reuse the project's formatter, pinned version,
-ignore rules, and command. Existing editor, pre-commit, or CI integration is a
-valid outcome; do not add a competing formatter or duplicate trigger. If its command
-cannot safely target the edited file, document using it at a task boundary instead
-of wrapping a whole-project rewrite.
+and CI before choosing a hook. The templates below run the project's own formatter on the
+edited file: a hook is not a competing formatter when the project already uses the same
+tool, and existing editor, pre-commit, or CI formatting does not make it redundant — those
+run at other moments. Reuse the project's pinned version, ignore rules, and configuration.
 
-Offer the defaults below only when no configured formatter exists or the user
-requests the change. Present exact dependency/configuration changes and affected
-file scope before installation. Never reformat the repository as part of setup.
-Preserve unrecorded/custom hooks under init's ownership rules.
+Do not add a *different* formatter beside one the project already uses (Black beside Ruff
+format, Prettier beside Biome): wrap the existing tool instead, or, when its command cannot
+safely target one file, document it for use at task boundaries. Adding a new formatter
+dependency needs the user's approval — present the exact dependency/configuration changes
+and affected file scope first. Never reformat the repository as part of setup. Preserve
+unrecorded/custom hooks under init's ownership rules.
 
 ## Hook Templates
 

@@ -12,7 +12,7 @@ This skill is part of the [optimus](https://github.com/oprogramadorreal/optimus-
 
 ## How It Works
 
-The skill inventories every file optimus may have installed, classifies each one by comparing it against the plugin's own templates, and presents a categorized plan:
+The skill inventories every file optimus may have installed, classifies each one by its recorded installed hash (template comparison only annotates files that have no record), and presents a categorized plan:
 
 - **Unmodified** — bytes match a recorded installed hash
 - **Modified** — bytes differ from the installed hash

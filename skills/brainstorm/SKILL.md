@@ -39,7 +39,7 @@ Scan the project's directory structure, key modules, and existing patterns to gr
 Check for JIRA context before prompting the user:
 
 1. Inline input matching `[A-Z][A-Z0-9]+-\d+` → read `docs/jira/<key>.md` and use its Goal and Acceptance Criteria as the brainstorm input. If the file is missing, tell the user to run `/optimus:jira <KEY>` first, then gather intent normally.
-2. No inline input and `docs/jira/` contains `.md` files → pick the one with the newest frontmatter `date` and offer it via AskUserQuestion (Use it / Ignore), noting when the date is over 7 days old that re-running `/optimus:jira` refreshes it. **Use it** consumes the file's Goal and Acceptance Criteria and skips the prompts below.
+2. No inline input and `docs/jira/` contains `.md` files → pick the one with the newest frontmatter `description-refresh-date` (falling back to `date` for files without it) and offer it via AskUserQuestion (Use it / Ignore), noting when that date is over 7 days old that re-running `/optimus:jira` refreshes it. **Use it** consumes the file's Goal and Acceptance Criteria and skips the prompts below.
 
 Otherwise use the inline description; if none, ask what to build or change. Distill input longer than ~3 sentences into a single-sentence goal and confirm it with the user.
 

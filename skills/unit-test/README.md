@@ -55,7 +55,7 @@ For an automated multi-cycle loop that alternates test generation with testabili
 | *(shared)* `references/shared-agent-constraints.md` | Base agent constraints prepended at dispatch |
 | *(shared)* `references/agent-architecture.md` | Prompt assembly rule for subagent dispatch |
 | *(shared)* `references/coverage-harness-mode.md` | Single-pass protocol under `/optimus:deep coverage` |
-| *(shared)* `init/references/multi-repo-detection.md` | Workspace detection (only when cwd has no `.git/`) |
+| *(shared)* `init/references/multi-repo-detection.md` | Workspace detection (only when cwd is outside a Git working tree) |
 | *(shared)* `init/references/project-detection.md` | Monorepo structure detection (only when unclear) |
 | *(shared)* `tdd/references/testing-anti-patterns.md` | Mocking discipline (read before mock-dependent tests) |
 

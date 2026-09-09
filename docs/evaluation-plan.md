@@ -19,7 +19,7 @@ claude --plugin-dir <variant-plugin> --model claude-fable-5-1 --effort high --no
 codex exec --model gpt-6-astra --sandbox workspace-write --json <task>
 ```
 
-Install each Codex variant into its isolated home through the documented plugin flow first, then verify its resolved identity. Native Windows CLI, desktop, WSL, Linux, macOS, and remote/cloud runs are separate support observations. Never infer successful desktop or cloud integration from CLI results.
+Claude Code 2.1.265 added `claude plugin eval` (early access; an `evals/` directory of `case.yaml` or `prompt.md` plus `graders/*.md`), which can run these cases against a plugin with a no-plugin baseline arm once it is enabled for the account. Install each Codex variant into its isolated home through the documented plugin flow first, then verify its resolved identity. Native Windows CLI, desktop, WSL, Linux, macOS, and remote/cloud runs are separate support observations. Never infer successful desktop or cloud integration from CLI results.
 
 ## Conditions and repetitions
 

@@ -29,7 +29,7 @@ Run these commands inside Claude Code:
 /plugin install optimus@optimus-claude
 ```
 
-Then start a new session and type `/optimus:init` in any project directory. Having trouble? See [Troubleshooting](#troubleshooting).
+Then start a new session and type `/optimus:init` in any project directory. On native Windows, install [Git for Windows](https://git-scm.com/download/win) first: the plugin's session-start hook, formatter hooks, and skill shell snippets run under Bash, and Claude Code falls back to PowerShell without it. Having trouble? See [Troubleshooting](#troubleshooting).
 
 ### OpenAI Codex (experimental)
 
@@ -143,8 +143,8 @@ This is the version reference for all skill READMEs. Versions below identify act
 
 | Surface | Version/evidence as of 2026-09-09 | Support boundary |
 |---|---|---|
-| Claude Code, native Windows CLI | 2.1.263: local plugin validation, all 19 skills, both plugin agents, and startup hook loaded | Primary host. This audit did not complete an authenticated Claude Fable 5.1 workflow; use the execution tests before certifying changed skill behavior |
-| Codex, native Windows CLI/app-server | 0.153.4: isolated local marketplace installation, all 19 enabled skills, cache/source prompt comparison, and launcher tests | Experimental. Loader success does not establish init, delegation, deep resume, or GPT-6 Astra task correctness |
+| Claude Code, native Windows CLI | 2.1.263 and 2.1.266: `--plugin-dir` load of this checkout with all 19 skills, both plugin agents, and the startup hook; 2.1.266 also ran the authenticated `commit suggest` and Python `init` smoke pairs with Claude Fable 5.1 (see the follow-up observations below) | Primary host. Smoke oracles check files and Git state, not semantic quality; use the execution tests before certifying changed skill behavior |
+| Codex, native Windows CLI/app-server | 0.153.4: isolated local marketplace installation of 3.12.0, all 19 enabled skills, cache/source prompt comparison, and launcher tests (repeated 2026-09-09) | Experimental. Loader success does not establish init, delegation, deep resume, or GPT-6 Astra task correctness |
 | Codex desktop/local | Existing cached plugin startup context observed; desktop version not recorded | Full controlled desktop skill workflows and updates unverified |
 | macOS/Linux CLI, including WSL as a separate environment | Host plugin support is documented; this audit did not execute these surfaces | Native Windows results do not certify their shell, permissions, or filesystem behavior |
 | Codex IDE extension | Current OpenAI documentation does not support plugins in this surface | Separately copying skills is a different setup and is not plugin support |
@@ -177,6 +177,11 @@ Prior-release observations (3.11.3, Windows, 2026-09-08), retained as historical
 - **Claude Code 2.1.263:** loaded all 19 skills and both agents, completed Python init while preserving custom settings/hooks, created no `AGENTS.md`, formatted an actual Write-tool edit, and ran read-only commit suggest.
 - **Codex CLI 0.153.4:** installed the local plugin and ran the session hook exactly once through the Windows launcher, also with only `System32` and `Git\cmd` on PATH, delivering the compatibility context from a nested directory. An earlier snapshot passed init, repeat init, root/nested instruction routing, reset preservation, and the permissions/dream/missing-Jira checks, and the documented GitHub install commands fetched the expected branch revision. The interactive `/hooks` trust UI was not exercised.
 - **Unverified:** native Linux/macOS workflows, desktop use, live Jira, multi-repo init, and deep/gauntlet orchestration. See the [contributor smoke test](CONTRIBUTING.md#codex-smoke-test-local) for the remaining checks.
+
+Follow-up observations (3.12.0 candidate, Windows, 2026-09-09):
+
+- **Claude Code 2.1.266 with Claude Fable 5.1:** loaded this checkout through `--plugin-dir` (all 19 skills, both agents, startup hook), then passed the `commit suggest` read-only smoke pair on the Node fixture and the `init` smoke pair on the Python fixture (`scripts/test-skills.sh --model claude-fable-5-1`). These oracles check created files and unchanged bytes/Git state, not semantic quality.
+- **Codex CLI 0.153.4:** the isolated loader probe (`scripts/test-codex-plugin.py`) installed 3.12.0 and enumerated all 19 skills; `codex exec` confirmed that `--approve-for-me` and `--sandbox` are mutually exclusive. No GPT-6 Astra task was executed.
 
 What differs under Codex:
 
@@ -220,7 +225,9 @@ git config --global http.sslBackend schannel
 
 3.5.1 replaced the Python formatter hook `.claude/hooks/format-python.py` with a portable bash one, `format-python.sh`, because the Python version needed a `python` on PATH — which on Windows hits the Store alias stub and fails on every edit.
 
-Re-running `/optimus:init` performs the swap, including deleting the old file and its `settings.json` entry. To do it by hand instead: delete `.claude/hooks/format-python.py` and remove the `PostToolUse` entry whose command references it. Leaving it in place means two Python hooks fire per edit.
+Re-running `/optimus:init` proposes the swap — deleting the old file and its `settings.json` entry — and applies it once you approve; it never leaves both hooks registered. To do it by hand instead: delete `.claude/hooks/format-python.py` and remove the `PostToolUse` entry whose command references it. Leaving it in place means two Python hooks fire per edit.
+
+3.12.0 replaces the Node hook `format-node.js` with `format-node.cjs` the same way, because the `.js` file failed to load in packages that declare `"type": "module"`; init offers that migration on re-run, or delete the old file and its entry by hand.
 
 The replacement resolves `black` and `isort` from a `.venv`, `venv`, or `env` directory at or above the edited file, then from PATH — so a virtualenv kept outside the project (Poetry's default, pipenv, conda) needs the formatters on PATH instead. The hook prints a one-line notice to stderr when it cannot find them.
 
@@ -252,6 +259,8 @@ In Claude Code, the two terminal-run Python harnesses were replaced in 2.0 by in
 - Make smoke checks select the local plugin and an explicit model, reject host failures, and inspect file bytes and Git state. Add a separate isolated Codex installation/discovery check.
 - Correct Windows Bash utility lookup and installer quoting; update Claude formatter compatibility while retaining Codex's formatter-installation exclusion.
 - Correct onboarding commands and vendor runtime guidance, consolidate tested host/version information, and qualify instruction-performance claims. Shared skill sources remain the default.
+
+- Follow-up review (Claude Fable 5.1 in Claude Code, 2026-09-09): deep's validation tolerates files a test run creates and clones with uninitialized submodules, an all-reverted iteration leaves a clean tree, resuming after a safety stop is documented, formatter setup keeps wrapping the project's own formatter, legacy generated files converge to the ownership record, Codex-side Jira detection and plan handoffs are host-aware, and the path-restriction hook judges Edit/Write paths containing escaped quotes whole (`HOOK_VERSION` 11 — re-run `/optimus:permissions` when the session hook reports a stale copy).
 
 These changes repair reproduced failures and confirmed instruction contradictions. They do not establish model-performance gains or untested host compatibility.
 

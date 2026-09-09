@@ -4,14 +4,81 @@
       {
         "matcher": "Edit|MultiEdit|Write",
         "hooks": [
-          { "type": "command", "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/format-python.sh", "timeout": 30 },
-          { "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/format-node.cjs", "timeout": 30 },
-          { "type": "command", "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/format-rust.sh", "timeout": 30 },
-          { "type": "command", "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/format-go.sh", "timeout": 30 },
-          { "type": "command", "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/format-csharp.sh", "timeout": 30 },
-          { "type": "command", "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/format-java.sh", "timeout": 30 },
-          { "type": "command", "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/format-cpp.sh", "timeout": 30 },
-          { "type": "command", "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/format-dart.sh", "timeout": 30 }
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/format-python.sh",
+            "timeout": 30
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|MultiEdit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/format-node.cjs",
+            "timeout": 30
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|MultiEdit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/format-rust.sh",
+            "timeout": 30
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|MultiEdit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/format-go.sh",
+            "timeout": 30
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|MultiEdit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/format-csharp.sh",
+            "timeout": 30
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|MultiEdit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/format-java.sh",
+            "timeout": 30
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|MultiEdit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/format-cpp.sh",
+            "timeout": 30
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|MultiEdit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/format-dart.sh",
+            "timeout": 30
+          }
         ]
       }
     ]

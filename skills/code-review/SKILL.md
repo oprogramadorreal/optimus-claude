@@ -75,7 +75,7 @@ Present a brief `## Review Scope` summary before proceeding: mode (local changes
 
 ## Step 4: Load Project Context
 
-Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/constraint-doc-loading.md` and load the constraint docs it lists, applying its **Monorepo Scoping Rule** (a subproject's own docs govern that subproject's files) and **Submodule Exclusion** (a `.git` *file* marks a submodule — exclude those directories from the review). In a multi-repo workspace, load each changed repo's `.claude/CLAUDE.md` and `.claude/docs/` independently and apply per-repo context to that repo's files. These docs define the review criteria — every guideline finding must be justified by what they establish; never impose external preferences.
+Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/constraint-doc-loading.md` and load the constraint docs it lists, applying its **Monorepo Scoping Rule** (a subproject's own docs govern that subproject's files) and **Submodule Exclusion** (confirmed submodules are excluded from the review; a `.git` file alone does not identify one). In a multi-repo workspace, load each changed repo's `.claude/CLAUDE.md` and `.claude/docs/` independently and apply per-repo context to that repo's files. These docs define the review criteria — every guideline finding must be justified by what they establish; never impose external preferences.
 
 Present a brief context summary (docs loaded, docs missing with fallback status, project type), then proceed immediately to Step 5 — do not wait for confirmation.
 

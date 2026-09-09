@@ -22,7 +22,7 @@ Read `$CLAUDE_PLUGIN_ROOT/skills/how-to-run/agents/project-environment-detector.
 Two conditional additions, each gated on a check you run before dispatching — a plain single-project repo needs neither, and they are ~130 lines together:
 
 - **Structure rules** — include `$CLAUDE_PLUGIN_ROOT/skills/init/references/project-detection.md` when the layout is not obviously a single project: a workspace manifest (`pnpm-workspace.yaml`, `lerna.json`, `turbo.json`, a root `package.json` with `workspaces`, a Cargo or Go workspace, a `.sln` spanning several projects), or manifest files in two or more subdirectories. When you skip it, say so in the prompt so the detector reports `Workspace kind: none` instead of re-deriving it.
-- **Multi-repo** — when the current directory has no `.git/` directory, include `$CLAUDE_PLUGIN_ROOT/skills/init/references/multi-repo-detection.md`; this skill supports multi-repo workspaces via a workspace-root file.
+- **Multi-repo** — when `git rev-parse --is-inside-work-tree` does not return `true` in the current directory, include `$CLAUDE_PLUGIN_ROOT/skills/init/references/multi-repo-detection.md`; this skill supports multi-repo workspaces via a workspace-root file.
 
 The detector only *flags* an unsupported stack (`Triggered: yes`); the fallback procedure runs here, not in the agent. Wait for the agent's **Context Detection Results**.
 

@@ -11,7 +11,7 @@ Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/managed-files.md` before writin
 
 Under Codex, preserve existing hooks/settings throughout this run; the Generated-file overwrite rule below does not apply to hooks.
 
-- **Generated** — hooks installed by init and `.claude/docs/coding-guidelines.md`: refresh only unchanged, recorded Optimus files with `refresh: "template"`. Customized files remain `refresh: "review"` even after approved edits update their recorded hash. Changed, review-only, or unrecorded existing files require a concrete review-and-propose, preserving their content by default. Never overwrite unrelated `.claude/hooks/*` files.
+- **Generated** — hooks installed by init and `.claude/docs/coding-guidelines.md`: refresh only unchanged, recorded Optimus files with `refresh: "template"`. Customized files remain `refresh: "review"` even after approved edits update their recorded hash. Changed, review-only, or unrecorded existing files get that reference's Merge / Keep existing / Replace choice, preserving their content by default; an unrecorded file byte-identical to the current template is adopted silently. Never overwrite unrelated `.claude/hooks/*` files.
 - **Customizable** — all `CLAUDE.md` files, `testing.md`, `styling.md`, `architecture.md`, `skill-writing-guidelines.md`: never silently overwrite. When the file exists, review-and-propose — compare against the template and detected state, apply only user-approved changes, preserve user-added sections.
 - **settings.json** — always merge, never overwrite: preserve `permissions` and any other custom sections. Do not create it when no hooks are installed and it doesn't already exist.
 

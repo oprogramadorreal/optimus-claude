@@ -14,7 +14,7 @@ Scan for:
    - `package.json` scripts / `Makefile` / `Rakefile` / `Taskfile.yml` / `Cargo.toml` / `pyproject.toml` / `build.gradle` / `pom.xml`
 4. **Coverage tooling** — whether coverage measurement is already configured and available
 
-**Exclude git submodules:** skip directories containing a `.git` *file* (not directory) — these point to external repositories and must not be scanned.
+**Exclude git submodules:** skip directories that `git -C "<dir>" rev-parse --show-superproject-working-tree` reports as belonging to a superproject, or that the parent's `.gitmodules` registers — these point to external repositories and must not be scanned. A `.git` *file* alone is not the signal; linked worktrees use one too.
 
 ### Test suite execution
 

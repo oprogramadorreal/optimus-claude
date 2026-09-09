@@ -74,7 +74,7 @@ Experiment: [Request variants or alternatives to explore]
 
 ## Template E — Chain of Thought
 
-*Logic-heavy tasks, math, debugging, multi-factor analysis. Gated by SKILL.md's Chain of Thought technique rule: check the target tool's tool-routing.md entry first — never for reasoning-native models or tools that calibrate reasoning automatically (use that entry's nudge wording instead). Not for simple or creative tasks.*
+*Logic-heavy tasks, math, debugging, multi-factor analysis. Gated by SKILL.md's Reasoning guidance rule: use it only where the target's tool-routing.md entry allows explicit reasoning scaffolding — the Claude 5 and reasoning-native entries do not (use their nudge wording instead). The scaffold asks for the visible working steps the deliverable needs, not a transcript of the model's private reasoning. Not for simple or creative tasks.*
 
 ```
 [Task statement]

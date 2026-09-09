@@ -109,7 +109,7 @@ In spec-driven-development terms, `/optimus:jira` is the supported path for PM-a
 ## Requirements
 
 - Optimus installed in a [supported host](../../README.md#supported-hosts-and-versions)
-- A JIRA MCP server configured in Claude Code (skill guides setup if missing)
+- A JIRA MCP server configured in your host — the skill guides setup in Claude Code; in Codex, configure it yourself first
 
 ## License
 

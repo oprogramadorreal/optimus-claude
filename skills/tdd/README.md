@@ -61,7 +61,7 @@ Each behavior runs one cycle: a failing test, the minimum code to pass it, a cle
 ## Git workflow
 
 1. Creates `<type>/<slug>` (e.g., `feat/add-password-reset`) from the current branch; optionally isolates work in a `.worktrees/` git worktree. The original branch is never modified
-2. Commits after each completed cycle with a conventional message; commits any remaining work at the end
+2. Commits after each completed cycle with a conventional message; commits any remaining task-owned work at the end, leaving unrelated changes untouched
 3. Pushes the branch to `origin`
 4. Recommends `/optimus:code-review` for the cross-cycle pass, then `/optimus:pr` in the same conversation — the latter reads the `## TDD Summary` block to populate the PR's Intent and per-behavior Test plan
 

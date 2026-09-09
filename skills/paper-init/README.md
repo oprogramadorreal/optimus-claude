@@ -61,7 +61,7 @@ It also ensures `.gitignore` ignores `data/*` (with a `!data/README.md` exceptio
 doesn't permit redistribution — the same test applies to each cited work individually
 (`paper/cited/<slug>/`) — and maintains a marker-delimited routing block in the root README when
 one exists.
-Everything it writes is tool-agnostic — no file mentions this plugin or any AI product.
+Its workflow framing is tool-agnostic — no file mentions this plugin or `/optimus:` commands; product and model names that the paper itself uses are transcribed faithfully.
 
 ## How it works
 
