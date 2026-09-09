@@ -76,7 +76,14 @@ def test_node_hook_preserves_literal_path_in_each_package_type(
 
 
 @pytest.mark.parametrize(
-    "version, prefix", [("0.30.6", []), ("1.0.0", ["format"]), ("1.2.5", ["format"])]
+    "version, prefix",
+    [
+        ("0.30.6", []),
+        ("1.0.0", ["format"]),
+        ("1.2.5", ["format"]),
+        # A dotnet first-run banner precedes the tool's own version line.
+        ("Welcome to .NET 8.0!\n\n0.30.6", []),
+    ],
 )
 @pytest.mark.parametrize("native_path", [False, True])
 def test_csharp_hook_uses_package_cwd_and_pinned_cli_syntax(

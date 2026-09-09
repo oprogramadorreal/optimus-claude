@@ -23,13 +23,19 @@ if ! version=$(dotnet tool run csharpier -- --version 2>&1); then
   echo "[format-csharp] local csharpier unavailable — run dotnet tool restore in this package." >&2
   exit 0
 fi
+# The tool prints its version last; a dotnet first-run banner can precede it
+# with its own numbers, so keep the last line that carries one.
 version_re='(^|[[:space:]])([0-9]+)\.[0-9]+'
-if [[ ! "$version" =~ $version_re ]]; then
+major=""
+while IFS= read -r line || [[ -n "$line" ]]; do
+  [[ "$line" =~ $version_re ]] && major="${BASH_REMATCH[2]}"
+done <<< "$version"
+if [[ -z "$major" ]]; then
   echo "[format-csharp] cannot determine the pinned csharpier version — skipped." >&2
   exit 0
 fi
 args=()
-[[ "${BASH_REMATCH[2]}" == 0 ]] || args=(format)
+[[ "$major" == 0 ]] || args=(format)
 
 if ! output=$(dotnet tool run csharpier -- ${args[@]+"${args[@]}"} "$file_path" 2>&1); then
   echo "[format-csharp] csharpier failed: $(echo "$output" | head -1)" >&2

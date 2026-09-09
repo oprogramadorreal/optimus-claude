@@ -5,7 +5,7 @@
 # Source:       https://github.com/oprogramadorreal/optimus-claude
 # Docs:         skills/permissions/README.md
 # ============================================================================
-# HOOK_VERSION: 10
+# HOOK_VERSION: 11
 # ^ Bump on every behavioural change. The plugin's SessionStart hook compares
 #   this against the copy installed in a project and recommends re-running
 #   /optimus:permissions when the project's copy is older — a plugin update
@@ -1869,9 +1869,21 @@ _rp_tool_name="${BASH_REMATCH[1]}"
 
 case "$_rp_tool_name" in
   Edit|MultiEdit|Write)
-    # Fail-open: if file_path cannot be extracted, allow rather than block
-    [[ "$_rp_input" =~ \"file_path\"[[:space:]]*:[[:space:]]*\"([^\"]+)\" ]] || exit 0
+    # Fail-open: if file_path cannot be extracted, allow rather than block.
+    # The value is a JSON string: walk over escaped quotes ([^"\]|\\.) as the
+    # Bash branch does — stopping at the first \" judged only the path's prefix.
+    _rp_path_re='"file_path"[[:space:]]*:[[:space:]]*"(([^"\]|\\.)*)"'
+    [[ "$_rp_input" =~ $_rp_path_re ]] || exit 0
     filepath="${BASH_REMATCH[1]}"
+    # Undo the JSON escapes the same way the Bash branch does, so a path that
+    # contains an escaped quote is judged whole rather than on its prefix.
+    filepath="${filepath//\\\\/$'\001'}"
+    filepath="${filepath//\\\"/\"}"
+    filepath="${filepath//\\\//\/}"
+    filepath="${filepath//\\n/$'\n'}"
+    filepath="${filepath//\\r/$'\r'}"
+    filepath="${filepath//\\t/$'\t'}"
+    filepath="${filepath//$'\001'/\\}"
     guard_out_of_project_write "$filepath" "File" "write"
     # Precious file protection: prompt before modifying sensitive unversioned files
     if [[ -e "$filepath" ]] && is_precious "$filepath" && ! is_git_tracked "$filepath"; then
@@ -1881,8 +1893,18 @@ case "$_rp_tool_name" in
     ;;
   NotebookEdit)
     # Fail-open: if notebook_path cannot be extracted, allow rather than block
-    [[ "$_rp_input" =~ \"notebook_path\"[[:space:]]*:[[:space:]]*\"([^\"]+)\" ]] || exit 0
+    _rp_path_re='"notebook_path"[[:space:]]*:[[:space:]]*"(([^"\]|\\.)*)"'
+    [[ "$_rp_input" =~ $_rp_path_re ]] || exit 0
     filepath="${BASH_REMATCH[1]}"
+    # Undo the JSON escapes the same way the Bash branch does, so a path that
+    # contains an escaped quote is judged whole rather than on its prefix.
+    filepath="${filepath//\\\\/$'\001'}"
+    filepath="${filepath//\\\"/\"}"
+    filepath="${filepath//\\\//\/}"
+    filepath="${filepath//\\n/$'\n'}"
+    filepath="${filepath//\\r/$'\r'}"
+    filepath="${filepath//\\t/$'\t'}"
+    filepath="${filepath//$'\001'/\\}"
     guard_out_of_project_write "$filepath" "Notebook" "edit"
     # Precious file protection: prompt before modifying sensitive unversioned notebooks
     if [[ -e "$filepath" ]] && is_precious "$filepath" && ! is_git_tracked "$filepath"; then

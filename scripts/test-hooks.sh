@@ -1029,6 +1029,13 @@ echo "[restrict-paths: Bash command extraction and git protection]"
 # for commands as ordinary as `git commit -m "msg" && ...`.
 assert_decision "Guard survives a quoted prefix" DENY \
   "$(rp_decision Bash command 'echo \"hi\" && rm /outside/victim.txt')"
+# Structured tools carry the same JSON string: an escaped quote inside the path
+# must not truncate it to an in-project prefix — "<proj>/x\" read as inside the
+# project and the traversal behind it was auto-allowed.
+assert_decision "Write path with an escaped quote is judged whole" ASK \
+  "$(rp_decision Write file_path "$rp_tmp/proj/x\\\"/../../outside/victim.txt")"
+assert_decision "Notebook path with an escaped quote is judged whole" ASK \
+  "$(rp_decision NotebookEdit notebook_path "$rp_tmp/proj/x\\\"/../../outside/victim.ipynb")"
 # A pipe hands the delete to xargs; the rm guard must see through the wrapper.
 assert_decision "Piped xargs rm outside project denied" DENY \
   "$(rp_decision Bash command "find . | xargs rm $rp_tmp/outside/a.txt")"
