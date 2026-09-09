@@ -4,7 +4,7 @@ description: >-
   teaching a new developer to set up their environment and run the project
   locally. Detects toolchain, source dependencies, external services, and env
   config via read-only agents; audits an existing file against actual project
-  state and offers a display-only guided walkthrough. Never executes commands;
+  state and offers a display-only guided walkthrough. Never runs setup commands;
   writes only HOW-TO-RUN.md.
 disable-model-invocation: true
 ---
@@ -13,7 +13,7 @@ disable-model-invocation: true
 
 Generate or update `HOW-TO-RUN.md` at the project (or workspace) root: OS/hardware prerequisites, toolchain and SDKs, source dependencies, install, external services, env config, build, run, and tests — every fact verified against the actual codebase.
 
-**Write scope:** the only file this skill ever creates or modifies is `HOW-TO-RUN.md`. It never touches `README.md`, `CONTRIBUTING.md`, `BUILDING.md`, `INSTALL.md`, `docs/*`, or any other file — not even to add a link. Existing docs are input-only hypotheses. The guided walkthrough (Step 3a) is display-only — the skill never executes commands; the user runs every step locally.
+**Write scope:** the only file this skill ever creates or modifies is `HOW-TO-RUN.md`. It never touches `README.md`, `CONTRIBUTING.md`, `BUILDING.md`, `INSTALL.md`, `docs/*`, or any other file — not even to add a link. Existing docs are input-only hypotheses. Read-only detection commands are permitted. The guided walkthrough (Step 3a) is display-only; the user runs every setup step locally.
 
 ## Step 1: Detect project context (agent)
 
@@ -36,7 +36,7 @@ If "Correct first": `AskUserQuestion` — header "Corrections", question "What s
 
 **Unsupported-stack fallback.** If `Triggered: yes`, read `$CLAUDE_PLUGIN_ROOT/skills/init/references/unsupported-stack-fallback.md` and run its 5-step procedure with the reported language(s) and evidence: `WebSearch` for research, enforce its validation rules before presenting any command, `AskUserQuestion` for approval. Approved commands feed Step 4 as if from a recognized stack; skipped or declined ones render as `"not found"`. If WebSearch is unavailable, propose standard commands from general knowledge under the same validation rules, marked "inferred (not web-verified)"; if declined, skip gracefully.
 
-## Step 2: Audit existing docs (agent)
+## Step 2: Audit existing docs (inline or agent)
 
 `$CLAUDE_PLUGIN_ROOT/skills/how-to-run/agents/how-to-run-auditor.md` defines this audit — the file list, the classification levels, and the **How-to-Run Audit Results** shape that Steps 3, 3a and 6 consume. It is a fixed, short list of markdown files, so **run it yourself** unless those files are large enough that pulling them into this context would crowd out Step 4's generation work; then delegate to 1 `general-purpose` Agent tool call whose prompt is, in order: the Context Detection Results from Step 1, the Agent Constraints section of `$CLAUDE_PLUGIN_ROOT/references/shared-agent-constraints.md`, the shared-constraints file, and the auditor prompt.
 

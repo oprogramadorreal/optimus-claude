@@ -9,6 +9,8 @@
 #         <file-path>: [list of strings that must appear in file]
 #       files_not_exist: [list of files that must NOT exist]
 #       output_contains: [list of strings in claude stdout]
+#       output_nonempty: true  # weak completion-only smoke; not semantic success
+#       branch_prefix: "feat/"  # inspect the actual Git branch
 #       files_not_modified: true  # assert no files changed (read-only skills)
 #
 # Paths are relative to the fixture project root.
@@ -70,8 +72,9 @@ init:
 
   empty-project:
     # Empty project triggers scaffolding prompt — init may or may not create files
-    # depending on Claude's decision. Just check it doesn't crash.
-    files_exist: []
+    # depending on the host. Require successful completion and a response only;
+    # this is not evidence of successful initialization on an empty project.
+    output_nonempty: true
 
 permissions:
   node-project:
@@ -110,6 +113,5 @@ prompt:
 
 commit-branch:
   node-project:
-    # Branch mode creates a new branch — check for conventional prefix
-    output_contains:
-      - "feat/"
+    # Check actual Git state, not a branch name merely mentioned in prose.
+    branch_prefix: "feat/"

@@ -1,8 +1,8 @@
 # optimus:how-to-run
 
-A [Claude Code](https://docs.anthropic.com/en/docs/claude-code) skill that generates a `HOW-TO-RUN.md` teaching a new developer how to set up their environment and run the project locally. Writes only `HOW-TO-RUN.md` — never modifies any other file, and never executes commands itself.
+A Claude Code and Codex skill that generates a `HOW-TO-RUN.md` teaching a new developer how to set up their environment and run the project locally. Writes only `HOW-TO-RUN.md`; detection can run read-only checks, while you run the documented setup commands.
 
-Many projects have "how to get this running" instructions scattered across `README.md`, `CONTRIBUTING.md`, and `docs/` that have drifted from the actual codebase. This skill detects the real project state with two read-only agents, audits existing docs against it, and generates (or updates, with your approval) a single verified onboarding doc.
+Many projects have "how to get this running" instructions scattered across `README.md`, `CONTRIBUTING.md`, and `docs/` that have drifted from the actual codebase. This skill uses an environment detector and audits existing docs inline or through an agent, depending on their size. It then generates or updates one onboarding doc with your approval and checks its claims against available evidence.
 
 ## Features
 
@@ -22,11 +22,13 @@ In Claude Code:
 
 - `/optimus:how-to-run`
 
+In Codex, invoke `$optimus:how-to-run` or select it from the skill picker. See [supported hosts and versions](../../README.md#supported-hosts-and-versions) for surface-specific availability.
+
 First-run writes go through directly after you approve the plan; updates to an existing `HOW-TO-RUN.md` show the full diff and wait for approval. When the file already exists you choose: **Walk through it** (guided, display-only), **Regenerate**, or **Skip**.
 
 ## When to Run
 
-- **After `/optimus:init`** — init sets up Claude Code; how-to-run creates the human onboarding doc
+- **After `optimus:init`** — init sets up project instructions for the active host; how-to-run creates the human onboarding doc
 - **When onboarding new developers** — no tribal knowledge required
 - **After adding services, SDKs, submodules, or dependencies** — re-run to update and surface stale info elsewhere
 - **On any project with missing or drifted setup docs**
@@ -47,13 +49,13 @@ Generated sections (only those with detected signals): Prerequisites, Toolchain 
 
 | Skill | Focus | Audience |
 |-------|-------|----------|
-| `/optimus:init` | `.claude/` setup for AI-assisted development | Claude Code |
+| `optimus:init` | Project instructions for AI-assisted development | Claude Code and Codex |
 | `/optimus:how-to-run` | `HOW-TO-RUN.md` onboarding doc | Developers |
 | `/optimus:unit-test` | Test coverage improvement | Both |
 
 ## Requirements
 
-- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) 1.0.33+ (plugin support)
+- Optimus installed in a [supported host](../../README.md#supported-hosts-and-versions)
 - Git
 
 ## License

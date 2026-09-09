@@ -2,14 +2,15 @@
 # Automated skill execution tests using claude -p (headless mode).
 # Runs optimus skills against generated fixtures and validates expected outputs.
 #
-# Requirements: claude CLI installed and authenticated (plan subscription or API key)
+# Requirements: authenticated claude CLI, Python 3, and PyYAML (requirements-dev.txt).
+# These are smoke checks; passing them is not a model-performance evaluation.
 #
 # Usage:
-#   bash scripts/test-skills.sh                              # default: init + commit-suggest
-#   bash scripts/test-skills.sh --skill init                 # test one skill
-#   bash scripts/test-skills.sh --skill init --fixture node  # test one skill + one fixture
-#   bash scripts/test-skills.sh --all                        # test all testable skills
-#   bash scripts/test-skills.sh --fresh --all --worktree     # full run in isolated worktree
+#   bash scripts/test-skills.sh --model claude-fable-5-1      # default: init + commit-suggest
+#   bash scripts/test-skills.sh --model claude-fable-5-1 --skill init                 # test one skill
+#   bash scripts/test-skills.sh --model claude-fable-5-1 --skill init --fixture node  # test one skill + one fixture
+#   bash scripts/test-skills.sh --model claude-fable-5-1 --all                        # test all testable skills
+#   bash scripts/test-skills.sh --model claude-fable-5-1 --fresh --all --worktree     # full run in isolated worktree
 #   bash scripts/test-skills.sh --dry-run                    # show what would run
 
 set -euo pipefail
@@ -22,6 +23,9 @@ EXPECTED_FILE="$PLUGIN_ROOT/test/expected-outputs.yaml"
 
 # --- Defaults ---
 MAX_TURNS=30
+MODEL=""
+PYTHON="${PYTHON:-python}"
+SUPPORT="$SCRIPT_DIR/skill_test_support.py"
 DRY_RUN=false
 SKILL_FILTER=""
 FIXTURE_FILTER=""
@@ -35,6 +39,7 @@ while [[ $# -gt 0 ]]; do
     --skill)    [[ $# -ge 2 ]] || { echo "Error: --skill requires a value"; exit 1; }; SKILL_FILTER="$2"; shift 2 ;;
     --fixture)  [[ $# -ge 2 ]] || { echo "Error: --fixture requires a value"; exit 1; }; FIXTURE_FILTER="$2"; shift 2 ;;
     --turns)    [[ $# -ge 2 ]] || { echo "Error: --turns requires a value"; exit 1; }; MAX_TURNS="$2"; shift 2 ;;
+    --model)    [[ $# -ge 2 ]] || { echo "Error: --model requires a value"; exit 1; }; MODEL="$2"; shift 2 ;;
     --all)      ALL_MODE=true; shift ;;
     --fresh)    FRESH=true; shift ;;
     --worktree) WORKTREE=true; shift ;;
@@ -47,6 +52,7 @@ while [[ $# -gt 0 ]]; do
       echo "  --all              Test all skill/fixture combinations"
       echo "  --fresh            Remove and regenerate all fixtures before testing"
       echo "  --worktree         Run in an isolated git worktree (keeps main tree free)"
+      echo "  --model <id>       Required for live runs; use the exact model being evaluated"
       echo "  --turns <n>        Max agentic turns (default: 30)"
       echo "  --dry-run          Show what would run without executing"
       echo "  --help             Show this help"
@@ -60,40 +66,45 @@ done
 if [ -z "$SKILL_FILTER" ] && [ -n "$FIXTURE_FILTER" ]; then
   echo "Error: --fixture requires --skill"; exit 1
 fi
+if ! $DRY_RUN && [ -z "$MODEL" ]; then
+  echo "Error: --model is required for live smoke runs (no implicit model substitution)."
+  exit 1
+fi
 
 # --- Worktree isolation ---
-# Creates a detached worktree inside .worktrees/skill-tests and re-invokes the
+# Creates a new detached worktree inside .worktrees/ and re-invokes the
 # script from there, so the user can keep working (switch branches, edit files)
 # in the main tree while the worktree stays visible in the project directory.
 if $WORKTREE; then
-  WORKTREE_DIR="$PLUGIN_ROOT/.worktrees/skill-tests"
-  mkdir -p "$PLUGIN_ROOT/.worktrees"
-
-  # Remove stale worktree from previous run (may have been preserved for debugging)
-  if [ -d "$WORKTREE_DIR" ]; then
-    echo "Removing stale worktree (possibly from a previous failed run)..."
-    git -C "$PLUGIN_ROOT" worktree remove "$WORKTREE_DIR" --force 2>/dev/null || true
-    rm -rf "$WORKTREE_DIR" 2>/dev/null || true
-  fi
+  WORKTREE_PARENT="$PLUGIN_ROOT/.worktrees"
+  mkdir -p "$WORKTREE_PARENT"
+  WORKTREE_DIR=$(mktemp -d "$WORKTREE_PARENT/skill-tests.XXXXXX")
+  # Only this invocation's freshly allocated child may be cleaned up. Failed
+  # runs from previous invocations remain available for inspection.
+  case "$WORKTREE_DIR" in
+    "$WORKTREE_PARENT"/skill-tests.*) ;;
+    *) echo "Error: worktree path is outside the expected parent"; exit 1 ;;
+  esac
 
   cleanup_worktree() {
     local rc=$?
     if [ "$rc" -ne 0 ]; then
       echo
-      echo "Tests failed — worktree preserved at: .worktrees/skill-tests"
-      echo "  To inspect: cd .worktrees/skill-tests/test/fixtures/"
-      echo "  To clean up: git worktree remove .worktrees/skill-tests --force"
+      echo "Tests failed — worktree preserved at: $WORKTREE_DIR"
+      echo "  To clean up after inspection: git worktree remove \"$WORKTREE_DIR\" --force"
     else
       echo
       echo "Cleaning up worktree..."
-      git -C "$PLUGIN_ROOT" worktree remove "$WORKTREE_DIR" --force 2>/dev/null || true
-      rm -rf "$WORKTREE_DIR" 2>/dev/null || true
+      if ! git -C "$PLUGIN_ROOT" worktree remove "$WORKTREE_DIR" --force; then
+        echo "Cleanup failed; this run's worktree remains at: $WORKTREE_DIR"
+      fi
     fi
   }
   trap cleanup_worktree EXIT
 
   COMMIT_SHORT=$(git -C "$PLUGIN_ROOT" rev-parse --short HEAD)
-  echo "Creating worktree at .worktrees/skill-tests (from $COMMIT_SHORT)..."
+  echo "Creating worktree at $WORKTREE_DIR (from committed HEAD $COMMIT_SHORT)..."
+  echo "Uncommitted source edits are excluded; omit --worktree to test the working checkout."
   git -C "$PLUGIN_ROOT" worktree add --detach "$WORKTREE_DIR" HEAD -q
 
   # Forward all args except --worktree
@@ -174,15 +185,24 @@ run_skill_test() {
   local fixture_dir="$FIXTURES_DIR/$fixture"
 
   if [ ! -d "$fixture_dir" ]; then
-    echo "  SKIP  $skill:$fixture (fixture not generated — run scripts/generate-fixtures.sh first)"
-    ((skipped++)) || true
+    echo "  FAIL  $skill:$fixture (fixture missing — run scripts/generate-fixtures.sh first)"
+    ((errors++)) || true
     return
   fi
 
-  # For skills that modify files, work on a copy to keep fixtures clean
-  local work_dir
-  work_dir=$(mktemp -d)
-  CURRENT_WORK_DIR="$work_dir"
+  # Reject absent or empty oracles before making a paid host invocation.
+  if ! "$PYTHON" "$SUPPORT" expectation --expected "$EXPECTED_FILE" --skill "$skill" --fixture "$fixture"; then
+    ((errors++)) || true
+    return
+  fi
+
+  # Results and baseline stay outside the project, so read-only checks include
+  # every project file without counting our own output as a model mutation.
+  local work_root work_dir
+  work_root=$(mktemp -d)
+  work_dir="$work_root/project"
+  mkdir "$work_dir"
+  CURRENT_WORK_DIR="$work_root"
   cp -r "$fixture_dir/." "$work_dir/"
   cd "$work_dir"
 
@@ -227,7 +247,7 @@ run_skill_test() {
       echo "  ERROR  No prompt defined for skill: $skill"
       ((errors++)) || true
       cd "$PLUGIN_ROOT"
-      rm -rf "$work_dir"
+      rm -rf "$work_root"
       CURRENT_WORK_DIR=""
       return
       ;;
@@ -238,176 +258,45 @@ run_skill_test() {
     echo "        dir: $work_dir"
     echo "        prompt: $prompt"
     cd "$PLUGIN_ROOT"
-    rm -rf "$work_dir"
+    rm -rf "$work_root"
     CURRENT_WORK_DIR=""
     return
   fi
 
   echo "  RUN   $skill:$fixture (max-turns: $MAX_TURNS)"
 
-  # Snapshot git dirty count before claude runs (for files_not_modified checks)
-  local git_dirty_before
-  git_dirty_before=$(git status --porcelain 2>/dev/null | wc -l | tr -d ' ')
+  "$PYTHON" "$SUPPORT" snapshot --root "$work_dir" > "$work_root/baseline.json"
 
-  # Run claude in headless mode
-  local claude_output
+  local model_args=()
+  if [ -n "$MODEL" ]; then model_args=(--model "$MODEL"); fi
   local exit_code=0
-  claude_output=$(claude -p "$prompt" \
+  claude -p "$prompt" \
+    --plugin-dir "$PLUGIN_ROOT" \
     --append-system-prompt "$NONINTERACTIVE_PROMPT" \
     --dangerously-skip-permissions \
     --max-turns "$MAX_TURNS" \
-    --output-format text \
-    2>&1) || exit_code=$?
+    --output-format json \
+    ${model_args[@]+"${model_args[@]}"} \
+    > "$work_root/result.json" 2> "$work_root/stderr.log" || exit_code=$?
 
-  if [ $exit_code -ne 0 ]; then
-    if [ $exit_code -gt 1 ]; then
-      echo "  FAIL  $skill:$fixture (claude exited with code $exit_code)"
-      echo "        Output: $(echo "$claude_output" | head -5)"
-      ((errors++)) || true
-      cd "$PLUGIN_ROOT"
-      rm -rf "$work_dir"
-      CURRENT_WORK_DIR=""
-      return
-    else
-      echo "  WARN  $skill:$fixture (claude exited with code $exit_code)"
-    fi
+  if [ "$exit_code" -ne 0 ]; then
+    echo "  FAIL  $skill:$fixture (claude exited with code $exit_code)"
+    head -5 "$work_root/stderr.log"
+    ((errors++)) || true
+  elif "$PYTHON" "$SUPPORT" validate --expected "$EXPECTED_FILE" \
+      --skill "$skill" --fixture "$fixture" --root "$work_dir" \
+      --output "$work_root/result.json" --baseline "$work_root/baseline.json"; then
+    echo "  PASS  $skill:$fixture"
+    ((pass++)) || true
+  else
+    echo "  FAIL  $skill:$fixture"
+    ((errors++)) || true
   fi
-
-  # Validate expected outputs
-  validate_outputs "$skill" "$fixture" "$work_dir" "$claude_output" "$git_dirty_before"
 
   # Cleanup
   cd "$PLUGIN_ROOT"
-  rm -rf "$work_dir"
+  rm -rf "$work_root"
   CURRENT_WORK_DIR=""
-}
-
-validate_outputs() {
-  local skill="$1"
-  local fixture="$2"
-  local work_dir="$3"
-  local claude_output="$4"
-  local git_dirty_before="${5:-0}"
-  local test_failed=false
-
-  cd "$work_dir"
-
-  # Parse expected outputs from YAML (simple line-by-line parser — no yq dependency)
-  local in_skill=false
-  local in_fixture=false
-  local current_section=""
-  local current_file=""
-
-  while IFS= read -r line; do
-    # Skip comments and empty lines
-    [[ "$line" =~ ^[[:space:]]*# ]] && continue
-    [[ -z "$line" ]] && continue
-
-    # Skill level (no indentation)
-    if [[ "$line" =~ ^([a-z0-9_-]+):$ ]]; then
-      if [[ "${BASH_REMATCH[1]}" == "$skill" ]]; then
-        in_skill=true
-      else
-        in_skill=false
-      fi
-      in_fixture=false
-      current_section=""
-      continue
-    fi
-
-    $in_skill || continue
-
-    # Fixture level (2-space indent)
-    if [[ "$line" =~ ^[[:space:]]{2}([a-z0-9_-]+):$ ]]; then
-      if [[ "${BASH_REMATCH[1]}" == "$fixture" ]]; then
-        in_fixture=true
-      else
-        in_fixture=false
-      fi
-      current_section=""
-      continue
-    fi
-
-    $in_fixture || continue
-
-    # Section headers (4-space indent)
-    if [[ "$line" =~ ^[[:space:]]{4}(files_exist|files_not_exist|files_contain|files_not_modified|output_contains):[[:space:]]*(.*) ]]; then
-      current_section="${BASH_REMATCH[1]}"
-      local inline_value="${BASH_REMATCH[2]}"
-      # Handle inline values like "files_exist: []" or "files_not_modified: true"
-      if [[ "$inline_value" == "[]" ]]; then
-        current_section=""
-        continue
-      fi
-      if [[ "$inline_value" == "true" ]]; then
-        if [[ "$current_section" == "files_not_modified" ]]; then
-          # Check git status for new modifications (compare against pre-claude baseline)
-          local modified
-          modified=$(git status --porcelain 2>/dev/null | wc -l | tr -d ' ')
-          local new_changes=$((modified - git_dirty_before))
-          if [ "$new_changes" -gt 0 ]; then
-            echo "        FAIL  files_not_modified: $new_changes new files changed"
-            test_failed=true
-          fi
-        fi
-        current_section=""
-        continue
-      fi
-      current_file=""
-      continue
-    fi
-
-    # File path in files_contain (6-space indent, ends with colon)
-    if [[ "$current_section" == "files_contain" ]] && [[ "$line" =~ ^[[:space:]]{6}([^:]+):$ ]]; then
-      current_file="${BASH_REMATCH[1]}"
-      continue
-    fi
-
-    # List items (6 or 8-space indent with dash)
-    if [[ "$line" =~ ^[[:space:]]{6,8}-[[:space:]]+\"?([^\"]*)\"?$ ]]; then
-      local value="${BASH_REMATCH[1]}"
-
-      case "$current_section" in
-        files_exist)
-          if [ ! -f "$value" ]; then
-            echo "        FAIL  files_exist: $value (not found)"
-            test_failed=true
-          fi
-          ;;
-        files_not_exist)
-          if [ -f "$value" ]; then
-            echo "        FAIL  files_not_exist: $value (exists but shouldn't)"
-            test_failed=true
-          fi
-          ;;
-        files_contain)
-          if [ -n "$current_file" ]; then
-            if [ ! -f "$current_file" ]; then
-              echo "        FAIL  files_contain: $current_file (file not found)"
-              test_failed=true
-            elif ! grep -qF "$value" "$current_file" 2>/dev/null; then
-              echo "        FAIL  files_contain: $current_file should contain '$value'"
-              test_failed=true
-            fi
-          fi
-          ;;
-        output_contains)
-          if ! echo "$claude_output" | grep -qFi "$value"; then
-            echo "        FAIL  output_contains: '$value' not in output"
-            test_failed=true
-          fi
-          ;;
-      esac
-    fi
-  done < "$EXPECTED_FILE"
-
-  if $test_failed; then
-    echo "  FAIL  $skill:$fixture"
-    ((errors++)) || true
-  else
-    echo "  PASS  $skill:$fixture"
-    ((pass++)) || true
-  fi
 }
 
 # --- Pre-flight checks ---
@@ -421,6 +310,17 @@ if ! command -v claude &>/dev/null; then
   echo "       These tests require the claude CLI installed and authenticated."
   exit 1
 fi
+
+if ! "$PYTHON" -c 'import yaml' >/dev/null 2>&1; then
+  echo "ERROR: Python with PyYAML is required. Install requirements-dev.txt."
+  exit 1
+fi
+echo "Host: $(claude --version)"
+echo "Model: ${MODEL:-host default (not pinned)}"
+echo "Plugin directory: $PLUGIN_ROOT"
+echo "Plugin commit: $(git -C "$PLUGIN_ROOT" rev-parse HEAD)"
+echo "Plugin working-tree state:"
+git -C "$PLUGIN_ROOT" status --short --untracked-files=no
 
 # Remove fixtures if --fresh
 if $FRESH && [ -d "$FIXTURES_DIR" ]; then
