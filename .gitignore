@@ -17,3 +17,6 @@ htmlcov/
 .claude/.unit-test-deep-*
 .claude/gauntlet-progress.*
 uv.lock
+
+# Local audit reports and isolated experiments
+/audit/2026-09-09-codex/
