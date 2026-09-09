@@ -44,8 +44,9 @@ Agent tool call:
     reference mentions `$CLAUDE_PLUGIN_ROOT`, substitute the absolute plugin
     root above — your environment may not export it.
 
-    Do NOT run the full test suite or any `scripts/*.sh` wrapper: the
-    orchestrator owns that run. Coverage measurement is part of the phase.
+    Do NOT run the full test suite as a verification gate, nor any
+    `scripts/*.sh` wrapper: the orchestrator owns that run. The analyzer's
+    discovery-time baseline run and coverage measurement are part of the phase.
 ```
 
 ### 3. Save the subagent return + extract JSON

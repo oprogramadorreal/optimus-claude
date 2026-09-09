@@ -74,6 +74,7 @@ from .findings import (
     update_scope,
 )
 from .fixes import bisect_fixes
+from .git import TreeState
 from .git import commit_checkpoint as git_commit_checkpoint
 from .git import (
     get_open_pr_data,
@@ -352,19 +353,30 @@ def _tree_state(progress, project_root):
 
 def _run_verified_tests(progress, project_root, test_command):
     progress.pop("_validated_tree", None)
-    before, _ = _tree_state(progress, project_root)
+    before = _tree_state(progress, project_root)
     passed, summary = run_tests(
         test_command, project_root, timeout=_effective_timeout(progress)
     )
-    after, _ = _tree_state(progress, project_root)
-    if before != after:
+    after = _tree_state(progress, project_root)
+    # Files the run created (coverage reports, caches) are artifacts, not
+    # tampered evidence; a change to anything that existed beforehand is.
+    if before.base != after.base or any(
+        after.entries.get(name) != digest for name, digest in before.entries.items()
+    ):
         passed = False
         summary += (
             "\nSource files changed during tests; review them and rerun validation."
         )
+    created = sorted(set(after.entries) - set(before.entries))
+    if created:
+        shown = ", ".join(created[:5]) + (" ..." if len(created) > 5 else "")
+        print(
+            f"[harness] NOTE: the test run created {len(created)} untracked "
+            f"file(s) ({shown}); gitignore them to keep checkpoints clean"
+        )
     record_test_result(progress, passed, summary)
     if passed:
-        progress["_validated_tree"] = after
+        progress["_validated_tree"] = after.digest
     return passed, summary
 
 
@@ -450,6 +462,11 @@ def _test_and_reconcile(
             on_full_revert()
             reverted += fixed
             fixed = 0
+    elif reverted > 0:
+        # Bisection reverted every fix. Its resets touch tracked files only, so
+        # rebuild the whole pre-iteration tree: nothing from this iteration is
+        # kept, and stray files the subagent created must not reach a checkpoint.
+        _restore_or_stop(progress, pre_stash, pre_head, project_root)
     return fixed, reverted, passed
 
 
@@ -559,8 +576,7 @@ def _vet_safe_exit_tree(progress, project_root, test_command, pre_stash, pre_hea
     pre-consolidation ``_handle_safe_exit``). Returns the test result, or
     ``None`` when the tree was clean (no test ran).
     """
-    _, dirty = _tree_state(progress, project_root)
-    if not dirty:
+    if not _tree_state(progress, project_root).dirty:
         return None
     passed, summary = _run_verified_tests(progress, project_root, test_command)
     if not passed:
@@ -954,6 +970,12 @@ def cmd_resume(args):
     if mutated:
         write_progress(progress_path, progress)
 
+    if progress.get("_safety_error"):
+        print(
+            "WARNING: a prior safety failure is recorded; inspect the tree and run "
+            "baseline before the loop continues: " + progress["_safety_error"],
+            file=sys.stderr,
+        )
     print(progress["skill"])
     return 0
 
@@ -1625,11 +1647,11 @@ def cmd_commit_checkpoint(args):
 
     commit_message = f"{title}\n\n{body}" if body else title
 
-    state, dirty = _tree_state(progress, project_root)
-    if not dirty:
+    state = _tree_state(progress, project_root)
+    if not state.dirty:
         print("nothing-to-commit")
         return 0
-    if progress.get("_safety_error") or progress.get("_validated_tree") != state:
+    if progress.get("_safety_error") or progress.get("_validated_tree") != state.digest:
         print(
             "ERROR: Checkpoint refused: this tree has no matching green validation. Inspect the changes and run baseline or the appropriate step.",
             file=sys.stderr,
@@ -1769,12 +1791,12 @@ def cmd_pending_refactor_count(args):
 def cmd_mark_termination(args):
     """Write a terminal reason to progress["termination"] without other side effects.
 
-    Retained escape hatch: no orchestrator doc currently invokes it (the
-    parse-failure path is fully automatic via the parse counter and
-    check-termination), but it lets an orchestrator end the loop for a reason
-    the per-iteration steps don't naturally surface without touching the
-    progress file's internals — preserving the "slice-only progress reads"
-    invariant.
+    The coverage loop invokes it for the `blocked` soft exit
+    (references/orchestrator-loop-paired.md); the parse-failure path stays
+    automatic via the parse counter and check-termination. It lets an
+    orchestrator end the loop for a reason the per-iteration steps don't
+    naturally surface without touching the progress file's internals —
+    preserving the "slice-only progress reads" invariant.
     """
     progress_path = Path(args.progress_file)
     progress = _read_run_progress(progress_path)

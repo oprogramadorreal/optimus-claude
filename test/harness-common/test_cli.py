@@ -63,7 +63,7 @@ def _tree_state_for_repo_like_scaffolds(monkeypatch):
             if cli.git_diff_has_changes is not original_dirty
             else False
         )
-        return "fixture-green", dirty
+        return cli.TreeState("fixture-green", dirty, "fixture-green", {})
 
     monkeypatch.setattr(cli, "git_test_tree_state", state)
 
@@ -1500,11 +1500,13 @@ class TestParse:
         assert calls == [(None, "deadbeef")]
         assert _read_progress(progress_path)["parse_failure_count"] == 1
 
-    def test_parse_failure_rollback_exception_is_swallowed(self, tmp_path, monkeypatch):
+    def test_parse_failure_rollback_exception_records_safety_error(
+        self, tmp_path, monkeypatch
+    ):
         # If restore_working_tree itself raises mid-rollback (e.g. git missing),
-        # the best-effort except (RuntimeError, OSError) must swallow it: the
-        # failure count is still recorded and the command exits 1 cleanly rather
-        # than surfacing a traceback.
+        # the command still exits 1 without a traceback, records the failure
+        # count, and persists _safety_error so the next mutating step refuses to
+        # run until a green baseline clears it.
         raw = tmp_path / "raw.txt"
         raw.write_text("No JSON block here.", encoding="utf-8")
         progress_path = tmp_path / "progress.json"
@@ -1538,6 +1540,7 @@ class TestParse:
         )
         assert exit_code == 1
         assert _read_progress(progress_path)["parse_failure_count"] == 1
+        assert "git binary missing" in _read_progress(progress_path)["_safety_error"]
 
     def test_parse_failure_no_rollback_when_snapshot_stale(self, tmp_path, monkeypatch):
         # A snapshot token from a prior iteration must NOT trigger a restore —
@@ -2330,8 +2333,9 @@ class TestDeepStep:
         assert data["iteration_history"][-1]["reverted"] == 1
 
     def test_all_reverted(self, tmp_path, capsys, monkeypatch):
-        # When bisection reverts every fix, deep-step prints "all-reverted"
-        # and records termination.reason accordingly.
+        # When bisection reverts every fix, deep-step prints "all-reverted",
+        # records termination.reason accordingly, and rebuilds the whole
+        # pre-iteration tree (bisection resets tracked files only).
         ppath = _seed_deep_progress(tmp_path)
         (tmp_path / "a.py").write_text("a", encoding="utf-8")
         monkeypatch.setattr(cli, "run_tests", lambda *a, **kw: (False, "FAIL"))
@@ -2344,6 +2348,10 @@ class TestDeepStep:
             return 0, len(fixes), 0
 
         monkeypatch.setattr(cli, "bisect_fixes", _stub_bisect)
+        restores = []
+        monkeypatch.setattr(
+            cli, "restore_working_tree", lambda *a, **kw: restores.append(a) or True
+        )
         result = tmp_path / "result.json"
         result.write_text(
             json.dumps(
@@ -2388,6 +2396,7 @@ class TestDeepStep:
         assert capsys.readouterr().out.strip() == "all-reverted"
         data = _read_progress(ppath)
         assert data["termination"]["reason"] == "all-reverted"
+        assert len(restores) == 1
 
     def test_interaction_bug_demotes_retained_fix(self, tmp_path, capsys, monkeypatch):
         # Symmetric to test_interaction_bug_combined_regression but for the
@@ -2949,6 +2958,8 @@ class TestRefactorStep:
             return 0, len(fixes), 0
 
         monkeypatch.setattr(cli, "bisect_fixes", _stub_bisect)
+        # All fixes reverted → the phase rebuilds the pre-cycle tree.
+        monkeypatch.setattr(cli, "restore_working_tree", lambda *a, **kw: True)
         result = tmp_path / "result.json"
         result.write_text(
             json.dumps(

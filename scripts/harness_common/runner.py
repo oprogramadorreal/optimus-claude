@@ -1,3 +1,4 @@
+import errno
 import os
 import shutil
 import subprocess
@@ -19,6 +20,12 @@ def _find_bash(platform=None, which_fn=None, run_fn=None):
     # silently run a different shell.
     override = os.environ.get("CLAUDE_CODE_GIT_BASH_PATH")
     if override:
+        if not os.path.isfile(override):
+            raise FileNotFoundError(
+                errno.ENOENT,
+                "CLAUDE_CODE_GIT_BASH_PATH does not point to a Bash executable",
+                override,
+            )
         return override
 
     # shutil.which respects PATH order — check if it resolves to WSL's bash
@@ -92,7 +99,12 @@ def run_tests(test_command, cwd, timeout=DEFAULT_TEST_TIMEOUT, prefix="[harness]
         # On Windows, shell=True uses cmd.exe which misparses bash operators
         # (&&, ||), subshells ($(...)), env vars ($VAR), and redirections (2>).
         # Always route through bash for consistent behavior.
-        bash = _find_bash()
+        try:
+            bash = _find_bash()
+        except FileNotFoundError as exc:
+            msg = f"{exc.strerror}: {exc.filename}"
+            print(f"{prefix} {msg}")
+            return False, msg
         effective_command = [bash, "-c", test_command]
         environment = bash_environment(bash)
         use_shell = False

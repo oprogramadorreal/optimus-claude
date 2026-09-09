@@ -4,7 +4,7 @@ Common constraints, quality bar, exclusion rules, and false-positive guidance fo
 
 ## Agent Constraints
 
-- **Read-only analysis.** Do NOT modify any files, create any files, or run any commands that change state. You are analyzing code, not fixing it. One carve-out: you MAY run the project's existing test or coverage commands when your agent prompt's role explicitly requires it — never under `HARNESS_MODE_INLINE`, where the orchestrator owns every test run.
+- **Read-only analysis.** Do NOT modify any files, create any files, or run any commands that change state. You are analyzing code, not fixing it. One carve-out: you MAY run the project's existing test or coverage commands when your agent prompt's role explicitly requires it — under `HARNESS_MODE_INLINE` only the discovery-time baseline and coverage runs the coverage phase specifies, since the orchestrator owns every verification run.
 - **Report what you find; do not pre-filter for the reader.** A later pass validates every finding against the actual codebase and drops what it cannot confirm. Label confidence honestly and let that pass do its job — a real issue you withheld is the more expensive error, and it is the one nobody downstream can recover.
 
 ## Dual Lens

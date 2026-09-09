@@ -36,6 +36,23 @@ def test_incomplete_output_rejected(bad):
     assert parse_harness_output(_block(bad)) is None
 
 
+def test_refactor_phase_output_with_cycle_key_is_deep_variant():
+    value = dict(_valid(), cycle=2)
+    assert parse_harness_output(_block(value)) == value
+
+
+@pytest.mark.parametrize("spelling", [1, 0, "1", "yes", "no"])
+def test_flag_spellings_read_flag_accepts_are_not_rejected(spelling):
+    value = dict(_valid(), no_new_findings=spelling)
+    assert parse_harness_output(_block(value)) == value
+
+
+def test_missing_flag_is_rejected():
+    value = _valid()
+    del value["no_new_findings"]
+    assert parse_harness_output(_block(value)) is None
+
+
 def test_last_complete_block_wins_after_echoed_template():
     first, last = _valid(), _valid()
     first["iteration"], last["iteration"] = 1, 2

@@ -4,6 +4,7 @@ import json
 import os
 import subprocess
 import tempfile
+from collections import namedtuple
 from pathlib import Path
 
 from .constants import (
@@ -21,12 +22,20 @@ _PREFIX = "[harness]"
 _UNSET = object()
 
 
+TreeState = namedtuple("TreeState", "digest dirty base entries")
+
+
 def git_test_tree_state(cwd, progress_file):
     """Fingerprint the source bytes a checkpoint would include, without writes.
 
     Ignore only the same harness state excluded from checkpoint commits. Include
     non-ignored untracked files and HEAD; a green result cannot authorize later
     edits or a different base. Binary Git output avoids locale/decoding loss.
+
+    Returns a ``TreeState``: ``digest`` covers everything, ``base`` covers HEAD
+    plus the tracked diff, and ``entries`` maps each tracked or untracked path
+    to its own content digest — so a caller can tell a file that changed during
+    a test run from a file the run merely created (coverage reports, caches).
     """
     root = Path(cwd).resolve()
     excludes = list(_HARNESS_STATE_EXCLUDES)
@@ -43,42 +52,59 @@ def git_test_tree_state(cwd, progress_file):
             raise RuntimeError(f"Cannot inspect test tree: git {args[0]} failed")
         return result.stdout
 
-    digest = hashlib.sha256(git_bytes("rev-parse", "HEAD"))
+    head = git_bytes("rev-parse", "HEAD")
     diff = git_bytes(
         "diff", "--binary", "--no-ext-diff", "--no-textconv", "HEAD", "--", *pathspec
     )
-    digest.update(diff)
+    base = hashlib.sha256(head + b"\0" + diff).hexdigest()
     untracked = git_bytes(
         "ls-files", "--others", "--exclude-standard", "-z", "--", *pathspec
     )
-    tracked = git_bytes("ls-files", "--cached", "-z", "--", *pathspec)
+    # --stage exposes the mode: 160000 marks a submodule (gitlink), which is an
+    # empty directory in a clone made without --recurse-submodules.
+    staged = git_bytes("ls-files", "--cached", "--stage", "-z", "--", *pathspec)
+    names = set(filter(None, untracked.split(b"\0")))
+    gitlinks = {}
+    for record in filter(None, staged.split(b"\0")):
+        meta, _, name = record.partition(b"\t")
+        mode, sha = meta.split(b" ", 2)[:2]
+        names.add(name)
+        if mode == b"160000":
+            gitlinks[name] = sha
     # Hash actual tracked bytes too: clean/smudge filters and autocrlf can make
     # different test inputs appear identical in a Git diff. Stream large files.
-    for name in sorted(set(filter(None, (tracked + untracked).split(b"\0")))):
-        path = root / os.fsdecode(name)
-        digest.update(len(name).to_bytes(8, "big") + name)
-        if path.is_symlink():
-            digest.update(b"link\0" + os.fsencode(os.readlink(path)))
-        elif path.is_file():
-            digest.update(b"file\0")
-            file_digest = hashlib.sha256()
-            with path.open("rb") as stream:
-                for block in iter(lambda: stream.read(1024 * 1024), b""):
-                    file_digest.update(block)
-            digest.update(file_digest.digest())
-        elif not path.exists():
-            digest.update(b"deleted\0")
-        elif path.is_dir() and (path / ".git").exists():
-            if git_bytes("-C", str(path), "status", "--porcelain"):
-                raise RuntimeError(
-                    f"Validate and commit dirty nested repository separately: {path}"
-                )
-            digest.update(
-                b"gitlink\0" + git_bytes("-C", str(path), "rev-parse", "HEAD")
-            )
-        else:
-            raise RuntimeError(f"Cannot verify untracked directory: {path}")
-    return digest.hexdigest(), bool(diff or untracked)
+    entries = {
+        os.fsdecode(name): _tree_entry_digest(
+            root / os.fsdecode(name), gitlinks.get(name), progress_file
+        )
+        for name in names
+    }
+    digest = hashlib.sha256(base.encode("ascii"))
+    for name in sorted(entries):
+        encoded = os.fsencode(name)
+        digest.update(len(encoded).to_bytes(8, "big") + encoded)
+        digest.update(entries[name].encode("ascii"))
+    return TreeState(digest.hexdigest(), bool(diff or untracked), base, entries)
+
+
+def _tree_entry_digest(path, gitlink_sha, progress_file):
+    if path.is_symlink():
+        return "link:" + hashlib.sha256(os.fsencode(os.readlink(path))).hexdigest()
+    if path.is_file():
+        file_digest = hashlib.sha256()
+        with path.open("rb") as stream:
+            for block in iter(lambda: stream.read(1024 * 1024), b""):
+                file_digest.update(block)
+        return "file:" + file_digest.hexdigest()
+    if path.is_dir() and (path / ".git").exists():
+        # A checked-out submodule or nested repository: fingerprint it the same
+        # way, so edits inside it during a test run are detected as well.
+        return "repo:" + git_test_tree_state(path, progress_file).digest
+    if gitlink_sha:
+        return "gitlink:" + gitlink_sha.decode("ascii")  # registered, not checked out
+    if not path.exists():
+        return "deleted"
+    return "dir"  # a tracked path replaced by a directory; its files list separately
 
 
 def _run_git_text(_run, args, cwd, **extra):

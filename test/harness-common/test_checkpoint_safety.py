@@ -15,7 +15,7 @@ def _git(root, *args):
     ).stdout
 
 
-def _setup(root):
+def _init_repo(root):
     _git(root, "init")
     _git(root, "config", "user.name", "Fixture")
     _git(root, "config", "user.email", "fixture@example.invalid")
@@ -23,9 +23,20 @@ def _setup(root):
     (root / "app.txt").write_bytes(b"GOOD\n")
     _git(root, "add", "app.txt")
     _git(root, "commit", "-m", "base")
-    progress = root / ".claude" / "code-review-deep-progress.json"
+
+
+def _python_command(body):
     python = Path(sys.executable).as_posix()
-    command = f"\"{python}\" -c \"from pathlib import Path; import sys; sys.exit(b'BAD' in Path('app.txt').read_bytes())\""
+    return f'"{python}" -c "from pathlib import Path; import sys; {body}"'
+
+
+def _setup(root, *, init_repo=True, test_command=None, baseline=True):
+    if init_repo:
+        _init_repo(root)
+    progress = root / ".claude" / "code-review-deep-progress.json"
+    command = test_command or _python_command(
+        "sys.exit(b'BAD' in Path('app.txt').read_bytes())"
+    )
     assert (
         cli.main(
             [
@@ -42,8 +53,9 @@ def _setup(root):
         )
         == 0
     )
-    assert _cmd(progress, "baseline") == 0
-    assert _cmd(progress, "snapshot") == 0
+    if baseline:
+        assert _cmd(progress, "baseline") == 0
+        assert _cmd(progress, "snapshot") == 0
     return progress
 
 
@@ -189,6 +201,88 @@ def test_full_restore_removes_iteration_only_staged_additions(tmp_path):
     assert not (tmp_path / "iteration-only.txt").exists()
     assert not _git(tmp_path, "diff", "--cached", "--binary")
     assert _git(tmp_path, "rev-parse", "HEAD").decode().strip() == head
+
+
+def test_artifacts_created_by_tests_do_not_fail_validation(tmp_path, capsys):
+    command = _python_command(
+        "Path('coverage.xml').write_text('run'); "
+        "sys.exit(b'BAD' in Path('app.txt').read_bytes())"
+    )
+    progress = _setup(tmp_path, test_command=command)
+    assert (tmp_path / "coverage.xml").is_file()
+    assert "created 1 untracked file(s) (coverage.xml)" in capsys.readouterr().out
+    assert _cmd(progress, "commit-checkpoint") == 0
+
+
+def test_source_edited_during_tests_fails_validation(tmp_path, capsys):
+    command = _python_command("Path('app.txt').write_bytes(b'GOOD edited')")
+    progress = _setup(tmp_path, test_command=command, baseline=False)
+    assert _cmd(progress, "baseline") == 1
+    assert "changed during tests" in capsys.readouterr().out
+
+
+def test_uninitialized_submodule_does_not_block_baseline(tmp_path):
+    library = tmp_path / "library"
+    library.mkdir()
+    _init_repo(library)
+    upstream = tmp_path / "upstream"
+    upstream.mkdir()
+    _init_repo(upstream)
+    _git(
+        upstream,
+        "-c",
+        "protocol.file.allow=always",
+        "submodule",
+        "add",
+        library.as_posix(),
+        "library",
+    )
+    _git(upstream, "commit", "-m", "add submodule")
+    clone = tmp_path / "clone"
+    subprocess.run(
+        ["git", "clone", "-q", upstream.as_posix(), clone.as_posix()], check=True
+    )
+    assert not (clone / "library" / ".git").exists()
+    _git(clone, "config", "user.name", "Fixture")
+    _git(clone, "config", "user.email", "fixture@example.invalid")
+    _setup(clone, init_repo=False)
+
+
+def test_all_reverted_removes_files_the_subagent_created(tmp_path, capsys):
+    progress = _setup(tmp_path)
+    head = _git(tmp_path, "rev-parse", "HEAD")
+    (tmp_path / "app.txt").write_bytes(b"BAD\n")
+    (tmp_path / "helper.py").write_bytes(b"# left behind by the subagent\n")
+    fix = dict(
+        file="app.txt",
+        line=1,
+        category="Bug",
+        summary="fixture",
+        pre_edit_content="GOOD",
+        post_edit_content="BAD",
+    )
+    output = dict(_empty_valid(), new_findings=[fix], fixes_applied=[fix])
+    capsys.readouterr()
+    assert _cmd(progress, "deep-step", "--result-file", _result(tmp_path, output)) == 0
+    assert "all-reverted" in capsys.readouterr().out
+    assert (tmp_path / "app.txt").read_bytes() == b"GOOD\n"
+    assert not (tmp_path / "helper.py").exists()
+    assert _cmd(progress, "commit-checkpoint") == 0
+    assert _git(tmp_path, "rev-parse", "HEAD") == head
+
+
+def test_resume_after_safety_error_points_to_baseline(tmp_path, capsys):
+    progress = _setup(tmp_path)
+    (tmp_path / "app.txt").write_bytes(b"BAD\n")
+    assert _cmd(progress, "deep-step", "--result-file", _result(tmp_path, {})) == 1
+    assert json.loads(progress.read_text(encoding="utf-8"))["_safety_error"]
+    capsys.readouterr()
+    assert _cmd(progress, "resume", "--project-dir", str(tmp_path)) == 0
+    assert "run baseline" in capsys.readouterr().err
+    assert _cmd(progress, "snapshot") == 1
+    (tmp_path / "app.txt").write_bytes(b"GOOD\n")
+    assert _cmd(progress, "baseline") == 0
+    assert _cmd(progress, "snapshot") == 0
 
 
 @pytest.mark.parametrize("mode", ["no_commit", "commit_disabled"])

@@ -38,7 +38,7 @@ def test_install_paths_with_spaces_and_upgrade_failure(tmp_path, pip_upgrade_exi
         + str(Path(os.environ.get("SystemRoot", "C:/Windows")) / "System32")
     )
     result = subprocess.run(
-        [env.get("COMSPEC", "cmd.exe"), "/d", "/c", "install.cmd"],
+        [env.get("COMSPEC", "cmd.exe"), "/d", "/c", str(root / "install.cmd")],
         cwd=root,
         env=env,
         capture_output=True,

@@ -14,9 +14,18 @@ def isolate_bash_override(monkeypatch):
 
 
 class TestFindBash:
-    def test_explicit_windows_override(self, monkeypatch):
-        monkeypatch.setenv("CLAUDE_CODE_GIT_BASH_PATH", "D:/Custom Git/bin/bash.exe")
-        assert _find_bash(platform="win32") == "D:/Custom Git/bin/bash.exe"
+    def test_explicit_windows_override(self, monkeypatch, tmp_path):
+        bash = tmp_path / "Custom Git" / "bin" / "bash.exe"
+        bash.parent.mkdir(parents=True)
+        bash.write_bytes(b"")
+        monkeypatch.setenv("CLAUDE_CODE_GIT_BASH_PATH", str(bash))
+        assert _find_bash(platform="win32") == str(bash)
+
+    def test_missing_windows_override_names_the_variable(self, monkeypatch, tmp_path):
+        missing = tmp_path / "missing" / "bash.exe"
+        monkeypatch.setenv("CLAUDE_CODE_GIT_BASH_PATH", str(missing))
+        with pytest.raises(FileNotFoundError, match="CLAUDE_CODE_GIT_BASH_PATH"):
+            _find_bash(platform="win32")
 
     @patch("harness_common.runner.sys")
     def test_non_windows(self, mock_sys):

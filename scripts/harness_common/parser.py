@@ -1,6 +1,12 @@
 import json
 import re
 
+# The true/false spellings convergence.read_flag recognizes; anything else in a
+# string flag is a malformed envelope rather than a lenient "keep going".
+_FLAG_SPELLINGS = frozenset(
+    ("true", "false", "yes", "no", "y", "n", "t", "f", "on", "off", "1", "0")
+)
+
 
 def validate_harness_output(value, variant=None):
     """Validate the safety-critical envelope, retaining legacy scalar coercion.
@@ -11,7 +17,11 @@ def validate_harness_output(value, variant=None):
     """
     if not isinstance(value, dict):
         raise ValueError("harness output must be an object")
-    coverage = variant == "coverage" or (variant is None and "cycle" in value)
+    # The coverage target's refactor phase runs under a cycle counter but emits
+    # the review/refactor shape; an explicit iteration therefore wins.
+    coverage = variant == "coverage" or (
+        variant is None and "cycle" in value and "iteration" not in value
+    )
     counter = "cycle" if coverage else "iteration"
     if type(value.get(counter)) is not int or value[counter] < 1:
         raise ValueError(f"harness output requires a positive integer {counter}")
@@ -33,8 +43,13 @@ def validate_harness_output(value, variant=None):
             raise ValueError(f"invalid item in {field}")
     for field in flags:
         flag = value.get(field)
-        # read_flag historically accepts these exact string forms too.
-        if type(flag) is not bool and flag not in ("true", "false", "True", "False"):
+        # Presence is the contract; interpretation is convergence.read_flag's
+        # call. Accept the spellings it recognizes (bools, ints, and the JSON-ish
+        # true/false words) and reject anything else as a malformed envelope.
+        if isinstance(flag, str):
+            if flag.strip().lower() not in _FLAG_SPELLINGS:
+                raise ValueError(f"harness output requires a boolean: {field}")
+        elif not isinstance(flag, (bool, int)):
             raise ValueError(f"harness output requires a boolean: {field}")
     if coverage:
         if value.get("phase") != "unit-test" or not isinstance(

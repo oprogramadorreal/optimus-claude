@@ -5,10 +5,9 @@ def read_flag(output, key):
     """Read one convergence flag out of untrusted subagent JSON.
 
     These flags decide whether the run STOPS, so a FALSE reading is strict: only
-    a value that positively spells true can converge. Nothing coerces types
-    at the parse boundary — ``parse_harness_output`` checks that the payload is
-    a dict and no more — and a subagent emits the string ``"false"`` as readily
-    as the literal. Read raw, ``"false"`` is truthy in Python, so the run
+    a value that positively spells true can converge. The parse boundary
+    requires these keys to be present but coerces nothing, and a subagent emits
+    the string ``"false"`` as readily as the literal. Read raw, ``"false"`` is truthy in Python, so the run
     terminated on cycle 1 reporting a coverage plateau that never happened.
 
     Anything unrecognized means "keep going", which the cycle cap already
