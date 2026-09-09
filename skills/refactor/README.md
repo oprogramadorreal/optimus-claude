@@ -33,7 +33,7 @@ For iterative refactoring in an automated loop, use `/optimus:deep refactor`.
 
 ## Focus Mode
 
-By default all analysis categories compete equally for the 15-finding cap. A focus keyword reserves 12 of the 15 slots for its category — high-severity findings from other categories still surface in the remaining 3:
+By default all analysis categories compete equally for the 15-finding cap. A focus keyword prioritizes that category; high-severity findings from other categories may still surface within the same cap:
 
 - `testability` — after `/optimus:unit-test` flags "Not Testable Without Refactoring"
 - `guidelines` — after `/optimus:init` establishes new guidelines
@@ -81,7 +81,7 @@ The plugin's code-simplifier agent cleans up code you have just changed; `/optim
 
 ## Requirements
 
-- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) 1.0.33+ (plugin support)
+- Optimus installed in a [supported host](../../README.md#supported-hosts-and-versions)
 - Git
 - Project initialized with `/optimus:init` (recommended, not required)
 - Test command in `.claude/CLAUDE.md` for post-apply verification and `/optimus:deep refactor`

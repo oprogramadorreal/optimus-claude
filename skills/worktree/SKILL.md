@@ -12,7 +12,7 @@ Create a git worktree under `.worktrees/` on a new branch, with project setup an
 
 ### 1. Target repo
 
-If the current directory has no `.git/` directory, read `$CLAUDE_PLUGIN_ROOT/skills/init/references/multi-repo-detection.md` and apply it. In a multi-repo workspace, run all git commands inside the target child repo: use the repo the user specified; if ambiguous, use `AskUserQuestion` — header "Target repo", question "Which repo should the worktree be created for?", one option per repo.
+If `git rev-parse --is-inside-work-tree` does not return `true`, read `$CLAUDE_PLUGIN_ROOT/skills/init/references/multi-repo-detection.md` and apply it. When it returns `true`, resolve the repository root with `git rev-parse --show-toplevel`, including in a linked worktree or subdirectory. In a multi-repo workspace, run all git commands inside the target child repo: use the repo the user specified; if ambiguous, use `AskUserQuestion` — header "Target repo", question "Which repo should the worktree be created for?", one option per repo.
 
 ### 2. Detection guard
 
@@ -51,7 +51,7 @@ Open it: `code .worktrees/<worktree-dir>` (VSCode), or start a new session of th
 Cleanup when done: `git worktree remove .worktrees/<worktree-dir>`
 ```
 
-If Setup modified `.gitignore`, add after "Main workspace": `.gitignore updated to ignore .worktrees/ (staged, not committed)`. In a multi-repo workspace, prefix all report paths with the target repo directory.
+If Setup modified `.gitignore`, add after "Main workspace": `.gitignore updated to ignore .worktrees/ (left unstaged; existing index preserved)`. In a multi-repo workspace, prefix all report paths with the target repo directory.
 
 Never commit or push in the main workspace; it must end on `<original-branch>`.
 

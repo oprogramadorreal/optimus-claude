@@ -81,9 +81,9 @@ Earlier versions ran a two-agent quality gate inline at the end of the run. That
 
 ## Requirements
 
-- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) 1.0.33+ (plugin support)
+- Optimus installed in a [supported host](../../README.md#supported-hosts-and-versions)
 - Git
-- Project initialized with `/optimus:init` and working test infrastructure
+- Working test infrastructure with a passing baseline; `/optimus:init` is recommended, with the skill's general-guidance fallback available
 
 ## License
 

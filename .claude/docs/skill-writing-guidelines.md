@@ -4,13 +4,13 @@ Deliberately not a copy of `skills/init/templates/docs/skill-writing-guidelines.
 
 ## The one principle
 
-Claude is already very smart. A skill earns its context cost only with things Claude cannot infer: project-specific procedures, safety constraints, inter-skill contracts, and genuinely fragile sequences. Challenge every instruction: "Would a capable model get this wrong without being told?" If not, delete it. Restating what Claude does natively (how to read a diff, how to phrase a report, that it should read a file before editing it) actively degrades output by burying the rules that matter.
+Prioritize project-specific procedures, constraints, inter-skill contracts, and fragile sequences. Challenge repeated advice, but judge its value through task outcomes: model capability alone proves neither that a reminder is redundant nor that it helps. Keep instructions that prevent observed errors; simplify when comparable tasks show no benefit. Shared prompts are the default for Claude Code and Codex; add a host or model adaptation only for a demonstrated difference.
 
 ## Size and loading
 
 - A skill's real invocation cost is SKILL.md **plus every file it reads unconditionally**. Budget the sum, not just SKILL.md.
 - Keep SKILL.md well under 500 lines; most skills here should be 50–180.
-- Gate cross-cutting reads behind cheap inline conditions (e.g. multi-repo detection: "If the cwd has no `.git/` directory, read `skills/init/references/multi-repo-detection.md`"). Never load a reference on every run that only matters on some runs.
+- Gate cross-cutting reads behind reliable cheap conditions. Query Git's working-tree context when detecting multi-repo layouts; a `.git` file can represent a linked worktree or submodule. Never load a reference on every run that only matters on some runs.
 - Progressive disclosure: SKILL.md is the overview; conditional detail goes in `references/`. A reference that would load on every run belongs inline. Reference depth: prefer one level from SKILL.md; two (SKILL → ref → ref) is the enforced maximum. Reference files >100 lines start with a table of contents.
 
 ## Degrees of freedom
@@ -24,10 +24,10 @@ Over-specified step lists for judgment tasks are the plugin's historical failure
 
 ## What not to instruct
 
-Current models already do these. Instructing them again costs tokens and can degrade behavior.
+These are candidates for simplification, not universal claims about every model or host. Compare correctness, completion, regressions, user intervention, and maintenance cost before removing consequential guidance.
 
-- **Self-verification** — no "double-check", "verify before responding", or a final verification step appended to a task. What *is* worth instructing is a check against something external the model cannot self-assess: run the suite, validate against the schema, `diff` the installed file against its template. `references/harness-mode.md`'s "not even to 'verify' your own fixes" is the model to copy.
-- **Subagent verification of the skill's own output** — delegation is for large, genuinely independent work. An agent reviewing what this conversation just wrote has less context, not more. Recommend `/optimus:code-review` instead of inlining a private copy of it.
+- **Vague self-verification** — prefer concrete acceptance criteria and external checks: tests, schema validation, or installed-file comparison. Keep a focused self-check when it prevents an observed failure. The harness's no-child-tests rule has a different purpose: the parent owns test execution and rollback.
+- **Automatic subagent review** — delegate independent review when its perspective or context isolation justifies the cost, supplying the needed evidence. Reuse `/optimus:code-review` where applicable instead of maintaining a private copy. Neither adding an agent nor sharing context guarantees a better result.
 - **Delegating what the skill could do inline** — a fan-out that fires regardless of input size spawns agents on a three-file diff. Give every agent step a floor below which the skill does the work itself; the fan-out earns its cost on genuinely independent tracks, or when the material would crowd out the step that follows.
 - **Per-step narration** — describe the cadence you want (one line up front, updates on something important, outcome first at the end) rather than mandating a report after every step.
 - **Conservatism in analysis agents** — "only report what you're confident about" makes the model report less. Have agents report with an honest confidence label and filter in the consuming step, where the code is actually available to check against.
@@ -35,7 +35,7 @@ Current models already do these. Instructing them again costs tokens and can deg
 ## Structure
 
 - Skill = one concern; extend an existing skill instead of adding a new one when the capability runs on the same inputs in the same conversation and a user would look for it under that name. Fewer, well-scoped skills beat many narrow ones — skills are user-invoked, and a sprawling `/optimus:` menu hurts recall. (Exception: `init` is a deliberate one-time orchestrator.)
-- Frontmatter: `description` (required), `disable-model-invocation: true` (required — skills never auto-trigger), quoted `argument-hint` when arguments exist. Do NOT add a `name:` field — it strips the plugin namespace prefix ([anthropics/claude-code#22063](https://github.com/anthropics/claude-code/issues/22063)); Codex derives the name from the directory. Pair the flag with `agents/openai.yaml` setting `policy.allow_implicit_invocation: false` — its Codex twin; each host reads only its own, and `validate.sh` requires both.
+- Frontmatter: `description` (required), `disable-model-invocation: true` (required — skills never auto-trigger), quoted `argument-hint` when arguments exist. Keep `name:` omitted: this convention loads correctly in Claude Code 2.1.263 and Codex 0.153.4. [Issue 22063](https://github.com/anthropics/claude-code/issues/22063) records historical namespace trouble on Claude Code 2.1.27; current [Claude documentation](https://code.claude.com/docs/en/skills#how-a-skill-gets-its-command-name) preserves plugin namespaces. The [Codex public guide](https://learn.chatgpt.com/docs/build-skills) requires a name while the tested loader derives it from the directory. Preserve the working convention and test both hosts before changing it; do not generalize the old issue to every current release. Pair invocation control with `agents/openai.yaml` setting `policy.allow_implicit_invocation: false`; `validate.sh` requires both host flags.
 - Descriptions must parse as YAML: a `: ` inside an unquoted scalar ("Read-only: applies…") makes Claude Code load the skill with empty metadata — dropping `disable-model-invocation` — and makes Codex skip it. Use the folded `>-` form when in doubt. `validate_skill_metadata.py` parses frontmatter and the Codex policy and requires actual boolean values, not strings.
 - Descriptions: third person, lead with the differentiating verb phrase, state WHAT and WHEN, declare side effects (commits, pushes, file writes) and hard prerequisites. Target 250–450 chars (platform cap 1024). Feature inventories belong in README.md.
 - Names: short verb/noun slash-command style (`init`, `commit`, `deep`), consistent with the existing set.
@@ -63,7 +63,7 @@ End with one or two plain lines recommending the next step, chosen by outcome (f
 
 ## Evaluation
 
-Write minimal instructions, test on real tasks, and iterate on observed behavior — watch whether Claude misses references, over-relies on one section, or ignores bundled files. Don't document imagined problems.
+Test instructions on representative tasks and iterate on observed behavior. For consequential changes compare current instructions, a minimal candidate, and an omitted-guidance baseline where useful; hold task inputs and runtime settings constant and repeat trials. Record exact host/model identifiers, correctness, completion, regressions, user intervention, and token/latency data when available. GPT-6 Astra (`gpt-6-astra`) and Claude Fable 5.1 (`claude-fable-5-1`) remain distinct evaluation targets; do not silently substitute another model. Label unavailable experiments and loader-only tests accurately. Prompt length alone does not measure quality.
 
 ## Documentation
 

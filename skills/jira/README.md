@@ -108,7 +108,7 @@ In spec-driven-development terms, `/optimus:jira` is the supported path for PM-a
 
 ## Requirements
 
-- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) 1.0.33+ (plugin support)
+- Optimus installed in a [supported host](../../README.md#supported-hosts-and-versions)
 - A JIRA MCP server configured in Claude Code (skill guides setup if missing)
 
 ## License

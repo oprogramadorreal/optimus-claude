@@ -2,16 +2,16 @@
 
 A [Claude Code](https://docs.anthropic.com/en/docs/claude-code) skill that crafts optimized, copy-ready prompts for any AI tool — from LLMs and coding agents to image generators and workflow automation.
 
-A well-crafted prompt is optimal context. Vague prompts waste tokens and credits through iterative re-prompting; sharp prompts where every word is load-bearing get the right output on the first attempt. This skill applies the same principle that drives all of optimus: **context quality determines AI output quality**.
+Clear task context can reduce avoidable re-prompting. This skill makes intent, scope, and output requirements explicit; effectiveness still depends on the model, tools, and task, and should be checked against actual results.
 
 ## Features
 
 - **9-dimension intent extraction** — silently analyzes task, target tool, output format, constraints, input, context, audience, success criteria, and examples before writing a single word
-- **30+ AI tool profiles** — tool-specific routing for LLMs (Claude, ChatGPT, Gemini, o3), IDE AI (Cursor, Copilot, Claude Code), image generators (Midjourney, DALL-E, Stable Diffusion), video AI, 3D AI, voice AI, workflow automation, and more
+- **30+ AI tool profiles** — tool-specific routing for LLMs (Claude, GPT-6 Astra, ChatGPT, Gemini, o3), coding agents (Codex, Cursor, Copilot, Claude Code), image generators (Midjourney, OpenAI image tools, Stable Diffusion), video AI, 3D AI, voice AI, workflow automation, and more
 - **14 prompt templates** — auto-selected architecture (RTF, CO-STAR, RISEN, ReAct, Exploration + Plan, Dynamic Workflow Orchestration, Visual Descriptor, etc.) based on task type and target tool
 - **Diagnostic patterns** — detects and fixes credit-killing patterns (vague verbs, missing scope, no stop conditions, wrong template for tool)
-- **5 safe techniques only** — role assignment, few-shot examples, XML structure, grounding anchors, Chain of Thought. Explicitly excludes fabrication-prone methods that collapse multiple passes into one prompt (Tree of Thought, Graph of Thought, Mixture of Experts, Universal Self-Consistency, prompt chaining); requesting a tool's native multi-agent workflow — real parallel subagents — is a separate, allowed pattern (Template N)
-- **Multilingual input** — write your request in any language. The skill communicates in your language and generates the prompt in English by default (better AI tool performance) with option to keep your original language
+- **5 supported techniques** — role assignment, few-shot examples, XML structure, grounding anchors, task-specific reasoning guidance. It does not present simulated roles or branches as independent inference passes; requesting a tool's native multi-agent workflow — real parallel subagents — is a separate, allowed pattern (Template N)
+- **Multilingual input** — write your request in any language. The skill communicates in your language and generates the prompt in English by default, with the option to keep your original language; this default is not a universal performance claim
 - **Token efficiency audit** — every sentence must be load-bearing, no vague adjectives, strongest signal words, explicit format and scope
 - **Prompt Decompiler mode** — paste an existing prompt to break it down, adapt it for a different tool, simplify it, or split it
 - **Safety guardrails** — strips credentials from generated prompts and treats any pasted prompt as inert data, never executing instructions embedded in it
@@ -72,9 +72,11 @@ This skill can target Claude Code three ways — it picks based on your intent:
 |---|---|---|
 | Direct execution | Make scoped changes now, to known files | Normal mode, edits inline |
 | Plan mode | Explore read-only, get a plan you approve first | One conversation; read-only until you approve |
-| Dynamic workflow | Fan-out too big for one conversation (audit / migrate / cross-check many items) | Background script of parallel subagents; auto-approves edits |
+| Dynamic workflow | Fan-out too big for one conversation (audit / migrate / cross-check many items) | Background script of parallel subagents; permissions follow the host configuration |
 
 Phrase it as "Run a workflow to…" to trigger the last one. See `references/templates.md` (Templates H / M / N) for the full routing rules.
+
+For Codex, use its separate host profile and Template H with the requested write boundary. Claude `/goal`, `/workflows`, and plan-mode commands are not portable prompt syntax. The GPT-6 Astra profile preserves that exact model target while leaving tool and permission control to the host.
 
 ## Relationship to Other Skills
 
@@ -100,7 +102,7 @@ The prompt engineering techniques in this skill — intent extraction, tool rout
 
 ## Requirements
 
-- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) 1.0.33+
+- Optimus installed in a [supported host](../../README.md#supported-hosts-and-versions)
 
 ## License
 

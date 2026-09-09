@@ -12,12 +12,21 @@ The caller provides `<branch-name>` (already created) and `<original-branch>` (t
 
 1. **Derive the worktree directory name**: `<worktree-dir>` = branch name with `/` replaced by `-` (e.g., `feat/add-login` → `feat-add-login`).
 
-2. **Create `.worktrees/` and ensure it is gitignored** (staged, not committed):
+2. **Create `.worktrees/` and ensure Git actually ignores its contents**. Run from the target repository root; a comment containing `.worktrees` is not an ignore rule:
 
    ```bash
-   mkdir -p .worktrees
-   grep -qF '.worktrees' .gitignore 2>/dev/null || (echo '.worktrees/' >> .gitignore && git add .gitignore)
+   mkdir -p .worktrees || exit 1
+   if git check-ignore -q -- .worktrees/.optimus-ignore-check; then
+       :
+   else
+       ignore_status=$?
+       [ "$ignore_status" -eq 1 ] || exit "$ignore_status"
+       printf '\n.worktrees/\n' >> .gitignore || exit 1
+       git check-ignore -q -- .worktrees/.optimus-ignore-check || exit 1
+   fi
    ```
+
+   Preserve existing `.gitignore` bytes and index entries; the leading newline keeps the added rule separate even when the existing file has no final newline. Leave the rule unstaged and report it as an owned setup change for a later commit. If ignore verification fails, stop setup and report the Git error rather than creating an unignored worktree.
 
 3. **Switch the main workspace back** if the current branch is not `<original-branch>` (e.g., the caller used `git checkout -b`): `git checkout <original-branch>`. Skip if already on it.
 

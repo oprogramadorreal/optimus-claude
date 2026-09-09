@@ -23,7 +23,7 @@ When `.claude/docs/skill-writing-guidelines.md` exists, the project authors mark
 - Subjective suggestions ("I would prefer...")
 - Performance micro-optimizations without clear impact
 - Issues explicitly silenced in code (e.g., `// eslint-disable`, `# noqa`)
-- **Generated source files** — skip `*.g.dart`, `*.freezed.dart`, `*.mocks.dart` (Dart/Flutter build_runner output), `*.Designer.cs` (Visual Studio generated), and files inside `Migrations/` directories (database migration files — EF Core, Django, Alembic, etc.). Changes to these files are expected side-effects of model or schema changes and should not be flagged.
+- **Generated source files** — skip mechanical output such as `*.g.dart`, `*.freezed.dart`, `*.mocks.dart` (Dart/Flutter build_runner output) and `*.Designer.cs` when generation provenance confirms it. A migration directory is not proof of generation: review authored schema operations and data transformations; skip only confirmed mechanical snapshots or generated sections.
 
 ## Finding Cap
 

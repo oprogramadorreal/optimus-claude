@@ -9,7 +9,7 @@ This skill never commits working-tree changes — it only pushes existing commit
 
 ## Step 1: Pre-flight
 
-If the current directory has no `.git/` directory, read `$CLAUDE_PLUGIN_ROOT/skills/init/references/multi-repo-detection.md` and apply it. In a detected workspace:
+If `git rev-parse --is-inside-work-tree` does not return `true`, read `$CLAUDE_PLUGIN_ROOT/skills/init/references/multi-repo-detection.md` and apply it. When it returns `true`, resolve the repository root with `git rev-parse --show-toplevel`, including in a linked worktree or subdirectory. In a detected workspace:
 
 - Filter to child repos on a non-default branch with commits ahead of the default branch (detect the default branch per `$CLAUDE_PLUGIN_ROOT/skills/pr/references/default-branch-detection.md`, run inside each repo). Warn and skip any repo whose default branch cannot be detected.
 - 0 candidates → "No repositories in this workspace have branches with changes ready for a PR." Stop. 1 → announce which repo was detected and run Steps 2–7 inside it. Multiple → ask (AskUserQuestion): **All** or one specific repo.

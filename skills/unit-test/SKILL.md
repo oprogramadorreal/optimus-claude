@@ -16,7 +16,7 @@ If your invocation prompt body contains `HARNESS_MODE_INLINE`, you are a single 
 
 ### Prerequisites and project docs
 
-If the current directory has no `.git/` directory, read `$CLAUDE_PLUGIN_ROOT/skills/init/references/multi-repo-detection.md` and apply it. In a multi-repo workspace, run Steps 1–5 independently inside each repo that has `.claude/CLAUDE.md` and report results per repo; if no repo is initialized, suggest running `/optimus:init` first from the workspace root.
+If `git rev-parse --is-inside-work-tree` does not return `true`, read `$CLAUDE_PLUGIN_ROOT/skills/init/references/multi-repo-detection.md` and apply it. When it returns `true`, resolve the repository root with `git rev-parse --show-toplevel`, including in a linked worktree or subdirectory. In a multi-repo workspace, run Steps 1–5 independently inside each repo that has `.claude/CLAUDE.md` and report results per repo; if no repo is initialized, suggest running `/optimus:init` first from the workspace root.
 
 Check that `.claude/CLAUDE.md` exists. If it doesn't, stop and recommend running `/optimus:init` first — the project needs baseline context before test generation can be effective.
 

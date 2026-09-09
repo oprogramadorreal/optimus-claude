@@ -61,7 +61,7 @@ Cleanup when done: `git worktree remove .worktrees/fix-login-timeout`
 
 ## Requirements
 
-- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) 1.0.33+ (plugin support)
+- Optimus installed in a [supported host](../../README.md#supported-hosts-and-versions)
 - Git 2.5+ (worktree support)
 
 ## License

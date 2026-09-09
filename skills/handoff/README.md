@@ -17,7 +17,7 @@ on a different machine — can resume the work by reading only that file.
   conversation makes them clear.
 - References committed artifacts (PRDs, plans, ADRs, issues, commits) by path or URL; inlines
   anything not yet pushed so it survives on another machine.
-- Redacts secrets and PII so the doc is safe to commit.
+- Scans prose, inlined content, and references for secrets and PII before writing and again on readback; redaction reduces exposure risk without guaranteeing every secret is detected.
 - Re-running on the same topic lets you enhance the shared doc (merge new context) or overwrite it.
 
 ## Usage
@@ -36,6 +36,6 @@ machines and teammates can pull it. The document is tool-agnostic — any AI age
 
 ## Notes
 
-- Read-only except for the single file it writes; it never commits.
+- Writes one project handoff artifact and, when needed, a private scratchpad backup of the previous version; it never commits.
 - In a multi-repo workspace, the document is written at the workspace root and paths are qualified
   by repo name.
