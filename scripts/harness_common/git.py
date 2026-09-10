@@ -365,13 +365,21 @@ def _clean_working_tree(cwd, _run=None, *, reset_tracked=True):
     temp files) so the user can `--resume` after a clean-triggered restore.
     """
     _run = _run or subprocess.run
+    prefix_result = _run_git_text(_run, ["git", "rev-parse", "--show-prefix"], cwd)
+    if prefix_result.returncode != 0:
+        raise RuntimeError(f"Cannot scope working-tree cleanup: {prefix_result.stderr}")
+    # git clean's exclusions are relative to the repository, even from a
+    # package directory. Escape the literal prefix before appending our globs.
+    prefix = prefix_result.stdout.rstrip("\n")
+    for char in ("\\", "*", "?", "[", "]"):
+        prefix = prefix.replace(char, "\\" + char)
     if reset_tracked:
         checkout = _run_git_text(_run, ["git", "checkout", "."], cwd)
         if checkout.returncode != 0:
             raise RuntimeError(f"git checkout . failed: {checkout.stderr[:200]}")
     clean_cmd = ["git", "clean", "-fd"]
     for pattern in _HARNESS_STATE_EXCLUDES:
-        clean_cmd.extend(["-e", pattern])
+        clean_cmd.extend(["-e", f"/{prefix}{pattern}" if prefix else pattern])
     clean = _run_git_text(_run, clean_cmd, cwd)
     if clean.returncode != 0:
         raise RuntimeError(f"git clean -fd failed: {clean.stderr[:200]}")
@@ -398,16 +406,37 @@ def git_restore_tracked_to(commit, cwd, _run=None):
     """
     _run = _run or subprocess.run
     git_check_nested_repositories(cwd, _run=_run, restore_commit=commit)
-    _read_tree(commit, cwd, _run)
+    _restore_tree(commit, cwd, _run)
 
 
-def _read_tree(commit, cwd, _run):
-    # Unlike checkout <commit> -- ., read-tree also removes index additions
-    # created during this iteration, without moving HEAD or cleaning unrelated
-    # untracked files used by bisection's retained fixes.
-    result = _run_git_text(_run, ["git", "read-tree", "--reset", "-u", commit], cwd)
+def _restore_tree(commit, cwd, _run, *, staged=True, worktree=True, overlay=False):
+    # Restore removes iteration-only index additions, like read-tree, but its
+    # pathspec confines changes to cwd instead of resetting sibling projects.
+    source = _run_git_text(
+        _run, ["git", "ls-tree", "-r", "--name-only", "-z", commit, "--", "."], cwd
+    )
+    if source.returncode != 0:
+        raise RuntimeError(f"Cannot inspect restore tree {commit}: {source.stderr}")
+    if not source.stdout:
+        if overlay:
+            return
+        indexed = _run_git_text(
+            _run, ["git", "ls-files", "--cached", "-z", "--", "."], cwd
+        )
+        if indexed.returncode != 0:
+            raise RuntimeError(f"Cannot inspect restore index: {indexed.stderr}")
+        if not indexed.stdout:
+            return  # git restore errors on an empty scope, even for a valid tree.
+    args = ["git", "restore", "--source", commit]
+    if staged:
+        args.append("--staged")
+    if worktree:
+        args.append("--worktree")
+    if overlay:
+        args.append("--overlay")
+    result = _run_git_text(_run, [*args, "--", "."], cwd)
     if result.returncode != 0:
-        raise RuntimeError(f"git read-tree {commit} failed: {result.stderr}")
+        raise RuntimeError(f"git restore {commit} failed: {result.stderr}")
 
 
 def _is_harness_state_path(path):
@@ -593,23 +622,27 @@ def git_drop_stash(snapshot_sha, cwd, _run=None):
 def git_apply_snapshot(snapshot_sha, cwd, _run=None):
     """Restore the working tree from a stash snapshot without consuming it.
 
-    Cleans the tree, then applies the snapshot, leaving its stash reflog entry
-    in place so the restore is repeatable — this backs the bisect's clean-reset
-    rebuilds in no-commit mode. Returns True on success.
+    Restores only cwd from the snapshot's working, index and untracked trees,
+    leaving its stash reflog entry in place so the restore is repeatable. This
+    backs the bisect's clean-reset rebuilds in no-commit mode. Returns True on
+    success.
     """
     _run = _run or subprocess.run
     git_check_nested_repositories(cwd, _run=_run, restore_commit=snapshot_sha)
-    # Rebuild from the stash's base, not the current index. This removes new
-    # staged files from the failed iteration and prevents a preserved staged
-    # user edit from conflicting with its own snapshot on apply.
-    _read_tree(f"{snapshot_sha}^1", cwd, _run)
-    _clean_working_tree(cwd, _run=_run, reset_tracked=False)
-    # Then apply the snapshot (includes the untracked-files tree if present)
-    result = _run_git_text(
-        _run, ["git", "stash", "apply", "--index", snapshot_sha], cwd
-    )
-    if result.returncode != 0:
-        print(f"{_PREFIX} WARNING: Could not restore snapshot: {result.stderr[:200]}")
+    index_tree = _rev_parse(f"{snapshot_sha}^2", cwd, _run)
+    if not index_tree:
+        raise RuntimeError(f"Cannot resolve snapshot index tree: {snapshot_sha}")
+    untracked_tree = _rev_parse(f"{snapshot_sha}^3", cwd, _run)
+    # git stash apply has no pathspec: replay each tree directly so sibling
+    # work is untouched, including edits made after the snapshot was captured.
+    try:
+        _restore_tree(snapshot_sha, cwd, _run)
+        _clean_working_tree(cwd, _run=_run, reset_tracked=False)
+        _restore_tree(index_tree, cwd, _run, worktree=False)
+        if untracked_tree:
+            _restore_tree(untracked_tree, cwd, _run, staged=False, overlay=True)
+    except RuntimeError as exc:
+        print(f"{_PREFIX} WARNING: Could not restore snapshot: {str(exc)[:200]}")
         print(
             f"{_PREFIX} WARNING: untracked files may be missing from the working "
             f"tree — recover them with: git stash apply {snapshot_sha}"
@@ -660,7 +693,7 @@ def restore_working_tree(stash_sha, head_commit, cwd, _run=None):
     """Restore working tree to its pre-iteration state.
 
     With a stash snapshot (preferred — preserves uncommitted work from prior
-    --no-commit iterations), restore from it. If the stash apply fails, the
+    --no-commit iterations), restore from it. If snapshot restoration fails, the
     snapshot is left intact in the reflog (git_restore_snapshot printed a
     recovery hint) and this returns False WITHOUT falling back to a HEAD
     checkout — that fallback would report a successful restore while silently

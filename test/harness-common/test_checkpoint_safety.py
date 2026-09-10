@@ -203,6 +203,108 @@ def test_full_restore_removes_iteration_only_staged_additions(tmp_path):
     assert _git(tmp_path, "rev-parse", "HEAD").decode().strip() == head
 
 
+@pytest.mark.parametrize("mode", ["tracked", "full", "snapshot"])
+@pytest.mark.parametrize("package_name", ["package", "package[1]", "!package"])
+def test_package_restore_preserves_sibling_work(tmp_path, mode, package_name):
+    _init_repo(tmp_path)
+    package = tmp_path / package_name
+    package.mkdir()
+    app = package / "app.txt"
+    app.write_bytes(b"package base\n")
+    _git(tmp_path, "add", "--", package_name)
+    _git(tmp_path, "commit", "-m", "package")
+    head = _git(tmp_path, "rev-parse", "HEAD").decode().strip()
+    sibling = tmp_path / "app.txt"
+    if mode == "snapshot":
+        app.write_bytes(b"package staged\n")
+        sibling.write_bytes(b"sibling at snapshot\n")
+        _git(tmp_path, "add", ".")
+        app.write_bytes(b"package unstaged\n")
+        (package / "notes.txt").write_bytes(b"user notes\n")
+        snapshot = git.git_stash_snapshot(package)
+    expected_app = app.read_bytes()
+    expected_index = _git(tmp_path, "show", f":{package_name}/app.txt")
+
+    state_dir = package / ".claude"
+    state_dir.mkdir()
+    state_files = (
+        "code-review-deep-progress.json",
+        "code-review-deep-progress.json.bak",
+        ".deep-iteration-result.json",
+        ".unit-test-deep-result.json",
+    )
+    for name in state_files:
+        (state_dir / name).write_bytes(b"current harness state\n")
+
+    sibling.write_bytes(b"new sibling staged\n")
+    _git(tmp_path, "add", "app.txt")
+    sibling.write_bytes(b"new sibling unstaged\n")
+    (tmp_path / "sibling-notes.txt").write_bytes(b"outside notes\n")
+    sibling_index = _git(tmp_path, "show", ":app.txt")
+    app.write_bytes(b"failed package iteration\n")
+    (package / "added.txt").write_bytes(b"iteration staged addition\n")
+    _git(tmp_path, "add", "--", f"{package_name}/added.txt")
+    (package / "stray.txt").write_bytes(b"iteration untracked addition\n")
+    if mode == "snapshot":
+        (package / "notes.txt").write_bytes(b"changed notes\n")
+        assert git.git_apply_snapshot(snapshot, package)
+    elif mode == "full":
+        git.git_restore_to(head, package)
+    else:
+        git.git_restore_tracked_to(head, package)
+
+    assert app.read_bytes() == expected_app
+    assert _git(tmp_path, "show", f":{package_name}/app.txt") == expected_index
+    assert not (package / "added.txt").exists()
+    assert (package / "stray.txt").exists() == (mode == "tracked")
+    assert sibling.read_bytes() == b"new sibling unstaged\n"
+    assert _git(tmp_path, "show", ":app.txt") == sibling_index
+    assert (tmp_path / "sibling-notes.txt").read_bytes() == b"outside notes\n"
+    assert _git(tmp_path, "rev-parse", "HEAD").decode().strip() == head
+    for name in state_files:
+        assert (state_dir / name).read_bytes() == b"current harness state\n"
+    if mode == "snapshot":
+        assert (package / "notes.txt").read_bytes() == b"user notes\n"
+        assert not _git(tmp_path, "ls-files", "--", f"{package_name}/notes.txt")
+
+
+@pytest.mark.parametrize("stage_addition", [False, True])
+def test_restore_empty_tree_handles_empty_scope_and_staged_additions(
+    tmp_path, stage_addition
+):
+    _init_repo(tmp_path)
+    package = tmp_path / "empty-package"
+    package.mkdir()
+    head = _git(tmp_path, "rev-parse", "HEAD").decode().strip()
+    if stage_addition:
+        (package / "added.txt").write_bytes(b"iteration addition\n")
+        _git(tmp_path, "add", "empty-package/added.txt")
+    (tmp_path / "app.txt").write_bytes(b"sibling work\n")
+    git.git_restore_tracked_to(head, package)
+    assert not (package / "added.txt").exists()
+    assert (tmp_path / "app.txt").read_bytes() == b"sibling work\n"
+
+
+@pytest.mark.parametrize("notes_inside", [False, True])
+def test_package_snapshot_handles_empty_snapshot_trees(tmp_path, notes_inside):
+    _init_repo(tmp_path)
+    package = tmp_path / "package"
+    package.mkdir()
+    notes = (package if notes_inside else tmp_path) / "notes.txt"
+    notes.write_bytes(b"user notes\n")
+    snapshot = git.git_stash_snapshot(tmp_path)
+    notes.write_bytes(b"newer notes\n")
+    (package / "added.txt").write_bytes(b"iteration staged addition\n")
+    _git(tmp_path, "add", "package/added.txt")
+    (tmp_path / "app.txt").write_bytes(b"sibling work\n")
+
+    assert git.git_apply_snapshot(snapshot, package)
+    assert not (package / "added.txt").exists()
+    assert notes.read_bytes() == (b"user notes\n" if notes_inside else b"newer notes\n")
+    assert not _git(tmp_path, "ls-files", "package")
+    assert (tmp_path / "app.txt").read_bytes() == b"sibling work\n"
+
+
 def test_artifacts_created_by_tests_do_not_fail_validation(tmp_path, capsys):
     command = _python_command(
         "p = Path('coverage.xml'); "

@@ -328,7 +328,7 @@ def _clean_reset_hook(pre_stash, pre_head, project_root):
 
         def _apply_stash():
             if not git_apply_snapshot(pre_stash, project_root):
-                raise RuntimeError(f"git stash apply {pre_stash} failed")
+                raise RuntimeError(f"Snapshot restore {pre_stash} failed")
 
         return _apply_stash
     if pre_head:

@@ -31,7 +31,7 @@ For changed-since, use `git diff --name-only <ref>...HEAD` for commits, branches
 
 If your invocation prompt contains `HARNESS_MODE_INLINE`, you are a single iteration inside the `/optimus:deep` orchestrator: read `$CLAUDE_PLUGIN_ROOT/references/harness-mode.md` and follow its single-iteration protocol, which overrides the interactive steps — it covers progress-file reading, scope and file-list rules, agent-prompt overrides (including the Iteration Context Block on iterations 2+), and the apply/output protocol.
 
-When that dispatch also specifies `Phase: refactor`, first load the **Refactor Phase Execution** section of `$CLAUDE_PLUGIN_ROOT/references/coverage-harness-mode.md` and apply its field mapping and overrides to the shared protocol. This is the coverage cycle's testability phase; its progress schema differs from the standalone refactor harness.
+Before interpreting the progress file's iteration and findings fields, inspect its `harness` field. Only when `harness` equals `"test-coverage"`, load the **Refactor Phase Execution** section of `$CLAUDE_PLUGIN_ROOT/references/coverage-harness-mode.md` and apply its field mapping and overrides to the shared protocol. Standalone refactor progress has no such marker and uses the shared protocol's normal mapping; both dispatches use `Phase: refactor`.
 
 Refactor's deltas, which that reference defers back to this note:
 
