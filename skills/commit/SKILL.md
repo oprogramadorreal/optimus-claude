@@ -8,7 +8,7 @@ argument-hint: "[suggest | branch [description]]"
 
 Pick the mode from the arguments: `suggest` → Suggest mode; `branch` (optionally followed by a description) → Branch mode; anything else → Default mode.
 
-**Multi-repo**: if the current directory has no `.git/` directory, read `$CLAUDE_PLUGIN_ROOT/skills/init/references/multi-repo-detection.md` and apply it. In a workspace, git commands run inside each child repo; Default and Suggest modes process each repo with changes independently (per-repo steps, per-repo preview under a `## <repo-name>` heading, one combined final summary); Branch mode targets a single repo (its step 1).
+**Multi-repo**: if `git rev-parse --is-inside-work-tree` does not return `true`, read `$CLAUDE_PLUGIN_ROOT/skills/init/references/multi-repo-detection.md` and apply it. When it returns `true`, resolve the repository root with `git rev-parse --show-toplevel`, including in a linked worktree or subdirectory. In a workspace, git commands run inside each child repo; Default and Suggest modes process each repo with changes independently (per-repo steps, per-repo preview under a `## <repo-name>` heading, one combined final summary); Branch mode targets a single repo (its step 1).
 
 ## Default mode — stage, commit, optionally push
 

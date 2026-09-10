@@ -15,7 +15,7 @@ def normalize_line(value):
     """Coerce a line number so that 42 and "42" are the SAME finding.
 
     Nothing coerces types at the parse boundary — ``parse_harness_output`` only
-    checks that the payload is a dict, and the JSON schemas are enforced by a
+    checks the envelope's required keys, and the JSON schemas are enforced by a
     validator that lives in the test suite — so a subagent is free to report
     ``"line": 42`` on one iteration and ``"line": "42"`` on the next. Untouched,
     the two produce different keys and therefore two findings, which silently

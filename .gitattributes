@@ -3,4 +3,5 @@
 *.sh                 text eol=lf
 *.py                 text eol=lf
 *.js                 text eol=lf
+*.cjs                text eol=lf
 hooks/session-start  text eol=lf

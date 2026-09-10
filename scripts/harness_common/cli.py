@@ -74,10 +74,12 @@ from .findings import (
     update_scope,
 )
 from .fixes import bisect_fixes
+from .git import TreeState
 from .git import commit_checkpoint as git_commit_checkpoint
 from .git import (
     get_open_pr_data,
     git_apply_snapshot,
+    git_check_nested_repositories,
     git_diff_has_changes,
     git_discover_branch_files,
     git_drop_stash,
@@ -85,9 +87,11 @@ from .git import (
     git_restore_tracked_to,
     git_rev_parse_head,
     git_stash_snapshot,
+    git_test_output_paths,
+    git_test_tree_state,
     restore_working_tree,
 )
-from .parser import parse_harness_output
+from .parser import parse_harness_output, validate_harness_output
 from .progress import read_progress, record_test_result, write_progress
 from .reporting import (
     build_coverage_commit_body,
@@ -324,7 +328,7 @@ def _clean_reset_hook(pre_stash, pre_head, project_root):
 
         def _apply_stash():
             if not git_apply_snapshot(pre_stash, project_root):
-                raise RuntimeError(f"git stash apply {pre_stash} failed")
+                raise RuntimeError(f"Snapshot restore {pre_stash} failed")
 
         return _apply_stash
     if pre_head:
@@ -336,6 +340,78 @@ def _effective_timeout(progress):
     """Per-run test timeout from config (baseline-calibrated), falling back to
     the module default for older / resumed progress files lacking the field."""
     return progress.get("config", {}).get("test_timeout", DEFAULT_TEST_TIMEOUT)
+
+
+class HarnessSafetyError(RuntimeError):
+    """A failed operation that must stop dispatch and checkpointing."""
+
+
+def _tree_state(progress, project_root):
+    try:
+        outputs = progress.get("_test_outputs", [])
+        if outputs:
+            outputs = git_test_output_paths(project_root, outputs)
+            progress["_test_outputs"] = outputs
+        kwargs = {"exclude_paths": outputs} if outputs else {}
+        return git_test_tree_state(project_root, progress["_progress_file"], **kwargs)
+    except (RuntimeError, OSError) as exc:
+        raise HarnessSafetyError(str(exc)) from exc
+
+
+def _run_verified_tests(progress, project_root, test_command):
+    progress.pop("_validated_tree", None)
+    before = _tree_state(progress, project_root)
+    passed, summary = run_tests(
+        test_command, project_root, timeout=_effective_timeout(progress)
+    )
+    after = _tree_state(progress, project_root)
+    # Previously recorded test outputs are excluded by _tree_state. Files that
+    # existed before their first test run remain protected inputs.
+    if before.base != after.base or any(
+        after.entries.get(name) != digest for name, digest in before.entries.items()
+    ):
+        passed = False
+        summary += (
+            "\nSource files changed during tests; review them and rerun validation."
+        )
+    created = sorted(
+        name
+        for name in set(after.entries) - set(before.entries)
+        if after.entries[name].startswith("file:")
+    )
+    if created:
+        progress["_test_outputs"] = sorted(
+            set(progress.get("_test_outputs", [])) | set(created)
+        )
+        shown = ", ".join(created[:5]) + (" ..." if len(created) > 5 else "")
+        print(
+            f"[harness] NOTE: the test run created {len(created)} untracked "
+            f"file(s) ({shown}); recorded as test outputs, excluded from "
+            "validation inputs and checkpoints"
+        )
+        after = _tree_state(progress, project_root)
+    record_test_result(progress, passed, summary)
+    if passed:
+        progress["_validated_tree"] = after.digest
+    return passed, summary
+
+
+def _restore_or_stop(progress, pre_stash, pre_head, project_root):
+    progress.pop("_validated_tree", None)
+    try:
+        restored = restore_working_tree(pre_stash, pre_head, project_root)
+    except (RuntimeError, OSError) as exc:
+        raise HarnessSafetyError(f"Working-tree restore failed: {exc}") from exc
+    if not restored:
+        raise HarnessSafetyError(
+            "Working-tree restore failed; preserve the recovery snapshot and inspect the tree."
+        )
+
+
+def _read_run_progress(path):
+    progress = read_progress(path)
+    progress["_progress_file"] = str(Path(path).resolve())
+    return progress
 
 
 def _test_and_reconcile(
@@ -360,47 +436,52 @@ def _test_and_reconcile(
     several findings share one fix key. Returns ``(fixed, reverted, passed)``.
     """
     if not fixes:
-        return 0, 0, None
-    timeout = _effective_timeout(progress)
-    passed, summary = run_tests(test_command, project_root, timeout=timeout)
-    record_test_result(progress, passed, summary)
+        return (
+            0,
+            0,
+            _vet_safe_exit_tree(
+                progress, project_root, test_command, pre_stash, pre_head
+            ),
+        )
+    passed, summary = _run_verified_tests(progress, project_root, test_command)
     if passed:
         on_all_pass()
         return len(fixes), 0, True
 
     reset_to_clean = _clean_reset_hook(pre_stash, pre_head, project_root)
+    reset_errors = []
+
+    def tracked_reset():
+        try:
+            reset_to_clean()
+        except (RuntimeError, OSError) as exc:
+            reset_errors.append(str(exc))
+            raise
+
     fixed, reverted, _ = bisect_fixes(
         fixes,
         test_command,
         project_root,
-        run_tests_fn=lambda tc, cwd: run_tests(tc, cwd, timeout=timeout),
+        run_tests_fn=lambda tc, cwd: _run_verified_tests(progress, cwd, tc),
         on_outcome=on_outcome,
-        reset_to_clean=reset_to_clean,
+        reset_to_clean=tracked_reset if reset_to_clean else None,
     )
+    if reset_errors:
+        raise HarnessSafetyError(
+            "Bisection could not restore its base: " + reset_errors[0]
+        )
     if fixed > 0:
-        passed, summary = run_tests(test_command, project_root, timeout=timeout)
-        record_test_result(progress, passed, summary)
+        passed, summary = _run_verified_tests(progress, project_root, test_command)
         if not passed:
-            # Roll the whole tree back to the pre-iteration snapshot. Guard the
-            # call the way the sibling restore sites (_vet_safe_exit_tree,
-            # cmd_parse) do: git_restore_to can raise on a failed checkout
-            # (locked index, missing commit) and the stash path can return
-            # False, and neither must crash the step or pass silently — the
-            # combined set is red regardless, so report it reverted.
-            try:
-                restored = restore_working_tree(pre_stash, pre_head, project_root)
-            except (RuntimeError, OSError) as exc:
-                print(f"[harness] WARNING: full-tree restore failed: {exc}")
-                restored = False
-            if not restored:
-                print(
-                    "[harness] WARNING: could not restore the pre-iteration tree "
-                    "after a combined regression — the working tree may still "
-                    "hold reverted fixes; the next snapshot will re-baseline it"
-                )
+            _restore_or_stop(progress, pre_stash, pre_head, project_root)
             on_full_revert()
             reverted += fixed
             fixed = 0
+    else:
+        # Bisection reverted or skipped every fix. Its resets touch tracked files
+        # only, so rebuild the whole pre-iteration tree: nothing from this
+        # iteration is kept, and stray subagent files must not reach a checkpoint.
+        _restore_or_stop(progress, pre_stash, pre_head, project_root)
     return fixed, reverted, passed
 
 
@@ -510,18 +591,11 @@ def _vet_safe_exit_tree(progress, project_root, test_command, pre_stash, pre_hea
     pre-consolidation ``_handle_safe_exit``). Returns the test result, or
     ``None`` when the tree was clean (no test ran).
     """
-    if not git_diff_has_changes(project_root):
+    if not _tree_state(progress, project_root).dirty:
         return None
-    passed, summary = run_tests(
-        test_command, project_root, timeout=_effective_timeout(progress)
-    )
-    record_test_result(progress, passed, summary)
+    passed, summary = _run_verified_tests(progress, project_root, test_command)
     if not passed:
-        try:
-            restore_working_tree(pre_stash, pre_head, project_root)
-        except (RuntimeError, OSError):
-            # Best-effort rollback — recording the red result is what matters.
-            pass
+        _restore_or_stop(progress, pre_stash, pre_head, project_root)
     return passed
 
 
@@ -761,7 +835,7 @@ def cmd_resume(args):
     read_error = None
     if progress_path.exists():
         try:
-            progress = read_progress(progress_path)
+            progress = _read_run_progress(progress_path)
         except (ValueError, OSError) as exc:
             # Torn/corrupt primary (e.g. an interrupted write) — fall back to the
             # backup below instead of failing outright.
@@ -911,31 +985,51 @@ def cmd_resume(args):
     if mutated:
         write_progress(progress_path, progress)
 
+    if progress.get("_safety_error"):
+        print(
+            "WARNING: a prior safety failure is recorded; inspect the tree and run "
+            "baseline before the loop continues: " + progress["_safety_error"],
+            file=sys.stderr,
+        )
     print(progress["skill"])
     return 0
 
 
 def cmd_snapshot(args):
     progress_path = Path(args.progress_file)
-    progress = read_progress(progress_path)
+    progress = _read_run_progress(progress_path)
     project_root = Path(progress["config"]["project_root"])
     head = git_rev_parse_head(project_root)
     if not head:
         print("ERROR: Cannot determine HEAD commit", file=sys.stderr)
         return 1
-    progress.setdefault("_snapshot", {})
-    progress["_snapshot"]["pre_head"] = head
-    progress["_snapshot"]["iteration_token"] = _current_unit(progress)
-    if args.include_stash or _is_no_commit(progress):
-        # Reclaim the previous snapshot's stash (if it was never restored — i.e.
-        # the prior iteration passed) before taking a new one, so a long
-        # no-commit run doesn't leak orphaned stash entries into the reflog.
-        prev_stash = progress["_snapshot"].get("pre_stash")
-        new_stash = git_stash_snapshot(project_root)
-        if prev_stash and prev_stash != new_stash:
-            git_drop_stash(prev_stash, project_root)
-        progress["_snapshot"]["pre_stash"] = new_stash
+    previous = progress.get("_snapshot") or {}
+    new_stash = None
+    try:
+        _tree_state(progress, project_root)
+        if args.include_stash or _is_no_commit(progress):
+            new_stash = git_stash_snapshot(project_root)
+        else:
+            git_check_nested_repositories(project_root, restore_commit=head)
+    except (RuntimeError, OSError) as exc:
+        # Keep the last recovery object, but invalidate its dispatch token even
+        # if a retry failed within the same iteration. Never equate failure
+        # with a clean HEAD baseline.
+        previous.pop("iteration_token", None)
+        progress["_snapshot"] = previous
+        write_progress(progress_path, progress)
+        print(f"ERROR: Cannot capture complete snapshot: {exc}", file=sys.stderr)
+        return 1
+    progress["_snapshot"] = {
+        "pre_head": head,
+        "pre_stash": new_stash,
+        "iteration_token": _current_unit(progress),
+    }
     write_progress(progress_path, progress)
+    # Reclaim only after the replacement is complete and durably recorded.
+    prev_stash = previous.get("pre_stash")
+    if prev_stash and prev_stash != new_stash:
+        git_drop_stash(prev_stash, project_root)
     print(head)
     return 0
 
@@ -963,7 +1057,7 @@ def cmd_parse(args):
         progress_path = Path(args.progress_file)
         if progress_path.exists():
             try:
-                progress = read_progress(progress_path)
+                progress = _read_run_progress(progress_path)
             except (ValueError, OSError):
                 progress = None
             if progress is not None:
@@ -981,15 +1075,16 @@ def cmd_parse(args):
                     token = snap.get("iteration_token")
                     if token is not None and token == _current_unit(progress):
                         try:
-                            restore_working_tree(
+                            _restore_or_stop(
+                                progress,
                                 snap.get("pre_stash"),
                                 snap.get("pre_head"),
                                 Path(progress["config"]["project_root"]),
                             )
-                        except (RuntimeError, OSError):
-                            # Best-effort rollback — the failure count is still
-                            # recorded so the loop can terminate on repeat.
-                            pass
+                        except HarnessSafetyError as exc:
+                            progress["_safety_error"] = str(exc)
+                            print(f"ERROR: {exc}", file=sys.stderr)
+                    progress.pop("_validated_tree", None)
                 else:
                     progress["parse_failure_count"] = 0
                 write_progress(progress_path, progress)
@@ -1009,8 +1104,16 @@ def cmd_parse(args):
     return 0
 
 
-def _load_result(result_file):
-    return json.loads(Path(result_file).read_text(encoding="utf-8"))
+def _load_result(result_file, variant, current):
+    try:
+        result = validate_harness_output(
+            json.loads(Path(result_file).read_text(encoding="utf-8")), variant
+        )
+        if result["cycle" if variant == "coverage" else "iteration"] != current:
+            raise ValueError("result belongs to a different iteration/cycle")
+        return result
+    except (ValueError, OSError) as exc:
+        raise HarnessSafetyError(f"Invalid harness result: {exc}") from exc
 
 
 def _snapshot_from_progress(progress):
@@ -1069,14 +1172,14 @@ def cmd_deep_step(args):
     termination reason.
     """
     progress_path = Path(args.progress_file)
-    progress = read_progress(progress_path)
-    result = _load_result(args.result_file)
+    progress = _read_run_progress(progress_path)
 
     test_command = progress["config"]["test_command"]
     project_root = Path(progress["config"]["project_root"])
     iteration = progress["iteration"]["current"]
     if not _verify_snapshot_fresh(progress, iteration):
         return 1
+    result = _load_result(args.result_file, "deep", iteration)
     pre_stash, pre_head = _snapshot_from_progress(progress)
 
     _promote_actionable_fixes(result)
@@ -1194,13 +1297,13 @@ def cmd_unit_test_step(args):
     Output: one of converged | continue
     """
     progress_path = Path(args.progress_file)
-    progress = read_progress(progress_path)
-    result = _load_result(args.result_file)
+    progress = _read_run_progress(progress_path)
     project_root = Path(progress["config"]["project_root"])
     test_command = progress["config"]["test_command"]
     cycle = progress["cycle"]["current"]
     if not _verify_snapshot_fresh(progress, cycle):
         return 1
+    result = _load_result(args.result_file, "coverage", cycle)
 
     # Run the full suite BEFORE merging the session's results. If the suite is
     # red, the unit-test subagent left a failing test or a tree-breaking source
@@ -1209,17 +1312,10 @@ def cmd_unit_test_step(args):
     # describe code that is now gone, so they must not leak into later cycles and
     # the step-5 checkpoint must not commit a red tree. (Restores the
     # pre-consolidation _run_unit_test_phase safety net.)
-    passed, summary = run_tests(
-        test_command, project_root, timeout=_effective_timeout(progress)
-    )
-    record_test_result(progress, passed, summary)
+    passed, summary = _run_verified_tests(progress, project_root, test_command)
     if not passed:
         pre_stash, pre_head = _snapshot_from_progress(progress)
-        try:
-            restore_working_tree(pre_stash, pre_head, project_root)
-        except (RuntimeError, OSError):
-            # Best-effort rollback — recording the red result is what matters.
-            pass
+        _restore_or_stop(progress, pre_stash, pre_head, project_root)
         progress["phase"] = "unit-test"
         write_progress(progress_path, progress)
         print("continue")
@@ -1337,13 +1433,13 @@ def cmd_refactor_step(args):
     Output: one of converged | applied
     """
     progress_path = Path(args.progress_file)
-    progress = read_progress(progress_path)
-    result = _load_result(args.result_file)
+    progress = _read_run_progress(progress_path)
     test_command = progress["config"]["test_command"]
     project_root = Path(progress["config"]["project_root"])
     cycle = progress["cycle"]["current"]
     if not _verify_snapshot_fresh(progress, cycle):
         return 1
+    result = _load_result(args.result_file, "deep", cycle)
     pre_stash, pre_head = _snapshot_from_progress(progress)
 
     _promote_actionable_fixes(result)
@@ -1442,7 +1538,7 @@ def cmd_refactor_step(args):
 def cmd_record_cycle(args):
     """Append a cycle history entry and increment the cycle counter."""
     progress_path = Path(args.progress_file)
-    progress = read_progress(progress_path)
+    progress = _read_run_progress(progress_path)
     cycle = progress["cycle"]["current"]
     try:
         ut_summary = (
@@ -1486,14 +1582,17 @@ def cmd_baseline(args):
     The status token is always the last line so the orchestrator can read it.
     """
     progress_path = Path(args.progress_file)
-    progress = read_progress(progress_path)
+    progress = _read_run_progress(progress_path)
     project_root = Path(progress["config"]["project_root"])
     test_command = progress["config"]["test_command"]
     timeout = _effective_timeout(progress)
 
     start = time.monotonic()
-    passed, summary = run_tests(test_command, project_root, timeout=timeout)
+    passed, summary = _run_verified_tests(progress, project_root, test_command)
     elapsed = time.monotonic() - start
+    if passed:
+        progress.pop("_safety_error", None)
+    write_progress(progress_path, progress)
 
     if not passed:
         if args.allow_red:
@@ -1527,7 +1626,7 @@ def cmd_baseline(args):
 
 def cmd_commit_checkpoint(args):
     progress_path = Path(args.progress_file)
-    progress = read_progress(progress_path)
+    progress = _read_run_progress(progress_path)
     project_root = Path(progress["config"]["project_root"])
 
     if _is_no_commit(progress):
@@ -1566,13 +1665,23 @@ def cmd_commit_checkpoint(args):
 
     commit_message = f"{title}\n\n{body}" if body else title
 
-    if not git_diff_has_changes(project_root):
+    state = _tree_state(progress, project_root)
+    if not state.dirty:
         print("nothing-to-commit")
         return 0
+    if progress.get("_safety_error") or progress.get("_validated_tree") != state.digest:
+        print(
+            "ERROR: Checkpoint refused: this tree has no matching green validation. Inspect the changes and run baseline or the appropriate step.",
+            file=sys.stderr,
+        )
+        return 1
+    outputs = progress.get("_test_outputs", [])
+    kwargs = {"exclude_paths": outputs} if outputs else {}
     status = git_commit_checkpoint(
         commit_message,
         project_root,
         str(progress_path),
+        **kwargs,
     )
     if status == COMMIT_COMMITTED:
         print("committed")
@@ -1598,7 +1707,7 @@ PARSE_FAILURE_THRESHOLD = 2
 
 def cmd_check_termination(args):
     progress_path = Path(args.progress_file)
-    progress = read_progress(progress_path)
+    progress = _read_run_progress(progress_path)
     termination = progress.get("termination") or {}
     reason = termination.get("reason")
     if reason:
@@ -1681,7 +1790,7 @@ def cmd_advance(args):
     only deep-variant skills call ``advance``.
     """
     progress_path = Path(args.progress_file)
-    progress = read_progress(progress_path)
+    progress = _read_run_progress(progress_path)
     progress["iteration"]["current"] += 1
     write_progress(progress_path, progress)
     return 0
@@ -1690,7 +1799,7 @@ def cmd_advance(args):
 def cmd_pending_refactor_count(args):
     """Print the count of pending untestable items (drives refactor-phase dispatch)."""
     progress_path = Path(args.progress_file)
-    progress = read_progress(progress_path)
+    progress = _read_run_progress(progress_path)
     pending = sum(
         1
         for item in progress.get("untestable_code", [])
@@ -1703,15 +1812,15 @@ def cmd_pending_refactor_count(args):
 def cmd_mark_termination(args):
     """Write a terminal reason to progress["termination"] without other side effects.
 
-    Retained escape hatch: no orchestrator doc currently invokes it (the
-    parse-failure path is fully automatic via the parse counter and
-    check-termination), but it lets an orchestrator end the loop for a reason
-    the per-iteration steps don't naturally surface without touching the
-    progress file's internals — preserving the "slice-only progress reads"
-    invariant.
+    The coverage loop invokes it for the `blocked` soft exit
+    (references/orchestrator-loop-paired.md); the parse-failure path stays
+    automatic via the parse counter and check-termination. It lets an
+    orchestrator end the loop for a reason the per-iteration steps don't
+    naturally surface without touching the progress file's internals —
+    preserving the "slice-only progress reads" invariant.
     """
     progress_path = Path(args.progress_file)
-    progress = read_progress(progress_path)
+    progress = _read_run_progress(progress_path)
     progress["termination"] = {
         "reason": args.reason,
         "message": args.message,
@@ -1722,7 +1831,7 @@ def cmd_mark_termination(args):
 
 def cmd_final_report(args):
     progress_path = Path(args.progress_file)
-    progress = read_progress(progress_path)
+    progress = _read_run_progress(progress_path)
     if _is_coverage(progress):
         print_coverage_report(progress)
     else:
@@ -1974,7 +2083,27 @@ def main(argv=None):
     _force_utf8_stdio()
     parser = _build_parser()
     args = parser.parse_args(argv)
-    return args.func(args)
+    try:
+        if args.command in {"snapshot", "deep-step", "unit-test-step", "refactor-step"}:
+            progress = _read_run_progress(Path(args.progress_file))
+            if progress.get("_safety_error"):
+                print(
+                    "ERROR: "
+                    + "A prior safety failure requires recovery and a successful baseline before continuing: "
+                    + progress["_safety_error"],
+                    file=sys.stderr,
+                )
+                return 1
+        return args.func(args)
+    except HarnessSafetyError as exc:
+        if getattr(args, "progress_file", None):
+            path = Path(args.progress_file)
+            progress = _read_run_progress(path)
+            progress.pop("_validated_tree", None)
+            progress["_safety_error"] = str(exc)
+            write_progress(path, progress)
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
 
 
 if __name__ == "__main__":

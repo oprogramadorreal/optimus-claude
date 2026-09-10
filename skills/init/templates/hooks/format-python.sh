@@ -38,7 +38,7 @@ file_path="${file_path//$'\001'/\\}"
 # the project's virtualenv: Claude Code runs hooks with no venv activated, so
 # PATH alone finds nothing. The search walks up from the edited file, which also
 # makes per-package venvs in a monorepo resolve to the right one — the same
-# approach format-node.js takes for node_modules.
+# approach format-node.cjs takes for node_modules.
 
 # Separators are normalized for the walk only; the formatters get the path as it
 # arrived. A relative file_path is CWD-relative by definition, so anchoring the

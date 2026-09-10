@@ -161,6 +161,7 @@ run_session_start
 assert_output_contains "Recommends /optimus:init when no .claude/" "/optimus:init" "$output"
 assert_output_contains "Mentions CLAUDE.md" "CLAUDE.md" "$output"
 assert_output_not_contains "No Codex line under Claude Code" "Running under Codex" "$output"
+assert_output_not_contains "No Codex question tools under Claude Code" "request_user_input" "$output"
 cleanup_fixture
 
 # Codex launches the same session-start script and sets PLUGIN_ROOT next to
@@ -182,7 +183,11 @@ assert_output_not_contains "Drops the /optimus: form under Codex" "/optimus:init
 assert_output_contains "Names the plugin root under Codex" "Plugin root: $PLUGIN_ROOT" "$output"
 assert_output_contains "Names slash-form skill mentions in the Codex mapping" "/optimus:<skill>" "$output"
 assert_output_contains "Names dollar-form skill mentions in the Codex mapping" "\$optimus:<skill>" "$output"
-assert_output_contains "Maps AskUserQuestion to plain text under Codex" "AskUserQuestion" "$output"
+assert_output_contains "Maps AskUserQuestion under Codex" "AskUserQuestion" "$output"
+# Check tool identifiers delivered to the model, not exact instruction prose.
+# Interactive routing and answer handling require the contributor smoke checks.
+assert_output_contains "Names the async Codex question tool" "request_user_input_async" "$output"
+assert_output_contains "Names the synchronous Codex question tool" " request_user_input " "$output"
 assert_output_not_contains "Does not promise formatter hooks under Codex" "and auto-format hooks." "$output"
 assert_exit_zero "Exits 0 under Codex" "$hook_status"
 cleanup_fixture
@@ -198,6 +203,7 @@ run_session_start_codex
 # The plugin root is the one line a configured project still needs under Codex —
 # every skill resolves $CLAUDE_PLUGIN_ROOT through it — so silence here is wrong.
 assert_output_contains "Still names the plugin root when configured" "Plugin root: $PLUGIN_ROOT" "$output"
+assert_output_contains "Still supplies question mapping when configured" "request_user_input_async" "$output"
 assert_output_not_contains "No init nag when configured under Codex" "optimus:init" "$output"
 assert_exit_zero "Exits 0 when configured under Codex" "$hook_status"
 cleanup_fixture
@@ -486,6 +492,7 @@ chmod +x bin/rustfmt
 export PATH="$tmpdir/bin:$PATH"
 
 echo "fn main() {}" > test.rs
+printf 'edition = "2021"\n' > rustfmt.toml
 exit_code=0
 output=$(echo '{"tool_input":{"file_path":"test.rs"}}' | bash "$PLUGIN_ROOT/skills/init/templates/hooks/format-rust.sh" 2>&1) || exit_code=$?
 # Hook should exit 0 (no error output) for a .rs file
@@ -581,7 +588,7 @@ MOCK
   export PATH="$tmpdir/node_modules/.bin:$PATH"
 
   echo "const x = 1" > test.js
-  output=$(echo '{"tool_input":{"file_path":"test.js"}}' | node "$PLUGIN_ROOT/skills/init/templates/hooks/format-node.js" 2>&1 || true)
+  output=$(echo '{"tool_input":{"file_path":"test.js"}}' | node "$PLUGIN_ROOT/skills/init/templates/hooks/format-node.cjs" 2>&1 || true)
   # The node hook may fail if prettier isn't really there, but it shouldn't crash on JSON parsing
   # Just verify it doesn't throw a JSON parse error
   if echo "$output" | grep -q "SyntaxError"; then
@@ -1028,6 +1035,13 @@ echo "[restrict-paths: Bash command extraction and git protection]"
 # for commands as ordinary as `git commit -m "msg" && ...`.
 assert_decision "Guard survives a quoted prefix" DENY \
   "$(rp_decision Bash command 'echo \"hi\" && rm /outside/victim.txt')"
+# Structured tools carry the same JSON string: an escaped quote inside the path
+# must not truncate it to an in-project prefix — "<proj>/x\" read as inside the
+# project and the traversal behind it was auto-allowed.
+assert_decision "Write path with an escaped quote is judged whole" ASK \
+  "$(rp_decision Write file_path "$rp_tmp/proj/x\\\"/../../outside/victim.txt")"
+assert_decision "Notebook path with an escaped quote is judged whole" ASK \
+  "$(rp_decision NotebookEdit notebook_path "$rp_tmp/proj/x\\\"/../../outside/victim.ipynb")"
 # A pipe hands the delete to xargs; the rm guard must see through the wrapper.
 assert_decision "Piped xargs rm outside project denied" DENY \
   "$(rp_decision Bash command "find . | xargs rm $rp_tmp/outside/a.txt")"

@@ -1,7 +1,7 @@
 @echo off
 SETLOCAL
 
-set PYTHON_ENV_DIR=%~dp0\.venv
+set "PYTHON_ENV_DIR=%~dp0.venv"
 
 REM Remove existing environment if it exists
 if exist "%PYTHON_ENV_DIR%" (
@@ -15,9 +15,9 @@ REM its venvs unless seeded.
 echo Creating Python virtual environment...
 where uv >nul 2>nul
 IF ERRORLEVEL 1 (
-    python -m venv %PYTHON_ENV_DIR%
+    python -m venv "%PYTHON_ENV_DIR%"
 ) ELSE (
-    uv venv --seed %PYTHON_ENV_DIR%
+    uv venv --seed "%PYTHON_ENV_DIR%"
 )
 
 IF ERRORLEVEL 1 (
@@ -27,7 +27,7 @@ IF ERRORLEVEL 1 (
 
 REM Activate the virtual environment
 echo Activating virtual environment...
-CALL %PYTHON_ENV_DIR%\Scripts\activate
+CALL "%PYTHON_ENV_DIR%\Scripts\activate.bat"
 
 IF ERRORLEVEL 1 (
     echo Failed to activate virtual environment
@@ -37,8 +37,13 @@ IF ERRORLEVEL 1 (
 REM Upgrade pip
 python -m pip install --upgrade pip
 
+IF ERRORLEVEL 1 (
+    echo Failed to upgrade pip
+    exit /b 1
+)
+
 REM Install dev dependencies
-python -m pip install -r %~dp0\requirements-dev.txt
+python -m pip install -r "%~dp0requirements-dev.txt"
 
 IF ERRORLEVEL 1 (
     echo Failed to install required packages

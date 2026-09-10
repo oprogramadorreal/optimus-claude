@@ -18,7 +18,7 @@ import sys
 from pathlib import Path
 
 import pytest
-from harness_common.runner import _find_bash
+from harness_common.runner import _find_bash, bash_environment
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 HOOK_PATH = str(REPO_ROOT / ".claude" / "hooks" / "format-python.sh")
@@ -87,7 +87,7 @@ def _run_hook(tool_input, project_dir, log, tool_name="Edit", cwd=None, timeout=
         errors="replace",
         timeout=timeout,
         cwd=str(cwd) if cwd else None,
-        env=env,
+        env=bash_environment(BASH, env),
     )
 
 

@@ -6,14 +6,14 @@ Prompt-specific guidance for each AI tool category. Load only the section matchi
 
 | Category | Tools |
 |----------|-------|
-| [General-Purpose LLMs](#general-purpose-llms) | Claude, ChatGPT / GPT-5.x, Gemini 2.x / 3 Pro, MiniMax |
+| [General-Purpose LLMs](#general-purpose-llms) | Claude, GPT-6 Astra, ChatGPT / GPT-5.x, Gemini 2.x / 3 Pro, MiniMax |
 | [Reasoning-Native LLMs](#reasoning-native-llms) | o3 / o4-mini, DeepSeek-R1, Qwen3 thinking mode |
 | [Open-Weight LLMs](#open-weight-llms) | Qwen 2.5, Llama, Mistral, Ollama |
-| [IDE AI](#ide-ai) | Claude Code, Cursor / Windsurf, Cline, GitHub Copilot, Antigravity |
+| [IDE AI](#ide-ai) | Claude Code, OpenAI Codex, Cursor / Windsurf, Cline, GitHub Copilot, Antigravity |
 | [Agentic AI](#agentic-ai) | Devin / SWE-agent, Bolt / v0 / Lovable / Figma Make / Google Stitch |
 | [Computer-Use Agents](#computer-use-agents) | Perplexity Comet, OpenAI Atlas, Claude in Chrome |
 | [Research / Orchestration](#research--orchestration) | Perplexity, Manus, Perplexity Computer |
-| [Image AI — Generation](#image-ai--generation) | Midjourney, DALL-E 3, Stable Diffusion, SeeDream |
+| [Image AI — Generation](#image-ai--generation) | Midjourney, OpenAI image tools, Stable Diffusion, SeeDream |
 | [Image AI — Editing](#image-ai--editing) | Reference image modification workflows |
 | [Image AI — ComfyUI](#image-ai--comfyui) | Node-based workflows |
 | [3D AI](#3d-ai) | Meshy, Tripo, Rodin, Unity AI, BlenderGPT |
@@ -23,7 +23,7 @@ Prompt-specific guidance for each AI tool category. Load only the section matchi
 
 ## General-Purpose LLMs
 
-Unlike [Reasoning-Native LLMs](#reasoning-native-llms), these accept explicit CoT scaffolding (Template E) for logic-heavy tasks — unless the tool's entry says reasoning is calibrated automatically (e.g., current Claude); the entry is authoritative for the CoT decision.
+Use these profiles as starting defaults, not proof of performance on every model and task. Request task-specific intermediate outputs when useful, without asking for private reasoning transcripts. Follow the selected model's current official guidance and the host's available controls before adding generic reasoning scaffolding (Template E).
 
 ### Claude (claude.ai, Claude API)
 
@@ -34,11 +34,22 @@ Covers the Claude 5 family (Opus 5, Sonnet 5, Fable 5 and 5.1) and Claude 4.x. W
 - Provide context and reasoning WHY, not just WHAT — Claude generalizes better from explanations
 - For complex or multi-step tasks, front-load everything in one turn — intent, constraints, acceptance criteria, relevant files; extra back-and-forth adds reasoning overhead and cost
 - Don't add "think step by step" or a fixed thinking budget — current Claude calibrates reasoning depth automatically. On the API, depth is the `effort` setting, not prompt text; in claude.ai, where the user has no such control, a one-line nudge is the only lever: "Think carefully before responding" (more) or "Prioritize responding quickly" (less)
-- **Don't add self-check scaffolding.** "Double-check your answer", "verify the output against the constraints above", "re-check before responding" — Claude 5 models verify and self-correct on their own, so these compound into wasted passes and buy no quality. Keep checks against something external the model cannot self-assess (a test suite, a schema, a live API), and for a long autonomous build on Fable 5.1, a cadence for running its own checking harness against the spec.
+- Prefer concrete acceptance criteria and external checks (a test suite, a schema, a live API) over repeated generic self-check instructions. Keep a targeted check when it addresses an observed failure. For a long autonomous build on Fable 5.1, state how its checking harness validates progress against the spec; evaluate changes to that cadence rather than assuming self-verification always helps or never helps.
 - **Bound scope with intent, not prohibitions.** Claude 5 models can widen a task past what was asked (Claude 4.x and Fable 5 over-tidy the same way). One line covers it: *"Deliver what was asked, at the scope intended. Make routine judgment calls yourself; check in only when two readings of the request would lead to materially different work. If a better approach exists, say so in a sentence and continue as asked."*
 - **Length is a separate lever from reasoning.** Claude 5 responses run longer by default, and lowering reasoning effort does not shorten them — ask directly: *"Keep responses focused and brief; spend most of the response on the main answer."* When the prompt produces a written file, add: *"Match the document's length to the substance — no filler sections, redundant summaries, or boilerplate."*
 - Don't add anti-formatting rules ("no bullets", "no headers", "no bold") — Fable 5.1 already under-formats, so they strip formatting the reader wanted. Say when formatting is appropriate instead: *"Use lists and headers when the content is multifaceted enough that they help; plain prose for simple answers and conversational exchanges."*
 - Don't instruct Fable 5.x to echo or transcribe its reasoning as output text — the reasoning-extraction safeguard can refuse the request (and fall back to Opus where fallbacks are configured)
+
+### GPT-6 Astra
+
+Exact model identifier: `gpt-6-astra`. Keep this target when the user requests it; do not silently route it to GPT-5.x or a Claude model.
+
+- State the intended outcome, scope, existing authorization, and externally checkable completion criteria. Let routine implementation choices proceed; ask when an unresolved choice materially changes the requested work.
+- Resolve conflicting project/skill instructions using the host's instruction hierarchy and the user's explicit task. Preserve approved work across follow-ups instead of introducing another approval gate for the same action.
+- Delegate substantial independent work when useful, supply its context, and continue local work while it runs. Match verification to the change and required checks; do not infer a need for broader testing merely from model capability.
+- Use host-supported effort/tool controls, not invented prompt commands or API transport settings. For Codex, also apply the host entry below.
+
+Source: [official Astra prompting guidance](https://developers.openai.com/api/docs/guides/latest-model), checked 2026-09-09. These are starting recommendations; task comparisons determine whether further guidance improves results.
 
 ### ChatGPT / GPT-5.x
 
@@ -62,11 +73,11 @@ Covers the Claude 5 family (Opus 5, Sonnet 5, Fable 5 and 5.1) and Claude 4.x. W
 
 ## Reasoning-Native LLMs
 
-These models reason internally across thousands of tokens. Adding CoT or "think step by step" instructions actively degrades their output.
+These models perform internal reasoning. Prefer a clear task and output contract over generic "think step by step" scaffolding; do not request private reasoning transcripts. Keep concrete intermediate outputs when they are part of the task. Evaluate changes against the specific model and task rather than asserting universal degradation.
 
 ### o3 / o4-mini
 
-- SHORT clean instructions ONLY — state what you want and what done looks like, nothing more; system prompts under 200 words
+- Start with clear instructions stating the task and completion criteria; add examples or constraints when the task needs them, without an arbitrary word cap
 - Prefer zero-shot first — add few-shot only if strictly needed
 
 ### DeepSeek-R1
@@ -107,10 +118,20 @@ Every entry below: anchor each instruction to a path — never a global instruct
 
 - Agentic — runs tools, edits files, executes commands autonomously. Structure per Template H: starting state + target state + allowed/forbidden actions + stop conditions + checkpoints
 - Stop conditions are MANDATORY — runaway loops are the biggest credit killer
-- Every steer in the [Claude entry](#claude-claudeai-claude-api) applies — scope bounding, length, and above all the no-self-verification rule; effort and thinking depth are harness-managed, so never hardcode an effort level or thinking budget
+- Apply the [Claude entry](#claude-claudeai-claude-api), including scope, length, and evidence-based verification; effort and thinking depth are host-managed, so never invent an effort command or thinking budget in the task prompt
 - Delegation bias differs by model. Opus 5 over-delegates — cap it: *"Delegate only for large, genuinely independent tracks of work. Don't delegate what you can finish in a handful of tool calls. Keep spawn counts low."* Fable 5.1's parallel subagents are dependable — say when delegation is wanted and let it keep working while they run: *"Delegate independent subtasks to subagents and keep working while they run; intervene if one goes off track or lacks context."* On either model, never use a subagent to verify its own work.
 - Narration cadence differs by model — Opus 5 narrates readily, Fable 5.1 goes quiet during long tool chains — so describe the shape you want rather than banning or demanding updates: *"Say in one sentence what you're about to do before your first tool call; while working, update on something important or a change of direction; close with a short recap that stands on its own — what you found, what you did, what's next."*
-- Human review triggers required: "Stop and ask before deleting any file, adding any dependency, or affecting the database schema"
+- Carry forward explicit authorization for edits, dependencies, and schema work. Ask before consequential actions outside that authorization or when an unresolved choice changes the scope
+
+### OpenAI Codex
+
+- Use Template H for scoped implementation; for an audit or plan, state the requested read/write boundary and deliverable. Do not transplant Claude's `/goal`, `/workflows`, `AskUserQuestion`, or plan-mode transitions as literal Codex commands.
+- Read the project's discovered AGENTS instructions and the files they route to. For Optimus, invoke the explicitly requested skill with the host's `$optimus:<skill>` syntax and resolve shared references from the installed plugin root.
+- Use the tools actually available in the current Codex surface and mode. Ask through its question tool when available, otherwise plain text; prose cannot grant permissions or change plan mode. Bound delegation to available capacity and pass each worker the task, context, and required output.
+- Preserve prior user authorization and complete independent work while a real decision is pending. Keep important task state in the requested artifact when a handoff/resume needs it; do not assume another session has this conversation.
+- If the selected model is GPT-6 Astra, also use its model entry above. Host tools, memory, approvals, and plugin availability are separate from model capabilities; do not promise the same integration on every Codex surface.
+
+Sources: [Codex skills](https://learn.chatgpt.com/docs/build-skills), [AGENTS discovery](https://learn.chatgpt.com/docs/agent-configuration/agents-md), and [subagents](https://learn.chatgpt.com/docs/agent-configuration/subagents), checked 2026-09-09.
 
 ### Claude Code (plan mode)
 
@@ -194,10 +215,11 @@ First detect: generation from scratch or editing an existing image? If editing �
 - Comma-separated descriptors, not prose. Subject first, then style, mood, lighting, composition
 - Parameters at end: `--ar 16:9 --v 6 --style raw`; negative prompts via `--no [unwanted elements]`
 
-### DALL-E 3
+### OpenAI image tools
 
 - Prose description works well; add "do not include text in the image unless specified."
 - Describe foreground, midground, background separately for complex compositions
+- Confirm the target interface and available image model. DALL-E 3 has been removed from the OpenAI API and has no editing endpoint; if explicitly requested, explain the limitation and let the user choose a supported target rather than silently changing models. Use the current interface's image-generation or editing capability. [Official DALL-E 3 status](https://developers.openai.com/api/docs/models/dall-e-3), [image API guidance](https://developers.openai.com/api/docs/guides/image-generation), checked 2026-09-09.
 
 ### Stable Diffusion
 
@@ -217,7 +239,7 @@ When the user mentions "change", "edit", "modify", "adjust" anything in an exist
 - Always instruct the user to attach the reference image to the tool first
 - Build the prompt around the delta ONLY — what changes, what stays the same
 - Midjourney: `--cref [image URL]` for character reference or `--sref` for style reference
-- DALL-E 3: use the Edit endpoint, not Generate. User must be in ChatGPT with image editing enabled
+- OpenAI image tools: attach the reference to the chosen interface; use its image-editing capability. For the API, select a currently supported GPT Image model and the documented edits or Responses image tool path; a ChatGPT attachment is not an API endpoint
 - Stable Diffusion: use img2img mode, not txt2img. Denoising strength 0.3-0.6 to preserve the original
 
 ## Image AI — ComfyUI

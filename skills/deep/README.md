@@ -27,12 +27,14 @@ Under Codex, `--yes` answers skill confirmations, not host approvals. The run ne
 - Project initialized with `/optimus:init`, including a test command in `.claude/CLAUDE.md`
 - Python 3.8+ and Git (the orchestrator drives `python -m harness_common.cli`)
 - Clean working tree (or `--no-commit`); green test suite at start for review/refactor (or `--allow-red-baseline`)
+- Clean nested repositories, including submodules, even with `--no-commit`; parent snapshots cannot recover child edits. Children using assume-unchanged or skip-worktree index flags must resolve those flags first, even if currently clean. Run changes inside each repository separately. Uninitialized submodules are supported.
 
 ## How a run behaves
 
 - **Confirmation upfront, then autonomy.** One approval covers the whole loop; fixes and tests are applied without per-change confirmation.
 - **Checkpoint commits.** Each iteration (or phase, for coverage) produces a checkpoint commit unless `--no-commit` is set.
 - **Verification + bisection.** The full test suite runs after each iteration's fixes; on failure the CLI reverts everything and re-applies fixes one at a time, keeping only those that pass.
+- **Test outputs.** Exact files first created by tests are recorded across runs/resume and kept out of checkpoints and later input comparisons. Existing files are never classified by filename alone; ignore existing disposable reports before starting. Deliberately staging generated source removes its output exclusion and requires normal validation.
 - **Coverage cycles.** The `coverage` target alternates a unit-test phase (write tests, measure coverage, flag untestable code) with a conditional testability-refactor phase, so neither concern can stall the other.
 
 ## Termination, resume, and archive

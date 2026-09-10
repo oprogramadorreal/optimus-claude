@@ -14,7 +14,7 @@ Two primary goals:
 - **Test verification** — runs your test suite after applying changes and reverts any change that causes failures
 - **Conservative by default** — only suggests changes justified by the project's own guidelines; falls back to general best practices without `/optimus:init`
 - **Prioritized findings** — Critical/Warning/Suggestion severity, capped at 15 per run with before/after sketches
-- **Smart exclusions** — skips git submodules, generated sources (build_runner output, Designer files, migration directories), lock and minified files
+- **Smart exclusions** — skips git submodules, generated sources (build_runner output, Designer files, confirmed generated migration snapshots), lock and minified files
 - **Multi-repo and monorepo aware** — per-repo and per-subproject doc resolution
 
 ## Quick Start
@@ -33,7 +33,7 @@ For iterative refactoring in an automated loop, use `/optimus:deep refactor`.
 
 ## Focus Mode
 
-By default all analysis categories compete equally for the 15-finding cap. A focus keyword reserves 12 of the 15 slots for its category — high-severity findings from other categories still surface in the remaining 3:
+By default all analysis categories compete equally for the 15-finding cap. A focus keyword prioritizes that category; high-severity findings from other categories may still surface within the same cap:
 
 - `testability` — after `/optimus:unit-test` flags "Not Testable Without Refactoring"
 - `guidelines` — after `/optimus:init` establishes new guidelines
@@ -81,7 +81,7 @@ The plugin's code-simplifier agent cleans up code you have just changed; `/optim
 
 ## Requirements
 
-- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) 1.0.33+ (plugin support)
+- Optimus installed in a [supported host](../../README.md#supported-hosts-and-versions)
 - Git
 - Project initialized with `/optimus:init` (recommended, not required)
 - Test command in `.claude/CLAUDE.md` for post-apply verification and `/optimus:deep refactor`

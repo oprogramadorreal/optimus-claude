@@ -16,7 +16,7 @@ Rendering rules for Step 4 (content generation). Per-service Docker/local/shared
 
 | Detected signal | Render |
 |--------|----------------------|
-| Runtime version constraints / version-manager files | Prerequisites — "X ≥N required (source); M recommended (pin file)" when both exist |
+| Runtime version constraints / version-manager files | Prerequisites — preserve the actual manifest range and the exact selected version/alias from the pin file; label their different roles when both exist |
 | Hardware/OS tokens; private-registry files | Prerequisites (OS-version token as the first bullet when present) |
 | Recommended Developer Tools rows | Prerequisites — *Recommended developer tools* sub-list (one bullet per detected token, detector order, optional one-line "why"; never invent tools) |
 | Build system / SDK / engine files; `vcpkg.json` / `conanfile.*` | Toolchain & SDKs (+ Build, Running in Development for the produced artifact) |
@@ -68,20 +68,24 @@ Write each section as a competent onboarding doc would — the rules below are t
 
 When the detector's `Workspace kind` is not `none`, use these forms — the wrong per-package form is a silent failure (`cargo build` at a workspace root builds only the root crate; `go mod download` does not resolve `go.work` modules). Render the Install row under Installation, Build-all under Build, per-module Run rows under Running in Development.
 
+The task runner and package manager are separate facts. For `lerna`, `nx`, and `turbo`, `<pm-install>` is the detected manager's install command and `<exec>` invokes an already-installed local tool: npm `npm exec --no --`, pnpm `pnpm exec`, Yarn `yarn`, Bun `bun run`. Prefer an existing project script that wraps the tool. Never introduce a second lockfile or fetch a missing task runner implicitly. Substitute actual declared targets for `build`, `test`, and `serve`; omit unavailable targets. The Yarn `foreach` examples require modern Yarn; for Yarn Classic use its documented `yarn workspaces run <script>` form.
+
 | Workspace kind | Install | Build (all) | Build (one) | Run (one) | Test (all) |
 |----------------|---------|-------------|-------------|-----------|------------|
 | `npm-workspaces` | `npm install` (at root) | `npm run build --workspaces --if-present` | `npm run build --workspace=<pkg>` | `npm run <script> --workspace=<pkg>` | `npm test --workspaces --if-present` |
 | `pnpm-workspaces` | `pnpm install` (at root) | `pnpm -r build` | `pnpm --filter <pkg> build` | `pnpm --filter <pkg> <script>` | `pnpm -r test` |
 | `yarn-workspaces` | `yarn install` (at root) | `yarn workspaces foreach -A run build` | `yarn workspace <pkg> build` | `yarn workspace <pkg> <script>` | `yarn workspaces foreach -A run test` |
-| `lerna` | `npm install` (root) | `npx lerna run build` | `npx lerna run build --scope=<pkg>` | `npx lerna run <script> --scope=<pkg>` | `npx lerna run test` |
-| `nx` | `npm install` (root) | `npx nx run-many -t build` | `npx nx build <pkg>` | `npx nx serve <pkg>` / `npx nx run <pkg>:<target>` | `npx nx run-many -t test` |
-| `turbo` | `npm install` (root) | `npx turbo run build` | `npx turbo run build --filter=<pkg>` | `npx turbo run <script> --filter=<pkg>` | `npx turbo run test` |
+| `lerna` | `<pm-install>` (root) | `<exec> lerna run build` | `<exec> lerna run build --scope=<pkg>` | `<exec> lerna run <script> --scope=<pkg>` | `<exec> lerna run test` |
+| `nx` | `<pm-install>` (root) | `<exec> nx run-many -t build` | `<exec> nx build <pkg>` | `<exec> nx serve <pkg>` / `<exec> nx run <pkg>:<target>` | `<exec> nx run-many -t test` |
+| `turbo` | `<pm-install>` (root) | `<exec> turbo run build` | `<exec> turbo run build --filter=<pkg>` | `<exec> turbo run <script> --filter=<pkg>` | `<exec> turbo run test` |
 | `cargo-workspace` | — (Cargo resolves automatically) | `cargo build --workspace` | `cargo build -p <crate>` | `cargo run -p <crate>` | `cargo test --workspace` |
-| `go-workspace` | `go work sync` (at root) | `go build ./...` (at root — walks every module on Go ≥1.18) | `go build ./<module>/...` | `go run ./<module>` (or `./cmd/<name>`) | `go test ./...` |
+| `go-workspace` | Follow the repository's dependency setup; `go work sync` updates workspace module dependencies | Within each listed module: `go build ./...` | Within the chosen module: `go build ./...` | Within the chosen module: `go run <detected-main-package>` | Within each listed module: `go test ./...` |
 | `gradle-multi-module` | — (Gradle resolves automatically) | `./gradlew build` | `./gradlew :<module>:build` | `./gradlew :<module>:run` | `./gradlew test` |
 | `maven-multi-module` | — (Maven resolves automatically) | `mvn install` (root; `-DskipTests` for faster dev builds) | `mvn -pl <module> -am install` | `mvn -pl <module> exec:java` (if configured) | `mvn test` |
 
 When `Workspace kind: none`, use the detected package manager's standard per-package commands with the **actual script names from the manifest** (e.g., `pnpm run start:dev`, not `pnpm run dev`, when the script is named `start:dev`).
+
+For Go, render the actual `go.work` module directories, quoted for the selected shell. For example, Bash `(cd 'module a' && go test ./...)` or PowerShell `Push-Location -LiteralPath 'module a'; try { go test ./... } finally { Pop-Location }`, one per detected module. Root `go test ./...` does not traverse sibling modules and fails when the root is outside a module. Use an existing repository test wrapper when it already covers the workspace.
 
 ## Schema Bootstrap
 

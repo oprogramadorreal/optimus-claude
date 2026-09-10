@@ -8,13 +8,23 @@ argument-hint: "[task description]"
 
 Implement a feature or bug fix test-first: for each behavior, write a failing test (Red), write the minimum code to pass it (Green), then clean up while tests stay green (Refactor). This skill builds new behavior — for restructuring without behavior change, use `/optimus:refactor`.
 
-**The Iron Law: no production code without a failing test first.** If implementation code is written before its test, delete it entirely and begin the cycle fresh — do not keep it as reference, do not adapt it; write the implementation from scratch once the failing test exists.
+**The Iron Law: no production code without a failing test first.** If this cycle's implementation is written before its test, undo only that implementation using the ownership record below and begin the cycle fresh. Preserve pre-existing code and user edits; write the cycle's implementation once the failing test exists.
 
 Coming from plan mode? TDD runs in normal mode in a fresh conversation; plan-mode iterations that feed it are review-only — see `$CLAUDE_PLUGIN_ROOT/skills/brainstorm/references/plan-mode-handoff.md`.
 
 ## Step 1: Pre-flight
 
-If the current directory has no `.git/` directory, read `$CLAUDE_PLUGIN_ROOT/skills/init/references/multi-repo-detection.md` and apply it; if a multi-repo workspace is detected, work inside the repo the user is targeting — ask which one if ambiguous.
+If `git rev-parse --is-inside-work-tree` does not return `true`, read `$CLAUDE_PLUGIN_ROOT/skills/init/references/multi-repo-detection.md` and apply it; if a multi-repo workspace is detected, work inside the repo the user is targeting — ask which one if ambiguous. When it returns `true`, resolve the repository root with `git rev-parse --show-toplevel`, including in a linked worktree or subdirectory.
+
+### Preserve starting work
+
+Record the current branch/HEAD and staged, unstaged, and untracked paths before setup or edits. These changes belong to the user unless the conversation explicitly includes them in this task. Existing authorization persists; ask only when ownership or scope is genuinely ambiguous. A new branch does not isolate dirty work, and a new worktree starts from committed state rather than carrying the user's dirty changes.
+
+Before the first edit to each file in a cycle, record its existence and SHA-256 over its raw bytes. An empty Git status/diff does not prove those bytes are recoverable: index flags and filters can hide differences. Read a candidate HEAD/index blob with `git cat-file blob <blob-oid>`, capturing binary stdout; use Git as the rollback source only when its bytes exactly match the current file. Save that immutable blob ID and the verified hash. Otherwise copy the exact bytes to the private session scratchpad — or a temporary directory outside the repository when the host offers none — and verify the copy before editing. Keep the recovery source until the cycle is committed or safely rolled back.
+
+For **every** edited path, record the last bytes/hash and existence written by the cycle, regardless of recovery source. Before any rollback, compare the current state with that last-written state. Restore or delete a whole file only on a match; if it changed independently, remove only identifiable cycle changes, preserving other work. If separation is uncertain, preserve it and show the ambiguity. Delete a newly created file only when it was absent at the cycle boundary and still matches the cycle's last version.
+
+For restoration, load the saved blob or copy and verify its raw-byte hash before overwriting the original; preserve it on any read or verification failure. Restore those verified bytes directly, without checkout filters or reliance on the current HEAD/index. Never use hard reset, broad stash/pop, or cleanup as a substitute for this boundary; never replace the user's starting index or stage unrelated work.
 
 If `.claude/CLAUDE.md` or `.claude/docs/coding-guidelines.md` is missing, recommend `/optimus:init` first; on the user's choice, continue with general best practices. Load:
 
@@ -90,6 +100,8 @@ Run the test suite. The new test **must fail on its assertion** for the right re
 
 ## Step 5: Green — Minimal Implementation
 
+For a bug reproduction, preserve the implementation state at the observed Red assertion failure, including any required stub, before making the fix. Step 5's regression gate restores this state temporarily using Step 1's ownership checks.
+
 Write the **minimum code** to make the failing test pass: no untested edge cases, no premature abstraction, no "while I'm here" improvements. A hardcoded return that passes is valid — later tests force generalization.
 
 Run the test suite — all tests must pass.
@@ -97,20 +109,20 @@ Run the test suite — all tests must pass.
 - **New test still fails** — fix the implementation, not the test. **Circuit breaker:** after 3 failed attempts, stop and use `AskUserQuestion` — header "Implementation stuck", question "The test has failed after 3 fix attempts — this usually signals a design problem, not a code problem.":
   - **Rethink the approach** — reconsider the behavior's design or decomposition
   - **Simplify the behavior** — break it into smaller sub-behaviors
-  - **Skip for now** — revert this cycle's implementation (`git checkout -- <implementation files>`; also delete implementation files the cycle newly created — `git checkout` does not remove untracked files), mark the test skipped per the project's convention, move to the next behavior
+  - **Skip for now** — restore only this cycle's implementation using the recovery source and ownership checks from Step 1, mark the test skipped per the project's convention, and move to the next behavior. Preserve the test and all earlier user/cycle work.
 - **Other tests broke** — fix the regression before proceeding.
 
 ### Bug-fix regression gate
 
 Only when the current behavior is a bug reproduction (skip for feature behaviors). This proves the test catches the bug and the fix resolves it:
 
-1. Commit the test separately: `git add <test-file> && git commit -m "test: reproduce <bug-description>"`
-2. Revert only the fix: `git stash push -u -- <implementation-files>` (`-u` stashes newly created, still-untracked files). Confirm via `git status`/`git diff` that the implementation changes are actually gone.
+1. Preserve the green implementation bytes in the scratchpad (or the temporary directory chosen in Step 1). Commit the test separately only when it can follow Step 7's ownership rules; the regression proof does not require a commit.
+2. Restore the saved Red implementation state using Step 1's ownership checks, leaving the regression test in place. Confirm that only this cycle's fix was removed, not earlier user work.
 3. Run the test — it **must fail**.
-4. Restore the fix: `git stash pop`
+4. Restore the saved green implementation, applying the same independent-change check.
 5. Run the test — it **must pass**.
 
-If the test passes at step 3 with the fix reverted, it isn't catching the bug: restore the fix (`git stash pop`), then rewrite the test to target the actual failure condition.
+If the test passes at step 3 with the fix reverted, it isn't catching the bug: restore the saved green implementation, then rewrite the test to target the actual failure condition.
 
 ### Lint / type-check
 
@@ -126,8 +138,9 @@ Run the test suite when the cycle's cleanup is done; if it goes red, undo the ch
 
 Auto-commit each completed cycle:
 
-1. Stage the cycle's files specifically (`git add <files>`; `git add -A` only when many files changed). Never stage files that look like secrets (`.env`, credentials, keys) — warn the user if any appear in `git status`.
-2. Commit with a conventional message per `$CLAUDE_PLUGIN_ROOT/skills/commit/references/conventional-commit-format.md`.
+1. Identify files whose entire change is owned by this task; compare against the starting-work record and inspect the actual diff. Stage only these exact paths (`git add -- <owned-files>`), never `git add -A`. Never stage files that look like secrets (`.env`, credentials, keys) — warn the user if any appear in `git status`.
+2. Commit only those paths with `git commit --only -m "<message>" -- <owned-files>`, using the conventional format in `$CLAUDE_PLUGIN_ROOT/skills/commit/references/conventional-commit-format.md`. This excludes unrelated entries already staged by the user. Check the resulting commit and that unrelated staged/unstaged work is preserved.
+3. If a file mixes task changes with pre-existing user changes not already included in the task's authorization, do not stage or commit the whole file. Preserve both, show the concrete mixed diff, and resolve ownership with the user before including it. Keep the cycle's snapshots while its commit is deferred; continue independent work when possible. Do not claim an uncommitted cycle was delivered on the branch.
 
 Then keep cycling — return to Step 4 for the next behavior without asking. Two things interrupt the loop:
 
@@ -140,7 +153,7 @@ Report at those boundaries rather than per cycle: which behaviors landed, their 
 
 ### Commit remaining work
 
-If uncommitted changes exist (e.g., stopped mid-cycle), run the test suite first: mark a failing mid-cycle test skipped and note it in the summary — or surface the failure to the user before committing if skipping isn't appropriate. Stage and commit with a conventional message.
+If uncommitted **task-owned** changes remain (e.g., stopped mid-cycle), run the test suite first: mark a failing mid-cycle test skipped and note it in the summary — or surface the failure to the user before committing if skipping isn't appropriate. Apply Step 7's exact-path ownership rules. Leave unrelated starting work untouched and report any deferred mixed-file commit; do not push or describe that unfinished work as committed.
 
 ### Present summary
 
@@ -168,6 +181,8 @@ coverage command was found or either run produced no parseable number.]
 ```
 
 ### Push
+
+If a mixed-file commit is still deferred, leave the branch local and report what decision is needed before delivery. Continue with a partial push only if the user explicitly chose that scope.
 
 Push the branch: `git push -u origin <branch-name>`. If the push fails, report the error and stop — skip the rest of Step 8 and leave any worktree in place; the user must push manually, then run `/optimus:pr` (a new `/optimus:tdd` invocation starts fresh — it does not resume this one). On success, report the branch, its origin branch, and the commit count.
 

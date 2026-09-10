@@ -1,3 +1,5 @@
+import errno
+import os
 import shutil
 import subprocess
 import sys
@@ -12,6 +14,19 @@ def _find_bash(platform=None, which_fn=None, run_fn=None):
     run_fn = run_fn or subprocess.run
     if (platform or sys.platform) != "win32":
         return "bash"
+
+    # Match Claude Code's documented override, including installations outside
+    # Program Files. An invalid explicit choice should produce an error, not
+    # silently run a different shell.
+    override = os.environ.get("CLAUDE_CODE_GIT_BASH_PATH")
+    if override:
+        if not os.path.isfile(override):
+            raise FileNotFoundError(
+                errno.ENOENT,
+                "CLAUDE_CODE_GIT_BASH_PATH does not point to a Bash executable",
+                override,
+            )
+        return override
 
     # shutil.which respects PATH order — check if it resolves to WSL's bash
     candidate = which_fn("bash")
@@ -55,6 +70,28 @@ def _find_bash(platform=None, which_fn=None, run_fn=None):
     return "bash"
 
 
+def bash_environment(bash, env=None, platform=None):
+    """Give native Windows Bash its own utilities without changing the caller."""
+    environment = dict(os.environ if env is None else env)
+    if (platform or sys.platform) != "win32":
+        return environment
+    executable = Path(bash)
+    # Git for Windows ships bash in bin or usr/bin. Merely locating bash.exe
+    # does not add cat, dirname, etc. when the user installed only git/cmd on PATH.
+    root = executable.parent.parent
+    if root.name.lower() == "usr":
+        root = root.parent
+    paths = [root / "usr" / "bin", root / "bin", root / "cmd"]
+    paths = [str(path) for path in paths if path.is_dir()]
+    if paths and executable.is_absolute():
+        path_keys = [key for key in environment if key.lower() == "path"]
+        inherited = environment[path_keys[-1]] if path_keys else ""
+        for key in path_keys:
+            del environment[key]
+        environment["PATH"] = ";".join([*paths, inherited])
+    return environment
+
+
 def run_tests(test_command, cwd, timeout=DEFAULT_TEST_TIMEOUT, prefix="[harness]"):
     """Run the project's test command. Returns (passed: bool, output: str)."""
     print(f"{prefix} Running tests: {test_command}")
@@ -62,11 +99,19 @@ def run_tests(test_command, cwd, timeout=DEFAULT_TEST_TIMEOUT, prefix="[harness]
         # On Windows, shell=True uses cmd.exe which misparses bash operators
         # (&&, ||), subshells ($(...)), env vars ($VAR), and redirections (2>).
         # Always route through bash for consistent behavior.
-        effective_command = [_find_bash(), "-c", test_command]
+        try:
+            bash = _find_bash()
+        except FileNotFoundError as exc:
+            msg = f"{exc.strerror}: {exc.filename}"
+            print(f"{prefix} {msg}")
+            return False, msg
+        effective_command = [bash, "-c", test_command]
+        environment = bash_environment(bash)
         use_shell = False
     else:
         effective_command = test_command
         use_shell = True
+        environment = None
     try:
         # encoding= is mandatory: without it, text=True decodes with the locale
         # codec (cp1252 on Windows), and a single non-decodable byte in test
@@ -81,6 +126,7 @@ def run_tests(test_command, cwd, timeout=DEFAULT_TEST_TIMEOUT, prefix="[harness]
             errors="replace",
             cwd=str(cwd),
             timeout=timeout,
+            env=environment,
         )
     except FileNotFoundError as exc:
         # Most commonly: bash not on PATH on Windows when Git Bash is missing.

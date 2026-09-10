@@ -1,8 +1,10 @@
 import fnmatch
+import hashlib
 import json
 import os
 import subprocess
 import tempfile
+from collections import namedtuple
 from pathlib import Path
 
 from .constants import (
@@ -18,6 +20,132 @@ _PREFIX = "[harness]"
 # Sentinel distinguishing "PR data not provided → fetch it" from "provided as
 # None" (an explicit no-open-PR result that must NOT trigger a re-fetch).
 _UNSET = object()
+
+
+TreeState = namedtuple("TreeState", "digest dirty base entries")
+
+
+def git_test_output_paths(cwd, paths):
+    """Keep output exclusions only for untracked regular files (or absent files)."""
+    root = Path(cwd).resolve()
+    candidates = []
+    for name in paths:
+        path = root / name
+        try:
+            path.resolve().relative_to(root)
+        except ValueError:
+            continue
+        if Path(name).is_absolute() or path.is_symlink() or path.is_dir():
+            continue
+        if not path.exists() or path.is_file():
+            candidates.append(name)
+    if not candidates:
+        return []
+    tracked = subprocess.run(
+        [
+            "git",
+            "ls-files",
+            "--cached",
+            "--with-tree=HEAD",
+            "-z",
+            "--",
+            *(f":(literal){name}" for name in candidates),
+        ],
+        cwd=str(root),
+        capture_output=True,
+    )
+    if tracked.returncode:
+        raise RuntimeError("Cannot check tracked test outputs")
+    tracked_names = {os.fsdecode(name) for name in tracked.stdout.split(b"\0")}
+    return [name for name in candidates if name not in tracked_names]
+
+
+def git_test_tree_state(cwd, progress_file, *, exclude_paths=()):
+    """Fingerprint the source bytes a checkpoint would include, without writes.
+
+    Ignore harness state and caller-verified test outputs, matching checkpoint
+    exclusions. Include other non-ignored untracked files and HEAD; a green
+    result cannot authorize later edits or a different base. Binary Git output
+    avoids locale/decoding loss.
+
+    Returns a ``TreeState``: ``digest`` covers everything, ``base`` covers HEAD
+    plus the tracked diff, and ``entries`` maps each tracked or untracked path
+    to its own content digest — so a caller can tell a file that changed during
+    a test run from a file the run merely created (coverage reports, caches).
+    """
+    root = Path(cwd).resolve()
+    excludes = list(_HARNESS_STATE_EXCLUDES)
+    try:
+        relative = Path(progress_file).resolve().relative_to(root).as_posix()
+        excludes.extend([relative, relative + BACKUP_SUFFIX])
+    except ValueError:
+        pass  # A progress file outside the repo is not part of its tree.
+    pathspec = [
+        ".",
+        *(f":(exclude){pattern}" for pattern in excludes),
+        *(f":(exclude,literal){path}" for path in exclude_paths),
+    ]
+
+    def git_bytes(*args):
+        result = subprocess.run(["git", *args], cwd=str(root), capture_output=True)
+        if result.returncode:
+            raise RuntimeError(f"Cannot inspect test tree: git {args[0]} failed")
+        return result.stdout
+
+    head = git_bytes("rev-parse", "HEAD")
+    diff = git_bytes(
+        "diff", "--binary", "--no-ext-diff", "--no-textconv", "HEAD", "--", *pathspec
+    )
+    base = hashlib.sha256(head + b"\0" + diff).hexdigest()
+    untracked = git_bytes(
+        "ls-files", "--others", "--exclude-standard", "-z", "--", *pathspec
+    )
+    # --stage exposes the mode: 160000 marks a submodule (gitlink), which is an
+    # empty directory in a clone made without --recurse-submodules.
+    staged = git_bytes("ls-files", "--cached", "--stage", "-z", "--", *pathspec)
+    names = set(filter(None, untracked.split(b"\0")))
+    gitlinks = {}
+    for record in filter(None, staged.split(b"\0")):
+        meta, _, name = record.partition(b"\t")
+        mode, sha = meta.split(b" ", 2)[:2]
+        names.add(name)
+        if mode == b"160000":
+            gitlinks[name] = sha
+    # Hash actual tracked bytes too: clean/smudge filters and autocrlf can make
+    # different test inputs appear identical in a Git diff. Stream large files.
+    entries = {
+        os.fsdecode(name): _tree_entry_digest(
+            root / os.fsdecode(name), gitlinks.get(name), progress_file
+        )
+        for name in names
+    }
+    digest = hashlib.sha256(base.encode("ascii"))
+    for name in sorted(entries):
+        encoded = os.fsencode(name)
+        digest.update(len(encoded).to_bytes(8, "big") + encoded)
+        digest.update(entries[name].encode("ascii"))
+    return TreeState(digest.hexdigest(), bool(diff or untracked), base, entries)
+
+
+def _tree_entry_digest(path, gitlink_sha, progress_file):
+    if path.is_symlink():
+        return "link:" + hashlib.sha256(os.fsencode(os.readlink(path))).hexdigest()
+    if path.is_file():
+        file_digest = hashlib.sha256()
+        with path.open("rb") as stream:
+            for block in iter(lambda: stream.read(1024 * 1024), b""):
+                file_digest.update(block)
+        return "file:" + file_digest.hexdigest()
+    if path.is_dir() and (path / ".git").exists():
+        # A checked-out submodule or nested repository: fingerprint it the same
+        # way, so edits inside it during a test run are detected as well.
+        _require_clean_nested_repository(path, subprocess.run)
+        return "repo:" + git_test_tree_state(path, progress_file).digest
+    if gitlink_sha:
+        return "gitlink:" + gitlink_sha.decode("ascii")  # registered, not checked out
+    if not path.exists():
+        return "deleted"
+    return "dir"  # a tracked path replaced by a directory; its files list separately
 
 
 def _run_git_text(_run, args, cwd, **extra):
@@ -46,7 +174,106 @@ def _rev_parse(ref, cwd, _run):
     return result.stdout.strip() if result.returncode == 0 else None
 
 
-def commit_checkpoint(commit_message, cwd, progress_file, _run=None):
+def _require_clean_nested_repository(path, _run):
+    status = _run_git_text(
+        _run,
+        [
+            "git",
+            "status",
+            "--porcelain",
+            "--untracked-files=normal",
+            "--ignore-submodules=none",
+        ],
+        path,
+    )
+    if status.returncode != 0:
+        raise RuntimeError(f"Cannot inspect nested repository: {path}")
+    if status.stdout:
+        raise RuntimeError(
+            f"Validate and commit dirty nested repository separately: {path}"
+        )
+    flags = _run(
+        ["git", "ls-files", "-v", "-z"],
+        capture_output=True,
+        cwd=str(path),
+    )
+    if flags.returncode != 0:
+        raise RuntimeError(f"Cannot inspect nested repository tracking flags: {path}")
+    # These index flags can hide changed bytes from an otherwise clean status.
+    if any(
+        entry[:1].islower() or entry.startswith("S ")
+        for entry in os.fsdecode(flags.stdout).split("\0")
+    ):
+        raise RuntimeError(
+            f"Nested repository has assume-unchanged or skip-worktree tracking flags: "
+            f"{path}. Clear those flags or manage this repository separately before "
+            "retrying."
+        )
+
+
+def git_check_nested_repositories(cwd, _run=None, *, restore_commit=None):
+    """Refuse unsafe child state; return whether checked-out children exist."""
+    _run = _run or subprocess.run
+    root = Path(cwd)
+    listed = _run(
+        ["git", "ls-files", "--stage", "--others", "--exclude-standard", "-z"],
+        capture_output=True,
+        cwd=str(root),
+    )
+    if listed.returncode != 0:
+        raise RuntimeError(f"Cannot inspect nested repositories: {listed.stderr[:200]}")
+    repositories = set()
+    for record in filter(None, os.fsdecode(listed.stdout).split("\0")):
+        meta, separator, name = record.partition("\t")
+        fields = meta.split(" ")
+        if not (
+            separator
+            and len(fields) == 3
+            and fields[0] in {"100644", "100755", "120000", "160000"}
+        ):
+            name = record
+        path = root / name
+        if not path.is_symlink() and path.is_dir() and (path / ".git").exists():
+            repositories.add(name.rstrip("/"))
+    if not repositories:
+        return False
+
+    expected = {}
+    if restore_commit:
+        tree = _run(
+            ["git", "ls-tree", "-r", "-z", restore_commit],
+            capture_output=True,
+            cwd=str(root),
+        )
+        if tree.returncode != 0:
+            raise RuntimeError(
+                f"Cannot inspect restore tree {restore_commit}: {tree.stderr[:200]}"
+            )
+        for record in filter(None, os.fsdecode(tree.stdout).split("\0")):
+            meta, _, name = record.partition("\t")
+            mode, _kind, sha = meta.split(" ")
+            if mode == "160000":
+                expected[name] = sha
+
+    for name in sorted(repositories):
+        path = root / name
+        _require_clean_nested_repository(path, _run)
+        if restore_commit and _rev_parse("HEAD", path, _run) != expected.get(name):
+            raise RuntimeError(
+                f"Cannot restore nested repository checkout from the parent: {path}. "
+                "Restore its recorded commit separately before retrying."
+            )
+        git_check_nested_repositories(
+            path,
+            _run=_run,
+            restore_commit=expected.get(name) if restore_commit else None,
+        )
+    return True
+
+
+def commit_checkpoint(
+    commit_message, cwd, progress_file, _run=None, *, exclude_paths=()
+):
     """Stage all changes, un-stage harness state files, and commit.
 
     Returns one of ``COMMIT_COMMITTED`` (a checkpoint was created),
@@ -61,7 +288,17 @@ def commit_checkpoint(commit_message, cwd, progress_file, _run=None):
     commit failure (that would durably disable checkpoint commits).
     """
     _run = _run or subprocess.run
-    add_result = _run_git_text(_run, ["git", "add", "-A"], cwd)
+    try:
+        git_check_nested_repositories(cwd, _run=_run)
+    except RuntimeError as exc:
+        print(f"{_PREFIX} WARNING: checkpoint refused: {exc}")
+        return COMMIT_FAILED
+    add_args = ["git", "add", "-A"]
+    if exclude_paths:
+        add_args.extend(
+            ["--", ".", *(f":(exclude,literal){path}" for path in exclude_paths)]
+        )
+    add_result = _run_git_text(_run, add_args, cwd)
     if add_result.returncode != 0:
         print(f"{_PREFIX} WARNING: git add -A failed: {add_result.stderr[:200]}")
         return COMMIT_FAILED
@@ -121,31 +358,38 @@ _HARNESS_STATE_EXCLUDES = (
 )
 
 
-def _clean_working_tree(cwd, _run=None):
+def _clean_working_tree(cwd, _run=None, *, reset_tracked=True):
     """Reset tracked files and remove untracked files/dirs.
 
     Preserves orchestrator state files (progress JSON, backups, per-iteration
     temp files) so the user can `--resume` after a clean-triggered restore.
     """
     _run = _run or subprocess.run
-    checkout = _run_git_text(_run, ["git", "checkout", "."], cwd)
-    if checkout.returncode != 0:
-        print(f"{_PREFIX} WARNING: git checkout . failed: {checkout.stderr[:200]}")
+    prefix_result = _run_git_text(_run, ["git", "rev-parse", "--show-prefix"], cwd)
+    if prefix_result.returncode != 0:
+        raise RuntimeError(f"Cannot scope working-tree cleanup: {prefix_result.stderr}")
+    # git clean's exclusions are relative to the repository, even from a
+    # package directory. Escape the literal prefix before appending our globs.
+    prefix = prefix_result.stdout.rstrip("\n")
+    for char in ("\\", "*", "?", "[", "]"):
+        prefix = prefix.replace(char, "\\" + char)
+    if reset_tracked:
+        checkout = _run_git_text(_run, ["git", "checkout", "."], cwd)
+        if checkout.returncode != 0:
+            raise RuntimeError(f"git checkout . failed: {checkout.stderr[:200]}")
     clean_cmd = ["git", "clean", "-fd"]
     for pattern in _HARNESS_STATE_EXCLUDES:
-        clean_cmd.extend(["-e", pattern])
+        clean_cmd.extend(["-e", f"/{prefix}{pattern}" if prefix else pattern])
     clean = _run_git_text(_run, clean_cmd, cwd)
     if clean.returncode != 0:
-        print(f"{_PREFIX} WARNING: git clean -fd failed: {clean.stderr[:200]}")
+        raise RuntimeError(f"git clean -fd failed: {clean.stderr[:200]}")
 
 
 def git_restore_to(commit, cwd, _run=None):
     """Restore working tree to match a commit (resets tracked, removes untracked)."""
     _run = _run or subprocess.run
-    result = _run_git_text(_run, ["git", "checkout", commit, "--", "."], cwd)
-    if result.returncode != 0:
-        raise RuntimeError(f"git checkout {commit} failed: {result.stderr}")
-    _clean_working_tree(cwd, _run=_run)
+    git_restore_tracked_to(commit, cwd, _run=_run)
+    _clean_working_tree(cwd, _run=_run, reset_tracked=False)
 
 
 def git_restore_tracked_to(commit, cwd, _run=None):
@@ -161,9 +405,38 @@ def git_restore_tracked_to(commit, cwd, _run=None):
     base.
     """
     _run = _run or subprocess.run
-    result = _run_git_text(_run, ["git", "checkout", commit, "--", "."], cwd)
+    git_check_nested_repositories(cwd, _run=_run, restore_commit=commit)
+    _restore_tree(commit, cwd, _run)
+
+
+def _restore_tree(commit, cwd, _run, *, staged=True, worktree=True, overlay=False):
+    # Restore removes iteration-only index additions, like read-tree, but its
+    # pathspec confines changes to cwd instead of resetting sibling projects.
+    source = _run_git_text(
+        _run, ["git", "ls-tree", "-r", "--name-only", "-z", commit, "--", "."], cwd
+    )
+    if source.returncode != 0:
+        raise RuntimeError(f"Cannot inspect restore tree {commit}: {source.stderr}")
+    if not source.stdout:
+        if overlay:
+            return
+        indexed = _run_git_text(
+            _run, ["git", "ls-files", "--cached", "-z", "--", "."], cwd
+        )
+        if indexed.returncode != 0:
+            raise RuntimeError(f"Cannot inspect restore index: {indexed.stderr}")
+        if not indexed.stdout:
+            return  # git restore errors on an empty scope, even for a valid tree.
+    args = ["git", "restore", "--source", commit]
+    if staged:
+        args.append("--staged")
+    if worktree:
+        args.append("--worktree")
+    if overlay:
+        args.append("--overlay")
+    result = _run_git_text(_run, [*args, "--", "."], cwd)
     if result.returncode != 0:
-        raise RuntimeError(f"git checkout {commit} failed: {result.stderr}")
+        raise RuntimeError(f"git restore {commit} failed: {result.stderr}")
 
 
 def _is_harness_state_path(path):
@@ -182,11 +455,9 @@ def _untracked_snapshot_commit(cwd, _run):
         _run, ["git", "ls-files", "--others", "--exclude-standard", "-z"], cwd
     )
     if listed.returncode != 0:
-        print(
-            f"{_PREFIX} WARNING: could not list untracked files for snapshot: "
-            f"{listed.stderr[:200]}"
+        raise RuntimeError(
+            "Could not list untracked files for snapshot: " f"{listed.stderr[:200]}"
         )
-        return None
     files = [
         path
         for path in listed.stdout.split("\0")
@@ -204,18 +475,15 @@ def _untracked_snapshot_commit(cwd, _run):
             env=env,
         )
         if added.returncode != 0:
-            print(
-                f"{_PREFIX} WARNING: could not index untracked files for "
-                f"snapshot: {added.stderr[:200]}"
+            raise RuntimeError(
+                "Could not index untracked files for " f"snapshot: {added.stderr[:200]}"
             )
-            return None
         tree = _run_git_text(_run, ["git", "write-tree"], cwd, env=env)
         if tree.returncode != 0:
-            print(
-                f"{_PREFIX} WARNING: could not write untracked-files tree for "
+            raise RuntimeError(
+                "Could not write untracked-files tree for "
                 f"snapshot: {tree.stderr[:200]}"
             )
-            return None
         commit = _run_git_text(
             _run,
             [
@@ -228,11 +496,10 @@ def _untracked_snapshot_commit(cwd, _run):
             cwd,
         )
         if commit.returncode != 0:
-            print(
-                f"{_PREFIX} WARNING: could not commit untracked-files tree for "
+            raise RuntimeError(
+                "Could not commit untracked-files tree for "
                 f"snapshot: {commit.stderr[:200]}"
             )
-            return None
         return commit.stdout.strip()
 
 
@@ -243,8 +510,8 @@ def _stash_commit_with_untracked(base, untracked_commit, cwd, _run):
     the shape ``git stash apply`` requires to restore untracked files — without
     modifying the working tree. *base* is the 2-parent commit from ``git stash
     create``, or empty when only untracked files changed. Returns the commit
-    SHA on success, or *base* unchanged (possibly empty) if synthesis fails,
-    degrading to a tracked-only snapshot rather than losing it entirely.
+    SHA on success. Raise if any part cannot be captured: a partial snapshot
+    is unsafe because restoring it removes untracked files first.
     """
     head = _rev_parse("HEAD", cwd, _run)
     tree = index_commit = None
@@ -270,8 +537,7 @@ def _stash_commit_with_untracked(base, untracked_commit, cwd, _run):
             )
             index_commit = made.stdout.strip() if made.returncode == 0 else None
     if not (head and tree and index_commit):
-        print(f"{_PREFIX} WARNING: could not build untracked-files snapshot commit")
-        return base
+        raise RuntimeError("Could not build untracked-files snapshot commit")
     made = _run_git_text(
         _run,
         [
@@ -290,19 +556,18 @@ def _stash_commit_with_untracked(base, untracked_commit, cwd, _run):
         cwd,
     )
     if made.returncode != 0:
-        print(
-            f"{_PREFIX} WARNING: could not build untracked-files snapshot "
-            f"commit: {made.stderr[:200]}"
+        raise RuntimeError(
+            "Could not build untracked-files snapshot " f"commit: {made.stderr[:200]}"
         )
-        return base
     return made.stdout.strip()
 
 
 def git_stash_snapshot(cwd, _run=None):
     """Create a stash snapshot of current working tree without modifying it.
 
-    Returns a stash commit SHA that can be restored later, or None if no
-    changes. ``git stash create`` captures tracked changes as a commit object
+    Returns a complete stash commit SHA, or None only if there are no changes.
+    Raises RuntimeError on capture/registration failure. ``git stash create``
+    captures tracked changes as a commit object
     without touching the working tree, index, or stash reflog — but it cannot
     capture untracked files (it has no ``--include-untracked``; passing the
     flag is silently consumed as the stash message). Untracked files are
@@ -311,28 +576,26 @@ def git_stash_snapshot(cwd, _run=None):
     registered in the stash reflog so apply can process it.
     """
     _run = _run or subprocess.run
-    base = _run_git_text(_run, ["git", "stash", "create"], cwd).stdout.strip()
+    has_nested_repositories = git_check_nested_repositories(cwd, _run=_run)
+    created = _run_git_text(_run, ["git", "stash", "create"], cwd)
+    if created.returncode != 0:
+        raise RuntimeError(f"git stash create failed: {created.stderr[:200]}")
+    base = created.stdout.strip()
     untracked_commit = _untracked_snapshot_commit(cwd, _run)
     sha = base
     if untracked_commit:
         sha = _stash_commit_with_untracked(base, untracked_commit, cwd, _run)
+    if has_nested_repositories:
+        # Git stash omits an unstaged child HEAD advance. Check the actual
+        # recovery tree before registering it or claiming a clean HEAD snapshot.
+        git_check_nested_repositories(cwd, _run=_run, restore_commit=sha or "HEAD")
     if not sha:
-        # With untracked_commit set but no usable stash SHA, synthesis failed on
-        # the untracked-only path (empty tracked base) — the untracked files
-        # could not be captured at all. Say so loudly: a later restore's
-        # ``git clean`` will delete them, so this is not a silent no-op.
-        if untracked_commit:
-            print(
-                f"{_PREFIX} WARNING: untracked files could not be captured in "
-                f"the snapshot and will not be restorable"
-            )
         return None
     store = _run_git_text(
         _run, ["git", "stash", "store", "-m", "harness snapshot", sha], cwd
     )
     if store.returncode != 0:
-        print(f"{_PREFIX} WARNING: git stash store failed: {store.stderr[:200]}")
-        return None
+        raise RuntimeError(f"git stash store failed: {store.stderr[:200]}")
     return sha
 
 
@@ -359,17 +622,27 @@ def git_drop_stash(snapshot_sha, cwd, _run=None):
 def git_apply_snapshot(snapshot_sha, cwd, _run=None):
     """Restore the working tree from a stash snapshot without consuming it.
 
-    Cleans the tree, then applies the snapshot, leaving its stash reflog entry
-    in place so the restore is repeatable — this backs the bisect's clean-reset
-    rebuilds in no-commit mode. Returns True on success.
+    Restores only cwd from the snapshot's working, index and untracked trees,
+    leaving its stash reflog entry in place so the restore is repeatable. This
+    backs the bisect's clean-reset rebuilds in no-commit mode. Returns True on
+    success.
     """
     _run = _run or subprocess.run
-    # Clean working tree so stash apply can recreate files cleanly
-    _clean_working_tree(cwd, _run=_run)
-    # Then apply the snapshot (includes the untracked-files tree if present)
-    result = _run_git_text(_run, ["git", "stash", "apply", snapshot_sha], cwd)
-    if result.returncode != 0:
-        print(f"{_PREFIX} WARNING: Could not restore snapshot: {result.stderr[:200]}")
+    git_check_nested_repositories(cwd, _run=_run, restore_commit=snapshot_sha)
+    index_tree = _rev_parse(f"{snapshot_sha}^2", cwd, _run)
+    if not index_tree:
+        raise RuntimeError(f"Cannot resolve snapshot index tree: {snapshot_sha}")
+    untracked_tree = _rev_parse(f"{snapshot_sha}^3", cwd, _run)
+    # git stash apply has no pathspec: replay each tree directly so sibling
+    # work is untouched, including edits made after the snapshot was captured.
+    try:
+        _restore_tree(snapshot_sha, cwd, _run)
+        _clean_working_tree(cwd, _run=_run, reset_tracked=False)
+        _restore_tree(index_tree, cwd, _run, worktree=False)
+        if untracked_tree:
+            _restore_tree(untracked_tree, cwd, _run, staged=False, overlay=True)
+    except RuntimeError as exc:
+        print(f"{_PREFIX} WARNING: Could not restore snapshot: {str(exc)[:200]}")
         print(
             f"{_PREFIX} WARNING: untracked files may be missing from the working "
             f"tree — recover them with: git stash apply {snapshot_sha}"
@@ -420,7 +693,7 @@ def restore_working_tree(stash_sha, head_commit, cwd, _run=None):
     """Restore working tree to its pre-iteration state.
 
     With a stash snapshot (preferred — preserves uncommitted work from prior
-    --no-commit iterations), restore from it. If the stash apply fails, the
+    --no-commit iterations), restore from it. If snapshot restoration fails, the
     snapshot is left intact in the reflog (git_restore_snapshot printed a
     recovery hint) and this returns False WITHOUT falling back to a HEAD
     checkout — that fallback would report a successful restore while silently

@@ -4,7 +4,7 @@ Detection algorithm for identifying monorepo and multi-repo workspace structures
 
 ## Step 0 — Multi-repo workspace check (runs before Steps A/B/C)
 
-If `.git/` exists in the current directory, skip to Step A — the common case.
+If `git rev-parse --is-inside-work-tree` returns `true`, resolve `git rev-parse --show-toplevel` and run Step A at that root — normal checkouts and linked worktrees both take this common path.
 
 Otherwise apply the **Multi-Repo Workspace Detection** algorithm from `multi-repo-detection.md`, which your prompt's reference list points you at for exactly this case. On a confirmed workspace, run Steps A/B/C inside each enumerated repo to classify it as single project or monorepo. (Canonical source: `multi-repo-detection.md`, shared with every other skill that needs it — there is no second copy to keep in sync.)
 
@@ -28,7 +28,7 @@ Scan top-level directories for manifest files (manifest table in `tech-stack-det
 - **Build output**: `dist`, `build`, `out`, `target`, `bin`, `obj`
 - **Framework/cache**: `.next`, `.nuxt`, `__pycache__`, `.cache`, `.tox`
 - **Non-project**: `examples`, `demos`, `test-fixtures`, `e2e`, `__tests__`, `.storybook`, `samples`, `experiments`, `scripts`, `tools`, `docs`
-- **Git submodules**: Any directory containing a `.git` *file* (not directory) — skip it
+- **Git submodules**: skip a directory when `git -C "<directory>" rev-parse --show-superproject-working-tree` identifies its superproject, or the parent's `.gitmodules` registers it. Do not exclude linked worktrees merely because their `.git` is a file.
 
 **Depth-2 check for container directories:** For any scanned top-level directory that has no manifest and is not in the skip list, check its immediate subdirectories for manifest files (same skip rules). This catches nested subprojects inside container directories (e.g., `app/API/` and `app/client/` inside `app/`). Count each qualifying subdirectory as a separate project using its full relative path.
 

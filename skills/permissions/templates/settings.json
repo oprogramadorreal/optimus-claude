@@ -12,6 +12,7 @@
       "WebFetch",
       "WebSearch",
       "Task",
+      "Agent",
       "TodoWrite",
       "Skill"
     ],

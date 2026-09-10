@@ -12,7 +12,7 @@ Claude Code only. In Codex, this skill stops without changing files; configure C
 
 | Approach | Prompts | Safety | Native Windows | Autonomous loops |
 |---|---|---|---|---|
-| Default mode | Every tool call | Safe | Yes | No (blocks) |
+| Default/manual mode | Permission-requiring actions; routine reads/searches generally do not prompt | Host permission checks | Yes | Prompts can block |
 | `--dangerously-skip-permissions` | None | **Unsafe** — no guardrails | Yes | Yes, no guardrails |
 | [Auto mode](https://code.claude.com/docs/en/auto-mode-config) | Minimal | Classifier-based — probabilistic research preview, model/provider/admin-gated | Yes | Partial |
 | [Built-in sandboxing](https://code.claude.com/docs/en/sandboxing) | None | OS-level isolation | [Planned](https://code.claude.com/docs/en/sandboxing#limitations) | Yes |
@@ -37,16 +37,17 @@ Independently of this skill, Claude Code [protects a fixed set of paths](https:/
 
 ## What It Does
 
-Generates two files. If `.claude/settings.json` already exists (e.g., from `/optimus:init`), the skill merges into it and preserves existing hooks and rules — the one exception is extra git deny patterns, which the skill asks before replacing. The hook script is always replaced with the latest template; local edits are detected and offered for re-apply.
+Installs a hook and merges settings, recording only file changes and settings additions actually made. Existing hooks/rules are preserved; extra git deny patterns are changed only after a concrete approved proposal. A modified or unrecorded hook can be merged, replaced, or kept after review.
 
 | File | Purpose |
 |---|---|
 | `.claude/settings.json` | Allow/deny rules + PreToolUse hook registration |
 | `.claude/hooks/restrict-paths.sh` | Path-restriction hook (tiered security logic) |
+| `.claude/.optimus-managed.json` | Installed hashes, template/review refresh eligibility, and actual settings additions for safe refresh/reset; does not update init's version marker |
 
 ### Allow list
 
-Auto-approves 13 built-in tools (`Bash`, `Read`, `Edit`, `Write`, `Task`, ...) so routine work is prompt-free. MCP servers found in `.mcp.json` are auto-added as `mcp__<server>` entries. Source of truth: [`templates/settings.json`](templates/settings.json).
+Auto-approves 14 built-in tools (`Bash`, `Read`, `Edit`, `Write`, `Agent` and its legacy alias `Task`, ...) so routine work is prompt-free. MCP servers found in `.mcp.json` are auto-added as `mcp__<server>` entries. Source of truth: [`templates/settings.json`](templates/settings.json).
 
 ### Deny list
 
@@ -82,7 +83,9 @@ History-modifying git operations (`commit`, `push`, `rebase`, `merge`, `restore`
 
 Well-known sensitive unversioned files are protected automatically: edits prompt, deletions are blocked. Categories: secrets (`.env*`, `credentials.*`, `local.settings.json`, ...), keys and certificates (`*.key`, `*.pem`, `*.pfx`, ...), databases (`*.sqlite`, `*.mdf`, ...), local config overrides (`docker-compose.override.yml`, ...), and IDE user settings. The `is_precious()` function in [`templates/hooks/restrict-paths.sh`](templates/hooks/restrict-paths.sh) is the single source of truth for the pattern list.
 
-Backups and IDE scratch (`*.bak`, `*.suo`, `*.user`) are the one **recoverable** category: they prompt on edit but are *not* blocked on delete, because a deny is delivered to Claude rather than to you — there would be no way to say "yes, remove it" — and cleaning them up is ordinary work. A backup of something on the hard list is not recoverable: the stem is re-tested against every backup and rotation suffix (`.bak`, `.backup`, `.old`, `.orig`, `.save`, `.copy`, `.prev`, `~`, `.1`), so `.env.bak`, `id_rsa.pem.old`, `server.key.1` and `app.sqlite~` keep the full protection of the file they copy. The same holds for a name that lands on both lists at once — `.env.suo`, `credentials.user` — which is hard-precious and stays blocked. That wider set is used *only* to re-test a stem — a rotated log or a merge leftover with an ordinary stem (`access.log.1`, `main.py.orig`) is not gated at all. Git-tracked files are never gated (recoverable via git). Matching is by basename only, the list is not exhaustive, and prompts repeat on every edit — `git add` a frequently-edited unversioned file to silence them. Re-run `/optimus:permissions` to scan for project-specific files and add custom patterns (persistent customizations belong in the plugin-source template).
+Backups and IDE scratch (`*.bak`, `*.suo`, `*.user`) are intentionally deletable: they prompt on edit but do not trigger the hook's delete block. This category is a policy choice, not proof that another copy exists. Backups of hard-precious files retain protection through backup/rotation suffixes; `.env.bak`, `id_rsa.pem.old`, `server.key.1`, `app.sqlite~`, and names also matching the hard list such as `.env.suo` stay protected. Ordinary rotated logs and merge leftovers are not added to that list.
+
+Git-tracked files bypass this hook's precious-file gate; uncommitted edits are still not recoverable through checkout. Matching is by basename, the list is not exhaustive, and prompts may repeat. Do not stage secrets, keys, or databases merely to suppress prompts. For an intentional exception, review the specific installed-hook rule and its consequences; `/optimus:permissions` can preserve approved customizations on later updates.
 
 ## Trust Model and Assumptions
 
@@ -92,11 +95,13 @@ Backups and IDE scratch (`*.bak`, `*.suo`, `*.user`) are the one **recoverable**
 
 ## Enforcement Reliability
 
-Structured-tool path validation is high-reliability; Bash deny patterns and the hook's command parsing are medium — bypassable via chaining or option insertion ([#13371](https://github.com/anthropics/claude-code/issues/13371)). The hook deliberately **fails open** when it cannot determine safety (unset `CLAUDE_PROJECT_DIR`, malformed JSON input, no git repo at the file's location) — a fail-closed hook would break legitimate operations whenever the tool-input format shifts. This is defense-in-depth: independent layers each catching different classes of risk, together far safer than no guardrails — but not OS-level sandboxing. For true isolation use [sandboxing](https://code.claude.com/docs/en/sandboxing) or [devcontainers](https://code.claude.com/docs/en/devcontainer).
+Structured tools expose paths directly, while the hook's Bash parser covers a limited set of command shapes. [Issue #13371](https://github.com/anthropics/claude-code/issues/13371) reported chaining/option bypasses on Claude Code 2.0.34; current [permission documentation](https://code.claude.com/docs/en/permissions) describes independent checks of compound subcommands. The old report does not establish a current chaining bypass, and this plugin is still not a complete shell parser or an OS sandbox.
+
+The hook deliberately **fails open** for some unresolved inputs, including unset `CLAUDE_PROJECT_DIR`, malformed JSON, or unavailable repository information. For OS-level isolation use [sandboxing](https://code.claude.com/docs/en/sandboxing) or [devcontainers](https://code.claude.com/docs/en/devcontainer); retain the hook as a complementary accidental-damage guard.
 
 ## Requirements
 
-- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) 1.0.33+ (plugin support), Git, Bash (macOS/Linux native; Windows via Git Bash or WSL)
+- Plugin-capable [Claude Code](https://code.claude.com/docs/en/plugins), Git, Bash 3.2 or newer (Windows: Git Bash; WSL is a separate environment). See the [supported hosts and versions](../../README.md#supported-hosts-and-versions) for tested surfaces.
 
 ## License
 

@@ -61,9 +61,11 @@ Each behavior runs one cycle: a failing test, the minimum code to pass it, a cle
 ## Git workflow
 
 1. Creates `<type>/<slug>` (e.g., `feat/add-password-reset`) from the current branch; optionally isolates work in a `.worktrees/` git worktree. The original branch is never modified
-2. Commits after each completed cycle with a conventional message; commits any remaining work at the end
+2. Commits after each completed cycle with a conventional message; commits any remaining task-owned work at the end, leaving unrelated changes untouched
 3. Pushes the branch to `origin`
 4. Recommends `/optimus:code-review` for the cross-cycle pass, then `/optimus:pr` in the same conversation — the latter reads the `## TDD Summary` block to populate the PR's Intent and per-behavior Test plan
+
+Rollback verifies the starting bytes against a saved Git blob or private copy and checks for independent edits before restoring any file. An empty Git status alone is insufficient; unrelated staged and unstaged work stays intact.
 
 Earlier versions ran a two-agent quality gate inline at the end of the run. That reviewed work this same conversation had just written, and duplicated a weaker version of `/optimus:code-review`; the review now happens in the skill built for it, where the full agent fan-out and finding validation apply.
 
@@ -81,9 +83,9 @@ Earlier versions ran a two-agent quality gate inline at the end of the run. That
 
 ## Requirements
 
-- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) 1.0.33+ (plugin support)
+- Optimus installed in a [supported host](../../README.md#supported-hosts-and-versions)
 - Git
-- Project initialized with `/optimus:init` and working test infrastructure
+- Working test infrastructure with a passing baseline; `/optimus:init` is recommended, with the skill's general-guidance fallback available
 
 ## License
 

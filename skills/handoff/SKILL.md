@@ -4,7 +4,7 @@ description: >-
   docs/handoffs/<slug>.md so any fresh agent or teammate can resume the work from that file
   alone. References pushed artifacts by path or URL, inlines anything not on the remote, and
   redacts secrets and PII. Re-running on an existing handoff offers enhance or overwrite.
-  Writes only that one file; never commits.
+  Writes one project artifact and, when needed, a private scratchpad backup; never commits.
 disable-model-invocation: true
 argument-hint: "[topic]"
 ---
@@ -17,9 +17,9 @@ Derive a kebab-case `<slug>` from the user's arguments if given (e.g., "finish t
 
 ## Step 2: Locate the doc; create, enhance, or overwrite
 
-Resolve the root: the repo root, or the workspace root in a multi-repo workspace. If the current directory has no `.git/` directory, read `$CLAUDE_PLUGIN_ROOT/skills/init/references/multi-repo-detection.md` and apply it, then cover both of its non-workspace answers: when it finds **exactly one child repo**, treat that child repo as the root — writing above it would put the handoff outside version control, where the Step 5 `/optimus:commit` recommendation cannot reach it; when it finds **no recognized structure**, use the current directory. The handoff folder is `docs/handoffs/` under that root. Then branch:
+Resolve the root: when `git rev-parse --is-inside-work-tree` returns `true`, use `git rev-parse --show-toplevel`, including in a linked worktree or subdirectory. Otherwise read `$CLAUDE_PLUGIN_ROOT/skills/init/references/multi-repo-detection.md` and apply it, then cover both of its non-workspace answers: when it finds **exactly one child repo**, treat that child repo as the root — writing above it would put the handoff outside version control, where the Step 5 `/optimus:commit` recommendation cannot reach it; when it finds **no recognized structure**, use the current directory. A multi-repo workspace uses its workspace root. The handoff folder is `docs/handoffs/` under that root. Then branch:
 
-- **`<slug>.md` exists** → read it, then `AskUserQuestion`: **Enhance** (merge new context; keep still-valid content and append a History line) or **Overwrite** (fresh rewrite; the prior version stays in git history).
+- **`<slug>.md` exists** → read it, then `AskUserQuestion`: **Enhance** (merge new context; keep still-valid content and append a History line) or **Overwrite** (fresh rewrite). Follow an already explicit choice without asking again. Before replacing existing content, confirm its exact current bytes are recoverable in Git; otherwise copy them to the session scratchpad and report the backup path. If no private scratchpad is available, preserve the file and write a new slug instead. Never claim uncommitted content is in Git history.
 - **No slug match but other handoffs exist** → list them (filename · title · Last updated), then `AskUserQuestion`: **Continue one** (pick via a follow-up question, adopt that file's slug as `<slug>`, treat as Enhance) or **Create new**.
 - **Folder empty or absent** → create new.
 
@@ -42,13 +42,13 @@ If the conversation has not already established the codebase's current state, br
 
 ## Step 5: Redact, write, verify, report
 
-Redact as you write: every line of the document — authored prose as much as inlined content — must be clean against the **Redaction patterns** table before it goes to disk, with matches replaced by the exact marker `[REDACTED: <kind>]` and the structure preserved (e.g. `DATABASE_URL=postgres://app:[REDACTED: password]@db:5432/app`). Only reference lines (paths, SHAs, URLs) are exempt. A file whose name looks like a secret is never inlined with its values, regardless of tracked state — see the table's last two rows. This file is destined for `/optimus:commit`, and a leaked credential is not recoverable once it is pushed.
+Redact as you write: every line of the document — references, authored prose, and inlined content — must be checked against the **Redaction patterns** table before it goes to disk, with matches replaced by the exact marker `[REDACTED: <kind>]` and the structure preserved (e.g. `DATABASE_URL=postgres://app:[REDACTED: password]@db:5432/app`). Inspect URL userinfo, query parameters, and fragments for credentials or signed-access tokens; retain the public resource location after removing sensitive access data, or use a non-clickable redacted reference when no public URL is usable. Ordinary paths and SHAs need no prose rewrite, but are not exempt from secret scanning. A file whose name looks like a secret is never inlined with its values, regardless of tracked state — see the table's last two rows. This file is destined for `/optimus:commit`, and removing a leaked credential from Git does not revoke it.
 
 Write the document to `docs/handoffs/<slug>.md`, creating the folder if missing.
 
-Then verify: read the file back from disk and re-scan the full document body against the **Redaction patterns** table (same reference-line exemption), fixing any hit before you report. Redacting as you write is a judgement made once, mid-composition, over a long document; this pass is an independent check of what actually landed, and it is the only thing standing between a missed secret and `/optimus:commit`.
+Then verify: read the file back from disk and re-scan the full document, including every reference and URL, against the **Redaction patterns** table, fixing any hit before you report. This pass checks what actually landed; it reduces exposure risk but is not a guarantee that every secret has been detected.
 
-Report the written path. If the resolved root is not itself a git repo — a multi-repo workspace root, or a directory with no recognized structure — note the file is not under version control; suggest committing it inside a child repo or initializing version control at the root. Recommend `/optimus:commit` so the handoff reaches the remote — staying in this conversation, so the context being handed off is captured — and that the resumer point a fresh session at the written file. This skill writes only that one file (`docs/handoffs/<slug>.md`, creating the folder if missing); it never stages, commits, or pushes.
+Report the written path and any scratchpad backup. If the resolved root is not itself a git repo — a multi-repo workspace root, or a directory with no recognized structure — note the file is not under version control; suggest committing it inside a child repo or initializing version control at the root. Recommend `/optimus:commit` so the handoff reaches the remote — staying in this conversation, so the context being handed off is captured — and that the resumer point a fresh session at the written file. This skill writes one project artifact (`docs/handoffs/<slug>.md`, creating the folder if missing), plus a private scratchpad backup when needed; it never stages, commits, or pushes.
 
 ## Handoff document template
 
@@ -106,6 +106,7 @@ Omit any section with nothing to say. Square-bracketed lines are author instruct
 |---|---|---|
 | API keys / tokens | `sk-…`, `ghp_…`, `xox[bap]-…`, AWS `AKIA…`, Google `AIza…`, JWTs `eyJ…`, bearer | `[REDACTED: API key]` / `[REDACTED: token]` |
 | Passwords / secrets | `password=`, creds in connection strings, `client_secret`, `-----BEGIN … PRIVATE KEY-----` | `[REDACTED: password]` / `[REDACTED: private key]` |
+| URL access data | userinfo credentials; query/fragment secrets such as `token`, `access_token`, `api_key`, `sig`, and signed-download parameters | remove access data from a usable public URL, otherwise `[REDACTED: URL credentials]` in a non-clickable reference |
 | Connection strings | `mongodb+srv://…:…@`, `mssql://…;Password=…` | `[REDACTED: connection string]` |
 | PII | personal emails (keep role addresses like `support@`), phones, addresses, national IDs | `[REDACTED: PII]` |
 | Env/secret files (text) | inlined `.env` / `*.key` / `*.pem` / `credentials.*` / `secrets.*` bodies | inline variable **names** only, never values |

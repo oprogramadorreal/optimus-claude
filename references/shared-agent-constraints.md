@@ -4,7 +4,7 @@ Common constraints, quality bar, exclusion rules, and false-positive guidance fo
 
 ## Agent Constraints
 
-- **Read-only analysis.** Do NOT modify any files, create any files, or run any commands that change state. You are analyzing code, not fixing it. One carve-out: you MAY run the project's existing test or coverage commands when your agent prompt's role explicitly requires it — never under `HARNESS_MODE_INLINE`, where the orchestrator owns every test run.
+- **Read-only analysis.** Do NOT modify any files, create any files, or run any commands that change state. You are analyzing code, not fixing it. One carve-out: you MAY run the project's existing test or coverage commands when your agent prompt's role explicitly requires it — under `HARNESS_MODE_INLINE` only the discovery-time baseline and coverage runs the coverage phase specifies, since the orchestrator owns every verification run.
 - **Report what you find; do not pre-filter for the reader.** A later pass validates every finding against the actual codebase and drops what it cannot confirm. Label confidence honestly and let that pass do its job — a real issue you withheld is the more expensive error, and it is the one nobody downstream can recover.
 
 ## Dual Lens
@@ -23,7 +23,7 @@ When `.claude/docs/skill-writing-guidelines.md` exists, the project authors mark
 - Subjective suggestions ("I would prefer...")
 - Performance micro-optimizations without clear impact
 - Issues explicitly silenced in code (e.g., `// eslint-disable`, `# noqa`)
-- **Generated source files** — skip `*.g.dart`, `*.freezed.dart`, `*.mocks.dart` (Dart/Flutter build_runner output), `*.Designer.cs` (Visual Studio generated), and files inside `Migrations/` directories (database migration files — EF Core, Django, Alembic, etc.). Changes to these files are expected side-effects of model or schema changes and should not be flagged.
+- **Generated source files** — skip mechanical output such as `*.g.dart`, `*.freezed.dart`, `*.mocks.dart` (Dart/Flutter build_runner output) and `*.Designer.cs` when generation provenance confirms it. A migration directory is not proof of generation: review authored schema operations and data transformations; skip only confirmed mechanical snapshots or generated sections.
 
 ## Finding Cap
 

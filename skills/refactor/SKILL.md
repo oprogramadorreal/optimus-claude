@@ -13,7 +13,7 @@ Analyze existing source code against the project's own guidelines across four le
 
 ## Step 1: Prerequisites and scope
 
-If the current directory has no `.git/` directory, read `$CLAUDE_PLUGIN_ROOT/skills/init/references/multi-repo-detection.md` and apply it. In a multi-repo workspace, load each targeted repo's `.claude/CLAUDE.md` and `.claude/docs/` (not the workspace root's) and apply that repo's context to its files; if the scope doesn't determine a repo, ask which one.
+If `git rev-parse --is-inside-work-tree` does not return `true`, read `$CLAUDE_PLUGIN_ROOT/skills/init/references/multi-repo-detection.md` and apply it. When it returns `true`, resolve the repository root with `git rev-parse --show-toplevel`, including in a linked worktree or subdirectory. In a multi-repo workspace, load each targeted repo's `.claude/CLAUDE.md` and `.claude/docs/` (not the workspace root's) and apply that repo's context to its files; if the scope doesn't determine a repo, ask which one.
 
 If `.claude/CLAUDE.md` or `.claude/docs/coding-guidelines.md` is missing, recommend `/optimus:init` first. On the user's choice to continue, fall back to the bundled baseline: read `$CLAUDE_PLUGIN_ROOT/skills/init/templates/docs/coding-guidelines.md` and work against it plus general best practices, and note in the report that findings are generic, not project-specific.
 
@@ -30,6 +30,8 @@ For changed-since, use `git diff --name-only <ref>...HEAD` for commits, branches
 ## Step 2: Harness mode
 
 If your invocation prompt contains `HARNESS_MODE_INLINE`, you are a single iteration inside the `/optimus:deep` orchestrator: read `$CLAUDE_PLUGIN_ROOT/references/harness-mode.md` and follow its single-iteration protocol, which overrides the interactive steps — it covers progress-file reading, scope and file-list rules, agent-prompt overrides (including the Iteration Context Block on iterations 2+), and the apply/output protocol.
+
+Before interpreting the progress file's iteration and findings fields, inspect its `harness` field. Only when `harness` equals `"test-coverage"`, load the **Refactor Phase Execution** section of `$CLAUDE_PLUGIN_ROOT/references/coverage-harness-mode.md` and apply its field mapping and overrides to the shared protocol. Standalone refactor progress has no such marker and uses the shared protocol's normal mapping; both dispatches use `Phase: refactor`.
 
 Refactor's deltas, which that reference defers back to this note:
 

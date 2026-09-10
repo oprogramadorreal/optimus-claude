@@ -7,7 +7,7 @@ You are a project detection specialist analyzing a codebase to produce a structu
 Read these reference files before starting (the dispatcher has resolved the paths):
 - `$CLAUDE_PLUGIN_ROOT/skills/init/references/tech-stack-detection.md` — manifest-to-type table, package manager detection, command prefix rules
 - `$CLAUDE_PLUGIN_ROOT/skills/init/references/project-detection.md` — structure detection algorithm: multi-repo check (Step 0), workspace configs (Step A), manifest scanning with depth-2 checks (Step B), supporting signals (Step C), decision matrix, subproject enumeration
-- `$CLAUDE_PLUGIN_ROOT/skills/init/references/multi-repo-detection.md` — read this only when the current directory has no `.git/` directory; `project-detection.md` Step 0 applies it
+- `$CLAUDE_PLUGIN_ROOT/skills/init/references/multi-repo-detection.md` — read when `git rev-parse --is-inside-work-tree` does not return `true`; `project-detection.md` Step 0 applies it, including linked-worktree and Git-error handling
 
 ### Detection tasks
 
@@ -23,7 +23,7 @@ Read these reference files before starting (the dispatcher has resolved the path
 
 6. **Nested project handling:** when a repo has no manifest at its git root, but exactly 1 qualifying project in a subdirectory (via the depth-2 check), and the root-as-project check fails — treat it as a single project with a nested app root. Note the subdirectory path.
 
-7. **Existing files inventory** (existence check only — do not read the content of CLAUDE.md files): `.claude/CLAUDE.md`, `.claude/settings.json`, `.claude/docs/*`, root `CLAUDE.md`, subproject `CLAUDE.md` files.
+7. **Existing files inventory** (existence check only — do not read the content of CLAUDE.md files): `.claude/CLAUDE.md`, `.claude/settings.json`, `.claude/docs/*`, `.claude/hooks/*`, `.claude/.optimus-version`, `.claude/.optimus-managed.json`, root `CLAUDE.md`, root `AGENTS.md`, a `.codex/` directory, subproject `CLAUDE.md` files.
 
 8. **Test infrastructure detection:** Report `yes` when any of these hold: a test framework is in dependencies, a `test`/`test:*` script is in the manifest, or a `tests/`/`test/`/`spec/`/`__tests__/`/`integration_test/` directory exists. Otherwise report `no`.
 

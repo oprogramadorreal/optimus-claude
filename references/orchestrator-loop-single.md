@@ -10,6 +10,8 @@ Shared iteration template for `/optimus:deep review` and `/optimus:deep refactor
 
 **Plugin root.** `$CLAUDE_PLUGIN_ROOT` below means the root the orchestrator resolved in its Step 2 — substitute that absolute path literally into every command and dispatch prompt here, because Bash-tool environment variables do not persist across calls and read empty on some platforms.
 
+**Command failures.** Inspect each CLI command's exit status and stderr before using stdout. A nonzero `snapshot`, `deep-step`, or `commit-checkpoint` stops the loop: do not dispatch, advance, commit, or archive afterward. Preserve progress and recovery snapshots, report the actual error, and inspect/recover the tree before a successful `baseline` permits continuation. Never clear `_safety_error` by hand or infer a green tree from earlier tests. Other unexpected CLI errors also stop; the only retry exception is the verified parse recovery below.
+
 ## Per-iteration body
 
 The orchestrator skill repeats steps 1–8 below until step 7 (`check-termination`) returns anything other than `continue`. Steps 1–6 and 8 mutate the progress file on disk; step 7 reads it.
@@ -88,7 +90,7 @@ This single subcommand: promotes actionable fixes, registers findings, runs test
 | `converged` | Skill reported `no_new_findings` — loop terminates. |
 | `no-actionable` | Skill reported `no_actionable_fixes` — loop terminates. |
 | `all-reverted` | Every fix in this iteration was reverted — loop terminates. |
-| `applied fixed=<N> reverted=<N> test_passed=<0\|1\|->` | Iteration completed normally — continue. `test_passed` is `-` when the iteration applied no fixes (so no test ran). |
+| `applied fixed=<N> reverted=<N> test_passed=<0\|1\|->` | Iteration completed normally — continue. `test_passed` is `-` when no test result was recorded; do not infer it merely from a zero fix count. |
 
 ### 6. Checkpoint commit
 
@@ -96,7 +98,7 @@ This single subcommand: promotes actionable fixes, registers findings, runs test
 PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli commit-checkpoint --progress-file "<progress-path>"
 ```
 
-Returns `committed`, `nothing-to-commit`, `commit-skipped`, or `commit-failed`. Call it every iteration — the CLI owns the decision: in no-commit mode it self-skips and prints `commit-skipped`. On `commit-failed`, the CLI durably disables commits for the rest of the run (persisted, so it survives `--resume`): later snapshots auto-stash and later checkpoints self-skip, keeping the accumulated uncommitted work restorable. Warn the user once that checkpoint commits have stopped.
+Returns `committed`, `nothing-to-commit`, `commit-skipped`, or `commit-failed`. Call it every iteration — the CLI owns the decision: in no-commit mode it self-skips and prints `commit-skipped`. `commit-failed` is nonzero: stop now and report the error under **Command failures** above. The CLI also durably disables commits. After inspection/recovery and a successful baseline, a resumed run's snapshots auto-stash and its checkpoints self-skip, keeping the accumulated uncommitted work restorable.
 
 ### 7. Check termination
 
@@ -127,13 +129,17 @@ Increments `iteration.current`. Then loop back to step 1.
 
 ## Parse-failure recovery
 
-If the CLI's `parse` subcommand exits non-zero, the subagent emitted no `json:harness-output` block. Common causes: the subagent hit its tool or token budget mid-response; the base SKILL.md lost its `HARNESS_MODE_INLINE` detection (regression — see `references/harness-mode.md`); the subagent fell into interactive mode and hung on `AskUserQuestion`.
+The CLI's `parse` subcommand can exit nonzero for malformed output, input/output errors, or failed recovery. For a missing `json:harness-output` block, common causes are an exhausted tool/token budget, a lost `HARNESS_MODE_INLINE` router (see `references/harness-mode.md`), or a subagent entering interactive mode and waiting on `AskUserQuestion`. Inspect the actual error before choosing recovery.
 
-On a single failure: warn the user but continue — the iteration is a no-op (the CLI rolls the failed dispatch's partial edits back to the iteration snapshot, so nothing half-done is left for a later checkpoint to commit). Skip steps 5–6 for this iteration — `parse` only rewrites `$TMP_RESULT` on success, so it still holds the previous iteration's JSON and `deep-step` would silently re-process it — and continue at step 7 (`check-termination`) then step 8 (`advance`). On two consecutive failures: `check-termination` at step 7 returns `parse-failure` automatically; exit the loop and surface the error for the user to investigate.
+For an ordinary malformed-output failure, inspect stderr and only the progress fields `_snapshot` and `_safety_error` needed to confirm recovery. Continue only when the snapshot belongs to this iteration, rollback succeeded, and no safety error is recorded. A rollback failure or an unexpected input/output error stops the loop under **Command failures** above; a parse exit code of 1 alone does not prove recovery.
+
+After a single successfully recovered malformed-output failure, warn the user and skip steps 5–6 — `parse` only rewrites `$TMP_RESULT` on success, so it may still hold the previous iteration's JSON and `deep-step` would silently re-process it. Continue at step 7 (`check-termination`) then step 8 (`advance`). On two consecutive failures, `check-termination` returns `parse-failure`; exit the loop and surface the error for the user to investigate.
 
 The counter lives in the progress file under `parse_failure_count`, resets to 0 on every successful parse, and survives `--resume`.
 
 ## After the loop
+
+On a command/safety failure, report it without archiving or cleaning recovery state; use the recovery path above. The normal completed-loop report below applies only after an ordinary termination result.
 
 Print the final report:
 

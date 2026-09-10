@@ -6,7 +6,7 @@ A [Claude Code](https://docs.anthropic.com/en/docs/claude-code) skill that impro
 
 ## Features
 
-- **Agent-assisted discovery** — a reconnaissance subagent scans test infrastructure, runs the existing suite, measures baseline coverage, and classifies code testability (git submodules excluded)
+- **Scope-aware discovery** — surveys test infrastructure, runs the existing suite, measures baseline coverage, and classifies code testability inline for small or path-scoped projects, delegating substantial surveys to a reconnaissance subagent (git submodules excluded)
 - **Achievable threshold estimation** — sets a realistic coverage target reachable without refactoring
 - **Prioritized test plan** — up to 10 items per run, highest-value targets first, user-approved before execution
 - **Broken baseline handoff** — stops with a triage pointer when pre-existing tests fail; never fixes them
@@ -30,7 +30,7 @@ For an automated multi-cycle loop that alternates test generation with testabili
 ## How It Works
 
 1. Verifies project context exists and loads guideline docs (`coding-guidelines.md`, `testing.md`)
-2. Dispatches the Test Infrastructure Analyzer agent: discovery, suite run, coverage baseline, testability classification — stops if no framework is found or the baseline is red
+2. Runs Test Infrastructure Analyzer discovery inline or delegates it by scope: suite run, coverage baseline, testability classification — stops if no framework is found or the baseline is red
 3. Presents a prioritized test plan (capped at 10 items) for approval
 4. Writes tests following project conventions and mocking discipline; each test runs immediately, failing tests are fixed (test only, max 3 attempts) or reverted
 5. Runs the full suite as a regression gate, then reports coverage impact, bugs discovered, and code flagged as untestable
@@ -55,13 +55,13 @@ For an automated multi-cycle loop that alternates test generation with testabili
 | *(shared)* `references/shared-agent-constraints.md` | Base agent constraints prepended at dispatch |
 | *(shared)* `references/agent-architecture.md` | Prompt assembly rule for subagent dispatch |
 | *(shared)* `references/coverage-harness-mode.md` | Single-pass protocol under `/optimus:deep coverage` |
-| *(shared)* `init/references/multi-repo-detection.md` | Workspace detection (only when cwd has no `.git/`) |
+| *(shared)* `init/references/multi-repo-detection.md` | Workspace detection (only when cwd is outside a Git working tree) |
 | *(shared)* `init/references/project-detection.md` | Monorepo structure detection (only when unclear) |
 | *(shared)* `tdd/references/testing-anti-patterns.md` | Mocking discipline (read before mock-dependent tests) |
 
 ## Requirements
 
-- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) 1.0.33+ (plugin support)
+- Optimus installed in a [supported host](../../README.md#supported-hosts-and-versions)
 - Git
 - Project initialized with `/optimus:init` (required — the skill stops if `.claude/CLAUDE.md` is not found)
 - Test command in `.claude/CLAUDE.md` if you want to use `/optimus:deep coverage`

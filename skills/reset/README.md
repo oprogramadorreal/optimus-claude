@@ -12,22 +12,24 @@ This skill is part of the [optimus](https://github.com/oprogramadorreal/optimus-
 
 ## How It Works
 
-The skill inventories every file optimus may have installed, classifies each one by comparing it against the plugin's own templates, and presents a categorized plan:
+The skill inventories every file optimus may have installed, classifies each one by its recorded installed hash (template comparison only annotates files that have no record), and presents a categorized plan:
 
-- **Unmodified** — exact match with a plugin template
-- **Likely generated** — created by optimus, content filled in from project analysis (structure still matches the template)
-- **Modified** — user edits, or installed by an older optimus version whose templates have since changed
+- **Unmodified** — bytes match a recorded installed hash
+- **Modified** — bytes differ from the installed hash
+- **Unknown** — no usable ownership record; template/heading similarity can suggest a legacy install but cannot rule out user edits
+- **Complex** — shared settings, pointers, and ownership records need exact entry/block edits
 
-Git-tracked files are flagged as recoverable via `git checkout`.
+HEAD, index, and working-tree content are checked separately. Tracking alone does not make uncommitted edits recoverable. Selected current bytes that cannot be recovered are copied to a verified local, Git-ignored backup before removal; failed backup checks preserve the originals.
 
 ## Safety Guarantees
 
-- **Always asks first.** Nothing is removed until you pick one of four options: **Remove all**, **Keep modified**, **Unmodified only**, or **Abort**. The recommended option depends on git tracking — "Remove all" only when every modified file is recoverable.
+- **Always asks first.** Choose **Unmodified only (Recommended)**, **Select files and entries**, **Remove all listed candidates**, or **Abort**, after seeing the concrete plan.
 - **User-modified files are never deleted without your explicit approval.**
-- **`.claude/settings.json` is never deleted outright.** Optimus-added hook entries, permissions, and MCP server allows are removed surgically; everything you added yourself is preserved. Hook entries whose hook file you chose to keep stay wired. The file is only deleted if it ends up completely empty.
+- **Shared settings are edited by recorded ownership.** Only unchanged recorded additions are removed by default; ambiguous legacy rules need an explicit selection. Matching today's template or a project's MCP server name is not proof of ownership. Retained hooks stay registered. The settings file is deleted only if the approved edits leave it empty.
 - **Shared `AGENTS.md` files retain all content and whitespace outside Optimus's pointer markers.** A file containing only the pointer block is deleted.
 - **Tests are never touched** — even tests created by `/optimus:unit-test`.
 - **Nothing outside optimus-managed paths is scanned or removed.**
+- **Local backups remain local.** `.claude/.optimus-reset-backups/` is excluded from reset and ignored before any content is copied. Backups may hold private settings; reset never stages them and reports their location without printing contents.
 
 ## Monorepo and Multi-Repo Support
 
@@ -38,7 +40,7 @@ After a reset, start a fresh conversation to reinstall: `/optimus:init` (and `/o
 
 ## Requirements
 
-- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) 1.0.33+ (plugin support), or a plugin-capable Codex host ([experimental support](../../README.md#using-with-openai-codex))
+- A plugin-capable [Claude Code](https://code.claude.com/docs/en/plugins) or Codex host (see the [supported hosts and versions](../../README.md#supported-hosts-and-versions))
 - Git (for git-tracked status detection)
 
 ## License

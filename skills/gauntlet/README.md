@@ -75,7 +75,7 @@ The Gauntlet Loop method — an ambitious goal, a concrete reference bar, and bu
 
 ## Requirements
 
-- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) 1.0.33+ (plugin support)
+- Optimus installed in a [supported host](../../README.md#supported-hosts-and-versions)
 - Claude Code 2.1.139+ with the trust dialog accepted and hooks enabled — only for the **Copy as /goal prompt** option
 - Subagent support; ultracode recommended for serious runs
 

@@ -1,86 +1,80 @@
 ---
-description: Removes files installed by /optimus:init and /optimus:permissions from the project. Compares each file against plugin templates and classifies as unmodified, likely generated, or user-modified. Always asks before deleting. Git-tracked files are noted as recoverable. Tests are never touched. Monorepo and multi-repo aware. Use for clean reinstall or to stop using optimus.
+description: Removes selected files installed by /optimus:init and /optimus:permissions. Reviews installed hashes, current content, and Git state; preserves ambiguous user content and settings by default, and backs up selected changes when their current bytes are not recoverable. Always asks before deletion. Tests are never touched. Monorepo and multi-repo aware.
 disable-model-invocation: true
 ---
 
 # Reset — Remove optimus-generated files
 
-Remove files installed by `/optimus:init` and `/optimus:permissions`. Does NOT uninstall the plugin itself — it only removes files from the project.
+Remove selected project artifacts, not the plugin installation itself.
 
 ## Safety Rules
 
-Two boundaries the steps below cannot express, and that override anything else this skill does:
-
-- **NEVER** touch test files, test directories, or test configuration — even if `/optimus:unit-test` created them
-- **NEVER** touch anything outside `.claude/`, subproject `CLAUDE.md`, subproject `docs/`, workspace-root `CLAUDE.md`, and the `optimus:pointer` blocks in project- or workspace-root `AGENTS.md`
-
-`.claude/settings.json` is never deleted outright — Step 4 removes optimus entries surgically and keeps user content.
+- Never touch tests, test directories, or test configuration, even if Optimus created them.
+- Stay within `.claude/`, subproject `CLAUDE.md`/`docs/`, workspace-root `CLAUDE.md`, and marked `optimus:pointer` blocks in root `AGENTS.md`. Resolve every target inside the intended root; do not follow symlinks outside it.
+- `.claude/settings.json` is merged surgically. Filename, matching permission values, Git tracking, and template-like headings do not prove ownership or current-byte recoverability.
+- Preserve `.claude/.optimus-reset-backups/` from this and earlier runs; never include it in the removal inventory.
 
 ## Step 1 — Detect and inventory
 
-If the current directory has no `.git/` directory, read `$CLAUDE_PLUGIN_ROOT/skills/init/references/multi-repo-detection.md` and apply it; in a multi-repo workspace, process each child repo independently and also check for workspace-root `CLAUDE.md` and `AGENTS.md` files (local-only). Otherwise it is a single repo — possibly a monorepo whose subprojects have their own init-installed `CLAUDE.md` and `docs/` files.
+If `git rev-parse --is-inside-work-tree` returns `true`, resolve `git rev-parse --show-toplevel` (including linked worktrees). Otherwise apply `$CLAUDE_PLUGIN_ROOT/skills/init/references/multi-repo-detection.md`. Process each selected child repo independently; include workspace-root context files only when applicable.
 
-Inventory optimus-managed files, listing only what exists:
+Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/managed-files.md` and any `.claude/.optimus-managed.json`. Inventory only existing candidates:
 
-- `.claude/CLAUDE.md`, `.claude/.optimus-version`, `.claude/settings.json`
-- `.claude/docs/{coding-guidelines,testing,styling,architecture,skill-writing-guidelines}.md`
-- `.claude/hooks/format-*` — the plugin's template hooks, any custom `format-<language>.sh` from init's unsupported-stack fallback, and the legacy `format-python.py` installed by optimus <= 3.5.0
-- `.claude/hooks/restrict-paths.sh`
-- `.claude/agents/{code-simplifier,test-guardian}.md` (legacy — installed by older optimus versions)
-- Project- or workspace-root `AGENTS.md` when it contains the `<!-- optimus:pointer -->` block (init writes it for Codex)
-- Monorepo: subproject `CLAUDE.md` and `docs/{coding-guidelines,testing,styling,architecture}.md` (subproject `coding-guidelines.md` exists only when init found the subproject's conventions differ from root — classify it via the near-exact-pair rule below)
-- Multi-repo: the above per child repo, plus the workspace-root `CLAUDE.md` and pointer block in workspace-root `AGENTS.md`
+- `.claude/CLAUDE.md`, `.claude/.optimus-version`, `.claude/settings.json`, and the ownership record.
+- `.claude/docs/{coding-guidelines,testing,styling,architecture,skill-writing-guidelines}.md`.
+- `.claude/hooks/format-*`, including retired `format-python.py` and `format-node.js`, and `.claude/hooks/restrict-paths.sh`.
+- Legacy `.claude/agents/{code-simplifier,test-guardian}.md`.
+- Root `AGENTS.md` only when it contains a well-formed `optimus:pointer` block.
+- Monorepo: applicable subproject `CLAUDE.md` and `docs/{coding-guidelines,testing,styling,architecture}.md`.
+- Multi-repo: the above per child repo, plus workspace-root `CLAUDE.md` and pointer block.
 
-If no optimus files are found anywhere → say "Nothing to reset — no optimus files found" and stop. If `.claude/.optimus-version` is missing, warn that the project may not have been initialized by optimus, but proceed.
+No candidates → report nothing to reset and stop. Missing provenance means an older or unrelated installation, not permission to delete every candidate.
 
-## Step 2 — Classify each file
+## Step 2 — Classify content and recoverability
 
-For each file, check git tracking with `git ls-files --error-unmatch <file>` (tracked → recoverable via `git checkout`).
+Show two independent dimensions for each candidate:
 
-Classify with shell comparison — do not read file bodies into context:
+| Content / ownership | Meaning |
+|---|---|
+| `UNMODIFIED` | Current SHA-256 matches a valid recorded file entry's `sha256`. Show whether that baseline is a template or an approved customization (`refresh: "review"`). |
+| `MODIFIED` | Recorded file differs from its entry's `sha256`. Read it before proposing removal. |
+| `UNKNOWN` | No usable record; may be legacy Optimus content or independently authored. |
+| `COMPLEX` | Shared settings.json, AGENTS.md, or ownership record; propose exact entry/block edits. |
 
-**Verbatim templates.** The template is the same-named file in the plugin: `format-*` hooks → `$CLAUDE_PLUGIN_ROOT/skills/init/templates/hooks/`, `restrict-paths.sh` → `$CLAUDE_PLUGIN_ROOT/skills/permissions/templates/hooks/`, legacy `.claude/agents/*.md` → `$CLAUDE_PLUGIN_ROOT/agents/`. Run `cmp -s <file> <template>`: identical → `UNMODIFIED`, else `MODIFIED`. A custom `format-<language>.sh` with no same-named template is `LIKELY_GENERATED` if it follows the shell-hook pattern (shebang, JSON stdin parsed into a file-path variable, file-extension guard, formatter invocation), else `MODIFIED`. **Retired templates:** `format-python.py` (replaced by `format-python.sh` in 3.5.1) has no template left to compare against — classify it `LIKELY_GENERATED` on the strength of its name alone, never `MODIFIED`. Reporting a retired plugin file as a user edit recommends keeping a hook that cannot run, and Step 4 then keeps its settings entry too, because the rule there only removes entries whose hook file is gone.
+For UNKNOWN legacy files, compare against current templates to inform the plan. An existing user file stays UNKNOWN after ordinary init edits; only explicit whole-file adoption/replacement establishes ownership. Verbatim hook equality or coding-guide equality apart from the project heading is useful evidence, but do not promote unknown ownership to recorded ownership. Generated-document headings and identity comments can suggest `LIKELY_GENERATED`; this is an annotation under UNKNOWN, not proof that the prose is unchanged. Retired hooks remain UNKNOWN unless provenance establishes them; their names alone do not authorize deletion.
 
-**Near-exact pair** — `docs/coding-guidelines.md` and `docs/skill-writing-guidelines.md`: line 1 carries init's `[PROJECT NAME]` substitution; the rest is verbatim from the same-named file under `$CLAUDE_PLUGIN_ROOT/skills/init/templates/docs/`. Run `tail -n +2 <file> | diff -q - <(tail -n +2 <template>)`: identical → `UNMODIFIED`, else `MODIFIED`.
+Check HEAD, index, and working tree separately: use Git status/diffs for each path, and verify whether its current bytes equal a version in HEAD or the index. Report **clean recorded version**, **staged changes**, **unstaged changes**, or **untracked**. A tracked file with new edits is not wholly recoverable through checkout. Git errors mean recovery is unverified. Do not stage, restore, reset, or commit files during this check.
 
-**Generated docs** — content is filled in by init, so compare structure against the plugin's own templates at runtime (all under `$CLAUDE_PLUGIN_ROOT/skills/init/templates/`):
+Read shared settings and show every proposed removal. Recorded additions may be removed only if they still exactly match; changed/unrecorded rules and groups stay unless the user explicitly selects those particular entries. Existing MCP names and today's permission template do not establish who added a rule. Retained hook files keep their registrations.
 
-- CLAUDE.md files: compare line 1 (`head -n 1`) against the template's line-1 HTML comment. Root `.claude/CLAUDE.md` matches `single-project-claude.md` or `monorepo-claude.md`; subproject `CLAUDE.md` → `subproject-claude.md`; workspace-root `CLAUDE.md` → `multi-repo-claude.md`.
-- `docs/testing.md`, `docs/styling.md`, `docs/architecture.md`: compare `##` headings against the same-named template under `templates/docs/`. For testing.md and styling.md the headings must match in order: `diff <(grep '^## ' <file>) <(grep '^## ' <template>)`. For architecture.md, init deletes the template's HTML-comment-marked conditional sections per project type, so require only that the file's `##` headings are an in-order subset of the template's headings. Pre-3.0 installs used three architecture.md template variants — also classify as LIKELY_GENERATED when the headings are an in-order subset of one of the 2.x sets: code-only (`Overview`, `Directory Map`, `Data Flow`, `Key Patterns`, `Dependencies Between Modules`), skill-authoring (`Overview`, `Directory Map`, `Skill Organization`, `Agent Boundaries`, `Reference Hierarchy`, `Orchestration Patterns`), or hybrid (`Overview`, `Directory Map`, `Code Architecture`, `Skill Architecture`).
+## Step 3 — Present a concrete deletion plan
 
-Structure matches → `LIKELY_GENERATED`; otherwise → `MODIFIED`.
+List file paths, ownership/content class, Git state, and exact settings/pointer edits, grouped by repo. Explain that legacy template drift and user edits cannot always be distinguished. Name selected content needing a local backup, since Git cannot recover those current bytes.
 
-**Always:** `.claude/.optimus-version` → `UNMODIFIED` (pure tracking file). `.claude/settings.json` → `COMPLEX` (surgical handling in Step 4). Root `AGENTS.md` → `UNMODIFIED` when the file is exactly the pointer block, else `COMPLEX` (Step 4 strips the block and keeps the rest).
+AskUserQuestion — header "Reset", question "Which parts of this reset plan should be applied?":
 
-Summary: `UNMODIFIED` (exact template match), `LIKELY_GENERATED` (optimus structure, init-filled content), `MODIFIED` (user edits — or template drift from an older plugin version), `COMPLEX` (settings.json, a shared `AGENTS.md`).
+1. **Unmodified only (Recommended)** — remove recorded unchanged files and their unchanged recorded settings additions; keep MODIFIED and UNKNOWN content.
+2. **Select files and entries** — identify exact candidates to remove, including any legacy files or shared settings entries.
+3. **Remove all listed candidates** — explicitly includes modified/unknown files and only the settings edits shown in the plan; preserve backups and unrelated settings.
+4. **Abort** — change nothing.
 
-## Step 3 — Present plan and confirm
+Existing explicit authorization for this exact displayed plan is sufficient. Do not infer approval to remove ambiguous settings from a general "Unmodified only" selection.
 
-Show the file list grouped by classification (multi-repo: grouped by repo), each with its git-tracked status ("recoverable via `git checkout`"). If `.optimus-version` records an older plugin version, note it: MODIFIED files may reflect template drift since that install rather than user edits.
+## Step 4 — Preserve current bytes and execute
 
-Then AskUserQuestion — header "Reset", question "Review the files above. Which should be removed?". Mark "Remove all" as "(Recommended)" only when every MODIFIED file is git-tracked; otherwise recommend "Keep modified" and name the untracked MODIFIED files in its option text:
+Before changing a selected file whose current bytes are not verified recoverable from HEAD/index (including shared files about to be edited), make a byte-for-byte backup. Use a new timestamped directory under `.claude/.optimus-reset-backups/`, with original relative paths and an index of source paths. Create its local `.gitignore` containing `*` **before** copying. Inside a Git working tree, verify each backup path is untracked and ignored with Git. For a confirmed non-Git workspace root, verify the backup stays outside every child repository; the local ignore file also protects it if that workspace later becomes a repository. Never put secrets into a tracked backup or stage the backups. If repository status is uncertain, ignore/path verification fails, or copying fails, keep the affected originals and report the limitation instead of deleting them. Explain where local backups remain and that they may contain private settings; do not print their contents.
 
-1. "Remove all" — all optimus files; irreversible for untracked MODIFIED files
-2. "Keep modified" — remove UNMODIFIED + LIKELY_GENERATED, keep MODIFIED
-3. "Unmodified only" — most conservative
-4. "Abort" — remove nothing
+Compare each backup's hash to its original before proceeding. Recheck the original's hash immediately before deletion; if it changed since the approved plan, preserve it and obtain an updated selection. Clean recorded files do not need redundant backups.
 
-On Abort: confirm nothing was removed and stop.
-
-## Step 4 — Execute
-
-1. Delete the selected files. Monorepo: include selected subproject files; multi-repo: process each repo, plus the workspace-root `CLAUDE.md` if selected.
-2. Clean `.claude/settings.json` surgically — for every non-Abort choice, since it preserves user content by construction. Read the project's settings.json and both templates (`$CLAUDE_PLUGIN_ROOT/skills/init/templates/settings.json`, `$CLAUDE_PLUGIN_ROOT/skills/permissions/templates/settings.json`), then:
-   - `hooks.PostToolUse`: remove entries whose commands reference `.claude/hooks/format-` — but only if the referenced hook file was deleted or is missing. If the user kept a hook file, keep its entry: removing it would silently disable a hook the user elected to preserve.
-   - `hooks.PreToolUse`: same rule for entries referencing `.claude/hooks/restrict-paths.sh`.
-   - `permissions.allow` / `permissions.deny`: remove entries matching the permissions template's lists. Also remove server-level entries of the exact form `mcp__<server-name>` only for servers declared in the relevant project root's `.mcp.json` (per child repo in multi-repo workspaces). Preserve tool-level entries (e.g. `mcp__github__get_issue`) and entries for undeclared servers — those are the user's. If no `.mcp.json` exists, leave all `mcp__*` entries untouched.
-   - Prune arrays, keys, and objects that became empty. If the whole object is now `{}`, delete the file; otherwise write it back with 2-space indentation.
-3. Each project- or workspace-root `AGENTS.md`: delete it when it is exactly the pointer block; otherwise remove only both markers and the content between them, preserving all surrounding content and whitespace.
+1. Delete only the selected files whose recovery/backup checks passed. Do not recursively remove directories.
+2. Apply only the settings edits shown and selected. Remove a recorded hook matcher group only when it still exactly matches and its referenced Optimus hook was deleted or already missing. Preserve groups containing retained hooks and all unrecorded/changed groups unless separately selected. Remove exact recorded permission additions only; never infer ownership from `.mcp.json`. Prune containers that became empty through these removals, preserving preexisting empty/custom sections; delete settings.json only when the approved edit leaves no content.
+3. For selected root AGENTS.md pointers, remove only the complete marked block. Preserve every surrounding byte; delete the file only if it consisted entirely of that block. Malformed/multiple ambiguous markers need a concrete reviewed edit, not a broad regex deletion.
+4. Update the ownership record to remove only completed removals; retain entries for kept files/settings. Remove the record only when empty and selected. Keep `.optimus-version` if the selected reset left managed artifacts in place; report that a later init is still needed to reconcile them.
 
 ## Step 5 — Clean up and report
 
-Remove now-empty directories: `.claude/hooks`, `.claude/agents`, `.claude/docs`, and `.claude/` itself only if completely empty — per repo in multi-repo workspaces, plus subproject `docs/` in monorepos.
+Remove only now-empty managed directories, within the checked roots. Preserve backup directories and all unrelated files.
 
-Report files removed, files kept (with reason), settings.json changes, and directories cleaned. If a kept hook file retained its settings entry, say so explicitly — that hook stays active.
+Report removed/kept paths with reasons, settings changes, and any backup/recovery locations. Explicitly note retained hook registrations and unresolved legacy ownership. A partial reset is reported as partial, not successful removal of everything.
 
-Recommend reinstalling in a fresh conversation using the current host: Claude Code → `/optimus:init` (plus `/optimus:permissions`); Codex → `$optimus:init` only, since permissions is Claude-only. To remove the plugin itself, give the current host's command: Claude Code → `/plugin uninstall optimus@optimus-claude`; Codex CLI → `codex plugin remove optimus@optimus-claude` in the terminal. Do not run the uninstall command as part of reset.
+Recommend reinstalling in a fresh conversation using the current host: Claude Code → `/optimus:init` (plus `/optimus:permissions`); Codex → `$optimus:init` only, since permissions is Claude-only. To uninstall the plugin itself, give the host's command: Claude Code → `/plugin uninstall optimus@optimus-claude`; Codex CLI → `codex plugin remove optimus@optimus-claude` in the terminal. Do not execute plugin uninstallation as part of reset.

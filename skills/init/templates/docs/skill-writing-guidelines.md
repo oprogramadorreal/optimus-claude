@@ -4,7 +4,7 @@ This file governs the quality of **markdown instruction files** authored for an 
 
 ## The one principle
 
-The agent is already capable. An instruction earns its context cost only for things the agent cannot infer: project-specific procedures, safety constraints, contracts between instruction files, and genuinely fragile sequences. Challenge every line — "would a capable model get this wrong without being told?" If not, delete it. Restating what the agent does natively degrades output by burying the rules that matter.
+Prioritize project-specific procedures, constraints, contracts, and fragile sequences. Challenge repeated advice, but judge its value through task outcomes: model capability alone proves neither that a reminder is redundant nor that it helps. Keep instructions that prevent observed errors; simplify when comparable tasks show no benefit.
 
 ## Foundation
 
@@ -25,15 +25,15 @@ Over-specified step lists for judgment tasks are the most common failure mode in
 
 ## What not to instruct
 
-Current models already do these; telling them to do it again costs tokens and can make behavior worse.
+These are candidates for simplification, not universal claims about every model or host. Compare correctness, completion, regressions, user intervention, and maintenance cost before removing consequential guidance.
 
-- **Self-verification.** No "double-check your work", "verify the output before responding", "re-check your answer", or a final verification step bolted onto a task. Models of this generation verify and self-correct on their own, and these instructions compound into extra passes with no quality gain. What *is* worth instructing: a check against something external the model cannot self-assess — run the test suite, validate against the schema, diff the installed file against its template. That is a real gate; "look at it again" is not.
-- **Verifying its own work with a subagent.** Delegation is for large, genuinely independent tracks of work. A second agent reviewing what the first just wrote has less context, not more.
+- **Vague self-verification.** Prefer concrete acceptance criteria and external checks — tests, schema validation, or installed-file comparison — over repeated "double-check" instructions. Keep a focused self-check when it prevents an observed failure; don't assume an extra pass always helps or never helps.
+- **Automatic subagent review.** Delegate an independent review when its separate perspective or context isolation justifies the cost. Supply the necessary evidence; neither having another agent nor sharing the original context guarantees a better result.
 - **Delegating what it could do inline.** How readily a model reaches for subagents changes between releases, so size delegation to the input rather than mandating or suppressing it. Don't spawn an agent for work that is a handful of tool calls, and prefer one agent holding the whole picture over several holding slices of it. The cases that earn a fan-out: genuinely independent tracks, and context isolation when the material would otherwise crowd out the work that follows.
 - **Conservatism in analysis agents.** "Only report what you're confident about" or "only high-severity issues" is followed literally and suppresses real findings. Ask agents for everything with an honest confidence label, and filter in the consuming step, where the code is available to check against.
 - **Per-step narration.** Don't mandate a status line after every step. Describe the cadence you want instead: one line up front, updates on something important or a change of direction, outcome first at the end.
 - **Reasoning echo.** Don't ask the agent to transcribe, narrate, or "show its thinking" as response text. Ask for conclusions and the rationale behind them; on some models an echo-your-reasoning instruction adds noise or triggers a refusal.
-- **Exhaustive tool-use examples.** Worked examples of how to call a tool constrain the agent to the paths you happened to demonstrate. Describe the tool's purpose and its parameters instead; a well-named, well-typed interface teaches usage better than a sample transcript. Examples remain worth their cost for **output format** the agent must match exactly.
+- **Exhaustive tool-use examples.** Prefer the tool's interface contract to a long sample transcript. Add a focused example for an observed invocation error or ambiguous output format; retain it when comparable tasks show a benefit.
 
 ## Writing style
 
@@ -53,7 +53,7 @@ Current models already do these; telling them to do it again costs tokens and ca
 ## Progressive disclosure
 
 - Load only the description at startup; the full instruction file on invocation; reference files only when the execution path needs them.
-- An instruction's real cost is the main file **plus every reference it loads unconditionally** — budget the sum. Gate conditional reads behind a cheap inline test ("if the directory has no `.git/`, read …").
+- An instruction's real cost is the main file **plus every reference it loads unconditionally** — budget the sum. Gate conditional reads behind a reliable cheap test (for Git context, query the working tree instead of assuming `.git` must be a directory).
 - A reference that would load on every run belongs inline. Reference depth: two levels maximum (INSTRUCTION → A → B). Flatten deeper chains. Never allow circular references.
 - Reference files over 100 lines start with a table of contents.
 

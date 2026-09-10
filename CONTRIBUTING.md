@@ -84,13 +84,13 @@ The routing rule itself lives in `references/shared-agent-constraints.md` under 
 
 This plugin is mostly markdown-based. Testing is split into layers: fast structural checks, hook tests, and Python unit tests that run in CI, and slower skill execution tests that run locally.
 
-**Before merging significant changes**, run the full skill test suite from a clean slate:
+**Before merging significant changes**, run the automated gates below and the relevant authenticated skill smoke tests. Record any unavailable model or environment checks as unverified. To exercise the whole Claude smoke matrix in a fresh worktree:
 
 ```shell
-bash scripts/test-skills.sh --fresh --all --worktree
+bash scripts/test-skills.sh --model claude-fable-5-1 --fresh --all --worktree
 ```
 
-This removes existing fixtures, regenerates them, and runs all skill/fixture combinations end-to-end via `claude -p`. The `--worktree` flag runs everything in `.worktrees/skill-tests` inside the project directory so you can freely switch branches or edit files in the main tree while tests execute in the isolated worktree — and easily inspect the worktree from your IDE. See the subsections below for individual test layers and finer-grained options.
+This removes and regenerates fixtures inside the test worktree and invokes every configured smoke pair via `claude -p`. The worktree uses committed `HEAD`, so commit the candidate first if testing with `--worktree`; a normal run tests the current checkout through `--plugin-dir`. File/content oracles are narrower than a full semantic evaluation. See the subsections below for individual layers and finer-grained options.
 
 ### Structural validation (CI)
 
@@ -124,7 +124,7 @@ Unit tests for the orchestrator CLI and its supporting modules under `scripts/ha
 install.cmd                    # Windows: creates .venv and installs dev dependencies
 ```
 
-There is no `install.sh`; on macOS/Linux run `python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt`. The formatter-hook tests shell out to `bash`, so Windows contributors need Git Bash on PATH — the module resolves it via `harness_common.runner._find_bash`, which deliberately skips a WSL `bash` since it cannot open Windows-style paths.
+There is no `install.sh`; on macOS/Linux run `python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt`. The formatter-hook tests and harness commands use Bash. Windows contributors need native Git Bash; the runner locates it separately from WSL and supplies utilities from the selected installation even when only Git's `cmd` directory is on PATH. `CLAUDE_CODE_GIT_BASH_PATH` can select a custom native installation. This does not convert PowerShell-only project commands into Bash syntax.
 
 **Run tests:**
 
@@ -155,29 +155,31 @@ Available fixtures: `node`, `python`, `go`, `rust`, `csharp`, `monorepo`, `empty
 
 ### Skill execution tests (local)
 
-Runs skills against generated fixtures via `claude -p` (headless mode) and validates expected outputs against `test/expected-outputs.yaml`. Requires the `claude` CLI installed and authenticated (plan subscription or API key).
+Runs skills against copied fixtures via `claude -p --plugin-dir <this-checkout>` and validates outputs against `test/expected-outputs.yaml`. Requires authenticated Claude Code, Python/PyYAML, and an explicit `--model` identifier; no host-default model is selected silently. The example target is Claude Fable 5.1 (`claude-fable-5-1`).
 
 ```shell
-bash scripts/test-skills.sh                              # default: init + commit-suggest
-bash scripts/test-skills.sh --skill init                 # test one skill
-bash scripts/test-skills.sh --skill init --fixture node  # test one skill + one fixture
-bash scripts/test-skills.sh --all                        # test all skill/fixture combinations
-bash scripts/test-skills.sh --fresh --all                # clean + regenerate fixtures + test all
-bash scripts/test-skills.sh --fresh --all --worktree     # same, in an isolated worktree
-bash scripts/test-skills.sh --dry-run                    # show what would run without executing
+bash scripts/test-skills.sh --model claude-fable-5-1
+bash scripts/test-skills.sh --model claude-fable-5-1 --skill init --fixture node
+bash scripts/test-skills.sh --model claude-fable-5-1 --all
+bash scripts/test-skills.sh --model claude-fable-5-1 --fresh --all --worktree
+bash scripts/test-skills.sh --dry-run
 ```
 
-Skills use `AskUserQuestion` for interactive decisions, which doesn't work in headless mode. The test script works around this by using `--append-system-prompt` to instruct Claude to make default choices automatically.
+The runner records the host version, requested model, checkout commit/dirty state, and result metrics when supplied by the host. Any nonzero exit, incomplete/error result envelope, or absent/empty expectation fails. Read-only checks compare project file bytes plus Git state, including changes to an already-dirty file. Branch tests inspect the actual branch. The empty-project init case is explicitly a weak completion-only smoke check.
+
+The test prompt authorizes noninteractive default choices. It does not test interactive question UX or grant host permissions. The harness uses `--dangerously-skip-permissions` only inside disposable fixture copies; review fixture inputs and run these tests with appropriately scoped credentials. `--fresh` without `--worktree` replaces `test/fixtures/`; keep user work out of that generated directory.
 
 Not intended for CI — run locally before merging significant changes.
 
-**`--worktree` flag:** Creates a detached git worktree at `.worktrees/skill-tests` from `HEAD`, runs the entire test suite there, and cleans up the worktree on success. On failure, the worktree is preserved for debugging — the script prints the path and a cleanup command. A subsequent run with `--worktree` automatically removes stale worktrees from previous failed runs. This snapshots the code at the current commit so you can freely switch branches, edit plugin files, or start new work in the main tree while the tests run — and the worktree stays visible in your IDE for easy inspection. Combine with any other flags (`--fresh`, `--all`, `--skill`, etc.).
+**`--worktree` flag:** Creates a new detached git worktree at a unique `.worktrees/skill-tests.*` path from committed `HEAD` and cleans up only that worktree on success. On failure it is preserved for debugging; the script prints its path and cleanup command. Subsequent runs leave earlier failed worktrees untouched. Uncommitted source edits are excluded. This snapshots the code at the current commit so you can freely switch branches, edit plugin files, or start new work in the main tree while the tests run — and the worktree stays visible in your IDE for easy inspection. Combine with any other flags (`--fresh`, `--all`, `--skill`, etc.).
 
-**Adding expected outputs:** Edit `test/expected-outputs.yaml` to define what files a skill should create and what content they should contain. The format supports `files_exist`, `files_contain`, `files_not_exist`, `files_not_modified`, and `output_contains` assertions.
+**Adding expected outputs:** Edit `test/expected-outputs.yaml`. Supported assertions are `files_exist`, `files_contain`, `files_not_exist`, `files_not_modified`, `output_contains`, `output_nonempty`, and `branch_prefix`. Every selected pair must have a nonempty oracle. Add behavior regressions to `test/test_skill_smoke_runner.py` when changing the runner; string checks alone do not establish skill effectiveness.
 
 ### Codex smoke test (local)
 
 Codex support is experimental. CI checks metadata and launcher behavior; it does not run model-driven workflows. Record the date, exact plugin commit/version, host version, OS, and pass/fail/untested results. No minimum Codex version is claimed. Use this small core check before promoting the core workflows beyond experimental:
+
+For a model-free local loader check, run `python scripts/test-codex-plugin.py` with a native Codex executable on PATH, or supply `--codex-exe <absolute-native-executable>`. Windows `.cmd`/`.ps1` wrappers are not accepted by this helper. Optional `--output <report-path>` saves JSON evidence. The helper creates and cleans up a temporary `CODEX_HOME`, installs this checkout, requests the actual skill inventory, and compares cached prompts to source. It neither changes your installed plugin nor invokes a model. Successful discovery is separate from every semantic check below. Tested host versions are in the [support table](README.md#supported-hosts-and-versions).
 
 Use an isolated Codex configuration and a disposable project. Trust the project and configure its native sandbox before model execution, in addition to reviewing the plugin hook. On Windows, follow [sandbox setup](https://learn.chatgpt.com/docs/windows/windows-sandbox). Record the effective sandbox and any tool denials: an exit-zero model response that reports blocked commands is not a passing workflow test. If automation uses the documented one-run hook-trust override for an already reviewed hook, record that separately from testing the interactive `/hooks` trust flow.
 
@@ -185,7 +187,21 @@ Use an isolated Codex configuration and a disposable project. Trust the project 
 2. **Init, routing, preservation, reset** — generate fixtures with `bash scripts/generate-fixtures.sh monorepo multi-repo`. In `test/fixtures/monorepo-project`, run `$optimus:init`; add user text/comments outside its `AGENTS.md` block and custom Claude hooks/settings, then re-run init. Compare the original hook/settings bytes and surrounding user text; only one pointer block should remain. In fresh root and package sessions ask "Which test command applies here? Read the project instructions without editing." Confirm the applicable CLAUDE.md files were read. Run `$optimus:reset` and confirm only the managed pointer is removed from `AGENTS.md`. Repeat the routing/pointer check at `test/fixtures/multi-repo-workspace` and inside a child repo. Also verify `$optimus:jira TEST-1` without MCP tools stops at Codex setup guidance, and `permissions`/`dream` explain their exclusion without changing Claude state.
 3. **Shared script and separate launcher regression** — run `bash scripts/validate.sh`, `bash scripts/test-hooks.sh`, and `python -m pytest test/`. Start `claude --plugin-dir <absolute-plugin-path> --debug-file <log> -p 'Reply OK.'` from root and nested disposable directories with different initialization state; compare hook events, confirm all 19 skills and both agents load, and verify a fully initialized Claude project adds no hook context. Check that Claude's Bash launcher works without Git on PATH. For Codex, verify the explicit manifest hook replaces the default and runs exactly once; exercise native Windows loading with restricted PATH and WSL interference. Verify `CLAUDE_CODE_GIT_BASH_PATH` selection and nested working-directory preservation. A hook that runs before an authentication failure is loader evidence only.
 
-**Optional orchestration checks:** keep these unverified/experimental until needed; they are not prerequisites for the documented experimental core. Run `$optimus:code-review` with more lenses than available agent slots and verify no lens is dropped. For deep, run `$optimus:deep review --yes src/<path>` across multiple iterations, interrupt between iterations, then resume with `$optimus:deep review --yes --resume`; inspect checkpoints and the final report. Exercise coverage's paired phases separately. For unattended use, run the README's `codex exec --sandbox workspace-write` example in an initialized fixture after granting the necessary host permissions, and verify actual edits, Git snapshots, and tests. Optimus `--yes` does not grant host permissions. Gauntlet's in-session path needs its own builder/critic execution check; do not offer Claude `/goal`, `/workflows`, or ultracode as Codex features.
+**Optional orchestration checks:** keep these unverified/experimental until needed; they are not prerequisites for the documented experimental core. Run `$optimus:code-review` with more lenses than available agent slots and verify no lens is dropped. For deep, run `$optimus:deep review --yes src/<path>` across multiple iterations, interrupt between iterations, then resume with `$optimus:deep review --yes --resume`; inspect checkpoints and the final report. Exercise coverage's paired phases separately. For unattended use, run the README's explicit-model `codex exec` example in an initialized fixture after granting the necessary host permissions, and verify actual edits, Git snapshots, and tests. Optimus `--yes` does not grant host permissions. Gauntlet's in-session path needs its own builder/critic execution check; do not offer Claude `/goal`, `/workflows`, or ultracode as Codex features.
+
+#### Native question UX (manual)
+
+These are manual acceptance checks, not recorded passes. Use a disposable project and a fresh session with the candidate plugin. Record the exact plugin commit/version and loaded cache path, host build/surface, OS, model, current mode, exposed question tools and their purpose/schema restrictions. Do not enable tools or change modes merely to force a popup; mark unavailable cases untested. Save the tool call, visible question, answer, and resulting action. Loader and hook assertions do not verify this UI.
+
+| Case | Expected behavior |
+|---|---|
+| Claude Code, interactive | A skill's decision uses `AskUserQuestion` as before; no Codex adapter context appears. |
+| Codex desktop, Default, permitted async tool | An unresolved preference uses `request_user_input_async`; choices and free text reach the agent. Independent work may continue, but answer-dependent work waits. |
+| Codex Plan, async unavailable, permitted synchronous tool | The same preference uses `request_user_input` with its current schema; the returned answer determines the next step. |
+| No available/permitted native question tool | The question appears in chat with the original choices; no unavailable tool call or mode switch occurs. Include a question whose purpose the exposed tool forbids. |
+| Unsupported multi-select or option shape | Exercise `how-to-run`'s Docker alternative choice with multiple services. Preserve all choices and multi-select meaning through chat when the native form cannot represent them; do not silently make the choice exclusive. |
+| Existing authorization or noninteractive defaults | Reuse an explicit decision, and separately exercise an applicable `--yes`/noninteractive path. Neither repeats a resolved question nor treats those choices as host permission grants. |
+| Unanswered, dismissed, or delayed async question | Withhold the answer, then reply later. A receipt, empty result, dismissal, or elapsed time never authorizes dependent work; the actual answer releases only that dependency. |
 
 ## Testing a feature branch
 
@@ -220,7 +236,7 @@ Remove the existing marketplace first, then re-add with the branch suffix:
 /plugin install optimus@optimus-claude
 ```
 
-> **Note:** The `owner/repo#branch` shorthand is [not yet supported](https://github.com/anthropics/claude-code/issues/23551). Use the full `.git` URL with `#branch`.
+The current [marketplace documentation](https://code.claude.com/docs/en/plugin-marketplaces) also supports GitHub shorthand `owner/repo@ref`, for example `/plugin marketplace add oprogramadorreal/optimus-claude@your-branch-name`. The full Git URL with `#branch` above remains supported. The older issue about `owner/repo#branch` concerned a different syntax; do not use it to infer that current shorthand pinning is unavailable. The plugin source `ref` is still a separate choice for this repository's URL-based Claude marketplace entry.
 
 ### Return to production
 
@@ -263,4 +279,4 @@ A local checkout works too: `codex plugin marketplace add ./path/to/optimus-clau
 
 ## Version bumping
 
-The version in `.claude-plugin/plugin.json` affects update behavior. If two refs have the same manifest version, Claude Code may treat them as identical and skip the update. Bump the version in `plugin.json` when publishing meaningful changes, and update the version badge in `README.md` to match.
+Manifest versions affect update/cache behavior. If two refs have the same version, a host may reuse the cached release. Bump both `.claude-plugin/plugin.json` and `.codex-plugin/plugin.json` for meaningful releases and update the README badge. `.claude/.optimus-version` records this repository's last initialization; do not bump it merely to match a plugin release.

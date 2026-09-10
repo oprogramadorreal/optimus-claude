@@ -13,8 +13,8 @@
 | [E — Chain of Thought](#template-e--chain-of-thought) | Logic, math, analysis, debugging |
 | [F — Few-Shot](#template-f--few-shot) | Consistent structured output, pattern replication |
 | [G — File-Scope](#template-g--file-scope) | Cursor, Windsurf, Copilot — code editing AI |
-| [H — ReAct + Stop Conditions](#template-h--react--stop-conditions) | Claude Code, Devin — autonomous agents |
-| [I — Visual Descriptor](#template-i--visual-descriptor) | Midjourney, DALL-E, Stable Diffusion, Sora |
+| [H — ReAct + Stop Conditions](#template-h--react--stop-conditions) | Claude Code, Codex, Devin — autonomous agents |
+| [I — Visual Descriptor](#template-i--visual-descriptor) | Midjourney, OpenAI image tools, Stable Diffusion, Sora |
 | [J — Reference Image Editing](#template-j--reference-image-editing) | Editing an existing image with a reference |
 | [K — ComfyUI](#template-k--comfyui) | ComfyUI node-based image workflows |
 | [L — Prompt Decompiler](#template-l--prompt-decompiler) | Breaking down, adapting, or splitting existing prompts |
@@ -74,7 +74,7 @@ Experiment: [Request variants or alternatives to explore]
 
 ## Template E — Chain of Thought
 
-*Logic-heavy tasks, math, debugging, multi-factor analysis. Gated by SKILL.md's Chain of Thought technique rule: check the target tool's tool-routing.md entry first — never for reasoning-native models or tools that calibrate reasoning automatically (use that entry's nudge wording instead). Not for simple or creative tasks.*
+*Logic-heavy tasks, math, debugging, multi-factor analysis. Gated by SKILL.md's Reasoning guidance rule: use it only where the target's tool-routing.md entry allows explicit reasoning scaffolding — the Claude 5 and reasoning-native entries do not (use their nudge wording instead). The scaffold asks for the visible working steps the deliverable needs, not a transcript of the model's private reasoning. Not for simple or creative tasks.*
 
 ```
 [Task statement]
@@ -142,7 +142,7 @@ Done When:
 
 ## Template H — ReAct + Stop Conditions
 
-*Claude Code, Devin, autonomous agents. Runaway loops and scope explosion are the biggest credit killers — stop conditions are not optional.*
+*Claude Code, Codex, Devin, autonomous agents. State boundaries and completion conditions appropriate to the task. Fill the scaffold from the user's actual scope and authorization; do not introduce a new approval gate for an action already approved.*
 
 ```
 Objective:
@@ -163,10 +163,10 @@ Forbidden Actions:
 - Do NOT run the dev server or deploy
 - Do NOT push to git
 - Do NOT delete files without showing a diff first
-- Do NOT make architecture decisions without human approval
+- Do NOT expand the agreed architecture or scope without approval; make routine choices within it
 
 Stop Conditions:
-Pause and ask for human review when:
+Pause and ask for human review when a decision remains outside the user's existing authorization:
 - A file would be permanently deleted
 - A new external service or API needs to be integrated
 - Two valid paths exist and the choice affects architecture
@@ -180,7 +180,7 @@ Lead your final message with the outcome, followed by a summary of every file ch
 
 ## Template I — Visual Descriptor
 
-*Midjourney, DALL-E, Stable Diffusion, Sora, Runway — image or video generation.*
+*Midjourney, OpenAI image tools, Stable Diffusion, Sora, Runway — image or video generation.*
 
 ```
 Subject: [Main subject — specific, not vague]
@@ -199,7 +199,7 @@ Style Reference: [artist / film / aesthetic reference if applicable]
 **Tool-specific syntax:**
 - **Midjourney**: comma-separated descriptors, `--ar`, `--style`, `--v 6` at end
 - **Stable Diffusion**: `(word:1.3)` weight syntax, CFG 7-12, mandatory negative prompt
-- **DALL-E 3**: prose works well; add "do not include any text in the image" unless text is needed
+- **OpenAI image tools**: prose works well; specify whether text is wanted and use the currently supported target chosen under tool-routing.md
 - **Sora / video**: add camera movement (slow dolly, static shot, crane up), duration, cut style
 - **Seedance 2** (video): its prompt shape differs entirely — apply its Video AI entry in tool-routing.md instead of this field list
 
@@ -218,7 +218,7 @@ Negative prompt: [what to avoid introducing]
 
 **Tool-specific editing:**
 - Midjourney: `--cref [image URL]` for character reference, `--sref` for style reference
-- DALL-E 3: Edit endpoint, not Generate. User must have image editing enabled
+- OpenAI image tools: attach the reference and use the selected interface's supported editing capability; follow tool-routing.md for API versus ChatGPT distinctions
 - Stable Diffusion: img2img mode, denoising strength 0.3-0.6
 
 ## Template K — ComfyUI
@@ -338,8 +338,8 @@ The plan should include:
 - Express orchestration as **intent**, in natural language — open with "Run a workflow to…" (the scaffold below does). The prompt must clearly ask for a workflow of parallel agents, not a turn-by-turn task
 - Describe the task, the quality bar (e.g. "cross-check findings before reporting"), and the required output. A pattern-type hint (fan-out / pipeline / cross-agent corroboration) is optional preference, never a prescribed phase plan with agent counts
 - Scope is MANDATORY (cost + runaway risk): bound the target set and give an early-stop condition. Concurrency and total-agent caps are the runtime's own fixed limits, not knobs the prompt sets or needs to restate; the prompt's job is only to keep the target set from sprawling
-- Permissions: workflow subagents run with edits auto-approved (acceptEdits) regardless of session mode. For analysis/audit work the prompt MUST say "read-only: do not edit, write, move, or delete any file; report findings only." (Opposite of Template M, which omits guardrails because plan mode enforces read-only)
-- Do NOT put an approval or cost line in the prompt — Claude Code shows a launch-time approval with the planned phases on its own. Tell the *user* about the approval gate and token cost in the SKILL.md Step 7 handoff instead
+- Permissions: workflow child tools follow the host's subagent permission rules; do not claim every mode auto-approves edits. For analysis/audit work the prompt MUST say "read-only: do not edit, write, move, or delete any file; report findings only." This states task scope independently of runtime permissions
+- Launch approval depends on host version, mode, and prior consent. Tell the *user* to review the launch prompt when shown and note the token cost in the SKILL.md Step 7 handoff; do not invent an extra approval gate inside the generated task
 
 ```
 Run a workflow to [TASK — what to do across what bounded target set: files / dirs / items].
@@ -352,7 +352,7 @@ Quality bar: [intent only — e.g. "be thorough: cover every item in scope"; "ha
 
 Scope:
 - In scope: [explicit targets].  Out of scope: [skip].
-- Mode: [READ-ONLY — do NOT edit, write, move, or delete any file; report findings only.  OR  agents may edit only within <path>; do NOT touch <forbidden>]. (Workflow agents auto-approve edits regardless of session mode — state this explicitly.)
+- Mode: [READ-ONLY — do NOT edit, write, move, or delete any file; report findings only.  OR  agents may edit only within <path>; do NOT touch <forbidden>].
 - Stop early if [condition]; keep work bounded to the in-scope targets above.
 
 Output: [exact shape — e.g., one markdown report grouping findings by file with file:line evidence].

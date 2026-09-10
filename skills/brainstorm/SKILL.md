@@ -19,7 +19,7 @@ Guide the user through a design conversation that produces a written, approved s
 
 When invoked with the `scaffold` argument, or when the user asks to set up the docs-first steering cascade, run this flow instead of the design conversation:
 
-1. Target the current repo root. If the current directory has no `.git/` directory, read `$CLAUDE_PLUGIN_ROOT/skills/init/references/multi-repo-detection.md` and apply it — when a workspace is detected, ask which repo the product lives in and scaffold there (a cascade outside the target repo never auto-loads as steering).
+1. Target the current repo root from `git rev-parse --show-toplevel`. If `git rev-parse --is-inside-work-tree` does not return `true`, read `$CLAUDE_PLUGIN_ROOT/skills/init/references/multi-repo-detection.md` and apply it — when a workspace is detected, ask which repo the product lives in and scaffold there (a cascade outside the target repo never auto-loads as steering).
 2. For each of `docs/product/product-context.md`, `mvp-prd.md`, and `tech-stack.md`: if it exists, never overwrite — skip it. If missing, copy the matching file from `$CLAUDE_PLUGIN_ROOT/skills/brainstorm/templates/product/` verbatim, creating `docs/product/` if needed. Write nothing else — no `docs/specs/` file (the design flow authors that later), nothing under `.claude/`.
 3. **Emit skeletons with TODO markers only — author no product content (no personas, KPIs, business-value prose, or technology choices) and never fill a TODO; that is the human's job.**
 4. Report created vs skipped files. Tell the user to fill the TODOs top-down (vision → MVP PRD → target stack), then run `/optimus:brainstorm` in a fresh conversation to design the first build.
@@ -30,7 +30,7 @@ If `.claude/CLAUDE.md` or `.claude/docs/coding-guidelines.md` is missing, recomm
 
 Load `.claude/CLAUDE.md` and `.claude/docs/coding-guidelines.md`, plus — only if present — the steering cascade `docs/product/product-context.md`, `mvp-prd.md`, and `tech-stack.md`. Steering informs the design; it is never the task itself or content to copy. Authoring boundary and precedence: `$CLAUDE_PLUGIN_ROOT/references/sdd-mapping.md`. In a monorepo, load the subproject's own `docs/` files (testing, architecture, styling) and shared guidelines from the root `.claude/docs/`.
 
-If the current directory has no `.git/` directory, read `$CLAUDE_PLUGIN_ROOT/skills/init/references/multi-repo-detection.md` and apply it — operate within the repo the user is targeting; ask which repo if ambiguous.
+If `git rev-parse --is-inside-work-tree` does not return `true`, read `$CLAUDE_PLUGIN_ROOT/skills/init/references/multi-repo-detection.md` and apply it — operate within the repo the user is targeting; ask which repo if ambiguous. Otherwise resolve `git rev-parse --show-toplevel`, including linked worktrees.
 
 Scan the project's directory structure, key modules, and existing patterns to ground the conversation in what actually exists.
 
@@ -39,7 +39,7 @@ Scan the project's directory structure, key modules, and existing patterns to gr
 Check for JIRA context before prompting the user:
 
 1. Inline input matching `[A-Z][A-Z0-9]+-\d+` → read `docs/jira/<key>.md` and use its Goal and Acceptance Criteria as the brainstorm input. If the file is missing, tell the user to run `/optimus:jira <KEY>` first, then gather intent normally.
-2. No inline input and `docs/jira/` contains `.md` files → pick the one with the newest frontmatter `date` and offer it via AskUserQuestion (Use it / Ignore), noting when the date is over 7 days old that re-running `/optimus:jira` refreshes it. **Use it** consumes the file's Goal and Acceptance Criteria and skips the prompts below.
+2. No inline input and `docs/jira/` contains `.md` files → pick the one with the newest frontmatter `description-refresh-date` (falling back to `date` for files without it) and offer it via AskUserQuestion (Use it / Ignore), noting when that date is over 7 days old that re-running `/optimus:jira` refreshes it. **Use it** consumes the file's Goal and Acceptance Criteria and skips the prompts below.
 
 Otherwise use the inline description; if none, ask what to build or change. Distill input longer than ~3 sentences into a single-sentence goal and confirm it with the user.
 
@@ -129,8 +129,8 @@ Route by task type. Substitute the actual spec path into every recommendation an
 
 Read `$CLAUDE_PLUGIN_ROOT/skills/brainstorm/references/plan-mode-handoff.md` and emit its **Prompt skeleton** as a copyable plan-mode prompt, filled from the spec with `<doc-path>` = `<spec-path>`, and closed with the carve-out's `## How this conversation should run` block.
 
-Then tell the user the three carve-out steps from that reference, and emit the execution prompt as a second copyable block from the same skeleton.
+Under Codex, use that reference's **Codex handoff** branch instead of Claude's carve-out blocks/three toggle steps. Otherwise give the three carve-out steps. Emit the execution prompt as a second copyable block from the same skeleton.
 
 ### Prose flow
 
-`/optimus:tdd` does not apply — use the default flow from plan-mode-handoff.md. Emit the same plan-mode prompt, but close it with a `## How this conversation should run` section saying: iterate on the plan against the actual codebase; once the user approves the plan, implement it in that same conversation to produce the deliverable; afterwards recommend `/optimus:commit` in that same conversation so the implementation context is captured. Tell the user: start a fresh conversation in plan mode, paste the prompt, iterate, and approve the plan when satisfied. Skip the execution prompt.
+`/optimus:tdd` does not apply — use the current host's prose flow from plan-mode-handoff.md. Emit the same plan-mode prompt, but close it with a `## How this conversation should run` section saying: iterate on the plan against the actual codebase; once authorized in a write-enabled conversation, produce the deliverable there; afterwards recommend the host's Optimus commit invocation in that same conversation so the implementation context is captured. For Claude Code, give the reference's native plan-mode steps; for Codex, give its Codex handoff alternative. Skip the execution prompt.

@@ -2,7 +2,7 @@
 
 Prunes and consolidates your project's Claude Code auto-memory. Named after Claude Code's internal "dream" memory-consolidation pass, but inverted: where a dream normally also captures new memories, this skill only removes, merges, and tightens.
 
-The premise: memory is context debt. Every memory a project accumulates is paid for again in every future session, whether or not it still helps — wrong entries steer sessions astray, and overlapping ones bury the entries worth having. `/optimus:dream` shrinks the store down to the entries that still earn that cost.
+Claude Code loads a bounded memory index at startup and retrieves detailed memory files on demand. Wrong entries can steer sessions astray, and overlapping ones make useful information harder to find. `/optimus:dream` keeps the index and supporting files focused while preserving valuable details that future tasks may retrieve.
 
 ## Quick Start
 

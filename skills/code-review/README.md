@@ -71,7 +71,7 @@ You then choose: **Fix issues**, **Post comment** (PR/MR mode), or **Skip**.
 
 ## Requirements
 
-- Git; [Claude Code](https://docs.anthropic.com/en/docs/claude-code) 1.0.33+ (plugin support)
+- Git; Optimus installed in a [supported host](../../README.md#supported-hosts-and-versions)
 - `/optimus:init` recommended (not required) — enables project-specific guidelines and the conditional agents
 - GitHub CLI (`gh`) or GitLab CLI (`glab`) for PR/MR mode (optional)
 - A test command in `.claude/CLAUDE.md` if you want `/optimus:deep review`

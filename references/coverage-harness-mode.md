@@ -45,7 +45,7 @@ Run Steps 3–4 of SKILL.md (plan + write) with these harness modifications:
 
 ### 4. Collect results
 
-Gather: tests written (file, target, count, status), coverage change, untestable code items, bugs discovered.
+Gather: tests written (file, target, count, status), coverage change, untestable code items — resolve each item's `line` to the definition line of the flagged function or class, since the schema requires it — and bugs discovered.
 
 ### 5. Output structured JSON
 
@@ -67,4 +67,4 @@ When the `/optimus:deep coverage` orchestrator dispatches `/optimus:refactor` as
 
 The orchestrator scopes the refactor session to the `untestable_code` items reported by the preceding unit-test phase (the progress file's `scope_files.current` lists those file paths). The CLI's `refactor-step` handles test-and-bisect after the refactor subagent returns.
 
-**Progress-file field mapping.** The coverage-variant progress file differs from the deep-variant schema described in harness-mode.md step 1. When following that protocol here, map: `cycle.current` → `iteration-count` (there is no `iteration` key), `refactor_findings` → `accumulated-findings` (there is no top-level `findings` array), and `config.max_cycles` → the cap. `config.pr_description` does not exist — skip the PR/MR context injection entirely. `config.focus` is present (CLI-pinned to `testability`) and applies as usual.
+**Progress-file field mapping.** The coverage-variant progress file differs from the deep-variant schema described in harness-mode.md step 1. When following that protocol here, map: `cycle.current` → `iteration-count` (there is no `iteration` key), `refactor_findings` → `accumulated-findings` (there is no top-level `findings` array), and `config.max_cycles` → the cap. `config.pr_description` does not exist — skip the PR/MR context injection entirely. `config.focus` is present (CLI-pinned to `testability`) and applies as usual. In the output block, set `iteration` to `cycle.current` and emit no `cycle` or `phase` keys: the orchestrator's `refactor-step` rejects a result whose `iteration` differs from the current cycle, and a `cycle` key makes `parse` read the block as unit-test output.

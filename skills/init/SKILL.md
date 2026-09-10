@@ -1,17 +1,17 @@
 ---
-description: Bootstraps a project for Claude Code — generates CLAUDE.md and scoped docs from detected structure (single project, monorepo, or multi-repo workspace), installs auto-format hooks and test infrastructure, and reconciles existing docs against the source. Writes under .claude/ and subproject docs/. Replaces /init; safe to re-run.
+description: Bootstraps a project for Claude Code or Codex — generates routed project guidance from detected structure, reconciles existing docs, and offers test infrastructure. Claude Code can also install formatter hooks. Writes under .claude/ and subproject docs/, preserving existing user guidance through review and recorded ownership. Use for initial setup or upgrades.
 disable-model-invocation: true
 ---
 
-# Initialize Project for Claude Code
+# Initialize Project for Claude Code or Codex
 
 ## File semantics
 
-Three classes govern every file this skill writes. Later steps name the class instead of restating the rules.
+Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/managed-files.md` before writing. Record only files and settings entries this run actually installs; unknown ownership is preserved and reviewed. Three classes govern every file this skill writes.
 
 Under Codex, preserve existing hooks/settings throughout this run; the Generated-file overwrite rule below does not apply to hooks.
 
-- **Generated** — `.claude/hooks/*` and `.claude/docs/coding-guidelines.md`: verbatim templates (or fallback hooks), never user-authored. Always overwrite silently, regardless of audit status.
+- **Generated** — hooks installed by init and `.claude/docs/coding-guidelines.md`: refresh only unchanged, recorded Optimus files with `refresh: "template"`. Customized files remain `refresh: "review"` even after approved edits update their recorded hash. Changed, review-only, or unrecorded existing files get that reference's Merge / Keep existing / Replace choice, preserving their content by default; an unrecorded file byte-identical to the current template is adopted silently. Never overwrite unrelated `.claude/hooks/*` files.
 - **Customizable** — all `CLAUDE.md` files, `testing.md`, `styling.md`, `architecture.md`, `skill-writing-guidelines.md`: never silently overwrite. When the file exists, review-and-propose — compare against the template and detected state, apply only user-approved changes, preserve user-added sections.
 - **settings.json** — always merge, never overwrite: preserve `permissions` and any other custom sections. Do not create it when no hooks are installed and it doesn't already exist.
 
@@ -19,7 +19,7 @@ New files of any class are written directly — no confirmation prompts. **Prese
 
 ## CLAUDE.md authoring rules
 
-CLAUDE.md is loaded into every conversation, and Claude can already read the repository. So the budget goes to what reading the repository does not give it.
+Claude Code discovers CLAUDE.md natively; Codex reads it through the AGENTS.md pointer in Step 4c. Spend its context on what reading the repository does not give the model.
 
 - **Spend it on gotchas.** Invariants a script or CI depends on, a command that must run from a specific directory, a file that looks editable but is generated, a convention the code deliberately breaks in one place, setup that fails in a non-obvious way, why a decision was made. Write fewer real ones rather than padding to a count — an empty Gotchas section is a valid outcome, and better than five lines of restated obviousness.
 - **Never restate what the filesystem shows.** No directory listings, no "the stack is TypeScript" when `package.json` says so, no per-file roles. One line of identity and stack at the top is the whole allowance.
@@ -28,15 +28,15 @@ CLAUDE.md is loaded into every conversation, and Claude can already read the rep
 - Only universally-applicable content — task-specific material distracts the model and degrades instruction-following.
 - Progressive disclosure: the Documentation table routes a kind of change to the one doc that governs it, so a typo fix does not load the architecture doc.
 - `file:line` references, not code snippets — snippets go stale.
-- No code-style rules — the formatter hooks installed in Step 5 enforce style deterministically.
-- Monorepo: root CLAUDE.md is an orchestrator — subproject table, workspace-wide commands, workspace-level gotchas only; each subproject's own CLAUDE.md is auto-discovered when working there and carries that package's gotchas. Shared guidelines stay at root `.claude/docs/`; `testing.md`/`styling.md`/`architecture.md` are scoped per subproject.
+- Defer mechanical style to the project's configured formatter when present. Preserve existing conventions that tooling does not enforce; Codex and projects declining hooks still need the documented formatter command.
+- Monorepo: root CLAUDE.md is an orchestrator — subproject table, workspace-wide commands, workspace-level gotchas only; each subproject's CLAUDE.md carries that package's gotchas (native discovery in Claude Code, explicit nested reads through the Codex pointer). Shared guidelines stay at root `.claude/docs/`; `testing.md`/`styling.md`/`architecture.md` are scoped per subproject.
 - Multi-repo workspace: each repo is fully self-contained (own `.claude/`); the parent CLAUDE.md is a lightweight local-only map — nothing is shared at root.
 
 ## Step 1: Detect Project Context
 
 ### Empty-directory check
 
-A directory is **near-empty** when it contains at most `.git/`, `.gitignore`, `LICENSE`, and/or a stub `README.md` (under 5 lines of non-empty content), with no manifest files at any depth and no source directories (`src/`, `lib/`, `app/`, `pkg/`, `cmd/`). If empty or near-empty, use `AskUserQuestion` — header "Empty Project", question "This directory appears to be empty. Would you like to scaffold a new project?":
+A directory is **near-empty** when it contains at most `.git` (file or directory), `.gitignore`, `LICENSE`, and/or a stub `README.md` (under 5 lines of non-empty content), with no manifest files at any depth and no source directories (`src/`, `lib/`, `app/`, `pkg/`, `cmd/`). If empty or near-empty, use `AskUserQuestion` — header "Empty Project", question "This directory appears to be empty. Would you like to scaffold a new project?":
 - **Scaffold new project** — "Set up a new project from scratch, then continue with full init setup"
 - **Continue anyway** — "Proceed with init as-is (I'll add code myself later)"
 
@@ -76,7 +76,7 @@ Steps 2-6 apply this choice; Step 6b runs independently. **Fresh start preservat
 
 ## Step 2: Handle Existing Files
 
-Apply the audit choice through the File semantics classes: Accurate → skip the file; Outdated → apply only approved changes, preserve everything else; Missing or no audit → create normally; Fresh start → regenerate Customizable files, always carrying User-added content forward. Generated files are overwritten regardless.
+Apply the audit choice through the File semantics classes: Accurate → skip the file; Outdated → apply only approved changes, preserve everything else; Missing → create normally; Fresh start → regenerate Customizable files, always carrying User-added content forward. Refresh Generated files only under the ownership rules above. No audit is not permission to replace an existing file.
 
 **Relocate when scope changes** (e.g., root `.claude/docs/testing.md` → subproject-scoped in a monorepo): move the content, remove the old file. Only `coding-guidelines.md` and `skill-writing-guidelines.md` stay at root. If a root-level `CLAUDE.md` exists outside `.claude/`, suggest removing it once `.claude/CLAUDE.md` is created.
 
@@ -95,12 +95,12 @@ Fill every template placeholder with real detected values — no `[placeholder]`
 **Single project** — template `$CLAUDE_PLUGIN_ROOT/skills/init/templates/single-project-claude.md`:
 - Gotchas: from the agent's **Gotchas** findings and doc-sourced insights. Keep only what survives the template's own bar; drop the section entirely when nothing does.
 - Documentation table: the Code row always; one row per non-guideline doc that actually exists — none on a first run, since Steps 5b/6 add entries as they create docs.
-- No manifest detected → generic placeholders, and tell the user manual customization is recommended.
+- No manifest detected → omit unknown commands and unsupported claims; say which setup information remains unavailable. Never emit a placeholder as a runnable command.
 
 **Monorepo** — template `$CLAUDE_PLUGIN_ROOT/skills/init/templates/monorepo-claude.md`:
 - Subproject table (path, purpose, stack); root/workspace-wide commands only; workspace-level gotchas only, with package-specific ones pushed down to Step 4b.
 - Workspace tool detected → "managed by [tool]"; none → "Monorepo with [N] packages" without naming a tool.
-- More than 6 subprojects → group by category in root CLAUDE.md and move the full table to `.claude/docs/architecture.md`.
+- More than 6 subprojects → group by category in root CLAUDE.md; create or reconcile `.claude/docs/architecture.md` for the full workspace map and route it from root CLAUDE.md. This root map is an explicit exception to subproject-only architecture placement.
 - Root-as-project: also route its root-scoped docs in the Documentation table.
 
 **Multi-repo workspace** — run the full init flow (Steps 3-7) independently inside each repo, as if init were invoked there (single-project or monorepo template as appropriate; each repo's `.claude/` is version-controlled and self-contained). Then create a lightweight workspace-root `CLAUDE.md` (NOT inside `.claude/`) from `$CLAUDE_PLUGIN_ROOT/skills/init/templates/multi-repo-claude.md` — tell the user it is local-only and not version-controlled. If a repo has a nested app root, its CLAUDE.md must note the nested structure and point all commands at the correct subdirectory.
@@ -127,7 +127,7 @@ Agent instructions for this workspace live in `CLAUDE.md`. Read it first; it map
 
 ## Step 5: Install Formatter Hooks
 
-Under Codex, skip this step and report automatic formatting as unsupported. The remaining documentation and test-infrastructure steps still apply.
+Under Codex, skip hook installation and preserve existing hooks/settings byte-for-byte. Document the project's existing formatter/check command for use at task boundaries and its editor/CI integration. This plugin's Claude PostToolUse formatters are not installed in Codex; the documentation and test-infrastructure steps still apply.
 
 Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/formatter-setup.md` and install the applicable hooks so files are auto-formatted after every Edit/Write (templates in `$CLAUDE_PLUGIN_ROOT/skills/init/templates/hooks/`; supported: Python, Node.js, Rust, Go, C#/.NET, Java, C/C++, Dart/Flutter — other stacks via `$CLAUDE_PLUGIN_ROOT/skills/init/references/unsupported-stack-fallback.md`). Hooks are Generated files; `settings.json` follows its merge semantics. External formatters not already in deps → ask the user before installing.
 
@@ -145,7 +145,7 @@ On **Yes**: follow the reference's installation section (framework recommendatio
 
 ## Step 6: Create Documentation Files
 
-`coding-guidelines.md` (Generated) — always create in `.claude/docs/` from `$CLAUDE_PLUGIN_ROOT/skills/init/templates/docs/coding-guidelines.md`, replacing `[PROJECT NAME]`.
+`coding-guidelines.md` (Generated) — create in `.claude/docs/` from `$CLAUDE_PLUGIN_ROOT/skills/init/templates/docs/coding-guidelines.md`, replacing `[PROJECT NAME]`, or reconcile the existing file under the ownership rules. Preserve project-specific guidance in place or in an approved, routed document.
 
 Conditional docs (Customizable; `testing.md` was handled in Step 5b). Fill all placeholders with actual project details:
 
@@ -157,7 +157,7 @@ Conditional docs (Customizable; `testing.md` was handled in Step 5b). Fill all p
 
 The architecture template carries two HTML-comment-marked optional sections: keep **Skill Architecture** only when skill authoring was detected, and keep the code sections (Data Flow, Key Patterns, Dependencies Between Modules) only when the project has code components — delete whichever doesn't apply, and the comments themselves. On re-runs, the Customizable review-and-propose semantics cover section changes when the detected project type has shifted.
 
-**Placement:** single project — everything in `.claude/docs/`. Monorepo — `styling.md`/`architecture.md` go in each subproject's `docs/`, applying the detection rules per subproject; `skill-writing-guidelines.md` is installed once at root when any subproject has a skill-authoring stack; root-as-project's scoped docs go in `.claude/docs/`; a subproject gets its own `coding-guidelines.md` only if its conventions differ significantly from root.
+**Placement:** single project — everything in `.claude/docs/`. Monorepo — `styling.md`/`architecture.md` go in each subproject's `docs/`, applying the detection rules per subproject; retain the root workspace-map exception from Step 4 when needed. `skill-writing-guidelines.md` is installed once at root when any subproject has a skill-authoring stack; root-as-project's scoped docs go in `.claude/docs/`; a subproject gets its own `coding-guidelines.md` only if its conventions differ significantly from root.
 
 **Update the Documentation tables:** after creating `styling.md`/`architecture.md`, add a row to the Documentation table of the CLAUDE.md that scopes it, keyed by the kind of change it governs — "UI, CSS, visual changes", "Module structure or data flow" (`testing.md` rows were added in Step 5b, keyed "Tests").
 
@@ -173,12 +173,12 @@ Cross-check README.md (root, and each subproject's in monorepos), CONTRIBUTING.m
 
 When Step 5 ran, verify the hooks and settings against their sources before reporting:
 
-- **Hooks match their source** — each template-based hook in `.claude/hooks/` is byte-identical to its template (`diff` them); custom hooks from the unsupported-stack fallback follow the shell-hook pattern and that reference's validation rules.
-- **settings.json survived the merge** — every format hook *this skill* installed has a matching `hooks.PostToolUse` entry, and every `PostToolUse` entry resolves to a file that exists in `.claude/hooks/`. Hooks owned by another skill are out of scope: `/optimus:permissions` installs `restrict-paths.sh` into that same directory and registers it under **PreToolUse**, so comparing the directory listing against `PostToolUse` "in both directions" reads it as a missing entry — and "fixing" that breaks it. Every pre-existing section must also be intact: this file was merged into user state, so a dropped entry silently disables a hook with no other symptom.
+- **Hooks written this run match their source** — each newly copied template hook is byte-identical to its template (`diff` them), except explicitly approved customizations; custom fallback hooks follow that reference's validation rules. A preexisting hook the user kept is outside this comparison and must remain untouched.
+- **settings.json survived the merge** — every format hook *this skill* installed has a matching `hooks.PostToolUse` entry resolving to that installed file. Preserve preexisting entries, including commands outside `.claude/hooks/`, except exact migrations the user approved. Hooks owned by another skill are out of scope: `/optimus:permissions` registers `restrict-paths.sh` under **PreToolUse**, not PostToolUse. Compare pre/post settings to detect dropped user entries; don't normalize unrelated hooks into this skill's template shape.
 
 Then sweep template-derived content for surviving `[placeholder]` text and unresolved template HTML comments — retain each file's line-1 identity comment, the `optimus:pointer` markers in `AGENTS.md`, and user-authored content. Fix any failure before reporting.
 
-**Write the plugin version** to `.claude/.optimus-version` after all checks pass — version string only (e.g., `3.0.0`), read from `$CLAUDE_PLUGIN_ROOT/.claude-plugin/plugin.json`; per repo in multi-repo workspaces. Only init ever writes this file.
+**Write the plugin version** to `.claude/.optimus-version` after all checks pass — version string only (e.g., `3.0.0`), read from `$CLAUDE_PLUGIN_ROOT/.claude-plugin/plugin.json`; per repo in multi-repo workspaces. Only init ever writes this file. Then update and verify the ownership record for files/settings installed this run, including this version marker.
 
 **Summary** — present the final report using this exact format:
 

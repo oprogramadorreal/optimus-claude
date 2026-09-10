@@ -53,7 +53,7 @@ Use the official scaffolding CLI — do NOT hand-generate boilerplate the offici
 | Type | Scaffold Command |
 |------|-----------------|
 | Flutter (mobile) | `flutter create <name>` |
-| React Native | `npx react-native@latest init <name>` |
+| React Native (without a framework) | `npx @react-native-community/cli@latest init <name>` |
 | Dart (package) | `dart create -t package <name>` |
 | Node.js (library) | `mkdir <name> && cd <name> && npm init -y` + `src/index.ts` placeholder export |
 | Python (library) | `uv init --lib <name>` (no uv → manual setup) |
@@ -71,6 +71,6 @@ Scaffold commands create a `<name>/` subdirectory — `cd <name>` before these s
 - **.gitignore:** verify the scaffold-generated one covers build artifacts and dependencies; create a standard one for the stack if missing; if one pre-existed, append missing stack entries without overwriting.
 - **README.md:** must tell a developer how to build and run. Keep an adequate scaffold-generated README (updating name/description to the user's input); otherwise create a minimal one — title, one-line description, `## Development` section with install/dev/build/test commands that actually exist in the scaffolded project.
 - **Verify the project works:** run the build or dev command and confirm success; diagnose and fix failures before proceeding. For dev servers: start with a 30-second timeout, verify a ready signal ("listening on port", "ready"), then stop it; no signal within the timeout → stop the process and report for diagnosis.
-- **Git init:** run `git init` if `.git/` does not exist.
+- **Git init:** run `git init` only when `git rev-parse --is-inside-work-tree` fails with `fatal: not a git repository` — the scaffold is outside any working tree and not a bare repository. Do not reinitialize a linked worktree, and do not treat any other Git error as a missing repository.
 
 Then print **"Scaffolding complete. Resuming project detection..."** and return control to init Step 1's project detection to re-detect the now-populated project from scratch.

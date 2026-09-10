@@ -19,7 +19,7 @@ Analyze local git changes (or a PR/MR) against the project's coding guidelines t
 - `--branch` → force the branch diff in Step 3, skipping the PR auto-route. No effect when local changes exist or an explicit PR is requested (`--pr N`, `#N`, or a PR URL).
 - Everything else is natural-language scope/focus: paths, PR numbers, refs (e.g., "review src/auth", "review PR #42", "changes since main").
 
-**Multi-repo**: if the current directory has no `.git/` directory, read `$CLAUDE_PLUGIN_ROOT/skills/init/references/multi-repo-detection.md` and apply it. In a workspace, run Step 3's git commands inside each child repo, PR/MR mode requires the user to name a repo, and Step 4 loads each repo's docs independently; if changed files map to no child repo, ask which repo's context applies.
+**Multi-repo**: if `git rev-parse --is-inside-work-tree` does not return `true`, read `$CLAUDE_PLUGIN_ROOT/skills/init/references/multi-repo-detection.md` and apply it. When it returns `true`, resolve the repository root with `git rev-parse --show-toplevel`, including in a linked worktree or subdirectory. In a workspace, run Step 3's git commands inside each child repo, PR/MR mode requires the user to name a repo, and Step 4 loads each repo's docs independently; if changed files map to no child repo, ask which repo's context applies.
 
 **Prerequisites**: if `.claude/CLAUDE.md` or `.claude/docs/coding-guidelines.md` is missing, recommend `/optimus:init` first. On the user's choice to continue, fall back to the bundled baseline: read `$CLAUDE_PLUGIN_ROOT/skills/init/templates/docs/coding-guidelines.md` and review against it plus general best practices for the detected stack — a shared, versioned anchor keeps findings reproducible where ad-hoc judgment would not. Note in the report that findings are generic, not project-specific.
 
@@ -75,7 +75,7 @@ Present a brief `## Review Scope` summary before proceeding: mode (local changes
 
 ## Step 4: Load Project Context
 
-Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/constraint-doc-loading.md` and load the constraint docs it lists, applying its **Monorepo Scoping Rule** (a subproject's own docs govern that subproject's files) and **Submodule Exclusion** (a `.git` *file* marks a submodule — exclude those directories from the review). In a multi-repo workspace, load each changed repo's `.claude/CLAUDE.md` and `.claude/docs/` independently and apply per-repo context to that repo's files. These docs define the review criteria — every guideline finding must be justified by what they establish; never impose external preferences.
+Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/constraint-doc-loading.md` and load the constraint docs it lists, applying its **Monorepo Scoping Rule** (a subproject's own docs govern that subproject's files) and **Submodule Exclusion** (confirmed submodules are excluded from the review; a `.git` file alone does not identify one). In a multi-repo workspace, load each changed repo's `.claude/CLAUDE.md` and `.claude/docs/` independently and apply per-repo context to that repo's files. These docs define the review criteria — every guideline finding must be justified by what they establish; never impose external preferences.
 
 Present a brief context summary (docs loaded, docs missing with fallback status, project type), then proceed immediately to Step 5 — do not wait for confirmation.
 

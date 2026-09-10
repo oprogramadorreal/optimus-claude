@@ -17,9 +17,11 @@ Server detection, tool name resolution, MCP safety rules, and the fetch/output p
 2. **Probe for tools** with `ToolSearch` (in order, stop at first match): query `jira` — look for `jira_search`, `jira_get_issue`, `searchJiraIssuesUsingJql`, or `getJiraIssue`; then query `atlassian` — look for tools containing `jira_` or `Jira`.
 3. **Tools found** → record the server name and tool prefix (`mcp__atlassian__` = Rovo, `mcp__mcp-atlassian__` = sooperset, anything else = generic) and report: `Detected: [server name] ([N] JIRA tools available)`. **No tools found** → the skill routes to `jira-setup.md`.
 
+Under Codex, `.mcp.json` and `ToolSearch` do not exist: inspect the tools available in the session for the names in the table below, or any tool containing `jira`/`Jira`; a match is the detected server, with its prefix read from the tool names. Otherwise report none detected.
+
 ## Tool Name Resolution
 
-Use `ToolSearch` at runtime to discover available tools — never hard-code assumptions.
+Use `ToolSearch` at runtime (under Codex, the session's tool list) to discover available tools — never hard-code assumptions.
 
 **Known tool names by server:**
 
@@ -126,7 +128,7 @@ and automated comments. If no meaningful decisions found, omit this section.]
 
 | Error | User-facing message |
 |-------|---------------------|
-| 401 Unauthorized | "Your JIRA authentication has expired. For Rovo: restart Claude Code to re-authenticate via OAuth. For mcp-atlassian: verify your API token has not expired at id.atlassian.com/manage-profile/security/api-tokens and update your MCP configuration." |
+| 401 Unauthorized | "Your JIRA authentication has expired. For Rovo: use the current host's connector/MCP authentication controls to reconnect via OAuth; if none are available in this session, reopen the host's connection settings. For mcp-atlassian: verify your API token has not expired at id.atlassian.com/manage-profile/security/api-tokens and update your MCP configuration." |
 | 403 Forbidden | "You don't have permission to view {KEY}. Check your JIRA project access with your JIRA admin." |
 | 404 Not Found | "Issue {KEY} not found. Verify the key is correct (format: PROJECT-NUMBER) and that you have access to the project." |
 | 429 Rate Limited | Retry once after 2 seconds. If still rate limited: "JIRA rate limit reached. Wait a moment and try `/optimus:jira {KEY}` again." |

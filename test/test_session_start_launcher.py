@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 import pytest
-from harness_common.runner import _find_bash
+from harness_common.runner import _find_bash, bash_environment
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 HOOKS_PATH = REPO_ROOT / "hooks" / "hooks.json"
@@ -260,6 +260,38 @@ def test_bash_launcher_preserves_claude_cwd_and_output(tmp_path):
     assert outputs[0] == outputs[1]
     assert "/optimus:init" in outputs[1]
     assert "Running under Codex" not in outputs[1]
+
+
+def test_codex_adapter_is_scoped_to_matching_host_environment(tmp_path):
+    """Host adaptation must not add instructions to an initialized Claude run."""
+    docs = tmp_path / ".claude" / "docs"
+    docs.mkdir(parents=True)
+    (docs.parent / "CLAUDE.md").write_text("# Project", encoding="utf-8")
+    for name in ("coding-guidelines.md", "testing.md"):
+        (docs / name).write_text("# Configured", encoding="utf-8")
+    bash = _find_bash()
+    for plugin_root in (None, "stray-plugin-root", REPO_ROOT.as_posix()):
+        env = bash_environment(bash)
+        env["CLAUDE_PLUGIN_ROOT"] = REPO_ROOT.as_posix()
+        env.pop("PLUGIN_ROOT", None)
+        if plugin_root:
+            env["PLUGIN_ROOT"] = plugin_root
+        result = subprocess.run(
+            [bash, str(REPO_ROOT / "hooks" / "session-start")],
+            cwd=tmp_path,
+            env=env,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            timeout=30,
+        )
+        assert result.returncode == 0, result.stderr
+        if plugin_root == REPO_ROOT.as_posix():
+            assert "Running under Codex" in result.stdout
+            assert REPO_ROOT.as_posix() in result.stdout
+            assert not result.stdout.lstrip().startswith(("[", "{"))
+        else:
+            assert result.stdout == ""
 
 
 def test_claude_launcher_delivers_context_without_git_on_path(tmp_path):

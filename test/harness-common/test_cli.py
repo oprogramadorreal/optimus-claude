@@ -20,6 +20,61 @@ from harness_common.constants import (
 # ---------------------------------------------------------------------------
 
 
+def _deep_result(values):
+    """Complete the protocol envelope for tests focused on individual fields."""
+    return {
+        "iteration": 1,
+        "new_findings": [],
+        "fixes_applied": [],
+        "fixes_skipped_persistent": [],
+        "no_new_findings": False,
+        "no_actionable_fixes": False,
+        **values,
+    }
+
+
+def _coverage_result(values):
+    return {
+        "cycle": 1,
+        "phase": "unit-test",
+        "coverage": {},
+        "tests_written": [],
+        "untestable_code": [],
+        "bugs_discovered": [],
+        "no_new_tests": False,
+        "no_untestable_code": False,
+        "no_coverage_gained": False,
+        "blocked": None,
+        **values,
+    }
+
+
+@pytest.fixture(autouse=True)
+def _tree_state_for_repo_like_scaffolds(monkeypatch):
+    """Mock only non-Git unit scaffolds; real-repository safety tests use Git."""
+    actual = cli.git_test_tree_state
+    actual_nested_check = cli.git_check_nested_repositories
+    original_dirty = cli.git_diff_has_changes
+
+    def state(root, progress_file, **kwargs):
+        if (Path(root) / ".git").exists():
+            return actual(root, progress_file, **kwargs)
+        dirty = (
+            cli.git_diff_has_changes(root)
+            if cli.git_diff_has_changes is not original_dirty
+            else False
+        )
+        return cli.TreeState("fixture-green", dirty, "fixture-green", {})
+
+    monkeypatch.setattr(cli, "git_test_tree_state", state)
+
+    def nested_check(root, **kwargs):
+        if (Path(root) / ".git").exists():
+            return actual_nested_check(root, **kwargs)
+
+    monkeypatch.setattr(cli, "git_check_nested_repositories", nested_check)
+
+
 def _run(*argv):
     """Invoke cli.main() and return its exit code."""
     return cli.main(list(argv))
@@ -79,6 +134,59 @@ def _git_init(tmp_path):
     (tmp_path / "seed.txt").write_text("seed\n", encoding="utf-8")
     g("add", "seed.txt")
     g("commit", "-m", "base")
+
+
+def test_failed_snapshot_preserves_work_and_invalidates_dispatch(tmp_path):
+    _git_init(tmp_path)
+    seed = tmp_path / "seed.txt"
+    seed.write_text("first user edit\n", encoding="utf-8")
+    notes = tmp_path / "user-notes.txt"
+    notes.write_text("untracked user work\n", encoding="utf-8")
+    progress_path = tmp_path / ".claude" / "code-review-deep-progress.json"
+    assert (
+        _run(
+            "init",
+            "--skill",
+            "code-review",
+            "--project-dir",
+            str(tmp_path),
+            "--test-command",
+            "echo ok",
+            "--no-commit",
+            "--progress-file",
+            str(progress_path),
+        )
+        == 0
+    )
+    assert _run("snapshot", "--progress-file", str(progress_path)) == 0
+    recovery = _read_progress(progress_path)["_snapshot"]["pre_stash"]
+    seed.write_text("newer user edit\n", encoding="utf-8")
+    original_index = (tmp_path / ".git" / "index").read_bytes()
+    lock = tmp_path / ".git" / "index.lock"
+    lock.write_text("audit fixture lock", encoding="utf-8")
+    try:
+        assert _run("snapshot", "--progress-file", str(progress_path)) == 1
+    finally:
+        lock.unlink()
+    snap = _read_progress(progress_path)["_snapshot"]
+    assert snap["pre_stash"] == recovery
+    assert "iteration_token" not in snap
+    assert seed.read_text(encoding="utf-8") == "newer user edit\n"
+    assert notes.read_text(encoding="utf-8") == "untracked user work\n"
+    assert (tmp_path / ".git" / "index").read_bytes() == original_index
+    result = tmp_path / ".claude" / ".deep-iteration-result.json"
+    result.write_text("{}", encoding="utf-8")
+    assert (
+        _run(
+            "deep-step",
+            "--progress-file",
+            str(progress_path),
+            "--result-file",
+            str(result),
+        )
+        == 1
+    )
+    assert seed.read_text(encoding="utf-8") == "newer user edit\n"
 
 
 # ---------------------------------------------------------------------------
@@ -1288,10 +1396,7 @@ class TestParse:
     def test_extracts_json_block(self, tmp_path, capsys):
         raw = tmp_path / "raw.txt"
         raw.write_text(
-            "Some preamble text.\n\n"
-            "```json:harness-output\n"
-            '{"iteration": 1, "new_findings": []}\n'
-            "```\n",
+            'Some preamble text.\n\n```json:harness-output\n{"iteration": 1, "new_findings": [], "fixes_applied": [], "fixes_skipped_persistent": [], "no_new_findings": false, "no_actionable_fixes": false}\n```\n',
             encoding="utf-8",
         )
         exit_code = _run("parse", "--input-file", str(raw))
@@ -1308,7 +1413,7 @@ class TestParse:
     def test_output_file(self, tmp_path):
         raw = tmp_path / "raw.txt"
         raw.write_text(
-            "```json:harness-output\n" '{"iteration": 1}\n' "```\n",
+            '```json:harness-output\n{"iteration": 1, "new_findings": [], "fixes_applied": [], "fixes_skipped_persistent": [], "no_new_findings": false, "no_actionable_fixes": false}\n```\n',
             encoding="utf-8",
         )
         out = tmp_path / "out.json"
@@ -1349,7 +1454,8 @@ class TestParse:
         # not a raw traceback. Regression for the try/except around the write.
         raw = tmp_path / "raw.txt"
         raw.write_text(
-            '```json:harness-output\n{"iteration": 1}\n```\n', encoding="utf-8"
+            '```json:harness-output\n{"iteration": 1, "new_findings": [], "fixes_applied": [], "fixes_skipped_persistent": [], "no_new_findings": false, "no_actionable_fixes": false}\n```\n',
+            encoding="utf-8",
         )
         bad_output = tmp_path / "no_such_dir" / "out.json"  # parent dir is missing
         exit_code = _run(
@@ -1401,11 +1507,13 @@ class TestParse:
         assert calls == [(None, "deadbeef")]
         assert _read_progress(progress_path)["parse_failure_count"] == 1
 
-    def test_parse_failure_rollback_exception_is_swallowed(self, tmp_path, monkeypatch):
+    def test_parse_failure_rollback_exception_records_safety_error(
+        self, tmp_path, monkeypatch
+    ):
         # If restore_working_tree itself raises mid-rollback (e.g. git missing),
-        # the best-effort except (RuntimeError, OSError) must swallow it: the
-        # failure count is still recorded and the command exits 1 cleanly rather
-        # than surfacing a traceback.
+        # the command still exits 1 without a traceback, records the failure
+        # count, and persists _safety_error so the next mutating step refuses to
+        # run until a green baseline clears it.
         raw = tmp_path / "raw.txt"
         raw.write_text("No JSON block here.", encoding="utf-8")
         progress_path = tmp_path / "progress.json"
@@ -1439,6 +1547,7 @@ class TestParse:
         )
         assert exit_code == 1
         assert _read_progress(progress_path)["parse_failure_count"] == 1
+        assert "git binary missing" in _read_progress(progress_path)["_safety_error"]
 
     def test_parse_failure_no_rollback_when_snapshot_stale(self, tmp_path, monkeypatch):
         # A snapshot token from a prior iteration must NOT trigger a restore —
@@ -1511,7 +1620,7 @@ class TestParse:
         # a successful parse resets parse_failure_count to 0.
         raw_good = tmp_path / "good.txt"
         raw_good.write_text(
-            "```json:harness-output\n" '{"iteration": 1}\n' "```\n",
+            "```json:harness-output\n" + json.dumps(_deep_result({})) + "\n```\n",
             encoding="utf-8",
         )
         progress_path = tmp_path / "progress.json"
@@ -1539,7 +1648,7 @@ class TestParse:
         # works — the orchestrator's init step will create it later.
         raw = tmp_path / "raw.txt"
         raw.write_text(
-            "```json:harness-output\n" '{"iteration": 1}\n' "```\n",
+            '```json:harness-output\n{"iteration": 1, "new_findings": [], "fixes_applied": [], "fixes_skipped_persistent": [], "no_new_findings": false, "no_actionable_fixes": false}\n```\n',
             encoding="utf-8",
         )
         exit_code = _run(
@@ -1620,6 +1729,7 @@ def _seed_deep_progress(tmp_path, *, iteration=1, scope_files=None):
         "schema_version": 1,
         "skill": "code-review",
         "started_at": "2025-01-01T00:00:00Z",
+        "_validated_tree": "fixture-green",
         "config": {
             "max_iterations": 8,
             "test_command": "npm test",
@@ -1674,13 +1784,15 @@ class TestDeepStep:
         result = tmp_path / "result.json"
         result.write_text(
             json.dumps(
-                {
-                    "iteration": 1,
-                    "new_findings": [],
-                    "fixes_applied": [],
-                    "no_new_findings": True,
-                    "no_actionable_fixes": False,
-                }
+                _deep_result(
+                    {
+                        "iteration": 1,
+                        "new_findings": [],
+                        "fixes_applied": [],
+                        "no_new_findings": True,
+                        "no_actionable_fixes": False,
+                    }
+                )
             ),
             encoding="utf-8",
         )
@@ -1708,13 +1820,15 @@ class TestDeepStep:
         result = tmp_path / "result.json"
         result.write_text(
             json.dumps(
-                {
-                    "iteration": 1,
-                    "new_findings": [],
-                    "fixes_applied": [],
-                    "no_new_findings": "false",
-                    "no_actionable_fixes": "false",
-                }
+                _deep_result(
+                    {
+                        "iteration": 1,
+                        "new_findings": [],
+                        "fixes_applied": [],
+                        "no_new_findings": "false",
+                        "no_actionable_fixes": "false",
+                    }
+                )
             ),
             encoding="utf-8",
         )
@@ -1738,22 +1852,24 @@ class TestDeepStep:
         result = tmp_path / "result.json"
         result.write_text(
             json.dumps(
-                {
-                    "iteration": 1,
-                    "new_findings": [
-                        {
-                            "file": "a.py",
-                            "line": 1,
-                            "category": "x",
-                            "summary": "s",
-                            "pre_edit_content": "",
-                            "post_edit_content": "",
-                        }
-                    ],
-                    "fixes_applied": [],
-                    "no_new_findings": False,
-                    "no_actionable_fixes": True,
-                }
+                _deep_result(
+                    {
+                        "iteration": 1,
+                        "new_findings": [
+                            {
+                                "file": "a.py",
+                                "line": 1,
+                                "category": "x",
+                                "summary": "s",
+                                "pre_edit_content": "",
+                                "post_edit_content": "",
+                            }
+                        ],
+                        "fixes_applied": [],
+                        "no_new_findings": False,
+                        "no_actionable_fixes": True,
+                    }
+                )
             ),
             encoding="utf-8",
         )
@@ -1777,31 +1893,33 @@ class TestDeepStep:
         result = tmp_path / "result.json"
         result.write_text(
             json.dumps(
-                {
-                    "iteration": 1,
-                    "new_findings": [
-                        {
-                            "file": "a.py",
-                            "line": 1,
-                            "category": "x",
-                            "summary": "s",
-                            "pre_edit_content": "a",
-                            "post_edit_content": "b",
-                        }
-                    ],
-                    "fixes_applied": [
-                        {
-                            "file": "a.py",
-                            "line": 1,
-                            "category": "x",
-                            "summary": "s",
-                            "pre_edit_content": "a",
-                            "post_edit_content": "b",
-                        }
-                    ],
-                    "no_new_findings": False,
-                    "no_actionable_fixes": False,
-                }
+                _deep_result(
+                    {
+                        "iteration": 1,
+                        "new_findings": [
+                            {
+                                "file": "a.py",
+                                "line": 1,
+                                "category": "x",
+                                "summary": "s",
+                                "pre_edit_content": "a",
+                                "post_edit_content": "b",
+                            }
+                        ],
+                        "fixes_applied": [
+                            {
+                                "file": "a.py",
+                                "line": 1,
+                                "category": "x",
+                                "summary": "s",
+                                "pre_edit_content": "a",
+                                "post_edit_content": "b",
+                            }
+                        ],
+                        "no_new_findings": False,
+                        "no_actionable_fixes": False,
+                    }
+                )
             ),
             encoding="utf-8",
         )
@@ -1853,10 +1971,11 @@ class TestDeepStep:
         monkeypatch.setattr(
             cli,
             "restore_working_tree",
-            lambda stash, head, _cwd, **_kw: restore_calls.append((stash, head)),
+            lambda stash, head, _cwd, **_kw: restore_calls.append((stash, head))
+            or True,
         )
         result = tmp_path / "result.json"
-        result.write_text(json.dumps(_one_fix_result()), encoding="utf-8")
+        result.write_text(json.dumps(_deep_result(_one_fix_result())), encoding="utf-8")
 
         exit_code = _run(
             "deep-step", "--progress-file", str(ppath), "--result-file", str(result)
@@ -1892,15 +2011,18 @@ class TestDeepStep:
 
         monkeypatch.setattr(cli, "restore_working_tree", boom_restore)
         result = tmp_path / "result.json"
-        result.write_text(json.dumps(_one_fix_result()), encoding="utf-8")
+        result.write_text(json.dumps(_deep_result(_one_fix_result())), encoding="utf-8")
 
         exit_code = _run(
             "deep-step", "--progress-file", str(ppath), "--result-file", str(result)
         )
-        assert exit_code == 0  # did not crash despite the restore RuntimeError
-        history = _read_progress(ppath)["iteration_history"][-1]
-        assert history["fixed"] == 0
-        assert history["reverted"] == 1
+        assert exit_code == 1
+        data = _read_progress(ppath)
+        assert "locked index" in data["_safety_error"]
+        assert "_validated_tree" not in data
+        assert (
+            data["iteration_history"] == []
+        )  # Never claim a failed restore reverted work.
 
     def test_configured_timeout_is_threaded_to_run_tests(self, tmp_path, monkeypatch):
         # config.test_timeout (set by `baseline`) must reach run_tests.
@@ -1916,7 +2038,7 @@ class TestDeepStep:
 
         monkeypatch.setattr(cli, "run_tests", fake_run_tests)
         result = tmp_path / "result.json"
-        result.write_text(json.dumps(_one_fix_result()), encoding="utf-8")
+        result.write_text(json.dumps(_deep_result(_one_fix_result())), encoding="utf-8")
         _run("deep-step", "--progress-file", str(ppath), "--result-file", str(result))
         assert captured["timeout"] == 777
 
@@ -1932,7 +2054,7 @@ class TestDeepStep:
 
         monkeypatch.setattr(cli, "run_tests", fake_run_tests)
         result = tmp_path / "result.json"
-        result.write_text(json.dumps(_one_fix_result()), encoding="utf-8")
+        result.write_text(json.dumps(_deep_result(_one_fix_result())), encoding="utf-8")
         _run("deep-step", "--progress-file", str(ppath), "--result-file", str(result))
         assert captured["timeout"] == DEFAULT_TEST_TIMEOUT
 
@@ -1945,22 +2067,24 @@ class TestDeepStep:
         result = tmp_path / "result.json"
         result.write_text(
             json.dumps(
-                {
-                    "iteration": 1,
-                    "new_findings": [
-                        {
-                            "file": "a.py",
-                            "line": 1,
-                            "category": "x",
-                            "summary": "s",
-                            "pre_edit_content": "",
-                            "post_edit_content": "",
-                        }
-                    ],
-                    "fixes_applied": [],
-                    "no_new_findings": False,
-                    "no_actionable_fixes": False,
-                }
+                _deep_result(
+                    {
+                        "iteration": 1,
+                        "new_findings": [
+                            {
+                                "file": "a.py",
+                                "line": 1,
+                                "category": "x",
+                                "summary": "s",
+                                "pre_edit_content": "",
+                                "post_edit_content": "",
+                            }
+                        ],
+                        "fixes_applied": [],
+                        "no_new_findings": False,
+                        "no_actionable_fixes": False,
+                    }
+                )
             ),
             encoding="utf-8",
         )
@@ -1985,6 +2109,7 @@ class TestDeepStep:
         # special-case in _make_bisect_callback could drift unnoticed.
         ppath = _seed_deep_progress(tmp_path)
         monkeypatch.setattr(cli, "run_tests", lambda *a, **kw: (False, "FAIL"))
+        monkeypatch.setattr(cli, "restore_working_tree", lambda *a, **kw: True)
 
         def _stub_bisect(
             fixes, _tc, _cwd, run_tests_fn=None, on_outcome=None, reset_to_clean=None
@@ -1997,31 +2122,33 @@ class TestDeepStep:
         result = tmp_path / "result.json"
         result.write_text(
             json.dumps(
-                {
-                    "iteration": 1,
-                    "new_findings": [
-                        {
-                            "file": "a.py",
-                            "line": 1,
-                            "category": "x",
-                            "summary": "s",
-                            "pre_edit_content": "a",
-                            "post_edit_content": "b",
-                        }
-                    ],
-                    "fixes_applied": [
-                        {
-                            "file": "a.py",
-                            "line": 1,
-                            "category": "x",
-                            "summary": "s",
-                            "pre_edit_content": "a",
-                            "post_edit_content": "b",
-                        }
-                    ],
-                    "no_new_findings": False,
-                    "no_actionable_fixes": False,
-                }
+                _deep_result(
+                    {
+                        "iteration": 1,
+                        "new_findings": [
+                            {
+                                "file": "a.py",
+                                "line": 1,
+                                "category": "x",
+                                "summary": "s",
+                                "pre_edit_content": "a",
+                                "post_edit_content": "b",
+                            }
+                        ],
+                        "fixes_applied": [
+                            {
+                                "file": "a.py",
+                                "line": 1,
+                                "category": "x",
+                                "summary": "s",
+                                "pre_edit_content": "a",
+                                "post_edit_content": "b",
+                            }
+                        ],
+                        "no_new_findings": False,
+                        "no_actionable_fixes": False,
+                    }
+                )
             ),
             encoding="utf-8",
         )
@@ -2050,22 +2177,24 @@ class TestDeepStep:
         result = tmp_path / "result.json"
         result.write_text(
             json.dumps(
-                {
-                    "iteration": 1,
-                    "new_findings": [
-                        {
-                            "file": "a.py",
-                            "line": 1,
-                            "category": "x",
-                            "summary": "s",
-                            "pre_edit_content": "a",
-                            "post_edit_content": "b",
-                        }
-                    ],
-                    "fixes_applied": [],
-                    "no_new_findings": False,
-                    "no_actionable_fixes": True,
-                }
+                _deep_result(
+                    {
+                        "iteration": 1,
+                        "new_findings": [
+                            {
+                                "file": "a.py",
+                                "line": 1,
+                                "category": "x",
+                                "summary": "s",
+                                "pre_edit_content": "a",
+                                "post_edit_content": "b",
+                            }
+                        ],
+                        "fixes_applied": [],
+                        "no_new_findings": False,
+                        "no_actionable_fixes": True,
+                    }
+                )
             ),
             encoding="utf-8",
         )
@@ -2093,30 +2222,32 @@ class TestDeepStep:
         result = tmp_path / "result.json"
         result.write_text(
             json.dumps(
-                {
-                    "iteration": 1,
-                    "new_findings": [
-                        {
-                            "file": "a.py",
-                            "line": 1,
-                            "category": "x",
-                            "summary": "s",
-                            "pre_edit_content": "a",
-                            "post_edit_content": "a",
-                        },
-                        {
-                            "file": "b.py",
-                            "line": 1,
-                            "category": "x",
-                            "summary": "s",
-                            "pre_edit_content": "a",
-                            "post_edit_content": None,
-                        },
-                    ],
-                    "fixes_applied": [],
-                    "no_new_findings": False,
-                    "no_actionable_fixes": True,
-                }
+                _deep_result(
+                    {
+                        "iteration": 1,
+                        "new_findings": [
+                            {
+                                "file": "a.py",
+                                "line": 1,
+                                "category": "x",
+                                "summary": "s",
+                                "pre_edit_content": "a",
+                                "post_edit_content": "a",
+                            },
+                            {
+                                "file": "b.py",
+                                "line": 1,
+                                "category": "x",
+                                "summary": "s",
+                                "pre_edit_content": "a",
+                                "post_edit_content": None,
+                            },
+                        ],
+                        "fixes_applied": [],
+                        "no_new_findings": False,
+                        "no_actionable_fixes": True,
+                    }
+                )
             ),
             encoding="utf-8",
         )
@@ -2155,35 +2286,37 @@ class TestDeepStep:
             return len(fixes), 0, 0
 
         monkeypatch.setattr(cli, "bisect_fixes", _stub_bisect)
-        monkeypatch.setattr(cli, "restore_working_tree", lambda *a, **kw: None)
+        monkeypatch.setattr(cli, "restore_working_tree", lambda *a, **kw: True)
         result = tmp_path / "result.json"
         result.write_text(
             json.dumps(
-                {
-                    "iteration": 1,
-                    "new_findings": [
-                        {
-                            "file": "a.py",
-                            "line": 1,
-                            "category": "x",
-                            "summary": "s",
-                            "pre_edit_content": "a",
-                            "post_edit_content": "b",
-                        }
-                    ],
-                    "fixes_applied": [
-                        {
-                            "file": "a.py",
-                            "line": 1,
-                            "category": "x",
-                            "summary": "s",
-                            "pre_edit_content": "a",
-                            "post_edit_content": "b",
-                        }
-                    ],
-                    "no_new_findings": False,
-                    "no_actionable_fixes": False,
-                }
+                _deep_result(
+                    {
+                        "iteration": 1,
+                        "new_findings": [
+                            {
+                                "file": "a.py",
+                                "line": 1,
+                                "category": "x",
+                                "summary": "s",
+                                "pre_edit_content": "a",
+                                "post_edit_content": "b",
+                            }
+                        ],
+                        "fixes_applied": [
+                            {
+                                "file": "a.py",
+                                "line": 1,
+                                "category": "x",
+                                "summary": "s",
+                                "pre_edit_content": "a",
+                                "post_edit_content": "b",
+                            }
+                        ],
+                        "no_new_findings": False,
+                        "no_actionable_fixes": False,
+                    }
+                )
             ),
             encoding="utf-8",
         )
@@ -2208,8 +2341,9 @@ class TestDeepStep:
         assert data["iteration_history"][-1]["reverted"] == 1
 
     def test_all_reverted(self, tmp_path, capsys, monkeypatch):
-        # When bisection reverts every fix, deep-step prints "all-reverted"
-        # and records termination.reason accordingly.
+        # When bisection reverts every fix, deep-step prints "all-reverted",
+        # records termination.reason accordingly, and rebuilds the whole
+        # pre-iteration tree (bisection resets tracked files only).
         ppath = _seed_deep_progress(tmp_path)
         (tmp_path / "a.py").write_text("a", encoding="utf-8")
         monkeypatch.setattr(cli, "run_tests", lambda *a, **kw: (False, "FAIL"))
@@ -2222,34 +2356,40 @@ class TestDeepStep:
             return 0, len(fixes), 0
 
         monkeypatch.setattr(cli, "bisect_fixes", _stub_bisect)
+        restores = []
+        monkeypatch.setattr(
+            cli, "restore_working_tree", lambda *a, **kw: restores.append(a) or True
+        )
         result = tmp_path / "result.json"
         result.write_text(
             json.dumps(
-                {
-                    "iteration": 1,
-                    "new_findings": [
-                        {
-                            "file": "a.py",
-                            "line": 1,
-                            "category": "x",
-                            "summary": "s",
-                            "pre_edit_content": "a",
-                            "post_edit_content": "b",
-                        }
-                    ],
-                    "fixes_applied": [
-                        {
-                            "file": "a.py",
-                            "line": 1,
-                            "category": "x",
-                            "summary": "s",
-                            "pre_edit_content": "a",
-                            "post_edit_content": "b",
-                        }
-                    ],
-                    "no_new_findings": False,
-                    "no_actionable_fixes": False,
-                }
+                _deep_result(
+                    {
+                        "iteration": 1,
+                        "new_findings": [
+                            {
+                                "file": "a.py",
+                                "line": 1,
+                                "category": "x",
+                                "summary": "s",
+                                "pre_edit_content": "a",
+                                "post_edit_content": "b",
+                            }
+                        ],
+                        "fixes_applied": [
+                            {
+                                "file": "a.py",
+                                "line": 1,
+                                "category": "x",
+                                "summary": "s",
+                                "pre_edit_content": "a",
+                                "post_edit_content": "b",
+                            }
+                        ],
+                        "no_new_findings": False,
+                        "no_actionable_fixes": False,
+                    }
+                )
             ),
             encoding="utf-8",
         )
@@ -2264,6 +2404,7 @@ class TestDeepStep:
         assert capsys.readouterr().out.strip() == "all-reverted"
         data = _read_progress(ppath)
         assert data["termination"]["reason"] == "all-reverted"
+        assert len(restores) == 1
 
     def test_interaction_bug_demotes_retained_fix(self, tmp_path, capsys, monkeypatch):
         # Symmetric to test_interaction_bug_combined_regression but for the
@@ -2285,35 +2426,37 @@ class TestDeepStep:
             return len(fixes), 0, 0
 
         monkeypatch.setattr(cli, "bisect_fixes", _stub_bisect)
-        monkeypatch.setattr(cli, "restore_working_tree", lambda *a, **kw: None)
+        monkeypatch.setattr(cli, "restore_working_tree", lambda *a, **kw: True)
         result = tmp_path / "result.json"
         result.write_text(
             json.dumps(
-                {
-                    "iteration": 1,
-                    "new_findings": [
-                        {
-                            "file": "a.py",
-                            "line": 1,
-                            "category": "x",
-                            "summary": "s",
-                            "pre_edit_content": "a",
-                            "post_edit_content": "b",
-                        }
-                    ],
-                    "fixes_applied": [
-                        {
-                            "file": "a.py",
-                            "line": 1,
-                            "category": "x",
-                            "summary": "s",
-                            "pre_edit_content": "a",
-                            "post_edit_content": "b",
-                        }
-                    ],
-                    "no_new_findings": False,
-                    "no_actionable_fixes": False,
-                }
+                _deep_result(
+                    {
+                        "iteration": 1,
+                        "new_findings": [
+                            {
+                                "file": "a.py",
+                                "line": 1,
+                                "category": "x",
+                                "summary": "s",
+                                "pre_edit_content": "a",
+                                "post_edit_content": "b",
+                            }
+                        ],
+                        "fixes_applied": [
+                            {
+                                "file": "a.py",
+                                "line": 1,
+                                "category": "x",
+                                "summary": "s",
+                                "pre_edit_content": "a",
+                                "post_edit_content": "b",
+                            }
+                        ],
+                        "no_new_findings": False,
+                        "no_actionable_fixes": False,
+                    }
+                )
             ),
             encoding="utf-8",
         )
@@ -2345,6 +2488,7 @@ def _seed_coverage_progress(tmp_path, *, cycle=1):
         "harness": "test-coverage",
         "skill": "unit-test",
         "started_at": "2025-01-01T00:00:00Z",
+        "_validated_tree": "fixture-green",
         "config": {
             "max_cycles": 5,
             "test_command": "pytest",
@@ -2380,22 +2524,24 @@ class TestUnitTestStep:
         result = tmp_path / "result.json"
         result.write_text(
             json.dumps(
-                {
-                    "iteration": 1,
-                    "phase": "unit-test",
-                    "coverage": {
-                        "before": 50,
-                        "after": 50,
-                        "delta": 0,
-                        "tool": "pytest-cov",
-                    },
-                    "tests_written": [],
-                    "untestable_code": [],
-                    "bugs_discovered": [],
-                    "no_new_tests": True,
-                    "no_untestable_code": True,
-                    "no_coverage_gained": True,
-                }
+                _coverage_result(
+                    {
+                        "iteration": 1,
+                        "phase": "unit-test",
+                        "coverage": {
+                            "before": 50,
+                            "after": 50,
+                            "delta": 0,
+                            "tool": "pytest-cov",
+                        },
+                        "tests_written": [],
+                        "untestable_code": [],
+                        "bugs_discovered": [],
+                        "no_new_tests": True,
+                        "no_untestable_code": True,
+                        "no_coverage_gained": True,
+                    }
+                )
             ),
             encoding="utf-8",
         )
@@ -2419,41 +2565,43 @@ class TestUnitTestStep:
         result = tmp_path / "result.json"
         result.write_text(
             json.dumps(
-                {
-                    "iteration": 1,
-                    "phase": "unit-test",
-                    "coverage": {
-                        "before": 50,
-                        "after": 60,
-                        "delta": 10,
-                        "tool": "pytest-cov",
-                    },
-                    "tests_written": [
-                        {
-                            "file": "t.py",
-                            "target_file": "s.py",
-                            "target_description": "f()",
-                            "test_count": 3,
-                            "status": "pass",
-                            "failure_reason": None,
-                        }
-                    ],
-                    "untestable_code": [
-                        {
-                            "file": "u.py",
-                            "line": 1,
-                            "end_line": 2,
-                            "function": "g",
-                            "barrier": "x",
-                            "barrier_description": "y",
-                            "suggested_refactoring": "z",
-                        }
-                    ],
-                    "bugs_discovered": [],
-                    "no_new_tests": False,
-                    "no_untestable_code": False,
-                    "no_coverage_gained": False,
-                }
+                _coverage_result(
+                    {
+                        "iteration": 1,
+                        "phase": "unit-test",
+                        "coverage": {
+                            "before": 50,
+                            "after": 60,
+                            "delta": 10,
+                            "tool": "pytest-cov",
+                        },
+                        "tests_written": [
+                            {
+                                "file": "t.py",
+                                "target_file": "s.py",
+                                "target_description": "f()",
+                                "test_count": 3,
+                                "status": "pass",
+                                "failure_reason": None,
+                            }
+                        ],
+                        "untestable_code": [
+                            {
+                                "file": "u.py",
+                                "line": 1,
+                                "end_line": 2,
+                                "function": "g",
+                                "barrier": "x",
+                                "barrier_description": "y",
+                                "suggested_refactoring": "z",
+                            }
+                        ],
+                        "bugs_discovered": [],
+                        "no_new_tests": False,
+                        "no_untestable_code": False,
+                        "no_coverage_gained": False,
+                    }
+                )
             ),
             encoding="utf-8",
         )
@@ -2504,14 +2652,16 @@ class TestRefactorStep:
         result = tmp_path / "result.json"
         result.write_text(
             json.dumps(
-                {
-                    "cycle": 1,
-                    "phase": "refactor",
-                    "new_findings": [],
-                    "fixes_applied": [],
-                    "no_new_findings": True,
-                    "no_actionable_fixes": False,
-                }
+                _deep_result(
+                    {
+                        "cycle": 1,
+                        "phase": "refactor",
+                        "new_findings": [],
+                        "fixes_applied": [],
+                        "no_new_findings": True,
+                        "no_actionable_fixes": False,
+                    }
+                )
             ),
             encoding="utf-8",
         )
@@ -2541,23 +2691,25 @@ class TestRefactorStep:
         result = tmp_path / "result.json"
         result.write_text(
             json.dumps(
-                {
-                    "cycle": 1,
-                    "phase": "refactor",
-                    "new_findings": [
-                        {
-                            "file": "u.py",
-                            "line": 1,
-                            "category": "refactor",
-                            "summary": "s",
-                            "pre_edit_content": "",
-                            "post_edit_content": "",
-                        }
-                    ],
-                    "fixes_applied": [],
-                    "no_new_findings": False,
-                    "no_actionable_fixes": False,
-                }
+                _deep_result(
+                    {
+                        "cycle": 1,
+                        "phase": "refactor",
+                        "new_findings": [
+                            {
+                                "file": "u.py",
+                                "line": 1,
+                                "category": "refactor",
+                                "summary": "s",
+                                "pre_edit_content": "",
+                                "post_edit_content": "",
+                            }
+                        ],
+                        "fixes_applied": [],
+                        "no_new_findings": False,
+                        "no_actionable_fixes": False,
+                    }
+                )
             ),
             encoding="utf-8",
         )
@@ -2580,32 +2732,34 @@ class TestRefactorStep:
         result = tmp_path / "result.json"
         result.write_text(
             json.dumps(
-                {
-                    "cycle": 1,
-                    "phase": "refactor",
-                    "new_findings": [
-                        {
-                            "file": "u.py",
-                            "line": 1,
-                            "category": "refactor",
-                            "summary": "extract",
-                            "pre_edit_content": "a",
-                            "post_edit_content": "b",
-                        }
-                    ],
-                    "fixes_applied": [
-                        {
-                            "file": "u.py",
-                            "line": 1,
-                            "category": "refactor",
-                            "summary": "extract",
-                            "pre_edit_content": "a",
-                            "post_edit_content": "b",
-                        }
-                    ],
-                    "no_new_findings": False,
-                    "no_actionable_fixes": False,
-                }
+                _deep_result(
+                    {
+                        "cycle": 1,
+                        "phase": "refactor",
+                        "new_findings": [
+                            {
+                                "file": "u.py",
+                                "line": 1,
+                                "category": "refactor",
+                                "summary": "extract",
+                                "pre_edit_content": "a",
+                                "post_edit_content": "b",
+                            }
+                        ],
+                        "fixes_applied": [
+                            {
+                                "file": "u.py",
+                                "line": 1,
+                                "category": "refactor",
+                                "summary": "extract",
+                                "pre_edit_content": "a",
+                                "post_edit_content": "b",
+                            }
+                        ],
+                        "no_new_findings": False,
+                        "no_actionable_fixes": False,
+                    }
+                )
             ),
             encoding="utf-8",
         )
@@ -2638,23 +2792,25 @@ class TestRefactorStep:
         result = tmp_path / "result.json"
         result.write_text(
             json.dumps(
-                {
-                    "cycle": 1,
-                    "phase": "refactor",
-                    "new_findings": [],  # subagent did not echo the fix as a finding
-                    "fixes_applied": [
-                        {
-                            "file": "u.py",
-                            "line": 1,
-                            "category": "refactor",
-                            "summary": "extract",
-                            "pre_edit_content": "a",
-                            "post_edit_content": "b",
-                        }
-                    ],
-                    "no_new_findings": False,
-                    "no_actionable_fixes": False,
-                }
+                _deep_result(
+                    {
+                        "cycle": 1,
+                        "phase": "refactor",
+                        "new_findings": [],  # subagent did not echo the fix as a finding
+                        "fixes_applied": [
+                            {
+                                "file": "u.py",
+                                "line": 1,
+                                "category": "refactor",
+                                "summary": "extract",
+                                "pre_edit_content": "a",
+                                "post_edit_content": "b",
+                            }
+                        ],
+                        "no_new_findings": False,
+                        "no_actionable_fixes": False,
+                    }
+                )
             ),
             encoding="utf-8",
         )
@@ -2688,32 +2844,34 @@ class TestRefactorStep:
         result = tmp_path / "result.json"
         result.write_text(
             json.dumps(
-                {
-                    "cycle": 1,
-                    "phase": "refactor",
-                    "new_findings": [
-                        {
-                            "file": "pkg\\u.py",
-                            "line": 1,
-                            "category": "refactor",
-                            "summary": "s",
-                            "pre_edit_content": "a",
-                            "post_edit_content": "b",
-                        }
-                    ],
-                    "fixes_applied": [
-                        {
-                            "file": "pkg\\u.py",
-                            "line": 1,
-                            "category": "refactor",
-                            "summary": "s",
-                            "pre_edit_content": "a",
-                            "post_edit_content": "b",
-                        }
-                    ],
-                    "no_new_findings": False,
-                    "no_actionable_fixes": False,
-                }
+                _deep_result(
+                    {
+                        "cycle": 1,
+                        "phase": "refactor",
+                        "new_findings": [
+                            {
+                                "file": "pkg\\u.py",
+                                "line": 1,
+                                "category": "refactor",
+                                "summary": "s",
+                                "pre_edit_content": "a",
+                                "post_edit_content": "b",
+                            }
+                        ],
+                        "fixes_applied": [
+                            {
+                                "file": "pkg\\u.py",
+                                "line": 1,
+                                "category": "refactor",
+                                "summary": "s",
+                                "pre_edit_content": "a",
+                                "post_edit_content": "b",
+                            }
+                        ],
+                        "no_new_findings": False,
+                        "no_actionable_fixes": False,
+                    }
+                )
             ),
             encoding="utf-8",
         )
@@ -2739,6 +2897,7 @@ class TestRefactorStep:
         ppath = _seed_coverage_progress_with_untestable(tmp_path, files=["u.py"])
         (tmp_path / "u.py").write_text("a", encoding="utf-8")
         monkeypatch.setattr(cli, "run_tests", lambda *a, **kw: (False, "FAIL"))
+        monkeypatch.setattr(cli, "restore_working_tree", lambda *a, **kw: True)
 
         def _stub_bisect(
             fixes, _tc, _cwd, run_tests_fn=None, on_outcome=None, reset_to_clean=None
@@ -2751,32 +2910,34 @@ class TestRefactorStep:
         result = tmp_path / "result.json"
         result.write_text(
             json.dumps(
-                {
-                    "cycle": 1,
-                    "phase": "refactor",
-                    "new_findings": [
-                        {
-                            "file": "u.py",
-                            "line": 1,
-                            "category": "refactor",
-                            "summary": "s",
-                            "pre_edit_content": "a",
-                            "post_edit_content": "b",
-                        }
-                    ],
-                    "fixes_applied": [
-                        {
-                            "file": "u.py",
-                            "line": 1,
-                            "category": "refactor",
-                            "summary": "s",
-                            "pre_edit_content": "a",
-                            "post_edit_content": "b",
-                        }
-                    ],
-                    "no_new_findings": False,
-                    "no_actionable_fixes": False,
-                }
+                _deep_result(
+                    {
+                        "cycle": 1,
+                        "phase": "refactor",
+                        "new_findings": [
+                            {
+                                "file": "u.py",
+                                "line": 1,
+                                "category": "refactor",
+                                "summary": "s",
+                                "pre_edit_content": "a",
+                                "post_edit_content": "b",
+                            }
+                        ],
+                        "fixes_applied": [
+                            {
+                                "file": "u.py",
+                                "line": 1,
+                                "category": "refactor",
+                                "summary": "s",
+                                "pre_edit_content": "a",
+                                "post_edit_content": "b",
+                            }
+                        ],
+                        "no_new_findings": False,
+                        "no_actionable_fixes": False,
+                    }
+                )
             ),
             encoding="utf-8",
         )
@@ -2806,35 +2967,39 @@ class TestRefactorStep:
             return 0, len(fixes), 0
 
         monkeypatch.setattr(cli, "bisect_fixes", _stub_bisect)
+        # All fixes reverted → the phase rebuilds the pre-cycle tree.
+        monkeypatch.setattr(cli, "restore_working_tree", lambda *a, **kw: True)
         result = tmp_path / "result.json"
         result.write_text(
             json.dumps(
-                {
-                    "cycle": 1,
-                    "phase": "refactor",
-                    "new_findings": [
-                        {
-                            "file": "u.py",
-                            "line": 1,
-                            "category": "refactor",
-                            "summary": "s",
-                            "pre_edit_content": "a",
-                            "post_edit_content": "b",
-                        }
-                    ],
-                    "fixes_applied": [
-                        {
-                            "file": "u.py",
-                            "line": 1,
-                            "category": "refactor",
-                            "summary": "s",
-                            "pre_edit_content": "a",
-                            "post_edit_content": "b",
-                        }
-                    ],
-                    "no_new_findings": False,
-                    "no_actionable_fixes": False,
-                }
+                _deep_result(
+                    {
+                        "cycle": 1,
+                        "phase": "refactor",
+                        "new_findings": [
+                            {
+                                "file": "u.py",
+                                "line": 1,
+                                "category": "refactor",
+                                "summary": "s",
+                                "pre_edit_content": "a",
+                                "post_edit_content": "b",
+                            }
+                        ],
+                        "fixes_applied": [
+                            {
+                                "file": "u.py",
+                                "line": 1,
+                                "category": "refactor",
+                                "summary": "s",
+                                "pre_edit_content": "a",
+                                "post_edit_content": "b",
+                            }
+                        ],
+                        "no_new_findings": False,
+                        "no_actionable_fixes": False,
+                    }
+                )
             ),
             encoding="utf-8",
         )
@@ -2876,36 +3041,38 @@ class TestRefactorStep:
             return len(fixes), 0, 0
 
         monkeypatch.setattr(cli, "bisect_fixes", _stub_bisect)
-        monkeypatch.setattr(cli, "restore_working_tree", lambda *a, **kw: None)
+        monkeypatch.setattr(cli, "restore_working_tree", lambda *a, **kw: True)
         result = tmp_path / "result.json"
         result.write_text(
             json.dumps(
-                {
-                    "cycle": 1,
-                    "phase": "refactor",
-                    "new_findings": [
-                        {
-                            "file": "u.py",
-                            "line": 1,
-                            "category": "refactor",
-                            "summary": "s",
-                            "pre_edit_content": "a",
-                            "post_edit_content": "b",
-                        }
-                    ],
-                    "fixes_applied": [
-                        {
-                            "file": "u.py",
-                            "line": 1,
-                            "category": "refactor",
-                            "summary": "s",
-                            "pre_edit_content": "a",
-                            "post_edit_content": "b",
-                        }
-                    ],
-                    "no_new_findings": False,
-                    "no_actionable_fixes": False,
-                }
+                _deep_result(
+                    {
+                        "cycle": 1,
+                        "phase": "refactor",
+                        "new_findings": [
+                            {
+                                "file": "u.py",
+                                "line": 1,
+                                "category": "refactor",
+                                "summary": "s",
+                                "pre_edit_content": "a",
+                                "post_edit_content": "b",
+                            }
+                        ],
+                        "fixes_applied": [
+                            {
+                                "file": "u.py",
+                                "line": 1,
+                                "category": "refactor",
+                                "summary": "s",
+                                "pre_edit_content": "a",
+                                "post_edit_content": "b",
+                            }
+                        ],
+                        "no_new_findings": False,
+                        "no_actionable_fixes": False,
+                    }
+                )
             ),
             encoding="utf-8",
         )
@@ -3710,13 +3877,15 @@ class TestSnapshotFreshnessGuard:
         result = tmp_path / "result.json"
         result.write_text(
             json.dumps(
-                {
-                    "iteration": 3,
-                    "new_findings": [],
-                    "fixes_applied": [],
-                    "no_new_findings": False,
-                    "no_actionable_fixes": True,
-                }
+                _deep_result(
+                    {
+                        "iteration": 3,
+                        "new_findings": [],
+                        "fixes_applied": [],
+                        "no_new_findings": False,
+                        "no_actionable_fixes": True,
+                    }
+                )
             ),
             encoding="utf-8",
         )
@@ -3734,12 +3903,14 @@ class TestSnapshotFreshnessGuard:
         result = tmp_path / "result.json"
         result.write_text(
             json.dumps(
-                {
-                    "coverage": {},
-                    "tests_written": [],
-                    "untestable_code": [],
-                    "bugs_discovered": [],
-                }
+                _coverage_result(
+                    {
+                        "coverage": {},
+                        "tests_written": [],
+                        "untestable_code": [],
+                        "bugs_discovered": [],
+                    }
+                )
             ),
             encoding="utf-8",
         )
@@ -3760,7 +3931,8 @@ class TestSnapshotFreshnessGuard:
         ppath.write_text(json.dumps(data), encoding="utf-8")
         result = tmp_path / "result.json"
         result.write_text(
-            json.dumps({"new_findings": [], "fixes_applied": []}), encoding="utf-8"
+            json.dumps(_deep_result({"new_findings": [], "fixes_applied": []})),
+            encoding="utf-8",
         )
         exit_code = _run(
             "refactor-step",
@@ -3783,13 +3955,15 @@ class TestSnapshotFreshnessGuard:
         result = tmp_path / "result.json"
         result.write_text(
             json.dumps(
-                {
-                    "iteration": 1,
-                    "new_findings": [],
-                    "fixes_applied": [],
-                    "no_new_findings": False,
-                    "no_actionable_fixes": True,
-                }
+                _deep_result(
+                    {
+                        "iteration": 1,
+                        "new_findings": [],
+                        "fixes_applied": [],
+                        "no_new_findings": False,
+                        "no_actionable_fixes": True,
+                    }
+                )
             ),
             encoding="utf-8",
         )
@@ -3813,23 +3987,25 @@ class TestUnitTestStepStateMerge:
         result = tmp_path / "result.json"
         result.write_text(
             json.dumps(
-                {
-                    "coverage": {
-                        "before": 50,
-                        "after": 60,
-                        "delta": 10,
-                        "tool": "pytest-cov",
-                    },
-                    "tests_written": [{"file": "t.py", "target_file": "s.py"}],
-                    "untestable_code": [
-                        {**dup, "barrier": "global state"},
-                        {**dup, "barrier": "duplicate - same key"},
-                    ],
-                    "bugs_discovered": [{"file": "b.py", "summary": "off-by-one"}],
-                    "no_new_tests": False,
-                    "no_untestable_code": False,
-                    "no_coverage_gained": False,
-                }
+                _coverage_result(
+                    {
+                        "coverage": {
+                            "before": 50,
+                            "after": 60,
+                            "delta": 10,
+                            "tool": "pytest-cov",
+                        },
+                        "tests_written": [{"file": "t.py", "target_file": "s.py"}],
+                        "untestable_code": [
+                            {**dup, "barrier": "global state"},
+                            {**dup, "barrier": "duplicate - same key"},
+                        ],
+                        "bugs_discovered": [{"file": "b.py", "summary": "off-by-one"}],
+                        "no_new_tests": False,
+                        "no_untestable_code": False,
+                        "no_coverage_gained": False,
+                    }
+                )
             ),
             encoding="utf-8",
         )
@@ -3863,15 +4039,17 @@ class TestUnitTestStepStateMerge:
         result = tmp_path / "result.json"
         result.write_text(
             json.dumps(
-                {
-                    "coverage": {"before": 42, "after": 42, "delta": "0"},
-                    "tests_written": [],
-                    "untestable_code": [],
-                    "bugs_discovered": [],
-                    "no_new_tests": False,
-                    "no_untestable_code": False,
-                    "no_coverage_gained": False,
-                }
+                _coverage_result(
+                    {
+                        "coverage": {"before": 42, "after": 42, "delta": "0"},
+                        "tests_written": [],
+                        "untestable_code": [],
+                        "bugs_discovered": [],
+                        "no_new_tests": False,
+                        "no_untestable_code": False,
+                        "no_coverage_gained": False,
+                    }
+                )
             ),
             encoding="utf-8",
         )
@@ -3895,15 +4073,17 @@ class TestUnitTestStepStateMerge:
         result = tmp_path / "result.json"
         result.write_text(
             json.dumps(
-                {
-                    "coverage": {"before": 40, "after": 55, "delta": False},
-                    "tests_written": [],
-                    "untestable_code": [],
-                    "bugs_discovered": [],
-                    "no_new_tests": False,
-                    "no_untestable_code": False,
-                    "no_coverage_gained": False,
-                }
+                _coverage_result(
+                    {
+                        "coverage": {"before": 40, "after": 55, "delta": False},
+                        "tests_written": [],
+                        "untestable_code": [],
+                        "bugs_discovered": [],
+                        "no_new_tests": False,
+                        "no_untestable_code": False,
+                        "no_coverage_gained": False,
+                    }
+                )
             ),
             encoding="utf-8",
         )
@@ -3929,15 +4109,17 @@ class TestUnitTestStepStateMerge:
         result = tmp_path / "result.json"
         result.write_text(
             json.dumps(
-                {
-                    "coverage": {"before": "41.5", "after": "41.5", "delta": None},
-                    "tests_written": [],
-                    "untestable_code": [],
-                    "bugs_discovered": [],
-                    "no_new_tests": False,
-                    "no_untestable_code": False,
-                    "no_coverage_gained": False,
-                }
+                _coverage_result(
+                    {
+                        "coverage": {"before": "41.5", "after": "41.5", "delta": None},
+                        "tests_written": [],
+                        "untestable_code": [],
+                        "bugs_discovered": [],
+                        "no_new_tests": False,
+                        "no_untestable_code": False,
+                        "no_coverage_gained": False,
+                    }
+                )
             ),
             encoding="utf-8",
         )
@@ -3964,19 +4146,21 @@ class TestUnitTestStepStateMerge:
         result = tmp_path / "result.json"
         result.write_text(
             json.dumps(
-                {
-                    "untestable_code": [
-                        {
-                            "file": "src\\pkg\\mod.py",
-                            "line": 5,
-                            "function": "f",
-                            "barrier": "global state",
-                        }
-                    ],
-                    "no_new_tests": False,
-                    "no_untestable_code": False,
-                    "no_coverage_gained": False,
-                }
+                _coverage_result(
+                    {
+                        "untestable_code": [
+                            {
+                                "file": "src\\pkg\\mod.py",
+                                "line": 5,
+                                "function": "f",
+                                "barrier": "global state",
+                            }
+                        ],
+                        "no_new_tests": False,
+                        "no_untestable_code": False,
+                        "no_coverage_gained": False,
+                    }
+                )
             ),
             encoding="utf-8",
         )
@@ -4026,13 +4210,15 @@ class TestPromoteActionableDedup:
         result = tmp_path / "result.json"
         result.write_text(
             json.dumps(
-                {
-                    "iteration": 1,
-                    "new_findings": [applied, fresh],
-                    "fixes_applied": [applied],
-                    "no_new_findings": False,
-                    "no_actionable_fixes": True,
-                }
+                _deep_result(
+                    {
+                        "iteration": 1,
+                        "new_findings": [applied, fresh],
+                        "fixes_applied": [applied],
+                        "no_new_findings": False,
+                        "no_actionable_fixes": True,
+                    }
+                )
             ),
             encoding="utf-8",
         )
@@ -4278,15 +4464,19 @@ class TestReviewFixRegressions:
         result = tmp_path / "result.json"
         result.write_text(
             json.dumps(
-                {
-                    "coverage": {"before": 50, "after": 70, "delta": 20},
-                    "tests_written": [{"file": "t.py", "status": "pass"}],
-                    "untestable_code": [{"file": "u.py", "line": 1, "function": "g"}],
-                    "bugs_discovered": [{"summary": "b"}],
-                    "no_new_tests": False,
-                    "no_untestable_code": False,
-                    "no_coverage_gained": False,
-                }
+                _coverage_result(
+                    {
+                        "coverage": {"before": 50, "after": 70, "delta": 20},
+                        "tests_written": [{"file": "t.py", "status": "pass"}],
+                        "untestable_code": [
+                            {"file": "u.py", "line": 1, "function": "g"}
+                        ],
+                        "bugs_discovered": [{"summary": "b"}],
+                        "no_new_tests": False,
+                        "no_untestable_code": False,
+                        "no_coverage_gained": False,
+                    }
+                )
             ),
             encoding="utf-8",
         )
@@ -4309,21 +4499,23 @@ class TestReviewFixRegressions:
         assert data["test_results"]["last_full_run"] == "fail"
 
     # --- B3: explicit JSON null array fields must not crash a step ---
-    def test_unit_test_step_tolerates_null_arrays(self, tmp_path, capsys, monkeypatch):
+    def test_unit_test_step_rejects_null_arrays(self, tmp_path, capsys, monkeypatch):
         ppath = _seed_coverage_progress(tmp_path)
         monkeypatch.setattr(cli, "run_tests", lambda *a, **kw: (True, "ok"))
         result = tmp_path / "result.json"
         result.write_text(
             json.dumps(
-                {
-                    "coverage": {"before": 50, "after": 50, "delta": 0},
-                    "tests_written": None,
-                    "untestable_code": None,
-                    "bugs_discovered": None,
-                    "no_new_tests": False,
-                    "no_untestable_code": False,
-                    "no_coverage_gained": False,
-                }
+                _coverage_result(
+                    {
+                        "coverage": {"before": 50, "after": 50, "delta": 0},
+                        "tests_written": None,
+                        "untestable_code": None,
+                        "bugs_discovered": None,
+                        "no_new_tests": False,
+                        "no_untestable_code": False,
+                        "no_coverage_gained": False,
+                    }
+                )
             ),
             encoding="utf-8",
         )
@@ -4334,21 +4526,23 @@ class TestReviewFixRegressions:
             "--result-file",
             str(result),
         )
-        assert exit_code == 0
-        assert capsys.readouterr().out.strip() == "continue"
+        assert exit_code == 1
+        assert "requires an array" in capsys.readouterr().err
 
-    def test_deep_step_tolerates_null_arrays(self, tmp_path, capsys, monkeypatch):
+    def test_deep_step_rejects_null_arrays(self, tmp_path, capsys, monkeypatch):
         ppath = _seed_deep_progress(tmp_path)
         monkeypatch.setattr(cli, "git_diff_has_changes", lambda *a, **k: False)
         result = tmp_path / "result.json"
         result.write_text(
             json.dumps(
-                {
-                    "new_findings": None,
-                    "fixes_applied": None,
-                    "no_new_findings": False,
-                    "no_actionable_fixes": True,
-                }
+                _deep_result(
+                    {
+                        "new_findings": None,
+                        "fixes_applied": None,
+                        "no_new_findings": False,
+                        "no_actionable_fixes": True,
+                    }
+                )
             ),
             encoding="utf-8",
         )
@@ -4359,8 +4553,8 @@ class TestReviewFixRegressions:
             "--result-file",
             str(result),
         )
-        assert exit_code == 0
-        assert capsys.readouterr().out.strip() == "no-actionable"
+        assert exit_code == 1
+        assert "requires an array" in capsys.readouterr().err
 
     # --- B4: a file-less untestable item is skipped, not stranded pending ---
     def test_unit_test_step_skips_fileless_untestable(
@@ -4371,18 +4565,20 @@ class TestReviewFixRegressions:
         result = tmp_path / "result.json"
         result.write_text(
             json.dumps(
-                {
-                    "coverage": {"before": 50, "after": 60, "delta": 10},
-                    "tests_written": [],
-                    "untestable_code": [
-                        {"line": 1, "function": "g", "barrier": "x"},
-                        {"file": "u.py", "line": 2, "function": "h"},
-                    ],
-                    "bugs_discovered": [],
-                    "no_new_tests": False,
-                    "no_untestable_code": False,
-                    "no_coverage_gained": False,
-                }
+                _coverage_result(
+                    {
+                        "coverage": {"before": 50, "after": 60, "delta": 10},
+                        "tests_written": [],
+                        "untestable_code": [
+                            {"line": 1, "function": "g", "barrier": "x"},
+                            {"file": "u.py", "line": 2, "function": "h"},
+                        ],
+                        "bugs_discovered": [],
+                        "no_new_tests": False,
+                        "no_untestable_code": False,
+                        "no_coverage_gained": False,
+                    }
+                )
             ),
             encoding="utf-8",
         )
@@ -4404,15 +4600,17 @@ class TestReviewFixRegressions:
         result = tmp_path / "result.json"
         result.write_text(
             json.dumps(
-                {
-                    "coverage": {"before": 80, "after": 80},
-                    "tests_written": [],
-                    "untestable_code": [],
-                    "bugs_discovered": [],
-                    "no_new_tests": False,
-                    "no_untestable_code": False,
-                    "no_coverage_gained": False,
-                }
+                _coverage_result(
+                    {
+                        "coverage": {"before": 80, "after": 80},
+                        "tests_written": [],
+                        "untestable_code": [],
+                        "bugs_discovered": [],
+                        "no_new_tests": False,
+                        "no_untestable_code": False,
+                        "no_coverage_gained": False,
+                    }
+                )
             ),
             encoding="utf-8",
         )
@@ -4435,7 +4633,9 @@ class TestReviewFixRegressions:
         monkeypatch.setattr(cli, "run_tests", lambda *a, **kw: (True, "ok"))
         result = tmp_path / "result.json"
         result.write_text(
-            '{"coverage": {"before": 41.5, "after": ' + "9" * 400 + ', "delta": null},'
+            '{"cycle": 1, "phase": "unit-test", "blocked": null, "coverage": {"before": 41.5, "after": '
+            + "9" * 400
+            + ', "delta": null},'
             ' "tests_written": [], "untestable_code": [], "bugs_discovered": [],'
             ' "no_new_tests": false, "no_untestable_code": false,'
             ' "no_coverage_gained": false}',
@@ -4469,18 +4669,20 @@ class TestReviewFixRegressions:
         result = tmp_path / "result.json"
         result.write_text(
             json.dumps(
-                {
-                    "coverage": {"before": 50, "after": 50, "delta": 0},
-                    "tests_written": [],
-                    "untestable_code": [
-                        {"file": "u.py", "line": 42, "function": "h"},
-                        {"file": "u.py", "line": "42", "function": "h"},
-                    ],
-                    "bugs_discovered": [],
-                    "no_new_tests": False,
-                    "no_untestable_code": False,
-                    "no_coverage_gained": False,
-                }
+                _coverage_result(
+                    {
+                        "coverage": {"before": 50, "after": 50, "delta": 0},
+                        "tests_written": [],
+                        "untestable_code": [
+                            {"file": "u.py", "line": 42, "function": "h"},
+                            {"file": "u.py", "line": "42", "function": "h"},
+                        ],
+                        "bugs_discovered": [],
+                        "no_new_tests": False,
+                        "no_untestable_code": False,
+                        "no_coverage_gained": False,
+                    }
+                )
             ),
             encoding="utf-8",
         )
@@ -4500,21 +4702,23 @@ class TestReviewFixRegressions:
         result = tmp_path / "result.json"
         result.write_text(
             json.dumps(
-                {
-                    "new_findings": [
-                        {
-                            "file": "a.py",
-                            "line": 1,
-                            "category": "x",
-                            "summary": "s",
-                            "pre_edit_content": 5,
-                            "post_edit_content": "b",
-                        }
-                    ],
-                    "fixes_applied": [],
-                    "no_new_findings": False,
-                    "no_actionable_fixes": True,
-                }
+                _deep_result(
+                    {
+                        "new_findings": [
+                            {
+                                "file": "a.py",
+                                "line": 1,
+                                "category": "x",
+                                "summary": "s",
+                                "pre_edit_content": 5,
+                                "post_edit_content": "b",
+                            }
+                        ],
+                        "fixes_applied": [],
+                        "no_new_findings": False,
+                        "no_actionable_fixes": True,
+                    }
+                )
             ),
             encoding="utf-8",
         )
