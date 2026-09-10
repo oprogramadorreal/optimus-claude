@@ -9,6 +9,8 @@ Under Codex, stop without changing files: this skill configures Claude Code only
 
 Configure permission rules and a path-restriction hook so Claude Code agents can work autonomously inside the project without constant prompts, while destructive operations outside it stay gated.
 
+To remove this setup while keeping init's artifacts, use `/optimus:reset permissions`.
+
 Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/managed-files.md`. Record installed hashes, template/review refresh eligibility, and only settings entries actually added in `.claude/.optimus-managed.json`; preserve prior records on reruns. A customized hook remains review-only after an approved merge updates its hash. Do not write `.claude/.optimus-version`.
 
 Security model in brief: the installed hook prompts on writes and blocks deletes outside the project (Claude's memory store and session scratchpad are exempt), asks before editing any precious unversioned file and blocks deleting the unrecoverable ones (a backup or IDE scratch file only asks), and blocks history-modifying git operations on protected branches. Inside the project, operations not on the deny list run without prompts.
