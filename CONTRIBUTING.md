@@ -279,4 +279,4 @@ A local checkout works too: `codex plugin marketplace add ./path/to/optimus-clau
 
 ## Version bumping
 
-Manifest versions affect update/cache behavior. If two refs have the same version, a host may reuse the cached release. Bump both `.claude-plugin/plugin.json` and `.codex-plugin/plugin.json` for meaningful releases and update the README badge and release notes. `.claude/.optimus-version` records this repository's last initialization; do not bump it merely to match a plugin release.
+Manifest versions affect update/cache behavior. If two refs have the same version, a host may reuse the cached release. Bump both `.claude-plugin/plugin.json` and `.codex-plugin/plugin.json` for meaningful releases and update the README badge. `.claude/.optimus-version` records this repository's last initialization; do not bump it merely to match a plugin release.
