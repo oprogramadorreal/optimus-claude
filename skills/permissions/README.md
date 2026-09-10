@@ -8,6 +8,8 @@ Part of the [optimus](https://github.com/oprogramadorreal/optimus-claude) plugin
 
 Claude Code only. In Codex, this skill stops without changing files; configure Codex's own sandbox and approval policy instead.
 
+To remove only this setup while keeping init's documents and formatter hooks, run [`/optimus:reset permissions`](../reset/README.md) in Claude Code or `$optimus:reset permissions` in Codex.
+
 ## Where This Fits
 
 | Approach | Prompts | Safety | Native Windows | Autonomous loops |

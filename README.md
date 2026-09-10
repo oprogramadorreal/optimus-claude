@@ -3,7 +3,7 @@
 </div>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-3.12.4-blue" alt="Version">
+  <img src="https://img.shields.io/badge/version-3.12.5-blue" alt="Version">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
   <img src="https://img.shields.io/badge/Claude_Code-plugin-blueviolet" alt="Claude Code">
   <img src="https://img.shields.io/badge/OpenAI_Codex-experimental-orange" alt="OpenAI Codex: experimental">
@@ -88,7 +88,7 @@ Open a skill's documentation for examples, options, and prerequisites. Run `init
 | [`/optimus:how-to-run`](skills/how-to-run/README.md) | Generate or refresh a `HOW-TO-RUN.md` for local setup and development. |
 | [`/optimus:permissions`](skills/permissions/README.md) | **Claude Code only:** configure branch protection, file safeguards, and routine tool permissions. |
 | [`/optimus:prompt`](skills/prompt/README.md) | Turn an idea into a copy-ready prompt for an AI tool. |
-| [`/optimus:reset`](skills/reset/README.md) | Remove Optimus-managed project files after confirmation, preserving tests and test configuration. Does not uninstall the plugin. |
+| [`/optimus:reset`](skills/reset/README.md) | Remove selected Optimus project artifacts; use `permissions` to remove only the permissions setup while keeping init. Preserves tests and does not uninstall the plugin. |
 | [`/optimus:dream`](skills/dream/README.md) | **Claude Code only:** review and consolidate stale auto-memory, with confirmation before deletion. |
 
 ## Recommended Workflow
