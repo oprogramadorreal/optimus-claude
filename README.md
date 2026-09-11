@@ -3,7 +3,7 @@
 </div>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-3.12.5-blue" alt="Version">
+  <img src="https://img.shields.io/badge/version-3.13.0-blue" alt="Version">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
   <img src="https://img.shields.io/badge/Claude_Code-plugin-blueviolet" alt="Claude Code">
   <img src="https://img.shields.io/badge/OpenAI_Codex-experimental-orange" alt="OpenAI Codex: experimental">
@@ -74,7 +74,7 @@ Open a skill's documentation for examples, options, and prerequisites. Run `init
 | [`/optimus:refactor`](skills/refactor/README.md) | Improve code against project guidelines, with optional `testability` or `guidelines` focus. |
 | [`/optimus:code-review`](skills/code-review/README.md) | Review local changes or a PR/MR for bugs, security issues, and guideline compliance. |
 | [`/optimus:deep`](skills/deep/README.md) | Repeat review, refactoring, or coverage passes with fixes, tests, and progress you can resume across sessions. |
-| [`/optimus:paper-init`](skills/paper-init/README.md) | Prepare a research paper's sources, references, and implementation spec before writing code. |
+| [`/optimus:paper-init`](skills/paper-init/README.md) | Prepare a paper's sources, implementation spec, and evidence-based reproduction criteria before writing code. |
 | [`/optimus:gauntlet`](skills/gauntlet/README.md) | Pursue an ambitious goal through builder/critic iterations against a concrete quality bar, until it passes or you stop. |
 
 ### Utility

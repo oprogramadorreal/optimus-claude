@@ -1,14 +1,12 @@
 ---
 description: >-
-  Builds a self-contained paper-context bundle for implementing a research
-  paper — sources, transcription, figures, references (blocking citations
-  fetched), an implementation spec with the reported results, open questions,
-  dataset provenance — under paper/, with datasets in a gitignored data/.
-  Warns when reproduction outstrips local hardware. Downloads files and edits
-  .gitignore and the root README. Stack-agnostic; writes no implementation
-  code. Use when implementing a paper from a URL, PDF, DOI, or arXiv id.
+  Prepares durable context for implementing and reproducing a paper from a
+  URL, PDF, DOI, or arXiv id: sources, source-linked requirements, empirical
+  acceptance criteria, uncertainties, scope, and data provenance under
+  paper/. Downloads files and updates .gitignore and README routing. Context
+  only: writes no implementation code and sets up no project stack.
 disable-model-invocation: true
-argument-hint: "<paper URL, PDF path, DOI, or arXiv id>"
+argument-hint: "<paper URL, PDF path, DOI, or arXiv id> [scope and resource constraints]"
 ---
 
 # Paper Init
@@ -41,8 +39,11 @@ One `paper/` directory at the project root holds everything paper-derived:
 - `paper/cited/` — pristine sources of the works the paper, or a fetched
   work in turn, defers load-bearing content to (step 3), when any were
   fetched. Nothing derived lives here.
-- `paper/spec.md` — what the paper actually specifies (step 3), ending with
-  the targets the implementation is later judged against.
+- `paper/spec.md` — what the paper actually specifies (step 3), including
+  its original reported targets with stable identifiers.
+- `paper/acceptance.md` — for empirical papers: selected scope, source-linked
+  requirements, experiment protocols, acceptance criteria, and the evidence a
+  later implementation must produce. Prepared in step 3, reconciled in step 8.
 - `paper/open-questions.md` — what the paper leaves open (step 3).
 - `paper/dataset.md` — dataset provenance and re-acquisition, when the paper
   uses datasets (step 6).
@@ -63,6 +64,10 @@ if none was given, ask for one. Resolve DOIs and arXiv ids to the source of
 record. If the paper is inaccessible (paywall, dead link), say so plainly and
 either stop or proceed from a file the user supplies.
 
+Use any supplied scope, resource budget, and reference-code restrictions;
+retain earlier authorized decisions without asking again. An unspecified
+budget does not authorize paid compute or services, or large downloads.
+
 When `git rev-parse --is-inside-work-tree` returns `true`, resolve its
 `--show-toplevel` and proceed in that working tree, including linked worktrees.
 A `.git` file alone does not distinguish them from submodules. Otherwise read
@@ -71,6 +76,10 @@ apply it: the bundle goes inside the target repo, not above it. When it
 detects a multi-repo workspace, ask which repo the paper work targets before
 writing anything — bundle, `.gitignore`, and README block all land there;
 when it finds no recognized structure, work in the current directory.
+
+If a bundle already exists, apply **Re-running** before the first write:
+resolve the paper identity and bundle root, read its metadata and available
+evaluation records, and preserve any bar/source versions that would be replaced.
 
 ## 2. Acquire sources
 
@@ -91,13 +100,20 @@ that is not the project stack — but install it isolated (pipx, a scratch
 venv, `pip install --target` into a temp dir), never into the project's own
 environment.
 
+Acquire public author clarifications, errata, and addenda that affect the
+method or results, recording their source and date. Do not contact authors
+without explicit authorization. Distinguish the paper version from later
+clarifications and keep conflicts visible until resolved.
+
 `metadata.json` records at minimum: `title`, `authors`, `venue`, `published`,
 `doi`, `url`, `license`, `downloaded` (date), `code_available` (with the
 paper's own availability sentence when it states one), `dataset_referenced`
 (name, URL, whether the paper redistributes it — full provenance and
-re-acquisition live in `paper/dataset.md`), and `local_files` — every file
-in `source/` mapped to its role and exact acquisition record (URL or
-command, and date; for a file the user supplied, the path it came from).
+re-acquisition live in `paper/dataset.md`), `source_revision` (version or
+publication revision), and `local_files` — every acquired source file mapped
+to its role, SHA-256, and exact acquisition record (URL or command, and date;
+for a file the user supplied, the path it came from). Do not hash the metadata
+file into itself. Include clarifications and supplementary sources.
 Add any further bibliographic fields the source offers. The test: a fresh
 clone can re-acquire every publicly fetchable file from this record alone.
 
@@ -108,21 +124,27 @@ clone can re-acquire every publicly fetchable file from this record alone.
   captions, tables inline (escape hatch: a separate `tables.md` when tables
   are numerous or large, linked both ways). Open with a provenance header
   naming the source of record. Its length is the paper's own.
-- `paper/spec.md` — only what the paper states, each fact tagged with its
-  section ref: data, architecture, training procedure (including the compute
-  the paper states — hardware, training time, scale), evaluation, baselines,
-  reported results. Architecture/training/eval tables carry a "defined enough
+- `paper/spec.md` — only what the sources state, each fact tagged with its
+  source and section: data and preprocessing, architecture, training procedure
+  (including stated hardware, time, scale, and seed/repeat policy), evaluation
+  and metric definition, baselines, ablations, and reported results.
+  Architecture/training/eval tables carry a "defined enough
   to implement?" column. Anything inferred, chosen, or assumed is labeled as
   ours or moves to `open-questions.md` — never present our choices as the
-  paper's. End with a short "targets worth holding the implementation to"
-  section — the quality bar the implementation is later judged against, so it
-  must stand on its own: the externally meaningful results (numbers, and
-  figures where the claim is qualitative), each with the metric, data,
+  paper's. End with a short "reported targets" section: externally meaningful
+  results (numbers, and figures where the claim is qualitative), with metric, data,
   protocol, and spread the paper reports, plus the cheaper checks the paper
   states along the way (dataset counts, parameter counts, a loss reached)
   that let part of the implementation be judged before a full run exists. A
   target the bundle cannot yet measure — data not on disk, a scorer or
-  protocol undefined — says what is missing. Keep the file under ~200 lines.
+  protocol undefined — says what is missing. Give targets stable IDs and
+  preserve the original values even when the project selects reduced scope.
+  Link empirical targets to `acceptance.md`; for a non-empirical paper, the
+  source-linked targets remain the standalone quality bar. If its selected
+  scope differs, add a clearly labeled selected-targets section and preserve
+  the original claims; the handoff uses that selected section. Keep the file
+  under ~200 lines; link detailed method tables when needed, never omit
+  implementation-critical facts just to meet the length guide.
 - `paper/references.md` — every reference the paper cites, annotated: role
   (dataset, baseline, method), resolved link, fetch priority. Step 4 appends
   the reference-code summary here when code exists.
@@ -133,20 +155,33 @@ clone can re-acquire every publicly fetchable file from this record alone.
   stack included (drawn from the paper and the project's existing stack if
   one exists). An open point with a defensible default says so and where it
   comes from (reference code, a cited work, common practice), so an
-  unattended implementation run proceeds instead of stalling on it. Mark a
-  finding `[verified]` only when checked against the local files during this
-  run — never for inference — open the file with a one-line legend saying
-  what the mark means, and settle now whatever those files can settle: no
-  verifiable-now TODO leaks into the implementation phase. Keep it under
-  ~150 lines.
+  unattended implementation run proceeds instead of stalling on it. Give
+  questions stable IDs, status (unresolved, assumed, resolved, superseded),
+  affected target IDs, evidence, and the decision's rationale and consequences.
+  Keep resolved choices and deviations as a durable decision history, linking
+  scope decisions to their authoritative record in `metadata.json`.
+  Mark a finding `[verified]` only when checked against local files during
+  preparation — never for inference or empirical reproduction. Open with
+  that legend. Settle what the sources can settle now, and recheck after
+  steps 4–6: no verifiable-now TODO leaks into implementation. Keep it under
+  ~150 lines, moving resolved history to linked overflow when necessary.
+
+For a paper with empirical claims, read
+`references/empirical-reproduction.md` now and prepare `acceptance.md` using
+its contract. Use one compact document by default; experiment overflow is
+conditional. For a survey or proof without empirical claims, skip it.
+For a short paper, extract inline. Delegate substantial, independent
+source sections, launching independent readers together with explicit sources,
+required provenance, and absolute paths. Reconcile conflicts and coverage
+yourself before writing the final bundle.
 
 When the paper defers load-bearing content to a citation — an inherited
 architecture, a borrowed training procedure, a dataset defined there — the
 bundle's contract covers that content too: fetch each such cited work's
 sources now, as in step 2, into `paper/cited/<slug>/`, and record each in
-a `cited_works` array in `metadata.json` (title, identifier, slug, license,
-and the acquisition record — URL and date, or the path it came from for a
-user-supplied file). Pull the specific facts the implementation needs from
+a `cited_works` array in `metadata.json` (title, identifier, source revision,
+slug, license, acquired-file hashes, and the acquisition record — URL and date,
+or the path it came from for a user-supplied file). Pull the specific facts it needs from
 it into `spec.md` or `open-questions.md`, tagged with provenance, and note
 in `references.md` why it was fetched — a work the paper itself never cites
 gets its own entry there. Apply the same test to each fetched work: when it
@@ -171,15 +206,23 @@ rasters — so regeneration stays diff-clean on any platform.
 ## 4. Reference code
 
 Check the paper's own links and project page, then search for official or
-third-party implementations. When code exists: vendor it into
+third-party implementations, subject to explicit user restrictions. Existing
+implementations are allowed reference material by default.
+When access and the user's scope permit, vendor available code into
 `paper/reference-code/` (gitignored — step 7), record its provenance as a
-`reference_code` object in `metadata.json` (upstream URL, exact commit or
-tag, vendor date, license) — that tracked file is what lets a fresh clone
-re-acquire the code; anything left inside `paper/reference-code/` itself is
-gitignored away. Add a what-it-reveals summary to `references.md`
-(hyperparameters, architecture details, training procedure). It is
-reference material, never the implementation. When none exists, record
-`code_available: false` in `metadata.json`.
+`reference_code` object in `metadata.json` (upstream URL, exact commit — resolve
+a tag to its commit when possible — vendor date, license). That tracked file
+lets a fresh clone re-acquire the code; the vendored directory is gitignored.
+Add a what-it-reveals summary to `references.md` (hyperparameters,
+architecture details, training procedure). Preparation only inspects and vendors
+it; a later implementation may reuse code within the user's scope and license,
+with attribution. Record whether it was inspected,
+unavailable, or excluded by the user's restriction separately from whether it
+exists. Use `code_available: false` only when no implementation was found,
+not for a failed fetch or prohibited inspection; unknown existence stays
+explicitly unknown. Paper/code conflicts go into `open-questions.md`,
+not silently into the paper's specification. Reconcile newly settled facts
+and affected acceptance criteria after inspection.
 
 ## 5. Feasibility
 
@@ -192,28 +235,35 @@ proof, a small-scale study); skip this step for them entirely.
   vendored reference code's own docs, which often state hardware. When
   neither states them, estimate from what the paper does record — model
   scale, dataset size, training steps — and label the figures as estimates.
+- Cover the selected experiment matrix, including repeats, baselines,
+  ablations, evaluation, storage, wall time, and external services. Record
+  portable requirements and supplied budget constraints in `acceptance.md`
+  (or `open-questions.md` when non-empirical), separating stated costs from
+  estimates. Cheap checks and reduced runs are useful separate targets;
+  they do not establish the original full-scale claims.
 - Detect the local GPU (model, VRAM) and RAM, and compare against what
   faithful reproduction needs. Detection tooling is not universal (no
   `nvidia-smi` on AMD or Apple Silicon machines): when it cannot answer,
   ask the user what the machine has — never read a failed detection as
   "no GPU".
-- When the gap makes the reported targets unreachable in practice — not
-  merely slower — ask once with `AskUserQuestion`: header "Hardware
-  feasibility", the question naming the limiting factor and the concessions
+- When the gap or an explicit budget makes the selected targets unreachable,
+  rather than merely slower, ask once with `AskUserQuestion`: header
+  "Resources", the question naming the limiting factor and the concessions
   that would close the gap (reduced scale, a dataset subset, quantized or
   distilled variants, different hardware), options "Continue anyway" /
   "Reduce scope" / "Pause — line up other hardware first".
-- Record the outcome where it binds. A reduced scope adjusts `spec.md`'s
-  targets section — that is the bar the implementation is later judged
-  against — gets a line in `open-questions.md`, may shrink what step 6
-  downloads, and is recorded in `metadata.json` (the decision and the
-  adjusted targets) so a refresh re-applies them rather than restoring the
-  paper's reported targets. "Continue anyway" leaves the targets untouched
-  and notes the hardware risk in `open-questions.md`. "Pause" stops the
+- Apply an already authorized scope decision without repeating the gate.
+  Record each decision, rationale, affected target IDs, and scope revision
+  in `metadata.json`. A reduced scope changes the selected bar in
+  `acceptance.md` (or the selected-scope section of a non-empirical `spec.md`),
+  leaves the original reported targets intact, gets
+  a linked line in `open-questions.md`, and may shrink step 6's downloads.
+  "Continue anyway" leaves the targets untouched and notes the resource
+  risk; it does not authorize extra spend. "Pause" stops the
   spend, not the bundle: step 6 writes re-acquisition steps into
   `dataset.md` instead of downloading, `open-questions.md` records the
-  pause, and the remaining steps finish so the bundle commits complete and
-  a re-run resumes it.
+  pause, and the remaining steps finish the context bundle with explicit
+  gaps so a re-run can resume it. Do not claim preparation is replication.
 - Never write the hardware inventory itself into the bundle — it stays
   machine-agnostic; only the decision and its consequences go on disk.
 
@@ -227,18 +277,30 @@ Identify every dataset the paper uses. Freely downloadable ones go into
 the source promises, and record the verified numbers. Write
 `paper/dataset.md`: provenance, exact re-acquisition commands, the verified
 counts, license and redistribution terms, and anything deliberately not
-downloaded. Keep it under ~200 lines. If the paper uses no external datasets,
-say so in one line of `paper/README.md`'s status and skip `dataset.md`,
+downloaded. Record dataset revision, splits and selection, raw-to-derived
+processing (filters, normalization, augmentation), leakage controls, and
+identity checks where specified. Link protocol gaps and experiment IDs;
+do not invent preprocessing to fill missing details. Keep it under ~200
+lines, using linked overflow for necessary detail. If the paper uses no
+external datasets, say so in one line of `paper/README.md`'s status and skip `dataset.md`,
 `data/`, and the gitignore pair entirely.
 
-Before a large download (GB-scale or hours of time), confirm with
-`AskUserQuestion` — header "Dataset download", question stating size and
+Before a large download (GB-scale or hours of time) not already authorized,
+confirm with `AskUserQuestion` — header "Dataset download", question stating size and
 source, options "Download now" / "Skip — write re-acquisition steps only".
 Small datasets download without asking. When a download is blocked (auth,
 license acceptance, a manual form), do not ask — write the exact steps into
 `dataset.md` and flag it in the final message.
 
 ## 7. Gitignore and routing
+
+Preserve acquired originals byte-for-byte across Git checkouts. For source/cited
+files intended for tracking whose acquisition hashes identify exact bytes, add narrowly
+scoped `-text` entries to `.gitattributes` so Git cannot normalize their line
+endings; exclude model-authored metadata and working forms. Verify the staged
+or committed source bytes still match their acquisition hashes when available.
+Do not change the treatment of unrelated user files. For datasets kept outside
+Git, the re-acquisition record and integrity checks remain authoritative.
 
 Each `.gitignore` rule below is independent — apply every one whose
 condition holds, adding only what is missing:
@@ -288,7 +350,24 @@ block; a `## Paper context` heading without markers is the user's own —
 leave it alone and append a new marked block. If no root README exists,
 skip — the bundle indexes itself.
 
-## 8. Final message
+## 8. Reconcile and hand off
+
+Reconcile `spec.md`, `acceptance.md` when present, `dataset.md`, and
+`open-questions.md` against the acquired sources, code findings, and verified
+data. Check every empirical claim has a scope disposition, every selected
+requirement has source and evidence links (or an explicit gap), and each
+experiment covers its required method, controls, and protocol. Settle newly
+answerable questions and preserve unresolved ones; do not manufacture
+results. Record the acceptance revision and its defining documents in
+`source/metadata.json` when present.
+The index gives the read order, selected scope, preparation status (complete
+or complete with gaps), remaining blockers, and evidence status (initially unverified).
+
+Put the empirical reference's handoff instructions in the index: review
+source coverage and unresolved criteria, then pin the bar and its linked
+protocols before the first critic remit. Preparation cannot invent a future
+commit or claim experimental success. For non-empirical papers, keep the
+source-linked targets and unresolved questions as the handoff bar.
 
 Close with: what the bundle contains and where; cited works — which were
 fetched and why, which the user supplied, and which remain gaps in
@@ -306,7 +385,15 @@ license-ignored sources) exist only in this checkout, so a worktree or fresh
 clone re-acquires them from the records or copies them in. Then start a
 fresh conversation with `/optimus:gauntlet`, printed as one paste-ready
 line: the goal names the bundle root with its index as the read-first entry,
-the bar its `spec.md` targets section.
+the bar its `acceptance.md` and referenced protocols/evidence contract
+(non-empirical fallback: `spec.md`'s selected targets, or reported targets when
+the scope is unchanged). Tell the fresh session
+to settle acceptance choices and pin that bar before the first critic remit.
+Passing the selected paper bar means faithful reproduction within its
+justified criteria. Scientific outperformance is unnecessary. The scope
+must be named in the result; reduced scope is
+never reported as reproducing the full paper. Gauntlet's independent review,
+execution, integration, stopping rules, and repository safeguards still apply.
 
 ## Re-running
 
@@ -314,10 +401,32 @@ Same paper — a resolved identifier (DOI, arXiv id) matches
 `source/metadata.json`, or one source names the other's identifier (an arXiv
 page listing the published DOI): refresh in place — update, don't duplicate,
 and keep the original acquisition records (append the refresh; a preprint's
-provenance is not overwritten by its published version's). A scope decision
-recorded in `metadata.json` (step 5) is not paper content: re-apply it to
-the regenerated `spec.md` targets rather than restoring the reported
-results. Cited works already in `paper/cited/` are kept, not re-fetched;
+provenance is not overwritten by its published version's). Preserve target
+and question IDs, decision rationale, and history. A scope decision in
+`metadata.json` binds the selected scope. For empirical papers, apply it in
+`acceptance.md`; `spec.md` keeps the original reported results. For older
+empirical bundles that reduced the spec's targets, migrate those decisions
+into acceptance and recover the paper's
+originals from sources. Surface conflicts when a new source revision makes
+an earlier decision inapplicable; never silently drop or reinterpret it.
+Retire removed requirement IDs with a reason instead of reusing or renumbering
+them. Read existing decision ledgers, including `decisions.md` if present;
+preserve them and do not reopen settled questions without new evidence.
+
+Before replacing context used by an active or past evaluation, preserve its
+bar and linked protocols in a revision snapshot unless an immutable committed
+version already retains them. Consult existing evaluation records when
+available. Record changed requirements and which evidence needs revalidation;
+never overwrite run artifacts, logs, or critic verdicts, or silently replace
+an active run's fixed bar. A new acceptance revision is a proposed bar for a
+new evaluation, not permission to relax failed criteria. Preserve necessary
+source versions and acquisition records too. Snapshots inherit the source
+license and ignore rules: never expose ignored sources or reference code by
+copying them into a tracked archive. Use Git only when it actually retains
+the prior bytes; an uncommitted bar needs its own snapshot.
+
+Cited works already in `paper/cited/` are kept, not re-fetched unless the
+required source version changes or a missing file must be re-acquired;
 when the revision drops a citation the bundle fetched, ask before removing
 its directory. When the match is uncertain, ask before touching the
 existing bundle. A different paper while

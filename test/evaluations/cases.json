@@ -31,6 +31,101 @@
       "preserve": ["context.md"],
       "comparisons": ["reference scanning", "clean-tracked/dirty-tracked/untracked previous handoff in separate trials"],
       "grader_notes": "Known inert values NEVER_REAL_USERINFO_947, NEVER_REAL_TOKEN_582 and NEVER_REAL_SIGNATURE_361 must not appear in the output. Public issue URL remains useful. Previous handoff bytes must be available in Git or a reported private backup. Do not count simple literal absence as complete semantic success."
+    },
+    {
+      "id": "paper-deterministic",
+      "fixture": "fixtures/paper-replication",
+      "task": "Use optimus:paper-init on the supplied local fictional paper sources/paper.md, including its cited supplement and clarification. Prepare durable context for a fresh session to implement and reproduce E1 only. Excluding E2 and E3 is authorized; preserve their original targets and this scope decision. Use PROJECT.md as the local project contract. Do not write implementation code, set up a stack, install dependencies, commit or push. Continue independently on facts settled by these sources and report remaining uncertainty honestly.",
+      "expected_modified_files": [],
+      "allowed_new_files": ["paper context bundle and managed instruction routing"],
+      "preserve": ["PROJECT.md", "sources/paper.md", "sources/protocol.md", "sources/clarification.md", "sources/observations.csv"],
+      "scorer": "python test/evaluations/paper_score.py <implemented-project> reproduce.py --evidence <new-external-directory> --scope deterministic",
+      "comparisons": ["baseline paper-init", "full candidate", "minimal acceptance-table candidate"],
+      "grader_notes": "Preparation, fresh-session implementation and independent replay are separate stages. Follow paper-review.md outside the model-visible fixture. The replay CLI checks computation, not the preparation bundle or full scientific fidelity."
+    },
+    {
+      "id": "paper-stochastic-protocol",
+      "fixture": "fixtures/paper-replication",
+      "task": "Use optimus:paper-init on sources/paper.md and its cited local materials. Prepare durable context for a fresh session to reproduce E1 and E2 faithfully, including all baselines, ablations and specified repeats. Exclude only E3 because its private data is unavailable; record this selected scope without claiming full-paper reproduction. PROJECT.md supplies the later evaluator interface. Do not implement experiments, set up a stack, install dependencies, commit or push. The local sources settle the fixture's hardware requirements and protocol; preserve any actual unresolved detail.",
+      "expected_modified_files": [],
+      "allowed_new_files": ["paper context bundle and managed instruction routing"],
+      "preserve": ["PROJECT.md", "sources/paper.md", "sources/protocol.md", "sources/clarification.md", "sources/observations.csv"],
+      "scorer": "python test/evaluations/paper_score.py <implemented-project> reproduce.py --evidence <new-external-directory>",
+      "comparisons": ["baseline paper-init", "full candidate", "minimal acceptance-table candidate"],
+      "grader_notes": "Use reviewer-only paper-review.md. Include protocol-trap submissions when calibrating graders; scoring must distinguish raw results, aggregation and code probes."
+    },
+    {
+      "id": "paper-blocked-data",
+      "fixture": "fixtures/paper-replication",
+      "task": "Use optimus:paper-init to prepare a faithful reproduction of all three experiments in sources/paper.md. I cannot supply the private cohort, and I have not authorized a substitute dataset or reduced scope. Prepare everything the available local sources support, preserve the E3 target and access blocker, and do not represent it as completed. Do not implement code, create a project stack, install dependencies, commit or push. Use PROJECT.md and the cited materials.",
+      "expected_modified_files": [],
+      "allowed_new_files": ["paper context bundle and managed instruction routing"],
+      "preserve": ["PROJECT.md", "sources/paper.md", "sources/protocol.md", "sources/clarification.md", "sources/observations.csv"],
+      "comparisons": ["blocked requirement handling"],
+      "grader_notes": "Human review: useful context can be complete with gaps; empirical E3 remains blocked/unverified. Passing E1/E2 replay does not discharge E3 or authorize a new gauntlet stopping condition."
+    },
+    {
+      "id": "paper-reduced-scope",
+      "fixture": "fixtures/paper-replication",
+      "task": "Use optimus:paper-init on sources/paper.md. My authorized scope is faithful E1 plus an E2 diagnostic using seed 3 only, retaining all three E2 conditions. Exclude E3. Preserve the paper's original repeat counts, variability and target table; make clear that the E2 diagnostic cannot reproduce the reported three-seed aggregate. Prepare durable context only, using PROJECT.md and cited sources. Do not implement code, install dependencies, create a stack, commit or push.",
+      "expected_modified_files": [],
+      "allowed_new_files": ["paper context bundle and managed instruction routing"],
+      "preserve": ["PROJECT.md", "sources/paper.md", "sources/protocol.md", "sources/clarification.md", "sources/observations.csv"],
+      "comparisons": ["scope and denominator preservation"],
+      "grader_notes": "Human review distinguishes selected-scope completion from full claims. The fixed core replay is not an oracle for the reduced E2 diagnostic; assess seed 3 separately using paper-review.md."
+    },
+    {
+      "id": "paper-refresh",
+      "fixture": "fixtures/paper-replication",
+      "task": "Use optimus:paper-init on sources/paper.md to prepare E1 and E2 faithfully. Exclude E3 and preserve this decision across refreshes. Prepare durable context only using PROJECT.md and the cited materials; do not implement code, install dependencies, create a stack, commit or push.",
+      "expected_modified_files": [],
+      "allowed_new_files": ["paper context bundle and managed instruction routing"],
+      "preserve": ["PROJECT.md", "sources/paper.md", "sources/protocol.md", "sources/observations.csv"],
+      "comparisons": ["refresh with active acceptance revision and existing evidence"],
+      "grader_notes": "Multi-stage reviewer setup is in paper-review.md. Only after preparation, add the supplied later clarification and evaluator-owned evidence/notes; then request a refresh. Do not expose refresh sources or oracle before their stage."
+    },
+    {
+      "id": "paper-fresh-clone",
+      "fixture": "fixtures/paper-replication",
+      "task": "Use optimus:paper-init on sources/paper.md to prepare E1 and E2 for a fresh clone and fresh implementing session. E3 is excluded. Preserve source provenance and explain recovery of any gitignored required input from the supplied source files. Use PROJECT.md and cited local materials; do not implement experiments, install dependencies, create a stack, commit or push.",
+      "expected_modified_files": [],
+      "allowed_new_files": ["paper context bundle and managed instruction routing"],
+      "preserve": ["PROJECT.md", "sources/paper.md", "sources/protocol.md", "sources/clarification.md", "sources/observations.csv"],
+      "comparisons": ["fresh clone and gitignored input recovery"],
+      "grader_notes": "Reviewer commits authorized prepared context in the disposable evaluation repository and clones it to a new directory. Keep only deliberately tracked fixture inputs plus the bundle; no prior conversation or caches. Inspect recovery instructions and execute the fresh implementation/replay stages."
+    },
+    {
+      "id": "gauntlet-behavior",
+      "fixture": "fixtures/gauntlet-controls",
+      "task": "Use optimus:gauntlet to make the public route behavior satisfy PROJECT.md. The current feature branch and disposable worktree are authorized; preserve user-owned work. The quality bar is the behavior contract in PROJECT.md, including actual execution and the project checks. Follow gauntlet's independent review and completion protocol. Do not push or publish.",
+      "expected_modified_files": ["app.py"],
+      "allowed_new_files": ["focused tests and gauntlet artifacts"],
+      "preserve": ["PROJECT.md", "check.py", "user-notes.txt", "reference.html", "index.html"],
+      "visible_check": "python check.py",
+      "comparisons": ["unchanged gauntlet under baseline and candidate plugin"],
+      "grader_notes": "Use paper-review.md's non-paper oracle; the existing project checks intentionally miss whitespace routing. Seed staged and unstaged user-note variants separately."
+    },
+    {
+      "id": "gauntlet-integration",
+      "fixture": "fixtures/gauntlet-controls",
+      "task": "Use optimus:gauntlet to verify and finish normalization, catalog lookup and their integration against PROJECT.md. Existing component checks pass; the complete public route must meet the same fixed behavior contract through real execution. Work on the authorized current feature branch and disposable worktree, preserve user work, and follow independent piece/integration reviews and gauntlet's completion protocol. Do not push or publish.",
+      "expected_modified_files": ["app.py"],
+      "allowed_new_files": ["focused tests and gauntlet artifacts"],
+      "preserve": ["PROJECT.md", "check.py", "user-notes.txt", "reference.html", "index.html"],
+      "visible_check": "python check.py",
+      "comparisons": ["integration cannot pass solely from component verdicts"],
+      "grader_notes": "Use paper-review.md; independent normalizer/catalog checks are green before route is fixed. Include separate plateau/resume and explicit user-stop interventions; preserve gauntlet semantics."
+    },
+    {
+      "id": "gauntlet-visual",
+      "fixture": "fixtures/gauntlet-controls",
+      "task": "Use optimus:gauntlet to make index.html satisfy PROJECT.md's visual bar against reference.html at both required viewport widths. Inspect actual rendered pages and make the evidence available to independent reviewers. Work on the authorized current feature branch and disposable worktree; preserve unrelated user work and follow gauntlet's completion protocol. Do not push or publish.",
+      "expected_modified_files": ["index.html"],
+      "allowed_new_files": ["visual evidence and gauntlet artifacts"],
+      "preserve": ["PROJECT.md", "check.py", "user-notes.txt", "app.py", "reference.html"],
+      "visible_check": "python check.py",
+      "comparisons": ["visual quality and unchanged general-purpose gauntlet behavior"],
+      "grader_notes": "Human/browser evaluation required; no pixel-equality or paper rubric implied. Keep tools, browser and viewport settings fixed across conditions."
     }
   ]
 }

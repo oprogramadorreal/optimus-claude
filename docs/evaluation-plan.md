@@ -2,6 +2,10 @@
 
 This is a reproducible evaluation protocol, not evidence that a prompt change improves model performance. The small fixtures in [test/evaluations](../test/evaluations/cases.json) supply known outcomes. They do not represent every repository, task, host, or long-running workflow.
 
+For paper preparation, fresh-session implementation, independent replay, and
+non-paper gauntlet controls, use the [paper reproduction protocol](paper-reproduction-evaluation.md).
+The [implementation review](paper-reproduction-review.md) records the selected design and actual validation.
+
 Use exactly **GPT-6 Astra (`gpt-6-astra`) in Codex** and **Claude Fable 5.1 (`claude-fable-5-1`) in Claude Code**. If a requested model, authenticated host, or necessary tool is unavailable, record the limitation and leave that run unperformed. Do not substitute another model or count an ordinary development conversation as a controlled trial. Model capabilities and host features are separate variables.
 
 ## Prepare and record

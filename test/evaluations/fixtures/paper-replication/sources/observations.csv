@@ -1,0 +1,8 @@
+id,split,raw_value
+t1,train,20
+t2,train,40
+t3,train,60
+t4,train,80
+e1,test,40
+e2,test,80
+c1,calibration,10000
