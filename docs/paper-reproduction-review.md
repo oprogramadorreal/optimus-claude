@@ -167,7 +167,7 @@ controlled comparison still needed; these runs are exploratory, not that pilot.
 | Repository structural validation | `bash scripts/validate.sh`: 22 passed, zero failed; four jq-dependent groups skipped. Python JSON/manifest/version/deny-rule/hook-path checks passed separately (`evidence/structural.log`, `artifact-checks.json`). |
 | Hook suite | `bash scripts/test-hooks.sh`: 410 passed, zero failed (`evidence/hooks.log`). |
 | Full Python suite in isolated checkout | 715 passed, seven skipped, 261.59 seconds (`evidence/isolated-pytest.log`). Includes 19 real scorer tests; also independently ran those 19 in the destination. |
-| Native Codex loader | CLI 0.154.0 enumerated all 21 skills with expected metadata/source hashes (`evidence/loader.json`); enumeration is not skill execution. |
+| Native Codex loader | CLI 0.154.0 enumerated all 19 skills with expected metadata/source hashes (`evidence/loader.json`); enumeration is not skill execution. |
 | Baseline/candidate preparation | One fresh hosted-agent session each, identical fictional E1/E2 task and sources. Both retained the core protocol and E3 exclusion. Candidate added explicit acceptance/evidence/pinning instructions (`trials/A`, `trials/B`). |
 | Fresh-session implementation | Candidate bundle committed and cloned in a disposable repo; new session implemented E1/E2 from the bundle/handoff. Data recovery exposed and documented Git line-ending conversion (`implementation/outcome.md`). |
 | Independent replay and source review | Parent inspected runtime against paper/supplement and ran the external oracle: canonical and changed-input probes exited 0; development 1/1, execution 4/4, result 3/3 checks (`replay/report.json`). |
