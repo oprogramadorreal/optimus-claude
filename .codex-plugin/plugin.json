@@ -1,6 +1,6 @@
 {
   "name": "optimus",
-  "version": "3.12.5",
+  "version": "3.13.0",
   "description": "Experimental Codex support for shared project instructions, AGENTS.md pointers, code review, refactoring, TDD, and test coverage. Uses Codex execution controls; Claude formatter installation, permission setup, memory cleanup, and registered plugin agents are excluded.",
   "author": {
     "name": "oprogramadorreal",
