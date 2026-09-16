@@ -76,7 +76,7 @@ This skill can target Claude Code three ways — it picks based on your intent:
 
 Phrase it as "Run a workflow to…" to trigger the last one. See `references/templates.md` (Templates H / M / N) for the full routing rules.
 
-For Codex, use its separate host profile and Template H with the requested write boundary. Claude `/goal`, `/workflows`, and plan-mode commands are not portable prompt syntax. The GPT-6 Astra profile preserves that exact model target while leaving tool and permission control to the host.
+For Codex, use its separate host profile and Template H with the requested write boundary. Codex has its own [native goals](https://learn.chatgpt.com/use-cases/follow-goals); goal prompts need Codex's lifecycle and completion instructions, while Claude `/workflows` and plan-mode handoffs need separate adaptation. The GPT-6 Astra profile preserves that exact model target while leaving tool and permission control to the host. For the full builder/critic loop in a new session, use [`gauntlet`'s goal-prompt export](../gauntlet/README.md#fresh-session-goals).
 
 ## Relationship to Other Skills
 

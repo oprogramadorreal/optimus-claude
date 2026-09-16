@@ -3,7 +3,7 @@
 </div>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-3.13.0-blue" alt="Version">
+  <img src="https://img.shields.io/badge/version-3.14.0-blue" alt="Version">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
   <img src="https://img.shields.io/badge/Claude_Code-plugin-blueviolet" alt="Claude Code">
   <img src="https://img.shields.io/badge/OpenAI_Codex-experimental-orange" alt="OpenAI Codex: experimental">
@@ -56,7 +56,7 @@ In Codex, open `/hooks` to **review and trust the session-start hook**, then sta
 
 Skills never run on their own; you invoke them. Generated project docs travel with your repository and remain useful without the plugin. Re-run `init` after major project changes to keep them accurate.
 
-Optimus works alongside Claude Code's built-in tools rather than replacing them. Use Anthropic's official [code-review](https://github.com/anthropics/claude-code/tree/main/plugins/code-review) plugin for post-push PR review and `/simplify` for per-change cleanup; `refactor` restructures against your project guidelines. `/goal` works until a condition holds within one session; `deep` is the resumable fix loop, with a fresh subagent per pass, test bisection, and state that survives across sessions.
+Optimus works alongside the hosts' built-in tools. In Claude Code, use Anthropic's official [code-review](https://github.com/anthropics/claude-code/tree/main/plugins/code-review) plugin for post-push PR review and `/simplify` for per-change cleanup; `refactor` restructures against your project guidelines. Native goals in [Claude Code](https://code.claude.com/docs/en/goal) and [Codex](https://learn.chatgpt.com/use-cases/follow-goals) continue across turns toward a completion condition, subject to host permissions and stopping rules. `gauntlet` can export its builder/critic protocol for either host's goal mechanism; `deep` provides the deterministic resumable fix loop with test bisection and checkpoints.
 
 ## Skills
 
@@ -131,12 +131,12 @@ All Codex workflows remain experimental. **Portable** means no known host-specif
 | `init` | Partial: creates shared docs, tests, and `AGENTS.md` pointers; preserves existing hooks/settings and skips formatter installation. |
 | `brainstorm`, `jira`, `prompt` | Partial: Claude plan-mode handoffs need manual adaptation. Jira needs a compatible MCP server configured in Codex; bundled setup is Claude-only. |
 | `deep` | Experimental orchestration: multiple iterations, nested agents, resume, and headless execution need further testing. |
-| `gauntlet` | Experimental orchestration: use the in-session lead-agent path. Claude's `/effort` → ultracode prerequisite does not apply. |
+| `gauntlet` | Experimental orchestration: in-session execution and **Copy as /goal prompt** for a new Codex session. The handoff uses native Codex goals when available, with a plain-prompt fallback; full builder/critic execution remains unverified. Claude's `/effort` → ultracode prerequisite does not apply. |
 | `permissions`, `dream` | Unsupported. Use Codex's own sandbox, approval policy, and memory controls. |
 | Formatter hooks | Unsupported. Use editor formatting or pre-commit hooks. |
 | Standalone `code-simplifier` / `test-guardian` plugin agents | Unsupported. Use the `refactor` / `unit-test` workflows. |
 
-Claude's `/goal` and `/workflows` handoffs do not apply in Codex. If you use `AGENTS.override.md`, add the project-guidance pointer there yourself: it takes precedence over `AGENTS.md`, and Optimus manages only `AGENTS.md`.
+Gauntlet shares its loop protocol across hosts and adds the destination host's goal instructions. In Codex/Astra, **Copy as /goal prompt** prepares a prompt for a new session without starting a goal or loop in the preparing session; see [gauntlet usage and controls](skills/gauntlet/README.md#fresh-session-goals). Claude's `/workflows` and ultracode remain Claude-only. If you use `AGENTS.override.md`, add the project-guidance pointer there yourself: it takes precedence over `AGENTS.md`, and Optimus manages only `AGENTS.md`.
 
 ### Headless runs
 

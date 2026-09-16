@@ -125,13 +125,16 @@ Every entry below: anchor each instruction to a path — never a global instruct
 
 ### OpenAI Codex
 
-- Use Template H for scoped implementation; for an audit or plan, state the requested read/write boundary and deliverable. Do not transplant Claude's `/goal`, `/workflows`, `AskUserQuestion`, or plan-mode transitions as literal Codex commands.
+- Use Template H for scoped implementation; for an audit or plan, state the requested read/write boundary and deliverable. Do not transplant Claude's `/workflows`, `AskUserQuestion`, or plan-mode transitions as literal Codex commands.
+- For an explicitly requested native goal, use Codex's `/goal` or the goal tools exposed by the destination. Keep the objective within 4,000 characters, referencing a local file for longer instructions; separate completion evidence from suspension or blockage. Exporting a prompt does not create a goal in the preparing session. Do not assume Claude's transcript-only evaluator or invent a token budget. For the full gauntlet protocol, recommend `$optimus:gauntlet` and its **Copy as /goal prompt** option instead of recreating that workflow here.
 - Read the project's discovered AGENTS instructions and the files they route to. For Optimus, invoke the explicitly requested skill with the host's `$optimus:<skill>` syntax and resolve shared references from the installed plugin root.
 - Use the tools actually available in the current Codex surface and mode. Ask through its question tool when available, otherwise plain text; prose cannot grant permissions or change plan mode. Bound delegation to available capacity and pass each worker the task, context, and required output.
 - Preserve prior user authorization and complete independent work while a real decision is pending. Keep important task state in the requested artifact when a handoff/resume needs it; do not assume another session has this conversation.
 - If the selected model is GPT-6 Astra, also use its model entry above. Host tools, memory, approvals, and plugin availability are separate from model capabilities; do not promise the same integration on every Codex surface.
 
 Sources: [Codex skills](https://learn.chatgpt.com/docs/build-skills), [AGENTS discovery](https://learn.chatgpt.com/docs/agent-configuration/agents-md), and [subagents](https://learn.chatgpt.com/docs/agent-configuration/subagents), checked 2026-09-09.
+
+Goal sources: [Codex goal commands](https://learn.chatgpt.com/docs/developer-commands?surface=cli#set-or-view-a-task-goal-with-goal) and [long-running work](https://learn.chatgpt.com/docs/long-running-work), checked 2026-09-16. Goal availability and tools depend on the destination surface.
 
 ### Claude Code (plan mode)
 
