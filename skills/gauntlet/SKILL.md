@@ -79,6 +79,12 @@ it gets the critic's gap verbatim and chooses the fix, which the lead never
 writes for it. Every round, a separate critic with fresh context judges the
 piece.
 
+Use the host's available agent capacity; sequence dispatches rather than drop
+pieces or reviews. Under Codex, disable conversation inheritance for each
+critic (`fork_turns: "none"` when that option exists), supplying only its
+frozen remit and resolvable bar/artifact paths. Reuse each piece's builder
+across rounds. Carry these dispatch rules into the prompt.
+
 Each piece's critic prompt is written once, before its first round, kept on
 the progress page, and sent every round with only the artifact paths changed.
 It carries the resolved bar materials themselves — the paths, URL, or
@@ -114,10 +120,11 @@ when every piece is done, a fresh integration critic judges the assembled
 whole against the same bar, and any gap it names goes back for another round,
 judged again by a fresh integration critic. The run ends when the integration
 critic returns *beats the bar* or when the user stops it — and in practice it
-is usually the second. Never end it on your own: if a piece's last two rounds
+is usually the second. Never treat a plateau as completion: if a piece's last two rounds
 close no gap its critic can still name, report the plateau to the user and
-let them decide whether it is worth more compute. Stopping is their call, not
-yours.
+keep working on the rest while they decide whether it is worth more compute.
+Honor the host's permission, blocking, budget, and pause rules; record any
+such suspension as incomplete, with a resumable checkpoint, never a pass.
 
 If the project has a test command, the suite stays green: a piece is not done
 while its tests fail.
@@ -146,7 +153,7 @@ running artifact, the anti-staging rule, the integration critic, and the
 branch-and-commit rules all survive to the final draft. Short also has a
 number: keep the prompt under 2,500 characters, because the /goal handoff
 must fit this exact prompt plus an opening instruction and a completion
-condition into /goal's 4,000-character message cap, and those need the rest.
+condition into either host's /goal 4,000-character message cap, and those need the rest.
 
 ## 3. Confirm and run
 
@@ -164,15 +171,21 @@ Then use `AskUserQuestion` — header "Gauntlet", question confirming the start
 of a long-running multi-agent run that spawns many subagents, edits files
 without per-change approval, and consumes credits in proportion to how long it
 runs — with options "Start the run", "Adjust first", "Copy as /goal prompt",
-and "Cancel". Under Codex, omit "Copy as /goal prompt"; that handoff is Claude-only.
-Apply requested adjustments and ask again. On "Cancel", stop.
+and "Cancel". Offer the copy option in both hosts, explaining that it prepares
+a prompt for a new session in the same host, without starting the run here.
+Preserve an explicit destination/model request, such as a new Codex/Astra
+session. Honor an already supplied choice; otherwise wait for the actual
+answer before either running or preparing the handoff. Apply requested
+adjustments and ask again. On "Cancel", stop.
 On "Copy as /goal prompt", read
 `$CLAUDE_PLUGIN_ROOT/skills/gauntlet/references/goal-handoff.md` and follow
 it: the run is handed to a fresh session instead of executed here.
 
-On "Start the run", execute the prompt yourself as the lead agent. There is no
+On "Start the run", execute the prompt yourself as the lead agent; this choice
+does not itself request a native goal. Create one only if the user explicitly
+asked for it, using the host's available controls. There is no
 arbitrary final round: the run ends when the output beats the bar or when the
-user stops it.
+user stops it, subject to the host suspension rules above.
 
 Close on the outcome — uncommitted work → `/optimus:commit`; already committed
 → `/optimus:pr`, then `/optimus:code-review` in a fresh conversation — and say
