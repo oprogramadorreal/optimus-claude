@@ -11,7 +11,7 @@ Configure permission rules and a path-restriction hook so Claude Code agents can
 
 To remove this setup while keeping init's artifacts, use `/optimus:reset permissions`.
 
-Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/managed-files.md` and apply it to the hook and every settings entry this run adds or removes. Do not write `.claude/.optimus-version`.
+`$CLAUDE_PLUGIN_ROOT` below means this skill's base directory minus `/skills/permissions`. Write that absolute path into every Bash command, where the variable can be empty. Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/managed-files.md` and apply it to the hook and every settings entry this run adds or removes. Do not write `.claude/.optimus-version`.
 
 Security model in brief: the installed hook prompts on writes and blocks deletes outside the project (Claude's memory store and session scratchpad are exempt), asks before editing any precious unversioned file and blocks deleting the unrecoverable ones (a backup or IDE scratch file only asks), and blocks history-modifying git operations on protected branches. Inside the project, operations not on the deny list run without prompts.
 
@@ -25,7 +25,7 @@ Security model in brief: the installed hook prompts on writes and blocks deletes
 
 If an existing `.claude/hooks/restrict-paths.sh` differs from the template, read it and show a concrete comparison; differences may be customizations or older-template drift. For an unrecorded file, ownership is unknown. Use `AskUserQuestion`: **Merge** — install the new template with the listed customizations preserved; **Keep existing** — skip hook replacement and report the remaining version/behavior difference; or **Replace** — discard only the differences explicitly shown. Honor existing authorization for the exact proposed change without asking again.
 
-When creating or replacing as selected, copy `$CLAUDE_PLUGIN_ROOT/skills/permissions/templates/hooks/restrict-paths.sh` to `.claude/hooks/restrict-paths.sh` exactly, then apply only approved customizations. Keep-existing does not authorize a later verification step to overwrite that file.
+When creating or replacing as selected, `cp` `$CLAUDE_PLUGIN_ROOT/skills/permissions/templates/hooks/restrict-paths.sh` to `.claude/hooks/restrict-paths.sh` (never re-type it through Read/Write), then apply only approved customizations. Keep-existing does not authorize a later verification step to overwrite that file.
 
 ## Step 3: Create or update settings.json
 
