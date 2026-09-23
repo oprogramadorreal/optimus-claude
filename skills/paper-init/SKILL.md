@@ -280,7 +280,7 @@ external datasets, say so in one line of `paper/README.md`'s status and skip `da
 `data/`, and the gitignore pair entirely.
 
 Before a large download (GB-scale or hours of time) not already authorized,
-confirm with `AskUserQuestion` — header "Dataset download", question stating size and
+confirm with `AskUserQuestion` — header "Download", question stating size and
 source, options "Download now" / "Skip — write re-acquisition steps only".
 Small datasets download without asking. When a download is blocked (auth,
 license acceptance, a manual form), do not ask — write the exact steps into
