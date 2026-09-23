@@ -59,13 +59,13 @@ If the local file has no `### Implementation Tickets` section, skip the walk: re
 
 **Drift-pending guard:** if frontmatter has `drift-pending: true`, do NOT short-circuit — route to the [Sub-item walk](#sub-item-walk) (drift-pending re-entry), which owns its own routing.
 
-Otherwise: report `No changes detected since description-refresh-date: <YYYY-MM-DD>. Skipping update.` (fall back to the `date` field for legacy files without `description-refresh-date`). Do NOT bump `description-refresh-date`, do NOT post a JIRA comment, and skip directly to Step 6 of SKILL.md.
+Otherwise: report `No changes detected since description-refresh-date: <YYYY-MM-DD>. Skipping update.` Do NOT bump `description-refresh-date`, do NOT post a JIRA comment, and skip directly to Step 6 of SKILL.md.
 
 ## Frontmatter update
 
 `description-refresh-date` tracks the most recent JIRA-driven write to this file. Bump it to today (YYYY-MM-DD) on: Goal/Acceptance Criteria updates, metadata-only updates ([Update procedure](#update-procedure)), Created-mode ticket Recording (`jira-implementation-tickets.md`), and Step 5 enrichment runs (`jira-codebase-analysis.md` Task File Update).
 
-The [Sub-item walk](#sub-item-walk) never bumps it — on diff-driven entry the Update procedure already did; on drift-pending re-entry no JIRA-driven change occurred. Leave `date` and `enriched-date` unchanged. If a legacy file lacks the `description-refresh-date` field, add it directly after `enriched-date` if present, otherwise after `date`.
+The [Sub-item walk](#sub-item-walk) never bumps it — on diff-driven entry the Update procedure already did; on drift-pending re-entry no JIRA-driven change occurred. Leave `date` and `enriched-date` unchanged.
 
 ```yaml
 ---
