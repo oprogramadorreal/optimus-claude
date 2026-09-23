@@ -42,7 +42,7 @@ Create tickets in dependency order — prerequisites first (Decomposition alread
 
 ## Linking
 
-Run only if the create-link tool is available; best-effort — failures never block the batch. For each created child, call the create-link tool with `inwardIssue` = parent key, `outwardIssue` = child key, `linkType` = `relates to`. If the get-link-types Read tool is available and `relates to` is absent from its schema, try in order: `relates`, `related to`, `is related to`. If none exist, skip that link and report it — do NOT fall back to directional or causal types (`blocks`, `is blocked by`, `duplicates`, `clones`, `causes`), which would misrepresent the relationship. On a failed link call, record the failure and continue; the local table is the source of truth.
+Run only if the create-link tool is available; best-effort — failures never block the batch. For each created child, call the create-link tool with `inwardIssue` = parent key, `outwardIssue` = child key, and `linkType` = a link type's **name**, not its inward/outward description: if the get-link-types Read tool is available, call it once first and use the name of the type whose name or inward/outward description is `relates`, `relates to`, `related to`, or `is related to` (case-insensitive); otherwise use `Relates`, Jira's default name. If the listed types match none, skip the links and report it — do NOT fall back to directional or causal types (`blocks`, `is blocked by`, `duplicates`, `clones`, `causes`), which would misrepresent the relationship. On a failed link call, record the failure and continue; the local table is the source of truth.
 
 ## Recording
 

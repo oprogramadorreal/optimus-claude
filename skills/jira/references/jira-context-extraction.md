@@ -26,7 +26,7 @@ Discover tools at runtime as in the [Detection Procedure](#detection-procedure) 
 |-----------|--------------------------|-----------------------------------|--------|
 | Search issues (JQL) | `searchJiraIssuesUsingJql` | `jira_search` | Read |
 | Get single issue | `getJiraIssue` | `jira_get_issue` | Read |
-| Get link types | `getIssueLinkTypes` | — | Read |
+| Get link types | `getIssueLinkTypes` | `jira_get_link_types` | Read |
 | Resolve site (cloudId) | `getAccessibleAtlassianResources` | — | Read |
 | Create issue | `createJiraIssue` | `jira_create_issue` | **Write** |
 | Add comment | `addCommentToJiraIssue` | `jira_add_comment` | **Write** |
