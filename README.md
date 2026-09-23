@@ -129,7 +129,7 @@ All Codex workflows remain experimental. **Portable** means no known host-specif
 |------------------|-------------------------|
 | `commit`, `pr`, `handoff`, `worktree`, `how-to-run`, `paper-init`, `code-review`, `refactor`, `unit-test`, `tdd`, `reset` | Portable. Follow each skill's setup, tool, and test prerequisites. |
 | `init` | Partial: creates shared docs, tests, and `AGENTS.md` pointers; preserves existing hooks/settings and skips formatter installation. |
-| `brainstorm`, `jira`, `prompt` | Partial: Claude plan-mode handoffs need manual adaptation. Jira needs a compatible MCP server configured in Codex; bundled setup is Claude-only. |
+| `brainstorm`, `jira`, `prompt` | Partial: `brainstorm` and `jira` use a Codex plan-review handoff instead of Claude's plan-mode steps; `prompt`'s plan-mode and `/workflows` prompts target Claude Code. Jira needs a compatible MCP server configured in Codex; bundled setup is Claude-only. |
 | `deep` | Experimental orchestration: multiple iterations, nested agents, resume, and headless execution need further testing. |
 | `gauntlet` | Experimental orchestration: in-session execution and **Copy as /goal prompt** for a new Codex session. The handoff uses native Codex goals when available, with a plain-prompt fallback; full builder/critic execution remains unverified. Claude's `/effort` → ultracode prerequisite does not apply. |
 | `permissions`, `dream` | Unsupported. Use Codex's own sandbox, approval policy, and memory controls. |
