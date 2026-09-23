@@ -27,11 +27,9 @@ Report each finding in this exact shape. Every agent uses `Current:`/`Suggested:
 - **Current:** [relevant snippet — max 5 lines]
 - **Suggested:** [fix or recommendation — max 5 lines]
 
-Per-agent extras: security-reviewer and contracts-reviewer add **Severity:** (Critical | Warning | Suggestion); test-guardian adds **Test file:** (recommended test file path); code-simplifier and test-guardian may omit **Current:** when no snippet clarifies the finding (always include it for Intent Mismatch).
-
 ## Intent-vs-Implementation Check (PR/MR mode only)
 
-When a PR/MR Context Block is present in your prompt **and** the description includes a populated `## Intent` section (one or more of Problem / Scope / Non-goals / Key decisions filled in), also check whether the diff delivers each claim **within your lane** (table below). These findings use **Category: `Intent Mismatch`**.
+When a PR/MR Context Block is present in your prompt **and** the description includes a populated `## Intent` section (one or more of Problem / Scope / Non-goals / Key decisions filled in), also check whether the diff delivers each claim **within your lane**. These findings use **Category: `Intent Mismatch`**.
 
 **Flag:**
 
@@ -49,4 +47,4 @@ When a PR/MR Context Block is present in your prompt **and** the description inc
 
 **Fix the code, never the PR description.** A suggested fix MUST edit code (or tests, or config — anything that ships in the diff) to deliver the stated intent. Never propose updating the PR description to match the code — that silently rewrites the author's stated intent and defeats the check, and the harness auto-applies emitted fixes, so a description fix would destroy the intent record. If you are confident the intent itself is wrong, write in `Suggested:` that *"the author should reconsider the stated intent"* instead.
 
-**Lane.** Report Intent Mismatch findings only for claims inside the lane your own prompt names, and leave claims outside it to the agent that owns them. An agent whose prompt names no lane does not run this check.
+**Lane.** Report Intent Mismatch findings only for claims inside the lane your own prompt names, and leave claims outside it to the agent that owns them.

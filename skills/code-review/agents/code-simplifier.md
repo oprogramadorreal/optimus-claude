@@ -10,4 +10,4 @@ Apply shared constraints from `shared-constraints.md`.
 
 ## Output
 
-Use the output format in `shared-constraints.md`. **Category:** Code Quality. Do not run the Intent-vs-Implementation check.
+Use the output format in `shared-constraints.md`; you may omit **Current:** when no snippet clarifies the finding. **Category:** Code Quality. Do not run the Intent-vs-Implementation check.
