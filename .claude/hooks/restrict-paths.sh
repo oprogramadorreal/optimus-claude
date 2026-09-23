@@ -5,7 +5,7 @@
 # Source:       https://github.com/oprogramadorreal/optimus-claude
 # Docs:         skills/permissions/README.md
 # ============================================================================
-# HOOK_VERSION: 11
+# HOOK_VERSION: 12
 # ^ Bump on every behavioural change. The plugin's SessionStart hook compares
 #   this against the copy installed in a project and recommends re-running
 #   /optimus:permissions when the project's copy is older — a plugin update
@@ -179,14 +179,41 @@
 #   Or simply ignore it — the hook only runs when Claude Code invokes tools.
 # ============================================================================
 
-# Every top-level variable this hook owns carries the '_rp_' prefix, and that is
-# load-bearing rather than cosmetic: the environment snapshot below resolves each
-# exported name with an indirect expansion, which reads the SHELL namespace, so a
-# hook global sharing a name with an exported variable wins. Unprefixed, `root`
-# was one of them — with `root=/etc` exported, `rm -rf $root/passwd` expanded to
-# the PROJECT directory, passed every gate as an in-project delete, and the shell
-# removed /etc/passwd. Same for `input`, `cmd` and `tool_name`.
 _rp_input=$(cat)
+
+# --- Environment snapshot for expand_word (see lookup_env_value) ---
+# Taken HERE, before the hook assigns anything else, because `${!name}` reads the
+# SHELL namespace: an exported name matching a hook global is captured with the
+# HOOK's value. Taken later, `root=/etc` exported made `rm -rf $root/passwd` read
+# as an in-project delete while the shell removed /etc/passwd — and prefixing
+# globals cannot close it, since /optimus:commit parses PROTECTED_BRANCHES by
+# name. Here the only names assigned are _rp_-prefixed, and top level is the one
+# scope with no function locals in it.
+#
+# Bash calls with a '$' only: `$(compgen -e)` forks (~34 ms on Windows) on the
+# synchronous path of every tool call, and with no '$' in the command no word
+# reaches a lookup (expand_word loops on `*'$'*`; a leading '~' reads $HOME
+# directly), so an empty snapshot changes no decision. The raw input is a
+# superset of the command — JSON leaves '$' unescaped.
+_rp_env_keys=()
+_rp_env_vals=()
+if [[ "$_rp_input" =~ \"tool_name\"[[:space:]]*:[[:space:]]*\"Bash\" && "$_rp_input" == *'$'* ]]; then
+  while IFS= read -r _rp_env_name; do
+    [[ "$_rp_env_name" =~ ^[a-zA-Z_][a-zA-Z0-9_]*$ ]] || continue
+    _rp_env_keys+=("$_rp_env_name")
+    _rp_env_vals+=("${!_rp_env_name}")
+  done <<< "$(compgen -e 2>/dev/null)"
+  # A bash built without programmable completion has no `compgen`. Fall back
+  # to the names the gates actually depend on rather than expanding nothing,
+  # which would quietly unblock `rm $HOME/.ssh/id_rsa`.
+  if (( ${#_rp_env_keys[@]} == 0 )); then
+    for _rp_env_name in HOME USERPROFILE TMPDIR TEMP TMP CLAUDE_PROJECT_DIR; do
+      [[ -n "${!_rp_env_name+set}" ]] || continue
+      _rp_env_keys+=("$_rp_env_name")
+      _rp_env_vals+=("${!_rp_env_name}")
+    done
+  fi
+fi
 
 _rp_root="${CLAUDE_PROJECT_DIR}"
 # Fail-open: if project root is unknown, allow rather than block all tool use
@@ -864,7 +891,7 @@ expand_word() {
 }
 
 # The caller's view of a $VAR, from a snapshot of the environment (see the
-# populate step in the Bash branch at the bottom of this file).
+# snapshot at the top of this file).
 #
 # What this replaces: `-n "${!name+set}"` followed by `${!name}`. An indirect
 # expansion resolves against the WHOLE shell namespace — this hook's own globals
@@ -881,13 +908,11 @@ expand_word() {
 # macOS) has no `declare -A`, and this must not quietly stop expanding $HOME
 # there. A linear scan of ~100 names per '$' is nothing next to the forks the
 # gates below already pay.
-_env_keys=()
-_env_vals=()
 _env_value=""
 lookup_env_value() {
   local i=0
-  while (( i < ${#_env_keys[@]} )); do
-    if [[ "${_env_keys[i]}" == "$1" ]]; then _env_value="${_env_vals[i]}"; return 0; fi
+  while (( i < ${#_rp_env_keys[@]} )); do
+    if [[ "${_rp_env_keys[i]}" == "$1" ]]; then _env_value="${_rp_env_vals[i]}"; return 0; fi
     (( ++i ))
   done
   return 1
@@ -1930,47 +1955,6 @@ case "$_rp_tool_name" in
     _rp_cmd="${_rp_cmd//\\r/$'\r'}"
     _rp_cmd="${_rp_cmd//\\t/$'\t'}"
     _rp_cmd="${_rp_cmd//$'\001'/\\}"
-
-    # --- Environment snapshot for expand_word (see lookup_env_value) ---
-    # Taken HERE, at top level, because this is the only scope where the names in
-    # play are the environment's own: read from inside expand_word, an indirect
-    # expansion sees that function's locals and every caller's first. Taken in the
-    # Bash branch only, so the Edit/Write path — which never splits a command —
-    # keeps paying no forks at all.
-    #
-    # Top level is necessary but not sufficient: `${!_env_name}` still resolves
-    # against this script's own globals, so an exported name matching one of them
-    # was captured with the HOOK's value. That is why every global here is
-    # `_rp_`-prefixed (see the top of the file) — no environment variable a user
-    # exports can collide with a name in that namespace.
-    #
-    # Skipped entirely for a command with no '$' in it. `$(compgen -e)` is a
-    # command substitution — a fork — and this is the synchronous PreToolUse path
-    # of EVERY Bash tool call, including the overwhelming majority that never
-    # expand anything: measured at ~34 ms per call against 0.8 ms for the builtin
-    # without the subshell, on the platform whose fork cost is the stated reason
-    # the rest of this file trades sed and head for shell builtins. The gate is
-    # sound because it is the SAME condition expand_word's lookup loop is written
-    # on (`while [[ "$w" == *'$'* ]]`): with no '$' anywhere in the command, no
-    # word can reach a lookup, so an empty snapshot changes no decision. (A
-    # leading '~' does not need it either — that arm reads $HOME directly.)
-    if [[ "$_rp_cmd" == *'$'* ]]; then
-      while IFS= read -r _env_name; do
-        [[ "$_env_name" =~ ^[a-zA-Z_][a-zA-Z0-9_]*$ ]] || continue
-        _env_keys+=("$_env_name")
-        _env_vals+=("${!_env_name}")
-      done <<< "$(compgen -e 2>/dev/null)"
-      # A bash built without programmable completion has no `compgen`. Fall back
-      # to the names the gates actually depend on rather than expanding nothing,
-      # which would quietly unblock `rm $HOME/.ssh/id_rsa`.
-      if (( ${#_env_keys[@]} == 0 )); then
-        for _env_name in HOME USERPROFILE TMPDIR TEMP TMP CLAUDE_PROJECT_DIR; do
-          [[ -n "${!_env_name+set}" ]] || continue
-          _env_keys+=("$_env_name")
-          _env_vals+=("${!_env_name}")
-        done
-      fi
-    fi
 
     # --- Git branch protection + Delete protection ---
     # Both live in scan_command_string, which splits the string on the shell's

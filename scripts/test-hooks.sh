@@ -1261,8 +1261,9 @@ assert_decision "sudo --user long flag denied" DENY \
 
 # An exported variable whose name matches one of the hook's own globals was
 # captured with the HOOK's value by the environment snapshot — `${!name}` reads
-# the shell namespace, not the environment. Every global is _rp_-prefixed so no
-# user-exported name can collide.
+# the shell namespace, not the environment. The snapshot now runs before the hook
+# assigns any other global, so no user-exported name can collide — including
+# PROTECTED_BRANCHES, which /optimus:commit parses and so cannot be prefixed.
 assert_decision "exported 'root' is the caller's, not the hook's" DENY \
   "$(rp_decision_env HOME="$rp_tmp/home" CLAUDE_PROJECT_DIR="$rp_tmp/proj" \
      root="$rp_tmp/outside" -- Bash command 'rm -rf $root/a.txt')"
@@ -1272,6 +1273,11 @@ assert_decision "exported 'cmd' is the caller's, not the hook's" DENY \
 assert_decision "exported 'tool_name' is the caller's, not the hook's" DENY \
   "$(rp_decision_env HOME="$rp_tmp/home" CLAUDE_PROJECT_DIR="$rp_tmp/proj" \
      tool_name="$rp_tmp/outside" -- Bash command 'rm -rf $tool_name/a.txt')"
+# The cd puts the hook's own value ('master') inside the project; without it the
+# relative word resolves against the test's cwd and is denied for the wrong reason.
+assert_decision "exported 'PROTECTED_BRANCHES' is the caller's, not the hook's" DENY \
+  "$(rp_decision_env HOME="$rp_tmp/home" CLAUDE_PROJECT_DIR="$rp_tmp/proj" \
+     PROTECTED_BRANCHES="$rp_tmp/outside" -- Bash command "cd $rp_tmp/proj && rm -rf \$PROTECTED_BRANCHES/a.txt")"
 
 # A redirection names a stream. Counted as a delete target it produced an
 # unappealable deny on `rm <in-project> > /dev/null`; counted as a refspec it
