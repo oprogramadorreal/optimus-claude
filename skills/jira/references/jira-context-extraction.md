@@ -70,8 +70,8 @@ Given an issue key, fetch in this order. If an optional field fails or returns e
 | Description | 2000 characters (append "(truncated)" if truncated) |
 | Comments | Max 10 comments, total text capped at 2000 characters (append "(older comments omitted)" if truncated) |
 | Sprint siblings | Max 15 issues, keys + summaries only |
-| Linked issues | Max 10, keys + summaries only |
-| Subtasks | Max 10, keys + summaries only |
+| Linked issues | Max 10 |
+| Subtasks | Max 10 |
 
 ## Structured Output Format
 
