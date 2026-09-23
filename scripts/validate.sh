@@ -68,6 +68,16 @@ if python -c 'import sys; sys.exit(sys.version_info[0] != 3)' &>/dev/null; then
 elif python3 -c 'import sys; sys.exit(sys.version_info[0] != 3)' &>/dev/null; then
   py_cmd="python3"
 fi
+# JSON checks run on the Python this section already requires, so they FAIL
+# rather than SKIP where jq is absent (Git Bash on Windows ships without it).
+# json_ok <python expr over d, the list of loaded files> <file>...
+json_ok() {
+  local expr=$1
+  shift
+  "$py_cmd" -c 'import json, sys
+d = [json.load(open(p, encoding="utf-8")) for p in sys.argv[2:]]
+sys.exit(not eval(sys.argv[1]))' "$expr" "$@"
+}
 metadata_errors="no working python or python3 on PATH"
 if [ -n "$py_cmd" ] && metadata_errors=$("$py_cmd" scripts/validate_skill_metadata.py 2>&1); then
   check "Skill YAML is valid and disables implicit invocation on both hosts" true
@@ -85,10 +95,12 @@ check "No ref field in marketplace.json" \
 # .agents/plugins/marketplace.json first and installs the plugin from "./",
 # then reads .codex-plugin/plugin.json — so the marketplace plugin name has
 # to be the one both manifests declare, or Codex installs a
-# plugin it cannot find skills for. Read without jq so the pin never SKIPs.
+# plugin it cannot find skills for. Read without jq so these pins never SKIP.
 plugin_name=$(sed -n 's/^ *"name": *"\([^"]*\)".*/\1/p' .claude-plugin/plugin.json | head -1)
 check "Codex marketplace installs plugin '$plugin_name' from ./" \
   bash -c "grep -q '\"name\": \"$plugin_name\"' .agents/plugins/marketplace.json && grep -q '\"path\": \"./\"' .agents/plugins/marketplace.json"
+check "Claude marketplace lists plugin '$plugin_name'" \
+  grep -q "\"name\": \"$plugin_name\"" .claude-plugin/marketplace.json
 
 # --- 4b. Dogfooded hook matches the shipped template ---
 # .claude/hooks/restrict-paths.sh is a copy of the template users install, and
@@ -148,37 +160,31 @@ fi
 for manifest in .claude-plugin/plugin.json .codex-plugin/plugin.json; do
   check "$manifest exists" test -f "$manifest"
 done
-if command -v jq &>/dev/null; then
-  for manifest in .claude-plugin/plugin.json .codex-plugin/plugin.json; do
-    check "$manifest is valid JSON" jq empty "$manifest"
-    for field in name version description; do
-      check "$manifest has $field" \
-        bash -c 'jq -e --arg field "$2" ".[\$field] | type == \"string\" and length > 0" "$1" >/dev/null' _ "$manifest" "$field"
-    done
+for manifest in .claude-plugin/plugin.json .codex-plugin/plugin.json; do
+  check "$manifest is valid JSON" json_ok True "$manifest"
+  for field in name version description; do
+    check "$manifest has $field" \
+      json_ok "isinstance(d[0].get('$field'), str) and d[0]['$field'] != ''" "$manifest"
   done
-  check "Claude and Codex plugin names and versions match" \
-    bash -c 'jq -es ".[0].name == .[1].name and .[0].version == .[1].version" .claude-plugin/plugin.json .codex-plugin/plugin.json >/dev/null'
-  check "Codex manifest selects its own hooks configuration" \
-    bash -c 'jq -e ".hooks == \"./hooks/codex-hooks.json\"" .codex-plugin/plugin.json >/dev/null'
-  check "Codex marketplace.json is valid JSON" jq empty .agents/plugins/marketplace.json
-else
-  echo "  SKIP  plugin.json checks (jq not installed)"
-fi
+done
+check "Claude and Codex plugin names and versions match" \
+  json_ok 'd[0]["name"] == d[1]["name"] and d[0]["version"] == d[1]["version"]' .claude-plugin/plugin.json .codex-plugin/plugin.json
+check "Codex manifest selects its own hooks configuration" \
+  json_ok 'd[0].get("hooks") == "./hooks/codex-hooks.json"' .codex-plugin/plugin.json
+check "Codex marketplace.json is valid JSON" json_ok True .agents/plugins/marketplace.json
 
 # --- 6. Version bump check (PR branches only) ---
 echo "[Version bump]"
 if ! git rev-parse --verify origin/master &>/dev/null; then
   echo "  SKIP  Version bump check (origin/master not available)"
-elif ! command -v jq &>/dev/null; then
-  echo "  SKIP  Version bump check (jq not installed)"
 else
   head_commit=$(git rev-parse HEAD 2>/dev/null)
   master_commit=$(git rev-parse origin/master 2>/dev/null)
   if [ "$head_commit" = "$master_commit" ]; then
     echo "  SKIP  Version bump check (on master)"
   else
-    master_ver=$(MSYS_NO_PATHCONV=1 git show origin/master:.claude-plugin/plugin.json 2>/dev/null | jq -r '.version' 2>/dev/null || echo "")
-    current_ver=$(jq -r '.version' .claude-plugin/plugin.json 2>/dev/null || echo "")
+    master_ver=$(MSYS_NO_PATHCONV=1 git show origin/master:.claude-plugin/plugin.json 2>/dev/null | "$py_cmd" -c 'import json, sys; print(json.load(sys.stdin)["version"], end="")' 2>/dev/null || echo "")
+    current_ver=$("$py_cmd" -c 'import json, sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["version"], end="")' .claude-plugin/plugin.json 2>/dev/null || echo "")
     if [ -n "$master_ver" ] && [ -n "$current_ver" ]; then
       check "plugin.json version bumped (master: $master_ver, current: $current_ver)" \
         test "$current_ver" != "$master_ver"
@@ -320,29 +326,26 @@ fi
 
 # --- 11. JSON template validity ---
 echo "[JSON templates]"
-if command -v jq &>/dev/null; then
-  json_errors=""
-  while IFS= read -r f; do
-    if ! jq empty "$f" 2>/dev/null; then
-      json_errors+="  $f: invalid JSON\n"
-    fi
-  done < <(find ./skills -path '*/templates/*.json' -o -path '*/templates/**/*.json' 2>/dev/null | sort)
-  check "JSON templates are valid" test -z "$json_errors"
-  if [ -n "$json_errors" ]; then
-    printf "       Invalid JSON:\n%b" "$json_errors"
+json_errors=""
+while IFS= read -r f; do
+  if ! json_ok True "$f" 2>/dev/null; then
+    json_errors+="  $f: invalid JSON\n"
   fi
-
-  # This repo's own settings.json must carry every deny rule the template ships.
-  # Same dogfooding gap the restrict-paths and coding-guidelines pins close, and
-  # it had already opened: the template narrowed `Bash(*git push --force*)` to a
-  # pair that does not swallow `--force-with-lease`, this copy kept the greedy
-  # glob, and the repo denied its own /optimus:pr flow. One-directional on
-  # purpose — extra project-specific denies here are fine.
-  check "settings.json carries every template deny rule" \
-    bash -c "jq -e --slurpfile tpl skills/permissions/templates/settings.json '(\$tpl[0].permissions.deny - .permissions.deny) | length == 0' .claude/settings.json >/dev/null"
-else
-  echo "  SKIP  JSON template checks (jq not installed)"
+done < <(find ./skills -path '*/templates/*.json' -o -path '*/templates/**/*.json' 2>/dev/null | sort)
+check "JSON templates are valid" test -z "$json_errors"
+if [ -n "$json_errors" ]; then
+  printf "       Invalid JSON:\n%b" "$json_errors"
 fi
+
+# This repo's own settings.json must carry every deny rule the template ships.
+# Same dogfooding gap the restrict-paths and coding-guidelines pins close, and
+# it had already opened: the template narrowed `Bash(*git push --force*)` to a
+# pair that does not swallow `--force-with-lease`, this copy kept the greedy
+# glob, and the repo denied its own /optimus:pr flow. One-directional on
+# purpose — extra project-specific denies here are fine.
+check "settings.json carries every template deny rule" \
+  json_ok 'not set(d[0]["permissions"]["deny"]) - set(d[1]["permissions"]["deny"])' \
+  skills/permissions/templates/settings.json .claude/settings.json
 
 # --- 12. Skill directory completeness ---
 echo "[Skill completeness]"
@@ -396,25 +399,20 @@ echo "[Plugin hooks]"
 for hook_config in hooks/hooks.json hooks/codex-hooks.json; do
   check "$hook_config exists" test -f "$hook_config"
 done
-if command -v jq &>/dev/null; then
-  hook_missing=""
-  for hook_config in hooks/hooks.json hooks/codex-hooks.json; do
-    check "$hook_config is valid JSON" jq empty "$hook_config"
-    while IFS= read -r cmd; do
-      # Check each host's plugin-relative paths, including Windows overrides.
-      while IFS= read -r script_path; do
-        if [ -n "$script_path" ] && [ ! -f "./$script_path" ]; then
-          hook_missing+="  $hook_config -> $script_path\n"
-        fi
-      done < <(printf '%s' "$cmd" | grep -oE '\$\{(CLAUDE_PLUGIN_ROOT|PLUGIN_ROOT)\}/[^"[:space:]\\]+' | sed -E 's@^\$\{(CLAUDE_PLUGIN_ROOT|PLUGIN_ROOT)\}/@@' | sort -u)
-    done < <(jq -r '.. | objects | (.command?, .commandWindows?) // empty' "$hook_config" 2>/dev/null)
-  done
-  check "Hook command scripts exist" test -z "$hook_missing"
-  if [ -n "$hook_missing" ]; then
-    printf "       Missing hook scripts:\n%b" "$hook_missing"
-  fi
-else
-  echo "  SKIP  hooks.json checks (jq not installed)"
+hook_missing=""
+for hook_config in hooks/hooks.json hooks/codex-hooks.json; do
+  check "$hook_config is valid JSON" json_ok True "$hook_config"
+  # Check each host's plugin-relative paths, including Windows overrides. The
+  # path pattern stops at JSON quotes and escapes, so the raw file reads cleanly.
+  while IFS= read -r script_path; do
+    if [ -n "$script_path" ] && [ ! -f "./$script_path" ]; then
+      hook_missing+="  $hook_config -> $script_path\n"
+    fi
+  done < <(grep -oE '\$\{(CLAUDE_PLUGIN_ROOT|PLUGIN_ROOT)\}/[^"[:space:]\\]+' "$hook_config" 2>/dev/null | sed -E 's@^\$\{(CLAUDE_PLUGIN_ROOT|PLUGIN_ROOT)\}/@@' | sort -u)
+done
+check "Hook command scripts exist" test -z "$hook_missing"
+if [ -n "$hook_missing" ]; then
+  printf "       Missing hook scripts:\n%b" "$hook_missing"
 fi
 
 # --- 15. Plugin-level agents ---
