@@ -323,6 +323,25 @@ run_session_start
 assert_output_contains "Recommends init when the marker is at depth 5, one past maxdepth 4" "/optimus:init" "$output"
 cleanup_fixture
 
+echo "[session-start: root marker alone does not count as initialized]"
+setup_fixture
+mkdir -p .claude/docs
+echo "# Guidelines" > .claude/docs/coding-guidelines.md
+echo "1.64.2" > .claude/.optimus-version
+run_session_start
+assert_output_contains "Recommends init when the root marker survives but CLAUDE.md is gone" "/optimus:init" "$output"
+cleanup_fixture
+
+echo "[session-start: root docs/testing.md is not Optimus testing docs]"
+setup_fixture
+mkdir -p .claude/docs docs
+echo "# Project" > .claude/CLAUDE.md
+echo "# Guidelines" > .claude/docs/coding-guidelines.md
+echo "# Testing" > docs/testing.md
+run_session_start
+assert_output_contains "Reports missing testing docs despite a root docs/testing.md" "Testing docs missing" "$output"
+cleanup_fixture
+
 # The path-restriction hook is COPIED into a project by /optimus:permissions and
 # is never re-copied by a plugin update, so a project can keep running a hook
 # that predates a security fix. HOOK_VERSION makes that drift visible.

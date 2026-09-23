@@ -36,7 +36,7 @@ fi
 # Pruned marker search: find the first file matching the given -path pattern,
 # skipping node_modules/.git at every level. No -mindepth: it would suppress
 # the prune at depth 1, leaving the root node_modules/ and .git/ fully walked.
-# The -path patterns used here already imply depth >= 2.
+# The './*/' prefix limits matches to subdirectories, never the root's own files.
 find_marker() {
   find . -maxdepth 4 \( -name node_modules -o -name .git \) -prune -o -path "$1" -print -quit 2>/dev/null || true
 }
@@ -45,7 +45,7 @@ find_marker() {
 if [ ! -f .claude/CLAUDE.md ] || [ ! -f .claude/docs/coding-guidelines.md ]; then
   # Multi-repo workspace: init may live in a sub-repo's .claude/, not the workspace root.
   # .optimus-version is uniquely written by /optimus:init, so it's the authoritative marker.
-  multi_repo_marker=$(find_marker '*/.claude/.optimus-version')
+  multi_repo_marker=$(find_marker './*/.claude/.optimus-version')
   if [ -z "$multi_repo_marker" ]; then
     output+="[optimus] Not initialized — no \`.claude/CLAUDE.md\` or \`.claude/docs/coding-guidelines.md\`. Suggest \`${skill_prefix}init\` to set up ${setup_features}."$'\n'
   fi
@@ -53,7 +53,7 @@ else
   # 2. Check test infrastructure (only relevant if init was done)
   if [ ! -f .claude/docs/testing.md ]; then
     # Check monorepo subprojects too
-    has_testing=$(find_marker '*/docs/testing.md')
+    has_testing=$(find_marker './*/docs/testing.md')
     if [ -z "$has_testing" ]; then
       output+="[optimus] Testing docs missing. Suggest re-running \`${skill_prefix}init\` to set up test infrastructure."$'\n'
     fi
