@@ -60,7 +60,7 @@ description-refresh-date: [YYYY-MM-DD]
 
 Read `$CLAUDE_PLUGIN_ROOT/skills/jira/references/jira-codebase-analysis.md` and follow the **Analysis Procedure** using the Goal and the ORIGINAL Acceptance Criteria from the task file (exclude items tagged `(from codebase analysis)` — prior enrichment, not source criteria). Present the **Impact Summary**.
 
-Verify with `ToolSearch` that the detected server's add-comment tool named in the MCP Safety permitted-write table (`addCommentToJiraIssue` for Rovo, `jira_add_comment` for sooperset) is in the runtime tool list — do not probe for other comment-like tools. Then ask the user (AskUserQuestion) how to use the findings:
+Verify that the detected server's add-comment tool named in the MCP Safety permitted-write table (`addCommentToJiraIssue` for Rovo, `jira_add_comment` for sooperset) is available, found as in the Detection Procedure — do not probe for other comment-like tools. Then ask the user (AskUserQuestion) how to use the findings:
 
 - **Update JIRA and local context** (offer only if the add-comment tool is available) — enrich the local file and post an analysis comment to JIRA
 - **Update local context only** — enrich `docs/jira/<ISSUE-KEY>.md` only

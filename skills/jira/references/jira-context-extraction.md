@@ -13,14 +13,12 @@ Server detection, tool name resolution, MCP safety rules, and the fetch/output p
 
 ## Detection Procedure
 
-1. **Probe for tools** with `ToolSearch` (in order, stop at first match): query `jira` — look for `jira_search`, `jira_get_issue`, `searchJiraIssuesUsingJql`, or `getJiraIssue`; then query `atlassian` — look for tools containing `jira_` or `Jira`.
+1. **Find the tools:** look among your available tools for names in the table below or containing `jira`/`Jira`. If none match, query `ToolSearch` (when present) for `jira`, then `atlassian`.
 2. **Tools found** → record the server name and tool prefix (`mcp__atlassian__` = Rovo, `mcp__mcp-atlassian__` = sooperset, anything else = generic) and report: `Detected: [server name] ([N] JIRA tools available)`. **No tools found** → the skill routes to `jira-setup.md`.
-
-Under Codex, `ToolSearch` does not exist: inspect the tools available in the session for the names in the table below, or any tool containing `jira`/`Jira`; a match is the detected server, with its prefix read from the tool names. Otherwise report none detected.
 
 ## Tool Name Resolution
 
-Use `ToolSearch` at runtime (under Codex, the session's tool list) to discover available tools — never hard-code assumptions.
+Discover tools at runtime as in the [Detection Procedure](#detection-procedure) — never hard-code assumptions.
 
 **Known tool names by server:**
 
@@ -47,7 +45,7 @@ Use `ToolSearch` at runtime (under Codex, the session's tool list) to discover a
 
 When a **Read** tool is unavailable, fall back to the search tool with targeted JQL (e.g., `key = PROJ-123` when the get-issue tool is missing). Write operations have no fallback — if the specified write tool is unavailable, inform the user and skip the write.
 
-**Generic servers** (detection matched neither Rovo nor sooperset): map each **Read** operation by tool-name pattern via `ToolSearch`. Treat all writes as unavailable unless a discovered tool's name unambiguously matches one of the permitted purposes in the [MCP Safety](#mcp-safety) table (add comment, create issue, create link) — when in doubt, fail closed and skip the write.
+**Generic servers** (detection matched neither Rovo nor sooperset): map each **Read** operation by tool-name pattern among the tools the Detection Procedure found. Treat all writes as unavailable unless a discovered tool's name unambiguously matches one of the permitted purposes in the [MCP Safety](#mcp-safety) table (add comment, create issue, create link) — when in doubt, fail closed and skip the write.
 
 ## MCP Safety
 
