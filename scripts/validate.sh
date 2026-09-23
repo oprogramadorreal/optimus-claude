@@ -23,17 +23,17 @@ check() {
 echo "=== optimus-claude validation ==="
 echo
 
-# --- 1. No CRLF in script files (checks raw blobs via git cat-file) ---
+# --- 1. No CRLF in script files ---
+# Git's own eol stats: one portable call. `grep -P '\r$'` never matched on
+# macOS (BSD grep has no -P) or Git Bash (text mode strips the CR), and a blob
+# past the pipe buffer failed the pipeline. `|| true`: outside a git repo the
+# run must still reach later sections (test_skill_metadata.py runs it there).
 echo "[Line endings]"
-crlf_files=""
-while IFS= read -r f; do
-  if git cat-file -p "HEAD:$f" 2>/dev/null | grep -qP '\r$'; then
-    crlf_files+="  $f"$'\n'
-  fi
-done < <(git ls-files -- '*.sh' 'hooks/session-start')
+crlf_files=$(git ls-files --eol -- '*.sh' 'hooks/session-start' |
+  awk '$1 == "i/crlf" || $1 == "i/mixed" { sub(/^[^\t]*\t/, ""); print "  " $0 }') || true
 check "No CRLF in shell scripts" test -z "$crlf_files"
 if [ -n "$crlf_files" ]; then
-  printf "       Files with CRLF:\n%s" "$crlf_files"
+  printf "       Files with CRLF:\n%s\n" "$crlf_files"
 fi
 
 # --- 2. Shebang consistency ---
