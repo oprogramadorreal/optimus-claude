@@ -51,7 +51,7 @@ One `paper/` directory at the project root holds everything paper-derived:
 Keep generated workflow framing tool-agnostic: "a fresh session", "the
 implementing agent", without `/optimus:*` commands. Preserve product/model
 names that occur in the paper or its evidence; faithful transcription takes
-precedence. The final chat message may name `/optimus:gauntlet`.
+precedence. The final chat message may name `/optimus:*` commands.
 
 ## 1. Resolve the paper
 
