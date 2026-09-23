@@ -59,6 +59,7 @@ already authorized actions do not require another confirmation.
 | `paper/open-questions.md` | Stable question IDs, status, source-backed defaults, decisions and consequences; suggested framing/stack; `[verified]` means checked during preparation, not empirically reproduced |
 | `paper/dataset.md` | Dataset versions/splits, preprocessing, provenance, exact re-acquisition commands, verified counts, license terms (when datasets are used) |
 | `paper/reference-code/` | Existing implementations inspected during preparation (gitignored), with provenance and paper/code conflicts recorded; later reuse follows the user's scope and license |
+| Regenerator script (per project convention, else in `paper/`) | Only when building the bundle took mechanical extraction: rebuilds the derived rasters/text from `paper/source/` offline; its outputs carry a do-not-hand-edit header and `.gitattributes` `eol=lf`/`binary` pins |
 | `data/` | Downloaded datasets (gitignored; `data/README.md` stays committed) |
 
 It also ensures `.gitignore` ignores `data/*` (with a `!data/README.md` exception — a pre-existing
