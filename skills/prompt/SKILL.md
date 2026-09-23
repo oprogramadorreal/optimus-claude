@@ -23,7 +23,7 @@ Three rules that never bend, whatever the task asks for. Everything else in this
 
 ## Output contract
 
-Deliver the prompt block and nothing else — no framework or template names, no prompting theory unless the user asks for it, no unrequested explanation.
+Deliver the prompt block without padding — no framework or template names, no prompting theory unless the user asks for it, no unrequested explanation.
 
 Every prompt takes this exact structure — boundary markers as plain text on their own lines, immediately OUTSIDE the code fence, so selecting the fenced block copies only the prompt:
 
@@ -37,11 +37,10 @@ Every prompt takes this exact structure — boundary markers as plain text on th
 
 Markers wrap pasteable prompt blocks only — never the `**Target:**` line, the notes below, or the memory-block fence inside the prompt body. Every delivered prompt block gets its own marker pair, including multi-prompt and Prompt Decompiler outputs.
 
-Optional notes after the Target line, each 1-2 lines and only when genuinely needed:
+Notes go after the Target line, each 1-2 lines: any an invariant or step calls for, plus these when genuinely needed:
 
 - Setup required before pasting.
 - For an agentic-tool prompt that touches the filesystem, terminal, dependencies, or database: one line reminding the user to review the scope locks, forbidden actions, and stop conditions, and to confirm paths and permissions match the project.
-- The Step 1 translation note.
 
 If the task genuinely requires multiple prompts, deliver Prompt 1 with "Run this first, then ask for Prompt 2" below its closing marker; if the user wants everything at once, wrap each prompt in its own marker pair. For copywriting and content prompts, include fillable placeholders where relevant: [TONE], [AUDIENCE], [BRAND VOICE], [PRODUCT NAME].
 

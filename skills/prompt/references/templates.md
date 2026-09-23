@@ -202,7 +202,7 @@ Style Reference: [artist / film / aesthetic reference if applicable]
 
 ## Template J — Reference Image Editing
 
-*When the user has an existing image to modify. Never describe the whole scene — only the change. Before writing the prompt, always tell the user: "Attach your reference image to [tool name] before sending this prompt."*
+*When the user has an existing image to modify. Never describe the whole scene — only the change. Always add the setup note: "Attach your reference image to [tool name] before sending this prompt."*
 
 ```
 Reference image: [attached / URL]
