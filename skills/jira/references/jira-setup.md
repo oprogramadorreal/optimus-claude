@@ -18,7 +18,7 @@ claude mcp add --transport http --scope user atlassian https://mcp.atlassian.com
 
 - Use `--transport http` (Streamable HTTP) with the `/v1/mcp` endpoint — the older SSE transport (`/v1/sse`) is deprecated by Atlassian and has reconnect issues on Windows. If tools never appear after an apparently successful setup, an SSE registration is the likely cause: remove and re-add with `--transport http`.
 - The org admin must enable the server first: `admin.atlassian.com → Apps → AI settings → Rovo MCP server`.
-- Auth is OAuth 2.1 — the first JIRA tool use opens a browser consent flow. All actions respect the user's existing JIRA permissions.
+- Auth is OAuth 2.1 — no JIRA tools appear until the user runs `/mcp` and authenticates `atlassian` in the browser. All actions respect the user's existing JIRA permissions.
 - Team-shared config: use `--scope project` to write `.mcp.json` instead. Safe to commit — OAuth tokens are never stored in `.mcp.json`; each teammate completes their own consent flow.
 
 ## mcp-atlassian

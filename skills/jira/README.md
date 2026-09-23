@@ -25,7 +25,7 @@ A JIRA MCP server must be configured — in Claude Code, the skill guides setup 
 claude mcp add --transport http --scope user atlassian https://mcp.atlassian.com/v1/mcp
 ```
 
-Requires Rovo MCP Server enabled by your org admin (`admin.atlassian.com → Apps → AI settings`). Use `--transport http` — the older SSE transport is deprecated and flaky on Windows.
+Requires Rovo MCP Server enabled by your org admin (`admin.atlassian.com → Apps → AI settings`). Then run `/mcp` in a Claude Code session to authenticate — no JIRA tools appear before that. Use `--transport http` — the older SSE transport is deprecated and flaky on Windows.
 
 **sooperset/mcp-atlassian** (community, JIRA Cloud or Server/Data Center):
 
