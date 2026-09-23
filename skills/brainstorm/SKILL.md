@@ -53,7 +53,7 @@ The user selects via AskUserQuestion, one option per approach with the recommend
 
 ## Step 4: Design
 
-Develop a detailed design covering the spec template sections in Step 5, omitting those that don't apply. Before writing a Scenarios section, read `$CLAUDE_PLUGIN_ROOT/skills/brainstorm/references/scenario-style.md` for inclusion signals and Given/When/Then discipline — `/optimus:tdd` consumes each scenario as one Red-Green-Refactor cycle.
+Develop a detailed design covering the spec template sections in Step 5, omitting those that don't apply. Include Scenarios when any signal applies — JIRA Acceptance Criteria, an intent naming a user-visible flow (end-user, cross-team, or regulatory), or clarifying answers describing observable outcomes — and omit them for internal refactors, infrastructure changes, and developer-only tooling. When including them, first read `$CLAUDE_PLUGIN_ROOT/skills/brainstorm/references/scenario-style.md` for Given/When/Then discipline — `/optimus:tdd` consumes each scenario as one Red-Green-Refactor cycle.
 
 Present the design in conversation and iterate through an Approve / Adjust AskUserQuestion until the user approves.
 

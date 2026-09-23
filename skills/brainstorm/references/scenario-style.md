@@ -2,15 +2,6 @@
 
 How to write the **Scenarios** section of a spec when the task is stakeholder-facing or names explicit acceptance criteria. Scenarios are plain markdown using Given/When/Then phrasing — no `.feature` files, no Cucumber/Gherkin tooling.
 
-## When to include
-
-Include a Scenarios section when the work is **stakeholder-facing or acceptance-criteria-driven**. Concretely, include when **any** of these signals apply:
-- The task references a JIRA task file with explicit Acceptance Criteria
-- The user's intent names a user-visible flow (end-user, cross-team, or regulatory)
-- The answers to clarifying questions describe observable outcomes rather than internal mechanics
-
-Omit for internal refactors, infrastructure changes, and developer-only tooling.
-
 ## Format
 
 Each scenario is a `### Scenario:` heading followed by Given/When/Then lines. 3–7 scenarios per feature is the typical range; if you need more, the feature is too large and should be split.
@@ -29,7 +20,7 @@ Each scenario is a `### Scenario:` heading followed by Given/When/Then lines. 3�
 **Then** the cart total is unchanged and an "expired coupon" message is shown
 ```
 
-`And` / `But` are allowed to chain conditions in Given or outcomes in Then. Multiple `When` clauses in a single scenario are an anti-pattern — see below.
+`And` / `But` are allowed to chain conditions in Given or outcomes in Then.
 
 ## Discipline
 
@@ -43,14 +34,5 @@ Each scenario is a `### Scenario:` heading followed by Given/When/Then lines. 3�
 
 - **Multi-When chains.** `When ... When ... When ...` is a workflow, not a behavior. Keep one When per scenario; if a setup action is needed, put it in Given.
 - **Scenario-Outline overuse.** Don't parameterize 12 rows of inputs to test arithmetic — that's a unit-test concern, not an acceptance criterion. Reserve the scenarios for distinct user-observable cases.
-- **Leaky implementation details.** "Then the `coupons.apply` endpoint returns 200" is a technical assertion, not a behavior. Phrase it as the user-observable outcome ("the discount appears on the order summary").
-- **Scenarios for refactors or internals.** If the work is "switch cache backend from Redis to in-process LRU," there is no stakeholder-facing behavior change — omit the Scenarios section entirely. The Components / Approach sections of the spec cover internal work.
+- **Scenarios for refactors or internals.** Internal refactors, infrastructure changes (e.g. switching a cache backend from Redis to an in-process LRU), and developer-only tooling have no stakeholder-facing behavior change — omit the Scenarios section entirely.
 - **Vague Given.** "Given the user is on the checkout page" without state is a setup line, not a precondition. State *what is true* in the world, not which page is loaded.
-
-## Boundary with TDD
-
-The Scenarios section is the **specification**. It belongs in the spec, alongside Goal/Approach/Components/Interfaces.
-
-`/optimus:tdd` reads the Scenarios section and maps each scenario to one Red-Green-Refactor cycle. Brainstorm does not write tests, does not generate step definitions, and does not run a test framework — those are TDD's job.
-
-If a scenario implies multiple sub-behaviors (e.g., "Then the order total drops AND a confirmation email is sent"), TDD may further decompose it during Step 3 — that's expected. Scenarios are the stakeholder-facing contract; behaviors are the test-driven implementation units.
