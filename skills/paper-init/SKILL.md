@@ -418,16 +418,15 @@ them. Read existing decision ledgers, including `decisions.md` if present;
 preserve them and do not reopen settled questions without new evidence.
 
 Before replacing context used by an active or past evaluation, preserve its
-bar and linked protocols in a revision snapshot unless an immutable committed
-version already retains them. Consult existing evaluation records when
-available. Record changed requirements and which evidence needs revalidation;
+bar and linked protocols in a revision snapshot. Consult existing evaluation
+records when available. Record changed requirements and which evidence needs revalidation;
 never overwrite run artifacts, logs, or critic verdicts, or silently replace
 an active run's fixed bar. A new acceptance revision is a proposed bar for a
 new evaluation, not permission to relax failed criteria. Preserve necessary
 source versions and acquisition records too. Snapshots inherit the source
 license and ignore rules: never expose ignored sources or reference code by
-copying them into a tracked archive. Use Git only when it actually retains
-the prior bytes; an uncommitted bar needs its own snapshot.
+copying them into a tracked archive. Git history stands in for a snapshot
+only when it actually retains the prior bytes.
 
 Cited works already in `paper/cited/` are kept, not re-fetched unless the
 required source version changes or a missing file must be re-acquired;
