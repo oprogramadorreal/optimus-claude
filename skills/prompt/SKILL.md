@@ -48,11 +48,11 @@ If the task genuinely requires multiple prompts, deliver Prompt 1 with "Run this
 
 ### Step 1 — Language
 
-Detect the input language and communicate with the user in it throughout. Generate the prompt in English by default — exceptions: the user requests their own language, or the target audience/content is non-English (e.g., marketing copy for a Brazilian audience). If the preference is genuinely ambiguous, ask via `AskUserQuestion` (counts toward the question budget). When an English prompt came from non-English input, add after delivery: "Note: prompt generated in English by default. Ask if you'd like it in [original language] instead." This is a language preference, not a claim that English performs better on every tool or task.
+Detect the input language and communicate with the user in it throughout. Generate the prompt in English by default — exceptions: the user requests their own language, or the target audience/content is non-English (e.g., marketing copy for a Brazilian audience). If the preference is genuinely ambiguous, ask via `AskUserQuestion`. When an English prompt came from non-English input, add after delivery: "Note: prompt generated in English by default. Ask if you'd like it in [original language] instead." This is a language preference, not a claim that English performs better on every tool or task.
 
 ### Step 2 — Extract intent
 
-Silently extract these dimensions before writing: task (precise operation, not a vague verb), target tool, output format (shape, length, structure), constraints and scope bounds, provided input, session context (established stack, prior decisions), audience, success criteria (binary where possible), examples (if format-critical). If 1-2 critical dimensions are genuinely missing, ask via `AskUserQuestion` — group related questions into a single call. Cap clarifying questions at 3 across the whole workflow, and skip them entirely when intent is clear.
+Silently extract these dimensions before writing: task (precise operation, not a vague verb), target tool, output format (shape, length, structure), constraints and scope bounds, provided input, session context (established stack, prior decisions), audience, success criteria (binary where possible), examples (if format-critical). If 1-2 critical dimensions are genuinely missing, ask via `AskUserQuestion` — group related questions into a single call. Cap clarifying questions at 3 across the whole workflow, whichever step asks them, and skip them entirely when intent is clear.
 
 If the user pastes an existing prompt to break down, adapt, simplify, or split, that is Prompt Decompiler mode — use Template L.
 
@@ -90,7 +90,7 @@ If the target is Claude Code, route by intent:
 - Fan-out work one conversation cannot coordinate (codebase-wide audit, large mechanical migration or codemod, cross-checked research) → N.
 - Implement a spec, task, or feature (a `docs/specs/` or `docs/jira/` file, or a described feature): supervised test-first ceremony → a Template M plan-mode prompt that feeds `/optimus:tdd`; self-orchestrated parallel background build → Template N with test-first stated as the quality bar. Runtime permissions can still require user input, and token use and speed depend on the task.
   - The tdd-fed M prompt is review-only: read `$CLAUDE_PLUGIN_ROOT/skills/brainstorm/references/plan-mode-handoff.md` and close the prompt with its `## How this conversation should run` block. `<doc-path>` is the source file; for a described feature it is a new `docs/specs/YYYY-MM-DD-<feature-slug>.md`, which the block's write step creates with a `## Goal` section before the `### Refined plan`. Step 7 delivers the rest.
-- Genuinely ambiguous → ask once via `AskUserQuestion` (counts toward the budget).
+- Genuinely ambiguous → ask once via `AskUserQuestion`.
 
 For Template M or N the output is a PROMPT — NEVER the plan or the workflow script itself — and it must be self-contained: it starts a fresh conversation (M) or a background workflow (N) with no prior context.
 
@@ -98,13 +98,13 @@ For Template M or N the output is a PROMPT — NEVER the plan or the workflow sc
 
 Fix the ordinary defects as a matter of course — vagueness, implicit references, a missing audience, role or project context, unbounded scope, two tasks in one prompt, a template that does not fit the tool. The table below is the calls that are easy to get wrong, not a checklist of everything.
 
-Fix silently; flag only fixes that would change the user's stated intent; if a fix reveals a missing critical dimension, ask (within the question budget).
+Fix silently; flag only fixes that would change the user's stated intent; if a fix reveals a missing critical dimension, ask.
 
 | Pattern | Fix |
 |---------|-----|
 | Assumed prior context, forgotten stack, expected inter-session memory, or contradicted earlier decisions | Prepend the Step 6 memory block with all established facts |
 | Hallucination invite — "what do experts say about X?" | Ground it: "Cite only sources you are certain of. If uncertain, say so." |
-| Prior failures unmentioned | Ask what was tried (counts toward the question budget) |
+| An earlier attempt failed, but what was tried or what it produced is not given | Ask the user what was tried and what it produced |
 | No negative prompts for image AI | Add them — unless the tool's routing entry says they're unsupported |
 | Prose for Midjourney | Convert to comma-separated descriptors + parameters |
 | No stack constraints | Pin language, framework, versions, allowed libraries |

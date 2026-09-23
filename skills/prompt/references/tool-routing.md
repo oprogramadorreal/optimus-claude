@@ -104,7 +104,7 @@ These models perform internal reasoning. Prefer a clear task and output contract
 
 ### Ollama (local model deployment)
 
-- ALWAYS ask which model is running before writing — Llama3, Mistral, Qwen2.5, CodeLlama behave differently
+- Ask which model is running if not stated — Llama3, Mistral, Qwen2.5, CodeLlama behave differently
 - System prompt is the most impactful lever — include it in the output so the user can set it in their Modelfile
 - Shorter simpler prompts outperform complex ones — local models lose coherence with deep nesting
 - Temperature 0.1 for coding/deterministic tasks, 0.7-0.8 for creative tasks
@@ -249,7 +249,7 @@ When the user mentions "change", "edit", "modify", "adjust" anything in an exist
 
 Node-based workflow — not a single prompt box.
 
-- Ask which checkpoint model is loaded before writing (SD 1.5, SDXL, Flux)
+- If not stated, ask which checkpoint model is loaded (SD 1.5, SDXL, Flux)
 - Always output two separate blocks: Positive Prompt and Negative Prompt. Never merge them
 - SD 1.5: shorter prompts, under 75 tokens per block, use (word:weight) syntax. SDXL: handles longer prompts, more natural language. Flux: natural language, less weighted syntax, very responsive to style descriptions
 

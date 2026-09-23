@@ -242,7 +242,7 @@ RESOLUTION: [width x height — divisible by 64]
 
 *When the user pastes an existing prompt to break down, adapt, simplify, or split.*
 
-Detect the task: **Break down** (explain what each part does), **Adapt** (rewrite for a different tool, preserving intent — always ask: "What tool is the original from, and what tool are you adapting it for?"), **Simplify** (remove redundancy and tighten), or **Split** (divide a complex one-shot into a cleaner sequence).
+Detect the task: **Break down** (explain what each part does), **Adapt** (rewrite for a different tool, preserving intent — ask for whichever of the source and target tool the user did not name), **Simplify** (remove redundancy and tighten), or **Split** (divide a complex one-shot into a cleaner sequence).
 
 Wrap each pasteable prompt block below — the `Recommended fix`, the `Adapted for [target tool]` block, and each split `[prompt block]` — in its own pair of the SKILL.md output-contract boundary markers. Labels, analysis, and commentary lines stay outside the markers.
 
