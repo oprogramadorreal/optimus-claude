@@ -291,8 +291,9 @@ license acceptance, a manual form), do not ask — write the exact steps into
 Preserve acquired originals byte-for-byte across Git checkouts. For source/cited
 files intended for tracking whose acquisition hashes identify exact bytes, add narrowly
 scoped `-text` entries to `.gitattributes` so Git cannot normalize their line
-endings; exclude model-authored metadata and working forms. Verify the staged
-or committed source bytes still match their acquisition hashes when available.
+endings; exclude model-authored metadata and working forms. Verify with
+`git check-attr text -- <files>` that each such file reports `unset`, and that
+any staged or committed copies still match their acquisition hashes.
 Do not change the treatment of unrelated user files. For datasets kept outside
 Git, the re-acquisition record and integrity checks remain authoritative.
 
