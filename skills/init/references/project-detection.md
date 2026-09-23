@@ -53,15 +53,15 @@ If a single `.sln` file exists at the root, parse its `Project(...)` entries to 
 - Multi-repo workspace (Step 0) → confirmed multi-repo, enumerate repos
 - Workspace config found (Step A) → confirmed monorepo, enumerate from config
 - 2+ projects with manifests (Step B) → confirmed monorepo, enumerate from projects
-- Supporting signals (Step C) + 1 dir with manifest → likely monorepo, ask user to confirm
-- Supporting signals only → insufficient evidence, ask user to identify subproject dirs
+- Supporting signals (Step C) + 1 dir with manifest → ambiguous (likely monorepo)
+- Supporting signals only → ambiguous (subproject dirs unknown)
 - No signals → single project
+
+**Ambiguous** is the user's call: a subagent returns it with its signals for the dispatching skill to ask; a skill reading this inline asks the user to confirm or name the subproject dirs.
 
 ## Subproject Enumeration
 
-**If monorepo detected:** Inform user of detection signals and identified subprojects with tech stacks. Confirm before proceeding.
-
 - Step A detected: use workspace member list + any additional top-level dirs with manifests not in the config.
 - Step B only: use all qualifying directories (including nested ones found via depth-2 check). If the root-as-project check qualified the root, include it too.
-- Root-as-project or root-as-workspace-member (e.g., `"."` in workspaces): include in subproject table but do NOT create a separate CLAUDE.md — root CLAUDE.md covers it. Its docs go in `.claude/docs/`.
+- Root-as-project or root-as-workspace-member (e.g., `"."` in workspaces): include in subproject table.
 - For each subproject, detect its tech stack using the manifest table.
