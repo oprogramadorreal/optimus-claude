@@ -25,7 +25,7 @@ including material appendix experiments. Group equivalent rows without losing
 conditions. Default to the paper's empirical scope unless the user selected
 less. Record exclusions and their reasons; unavailable or infeasible work
 stays selected and blocked until a scope decision authorizes exclusion.
-Keep the original targets beside any reduced-scope criteria. A published
+Reduced-scope criteria cite, never replace, the original target IDs. A published
 baseline value is a reference comparison, not evidence that we reran it.
 
 Group independently assessable requirements under claims or experiments,
