@@ -193,16 +193,11 @@ Negative Prompts: [blurry, watermark, extra fingers, distortion, low quality]
 Style Reference: [artist / film / aesthetic reference if applicable]
 ```
 
-**Tool-specific syntax:**
-- **Midjourney**: comma-separated descriptors, `--ar`, `--style`, `--v 6` at end
-- **Stable Diffusion**: `(word:1.3)` weight syntax, CFG 7-12, mandatory negative prompt
-- **OpenAI image tools**: prose works well; specify whether text is wanted and use the currently supported target chosen under tool-routing.md
-- **Sora / video**: add camera movement (slow dolly, static shot, crane up), duration, cut style
-- **Seedance 2** (video): its prompt shape differs entirely — apply its Video AI entry in tool-routing.md instead of this field list
+**Video:** add camera movement (slow dolly, static shot, crane up), duration, and cut style. **Seedance 2** is the exception — its prompt shape differs entirely; apply its Video AI entry in tool-routing.md instead of this field list.
 
 ## Template J — Reference Image Editing
 
-*When the user has an existing image to modify. Never describe the whole scene — only the change. Always add the setup note: "Attach your reference image to [tool name] before sending this prompt."*
+*When the user has an existing image to modify. Always add the setup note: "Attach your reference image to [tool name] before sending this prompt."*
 
 ```
 Reference image: [attached / URL]
@@ -213,14 +208,11 @@ Style consistency: maintain the exact style, lighting, and mood of the reference
 Negative prompt: [what to avoid introducing]
 ```
 
-**Tool-specific editing:**
-- Midjourney: `--cref [image URL]` for character reference, `--sref` for style reference
-- OpenAI image tools: attach the reference and use the selected interface's supported editing capability; follow tool-routing.md for API versus ChatGPT distinctions
-- Stable Diffusion: img2img mode, denoising strength 0.3-0.6
+**Tool syntax:** apply tool-routing.md's Image AI — Editing entry.
 
 ## Template K — ComfyUI
 
-*Node-based image workflows. Ask first if not stated: "Which checkpoint model are you using? (SD 1.5, SDXL, Flux, or other)". Positive and Negative paste into different text-encode nodes: output each as its own fenced block in its own marker pair, with its label above the opening marker — never merge them.*
+*Node-based image workflows. Positive and Negative paste into different text-encode nodes: output each as its own fenced block in its own marker pair, with its label above the opening marker.*
 
 Positive prompt:
 ```
@@ -233,8 +225,6 @@ Negative prompt:
 ```
 
 **Setup note** (after the Target line, outside the markers): checkpoint [model name], 20-30 steps, resolution [width x height — divisible by 64]. SD 1.5 / SDXL: Euler a, CFG 7. Flux.1: euler, CFG 1.0 plus a FluxGuidance node at ~3.5 (schnell: 4 steps); at CFG 1 the negative prompt has no effect.
-
-**Model notes:** SD 1.5: under 75 tokens, use (word:weight). SDXL: longer prompts OK, natural language. Flux: natural language, less weight syntax, responsive to style.
 
 ## Template L — Prompt Decompiler
 
