@@ -364,10 +364,8 @@ Write the index, `paper/README.md`, under ~50 lines: what the bundle is, read
 order, selected scope, preparation status (complete or complete with gaps),
 remaining blockers, and evidence status (initially unverified).
 
-Put the empirical reference's handoff instructions in the index: review
-source coverage and unresolved criteria, then pin the bar and its linked
-protocols before the first critic remit. Preparation cannot invent a future
-commit or claim experimental success.
+For empirical papers, put the empirical reference's fresh-session handoff in
+the index.
 
 Close with: what the bundle contains and where; cited works — which were
 fetched and why, which the user supplied, and which remain gaps in
@@ -387,13 +385,11 @@ fresh conversation with `/optimus:gauntlet`, printed as one paste-ready
 line: the goal names the bundle root with its index as the read-first entry,
 the bar its `acceptance.md` and referenced protocols/evidence contract
 (non-empirical: `spec.md`'s `Selected targets` section, else its reported
-targets, plus the unresolved questions). Tell the fresh session
-to settle acceptance choices and pin that bar before the first critic remit.
-Passing the selected paper bar means faithful reproduction within its
-justified criteria. Scientific outperformance is unnecessary. The scope
-must be named in the result; reduced scope is
-never reported as reproducing the full paper. Gauntlet's independent review,
-execution, integration, stopping rules, and repository safeguards still apply.
+targets, plus the unresolved questions). Tell the fresh session to settle
+acceptance choices and pin that bar before the first critic remit, that
+passing it means faithful reproduction within its justified criteria rather
+than outperforming the paper, and to name the selected scope in its result:
+reduced scope is never reported as reproducing the full paper.
 
 ## Boundaries
 
