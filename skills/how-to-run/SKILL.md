@@ -17,7 +17,7 @@ Generate or update `HOW-TO-RUN.md` at the project (or workspace) root: OS/hardwa
 
 ## Step 1: Detect project context (agent)
 
-Read `$CLAUDE_PLUGIN_ROOT/skills/how-to-run/agents/project-environment-detector.md` and `$CLAUDE_PLUGIN_ROOT/skills/how-to-run/agents/shared-constraints.md`. Launch 1 `general-purpose` Agent tool call whose prompt is, in order: the **Agent Constraints** section of `$CLAUDE_PLUGIN_ROOT/references/shared-agent-constraints.md`, the shared-constraints file, the contents of `$CLAUDE_PLUGIN_ROOT/skills/init/references/tech-stack-detection.md`, and the detector prompt.
+Read `$CLAUDE_PLUGIN_ROOT/skills/how-to-run/agents/project-environment-detector.md` and `$CLAUDE_PLUGIN_ROOT/skills/how-to-run/agents/shared-constraints.md`. Launch 1 `general-purpose` Agent tool call whose prompt is, in order: the **Agent Constraints** section of `$CLAUDE_PLUGIN_ROOT/references/shared-agent-constraints.md`, the shared-constraints file, the contents of `$CLAUDE_PLUGIN_ROOT/skills/init/references/tech-stack-detection.md`, and the detector prompt. Assemble the prompt per "Prompt assembly at dispatch time" in `$CLAUDE_PLUGIN_ROOT/references/agent-architecture.md` — the detector reads its two conditional references itself via the absolutized paths.
 
 Two conditional additions, each gated on a check you run before dispatching — a plain single-project repo needs neither, and they are ~130 lines together:
 
