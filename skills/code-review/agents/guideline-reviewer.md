@@ -11,13 +11,12 @@ Read the project docs listed below. Every finding cites the specific rule it vio
 ## Focus Areas
 
 - Explicit violations of rules in the loaded project docs
-- Patterns that contradict architecture.md boundaries
 - Testing convention violations per testing.md
 - Styling convention violations per styling.md
 
 ## PR/MR mode
 
-Apply the Intent-vs-Implementation Check from `shared-constraints.md` within your lane: pattern, convention, and architectural-boundary claims — which pattern the change follows, boundary non-goals, deliberate deviations from defaults.
+Apply the Intent-vs-Implementation Check from `shared-constraints.md` within your lane: convention claims — which convention the change follows, deliberate deviations from defaults.
 
 ## Output
 
