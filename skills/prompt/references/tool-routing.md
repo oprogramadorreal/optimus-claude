@@ -87,7 +87,7 @@ These models perform internal reasoning. Prefer a clear task and output contract
 
 ### Qwen3 (thinking mode)
 
-- Thinking mode (/think or enable_thinking=True): treat exactly like o3 — short clean instructions, no scaffolding
+- Thinking mode (a -Thinking release, or /think / enable_thinking=True on hybrid releases): treat exactly like o3 — short clean instructions, no scaffolding
 - Non-thinking mode: treat like Qwen 2.5 instruct — full structure, explicit format, role assignment
 
 ## Open-Weight LLMs
@@ -104,11 +104,11 @@ These models perform internal reasoning. Prefer a clear task and output contract
 
 ### Ollama (local model deployment)
 
-- Ask which model is running if not stated — Llama3, Mistral, Qwen2.5, CodeLlama behave differently
+- Ask which model is running if not stated — Llama, Mistral, Qwen, and code-tuned variants behave differently
 - System prompt is the most impactful lever — include it in the output so the user can set it in their Modelfile
 - Shorter simpler prompts outperform complex ones — local models lose coherence with deep nesting
 - Temperature 0.1 for coding/deterministic tasks, 0.7-0.8 for creative tasks
-- For coding: CodeLlama or Qwen2.5-Coder, not general Llama
+- For coding: prefer a current code-tuned model (e.g. the latest Qwen Coder release) over a general chat model
 
 ## IDE AI
 
@@ -160,6 +160,7 @@ Goal sources: [Codex goal commands](https://learn.chatgpt.com/docs/developer-com
 
 ### GitHub Copilot
 
+- Copilot Chat / agent mode: a Template G task prompt; Copilot cloud agent (assigned an issue or prompted in the agents panel): Template H. The bullets below are for inline completion only
 - Write the exact function signature, docstring, or comment immediately before invoking
 - Describe input types, return type, edge cases, and what the function must NOT do
 - Copilot completes what it predicts, not what you intend — leave no ambiguity in the comment
@@ -198,7 +199,7 @@ Perplexity Comet, OpenAI Atlas, Claude in Chrome — these agents control a real
 
 ## Research / Orchestration
 
-### Perplexity / SearchGPT
+### Perplexity / ChatGPT search
 
 - Specify mode: search vs analyze vs compare; add citation requirements
 - Reframe hallucination-prone questions as grounded queries
@@ -271,18 +272,20 @@ Node-based workflow — not a single prompt box.
 ## Video AI
 
 - **Sora**: describe as if directing a film shot. Camera movement is critical — static vs dolly vs crane changes output dramatically
-- **Runway Gen-3**: responds to cinematic language — reference film styles for consistent aesthetic
+- **Runway**: responds to cinematic language — reference film styles for consistent aesthetic
 - **Kling**: strong at realistic human motion — describe body movement explicitly, specify camera angle and shot type
 - **LTX Video**: fast generation, prompt-sensitive — keep descriptions concise and visual. Specify resolution and motion intensity
 - **Dream Machine (Luma)**: cinematic quality — reference lighting setups, lens types, and color grading styles
-- **Seedance 2 (ByteDance video, ≠ SeeDream)**: prose director-style (Subject → Action → Environment → Camera → Lighting → Style → Audio, ~60-100 words). ONE primary camera move per shot; pacing words, not specs ("slow dolly" not "24fps"). NO negative prompts — phrase exclusions positively ("clean motion, correct hands"). Native synced audio (dialogue in quotes) and `@Image1`/`@Video1` reference tags distinguish it from Sora/Kling. Multi-shot in one prompt: chain with "camera cuts to…" (or "Shot 1: / Shot 2:") and re-name the subject each shot so identity holds. Image-to-video: describe only the motion/change plus "preserve composition and colors"
+- **Seedance 2 (ByteDance video, ≠ SeeDream)**: prose director-style (Subject → Action → Environment → Camera → Lighting → Style → Audio, ~60-100 words). ONE primary camera move per shot; pacing words, not specs ("slow dolly" not "24fps"). NO negative prompts — phrase exclusions positively ("clean motion, correct hands"). Native synced audio (dialogue in quotes); `@Image1`/`@Video1` reference tags. Multi-shot in one prompt: chain with "camera cuts to…" (or "Shot 1: / Shot 2:") and re-name the subject each shot so identity holds. Image-to-video: describe only the motion/change plus "preserve composition and colors"
 
 ## Voice AI
 
 ### ElevenLabs
 
 - Specify emotion, pacing, emphasis markers, and speech rate directly — prose descriptions do not translate
-- Use SSML-like markers for emphasis: indicate which words to stress, where to pause
+- Eleven v3: inline audio tags (`[whispers]`, `[laughs]`, `[pause]`) and ellipses for emotion and pauses; v3 does not support SSML break tags. Other models: SSML `<break time="1s" />` for pauses
+
+Source: [ElevenLabs best practices](https://elevenlabs.io/docs/overview/capabilities/text-to-speech/best-practices), checked 2026-09-23.
 
 ## Workflow AI
 
