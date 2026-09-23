@@ -27,18 +27,18 @@ Use these profiles as starting defaults, not proof of performance on every model
 
 ### Claude (claude.ai, Claude API)
 
-Covers the Claude 5 family (Opus 5, Sonnet 5, Fable 5 and 5.1) and Claude 4.x. Where they differ, the bullet says so.
+Covers Claude 5.x (Fable, Opus, Sonnet) and Claude 4.x. Where they differ, the bullet says so.
 
 - Be explicit and specific — Claude follows instructions literally, not by inference; always specify output format and length
 - XML tags for complex multi-section prompts: `<context>`, `<task>`, `<constraints>`, `<output_format>`
 - Provide context and reasoning WHY, not just WHAT — Claude generalizes better from explanations
 - For complex or multi-step tasks, front-load everything in one turn — intent, constraints, acceptance criteria, relevant files; extra back-and-forth adds reasoning overhead and cost
-- Don't add "think step by step" or a fixed thinking budget — current Claude calibrates reasoning depth automatically. On the API, depth is the `effort` setting, not prompt text; in claude.ai, where the user has no such control, a one-line nudge is the only lever: "Think carefully before responding" (more) or "Prioritize responding quickly" (less)
+- Don't add "think step by step" or a fixed thinking budget — current Claude calibrates reasoning depth automatically. On the API, depth is the `effort` setting (extended thinking's `budget_tokens` on models without it, such as Haiku 4.5), not prompt text; in claude.ai, where the user has no such control, a one-line nudge is the only lever: "Think carefully before responding" (more) or "Prioritize responding quickly" (less)
 - Prefer concrete acceptance criteria and external checks (a test suite, a schema, a live API) over repeated generic self-check instructions. Keep a targeted check when it addresses an observed failure. For a long autonomous build on Fable 5.1, state how its checking harness validates progress against the spec; evaluate changes to that cadence rather than assuming self-verification always helps or never helps.
 - **Bound scope with intent, not prohibitions.** Claude 5 models can widen a task past what was asked (Claude 4.x and Fable 5 over-tidy the same way). One line covers it: *"Deliver what was asked, at the scope intended. Make routine judgment calls yourself; check in only when two readings of the request would lead to materially different work. If a better approach exists, say so in a sentence and continue as asked."*
 - **Length is a separate lever from reasoning.** Claude 5 responses run longer by default, and lowering reasoning effort does not shorten them — ask directly: *"Keep responses focused and brief; spend most of the response on the main answer."* When the prompt produces a written file, add: *"Match the document's length to the substance — no filler sections, redundant summaries, or boilerplate."*
 - Don't add anti-formatting rules ("no bullets", "no headers", "no bold") — Fable 5.1 already under-formats, so they strip formatting the reader wanted. Say when formatting is appropriate instead: *"Use lists and headers when the content is multifaceted enough that they help; plain prose for simple answers and conversational exchanges."*
-- Don't instruct Fable 5.x to echo or transcribe its reasoning as output text — the reasoning-extraction safeguard can refuse the request (and fall back to Opus where fallbacks are configured)
+- Don't instruct Fable 5.x or Opus 5.5 to echo or transcribe its reasoning as output text — their reasoning-extraction safeguard can refuse the request
 
 ### GPT-6 Astra
 
