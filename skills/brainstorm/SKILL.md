@@ -15,11 +15,13 @@ Guide the user through a design conversation that produces a written, approved s
 
 **The hard gate: no implementation until the design is approved.** Do not invoke an implementation skill, write production code, or scaffold project structure until a spec is written and the user has approved it — even for seemingly simple tasks.
 
+Resolve the target repo first: if `git rev-parse --is-inside-work-tree` does not return `true`, read `$CLAUDE_PLUGIN_ROOT/skills/init/references/multi-repo-detection.md` and apply it — in a workspace, operate in the repo the user targets, asking which if ambiguous. Otherwise use `git rev-parse --show-toplevel`, including in a linked worktree or subdirectory. Both modes resolve paths from that root.
+
 ## Scaffold mode
 
 When invoked with the `scaffold` argument, or when the user asks to set up the docs-first steering cascade, run this flow instead of the design conversation:
 
-1. Target the current repo root from `git rev-parse --show-toplevel`. If `git rev-parse --is-inside-work-tree` does not return `true`, read `$CLAUDE_PLUGIN_ROOT/skills/init/references/multi-repo-detection.md` and apply it — when a workspace is detected, ask which repo the product lives in and scaffold there (a cascade outside the target repo never auto-loads as steering).
+1. Scaffold in the resolved repo root — a cascade outside the target repo never auto-loads as steering.
 2. For each of `docs/product/product-context.md`, `mvp-prd.md`, and `tech-stack.md`: if it exists, never overwrite — skip it. If missing, copy the matching file from `$CLAUDE_PLUGIN_ROOT/skills/brainstorm/templates/product/` verbatim, creating `docs/product/` if needed. Write nothing else — no `docs/specs/` file (the design flow authors that later), nothing under `.claude/`.
 3. **Emit skeletons with TODO markers only — author no product content (no personas, KPIs, business-value prose, or technology choices) and never fill a TODO; that is the human's job.**
 4. Report created vs skipped files. Tell the user to fill the TODOs top-down (vision → MVP PRD → target stack), then run `/optimus:brainstorm` in a fresh conversation to design the first build.
@@ -29,8 +31,6 @@ When invoked with the `scaffold` argument, or when the user asks to set up the d
 If `.claude/CLAUDE.md` or `.claude/docs/coding-guidelines.md` is missing, recommend `/optimus:init` first; on the user's choice, continue with general best practices.
 
 Load `.claude/CLAUDE.md` and `.claude/docs/coding-guidelines.md`, plus — only if present — the steering cascade `docs/product/product-context.md`, `mvp-prd.md`, and `tech-stack.md`. Steering informs the design; it is never the task itself or content to copy. Authoring boundary and precedence: `$CLAUDE_PLUGIN_ROOT/references/sdd-mapping.md`. In a monorepo, load the subproject's own `docs/` files (testing, architecture, styling) and shared guidelines from the root `.claude/docs/`.
-
-If `git rev-parse --is-inside-work-tree` does not return `true`, read `$CLAUDE_PLUGIN_ROOT/skills/init/references/multi-repo-detection.md` and apply it — operate within the repo the user is targeting; ask which repo if ambiguous. Otherwise resolve `git rev-parse --show-toplevel`, including linked worktrees.
 
 Scan the project's directory structure, key modules, and existing patterns to ground the conversation in what actually exists.
 
