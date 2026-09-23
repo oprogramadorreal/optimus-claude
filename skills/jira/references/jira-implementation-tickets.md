@@ -19,7 +19,7 @@ Derive ticket boundaries from the Step 5 output already in `docs/jira/<KEY>.md` 
 - One ticket per discrete unit of work in the Suggested Approach. Do NOT split per-file — multi-file changes sharing a goal stay in one ticket.
 - A risk requiring its own implementation effort (e.g., a migration backfill) gets its own ticket; a risk that is just a caveat does not.
 - Shared infrastructure that gates other work gets the lowest sequence number and is recorded as the prerequisite of dependent tickets.
-- Maximum 12 tickets per batch. If decomposition produces more, ask the user whether to scope down or split into rounds.
+- Maximum 12 tickets per round. If decomposition produces more, ask the user whether to scope down or split into rounds within this run: run the [Confirmation gate](#confirmation-gate) and [Creation procedure](#creation-procedure) per round of ≤ 12, then [Linking](#linking) and [Recording](#recording) once, after the last round, for every created key.
 
 For each proposed ticket, draft: `summary` (one imperative sentence, ≤ 80 chars), `description` (three sections — `Goal`, `Tied to parent acceptance criteria` with parent criterion numbers, `Prerequisites` listing other ticket keys from this batch or `None`), `issuetype: Task`. Everything, including the section headers, inherits the parent issue's language (the English names here are reference labels — translate from the local file's English content as needed). If the project schema requires `Sub-task` instead of `Task`, that is out of scope — the user creates those manually.
 
