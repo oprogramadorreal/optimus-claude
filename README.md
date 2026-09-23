@@ -131,12 +131,12 @@ All Codex workflows remain experimental. **Portable** means no known host-specif
 | `init` | Partial: creates shared docs, tests, and `AGENTS.md` pointers; preserves existing hooks/settings and skips formatter installation. |
 | `brainstorm`, `jira`, `prompt` | Partial: `brainstorm` and `jira` use a Codex plan-review handoff instead of Claude's plan-mode steps; `prompt`'s plan-mode and `/workflows` prompts target Claude Code. Jira needs a compatible MCP server configured in Codex; bundled setup is Claude-only. |
 | `deep` | Experimental orchestration: multiple iterations, nested agents, resume, and headless execution need further testing. |
-| `gauntlet` | Experimental orchestration: in-session execution and **Copy as /goal prompt** for a new Codex session. The handoff uses native Codex goals when available, with a plain-prompt fallback; full builder/critic execution remains unverified. Claude's `/effort` → ultracode prerequisite does not apply. |
+| `gauntlet` | Experimental orchestration: in-session execution and **Copy as /goal prompt** for a new Codex session ([details](skills/gauntlet/README.md#fresh-session-goals)). The handoff uses native Codex goals when available, with a plain-prompt fallback; full builder/critic execution remains unverified. Claude's `/effort` → ultracode prerequisite does not apply. |
 | `permissions`, `dream` | Unsupported. Use Codex's own sandbox, approval policy, and memory controls. |
 | Formatter hooks | Unsupported. Use editor formatting or pre-commit hooks. |
 | Standalone `code-simplifier` / `test-guardian` plugin agents | Unsupported. Use the `refactor` / `unit-test` workflows. |
 
-Gauntlet shares its loop protocol across hosts and adds the destination host's goal instructions. In Codex/Astra, **Copy as /goal prompt** prepares a prompt for a new session without starting a goal or loop in the preparing session; see [gauntlet usage and controls](skills/gauntlet/README.md#fresh-session-goals). Claude's `/workflows` and ultracode remain Claude-only. If you use `AGENTS.override.md`, add the project-guidance pointer there yourself: it takes precedence over `AGENTS.md`, and Optimus manages only `AGENTS.md`.
+If you use `AGENTS.override.md`, add the project-guidance pointer there yourself: it takes precedence over `AGENTS.md`, and Optimus manages only `AGENTS.md`.
 
 ### Headless runs
 
