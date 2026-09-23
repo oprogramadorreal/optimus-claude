@@ -23,7 +23,7 @@ Security model in brief: the installed hook prompts on writes and blocks deletes
 
 ## Step 2: Install the path-restriction hook
 
-If an existing `.claude/hooks/restrict-paths.sh` differs from the template, read it and show a concrete comparison; differences may be customizations or older-template drift. For an unrecorded file, ownership is unknown. Use `AskUserQuestion`: **Merge** — install the new template with the listed customizations preserved; **Keep existing** — skip hook replacement and report the remaining version/behavior difference; or **Replace** — discard only the differences explicitly shown. Honor existing authorization for the exact proposed change without asking again.
+If an existing `.claude/hooks/restrict-paths.sh` differs from the template, apply managed-files.md's **Overwrite and migration** rules: replace a recorded `refresh: "template"` copy whose hash still matches without asking. Otherwise read it, show a concrete comparison that separates customizations from older-template drift, and use `AskUserQuestion` for its Merge / Keep existing / Replace choice. Keep existing also reports the remaining version/behavior difference; Replace discards only the differences explicitly shown.
 
 When creating or replacing as selected, `cp` `$CLAUDE_PLUGIN_ROOT/skills/permissions/templates/hooks/restrict-paths.sh` to `.claude/hooks/restrict-paths.sh` (never re-type it through Read/Write), then apply only approved customizations. Keep-existing does not authorize a later verification step to overwrite that file.
 
