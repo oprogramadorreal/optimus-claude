@@ -50,11 +50,11 @@ If the agent reports the structure as **ambiguous**, resolve via `AskUserQuestio
 
 ### Checkpoint
 
-Print the agent's results as a **Detection Summary**. If a field of its return format came back empty or absent (project name through Gotchas), fill that specific gap yourself — don't re-run the detection the agent just did. An empty **Gotchas** list is a legitimate answer, not a gap: fill it only if you already know of one this project has. If no test infrastructure was detected, append:
+Print the agent's **Detection Results**. If a field of its return format came back empty or absent (project name through Gotchas), fill that specific gap yourself — don't re-run the detection the agent just did. An empty **Gotchas** list is a legitimate answer, not a gap: fill it only if you already know of one this project has. If no test infrastructure was detected, append:
 
 > **Tests:** No test framework, test script, or test directory detected — Step 5b will offer to install one. Strongly recommended: multiple optimus skills depend on test infrastructure.
 
-Then use `AskUserQuestion` — header "Detection", question "Does the detection summary look correct?":
+Then use `AskUserQuestion` — header "Detection", question "Do the detection results look correct?":
 - **Proceed** — "Everything looks right — continue with setup"
 - **Correct** — "I need to fix something before continuing"
 - **Abort** — "Cancel init"
