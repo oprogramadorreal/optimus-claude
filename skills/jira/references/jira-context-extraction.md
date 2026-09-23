@@ -13,11 +13,10 @@ Server detection, tool name resolution, MCP safety rules, and the fetch/output p
 
 ## Detection Procedure
 
-1. **Check `.mcp.json`** at the project root, if present: scan `mcpServers` keys for `atlassian` (Rovo, official), `mcp-atlassian` (sooperset, community), `jira` (generic), or any key containing `jira` or `atlassian` (case-insensitive). A match becomes the candidate server name.
-2. **Probe for tools** with `ToolSearch` (in order, stop at first match): query `jira` — look for `jira_search`, `jira_get_issue`, `searchJiraIssuesUsingJql`, or `getJiraIssue`; then query `atlassian` — look for tools containing `jira_` or `Jira`.
-3. **Tools found** → record the server name and tool prefix (`mcp__atlassian__` = Rovo, `mcp__mcp-atlassian__` = sooperset, anything else = generic) and report: `Detected: [server name] ([N] JIRA tools available)`. **No tools found** → the skill routes to `jira-setup.md`.
+1. **Probe for tools** with `ToolSearch` (in order, stop at first match): query `jira` — look for `jira_search`, `jira_get_issue`, `searchJiraIssuesUsingJql`, or `getJiraIssue`; then query `atlassian` — look for tools containing `jira_` or `Jira`.
+2. **Tools found** → record the server name and tool prefix (`mcp__atlassian__` = Rovo, `mcp__mcp-atlassian__` = sooperset, anything else = generic) and report: `Detected: [server name] ([N] JIRA tools available)`. **No tools found** → the skill routes to `jira-setup.md`.
 
-Under Codex, `.mcp.json` and `ToolSearch` do not exist: inspect the tools available in the session for the names in the table below, or any tool containing `jira`/`Jira`; a match is the detected server, with its prefix read from the tool names. Otherwise report none detected.
+Under Codex, `ToolSearch` does not exist: inspect the tools available in the session for the names in the table below, or any tool containing `jira`/`Jira`; a match is the detected server, with its prefix read from the tool names. Otherwise report none detected.
 
 ## Tool Name Resolution
 
