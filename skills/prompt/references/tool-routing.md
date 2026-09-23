@@ -138,13 +138,11 @@ Goal sources: [Codex goal commands](https://learn.chatgpt.com/docs/developer-com
 
 ### Claude Code (plan mode)
 
-- Produces a self-contained prompt pasted as the first message of a fresh plan-mode conversation — no prior context available
 - All behavioral rules live in templates.md Template M
 
 ### Claude Code (dynamic workflow)
 
-- For fan-out / parallel work at scale: a natural-language prompt that launches a NATIVE dynamic workflow — real subagents in parallel, orchestration designed by Claude Code. Distinct from the [Workflow AI](#workflow-ai) section (Zapier / Make / n8n)
-- Output is a PROMPT only, never a .js script; all behavioral rules live in templates.md Template N
+- Claude Code's native dynamic workflow, distinct from [Workflow AI](#workflow-ai) (Zapier / Make / n8n); all behavioral rules live in templates.md Template N
 
 ### Cursor / Windsurf
 

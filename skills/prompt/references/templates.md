@@ -1,6 +1,6 @@
 # Prompt Templates Reference
 
-14 prompt architectures. Load only the template matching the task — do not load the entire file. This file is the single source for the Claude Code plan-mode (Template M) and dynamic-workflow (Template N) behavioral rules.
+14 prompt architectures. Load only the template matching the task — do not load the entire file.
 
 ## Table of Contents
 
@@ -324,7 +324,7 @@ The plan should include:
 - Describe the task, the quality bar (e.g. "cross-check findings before reporting"), and the required output. A pattern-type hint (fan-out / pipeline / cross-agent corroboration) is optional preference, never a prescribed phase plan with agent counts
 - Scope is MANDATORY (cost + runaway risk): bound the target set and give an early-stop condition. Concurrency and total-agent caps are the runtime's own fixed limits, not knobs the prompt sets or needs to restate; the prompt's job is only to keep the target set from sprawling
 - Permissions: workflow child tools follow the host's subagent permission rules; do not claim every mode auto-approves edits. For analysis/audit work the prompt MUST say "read-only: do not edit, write, move, or delete any file; report findings only." This states task scope independently of runtime permissions
-- Launch approval depends on host version, mode, and prior consent. Tell the *user* to review the launch prompt when shown and note the token cost in the SKILL.md Step 7 handoff; do not invent an extra approval gate inside the generated task
+- Launch approval is the host's (SKILL.md Step 7 tells the user); do not invent an extra approval gate inside the generated task
 
 ```
 Run a workflow to [TASK — what to do across what bounded target set: files / dirs / items].
