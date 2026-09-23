@@ -203,6 +203,11 @@ def test_replay_refuses_overwrite_and_entrypoint_escape(project, tmp_path):
         SCORER.replay(project, "../elsewhere.py", tmp_path / "new evidence")
     with pytest.raises(ValueError, match="outside"):
         SCORER.replay(project, "reproduce.py", project / "evidence")
+    (project / "runs").mkdir()
+    (project / "runs" / "reproduce.py").write_text(REPRODUCER, encoding="utf-8")
+    with pytest.raises(ValueError, match="relative Python"):
+        SCORER.replay(project, "runs/reproduce.py", tmp_path / "ignored evidence")
+    assert not (tmp_path / "ignored evidence").exists()
 
 
 def test_cli_emits_inspectable_json_and_rejects_nonfinite_timeout(project, tmp_path):

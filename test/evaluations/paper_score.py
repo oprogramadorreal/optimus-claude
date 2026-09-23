@@ -198,6 +198,7 @@ def replay(project, entrypoint, evidence, scope="core", timeout=30):
         or entrypoint.drive
         or ".." in entrypoint.parts
         or entrypoint.suffix != ".py"
+        or shutil.ignore_patterns(*IGNORED)("", entrypoint.parts)
         or not (project / entrypoint).is_file()
     ):
         raise ValueError("Entrypoint must be an existing relative Python file")
