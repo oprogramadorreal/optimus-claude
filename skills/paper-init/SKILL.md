@@ -30,11 +30,9 @@ One `paper/` directory at the project root holds everything paper-derived:
 - `paper/paper.md` — the faithful working transcription (step 3).
 - `paper/tables.md` — overflow tables, only when the transcription takes its
   escape hatch (step 3).
-- `paper/figures/` + `paper/figures/README.md` — every figure, one README
-  line each (file, dimensions, caption) with known defects — duplicates,
-  missing diagrams — at the top.
-- `paper/references.md` — every reference, annotated: role (dataset,
-  baseline, method), resolved link, and fetch priority.
+- `paper/figures/` + `paper/figures/README.md` — every figure and its
+  ledger (step 2).
+- `paper/references.md` — every reference, annotated (step 3).
 - `paper/cited/` — pristine sources of the works the paper, or a fetched
   work in turn, defers load-bearing content to (step 3), when any were
   fetched. Nothing derived lives here.
@@ -46,8 +44,7 @@ One `paper/` directory at the project root holds everything paper-derived:
 - `paper/open-questions.md` — what the paper leaves open (step 3).
 - `paper/dataset.md` — dataset provenance and re-acquisition, when the paper
   uses datasets (step 6).
-- `paper/reference-code/` — vendored existing code, when it exists (step 4);
-  gitignored, its provenance tracked in `metadata.json`.
+- `paper/reference-code/` — vendored existing code, when it exists (step 4).
 - `data/` — the datasets themselves, gitignored, when any were acquired
   (step 6).
 
@@ -146,8 +143,7 @@ clone can re-acquire every publicly fetchable file from this record alone.
   under ~200 lines; link detailed method tables when needed, never omit
   implementation-critical facts just to meet the length guide.
 - `paper/references.md` — every reference the paper cites, annotated: role
-  (dataset, baseline, method), resolved link, fetch priority. Step 4 appends
-  the reference-code summary here when code exists.
+  (dataset, baseline, method), resolved link, fetch priority.
 - `paper/open-questions.md` — everything undefined, ordered by how much it
   blocks work: missing hyperparameters, ambiguous procedures, figure/table
   defects (ledgered in `figures/README.md` — point there, don't duplicate),
@@ -162,14 +158,13 @@ clone can re-acquire every publicly fetchable file from this record alone.
   scope decisions to their authoritative record in `metadata.json`.
   Mark a finding `[verified]` only when checked against local files during
   preparation — never for inference or empirical reproduction. Open with
-  that legend. Settle what the sources can settle now, and recheck after
-  steps 4–6: no verifiable-now TODO leaks into implementation. Keep it under
-  ~150 lines, moving resolved history to linked overflow when necessary.
+  that legend. Settle what the sources can settle now: no verifiable-now
+  TODO leaks into implementation. Keep it under ~150 lines, moving resolved
+  history to linked overflow when necessary.
 
 For a paper with empirical claims, read
 `references/empirical-reproduction.md` now and prepare `acceptance.md` using
-its contract. Use one compact document by default; experiment overflow is
-conditional. For a survey or proof without empirical claims, skip it.
+its contract. For a survey or proof without empirical claims, skip it.
 For a short paper, extract inline. Delegate substantial, independent
 source sections, launching independent readers together with explicit sources,
 required provenance, and absolute paths. Reconcile conflicts and coverage
@@ -221,8 +216,7 @@ unavailable, or excluded by the user's restriction separately from whether it
 exists. Use `code_available: false` only when no implementation was found,
 not for a failed fetch or prohibited inspection; unknown existence stays
 explicitly unknown. Paper/code conflicts go into `open-questions.md`,
-not silently into the paper's specification. Reconcile newly settled facts
-and affected acceptance criteria after inspection.
+not silently into the paper's specification.
 
 ## 5. Feasibility
 
@@ -252,8 +246,7 @@ proof, a small-scale study); skip this step for them entirely.
   that would close the gap (reduced scale, a dataset subset, quantized or
   distilled variants, different hardware), options "Continue anyway" /
   "Reduce scope" / "Pause — line up other hardware first".
-- Apply an already authorized scope decision without repeating the gate.
-  Record each decision in `metadata.json`'s `scope_decisions`. A reduced
+- Record each decision in `metadata.json`'s `scope_decisions`. A reduced
   scope changes the selected bar in
   `acceptance.md` (or a non-empirical `spec.md`'s `Selected targets` section),
   leaves the original reported targets intact, gets
@@ -263,7 +256,7 @@ proof, a small-scale study); skip this step for them entirely.
   spend, not the bundle: step 6 writes re-acquisition steps into
   `dataset.md` instead of downloading, `open-questions.md` records the
   pause, and the remaining steps finish the context bundle with explicit
-  gaps so a re-run can resume it. Do not claim preparation is replication.
+  gaps so a re-run can resume it.
 - Never write the hardware inventory itself into the bundle — it stays
   machine-agnostic; only the decision and its consequences go on disk.
 
