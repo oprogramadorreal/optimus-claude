@@ -30,7 +30,6 @@ Use these profiles as starting defaults, not proof of performance on every model
 Covers Claude 5.x (Fable, Opus, Sonnet) and Claude 4.x. Where they differ, the bullet says so.
 
 - Be explicit and specific — Claude follows instructions literally, not by inference; always specify output format and length
-- XML tags for complex multi-section prompts: `<context>`, `<task>`, `<constraints>`, `<output_format>`
 - Provide context and reasoning WHY, not just WHAT — Claude generalizes better from explanations
 - For complex or multi-step tasks, front-load everything in one turn — intent, constraints, acceptance criteria, relevant files; extra back-and-forth adds reasoning overhead and cost
 - Don't add "think step by step" or a fixed thinking budget — current Claude calibrates reasoning depth automatically. On the API, depth is the `effort` setting (extended thinking's `budget_tokens` on models without it, such as Haiku 4.5), not prompt text; in claude.ai, where the user has no such control, a one-line nudge is the only lever: "Think carefully before responding" (more) or "Prioritize responding quickly" (less)
@@ -59,7 +58,7 @@ Source: [official Astra prompting guidance](https://developers.openai.com/api/do
 
 ### Gemini 2.x / Gemini 3 Pro
 
-- Prone to hallucinated citations — always add "Cite only sources you are certain of. If uncertain, say [uncertain]."
+- Prone to hallucinated citations — always add the SKILL.md Step 6 grounding anchor
 - Can drift from strict output formats — use explicit format locks with a labelled example
 - For grounded tasks add "Base your response only on the provided context. Do not extrapolate."
 - Strong at long-context and multimodal — leverage the large context window for document-heavy prompts
@@ -120,8 +119,7 @@ Every entry below except Claude Code plan mode and dynamic workflow (Templates M
 - Stop conditions are MANDATORY — runaway loops are the biggest credit killer
 - Apply the [Claude entry](#claude-claudeai-claude-api), including scope, length, and evidence-based verification; effort and thinking depth are host-managed, so never invent an effort command or thinking budget in the task prompt
 - Delegation bias differs by model. Opus 5 over-delegates — cap it: *"Delegate only for large, genuinely independent tracks of work. Don't delegate what you can finish in a handful of tool calls. Keep spawn counts low."* Fable 5.1's parallel subagents are dependable — say when delegation is wanted and let it keep working while they run: *"Delegate independent subtasks to subagents and keep working while they run; intervene if one goes off track or lacks context."* On either model, never use a subagent to verify its own work.
-- Narration cadence differs by model — Opus 5 narrates readily, Fable 5.1 goes quiet during long tool chains — so describe the shape you want rather than banning or demanding updates: *"Say in one sentence what you're about to do before your first tool call; while working, update on something important or a change of direction; close with a short recap that stands on its own — what you found, what you did, what's next."*
-- Carry forward explicit authorization for edits, dependencies, and schema work. Ask before consequential actions outside that authorization or when an unresolved choice changes the scope
+- Narration cadence differs by model — Opus 5 narrates readily, Fable 5.1 goes quiet during long tool chains — so use Template H's Reporting lines rather than banning or demanding updates
 
 ### OpenAI Codex
 

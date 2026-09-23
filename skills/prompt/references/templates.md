@@ -89,7 +89,7 @@ Give the final answer in <answer> tags.
 
 ## Template F — Few-Shot
 
-*When the output format is easier to show than describe. 2-5 examples; include edge cases, not just easy cases; XML tags — Claude parses XML reliably.*
+*When the output format is easier to show than describe. XML tags — Claude parses XML reliably.*
 
 ```
 [Task instruction]
@@ -172,7 +172,7 @@ Pause and ask for human review when a decision remains outside the user's existi
 
 Reporting:
 Say in a line what you're about to do before the first tool call; while working, speak up on something important or a change of direction.
-Lead your final message with the outcome, followed by a summary of every file changed — a recap that stands on its own for a reader who saw none of the work.
+Lead your final message with the outcome, followed by a summary of every file changed and what's next — a recap that stands on its own for a reader who saw none of the work.
 ```
 
 ## Template I — Visual Descriptor

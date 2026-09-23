@@ -103,7 +103,7 @@ Fix silently; flag only fixes that would change the user's stated intent; if a f
 | Pattern | Fix |
 |---------|-----|
 | Assumed prior context, forgotten stack, expected inter-session memory, or contradicted earlier decisions | Prepend the Step 6 memory block with all established facts |
-| Hallucination invite — "what do experts say about X?" | Ground it: "Cite only sources you are certain of. If uncertain, say so." |
+| Hallucination invite — "what do experts say about X?" | Add the Step 6 grounding anchor |
 | An earlier attempt failed, but what was tried or what it produced is not given | Ask the user what was tried and what it produced |
 | No stack constraints | Pin language, framework, versions, allowed libraries |
 | Generic self-verification scaffolding — "double-check your answer", "re-check before responding" | Prefer concrete acceptance criteria and external evidence (tests, schemas, live APIs) over repeated generic passes. Preserve a targeted check when it addresses a known failure or an explicit user requirement; do not assume all model families benefit or suffer equally |
