@@ -77,10 +77,10 @@ Read `$CLAUDE_PLUGIN_ROOT/skills/pr/references/pr-template.md` and generate a ti
 
 Show the generated title and body under `## PR Preview` (append `— <repo-name>` in a multi-repo run). Ask (AskUserQuestion): **Create PR** → proceed; **Adjust** → ask what to change, apply, and preview again.
 
-Write the body to a temp file at a relative path: `TMPFILE=$(mktemp ./pr-body-XXXXXX.md)` — never `/tmp` (on Windows, Git Bash's `/tmp` is unresolvable by native `gh.exe`/`glab.exe`, which would silently submit an empty body). Remove it with `rm -f "$TMPFILE"` after the attempt.
+Run `mktemp ./pr-body-XXXXXX` — a relative path, never `/tmp` (on Windows, Git Bash's `/tmp` is unresolvable by native `gh.exe`/`glab.exe`, which would silently submit an empty body). Write the body to the printed path with the Write tool, substitute that literal path for `<body-file>` below (shell variables do not persist between Bash calls), and `rm -f <body-file>` after the attempt.
 
-- **GitHub:** `gh pr create --title "<title>" --body-file "$TMPFILE" --base <default-branch>`
-- **GitLab:** `glab mr create --title "<title>" --description "$(cat "$TMPFILE")" --target-branch <default-branch>`
+- **GitHub:** `gh pr create --title "<title>" --body-file <body-file> --base <default-branch>`
+- **GitLab:** `glab mr create --title "<title>" --description "$(cat <body-file>)" --target-branch <default-branch>`
 
 PRs/MRs are created ready to merge (not draft). Proceed to Step 7.
 
@@ -108,8 +108,8 @@ Show the existing PR/MR (number, title, URL, current body), then ask (AskUserQue
 
 Apply using the Step 5 temp-file pattern:
 
-- **GitHub:** `gh pr edit <number> --title "<title>" --body-file "$TMPFILE"` (omit `--title` when keeping the title)
-- **GitLab:** `glab mr update <number> --title "<title>" --description "$(cat "$TMPFILE")"`
+- **GitHub:** `gh pr edit <number> --title "<title>" --body-file <body-file>` (omit `--title` when keeping the title)
+- **GitLab:** `glab mr update <number> --title "<title>" --description "$(cat <body-file>)"`
 
 ## Step 7: Per-Repo Report
 
