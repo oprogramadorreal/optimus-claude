@@ -20,28 +20,16 @@ Server detection, tool name resolution, MCP safety rules, and the fetch/output p
 
 Discover tools at runtime as in the [Detection Procedure](#detection-procedure) — never hard-code assumptions.
 
-**Known tool names by server:**
+**Tools the skill calls, by server:**
 
 | Operation | Rovo (`mcp__atlassian__`) | sooperset (`mcp__mcp-atlassian__`) | Safety |
 |-----------|--------------------------|-----------------------------------|--------|
 | Search issues (JQL) | `searchJiraIssuesUsingJql` or `search` | `jira_search` | Read |
 | Get single issue | `getJiraIssue` | `jira_get_issue` | Read |
-| Get projects | `getVisibleJiraProjects` | `jira_get_all_projects` | Read |
-| Get transitions | `getTransitionsForJiraIssue` | `jira_get_transitions` | Read |
 | Get link types | `getIssueLinkTypes` | — | Read |
-| Get remote links | `getJiraIssueRemoteIssueLinks` | — | Read |
-| Get issue type metadata | `getJiraIssueTypeMetaWithFields` | — | Read |
-| Get project issue types | `getJiraProjectIssueTypesMetadata` | — | Read |
-| Look up user | `lookupJiraAccountId` | — | Read |
-| User info | `atlassianUserInfo` | — | Read |
-| Get sprints | — | `jira_get_sprints_from_board` | Read |
-| Get boards | — | `jira_get_agile_boards` | Read |
-| Update issue | `editJiraIssue` | `jira_update_issue` | **Write** |
 | Create issue | `createJiraIssue` | `jira_create_issue` | **Write** |
 | Add comment | `addCommentToJiraIssue` | `jira_add_comment` | **Write** |
-| Transition status | `transitionJiraIssue` | `jira_transition_issue` | **Write** |
 | Create link | `createIssueLink` | `jira_create_issue_link` | **Write** |
-| Add worklog | `addWorklogToJiraIssue` | `jira_add_worklog` | **Write** |
 
 When a **Read** tool is unavailable, fall back to the search tool with targeted JQL (e.g., `key = PROJ-123` when the get-issue tool is missing). Write operations have no fallback — if the specified write tool is unavailable, inform the user and skip the write.
 
