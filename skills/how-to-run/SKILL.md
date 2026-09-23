@@ -96,7 +96,7 @@ Generate only sections with at least one detected signal (per the digest), in ca
 
 Placement by topology: **single project / monorepo** → repo-root `HOW-TO-RUN.md` (monorepo: whole-project scope — workspace install, shared services, per-subproject and run-everything instructions); **multi-repo workspace** → workspace-root `HOW-TO-RUN.md` per §Multi-Repo Workspace Template (not version-controlled — no `.git` at workspace root).
 
-When dev instructions already live in README/CONTRIBUTING/etc.: silently copy *verified* content (no prompt — verification happened in Steps 2 and 4), leave the originals untouched, and route *contradicting* content to the Step 6 report. *Unverifiable* content was already resolved per-item in Step 3.
+When dev instructions already live in README/CONTRIBUTING/etc., reuse their *verified* facts and commands without asking, restated in this skill's own section shapes and fences — never their prose, which Step 6 rejects unless it is an approved `rendered_line`.
 
 ## Step 6: Verify and report
 
