@@ -13,7 +13,7 @@ To remove this setup while keeping init's artifacts, use `/optimus:reset permiss
 
 `$CLAUDE_PLUGIN_ROOT` below means this skill's base directory minus `/skills/permissions`. Write that absolute path into every Bash command, where the variable can be empty. Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/managed-files.md` and apply it to the hook and every settings entry this run adds or removes. Do not write `.claude/.optimus-version`.
 
-Security model in brief: the installed hook prompts on writes and blocks deletes outside the project (Claude's memory store and session scratchpad are exempt), asks before editing any precious unversioned file and blocks deleting the unrecoverable ones (a backup or IDE scratch file only asks), and blocks history-modifying git operations on protected branches. Inside the project, operations not on the deny list run without prompts.
+Security model in brief: the installed hook prompts on writes and blocks deletes outside the project (Claude's memory store and session scratchpad are exempt), asks before editing any precious unversioned file and blocks deleting them (backups and IDE scratch files stay deletable), and blocks history-modifying git operations on protected branches. Inside the project, operations not on the deny list run without prompts.
 
 ## Step 1: Detect existing configuration
 
