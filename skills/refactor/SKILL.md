@@ -72,7 +72,7 @@ Read the prompt files from `$CLAUDE_PLUGIN_ROOT/skills/refactor/agents/` (shared
 
 Read `$CLAUDE_PLUGIN_ROOT/references/finding-validation.md` and apply it to every finding. Two refactor deltas: skip its **Pre-existing** check — this skill analyzes existing code by design, not a diff — and treat Agents 1 and 3 landing on the same location as corroboration.
 
-Keep **High**-confidence findings, keep **Medium** with a note, drop what your own check could not confirm — and report how many you dropped, so filtered recall stays visible. An agent's **Low** label describes its evidence, not yours: promote it if your check confirms the issue.
+Keep **High**-confidence findings and keep **Medium** with a note.
 
 **Deduplicate and resolve:** same file/line-range/category from two agents → keep the more detailed version; an Agent 1 + Agent 3 overlap → merge and note "confirmed by independent review". When two agents contradict each other on the same region, decide on the evidence in the code and say which you kept and why.
 

@@ -13,4 +13,4 @@ For each finding:
 
 **Change-intent awareness.** For files carrying findings, check recent history — `git log --no-merges --format="%h %s" -5 -- <file>`, reading `git show <sha> -- <file>` when the messages are uninformative. If a recent commit deliberately introduced what a finding wants to remove or revert ("fix null check", "harden auth flow", "add dependency injection"), lower that finding's confidence: someone already made this call, and the finding is arguing with them without their context. Skip gracefully when history is unavailable — a shallow clone or a new file is not evidence either way.
 
-A finding you cannot confirm is dropped, but count the drops: report how many, so what the filter removed stays visible rather than silent.
+A finding you cannot confirm is dropped, but count the drops: report how many, so what the filter removed stays visible rather than silent. An agent's Low label describes its evidence, not yours: promote a Low finding your own check confirms rather than dropping it.

@@ -120,7 +120,7 @@ Read `$CLAUDE_PLUGIN_ROOT/references/finding-validation.md` and apply it to ever
 
 If a `pr-description` was captured, use it as an additional soft signal: an explicit explanation of *why* a flagged change was made, corroborated by git history → one confidence reduction; contradicted or unsupported by git history → trust the history (code over claims); silent about the finding → no adjustment. Never hard-filter a finding on the description alone.
 
-**Confidence after validation**: High and Medium proceed to Step 7. A finding you could not confirm against the code is dropped — but count the drops and report the count in the Step 7 summary, so filtered recall stays visible instead of silent. An agent's Low label describes *its* evidence, not yours: if your own check confirms the issue, promote it rather than dropping it.
+**Confidence after validation**: High and Medium proceed to Step 7; report the drop count in its summary.
 
 ## Step 7: Consolidate and Present Findings
 
