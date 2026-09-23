@@ -140,10 +140,9 @@ clone can re-acquire every publicly fetchable file from this record alone.
   target the bundle cannot yet measure — data not on disk, a scorer or
   protocol undefined — says what is missing. Give targets stable IDs and
   preserve the original values even when the project selects reduced scope.
-  Link empirical targets to `acceptance.md`; for a non-empirical paper, the
-  source-linked targets remain the standalone quality bar. If its selected
-  scope differs, add a clearly labeled selected-targets section and preserve
-  the original claims; the handoff uses that selected section. Keep the file
+  Link empirical targets to `acceptance.md`; for a non-empirical paper they
+  are the standalone bar, and a differing selected scope gets a labeled
+  `Selected targets` section below them. Keep the file
   under ~200 lines; link detailed method tables when needed, never omit
   implementation-critical facts just to meet the length guide.
 - `paper/references.md` — every reference the paper cites, annotated: role
@@ -256,7 +255,7 @@ proof, a small-scale study); skip this step for them entirely.
 - Apply an already authorized scope decision without repeating the gate.
   Record each decision in `metadata.json`'s `scope_decisions`. A reduced
   scope changes the selected bar in
-  `acceptance.md` (or the selected-scope section of a non-empirical `spec.md`),
+  `acceptance.md` (or a non-empirical `spec.md`'s `Selected targets` section),
   leaves the original reported targets intact, gets
   a linked line in `open-questions.md`, and may shrink step 6's downloads.
   "Continue anyway" leaves the targets untouched and notes the resource
@@ -368,8 +367,7 @@ remaining blockers, and evidence status (initially unverified).
 Put the empirical reference's handoff instructions in the index: review
 source coverage and unresolved criteria, then pin the bar and its linked
 protocols before the first critic remit. Preparation cannot invent a future
-commit or claim experimental success. For non-empirical papers, keep the
-source-linked targets and unresolved questions as the handoff bar.
+commit or claim experimental success.
 
 Close with: what the bundle contains and where; cited works — which were
 fetched and why, which the user supplied, and which remain gaps in
@@ -388,8 +386,8 @@ clone re-acquires them from the records or copies them in. Then start a
 fresh conversation with `/optimus:gauntlet`, printed as one paste-ready
 line: the goal names the bundle root with its index as the read-first entry,
 the bar its `acceptance.md` and referenced protocols/evidence contract
-(non-empirical fallback: `spec.md`'s selected targets, or reported targets when
-the scope is unchanged). Tell the fresh session
+(non-empirical: `spec.md`'s `Selected targets` section, else its reported
+targets, plus the unresolved questions). Tell the fresh session
 to settle acceptance choices and pin that bar before the first critic remit.
 Passing the selected paper bar means faithful reproduction within its
 justified criteria. Scientific outperformance is unnecessary. The scope
