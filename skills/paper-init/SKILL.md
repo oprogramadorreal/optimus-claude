@@ -3,8 +3,9 @@ description: >-
   Prepares durable context for implementing and reproducing a paper from a
   URL, PDF, DOI, or arXiv id: sources, source-linked requirements, empirical
   acceptance criteria, uncertainties, scope, and data provenance under
-  paper/. Downloads files and updates .gitignore and README routing. Context
-  only: writes no implementation code and sets up no project stack.
+  paper/. Downloads sources and datasets (into data/) and updates .gitignore,
+  .gitattributes, and README routing. Context only: writes no implementation
+  code and sets up no project stack.
 disable-model-invocation: true
 argument-hint: "<paper URL, PDF path, DOI, or arXiv id> [scope and resource constraints]"
 ---
