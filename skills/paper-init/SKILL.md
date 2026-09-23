@@ -70,12 +70,13 @@ budget does not authorize paid compute or services, or large downloads.
 
 When `git rev-parse --is-inside-work-tree` returns `true`, resolve its
 `--show-toplevel` and proceed in that working tree, including linked worktrees.
-A `.git` file alone does not distinguish them from submodules. Otherwise read
+Otherwise read
 `$CLAUDE_PLUGIN_ROOT/skills/init/references/multi-repo-detection.md` and
 apply it: the bundle goes inside the target repo, not above it. When it
-detects a multi-repo workspace, ask which repo the paper work targets before
-writing anything — bundle, `.gitignore`, and README block all land there;
-when it finds no recognized structure, work in the current directory.
+finds one or more child repos, ask which one the paper work targets (confirm
+a lone one instead of suggesting `cd`) before writing anything — bundle,
+`.gitignore`, and README block all land there; when it finds none, work in
+the current directory.
 
 If a bundle already exists, apply **Re-running** before the first write:
 resolve the paper identity and bundle root, read its metadata and available

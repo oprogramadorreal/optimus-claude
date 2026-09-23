@@ -126,8 +126,8 @@ decisions to acceptance without discarding their rationale or claiming full repr
 ## Notes
 
 - Needs network access; paywalled papers stop with a plain explanation (or use a PDF you supply).
-- In a multi-repo workspace, it asks which repo the paper work targets and builds inside it,
-  never above it.
+- Run above your repos (a multi-repo workspace or a single child repo), it asks which repo the
+  paper work targets and builds inside it, never above it.
 - Re-running on the same paper refreshes in place; it never moves or merges an existing bundle.
 - The gitignored parts of the bundle (datasets, vendored reference code, license-ignored sources)
   live only in the checkout that ran the skill — a worktree or fresh clone re-acquires them from
