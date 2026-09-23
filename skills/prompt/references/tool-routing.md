@@ -216,7 +216,7 @@ First detect: generation from scratch or editing an existing image? If editing â
 ### Midjourney
 
 - Comma-separated descriptors, not prose. Subject first, then style, mood, lighting, composition
-- Parameters at end: `--ar 16:9 --v 6 --style raw`; negative prompts via `--no [unwanted elements]`
+- Parameters at end: `--ar 16:9 --raw`; negative prompts via `--no [unwanted elements]`. Omit `--v` unless the user names a version: V8.2 is the default ([Midjourney updates](https://updates.midjourney.com/), checked 2026-09-23)
 
 ### OpenAI image tools
 
@@ -241,7 +241,7 @@ When the user mentions "change", "edit", "modify", "adjust" anything in an exist
 
 - Always instruct the user to attach the reference image to the tool first
 - Build the prompt around the delta ONLY â€” what changes, what stays the same
-- Midjourney: `--cref [image URL]` for character reference or `--sref` for style reference
+- Midjourney: on V8.x, attach up to 4 reference images for a character or object (Edit Model; `--edit [image URL]` on Discord); `--sref [image URL]` for style. Older models only: `--oref` (V7), `--cref` (V6). [Edit Model for V8](https://updates.midjourney.com/edit-model-for-v8/), checked 2026-09-23
 - OpenAI image tools: attach the reference to the chosen interface; use its image-editing capability. For the API, select a currently supported GPT Image model and the documented edits or Responses image tool path; a ChatGPT attachment is not an API endpoint
 - Stable Diffusion: use img2img mode, not txt2img. Denoising strength 0.3-0.6 to preserve the original
 
