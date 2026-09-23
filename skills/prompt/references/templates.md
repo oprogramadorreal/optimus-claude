@@ -74,20 +74,17 @@ Experiment: [Request variants or alternatives to explore]
 
 ## Template E — Chain of Thought
 
-*Logic-heavy tasks, math, debugging, multi-factor analysis. Gated by SKILL.md's Reasoning guidance rule: use it only where the target's tool-routing.md entry allows explicit reasoning scaffolding — the Claude 5 and reasoning-native entries do not (use their nudge wording instead). The scaffold asks for the visible working steps the deliverable needs, not a transcript of the model's private reasoning. Not for simple or creative tasks.*
+*Logic-heavy tasks, math, debugging, multi-factor analysis — only when the target's tool-routing.md entry does not steer reasoning itself. The Claude and Reasoning-Native entries do: follow them instead (Claude's one-line nudge; a clear task and output contract for reasoning-native) with Template A or C. The scaffold asks for the visible working the deliverable needs, not a transcript of the model's private reasoning. Not for simple or creative tasks.*
 
 ```
 [Task statement]
 
-Before answering, think through this carefully:
-<thinking>
-1. What is the actual problem being asked?
-2. What constraints must the solution respect?
-3. What are the possible approaches?
-4. Which approach is best and why?
-</thinking>
+Before the answer, show your working in <working> tags:
+1. The problem in one sentence and the constraints the solution must respect.
+2. The candidate approaches, and which one you chose and why.
+3. [Task-specific intermediate results — e.g. equations and values, traced state, causes ruled out]
 
-Give your final answer in <answer> tags only.
+Give the final answer in <answer> tags.
 ```
 
 ## Template F — Few-Shot
