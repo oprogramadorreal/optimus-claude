@@ -68,7 +68,8 @@ if python -c 'import sys; sys.exit(sys.version_info[0] != 3)' &>/dev/null; then
 elif python3 -c 'import sys; sys.exit(sys.version_info[0] != 3)' &>/dev/null; then
   py_cmd="python3"
 fi
-if metadata_errors=$("$py_cmd" scripts/validate_skill_metadata.py 2>&1); then
+metadata_errors="no working python or python3 on PATH"
+if [ -n "$py_cmd" ] && metadata_errors=$("$py_cmd" scripts/validate_skill_metadata.py 2>&1); then
   check "Skill YAML is valid and disables implicit invocation on both hosts" true
 else
   check "Skill YAML is valid and disables implicit invocation on both hosts" false
@@ -310,8 +311,6 @@ if [ -n "$py_cmd" ]; then
       syntax_errors+="  $f: python syntax error\n"
     fi
   done < <({ find ./skills -path '*/templates/*.py' -o -path '*/templates/**/*.py' 2>/dev/null; find ./scripts -name '*.py' 2>/dev/null; } | sort -u)
-else
-  echo "  SKIP  Python syntax checks (python not installed)"
 fi
 
 check "Template scripts parse without errors" test -z "$syntax_errors"
@@ -556,11 +555,6 @@ if [ -n "$py_cmd" ]; then
   for hs in $coverage_variant_skills; do
     require_tokens "skills/$hs/SKILL.md" 'HARNESS_MODE_INLINE' 'references/coverage-harness-mode.md'
   done
-else
-  echo "  SKIP  Harness-routing roster derivation (python not installed); frozen roster fallback"
-  require_tokens skills/code-review/SKILL.md 'HARNESS_MODE_INLINE' 'references/harness-mode.md'
-  require_tokens skills/refactor/SKILL.md 'HARNESS_MODE_INLINE' 'references/harness-mode.md'
-  require_tokens skills/unit-test/SKILL.md 'HARNESS_MODE_INLINE' 'references/coverage-harness-mode.md'
 fi
 require_tokens skills/deep/SKILL.md 'HARNESS_MODE_INLINE'
 
