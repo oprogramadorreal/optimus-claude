@@ -27,7 +27,6 @@ No `/optimus:init` required — this skill works standalone.
 ## Usage
 
 - `/optimus:pr` — create or update the PR/MR for the current branch
-- "create a PR for this branch" / "update the PR description"
 
 The skill detects the hosting platform, pushes the branch if needed (asking before any force-push after a rebase), and checks for an existing open PR/MR. With none, it generates a Conventional PR, previews it for confirmation, and creates it ready to merge. With an existing one, it offers to regenerate the title, the description, or just the `## Intent` section — always preserving manually-added content (issue references, deployment notes) that can't be derived from the diff, while re-deriving everything that can.
 
