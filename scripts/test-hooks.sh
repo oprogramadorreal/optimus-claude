@@ -288,15 +288,13 @@ assert_output_not_contains "Suppresses init notice when sub-repo carries .optimu
 assert_exit_zero "Exits 0 when sub-repo carries .optimus-version" "$hook_status"
 cleanup_fixture
 
-echo "[session-start: multi-repo workspace, markers at different depths]"
+echo "[session-start: multi-repo workspace, marker at exactly maxdepth (depth 4)]"
 setup_fixture
-mkdir -p sub-a/.claude
 mkdir -p sub-b/nested/.claude
-echo "1.64.2" > sub-a/.claude/.optimus-version
 echo "1.64.2" > sub-b/nested/.claude/.optimus-version
 run_session_start
-assert_output_not_contains "Suppresses init notice when markers are nested at depth 4" "/optimus:init" "$output"
-assert_exit_zero "Exits 0 when markers are nested at depth 4" "$hook_status"
+assert_output_not_contains "Suppresses init notice when the marker is at depth 4 (maxdepth)" "/optimus:init" "$output"
+assert_exit_zero "Exits 0 when the marker is at depth 4" "$hook_status"
 cleanup_fixture
 
 echo "[session-start: workspace root with settings only, marker in sub-repo (mirrors audaces/isa)]"
@@ -317,12 +315,12 @@ run_session_start
 assert_output_contains "Still recommends init when no marker exists in workspace" "/optimus:init" "$output"
 cleanup_fixture
 
-echo "[session-start: marker beyond maxdepth]"
+echo "[session-start: marker one past maxdepth]"
 setup_fixture
-mkdir -p a/b/c/d/.claude
-echo "1.64.2" > a/b/c/d/.claude/.optimus-version
+mkdir -p a/b/c/.claude
+echo "1.64.2" > a/b/c/.claude/.optimus-version
 run_session_start
-assert_output_contains "Recommends init when marker is deeper than maxdepth 4" "/optimus:init" "$output"
+assert_output_contains "Recommends init when the marker is at depth 5, one past maxdepth 4" "/optimus:init" "$output"
 cleanup_fixture
 
 # The path-restriction hook is COPIED into a project by /optimus:permissions and
