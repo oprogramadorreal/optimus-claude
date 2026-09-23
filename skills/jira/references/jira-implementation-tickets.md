@@ -6,12 +6,11 @@ Flow: [Entry condition](#entry-condition) → [Decomposition](#decomposition) �
 
 ## Entry condition
 
-All must be true, or do not invoke this procedure:
+Check in order:
 
-- Step 5 reached the "Update JIRA and local context" branch (user opted in to JIRA writes).
-- The Scope Assessment is `Complex`.
-- The detected server exposes a create-issue tool (`createJiraIssue` / `jira_create_issue` per the Tool Name Resolution table). If not, fall through to Skip-mode: run [Decomposition](#decomposition) and [Recording](#recording) in Proposed mode (no JIRA writes), then continue to Step 6.
-- The local `docs/jira/<KEY>.md` has no `### Implementation Tickets` section containing one or more **real JIRA keys** — `Ticket` cells matching `^[A-Z][A-Z0-9]+-\d+$`. Parenthesized placeholders like `(proposed-1)` from a prior Skip-mode recording do NOT count. If real keys are present, skip creation, inform the user that existing tickets are managed by refresh, and continue to Step 6.
+1. `docs/jira/<KEY>.md` has an `### Implementation Tickets` table with a real JIRA key — a `Ticket` cell matching `^[A-Z][A-Z0-9]+-\d+$` (`(proposed-N)` placeholders from a prior Skip-mode recording do not count) → skip this procedure, tell the user existing tickets are managed by refresh, and continue to Step 6.
+2. The detected server has no create-issue tool (`createJiraIssue` / `jira_create_issue` per the Tool Name Resolution table) → run [Decomposition](#decomposition) and [Recording](#recording) in Proposed mode (no JIRA writes), then continue to Step 6.
+3. Otherwise continue to [Decomposition](#decomposition).
 
 ## Decomposition
 
