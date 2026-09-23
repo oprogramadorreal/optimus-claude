@@ -11,14 +11,14 @@ Configure permission rules and a path-restriction hook so Claude Code agents can
 
 To remove this setup while keeping init's artifacts, use `/optimus:reset permissions`.
 
-Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/managed-files.md`. Record installed hashes, template/review refresh eligibility, and only settings entries actually added in `.claude/.optimus-managed.json`; preserve prior records on reruns. A customized hook remains review-only after an approved merge updates its hash. Do not write `.claude/.optimus-version`.
+Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/managed-files.md` and apply it to the hook and every settings entry this run adds or removes. Do not write `.claude/.optimus-version`.
 
 Security model in brief: the installed hook prompts on writes and blocks deletes outside the project (Claude's memory store and session scratchpad are exempt), asks before editing any precious unversioned file and blocks deleting the unrecoverable ones (a backup or IDE scratch file only asks), and blocks history-modifying git operations on protected branches. Inside the project, operations not on the deny list run without prompts.
 
 ## Step 1: Detect existing configuration
 
 1. If `.claude/settings.json` exists, read it in full — it will be preserved during the merge.
-2. Note whether `.claude/hooks/restrict-paths.sh` already exists (fresh install vs update — report which in Step 4).
+2. Note whether `.claude/hooks/restrict-paths.sh` already exists (fresh install vs update).
 3. If `.mcp.json` exists at the project root, extract the top-level MCP server names for Step 3.
 
 ## Step 2: Install the path-restriction hook
@@ -35,7 +35,7 @@ If `.claude/settings.json` does not exist, create it from the template. If it ex
 
 1. **permissions.allow** — add template entries not already present. Never remove existing entries.
 2. **permissions.deny** — add template entries not already present. If the existing settings have git deny entries (git as a command, not part of words like `github`) beyond the template's set, they may block the feature-branch workflow (commit/push) that skills like /optimus:tdd need — list them and use `AskUserQuestion`: **Replace with template set (Recommended)** — remove only the extra git deny entries and use the template's (branch protection is still enforced by the hook); non-git deny entries untouched — or **Keep all**.
-3. **hooks.PreToolUse** — add the template's hook entry as a separate matcher group, appending to any existing array; skip if an entry already references `restrict-paths.sh`. Record only a newly appended group, never adopt a preexisting registration as Optimus-owned.
+3. **hooks.PreToolUse** — add the template's hook entry as a separate matcher group, appending to any existing array; skip if an entry already references `restrict-paths.sh`.
 4. **Preserve everything else** — existing PostToolUse hooks, custom sections, all unrelated configuration.
 
 In either case, if `.mcp.json` was found, add `mcp__<server-name>` entries to `permissions.allow` for each server. The result must be valid JSON. If the existing file is not valid JSON, do not repair or overwrite it silently — show the parse problem and ask the user how to proceed.
@@ -47,7 +47,7 @@ Fix any issue before reporting:
 1. For an installed/replaced hook, `.claude/hooks/restrict-paths.sh` matches the template plus only approved customizations — `diff` against it and run `bash -n` on the installed copy. Correct accidental copy errors; preserve a file the user chose to keep.
 2. `.claude/settings.json` has a PreToolUse entry that resolves to the installed `restrict-paths.sh` — a merge that drops or misspells it leaves the project unprotected with no other symptom.
 3. Scan for precious unversioned files: derive the patterns from `is_precious_name()` and `is_recoverable_precious_name()` and their backup-suffix rules in the installed hook; do not mistake the `is_precious()` wrapper for the pattern list. Exclude `.git/`, dependencies, build output, and local reset backups. Report untracked matches as protected, distinguishing the intentionally deletable backup/IDE category. Offer specific custom patterns for sensitive files the scan misses.
-4. Verify the ownership record's hashes and settings additions against the files written. Existing identical permission rules stay unrecorded; they may predate Optimus.
+4. `.claude/.optimus-managed.json` matches the hook written and the settings entries this run added.
 
 Report: files created or updated (fresh install vs update), allow/deny counts, detected MCP servers, and the one-line security summary from the top of this skill. Point to this skill's README for the trust model, the auto-mode layering, and the not-OS-sandboxing caveat.
 
