@@ -110,7 +110,9 @@ clarifications and keep conflicts visible until resolved.
 paper's own availability sentence when it states one), `dataset_referenced`
 (name, URL, whether the paper redistributes it — full provenance and
 re-acquisition live in `paper/dataset.md`), `source_revision` (version or
-publication revision), and `local_files` — every acquired source file mapped
+publication revision), `scope_decisions` (every scope decision, supplied at
+invocation or taken in step 5: decision, rationale, affected target IDs, scope
+revision), and `local_files` — every acquired source file mapped
 to its role, SHA-256, and exact acquisition record (URL or command, and date;
 for a file the user supplied, the path it came from). Do not hash the metadata
 file into itself. Include clarifications and supplementary sources.
@@ -253,8 +255,8 @@ proof, a small-scale study); skip this step for them entirely.
   distilled variants, different hardware), options "Continue anyway" /
   "Reduce scope" / "Pause — line up other hardware first".
 - Apply an already authorized scope decision without repeating the gate.
-  Record each decision, rationale, affected target IDs, and scope revision
-  in `metadata.json`. A reduced scope changes the selected bar in
+  Record each decision in `metadata.json`'s `scope_decisions`. A reduced
+  scope changes the selected bar in
   `acceptance.md` (or the selected-scope section of a non-empirical `spec.md`),
   leaves the original reported targets intact, gets
   a linked line in `open-questions.md`, and may shrink step 6's downloads.
