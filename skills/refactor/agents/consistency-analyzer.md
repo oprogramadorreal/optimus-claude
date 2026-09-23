@@ -11,8 +11,6 @@ Read `.claude/CLAUDE.md` for project context, `.claude/docs/coding-guidelines.md
 
 Apply the shared constraints and output format from `shared-constraints.md`.
 
-Analyze source files in the provided areas.
-
 ## Output format
 
 Use the shared skeleton with these replacements:

@@ -6,7 +6,7 @@ Read `.claude/CLAUDE.md` for project context and tech stack, `.claude/docs/codin
 
 Apply the shared constraints and output format from `shared-constraints.md`.
 
-Analyze source files in the provided areas. Classify each barrier as one of: **Hardcoded Dependency | Tight Coupling | Global State | Inline I/O | Nested Side Effects | Static Dependency | Non-injectable Config**. Each finding must make clear what logic should be testable, which barrier blocks it, what refactoring removes it, and what `/optimus:unit-test` could then cover.
+Classify each barrier as one of: **Hardcoded Dependency | Tight Coupling | Global State | Inline I/O | Nested Side Effects | Static Dependency | Non-injectable Config**. Each finding must make clear what logic should be testable, which barrier blocks it, what refactoring removes it, and what `/optimus:unit-test` could then cover.
 
 ## Output format
 

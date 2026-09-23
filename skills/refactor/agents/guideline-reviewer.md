@@ -8,8 +8,6 @@ Read the project docs listed below. Every finding cites the specific rule it vio
 
 <!-- dispatcher: replace this line with the concrete doc paths resolved during doc loading -->
 
-Analyze source files in the provided areas.
-
 ## Output format
 
 Use the shared skeleton with:
