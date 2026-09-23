@@ -112,7 +112,7 @@ These models perform internal reasoning. Prefer a clear task and output contract
 
 ## IDE AI
 
-Every entry below: anchor each instruction to a path — never a global instruction without a file or directory anchor. Split work that spans several independent changes into sequential prompts per the output contract in SKILL.md.
+Every entry below except Claude Code plan mode and dynamic workflow (Templates M and N govern those): anchor each instruction to a path — never a global instruction without a file or directory anchor. Split work that spans several independent changes into sequential prompts per the output contract in SKILL.md.
 
 ### Claude Code
 
