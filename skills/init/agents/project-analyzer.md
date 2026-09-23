@@ -66,7 +66,12 @@ Return your findings in this exact structure:
 - `.claude/CLAUDE.md`: [exists | missing]
 - `.claude/settings.json`: [exists | missing]
 - `.claude/docs/`: [list of existing files, or "empty/missing"]
+- `.claude/hooks/`: [list of existing files, or "empty/missing"]
+- `.claude/.optimus-version`: [version | missing]
+- `.claude/.optimus-managed.json`: [exists | missing]
 - Root `CLAUDE.md`: [exists | missing]
+- Root `AGENTS.md`: [exists | missing]
+- `.codex/`: [exists | missing]
 - Subproject CLAUDE.md files: [list, or "none"]
 
 ### Doc-sourced insights
