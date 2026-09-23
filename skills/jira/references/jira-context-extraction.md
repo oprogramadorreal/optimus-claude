@@ -24,9 +24,10 @@ Discover tools at runtime as in the [Detection Procedure](#detection-procedure) 
 
 | Operation | Rovo (`mcp__atlassian__`) | sooperset (`mcp__mcp-atlassian__`) | Safety |
 |-----------|--------------------------|-----------------------------------|--------|
-| Search issues (JQL) | `searchJiraIssuesUsingJql` or `search` | `jira_search` | Read |
+| Search issues (JQL) | `searchJiraIssuesUsingJql` | `jira_search` | Read |
 | Get single issue | `getJiraIssue` | `jira_get_issue` | Read |
 | Get link types | `getIssueLinkTypes` | — | Read |
+| Resolve site (cloudId) | `getAccessibleAtlassianResources` | — | Read |
 | Create issue | `createJiraIssue` | `jira_create_issue` | **Write** |
 | Add comment | `addCommentToJiraIssue` | `jira_add_comment` | **Write** |
 | Create link | `createIssueLink` | `jira_create_issue_link` | **Write** |
