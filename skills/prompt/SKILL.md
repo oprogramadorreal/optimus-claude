@@ -35,7 +35,7 @@ Every prompt takes this exact structure — boundary markers as plain text on th
 
 **Target:** [tool name] | [One sentence — what was optimized and why]
 
-Markers wrap pasteable prompt blocks only — never the `**Target:**` line, the notes below, or the memory-block fence inside the prompt body. Every delivered prompt block gets its own marker pair, including multi-prompt and Prompt Decompiler outputs.
+Markers wrap pasteable prompt blocks only — never the `**Target:**` line or the notes below. Every delivered prompt block gets its own marker pair, including multi-prompt and Prompt Decompiler outputs.
 
 Notes go after the Target line, each 1-2 lines: any an invariant or step calls for, plus these when genuinely needed:
 
@@ -128,7 +128,7 @@ Apply only the techniques the task genuinely requires:
 - **Grounding anchor** — for factual or citation tasks: "Use only information you are highly confident is accurate. If uncertain, write [uncertain] next to the claim. Do not fabricate citations or statistics."
 - **Reasoning guidance** — for logic, math, and debugging, follow the target's `tool-routing.md` entry. Ask for conclusions, necessary calculations, and a concise rationale rather than a private reasoning transcript. Explicit step-by-step scaffolding is not a universal improvement or degradation; add task-specific structure when evidence or the requested deliverable calls for it.
 
-Structure: lead with the constraints that matter most so they are easy to find; placement alone does not guarantee reliable long-context recall. Reserve MUST / NEVER / ALWAYS for genuine invariants: safety rules, hard contracts, irreversible actions. Escalating every instruction to an absolute flattens the signal and leaves nothing to mark what truly cannot bend. When the conversation has prior history, prepend a memory block near the top:
+Structure: lead with the constraints that matter most so they are easy to find; placement alone does not guarantee reliable long-context recall. Reserve MUST / NEVER / ALWAYS for genuine invariants: safety rules, hard contracts, irreversible actions. Escalating every instruction to an absolute flattens the signal and leaves nothing to mark what truly cannot bend. When the conversation has prior history, prepend a memory block near the top as plain lines (an inner code fence would close the prompt's fence):
 
 ```
 ## Context (carry forward)
