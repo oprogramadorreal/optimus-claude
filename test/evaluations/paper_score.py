@@ -138,6 +138,8 @@ def assess_output(output, expected, config_hash):
         keys = [row_key(row) for row in rows]
         if len(set(keys)) != len(keys) or set(keys) != {row_key(r) for r in expected}:
             return checks
+        # close(x, x) is true only for a finite, non-bool number, so this rejects
+        # missing values, NaN, infinities and ints too large for a float.
         if any(
             not close(row.get(field), row.get(field))
             for row in rows
