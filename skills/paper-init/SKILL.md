@@ -117,6 +117,11 @@ clone can re-acquire every publicly fetchable file from this record alone.
 
 ## 3. Working forms
 
+Extract a short paper inline. Otherwise delegate substantial, independent
+source sections to readers launched as Agent tool calls in a single message,
+each given explicit sources, required provenance, and absolute paths;
+reconcile conflicts and coverage yourself before writing the final bundle.
+
 - `paper/paper.md` — a complete transcription, not a summary: mirrored
   section headings, math in LaTeX, figures as local relative links with their
   captions, tables inline (escape hatch: a separate `tables.md` when tables
@@ -165,10 +170,6 @@ clone can re-acquire every publicly fetchable file from this record alone.
 For a paper with empirical claims, read
 `references/empirical-reproduction.md` now and prepare `acceptance.md` using
 its contract. For a survey or proof without empirical claims, skip it.
-For a short paper, extract inline. Delegate substantial, independent
-source sections, launching independent readers together with explicit sources,
-required provenance, and absolute paths. Reconcile conflicts and coverage
-yourself before writing the final bundle.
 
 When the paper defers load-bearing content to a citation — an inherited
 architecture, a borrowed training procedure, a dataset defined there — the
