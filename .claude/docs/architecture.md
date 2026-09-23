@@ -21,7 +21,7 @@ The directory layout is discoverable; what follows is what reading it does not t
 - `references/schemas/` holds the harness JSON contracts. `test/harness-common/test_harness_schema.py` validates the golden fixtures under `test/harness-common/fixtures/` against them, round-trips them through `cli parse`, and checks that the harness-mode docs still point at both — change a schema and it fails until the fixtures follow.
 - Runtime parsing and direct step ingestion both validate the required protocol envelope and containers. The runtime retains explicit legacy flag/coverage/line-number normalization; it is not a complete JSON Schema validator. An incomplete object is a failure, never an implicit successful no-op.
 - Every text-mode subprocess call passes `encoding="utf-8", errors="replace"`. A bare `text=True` uses the locale codec, which on a cp1252 Windows box silently truncates child output at the first non-decodable byte. `cli.main()` reconfigures its own stdout/stderr for the same reason. Enforced by `test/harness-common/test_encoding_policy.py`.
-- `scripts/validate.sh` section 17 pins only strings a program parses or that cross a conversation boundary. Adding a pin for a heading one file reads from another is the anti-pattern that section exists to have removed.
+- `scripts/validate.sh` section 17 pins only strings a program parses or that cross a conversation boundary (an artifact on disk, a dispatch prompt, an agent return block). Two files sharing a heading is not enough: pinning one read within a single conversation, such as a SKILL.md and its own reference, is the anti-pattern that section exists to have removed.
 
 ## Agents and references
 
