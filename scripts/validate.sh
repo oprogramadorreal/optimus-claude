@@ -46,16 +46,16 @@ while IFS= read -r f; do
   # PIPELINE fail — `git cat-file` returned 128 — and `set -e` aborted the whole
   # run at THIS check, silently skipping every section below. It only surfaced
   # once test-hooks.sh and restrict-paths.sh grew past 64K.
-  blob=$(git cat-file -p "HEAD:$f" 2>/dev/null || true)
+  blob=$(git cat-file -p "HEAD:$f" 2>/dev/null) || continue  # staged, not yet in HEAD
   first_line=${blob%%$'\n'*}
   first_line=${first_line%$'\r'}
-  if [[ "$first_line" == "#!/bin/bash"* ]]; then
+  if [[ "$first_line" != "#!/usr/bin/env bash" ]]; then
     bad_shebangs+="  $f"$'\n'
   fi
 done < <(git ls-files -- '*.sh' 'hooks/session-start')
 check "All scripts use #!/usr/bin/env bash" test -z "$bad_shebangs"
 if [ -n "$bad_shebangs" ]; then
-  printf "       Non-portable shebangs:\n%s" "$bad_shebangs"
+  printf "       Missing or non-portable shebangs:\n%s" "$bad_shebangs"
 fi
 
 # --- 3. Parsed skill metadata for both hosts ---
