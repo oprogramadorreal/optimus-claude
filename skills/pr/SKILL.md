@@ -82,7 +82,7 @@ Run `mktemp ./pr-body-XXXXXX` — a relative path, never `/tmp` (on Windows, Git
 - **GitHub:** `gh pr create --title "<title>" --body-file <body-file> --base <default-branch>`
 - **GitLab:** `glab mr create --title "<title>" --description "$(cat <body-file>)" --target-branch <default-branch>`
 
-PRs/MRs are created ready to merge (not draft). Proceed to Step 7.
+PRs/MRs are created ready for review (not draft). Proceed to Step 7.
 
 ## Step 6: Update Flow
 
@@ -119,7 +119,6 @@ Apply using the Step 5 temp-file pattern:
 - URL: [url]
 - Title: [title]
 - Target: [target-branch]
-- Status: Ready to merge
 ```
 
 In a multi-repo run, continue with the next repo (back to Step 2); hold all recommendations until every repo is done.
