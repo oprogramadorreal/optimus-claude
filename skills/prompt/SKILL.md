@@ -111,7 +111,7 @@ Fix silently; flag only fixes that would change the user's stated intent; if a f
 | Generic self-verification scaffolding — "double-check your answer", "re-check before responding" | Prefer concrete acceptance criteria and external evidence (tests, schemas, live APIs) over repeated generic passes. Preserve a targeted check when it addresses a known failure or an explicit user requirement; do not assume all model families benefit or suffer equally |
 | Over-permissive agent — "do whatever it takes" | Add explicit allowed + forbidden actions |
 | No starting or target state for an agent | State what exists now and what must exist when done |
-| No stop conditions for an agent | Add stop conditions + a checkpoint after each step |
+| No stop conditions for an agent | Add stop conditions |
 | Unspecified update cadence on a long agent run | Describe the shape, not the frequency: one line before starting, an update only on something important or a change of direction, outcome first at the end |
 | Unlocked filesystem | Restrict edits to named paths; forbid config and .env |
 | No human-review trigger | Identify consequential actions outside existing authorization and genuinely ambiguous scope. Ask only for those decisions; retain approval already granted for a concrete deletion, dependency, or schema change |

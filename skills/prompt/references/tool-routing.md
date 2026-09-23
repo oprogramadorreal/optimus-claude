@@ -116,7 +116,7 @@ Every entry below: anchor each instruction to a path — never a global instruct
 
 ### Claude Code
 
-- Agentic — runs tools, edits files, executes commands autonomously. Structure per Template H: starting state + target state + allowed/forbidden actions + stop conditions + checkpoints
+- Agentic — runs tools, edits files, executes commands autonomously. Structure per Template H: starting state + target state + allowed/forbidden actions + stop conditions + reporting
 - Stop conditions are MANDATORY — runaway loops are the biggest credit killer
 - Apply the [Claude entry](#claude-claudeai-claude-api), including scope, length, and evidence-based verification; effort and thinking depth are host-managed, so never invent an effort command or thinking budget in the task prompt
 - Delegation bias differs by model. Opus 5 over-delegates — cap it: *"Delegate only for large, genuinely independent tracks of work. Don't delegate what you can finish in a handful of tool calls. Keep spawn counts low."* Fable 5.1's parallel subagents are dependable — say when delegation is wanted and let it keep working while they run: *"Delegate independent subtasks to subagents and keep working while they run; intervene if one goes off track or lacks context."* On either model, never use a subagent to verify its own work.
