@@ -111,9 +111,10 @@ Wait for all launched agents to complete before proceeding to Step 6. This appli
 
 ## Step 6: Validate Findings
 
-Read `$CLAUDE_PLUGIN_ROOT/references/finding-validation.md` and apply it to every finding — the context, intent, pre-existing, and runtime-assumption checks plus change-intent awareness from git history. One code-review addition:
+Read `$CLAUDE_PLUGIN_ROOT/references/finding-validation.md` and apply it to every finding. Code-review additions:
 
 - **Cross-agent corroboration** — two agents independently flagging the same location raises confidence, even when their categories differ.
+- **Sanctioned pre-existing findings** — the Pre-existing check does not drop security/bug findings directly adjacent to changed lines or structural-neighbor consistency findings (`agents/shared-constraints.md` allows both); the other checks still apply.
 
 ### PR/MR description as intent signal
 

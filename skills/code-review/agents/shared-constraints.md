@@ -2,10 +2,6 @@
 
 Read `$CLAUDE_PLUGIN_ROOT/references/shared-agent-constraints.md` for the base agent constraints, quality bar, exclusion rules, scope-expansion procedure, and false-positive guidance that apply to all analysis agents. The following are code-review addendums.
 
-## Quality Bar (addition)
-
-- Not be pre-existing (in unchanged code)
-
 ## All Agents Exclude (additions)
 
 - Speculative input-dependent issues without a reachable input and a concrete failure path; reproducible boundary, null, and injection defects remain in scope
