@@ -184,6 +184,8 @@ def test_bash_runner_selects_checkout_and_rejects_false_success(
     # evidence without assuming drive-letter spelling.
     assert selected.endswith("/plugin checkout with spaces")
     assert args[args.index("--model") + 1] == "requested-model-id"
+    # A slash command is recognized only at the start of the prompt.
+    assert args[args.index("-p") + 1].startswith("/optimus:commit ")
     assert (fixture / "index.js").read_text(encoding="utf-8") == "base\n"
 
 

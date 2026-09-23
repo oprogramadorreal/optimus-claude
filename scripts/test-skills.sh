@@ -206,14 +206,15 @@ run_skill_test() {
   cp -r "$fixture_dir/." "$work_dir/"
   cd "$work_dir"
 
-  # Determine the skill prompt
+  # The prompt must start with the command: Claude Code recognizes a slash
+  # command only there, and every skill disables model invocation.
   local prompt
   case "$skill" in
     init)
-      prompt="Run /optimus:init on this project. Analyze the project structure and set it up for AI-assisted development."
+      prompt="/optimus:init"
       ;;
     permissions)
-      prompt="Run /optimus:permissions to set up branch protection and permission rules for this project."
+      prompt="/optimus:permissions"
       ;;
     commit-suggest)
       # Need some changes to analyze — test for file existence to avoid creating unexpected files
@@ -224,13 +225,13 @@ run_skill_test() {
       else
         echo "# new feature" > README.md
       fi
-      prompt="Run /optimus:commit suggest — suggest a conventional commit message for the current changes without committing."
+      prompt="/optimus:commit suggest"
       ;;
     how-to-run)
-      prompt="Run /optimus:how-to-run to generate a HOW-TO-RUN.md teaching a new developer how to set up their environment and run this project locally."
+      prompt="/optimus:how-to-run"
       ;;
     prompt)
-      prompt="Run /optimus:prompt to craft an optimized prompt for the following idea: Write a Python function that parses CSV files and returns summary statistics."
+      prompt="/optimus:prompt Write a Python function that parses CSV files and returns summary statistics."
       ;;
     commit-branch)
       # Need uncommitted changes for branch mode to have context
@@ -241,7 +242,7 @@ run_skill_test() {
       else
         echo "# add auth middleware" > README.md
       fi
-      prompt="Run /optimus:commit branch — move the current changes to a properly named branch without committing."
+      prompt="/optimus:commit branch"
       ;;
     *)
       echo "  ERROR  No prompt defined for skill: $skill"
