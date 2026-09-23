@@ -191,6 +191,20 @@ def test_timeout_is_preserved_as_failure(project, tmp_path):
     assert report["results"]["passed"] == 0
 
 
+def test_dataset_identity_allows_line_endings_but_not_changed_data(project, tmp_path):
+    csv_path = project / "sources" / "observations.csv"
+    original = csv_path.read_bytes()
+    lf = original.replace(b"\r\n", b"\n")
+    csv_path.write_bytes(lf if original != lf else lf.replace(b"\n", b"\r\n"))
+    assert SCORER.replay(project, "reproduce.py", tmp_path / "eol")["ready_for_review"]
+    csv_path.write_bytes(lf.replace(b"calibration,10000", b"calibration,10001"))
+    report = SCORER.replay(project, "reproduce.py", tmp_path / "changed")
+    checks = report["results"]["checks"]
+    assert checks["raw_values_match"] and checks["aggregates_match"]
+    assert checks["dataset_identity"] is False
+    assert report["ready_for_review"] is False
+
+
 def test_replay_refuses_overwrite_and_entrypoint_escape(project, tmp_path):
     evidence = tmp_path / "existing evidence"
     evidence.mkdir()
@@ -208,6 +222,16 @@ def test_replay_refuses_overwrite_and_entrypoint_escape(project, tmp_path):
     with pytest.raises(ValueError, match="relative Python"):
         SCORER.replay(project, "runs/reproduce.py", tmp_path / "ignored evidence")
     assert not (tmp_path / "ignored evidence").exists()
+
+
+def test_replay_rejects_symbolic_links(project, tmp_path):
+    try:
+        (project / "linked.py").symlink_to(project / "reproduce.py")
+    except OSError:
+        pytest.skip("symbolic links unavailable")
+    with pytest.raises(ValueError, match="symbolic links"):
+        run(project, tmp_path)
+    assert not (tmp_path / "evidence").exists()
 
 
 def test_cli_emits_inspectable_json_and_rejects_nonfinite_timeout(project, tmp_path):
@@ -238,5 +262,10 @@ def test_new_cases_keep_existing_consumer_shape_and_isolate_oracle():
         fixture = root / case["fixture"]
         assert fixture.is_dir()
         assert isinstance(case["task"], str) and case["task"]
-        assert not list(fixture.rglob("paper_score.py"))
-        assert not list(fixture.rglob("paper-review.md"))
+        for name in (
+            "paper_score.py",
+            "paper-review.md",
+            "cases.json",
+            "refresh-sources",
+        ):
+            assert not list(fixture.rglob(name))
