@@ -34,7 +34,7 @@ Use `AskUserQuestion` — header "Context review", question "Does this capture t
 
 If "Correct first": `AskUserQuestion` — header "Corrections", question "What should be changed?" (free text). Apply the corrections to the results in memory (recompute the fallback trigger if the stack changed), re-print, re-confirm.
 
-**Unsupported-stack fallback.** If `Triggered: yes`, read `$CLAUDE_PLUGIN_ROOT/skills/init/references/unsupported-stack-fallback.md` and run its 5-step procedure with the reported language(s) and evidence: `WebSearch` for research, enforce its validation rules before presenting any command, `AskUserQuestion` for approval. Approved commands feed Step 4 as if from a recognized stack; skipped or declined ones render as `"not found"`. If WebSearch is unavailable, propose standard commands from general knowledge under the same validation rules, marked "inferred (not web-verified)"; if declined, skip gracefully.
+**Unsupported-stack fallback.** If `Triggered: yes`, read `$CLAUDE_PLUGIN_ROOT/skills/init/references/unsupported-stack-fallback.md` and run it with the reported language(s) and evidence, using `WebSearch` and `AskUserQuestion`. One override: wherever its step 2 would skip to graceful skip (search unavailable, failed, or empty), propose standard commands from general knowledge instead, still validated per its step 3 and marked "inferred (not web-verified)". Approved commands feed Step 4 as if from a recognized stack; skipped or declined ones render as `"not found"`.
 
 ## Step 2: Audit existing docs (inline or agent)
 
