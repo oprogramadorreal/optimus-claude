@@ -434,14 +434,14 @@ when the revision drops a citation the bundle fetched, ask before removing
 its directory. A different paper while
 `paper/` already holds one: use `papers/<slug>/` (kebab-case slug from the
 title) as the bundle root everywhere — datasets go in `papers/<slug>/data/`
-with their own `data/README.md`, and the gitignore entries spell full paths
-(`papers/<slug>/data/*` with its `!papers/<slug>/data/README.md` exception,
-`papers/<slug>/reference-code/`, `papers/<slug>/cited/<work>/` only when
-step 7's license rule fires for that work): a pattern
-containing slashes anchors at the `.gitignore` location, so the bare step
-6–7 paths cannot reach a nested bundle. Leave the existing bundle untouched
-and add the new one to the routing block. If `papers/<slug>/` already holds
-a different paper, disambiguate the slug (append the year or venue) — never
+with their own `data/README.md`, and every `.gitignore` and `.gitattributes`
+entry (license-rule entries and `!` exceptions included) and the
+`git check-ignore` check use nested paths (`paper/` becomes `papers/<slug>/`,
+`data/` becomes `papers/<slug>/data/`): a pattern containing slashes anchors
+at its file's location, so bare paths cannot reach a nested bundle. Leave
+the existing bundle untouched and add the new one to the routing block. If
+`papers/<slug>/` already holds a different paper, disambiguate the slug
+(append the year or venue) — never
 refresh a bundle that is not the same work. Never merge two papers into one
 bundle; never move an existing `paper/` — that restructuring is the user's
 call.
