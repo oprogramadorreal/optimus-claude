@@ -404,7 +404,8 @@ Same paper — a resolved identifier (DOI, arXiv id) matches
 `source/metadata.json`, or one source names the other's identifier (an arXiv
 page listing the published DOI): refresh in place — update, don't duplicate,
 and keep the original acquisition records (append the refresh; a preprint's
-provenance is not overwritten by its published version's). Preserve target
+provenance is not overwritten by its published version's). When the match is
+uncertain, ask before touching the existing bundle. Preserve target
 and question IDs, decision rationale, and history. A scope decision in
 `metadata.json` binds the selected scope. For empirical papers, apply it in
 `acceptance.md`; `spec.md` keeps the original reported results. For older
@@ -431,8 +432,7 @@ the prior bytes; an uncommitted bar needs its own snapshot.
 Cited works already in `paper/cited/` are kept, not re-fetched unless the
 required source version changes or a missing file must be re-acquired;
 when the revision drops a citation the bundle fetched, ask before removing
-its directory. When the match is uncertain, ask before touching the
-existing bundle. A different paper while
+its directory. A different paper while
 `paper/` already holds one: use `papers/<slug>/` (kebab-case slug from the
 title) as the bundle root everywhere — datasets go in `papers/<slug>/data/`
 with their own `data/README.md`, and the gitignore entries spell full paths
