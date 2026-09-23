@@ -57,7 +57,7 @@ Write each section as a competent onboarding doc would — the rules below are t
 
 ## External Services
 
-- **Branch A — compose covers all infrastructure:** table (Service | Port | Purpose from compose) + `docker compose up -d` fence + `docker compose ps` verify fence.
+- **Branch A — compose covers all infrastructure:** table (Service | Port | Purpose from compose) + `docker compose up -d` fence + `docker compose ps` verify fence. When Hardware / OS Requirements lists a token containing `Windows`, add once per External Services section: Docker Desktop must be in Linux-container mode (system-tray menu → *Switch to Linux containers…*).
 - **Branch B — no compose:** overview table (Service | Recommended runtime | Alternative | Role) + one per-service subsection per service using the matching template from `external-services-docker.md` (Docker-preferred / Shared-cloud primary / Shared-cloud no-Docker / Local install only).
 - **Hybrid:** Branch A scoped to compose-covered services, then Branch B scoped to the rest — never duplicate a compose-covered service as a standalone subsection.
 - The detector's External Services table is the source of truth for which services exist; classification is owned by `external-services-docker.md` §Decision Heuristics — do not re-derive it here. Credentials: defaults from compose or shared-cloud config, never actual password values.
