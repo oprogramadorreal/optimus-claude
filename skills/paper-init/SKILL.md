@@ -21,8 +21,7 @@ depend on this conversation's context.
 
 One `paper/` directory at the project root holds everything paper-derived:
 
-- `paper/README.md` — bundle index: what this is, the read-first order,
-  current status. Under ~50 lines.
+- `paper/README.md` — the bundle index (step 8).
 - `paper/source/` — pristine originals only: the PDF (supplementary
   material included) plus the best machine-readable form available (EPUB,
   HTML, XML, arXiv LaTeX source), exactly as acquired. Derived files (text
@@ -336,9 +335,9 @@ When the paper uses datasets, also write `data/README.md`: what goes here,
 the counts when known, license terms, and a pointer to `paper/dataset.md`.
 Not a git repo? Skip the `.gitignore` part and note it in the final message.
 
-Write `paper/README.md` (the bundle index). If a root `README.md` exists,
-maintain one short routing block there pointing at the bundle(s), wrapped in
-marker comments that identify it as managed:
+If a root `README.md` exists, maintain one short routing block there
+pointing at the bundle(s), wrapped in marker comments that identify it as
+managed:
 
 ```
 <!-- paper-context:start -->
@@ -362,8 +361,9 @@ experiment covers its required method, controls, and protocol. Settle newly
 answerable questions and preserve unresolved ones; do not manufacture
 results. Record the acceptance revision and its defining documents in
 `source/metadata.json` when present.
-The index gives the read order, selected scope, preparation status (complete
-or complete with gaps), remaining blockers, and evidence status (initially unverified).
+Write the index, `paper/README.md`, under ~50 lines: what the bundle is, read
+order, selected scope, preparation status (complete or complete with gaps),
+remaining blockers, and evidence status (initially unverified).
 
 Put the empirical reference's handoff instructions in the index: review
 source coverage and unresolved criteria, then pin the bar and its linked
