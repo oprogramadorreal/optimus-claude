@@ -89,7 +89,8 @@ If the target is Claude Code, route by intent:
 - Execute scoped changes directly (known files) → H.
 - Explore and plan (read-only) → M.
 - Fan-out work one conversation cannot coordinate (codebase-wide audit, large mechanical migration or codemod, cross-checked research) → N.
-- Implement a spec, task, or feature (a `docs/specs/` or `docs/jira/` file, or a described feature): supervised test-first ceremony → a Template M plan-mode prompt that feeds `/optimus:tdd` (review-only — Step 7 delivers that handoff); self-orchestrated parallel background build → Template N with test-first stated as the quality bar. Runtime permissions can still require user input, and token use and speed depend on the task.
+- Implement a spec, task, or feature (a `docs/specs/` or `docs/jira/` file, or a described feature): supervised test-first ceremony → a Template M plan-mode prompt that feeds `/optimus:tdd`; self-orchestrated parallel background build → Template N with test-first stated as the quality bar. Runtime permissions can still require user input, and token use and speed depend on the task.
+  - The tdd-fed M prompt is review-only: read `$CLAUDE_PLUGIN_ROOT/skills/brainstorm/references/plan-mode-handoff.md` and close the prompt with its `## How this conversation should run` block. `<doc-path>` is the source file; for a described feature it is a new `docs/specs/YYYY-MM-DD-<feature-slug>.md`, which the block's write step creates with a `## Goal` section before the `### Refined plan`. Step 7 delivers the rest.
 - Genuinely ambiguous → ask once via `AskUserQuestion` (counts toward the budget).
 
 For Template M or N the output is a PROMPT — NEVER the plan or the workflow script itself — and it must be self-contained: it starts a fresh conversation (M) or a background workflow (N) with no prior context.
@@ -144,7 +145,7 @@ What a delivered prompt has to hold up to: every sentence load-bearing; no vague
 
 Deliver per the output contract, then point the user at the next step:
 
-- **Plan-mode prompt (M)** → paste as the first message of a new Claude Code conversation started in plan mode; the default is to approve the plan and implement in that conversation. If the plan feeds `/optimus:tdd`, plan mode is review-only — do NOT approve (approval executes immediately and bypasses TDD's Red-Green-Refactor discipline); read `$CLAUDE_PLUGIN_ROOT/skills/brainstorm/references/plan-mode-handoff.md` and give the user its carve-out steps.
+- **Plan-mode prompt (M)** → paste as the first message of a new Claude Code conversation started in plan mode; the default is to approve the plan and implement in that conversation. If the plan feeds `/optimus:tdd`, plan mode is review-only — do NOT approve (approval executes immediately and bypasses TDD's Red-Green-Refactor discipline); give the user plan-mode-handoff.md's three carve-out steps, then its execution prompt as a second marker-wrapped block.
 - **Workflow prompt (N)** → paste into Claude Code in normal mode — never plan mode. Launch approval depends on the host version, permission mode, and prior consent; child tools follow the host's subagent permission rules. Review a launch prompt when shown. The run executes in the background, is stoppable from `/workflows`, and can use substantially more tokens than a normal turn. After an editing workflow completes, suggest `/optimus:commit`.
 - **Regular Claude Code prompt** in an active project → suggest `/optimus:tdd` to build test-first from it, or `/optimus:commit` for related pending changes.
 - **External tool** with pending code changes → suggest `/optimus:commit`.
