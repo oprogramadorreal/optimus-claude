@@ -220,21 +220,19 @@ Negative prompt: [what to avoid introducing]
 
 ## Template K — ComfyUI
 
-*Node-based image workflows. Always output Positive and Negative as separate blocks. Ask first if not stated: "Which checkpoint model are you using? (SD 1.5, SDXL, Flux, or other)"*
+*Node-based image workflows. Ask first if not stated: "Which checkpoint model are you using? (SD 1.5, SDXL, Flux, or other)". Positive and Negative paste into different text-encode nodes: output each as its own fenced block in its own marker pair, with its label above the opening marker — never merge them.*
 
+Positive prompt:
 ```
-POSITIVE PROMPT:
 [subject], [style], [mood], [lighting], [composition], [quality boosters]
-
-NEGATIVE PROMPT:
-[what to exclude: blurry, low quality, watermark, extra limbs, bad anatomy, distorted]
-
-CHECKPOINT: [model name]
-SAMPLER: Euler a
-CFG SCALE: 7
-STEPS: 20-30
-RESOLUTION: [width x height — divisible by 64]
 ```
+
+Negative prompt:
+```
+[what to exclude: blurry, low quality, watermark, extra limbs, bad anatomy, distorted]
+```
+
+**Setup note** (after the Target line, outside the markers): checkpoint [model name], 20-30 steps, resolution [width x height — divisible by 64]. SD 1.5 / SDXL: Euler a, CFG 7. Flux.1: euler, CFG 1.0 plus a FluxGuidance node at ~3.5 (schnell: 4 steps); at CFG 1 the negative prompt has no effect.
 
 **Model notes:** SD 1.5: under 75 tokens, use (word:weight). SDXL: longer prompts OK, natural language. Flux: natural language, less weight syntax, responsive to style.
 
