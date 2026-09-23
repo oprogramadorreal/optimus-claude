@@ -42,12 +42,7 @@ The caller provides `<branch-name>` (already created) and `<original-branch>` (t
 
 ## Failure handling
 
-If worktree creation fails (git version too old, filesystem issues, branch already checked out elsewhere):
-
-- Delete the orphaned branch if it was freshly created for this worktree: `git branch -d <branch-name>`
-- Report the error with diagnostic information
-- Suggest the fallback: "Worktree creation failed. You can work directly on the branch instead."
-- Return to the caller so it can decide how to proceed
+If Setup fails before the worktree exists (steps 2-4), report the Git error and any `.gitignore` rule step 2 added, then return to the caller, which decides what happens to `<branch-name>`. From step 3 on, the main workspace is on `<original-branch>`.
 
 ## Cleanup
 

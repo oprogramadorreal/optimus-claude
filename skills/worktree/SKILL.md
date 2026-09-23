@@ -35,7 +35,7 @@ git branch <branch-name>
 
 ### 4. Create worktree
 
-Follow the **Setup** procedure from worktree-setup.md with `<branch-name>` and `<original-branch>`. On failure, follow its **Failure handling**, then stop.
+Follow the **Setup** procedure from worktree-setup.md with `<branch-name>` and `<original-branch>`. On failure, follow its **Failure handling**, delete the unused branch (`git branch -d <branch-name>`), then stop.
 
 ### 5. Report
 
