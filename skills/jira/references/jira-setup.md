@@ -10,6 +10,8 @@ Ask the user (AskUserQuestion) which server to set up:
 - **mcp-atlassian (community)** — open-source (sooperset); JIRA Cloud AND Server/Data Center; runs locally via uvx or Docker
 - **Skip setup** — stop the skill and tell the user to re-run `/optimus:jira` after configuring a server (setup commands are also in this skill's README)
 
+The user runs the chosen command in their own terminal; never ask for, accept, or run a command containing their API token or PAT.
+
 ## Atlassian Rovo
 
 ```
