@@ -1,6 +1,6 @@
 # Code-Review Shared Constraints
 
-Read `$CLAUDE_PLUGIN_ROOT/references/shared-agent-constraints.md` for the base agent constraints, quality bar, exclusion rules, scope-expansion procedure, and false-positive guidance that apply to all analysis agents. The following are code-review addendums.
+Read `$CLAUDE_PLUGIN_ROOT/references/shared-agent-constraints.md` first — it applies in full. The following are code-review addendums.
 
 Every finding must be anchored in the provided diff hunks; the one step outside them is the Structural-Neighbor Scope Expansion, with the carve-out below.
 
