@@ -161,7 +161,7 @@ Runs skills against copied fixtures via `claude -p --plugin-dir <this-checkout>`
 bash scripts/test-skills.sh --model claude-fable-5-1
 bash scripts/test-skills.sh --model claude-fable-5-1 --skill init --fixture node
 bash scripts/test-skills.sh --model claude-fable-5-1 --all
-bash scripts/test-skills.sh --model claude-fable-5-1 --fresh --all --worktree
+bash scripts/test-skills.sh --model claude-fable-5-1 --all --worktree
 bash scripts/test-skills.sh --dry-run
 ```
 
@@ -171,7 +171,7 @@ The test prompt authorizes noninteractive default choices. It does not test inte
 
 Not intended for CI — run locally before merging significant changes.
 
-**`--worktree` flag:** Creates a new detached git worktree at a unique `.worktrees/skill-tests.*` path from committed `HEAD` and cleans up only that worktree on success. On failure it is preserved for debugging; the script prints its path and cleanup command. Subsequent runs leave earlier failed worktrees untouched. Uncommitted source edits are excluded. This snapshots the code at the current commit so you can freely switch branches, edit plugin files, or start new work in the main tree while the tests run — and the worktree stays visible in your IDE for easy inspection. Combine with any other flags (`--fresh`, `--all`, `--skill`, etc.).
+**`--worktree` flag:** Creates a new detached git worktree at a unique `.worktrees/skill-tests.*` path from committed `HEAD` and cleans up only that worktree on success. On failure it is preserved for debugging; the script prints its path and cleanup command. Subsequent runs leave earlier failed worktrees untouched. Uncommitted source edits are excluded. This snapshots the code at the current commit so you can freely switch branches, edit plugin files, or start new work in the main tree while the tests run — and the worktree stays visible in your IDE for easy inspection. Combine with any other flags (`--all`, `--skill`, etc.).
 
 **Adding expected outputs:** Edit `test/expected-outputs.yaml`. Supported assertions are `files_exist`, `files_contain`, `files_not_exist`, `files_not_modified`, `output_contains`, `output_nonempty`, and `branch_prefix`. Every selected pair must have a nonempty oracle. Add behavior regressions to `test/test_skill_smoke_runner.py` when changing the runner; string checks alone do not establish skill effectiveness.
 
