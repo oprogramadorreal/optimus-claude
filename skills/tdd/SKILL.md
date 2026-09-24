@@ -45,7 +45,16 @@ Then find a coverage command — first match wins: the coverage section of `test
 
 ## Step 2: Task and Suitability
 
-Resolve the task with the cascade in `$CLAUDE_PLUGIN_ROOT/skills/tdd/references/spec-context-detection.md`. If nothing resolves and no inline argument was given, ask in plain text what feature or bug fix to implement. Whatever the source, apply the reference's **Distillation** step to the final description. Resolved context feeds this step — it does not bypass Step 3 decomposition (except the scenario-driven shortcut).
+Resolve the task — first match wins; run this even when the user also gave an inline description:
+
+1. **Explicit reference** — the input names a `.md` file inside `docs/specs/` or `docs/jira/`: read it and use the sections item 2 (spec) or item 3 (JIRA) names as the task.
+2. **Build spec** (wins over JIRA context: a brainstorm-authored spec already incorporates it) — `docs/specs/` holds `.md` files: take the most recent (filename date prefix, else modification time) and use `AskUserQuestion` — header "Build spec", question "Found build spec `<path>` — use it as the basis?", options "Use it" / "Ignore — describe a different task". When that date is older than 7 days, add to the question: "(This spec is [N] days old — if it is a `/optimus:brainstorm`-authored spec, you may want to re-run brainstorm for a fresh design.)" From a brainstorm-authored spec use Goal, Components, and Interfaces; from a human-authored one, Goal and Acceptance Criteria. Its `## Scenarios` section feeds Step 3's scenario-driven shortcut.
+3. **JIRA context** — no build spec resolved (none found, or ignored) and `docs/jira/` holds `.md` files: take the one with the newest frontmatter `description-refresh-date` and use `AskUserQuestion` — header "JIRA context", question "Found JIRA context `<path>` — use it as the basis?", options "Use it" / "Ignore — describe a different task". When that date is older than 7 days, add to the question: "(This context is [N] days old — you may want to re-run `/optimus:jira` for fresh data.)" Use its Goal and Acceptance Criteria.
+4. **Nothing resolved** — use the inline argument; with none, ask in plain text what feature or bug fix to implement.
+
+Whichever item resolves a file, a `### Refined plan` section in it (appended by the plan-mode handoff) takes precedence over the original approach — build from it.
+
+Whatever the source, if the final description is longer than ~2-3 sentences (a pasted spec, JIRA ticket, or acceptance-criteria list), distill it into a single-sentence goal and confirm with `AskUserQuestion` — header "Distilled goal", question "I've distilled your spec to: '[single-sentence summary]'. Is this accurate?", options **Looks good** — "Proceed with this goal" / **Adjust** — "Let me refine the focus". Resolved context feeds this step — it does not bypass Step 3 decomposition (except the scenario-driven shortcut).
 
 Classify the task:
 
