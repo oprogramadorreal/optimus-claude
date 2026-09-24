@@ -17,7 +17,7 @@ Per-service decision logic, web-search recipe, and snippet templates for *Extern
 
 ## Service Classification Tables
 
-Match the service name against the first table's image patterns and service names (a compose row also by its image), then the second table. **Match whole tokens, not substrings** (bounded by whitespace/punctuation/start/end): `Thumb` must not match `thumbor`; `CLI` matches `AWS CLI` but not `AppServiceCLI`.
+Match the service name against the first table's image patterns and service names (a compose row also by its image), then the second table. **Match whole tokens, not substrings** (bounded by whitespace/punctuation/start/end): `CLI` matches `AWS CLI` but not `AppServiceCLI`.
 
 | Image pattern | Service name | Docker suitability |
 |---------------|-------------|-------------------|
@@ -95,9 +95,7 @@ Run in Step 4 for every **Docker-preferred** service and every **Shared-cloud pr
 | LocalStack | `localstack/localstack:<stable-tag>` | [Docker Hub — localstack/localstack](https://hub.docker.com/r/localstack/localstack) | Port 4566; auth and service coverage depend on current vendor requirements. See eligibility check below. |
 | Azurite | `mcr.microsoft.com/azure-storage/azurite:<stable-tag>` | [MS Learn — Azurite](https://learn.microsoft.com/en-us/azure/storage/common/storage-use-azurite) | Ports: Blob 10000, Queue 10001, Table 10002. Volume `/data`. Reached via the Emulator Index for Azure Blob/Queue/Table Storage; NOT for Azure Service Bus. |
 
-**LocalStack eligibility check:** consult the [current installation guide](https://docs.localstack.cloud/aws/getting-started/installation/) for required authentication and documented coverage of the detected AWS services. `LOCALSTACK_AUTH_TOKEN` presence alone does not establish a paid tier or an unsupported service; current AWS images require authentication, including eligible free use. Keep token values as placeholders. State any plan/registration prerequisite and any unverified entitlement; do not provision an account, accept terms, or subscribe. Remove the alternative only for a documented incompatibility or unavailable prerequisite, and state that reason.
-
-**Deliberately excluded:** Firebase / Firestore (no vendor Docker image — the Local Emulator Suite runs via `firebase emulators:start`; render [Local install only](#local-install-only)); vendor-internal / proprietary APIs (shared-cloud only).
+**LocalStack eligibility check:** consult the [current installation guide](https://docs.localstack.cloud/aws/getting-started/installation/) for required authentication and documented coverage of the detected AWS services. `LOCALSTACK_AUTH_TOKEN` presence alone does not establish a paid tier or an unsupported service; current AWS images require authentication, including eligible free use. State any plan/registration prerequisite and any unverified entitlement. Remove the alternative only for a documented incompatibility or unavailable prerequisite, and state that reason.
 
 ## Verify Commands (seeds)
 
@@ -119,7 +117,7 @@ Seeds for the *Verify `<service>` is reachable* bullets in Common Issues; **not 
 
 ## Vendor-Service → Emulator Index
 
-Synonym lookup for Decision Heuristics rules 2 and 3. Rows targeting the **Canonical Image Catalogue** (LocalStack, Azurite) feed rule 3 → Alternative "Docker (offline)". Rows targeting **Known Vendor Emulators** feed rule 2 → **Local install only**, the selected CLI/installer recipe; link to documented vendor container alternatives without claiming they are unsupported by the vendor.
+Synonym lookup for Decision Heuristics rules 2 and 3. Rows targeting the **Canonical Image Catalogue** (LocalStack, Azurite) feed rule 3 → Alternative "Docker (offline)". Rows targeting **Known Vendor Emulators** feed rule 2 → **Local install only**.
 
 | Detected service name (case-insensitive whole-token) | Maps to |
 |---|---|
@@ -130,7 +128,7 @@ Synonym lookup for Decision Heuristics rules 2 and 3. Rows targeting the **Canon
 | `Google Cloud Pub/Sub`, `GCP Pub/Sub`, `Pub/Sub` | Pub/Sub Emulator — Known Vendor Emulators |
 | `Azure Blob Storage`, `Azure Queue Storage`, `Azure Table Storage` | Azurite — Canonical Image Catalogue |
 
-**Deliberately not mapped** (fall through to *Shared-cloud, no Docker alternative*): `Azure Service Bus`, `Azure Event Hubs`, `AWS Kinesis`, `AWS Step Functions`, `GCP Bigtable`, `GCP Spanner`, and SaaS observability services (Datadog, Sentry, New Relic, …). These are catalogue scope limits, not claims about all available emulators or current commercial tiers. Maintainers extend these tables by editing this file — never synthesise new mappings at runtime.
+**Deliberately not mapped** (fall through to *Shared-cloud, no Docker alternative*): `Azure Service Bus`, `Azure Event Hubs`, `AWS Kinesis`, `AWS Step Functions`, `GCP Bigtable`, `GCP Spanner`, and SaaS observability services (Datadog, Sentry, New Relic, …). These are catalogue scope limits, not claims about all available emulators or current commercial tiers. Never synthesise new mappings at runtime.
 
 ### Known Vendor Emulators
 
@@ -259,7 +257,7 @@ Every `- Source: [<title>](<url>)` line written to `HOW-TO-RUN.md` MUST be exact
 - `hub.docker.com` — ONLY when the image registry resolves to `docker.io`. For Docker Official Images (`docker.io/library/<name>`), `hub.docker.com` is the ONLY accepted citation host.
 - `learn.microsoft.com` — ONLY when the registry is `mcr.microsoft.com`.
 - `quay.io`, `gcr.io`, `ghcr.io`, `gallery.ecr.aws` — ONLY when the registry matches (`gallery.ecr.aws` ↔ `public.ecr.aws` after normalization).
-- `docs.<vendor>.com` or `<vendor>.com` with a path starting `/docs/` — for image citations, `<vendor>` must case-insensitively equal the image's vendor namespace (second-level domain label). For no-image vendor/emulator citations, use the exact canonical setup URL in Known Vendor Emulators; otherwise require `<vendor>` to appear as a whole token in the detected service name or its default-endpoint hostname. Explicit vendor docs hosts include `firebase.google.com`, `cloud.google.com`, `docs.cloud.google.com`, `aws.amazon.com`, and `docs.aws.amazon.com`, only for their corresponding detected vendor service. Extend this allowlist by editing this file — never at runtime.
+- `docs.<vendor>.com` or `<vendor>.com` with a path starting `/docs/` — for image citations, `<vendor>` must case-insensitively equal the image's vendor namespace (second-level domain label). For no-image vendor/emulator citations, use the exact canonical setup URL in Known Vendor Emulators; otherwise require `<vendor>` to appear as a whole token in the detected service name or its default-endpoint hostname. Explicit vendor docs hosts include `firebase.google.com`, `cloud.google.com`, `docs.cloud.google.com`, `aws.amazon.com`, and `docs.aws.amazon.com`, only for their corresponding detected vendor service. Never extend this allowlist at runtime.
 
 Never cite blog posts, Medium articles, or Stack Overflow — not authoritative.
 
@@ -294,4 +292,4 @@ Use an **exact-match** check — never prefix or substring:
 4. Lowercase the host; compare by exact string equality to each allowlist entry — `ghcr.io.evil.com` is rejected because it is not exactly `ghcr.io`.
 5. Not in the allowlist → reject and treat per Decision Heuristics rule 5.
 
-If a legitimate vendor image lives outside this list, a plugin maintainer can add the registry to this file — Claude must **not** bypass the check at run time.
+Never bypass this check at run time, even for a legitimate vendor image.
