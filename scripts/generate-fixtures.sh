@@ -14,6 +14,16 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PLUGIN_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 FIXTURES_DIR="$PLUGIN_ROOT/test/fixtures"
 
+# Hermetic repo: no inherited signing or hooks, stable line endings.
+init_fixture_repo() {
+  git init -q .
+  git config user.email "test@test.com"
+  git config user.name "Test"
+  git config core.autocrlf false
+  git config commit.gpgsign false
+  git config core.hooksPath /dev/null
+}
+
 # --- Fixture generators ---
 
 generate_node_project() {
@@ -22,10 +32,7 @@ generate_node_project() {
   mkdir -p "$dir"
   (
     cd "$dir"
-    git init -q .
-    git config user.email "test@test.com"
-    git config user.name "Test"
-    git config core.autocrlf false
+    init_fixture_repo
 
     cat > package.json <<'EOF'
 {
@@ -65,10 +72,7 @@ generate_python_project() {
   mkdir -p "$dir/src"
   (
     cd "$dir"
-    git init -q .
-    git config user.email "test@test.com"
-    git config user.name "Test"
-    git config core.autocrlf false
+    init_fixture_repo
 
     cat > pyproject.toml <<'EOF'
 [project]
@@ -115,10 +119,7 @@ generate_go_project() {
   mkdir -p "$dir"
   (
     cd "$dir"
-    git init -q .
-    git config user.email "test@test.com"
-    git config user.name "Test"
-    git config core.autocrlf false
+    init_fixture_repo
 
     cat > go.mod <<'EOF'
 module example.com/hello-go
@@ -155,10 +156,7 @@ generate_rust_project() {
   mkdir -p "$dir/src"
   (
     cd "$dir"
-    git init -q .
-    git config user.email "test@test.com"
-    git config user.name "Test"
-    git config core.autocrlf false
+    init_fixture_repo
 
     cat > Cargo.toml <<'EOF'
 [package]
@@ -193,10 +191,7 @@ generate_csharp_project() {
   mkdir -p "$dir"
   (
     cd "$dir"
-    git init -q .
-    git config user.email "test@test.com"
-    git config user.name "Test"
-    git config core.autocrlf false
+    init_fixture_repo
 
     cat > HelloCsharp.csproj <<'EOF'
 <Project Sdk="Microsoft.NET.Sdk">
@@ -238,10 +233,7 @@ generate_monorepo_project() {
   mkdir -p "$dir/packages/api/src" "$dir/packages/web/src"
   (
     cd "$dir"
-    git init -q .
-    git config user.email "test@test.com"
-    git config user.name "Test"
-    git config core.autocrlf false
+    init_fixture_repo
 
     # Root package.json with workspaces
     cat > package.json <<'EOF'
@@ -310,10 +302,7 @@ generate_empty_project() {
   mkdir -p "$dir"
   (
     cd "$dir"
-    git init -q .
-    git config user.email "test@test.com"
-    git config user.name "Test"
-    git config core.autocrlf false
+    init_fixture_repo
     git commit --allow-empty -q -m "initial: empty project"
   )
   echo "  Created: empty-project"
@@ -327,10 +316,7 @@ generate_multi_repo_workspace() {
   # Backend repo
   (
     cd "$dir/backend"
-    git init -q .
-    git config user.email "test@test.com"
-    git config user.name "Test"
-    git config core.autocrlf false
+    init_fixture_repo
     cat > package.json <<'EOF'
 {
   "name": "backend",
@@ -349,10 +335,7 @@ EOF
   # Frontend repo
   (
     cd "$dir/frontend"
-    git init -q .
-    git config user.email "test@test.com"
-    git config user.name "Test"
-    git config core.autocrlf false
+    init_fixture_repo
     cat > package.json <<'EOF'
 {
   "name": "frontend",
