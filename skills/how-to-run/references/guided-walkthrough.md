@@ -10,7 +10,6 @@ Loaded by `SKILL.md` Step 3a when the user picks **Walk through it**: a guided i
 4. **Heavy staleness:** count aspects whose verdict is `Found but outdated`, `Missing`, or `Partial` (live denominator from the audit — no hard-coded count). If more than half, print once — do not refuse; the user chose this path:
 
    > _Audit shows the doc is heavily out of date. Consider running `/optimus:how-to-run` again and selecting **Regenerate** before walking through it. Continuing anyway._
-5. Tell the user once: you'll present each step, wait between steps, and never execute anything for them.
 
 ## Per-step loop
 
