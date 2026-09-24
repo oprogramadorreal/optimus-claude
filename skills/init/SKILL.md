@@ -52,7 +52,7 @@ If detection reports the structure as **ambiguous**, resolve via `AskUserQuestio
 
 If detection reports an **Unsupported stack**, first run steps 1-3 of `$CLAUDE_PLUGIN_ROOT/skills/init/references/unsupported-stack-fallback.md` to find its package manager and build/test/lint commands; the Detection gate below is its step-4 approval. Print the **Detection Results**. If a field of its return format came back empty or absent (project name through Gotchas), fill that specific gap yourself — don't re-run the detection the agent just did. An empty **Gotchas** list is a legitimate answer, not a gap: fill it only if you already know of one this project has. If no test infrastructure was detected, append:
 
-> **Tests:** No test framework, test script, or test directory detected — Step 5b will offer to install one. Strongly recommended: multiple optimus skills depend on test infrastructure.
+> **Tests:** No test framework, test script, or test directory detected — Step 5b will offer to install one.
 
 Then use `AskUserQuestion` — header "Detection", question "Do the detection results look correct?":
 - **Proceed** — "Everything looks right — continue with setup"
@@ -138,7 +138,7 @@ Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/test-infra-provisioning.md`.
 **If test infrastructure was detected in Step 1:** run the full procedure — health check (run the suite; fix build/bootstrap failures only with user approval; record assertion failures as `{scope, failing_count}` for Step 7), coverage-tooling gap check, and provisioning (testing.md, CLAUDE.md refs, README section, .gitignore).
 
 **If not detected:** use `AskUserQuestion` — header "Test Infrastructure", question "No test framework was detected. Would you like to install one?":
-- **Yes (strongly recommended)** — "Install test framework and coverage tooling. Multiple optimus skills depend on it: `/optimus:tdd` is non-functional without tests, and `/optimus:deep` cannot run safely without a test command."
+- **Yes (strongly recommended)** — "Install a test framework and coverage tooling. `/optimus:tdd`, `/optimus:unit-test`, and `/optimus:deep` stop without one."
 - **No** — "Skip test infrastructure setup — some optimus skills will have reduced functionality"
 
 On **Yes**: follow the reference's installation section (framework recommendation, explicit user approval, install, health check), then the full provisioning. On **No**: skip all provisioning; Step 7's summary carries the declined-infra note.
@@ -204,7 +204,7 @@ Then sweep template-derived content for surviving `[placeholder]` text and unres
 Conditional warnings after the table:
 
 - Scaffolding created `<name>/` → "**New project root:** the project now lives in `<name>/` — start future Claude Code sessions from that directory, or the generated CLAUDE.md and hooks will not load."
-- Test framework installed from scratch → "**Important:** the project has no test files yet, so the test command passes with 0 tests — a false safety net. Run `/optimus:unit-test` next to write initial tests and establish real coverage."
-- Test infrastructure declined → "**Note:** test infrastructure was not installed — `/optimus:tdd` will not work, and `/optimus:code-review` and `/optimus:refactor` will have reduced functionality. Re-run `/optimus:init` to install it later."
+- Test framework installed from scratch → "**Important:** the project has no test files yet, so the test command passes with 0 tests — a false safety net. `/optimus:unit-test` writes initial tests and establishes real coverage."
+- Test infrastructure declined → "**Note:** test infrastructure was not installed — `/optimus:tdd`, `/optimus:unit-test`, and `/optimus:deep` will stop, and `/optimus:code-review` and `/optimus:refactor` lose their test checks. Re-run `/optimus:init` to install it later."
 
-Close with one line: if the project root has no `HOW-TO-RUN.md`, recommend running `/optimus:how-to-run` next; otherwise recommend `/optimus:unit-test` — in a fresh conversation either way.
+Close with one line: if the project root has no `HOW-TO-RUN.md`, recommend `/optimus:how-to-run`; otherwise, if test infrastructure exists, recommend `/optimus:unit-test` — in a fresh conversation either way. With neither, the declined-infra note is the close.
