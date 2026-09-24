@@ -106,10 +106,10 @@ Node tools run via `<exec>` (§Workspace-Kind Command Branches); Python tools ta
 | `ef` / Entity Framework Core | `dotnet ef database update` |
 | `liquibase` | `liquibase update` |
 | `knex` | `<exec> knex migrate:latest` |
-| `sequelize` | `<exec> sequelize db:migrate` |
+| `sequelize` | `<exec> sequelize db:create`, then `<exec> sequelize db:migrate` |
 | `typeorm` | `<exec> typeorm migration:run` (or the project's wrapping script) |
-| `rails` | `bundle exec rails db:migrate` |
-| `phoenix-ecto` | `mix ecto.migrate` |
+| `rails` | `bundle exec rails db:create db:migrate` |
+| `phoenix-ecto` | `mix ecto.create`, then `mix ecto.migrate` |
 
 In-code migrations (e.g., GORM `AutoMigrate`): skip the migrate bullet and render `> Schema is migrated in application code — there is no separate migrate command.` Demoted mechanisms render as a 2-space-indented blockquote under the primary bullet, exactly: `> **Alternative bootstrap script:** \`<demoted-invocation>\` — apply only if the primary leaves required tables missing. Otherwise running both can conflict.`
 
