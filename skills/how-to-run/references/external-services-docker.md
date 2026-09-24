@@ -147,7 +147,11 @@ Render **one** template per service, chosen by the heuristics, all under the sam
 
 **Env-var rule (both Docker templates):** one `-e '<VAR>=<value>'` line per env var the vendor page marks required — `<value>` is the vendor-documented constant (e.g., `ACCEPT_EULA=Y`) or a placeholder (e.g., `<password>`; secret-named vars always take the placeholder, per recipe step 5); omit `-e` entirely for images with none (e.g., `redis`).
 
-**PowerShell caveat (Windows host):** when Hardware / OS Requirements contains `Windows 10` / `Windows 11` / `Windows`, append once per External Services section: *PowerShell users: replace `\` line continuations with backtick; keep password/secret/token values in single quotes — PowerShell expands `$` and backtick inside `"…"`, so the container would store a different value and authentication fails silently.*
+**Windows host** = Hardware / OS Requirements lists a token containing `Windows`. On a Windows host, append once per External Services section: *PowerShell users: replace `\` line continuations with backtick; keep password/secret/token values in single quotes — PowerShell expands `$` and backtick inside `"…"`, so the container would store a different value and authentication fails silently.* When any Linux-image snippet rendered, also append once:
+
+> Windows host: Docker Desktop must be running in Linux-container mode. If set to Windows containers, switch via the system-tray menu → *Switch to Linux containers…*.
+
+When the host is ARM and the selected image has no supported `linux/arm64` variant, do not automatically add `--platform linux/amd64`. Check the vendor's support policy and prefer a supported image/runtime or an existing shared instance. SQL Server Linux containers are supported on Intel/AMD x86-64; Microsoft explicitly excludes Rosetta, Prism, and QEMU. An explicitly requested emulation experiment must be labeled unsupported where applicable and kept separate from the recommended setup.
 
 **GUI-client connect note:** when a detected Recommended Developer Tool matches the service per the mapping below, append one bullet under the snippet: `- From <tool>: connect to <host>:<host-port> using the username / password from the -e lines above.` For SQL Server / Azure SQL only: with SSMS or Azure Data Studio write the address as `<host>,<host-port>` (a colon fails there), and append: `Accept the self-signed certificate when prompted — the official image enables TLS by default.` `<host>` per [§Pre-Conditions Block](#pre-conditions-block); never fabricate vendor-specific dialog field labels. Multi-DB clients emit one bullet per matching service; unlisted combinations get none.
 
@@ -180,7 +184,7 @@ docker run -d --name <project-slug>-<service-slug> \
 
 - Source: [<vendor page title>](<vendor page URL>).
 - <Any required-env-var note — e.g., password policy, licence acceptance.>
-- <Windows / ARM caveat if applicable.>
+- <ARM caveat if applicable.>
 - Connection details for <relevant config file / env var>: `<connection string template with the placeholder values>`.
 
 **Alternative: local install.** <One-sentence reason to pick local.> Install from [<install page title>](<install page URL>).
@@ -245,7 +249,7 @@ When this block renders, DROP the snippet's `- Connection details for <…>` bul
 **Substitution:**
 - `<config-file>` — the row's `Source` with any trailing `:<digits>` stripped; must match `^[A-Za-z0-9][A-Za-z0-9._/-]{0,128}$` with no empty/`.`/`..` segments after `/`-splitting; skip the block render on failure (rejects UNC paths, traversal, control characters).
 - `<config-key>` — the dotted-path key holding the committed connection string (JSON/YAML dotted path, `.properties` literal name, dotenv variable name; render the literal `<config-key>` when the format is unfamiliar). Validate against `^[A-Za-z_][A-Za-z0-9_.:-]{0,127}$` (permits `.` and `:` for `ConnectionStrings:DefaultConnection`; rejects backticks, brackets, whitespace, control characters); split on `.` and `:`, reject empty segments; skip the block render on failure.
-- `<host>` — `127.0.0.1` when Hardware / OS Requirements contains `Windows 10` / `Windows 11` / `Windows` (Windows resolves `localhost` to IPv6 first; the snippet's `-p 127.0.0.1:…` is IPv4-only); else `localhost`.
+- `<host>` — `127.0.0.1` on a Windows host (Windows resolves `localhost` to IPv6 first; the snippet's `-p 127.0.0.1:…` is IPv4-only); else `localhost`.
 - `<host-port>` — from the snippet's `-p` line. `<Service>` — the heading text with any `(candidate)` marker stripped.
 
 Never echo the committed connection string or reconstruct the new one — a misclassified source file could leak a real password; the reader builds the new string from the `-e` lines.
@@ -260,14 +264,6 @@ Every `- Source: [<title>](<url>)` line written to `HOW-TO-RUN.md` MUST be exact
 - `docs.<vendor>.com` or `<vendor>.com` with a path starting `/docs/` — for image citations, `<vendor>` must case-insensitively equal the image's vendor namespace (second-level domain label). For no-image vendor/emulator citations, use the exact canonical setup URL in Known Vendor Emulators; otherwise require `<vendor>` to appear as a whole token in the detected service name or its default-endpoint hostname. Explicit vendor docs hosts include `firebase.google.com`, `cloud.google.com`, `docs.cloud.google.com`, `aws.amazon.com`, and `docs.aws.amazon.com`, only for their corresponding detected vendor service. Never extend this allowlist at runtime.
 
 Never cite blog posts, Medium articles, or Stack Overflow — not authoritative.
-
-## Windows / Docker Desktop Caveats
-
-When OS evidence includes Windows, render under any Linux-image snippet:
-
-> Windows host: Docker Desktop must be running in Linux-container mode. If set to Windows containers, switch via the system-tray menu → *Switch to Linux containers…*.
-
-When the host is ARM and the selected image has no supported `linux/arm64` variant, do not automatically add `--platform linux/amd64`. Check the vendor's support policy and prefer a supported image/runtime or an existing shared instance. SQL Server Linux containers are supported on Intel/AMD x86-64; Microsoft explicitly excludes Rosetta, Prism, and QEMU. An explicitly requested emulation experiment must be labeled unsupported where applicable and kept separate from the recommended setup.
 
 ## Registry Allowlist
 
