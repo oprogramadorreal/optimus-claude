@@ -26,14 +26,14 @@ Initialize from the progress file:
 - `accumulated-findings` = `findings` array (restoring cross-session state from disk)
 - `focus` = `config.focus` (apply to finding-cap logic if the skill supports focus modes)
 
-If `scope_files.current` is non-empty, use it as the file list for agents — this overrides the skill's Step 3 file discovery (the orchestrator pre-populated the scope). If `scope_files.current` is empty, fall back to the skill's Step 3 file discovery (per-skill rules below).
+If `scope_files.current` is non-empty, use it as the file list for agents — this overrides the skill's Step 3 file discovery (the orchestrator pre-populated the scope). If it is empty, fall back to the skill's Step 3 file discovery, restricted to the user's path scope in `config.scope.paths` when that list is non-empty (per-skill rules below).
 
 ### Skill-step execution under harness mode
 
 After reading the progress file, run the skill's scope, context-loading, analysis, validation, and consolidation steps in order under the overrides below; skip every user prompt (the orchestrator handles approval upfront) and every summary, report, or next-step recommendation the skill would present — steps 6–9 of this protocol replace the skill's approval, apply, verification, and report steps. A missing-docs prerequisite takes its bundled-baseline fallback without asking. Scope handling is skill-specific:
 
-- **code-review**: Step 3 must take the **No local changes → auto-route** branch and always land on its branch-diff outcome — never PR mode, even when an open PR/MR exists and HEAD is fully pushed (the orchestrator pre-captured the PR description into `config.pr_description`; do not re-fetch via `gh pr view`) — regardless of the working tree's actual state (in `--no-commit` mode the `snapshot` step takes a non-destructive stash via `git stash create`/`store`, so uncommitted changes may still be present), and skip the large-diff warning.
-- **refactor**: when `scope_files.current` is non-empty, it replaces Step 1's scope resolution — group its files by parent directory into analysis areas; when empty, run Step 3's normal directory scan with full-project scope.
+- **code-review**: whatever the working tree holds, review in Step 3's **Branch/ref mode** with `<ref>` = `config.scope.base_ref`, else `config.pr_description.base_ref`, else `origin/<default branch>` per Step 3 item 3 (never ask the user; if none resolves, there is nothing to review — emit step 8's block with no findings), filtered to `config.scope.paths` when non-empty — never PR mode, never `gh pr view`; skip the large-diff warning.
+- **refactor**: when `scope_files.current` is non-empty, it replaces Step 1's scope resolution — group its files by parent directory into analysis areas; when empty, run Step 3's normal directory scan over `config.scope.paths`, or the full project when that list is empty.
 
 If `config.pr_description` is non-null **and the base skill defines a PR/MR context block** (code-review does; refactor does not), treat it as equivalent to the `pr-description` that interactive Step 3 captures from `gh pr view`: inject it into agent prompts per Step 5 "PR/MR context injection" and apply the Step 6 "PR/MR description as intent signal" soft-confidence adjustment during validation. Do not re-fetch via `gh pr view` — the orchestrator already captured it.
 
