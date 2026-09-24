@@ -47,7 +47,7 @@ Show two independent dimensions for each candidate:
 
 | Content / ownership | Meaning |
 |---|---|
-| `UNMODIFIED` | Current SHA-256 matches a valid recorded file entry's `sha256`. Show whether that baseline is a template or an approved customization (`refresh: "review"`). |
+| `UNMODIFIED` | CRLF-normalized current SHA-256 matches a valid recorded file entry's `sha256`. Show whether that baseline is a template or an approved customization (`refresh: "review"`). |
 | `MODIFIED` | Recorded file differs from its entry's `sha256`. Read it before proposing removal. |
 | `UNKNOWN` | No usable record; may be legacy Optimus content or independently authored. |
 | `COMPLEX` | Shared settings.json, AGENTS.md, or ownership record; propose exact entry/block edits. |
