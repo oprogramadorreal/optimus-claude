@@ -29,17 +29,7 @@ For changed-since, use `git diff --name-only <ref>...HEAD` for commits, branches
 
 ## Step 2: Harness mode
 
-If your invocation prompt contains `HARNESS_MODE_INLINE`, you are a single iteration inside the `/optimus:deep` orchestrator: read `$CLAUDE_PLUGIN_ROOT/references/harness-mode.md` and follow its single-iteration protocol, which overrides the interactive steps — it covers progress-file reading, scope and file-list rules, agent-prompt overrides (including the Iteration Context Block on iterations 2+), and the apply/output protocol.
-
-Before interpreting the progress file's iteration and findings fields, inspect its `harness` field. Only when `harness` equals `"test-coverage"`, load the **Refactor Phase Execution** section of `$CLAUDE_PLUGIN_ROOT/references/coverage-harness-mode.md` and apply its field mapping and overrides to the shared protocol. Standalone refactor progress has no such marker and uses the shared protocol's normal mapping; both dispatches use `Phase: refactor`.
-
-Refactor's deltas, which that reference defers back to this note:
-
-- **Scope**: when `scope_files.current` is non-empty, treat it as the pre-resolved scope and derive analysis areas from its files' parent directories rather than resolving scope in Step 1; when empty, run Step 3's normal directory scan at full-project scope.
-- **Focus**: take the finding-cap allocation from `config.focus` (empty string = balanced).
-- **No PR/MR block**: the PR/MR context block does not apply to refactor — ignore `config.pr_description`.
-
-If `HARNESS_MODE_INLINE` is not present, continue with the interactive flow below.
+If your invocation prompt contains `HARNESS_MODE_INLINE`, you are a single iteration inside the `/optimus:deep` orchestrator: read `$CLAUDE_PLUGIN_ROOT/references/harness-mode.md` and follow its single-iteration protocol, which overrides the interactive steps. Before interpreting the progress file's iteration and findings fields, inspect its `harness` field: only when it equals `"test-coverage"`, also load the **Refactor Phase Execution** section of `$CLAUDE_PLUGIN_ROOT/references/coverage-harness-mode.md` and apply its field mapping and overrides (both dispatches use `Phase: refactor`).
 
 ## Step 3: Load project context and map analysis areas
 
