@@ -73,7 +73,7 @@ Generate only sections with at least one detected signal (per the digest), in ca
 **Content principles:**
 
 - Direct imperative instructions; exact commands with the detected package manager and build system, in the order a new developer runs them.
-- **Workspace-aware commands:** when `Workspace kind` is not `none`, use §Workspace-Kind Command Branches — the wrong per-package form is a silent failure.
+- **Workspace-aware commands:** when `Workspace kind` is not `none`, use §Workspace-Kind Command Branches.
 - **Verify before including:** content sourced from existing docs must match the detector's results; contradictions go to the Step 6 "outdated elsewhere" report and are NOT copied.
 - **Never guess runtime ports:** every port in an `Expected result:` line, troubleshooting bullet, or `http://localhost:<N>` URL must come from the detector's Runtime Ports table, its External Services Port column, or the host port of a rendered External Services `-p` line. No bound port → omit the port ("see `<launch-config-file>` for the bound port") — never substitute a framework default.
 - **Never assert an unobserved path:** render a filesystem path only when it appears verbatim in a detector table or is re-observable via `Glob` at Step 6. For "latest folder"-style references use generic phrasing — never extrapolate a leaf name from versions, dates, or general knowledge.

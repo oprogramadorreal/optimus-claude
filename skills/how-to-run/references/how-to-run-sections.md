@@ -9,7 +9,7 @@ Rendering rules for Step 4 (content generation). Per-service Docker/local/shared
 - [External Services](#external-services)
 - [Workspace-Kind Command Branches](#workspace-kind-command-branches)
 - [Schema Bootstrap](#schema-bootstrap)
-- [Diagnostic Ladder](#diagnostic-ladder--container-running-but-host-cant-connect) (container running but host can't connect)
+- [Diagnostic Ladder](#diagnostic-ladder--container-running-but-host-cant-connect)
 - [Multi-Repo Workspace Template](#multi-repo-workspace-template)
 
 ## Signal → Section Digest
@@ -18,7 +18,7 @@ Rendering rules for Step 4 (content generation). Per-service Docker/local/shared
 |--------|----------------------|
 | Recognized tech stack + package manager | Prerequisites (runtime) + Installation (clone + install) |
 | Runtime version constraints / version-manager files | Prerequisites — preserve the actual manifest range and the exact selected version/alias from the pin file; label their different roles when both exist |
-| Hardware/OS tokens; private-registry files | Prerequisites (OS-version token as the first bullet when present) |
+| Hardware/OS tokens; private-registry files | Prerequisites |
 | Recommended Developer Tools rows | Prerequisites — *Recommended developer tools* sub-list (one bullet per detected token, detector order, optional one-line "why"; never invent tools) |
 | Build system / SDK / engine files; `vcpkg.json` / `conanfile.*` | Toolchain & SDKs (+ Build, Running in Development for the produced artifact) |
 | `.gitmodules`; sibling repos; CMake FetchContent/ExternalProject; `west.yml` / repo tool | Source Dependencies |
@@ -37,7 +37,7 @@ Rendering rules for Step 4 (content generation). Per-service Docker/local/shared
 | `template.yaml` (SAM) / `serverless.yml` / `.ts` | Running in Development (`sam local start-api` / `serverless offline`) |
 | Test framework + test script | Running Tests |
 | Components table rows | Running in Development — layout by row count (below) |
-| Runtime Ports rows | `Expected result:` URLs — no grounded port means omit the port, never a framework default |
+| Runtime Ports rows | `Expected result:` URLs |
 
 ## Section Shapes
 
@@ -45,7 +45,7 @@ Write each section as a competent onboarding doc would — the rules below are t
 
 - **Prerequisites** — bullets: OS-version token first (when detected), hardware, runtimes with constraints, Docker (when compose or a Docker-based primary path is detected; marked optional when only External Services `docker run` snippets use it), system tools, then the *Recommended developer tools* sub-list.
 - **Toolchain & SDKs** — only for stacks with a non-trivial compile step or detected SDK. Group install commands per OS (Windows `powershell` / macOS + Linux `bash` fences) when multiple OSes are plausible.
-- **Source Dependencies** — fix-after-clone only; the primary clone lives in Installation (multi-repo: in the workspace template's *Source Dependencies / Clone All*). Submodules: `git submodule update --init --recursive` fence. Sibling repos: table (Repo | Expected path | Clone URL) + clone fence. FetchContent/ExternalProject: one note — fetched automatically at configure time, network required.
+- **Source Dependencies** — fix-after-clone only. Submodules: `git submodule update --init --recursive` fence. Sibling repos: table (Repo | Expected path | Clone URL) + clone fence. FetchContent/ExternalProject: one note — fetched automatically at configure time, network required.
 - **Installation** — clone (`git clone --recursive` when `.gitmodules` exists) + `cd`, language-level install with the correct PM prefix, vcpkg/Conan bootstrap, codegen, then the Schema Bootstrap sub-block (below) when detected. One-shot setup block first when detected: script invocation verbatim, with the manual flow kept below it.
 - **Environment Setup** — pick by the detector's Environment Setup table:
   - *(a) dotenv:* `cp .env.example .env` fence + brief per-variable descriptions (names only — never secret values).
