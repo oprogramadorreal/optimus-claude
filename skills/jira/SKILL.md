@@ -41,7 +41,7 @@ If `docs/jira/<ISSUE-KEY>.md` exists at the project root, read `$CLAUDE_PLUGIN_R
 
 ## Step 4: Distill into Structured Task
 
-Assemble the fetched data into the **Structured Output Format** from `jira-context-extraction.md` — the single source for section names. Omit sections with no data. If the issue's acceptance criteria use Given/When/Then phrasing, preserve it verbatim in each entry — `/optimus:brainstorm` reformats those into `### Scenario:` blocks.
+Assemble the fetched data into the **Structured Output Format** from `jira-context-extraction.md` — the single source for section names. Omit sections with no data. If the issue's acceptance criteria use Given/When/Then phrasing, preserve it verbatim in each entry (as a faithful English translation if the issue isn't in English) — `/optimus:brainstorm` reformats those into `### Scenario:` blocks.
 
 Present the structured task and confirm with the user, iterating on requested adjustments. Then save it to `docs/jira/<ISSUE-KEY>.md` and report the path:
 

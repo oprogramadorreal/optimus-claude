@@ -78,7 +78,7 @@ Explicit acceptance criteria in the ticket = accurate implementation; vague pros
 - [What this ticket explicitly does NOT cover]
 ```
 
-Given/When/Then criteria are extracted as-is. Use comments for decisions that affect implementation ("We chose JWT over sessions because...") — the skill distills them into a Key Decisions section and ignores status updates.
+Given/When/Then criteria are extracted as-is (translated to English for non-English issues). Use comments for decisions that affect implementation ("We chose JWT over sessions because...") — the skill distills them into a Key Decisions section and ignores status updates.
 
 ## Relationship to Other Skills
 
