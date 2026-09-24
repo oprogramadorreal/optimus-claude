@@ -519,6 +519,16 @@ if ! grep -rqF -- '### Refined plan' skills/jira/ 2>/dev/null; then
   contract_errors+="  skills/jira/ has no file containing contract token: ### Refined plan\n"
 fi
 
+# Jira task-file handoff: jira writes this frontmatter key into
+# docs/jira/<KEY>.md; brainstorm and tdd pick and age-check that file by it in a
+# later conversation. A one-sided rename silently breaks their pick and age
+# check — criterion (b).
+require_tokens skills/jira/SKILL.md 'description-refresh-date'
+require_tokens skills/brainstorm/SKILL.md 'description-refresh-date'
+if ! grep -rqF -- 'description-refresh-date' skills/tdd/ 2>/dev/null; then
+  contract_errors+="  skills/tdd/ has no file containing contract token: description-refresh-date\n"
+fi
+
 # Harness routing: /optimus:deep dispatches the base skills with
 # HARNESS_MODE_INLINE and each base SKILL.md routes on it to its variant's
 # reference (dispatch contract with the deep loop references; see
