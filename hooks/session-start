@@ -62,10 +62,9 @@ else
 fi
 
 # 3. Unpushed commits — the one git signal gitStatus lacks (see header).
-if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-  unpushed=$(git log --oneline '@{u}..HEAD' 2>/dev/null | wc -l | tr -d ' ') || unpushed=0
-  [ "$unpushed" -gt 0 ] 2>/dev/null && output+="[optimus] ${unpushed} commits unpushed to upstream."$'\n'
-fi
+# One process: rev-list fails without a repo, git, or an upstream — nothing to report.
+unpushed=$(git rev-list --count '@{u}..HEAD' 2>/dev/null) || unpushed=0
+[ "$unpushed" -gt 0 ] 2>/dev/null && output+="[optimus] ${unpushed} commits unpushed to upstream."$'\n'
 
 # 4. Check the installed path-restriction hook is current.
 # templates/hooks/restrict-paths.sh is COPIED into a project by
