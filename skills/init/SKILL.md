@@ -86,7 +86,7 @@ mkdir -p .claude/docs .claude/hooks
 
 ## Step 4: Create CLAUDE.md
 
-Fill every template placeholder with real detected values — no `[placeholder]` text may survive (Step 7 verifies). Each template's HTML comments describe rows init adds conditionally (extra Documentation rows, the skill-authoring route); apply the ones that hold and delete the comment. **When updating an existing CLAUDE.md** (not Fresh start): edit in place per File semantics — never regenerate from template.
+Fill every template placeholder with real detected values — no `[placeholder]` text may survive (Step 7 verifies). Every template HTML comment except a CLAUDE.md template's line-1 identity comment is an instruction to init (here and in Step 6): apply what holds, then delete the comment. **When updating an existing CLAUDE.md** (not Fresh start): edit in place per File semantics — never regenerate from template.
 
 **Single project** — template `$CLAUDE_PLUGIN_ROOT/skills/init/templates/single-project-claude.md`:
 - Gotchas: from the agent's **Gotchas** findings and doc-sourced insights. Keep only what survives the template's own bar; drop the section entirely when nothing does.
@@ -151,8 +151,6 @@ Conditional docs (Customizable; `testing.md` was handled in Step 5b). Fill all p
 | `styling.md` | `$CLAUDE_PLUGIN_ROOT/skills/init/templates/docs/styling.md` | Manifest lists a UI framework (react, vue, angular, svelte, solid) OR CSS tooling (tailwindcss, styled-components, sass, less, postcss) OR `.css`/`.scss`/`.less` files exist in `src/` OR `pubspec.yaml` has a Flutter SDK dependency |
 | `architecture.md` | `$CLAUDE_PLUGIN_ROOT/skills/init/templates/docs/architecture.md` | 3+ top-level source directories (excluding config, tests, docs, build output) OR recognized pattern directories (controllers/, services/, repositories/, handlers/, models/) OR skill authoring detected |
 | `skill-writing-guidelines.md` | `$CLAUDE_PLUGIN_ROOT/skills/init/templates/docs/skill-writing-guidelines.md` | Skill authoring detected in Step 1 (structural rule in project-analyzer.md task 9) |
-
-The architecture template carries two HTML-comment-marked optional sections: keep **Skill Architecture** only when skill authoring was detected, and keep the code sections (Data Flow, Key Patterns, Dependencies Between Modules) only when the project has code components — delete whichever doesn't apply, and the comments themselves. On re-runs, the Customizable review-and-propose semantics cover section changes when the detected project type has shifted.
 
 **Placement:** single project — everything in `.claude/docs/`. Monorepo — `styling.md`/`architecture.md` go in each subproject's `docs/`, applying the detection rules per subproject; retain the root workspace-map exception from Step 4 when needed. `skill-writing-guidelines.md` is installed once at root when any subproject has a skill-authoring stack; root-as-project's scoped docs go in `.claude/docs/`; a subproject gets its own `docs/coding-guidelines.md` (Customizable, routed from its CLAUDE.md) only if its conventions differ significantly from root.
 
