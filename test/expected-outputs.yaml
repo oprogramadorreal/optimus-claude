@@ -40,9 +40,13 @@ permissions:
   node-project:
     files_exist:
       - .claude/hooks/restrict-paths.sh
+      - .claude/settings.json
     files_contain:
       .claude/hooks/restrict-paths.sh:
-        - "#!/usr/bin/env bash"
+        - "# HOOK_VERSION:"
+      .claude/settings.json:
+        - "restrict-paths.sh"
+        - "PreToolUse"
 
 commit-suggest:
   node-project:
@@ -70,6 +74,11 @@ prompt:
   node-project:
     # Read-only skill: crafts a prompt but changes nothing
     files_not_modified: true
+    # The delivered prompt, not a clarifying question: the copy markers and Target line.
+    output_contains:
+      - "BEGIN PROMPT"
+      - "END PROMPT"
+      - "**Target:**"
 
 commit-branch:
   node-project:
