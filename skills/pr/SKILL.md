@@ -65,10 +65,10 @@ Suppress the state-3 prompt in states 1 and 2.
 
 Read `$CLAUDE_PLUGIN_ROOT/skills/pr/references/pr-template.md` and generate a title and body. Populate `## Intent` from the conversation (state 1) or the user's reply (state 3), including only sub-fields the source actually answers.
 
-**TDD Summary population rule** — when the handoff signal fired, fill the body from the summary block:
+**TDD Summary population rule** — when a `## TDD Summary` block is present, fill the body from the summary block:
 
 - **Intent → Scope**: one bullet per `### Behaviors Implemented` row with Status `✓ Complete`, description verbatim.
-- **Intent → Non-goals**: one bullet per `Not started` row; omit if none.
+- **Intent → Non-goals**: one bullet per `Not started` row, and per `Skipped` row with its reason and skipped test name; omit if none.
 - **Intent → Key decisions**: refactor-step reasoning captured in the conversation; omit rather than invent.
 - **Intent → Problem**: quote/summarize the spec or JIRA task file loaded in the conversation, else the initiating brief.
 - **Test plan**: one verification item per `✓ Complete` row plus the project's test command; if a `### Coverage` section with `Before:` / `After:` / `Delta:` lines is present, append one line `Coverage: <Before> → <After> (<Delta>)`.

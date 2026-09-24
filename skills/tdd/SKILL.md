@@ -161,6 +161,7 @@ If uncommitted **task-owned** changes remain (e.g., stopped mid-cycle), run the 
 |---|----------|------|--------|
 | 1 | [description] | [test file]:[test name] | ✓ Complete |
 | 2 | [description] | — | Not started |
+| 3 | [description] | [test file]:[test name] | Skipped — [reason] |
 
 ### Stats
 - Cycles completed: [N] of [total]
@@ -173,7 +174,7 @@ Before and After produced a real percentage — never a half-filled block. Omit 
 coverage command was found or either run produced no parseable number.]
 - Before: [X]%
 - After: [Y]%
-- Delta: +[Z]%
+- Delta: [±Z]%
 ```
 
 ### Push
