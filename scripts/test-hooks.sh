@@ -250,6 +250,17 @@ assert_output_contains "Suggests re-running init when testing.md missing" "/opti
 assert_output_not_contains "Does not suggest unit-test for missing testing docs" "/optimus:unit-test" "$output"
 cleanup_fixture
 
+echo "[session-start: monorepo, testing docs in a subproject]"
+setup_fixture
+mkdir -p .claude/docs packages/api/docs
+echo "# Project" > .claude/CLAUDE.md
+echo "# Guidelines" > .claude/docs/coding-guidelines.md
+echo "# Testing" > packages/api/docs/testing.md
+run_session_start
+assert_output_empty "Accepts a subproject's docs/testing.md as testing docs" "$output"
+assert_exit_zero "Exits 0 with subproject testing docs" "$hook_status"
+cleanup_fixture
+
 echo "[session-start: fully configured, clean tree]"
 setup_fixture
 mkdir -p .claude/docs
@@ -277,6 +288,23 @@ echo "new content" > dirty-file.txt
 run_session_start
 assert_output_empty "Stays silent on dirty tree (native gitStatus covers git state)" "$output"
 assert_exit_zero "Exits 0 on a dirty tree" "$hook_status"
+cleanup_fixture
+
+echo "[session-start: fully configured, commits ahead of upstream]"
+setup_fixture
+mkdir -p .claude/docs
+echo "# Project" > .claude/CLAUDE.md
+echo "# Guidelines" > .claude/docs/coding-guidelines.md
+echo "# Testing" > .claude/docs/testing.md
+git add -A && git commit -q -m "setup"
+# A local branch stands in for the remote: @{u} resolves the same either way.
+git branch -q pushed
+git branch -q --set-upstream-to=pushed
+git commit -q --allow-empty -m "local 1"
+git commit -q --allow-empty -m "local 2"
+run_session_start
+assert_output_contains "Reports commits ahead of upstream (gitStatus has no divergence line)" "2 commits unpushed to upstream" "$output"
+assert_exit_zero "Exits 0 with unpushed commits" "$hook_status"
 cleanup_fixture
 
 echo "[session-start: multi-repo workspace, marker in one sub-repo]"
@@ -432,6 +460,12 @@ set -e
 assert_equals "No marker at all reads as v0" "0" \
   "$(ss_read_version "$(ss_marker_fixture '#!/usr/bin/env bash
 # nothing to see' nomarker)")"
+assert_equals "Leading zeros are stripped" "10" \
+  "$(ss_read_version "$(ss_marker_fixture '#!/usr/bin/env bash
+# HOOK_VERSION: 010' leadingzero)")"
+assert_equals "A marker past int64 is clamped" "999999999" \
+  "$(ss_read_version "$(ss_marker_fixture '#!/usr/bin/env bash
+# HOOK_VERSION: 12345678901234567890' huge)")"
 # ...and v0 has to fail in the SAFE direction end-to-end: suggest re-running,
 # never go silent. The fixture's 999 would out-rank the plugin if it were read.
 setup_fixture

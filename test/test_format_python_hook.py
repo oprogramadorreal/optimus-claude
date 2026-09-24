@@ -267,6 +267,36 @@ def test_prefers_the_venv_nearest_the_edited_file(tmp_path, log):
     assert all(call.startswith("pkg-") for call in _calls(log)), _calls(log)
 
 
+def test_ignores_a_venv_above_the_project_root(tmp_path, log):
+    """A venv above the project is not this project's."""
+    _stub_formatters(tmp_path, tag="outer-")
+    project = tmp_path / "project"
+    project.mkdir()
+    py_file = project / "app.py"
+    py_file.write_text("x=1\n", encoding="utf-8")
+
+    result = _run_hook({"file_path": str(py_file)}, project, log)
+
+    assert result.returncode == 0
+    assert not any(call.startswith("outer-") for call in _calls(log)), _calls(log)
+
+
+def test_anchors_a_relative_path_at_the_working_directory(tmp_path, log):
+    """cwd differs from the project root, so the root fallback cannot pass this."""
+    _stub_formatters(tmp_path, tag="root-")
+    package = tmp_path / "pkg"
+    _stub_formatters(package, tag="pkg-")
+    (package / "app.py").write_text("x=1\n", encoding="utf-8")
+
+    result = _run_hook({"file_path": "app.py"}, tmp_path, log, cwd=package)
+
+    assert result.returncode == 0
+    assert [call.split()[0] for call in _calls(log)] == [
+        "pkg-black",
+        "pkg-isort",
+    ], _calls(log)
+
+
 @pytest.mark.parametrize("venv_name", [".venv", "venv", "env"])
 def test_recognizes_the_common_venv_directory_names(tmp_path, log, venv_name):
     _stub_formatters(tmp_path, venv=venv_name)
