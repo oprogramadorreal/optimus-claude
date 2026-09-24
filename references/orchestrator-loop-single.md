@@ -10,7 +10,7 @@ Shared iteration template for `/optimus:deep review` and `/optimus:deep refactor
 
 **Plugin root.** `$CLAUDE_PLUGIN_ROOT` below means the root the orchestrator resolved in its Step 2 — substitute that absolute path literally into every command and dispatch prompt here, because Bash-tool environment variables do not persist across calls and read empty on some platforms.
 
-**Command failures.** Inspect each CLI command's exit status and stderr before using stdout. A nonzero `snapshot`, `deep-step`, or `commit-checkpoint` stops the loop: do not dispatch, advance, commit, or archive afterward. Preserve progress and recovery snapshots, report the actual error, and inspect/recover the tree before a successful `baseline` permits continuation. Never clear `_safety_error` by hand or infer a green tree from earlier tests. Other unexpected CLI errors also stop; the only retry exception is the verified parse recovery below.
+**Command failures.** Inspect each CLI command's exit status and stderr before using stdout. A nonzero `snapshot`, `deep-step`, or `commit-checkpoint` stops the loop: do not dispatch, advance, commit, or archive afterward. Preserve progress and recovery snapshots and report the actual error; the user inspects/recovers the tree, and only a successful `baseline` on `--resume` permits continuation. Never clear `_safety_error` by hand or infer a green tree from earlier tests. Other unexpected CLI errors also stop; the only retry exception is the verified parse recovery below.
 
 ## Per-iteration body
 
@@ -82,9 +82,9 @@ This single subcommand: promotes actionable fixes, registers findings, runs test
 
 | Output | Meaning |
 |---|---|
-| `converged` | Skill reported `no_new_findings` — loop terminates. |
-| `no-actionable` | Skill reported `no_actionable_fixes` — loop terminates. |
-| `all-reverted` | Every fix in this iteration was reverted — loop terminates. |
+| `converged` | Skill reported `no_new_findings` — terminal; still run steps 6–7. |
+| `no-actionable` | Skill reported `no_actionable_fixes` — terminal; still run steps 6–7. |
+| `all-reverted` | Every fix in this iteration was reverted — terminal; still run steps 6–7. |
 | `applied fixed=<N> reverted=<N> test_passed=<0\|1\|->` | Iteration completed normally — continue. `test_passed` is `-` when no test result was recorded; do not infer it merely from a zero fix count. |
 
 ### 6. Checkpoint commit

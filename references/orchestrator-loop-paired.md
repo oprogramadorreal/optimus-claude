@@ -11,7 +11,7 @@ The loop control discipline mirrors `references/orchestrator-loop-single.md` (sn
 
 **Plugin root.** As in `orchestrator-loop-single.md`: substitute the root the orchestrator resolved in its Step 2 into every command and both dispatch prompts below.
 
-**Command failures.** Check each CLI command's exit status and stderr before interpreting stdout. A nonzero snapshot, phase step, or checkpoint stops the loop: do not dispatch another phase, record/advance the cycle, commit, or archive. Preserve progress and recovery snapshots; inspect/recover the tree and run a successful `baseline` before continuing. Never clear `_safety_error` by hand. Other unexpected CLI errors also stop; only the verified malformed-output recovery described below may continue.
+**Command failures.** Check each CLI command's exit status and stderr before interpreting stdout. A nonzero snapshot, phase step, or checkpoint stops the loop: do not dispatch another phase, record/advance the cycle, commit, or archive. Preserve progress and recovery snapshots and report the error; the user inspects/recovers the tree, and only a successful `baseline` on `--resume` permits continuing. Never clear `_safety_error` by hand. Other unexpected CLI errors also stop; only the verified malformed-output recovery described below may continue.
 
 ## Per-cycle body
 
