@@ -231,7 +231,7 @@ Mark sibling repos `(candidate)` when derived only from a path grep; mark confir
 
 [If none, state "No external services detected."]
 
-`Endpoint semantics` values (database-type rows; others emit `—`):
+`Endpoint semantics` values (database-type rows; other rows emit `remote` when their endpoint is an FQDN, else `—`):
 
 - `docker-compose` — Source is `docker-compose.yml` / `compose.yml`; no connection-string shift needed.
 - `local-default` — committed connection string points at `localhost` / `127.0.0.1` with the image's documented default port; no Windows-auth markers, no socket/named-pipe transport.
