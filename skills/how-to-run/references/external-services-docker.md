@@ -251,11 +251,9 @@ When this block renders, DROP the snippet's `- Connection details for <…>` bul
 
 Never echo the committed connection string or reconstruct the new one — a misclassified source file could leak a real password; the reader builds the new string from the `-e` lines.
 
-**Step 6 audit:** reject a per-service heading containing BOTH a Pre-Conditions Block AND a `- Connection details for …` bullet; reject a block that is not the FIRST element of the heading's body.
-
 ## Citation Format
 
-Every `- Source: [<title>](<url>)` line written to `HOW-TO-RUN.md` MUST be exactly `- Source: [<Vendor page title>](<vendor page URL>).` — the `- Source: [` prefix is what Step 6 pattern-matches. Apply the same host extraction as recipe step 5 (URL starts `https://`; reject `@`, `\`, unencoded whitespace, control chars, non-ASCII). `<host>` (lowercased) must equal exactly one of:
+Every `- Source: [<title>](<url>)` line written to `HOW-TO-RUN.md` MUST be exactly `- Source: [<Vendor page title>](<vendor page URL>).`. Apply the same host extraction as recipe step 5 (URL starts `https://`; reject `@`, `\`, unencoded whitespace, control chars, non-ASCII). `<host>` (lowercased) must equal exactly one of:
 
 - `hub.docker.com` — ONLY when the image registry resolves to `docker.io`. For Docker Official Images (`docker.io/library/<name>`), `hub.docker.com` is the ONLY accepted citation host.
 - `learn.microsoft.com` — ONLY when the registry is `mcr.microsoft.com`.
