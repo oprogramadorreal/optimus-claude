@@ -146,8 +146,9 @@ rounds. Keep the prompt short, but short is a budget for phrasing, not licence
 to drop guarantees: one builder per piece, fresh-context critics, the frozen
 remit, the bar materials in every critic prompt, ours-against-the-bar
 comparison, the verdict file with its two-way final line, judging the
-running artifact, the anti-staging rule, the integration critic, and the
-branch-and-commit rules all survive to the final draft. Short also has a
+running artifact, the anti-staging rule, the integration critic, the green
+suite, the plateau and suspension rules, the dispatch rules, the progress
+page, and the branch-and-commit rules all survive to the final draft. Short also has a
 number: keep the prompt under 2,500 characters, because the /goal handoff
 must fit this exact prompt plus an opening instruction and a completion
 condition into either host's /goal 4,000-character message cap, and those need the rest.
