@@ -13,7 +13,7 @@ argument-hint: "[optional focus, e.g. a memory file or topic]"
 
 Under Codex, stop without reading or changing memory: this skill requires Claude Code auto-memory. Recommend Codex's own memory controls instead.
 
-A reflective pass over this project's auto-memory, biased toward shrinking it. Claude Code loads a bounded MEMORY.md index at startup (the first 200 lines or 25 KB, whichever comes first); detailed memory files load on demand. Stale entries can mislead and near-duplicates make useful entries harder to retrieve. Keep information that changes what a future session does, including valuable on-demand details. This skill only removes, merges, and tightens — capturing new facts is the job of regular sessions, not of a dream.
+A reflective pass over this project's auto-memory, biased toward shrinking it: stale entries can mislead and near-duplicates bury useful ones. Only the index loads at startup; detailed files load on demand, so valuable details can stay in them.
 
 **Hard rules:**
 
