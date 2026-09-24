@@ -1,13 +1,11 @@
 ---
 description: >-
-  Runs a Gauntlet Loop: turns an ambitious goal and optional quality references
-  into a minimal builder/critic prompt judged against a concrete comparison
-  bar, confirms with the user, then executes it as the lead agent until the
-  output beats the bar or the user stops the run — or emits it as a
-  paste-ready /goal prompt for a fresh session. Use for long-horizon goals
-  judged against an inspectable reference. Long-running; spawns many
-  subagents, edits project files, and commits finished pieces to a dedicated
-  feature branch.
+  Runs a Gauntlet Loop: turns an ambitious goal into a builder/critic prompt
+  judged against a concrete quality bar, confirms with the user, then leads
+  the run until the output beats the bar or the user stops it — or exports
+  a paste-ready /goal prompt for a fresh session. Use for long-horizon goals
+  with an inspectable reference. Long-running; spawns many subagents, edits
+  project files, and commits finished pieces to a dedicated feature branch.
 disable-model-invocation: true
 argument-hint: "<goal> [possible references or quality bars]"
 ---
