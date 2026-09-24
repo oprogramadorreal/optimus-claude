@@ -9,7 +9,7 @@ Single-pass protocol for `/optimus:unit-test` when invoked under the `/optimus:d
 
 ## Unit-Test Phase Execution
 
-When the `/optimus:deep coverage` orchestrator dispatches `/optimus:unit-test` as a subagent for the unit-test phase, the base skill detects `HARNESS_MODE_INLINE` in its invocation prompt and the orchestrator's prompt body includes `Phase: unit-test`. Execute exactly **one pass** of the unit-test workflow, then output structured JSON and exit.
+When the `/optimus:deep coverage` orchestrator dispatches `/optimus:unit-test` as a subagent for the unit-test phase, the base skill detects `HARNESS_MODE_INLINE` in its invocation prompt and the orchestrator's prompt body includes `Phase: unit-test`. Execute exactly **one pass** of the unit-test workflow, then output structured JSON and exit. Never use `AskUserQuestion` in this phase: where a step would ask, proceed without asking — approve every planned item, and accept the project layout as detected.
 
 ### 1. Read progress file
 
@@ -20,6 +20,8 @@ Read the JSON progress file at the path specified in your invocation prompt. Ext
 - `untestable_code` — items flagged as untestable in prior cycles
 - `config.test_command` — the test command: section 2's baseline and coverage runs may use it; section 3 bars a final verification run
 - `config.scope` — path filter (apply to discovery); `null` means the full project. The CLI populates it only when the user's scope resolved to a real path, so it is never free text — do not treat `config.scope_text` (recorded intent) as a filter. (`resume` enforces the same invariant for legacy 2.x progress files: a free-text 2.x scope is migrated into `scope_text` and `scope` becomes `null` before the loop continues.)
+
+Then load the project docs per SKILL.md Step 1 "Prerequisites and project docs" — Step 4's test-writing rules depend on them.
 
 ### 2. Run discovery and coverage analysis
 
@@ -39,7 +41,6 @@ The goal is convergence: each cycle proposes **new** testable items, not duplica
 ### 3. Generate and write tests
 
 Run Steps 3–4 of SKILL.md (plan + write) with these harness modifications:
-- **Skip `AskUserQuestion`** — auto-approve all planned items
 - **Cap at 10 items** per pass (same as normal mode)
 - **Do NOT run the full test suite as a final verification gate**, nor any `scripts/*.sh` test/lint/build wrapper — the orchestrator owns the full run. Coverage measurement is fine, including one coverage-instrumented run after tests are written to obtain `coverage.after` — but its pass/fail outcome must not trigger reverts or fixes beyond the per-test workflow
 
@@ -57,7 +58,7 @@ Two things the schema cannot state: the convergence signals (`no_new_tests`, `no
 
 ### 6. Exit
 
-Stop immediately. Do not loop, present reports, or use `AskUserQuestion`.
+Stop immediately. Do not loop or present reports.
 
 ---
 
