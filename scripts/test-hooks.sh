@@ -1632,6 +1632,25 @@ assert_decision "glob matching *.sqlite denied" DENY  "$(rp_git_decision "rm -f 
 assert_decision "glob of a recoverable allowed" ALLOW "$(rp_git_decision "rm -f $rp_git/notes*.bak")"
 assert_decision "glob matching nothing allowed" ALLOW "$(rp_git_decision "rm -f $rp_git/nomatch*")"
 
+# The WRITE gates end to end, and the tracked exemption on every gate. The cases
+# above drive the classifier or delete UNTRACKED files, so dropping the
+# Write/NotebookEdit ask or any `! is_git_tracked` left this suite green.
+: > "$rp_git/.env.tracked"
+git -C "$rp_git" add .env.tracked
+git -C "$rp_git" -c user.email=t@t -c user.name=t -c commit.gpgsign=false commit -q -m tracked
+rp_run HOME="$rp_tmp/home" CLAUDE_PROJECT_DIR="$rp_git" -- Write file_path "$rp_git/.env"
+assert_decision "write untracked .env asks" ASK "$(rp_verdict)"
+assert_reason_has "write ask is the precious one" "precious file not tracked by git"
+assert_decision "write untracked notes.txt.bak asks" ASK \
+  "$(rp_decision_env HOME="$rp_tmp/home" CLAUDE_PROJECT_DIR="$rp_git" -- Write file_path "$rp_git/notes.txt.bak")"
+assert_decision "notebook edit of untracked .env asks" ASK \
+  "$(rp_decision_env HOME="$rp_tmp/home" CLAUDE_PROJECT_DIR="$rp_git" -- NotebookEdit notebook_path "$rp_git/.env")"
+assert_decision "write tracked precious file allowed" ALLOW \
+  "$(rp_decision_env HOME="$rp_tmp/home" CLAUDE_PROJECT_DIR="$rp_git" -- Write file_path "$rp_git/.env.tracked")"
+assert_decision "notebook edit of tracked precious file allowed" ALLOW \
+  "$(rp_decision_env HOME="$rp_tmp/home" CLAUDE_PROJECT_DIR="$rp_git" -- NotebookEdit notebook_path "$rp_git/.env.tracked")"
+assert_decision "delete tracked precious file allowed" ALLOW "$(rp_git_decision "rm $rp_git/.env.tracked")"
+
 # Claude Code spells file_path with backslashes on Windows, and splitting on '/'
 # alone left the WHOLE path as the basename — which no prefix or exact precious
 # pattern can match, so protection was silently off there for both the edit ask
