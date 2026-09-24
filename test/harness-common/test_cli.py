@@ -1779,6 +1779,20 @@ def _one_fix_result():
     }
 
 
+def _stub_bisect_by_file(outcomes):
+    """bisect_fixes stub: report ``outcomes[fix["file"]]`` for each fix."""
+
+    def _stub(
+        fixes, _tc, _cwd, run_tests_fn=None, on_outcome=None, reset_to_clean=None
+    ):
+        for idx, fix in enumerate(fixes):
+            on_outcome(idx, fix, outcomes[fix["file"]], "detail")
+        fixed = sum(outcomes[fix["file"]] == "fixed" for fix in fixes)
+        return fixed, len(fixes) - fixed, 0
+
+    return _stub
+
+
 class TestDeepStep:
     def test_convergence(self, tmp_path, capsys):
         ppath = _seed_deep_progress(tmp_path)
@@ -2476,6 +2490,36 @@ class TestDeepStep:
         assert data["iteration_history"][-1]["fixed"] == 0
         assert data["iteration_history"][-1]["reverted"] == 1
 
+    def test_combined_regression_reverts_every_fix(self, tmp_path, monkeypatch):
+        # Two fixes survive bisection but fail together: _mark_combined_regression
+        # must demote each finding (not just the first), and the counts are
+        # recomputed from ``fixed`` rather than decremented per finding.
+        ppath = _seed_deep_progress(tmp_path)
+        fix = _one_fix_result()["fixes_applied"][0]
+        fixes = [fix, {**fix, "file": "c.py"}]
+        monkeypatch.setattr(cli, "run_tests", lambda *a, **kw: (False, "FAIL"))
+        monkeypatch.setattr(
+            cli,
+            "bisect_fixes",
+            _stub_bisect_by_file({"a.py": "fixed", "c.py": "fixed"}),
+        )
+        monkeypatch.setattr(cli, "restore_working_tree", lambda *a, **kw: True)
+        result = tmp_path / "result.json"
+        result.write_text(
+            json.dumps(_deep_result({"new_findings": fixes, "fixes_applied": fixes})),
+            encoding="utf-8",
+        )
+        exit_code = _run(
+            "deep-step", "--progress-file", str(ppath), "--result-file", str(result)
+        )
+        assert exit_code == 0
+        data = _read_progress(ppath)
+        assert [f["status"] for f in data["findings"]] == [
+            "reverted — test failure"
+        ] * 2
+        assert data["iteration_history"][-1]["fixed"] == 0
+        assert data["iteration_history"][-1]["reverted"] == 2
+
 
 # ---------------------------------------------------------------------------
 # unit-test-step
@@ -3092,6 +3136,76 @@ class TestRefactorStep:
         assert data["refactor_findings"][0]["status"] == "reverted — test failure"
         # untestable_code stays pending (no surviving fixed status).
         assert data["untestable_code"][0]["status"] == "pending"
+
+    def _run_with_prior_cycle_fix(self, tmp_path, monkeypatch, *, outcomes, runs):
+        # Cycle 1 refactors u.py and other.py, each with a pending untestable
+        # item; a cycle-0 "fixed" refactor_finding shares u.py's key.
+        ppath = _seed_coverage_progress_with_untestable(
+            tmp_path, files=["u.py", "other.py"]
+        )
+        fixes = [
+            {
+                "file": name,
+                "line": 1,
+                "category": "refactor",
+                "summary": "s",
+                "pre_edit_content": "a",
+                "post_edit_content": "b",
+            }
+            for name in ("u.py", "other.py")
+        ]
+        data = _read_progress(ppath)
+        data["refactor_findings"].append({**fixes[0], "cycle": 0, "status": "fixed"})
+        ppath.write_text(json.dumps(data), encoding="utf-8")
+        results = iter(runs)
+        monkeypatch.setattr(cli, "run_tests", lambda *a, **kw: (next(results), "out"))
+        monkeypatch.setattr(cli, "bisect_fixes", _stub_bisect_by_file(outcomes))
+        monkeypatch.setattr(cli, "restore_working_tree", lambda *a, **kw: True)
+        result = tmp_path / "result.json"
+        result.write_text(
+            json.dumps(_deep_result({"new_findings": fixes, "fixes_applied": fixes})),
+            encoding="utf-8",
+        )
+        exit_code = _run(
+            "refactor-step", "--progress-file", str(ppath), "--result-file", str(result)
+        )
+        assert exit_code == 0
+        return _read_progress(ppath)
+
+    def test_bisect_outcomes_stay_in_current_cycle(self, tmp_path, monkeypatch):
+        # u.py's fix is reverted, other.py's survives. The bisect outcome and
+        # the touched-file match must use cycle 1's entries only, so the
+        # cycle-0 entry keeps "fixed" and u.py's untestable item stays pending.
+        data = self._run_with_prior_cycle_fix(
+            tmp_path,
+            monkeypatch,
+            outcomes={"u.py": "reverted", "other.py": "fixed"},
+            runs=[False, True],
+        )
+        assert [f["status"] for f in data["refactor_findings"]] == [
+            "fixed",
+            "reverted — test failure",
+            "fixed",
+        ]
+        assert [i["status"] for i in data["untestable_code"]] == [
+            "pending",
+            "attempted",
+        ]
+
+    def test_combined_regression_keeps_prior_cycle_fixes(self, tmp_path, monkeypatch):
+        # Both fixes survive bisection but fail together: only cycle 1's
+        # entries are demoted; the committed cycle-0 fix keeps "fixed".
+        data = self._run_with_prior_cycle_fix(
+            tmp_path,
+            monkeypatch,
+            outcomes={"u.py": "fixed", "other.py": "fixed"},
+            runs=[False, False],
+        )
+        assert [f["status"] for f in data["refactor_findings"]] == [
+            "fixed",
+            "reverted — test failure",
+            "reverted — test failure",
+        ]
 
 
 # ---------------------------------------------------------------------------
@@ -3771,6 +3885,33 @@ class TestSnapshot:
         data = _read_progress(ppath)
         assert data["_snapshot"]["pre_stash"] == "stash_sha"
 
+    @pytest.mark.parametrize(
+        "new_stash, expected",
+        [("new_sha", [("old_sha", "new_sha")]), ("old_sha", [])],
+    )
+    def test_reclaims_replaced_stash_after_recording(
+        self, tmp_path, monkeypatch, new_stash, expected
+    ):
+        # The prior recovery stash is dropped only once the replacement is
+        # durably recorded, and never when the snapshot reused the same stash.
+        ppath = _seed_deep_progress(tmp_path)
+        data = _read_progress(ppath)
+        data["_snapshot"]["pre_stash"] = "old_sha"
+        ppath.write_text(json.dumps(data), encoding="utf-8")
+        dropped = []
+        monkeypatch.setattr(cli, "git_rev_parse_head", lambda _cwd: "head_sha")
+        monkeypatch.setattr(cli, "git_stash_snapshot", lambda _cwd: new_stash)
+        monkeypatch.setattr(
+            cli,
+            "git_drop_stash",
+            lambda sha, _cwd: dropped.append(
+                (sha, _read_progress(ppath)["_snapshot"]["pre_stash"])
+            ),
+        )
+        assert _run("snapshot", "--progress-file", str(ppath), "--include-stash") == 0
+        assert dropped == expected
+        assert _read_progress(ppath)["_snapshot"]["pre_stash"] == new_stash
+
     def test_head_unavailable_returns_error(self, tmp_path, capsys, monkeypatch):
         ppath = _seed_deep_progress(tmp_path)
         monkeypatch.setattr(cli, "git_rev_parse_head", lambda _cwd: None)
@@ -4004,6 +4145,42 @@ class TestSnapshotFreshnessGuard:
         )
         assert exit_code == 1
         assert "missing or stale" in capsys.readouterr().err
+
+    @pytest.mark.parametrize(
+        "command, seed, stale_result",
+        [
+            (
+                "deep-step",
+                lambda p: _seed_deep_progress(p, iteration=2),
+                _deep_result({"iteration": 1}),
+            ),
+            (
+                "unit-test-step",
+                lambda p: _seed_coverage_progress(p, cycle=2),
+                _coverage_result({"cycle": 1}),
+            ),
+            (
+                "refactor-step",
+                lambda p: _seed_coverage_progress(p, cycle=2),
+                _deep_result({"iteration": 1}),
+            ),
+        ],
+    )
+    def test_step_rejects_result_from_another_unit(
+        self, tmp_path, monkeypatch, command, seed, stale_result
+    ):
+        # The snapshot is fresh but the result file is a leftover from the
+        # previous iteration/cycle: the step must refuse it before applying
+        # fixes or merging data.
+        monkeypatch.setattr(cli, "run_tests", lambda *a, **kw: (True, "ok"))
+        ppath = seed(tmp_path)
+        result = tmp_path / "result.json"
+        result.write_text(json.dumps(stale_result), encoding="utf-8")
+        exit_code = _run(
+            command, "--progress-file", str(ppath), "--result-file", str(result)
+        )
+        assert exit_code == 1
+        assert "different iteration/cycle" in _read_progress(ppath)["_safety_error"]
 
 
 # ---------------------------------------------------------------------------
