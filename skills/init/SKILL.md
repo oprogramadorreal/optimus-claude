@@ -74,7 +74,7 @@ Steps 2-6 apply this choice; Step 6b runs independently. **Fresh start preservat
 
 Apply the audit choice through the File semantics classes: Accurate → skip the file; Outdated → apply only approved changes, preserve everything else; Missing → create normally; Fresh start → regenerate Customizable files, always carrying User-added content forward. Refresh Generated files only under the ownership rules above. No audit is not permission to replace an existing file.
 
-**Relocate when scope changes** (e.g., root `.claude/docs/testing.md` → subproject-scoped in a monorepo): move the content, remove the old file. Only `coding-guidelines.md` and `skill-writing-guidelines.md` stay at root. If a root-level `CLAUDE.md` exists outside `.claude/`, suggest removing it once `.claude/CLAUDE.md` is created.
+**Relocate when scope changes** (e.g., root `.claude/docs/testing.md` → subproject-scoped in a monorepo): move the content, remove the old file. Only `coding-guidelines.md` and `skill-writing-guidelines.md` stay at root. If a root-level `CLAUDE.md` exists outside `.claude/`, carry its non-derivable content into `.claude/CLAUDE.md`, then suggest removing it.
 
 ## Step 3: Create Directory Structure
 
