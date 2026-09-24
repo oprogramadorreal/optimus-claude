@@ -128,7 +128,7 @@ while its tests fail.
 
 The run never touches the default branch: before the first edit, the lead
 agent creates and switches to a descriptively named feature branch (a
-worktree made at confirmation already is one). Each piece is committed, with
+worktree made at confirmation already is one). Each piece, then the assembled whole, is committed, with
 its verdict files and the progress page, when its critic returns *beats the
 bar* and the suite is green — focused commits at judged milestones, never
 one giant commit at the end — and the run never pushes, merges, or opens a
