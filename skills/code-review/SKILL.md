@@ -19,15 +19,13 @@ Analyze local git changes (or a PR/MR) against the project's coding guidelines t
 - `--branch` → force the branch diff in Step 3, skipping the PR auto-route. No effect when local changes exist or an explicit PR is requested (`--pr N`, `#N`, or a PR URL).
 - Everything else is natural-language scope/focus: paths, PR numbers, refs (e.g., "review src/auth", "review PR #42", "changes since main").
 
-**Multi-repo**: if `git rev-parse --is-inside-work-tree` does not return `true`, read `$CLAUDE_PLUGIN_ROOT/skills/init/references/multi-repo-detection.md` and apply it. When it returns `true`, resolve the repository root with `git rev-parse --show-toplevel`, including in a linked worktree or subdirectory. In a workspace, run Step 3's git commands inside each child repo, PR/MR mode requires the user to name a repo, and Step 4 loads each repo's docs independently; if changed files map to no child repo, ask which repo's context applies.
+**Multi-repo**: if `git rev-parse --is-inside-work-tree` does not return `true`, read `$CLAUDE_PLUGIN_ROOT/skills/init/references/multi-repo-detection.md` and apply it. When it returns `true`, resolve the repository root with `git rev-parse --show-toplevel`, including in a linked worktree or subdirectory. In a workspace, run Step 3's git commands inside each child repo and require the user to name a repo for PR/MR mode; if changed files map to no child repo, ask which repo's context applies.
 
 **Prerequisites**: if `.claude/CLAUDE.md` or `.claude/docs/coding-guidelines.md` is missing, recommend `/optimus:init` first. On the user's choice to continue, fall back to the bundled baseline: read `$CLAUDE_PLUGIN_ROOT/skills/init/templates/docs/coding-guidelines.md` and review against it plus general best practices for the detected stack — a shared, versioned anchor keeps findings reproducible where ad-hoc judgment would not. Note in the report that findings are generic, not project-specific.
 
 ## Step 2: Inline Harness Mode Detection
 
 If your invocation prompt body contains `HARNESS_MODE_INLINE`, you are running inside the `/optimus:deep` orchestrator as a single iteration. Read `$CLAUDE_PLUGIN_ROOT/references/harness-mode.md` and follow it — that reference governs which of the steps below run, how scope and agent prompts are overridden, and how this run ends.
-
-If `HARNESS_MODE_INLINE` is NOT present, continue with the standard interactive flow below.
 
 ## Step 3: Determine Review Scope
 
@@ -69,13 +67,13 @@ Entered on explicit request or via the auto-route. Detect the platform per the *
 
 ### Scope summary
 
-Present a brief `## Review Scope` summary before proceeding: mode (local changes / PR #N / branch diff since `<ref>`), files changed, lines +/-. In PR/MR mode, append one note whenever intent-vs-implementation checks will not run — either the captured `pr-description` body is empty, **or** it is non-empty but has no `## Intent` section (apply the **Detection rule** in `$CLAUDE_PLUGIN_ROOT/skills/pr/references/pr-template.md`, the same rule `/optimus:pr` writes against, so both halves of the handoff share one definition). Say which case applies: intent-vs-implementation checks are skipped; running `/optimus:pr` in the implementation conversation can add intent metadata. Without this note a rich hand-written description reads as fully reviewed while every agent silently skipped the check. This is a soft warning — the review proceeds either way.
+Present a brief `## Review Scope` summary before proceeding: mode (local changes / PR #N / branch diff since `<ref>`), files changed, lines +/-. In PR/MR mode, when the captured `pr-description` body is empty, or non-empty with no `## Intent` section per the **Detection rule** in `$CLAUDE_PLUGIN_ROOT/skills/pr/references/pr-template.md`, append one note saying which case applies: intent-vs-implementation checks are skipped; running `/optimus:pr` in the implementation conversation can add intent metadata. This is a soft warning — the review proceeds either way.
 
-**Large diff warning**: if more than 50 files or 3000 lines are changed, warn the user and suggest narrowing the scope (e.g., a specific path or directory).
+**Large diff warning**: if more than 50 files or 3000 lines are changed, or the changes are otherwise too broad for effective review, warn the user and suggest narrowing the scope (e.g., a specific path or directory).
 
 ## Step 4: Load Project Context
 
-Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/constraint-doc-loading.md` and load the constraint docs it lists, applying its **Monorepo Scoping Rule** (a subproject's own docs govern that subproject's files) and **Submodule Exclusion** (confirmed submodules are excluded from the review; a `.git` file alone does not identify one). In a multi-repo workspace, load each changed repo's `.claude/CLAUDE.md` and `.claude/docs/` independently and apply per-repo context to that repo's files. These docs define the review criteria — every guideline finding must be justified by what they establish; never impose external preferences.
+Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/constraint-doc-loading.md` and load the constraint docs it lists, applying its skill-authoring lens, **Monorepo Scoping Rule**, and **Submodule Exclusion**. In a multi-repo workspace, load each changed repo's `.claude/CLAUDE.md` and `.claude/docs/` independently and apply per-repo context to that repo's files. These docs define the review criteria — every guideline finding must be justified by what they establish; never impose external preferences.
 
 Present a brief context summary (docs loaded, docs missing with fallback status, project type), then proceed immediately to Step 5 — do not wait for confirmation.
 
@@ -127,8 +125,6 @@ If a `pr-description` was captured, use it as an additional soft signal: an expl
 - **Severity**: **Critical** — bugs, security vulnerabilities, runtime failures, Intent Mismatch contradicting a stated non-goal. **Warning** — guideline violations, missing error handling, coverage gaps on critical paths, backward-incompatible contract changes, Intent Mismatch on unsupported scope claims. **Suggestion** — quality improvements, minor drift, Intent Mismatch on partial matches.
 - **Finding cap**: max **15 domain findings** in the report, prioritized by severity then confidence. `Intent Mismatch` findings surface on top of the 15 — up to 5, deduplicated across agents, sorted by severity, presented after the domain findings. If more issues exist, note the count and suggest a narrower scope or `/optimus:deep review`.
 
-Open with a **Change Summary** — 2–4 factual sentences on what the changes accomplish — so the user can verify the review understood them.
-
 ### Output format
 
 ```
@@ -145,7 +141,7 @@ Open with a **Change Summary** — 2–4 factual sentences on what the changes a
 - Verdict: CHANGES LOOK GOOD / ISSUES FOUND
 
 ### Change Summary
-[2–4 sentences]
+[2–4 factual sentences on what the changes accomplish]
 
 ### Findings
 
@@ -182,6 +178,5 @@ Verdict **ISSUES FOUND** → `AskUserQuestion` (header "Action", question "How w
 ## Important
 
 - Outside harness mode this skill is read-only: never modify files, commit, push, or post comments without explicit user approval, and approved fixes remain local modifications the user reviews with `git diff` before committing. Under `HARNESS_MODE_INLINE` the orchestrator holds that approval and Step 2's protocol governs instead.
-- When changes are too broad for effective review, recommend narrowing scope.
 
 Close by recommending the next step: issues fixed → `/optimus:commit`; clean or fixes skipped → `/optimus:pr` (skip when already reviewing a PR/MR) — either way, stay in this conversation so the implementation context is captured. For iterative auto-fix, run `/optimus:deep review` in a fresh conversation.
