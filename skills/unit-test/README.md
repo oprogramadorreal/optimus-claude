@@ -50,7 +50,7 @@ For an automated multi-cycle loop that alternates test generation with testabili
 
 | File | Purpose |
 |---|---|
-| `SKILL.md` | Skill definition with 6-step workflow |
+| `SKILL.md` | Skill definition with 5-step workflow |
 | `agents/test-infrastructure-analyzer.md` | Discovery/coverage/testability subagent prompt |
 | *(shared)* `references/shared-agent-constraints.md` | Base agent constraints prepended at dispatch |
 | *(shared)* `references/agent-architecture.md` | Prompt assembly rule for subagent dispatch |

@@ -46,7 +46,7 @@ Run Steps 3–4 of SKILL.md (plan + write) with these harness modifications:
 
 ### 4. Collect results
 
-Gather: tests written (file, target, count, status), coverage change, untestable code items — resolve each item's `line` to the definition line of the flagged function or class, since the schema requires it — and bugs discovered.
+Gather: tests written (file, target, count, status), coverage change, untestable code items — resolve each item's `line` to the definition line of the flagged function or class, since the schema requires it — and bugs discovered. Record each item abandoned under SKILL.md Step 4 as `fail-abandoned` in `tests_written` — with `failure_reason` naming the bug when a bug caused it — and list each such bug in `bugs_discovered`.
 
 ### 5. Output structured JSON
 
