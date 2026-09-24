@@ -8,7 +8,7 @@ Apply shared constraints from `shared-constraints.md`. You will receive the **Co
 
 ### Audit tasks
 
-1. **Read documentation files** in priority order (skip missing ones): `HOW-TO-RUN.md`, `README.md`, `CONTRIBUTING.md`, `BUILDING.md`, `INSTALL.md`, `docs/development.md`, `docs/setup.md`, `docs/getting-started.md`, `docs/build.md`.
+1. **Read documentation files** in priority order (skip missing ones): `HOW-TO-RUN.md`, `README.md`, `CONTRIBUTING.md`, `BUILDING.md`, `INSTALL.md`, `docs/development.md`, `docs/setup.md`, `docs/getting-started.md`, `docs/build.md`. In a multi-repo workspace, also read each repo's `README.md` and `CONTRIBUTING.md` (paths from the Repos table), adding a `<repo>/<file>` row under Documentation Files Scanned for each one that exists.
 
 2. **Extract setup-related sections:** match markdown headings (levels 1–3) against setup-topic patterns — Getting Started, Development, Setup, Installation, Building, Running, Prerequisites, Requirements, Testing, Environment, and close synonyms. A section spans from its heading to the next heading of the same or higher level.
 
