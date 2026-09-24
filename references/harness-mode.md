@@ -12,19 +12,12 @@ When running under the `/optimus:deep` orchestrator (a `review` or `refactor` ru
 
 ### 1. Read progress file
 
-Read the JSON progress file at the path specified in your invocation prompt. Extract:
-- `iteration.current` — which iteration this is
-- `findings` — accumulated findings from prior iterations (with status)
-- `scope_files.current` — file paths to analyze
-- `config.test_command` — the test command (for reference only — do NOT run it)
-- `config.max_iterations` — the iteration cap (for reference only — do NOT check it)
-- `config.focus` — finding-cap priority mode (empty string = balanced; used by `refactor` for finding-cap allocation)
-- `config.pr_description` — optional `{"title", "body", "base_ref"}` dict captured by the orchestrator when an open PR exists for the current branch (null when no PR or `gh` unavailable)
-
-Initialize from the progress file:
+Read the JSON progress file at the path specified in your invocation prompt and take:
 - `iteration-count` = `iteration.current`
-- `accumulated-findings` = `findings` array (restoring cross-session state from disk)
-- `focus` = `config.focus` (apply to finding-cap logic if the skill supports focus modes)
+- `accumulated-findings` = the `findings` array, each with its status (cross-session state from prior iterations)
+- `scope_files.current` — file paths to analyze
+- `config.focus` — finding-cap priority mode for skills that support one (empty string = balanced)
+- `config.pr_description` — optional `{"title", "body", "base_ref"}` dict the orchestrator captured for the current branch's open PR (null when no PR or `gh` unavailable)
 
 If `scope_files.current` is non-empty, use it as the file list for agents — this overrides the skill's Step 3 file discovery (the orchestrator pre-populated the scope). If it is empty, fall back to the skill's Step 3 file discovery, restricted to the user's path scope in `config.scope.paths` when that list is non-empty (per-skill rules below).
 
@@ -35,16 +28,11 @@ After reading the progress file, run the skill's scope, context-loading, analysi
 - **code-review**: whatever the working tree holds, review in Step 3's **Branch/ref mode** with `<ref>` = `config.scope.base_ref`, else `config.pr_description.base_ref`, else `origin/<default branch>` per Step 3 item 3 (never ask the user; if none resolves, there is nothing to review — emit step 8's block with no findings), filtered to `config.scope.paths` when non-empty — never PR mode, never `gh pr view`; skip the large-diff warning.
 - **refactor**: when `scope_files.current` is non-empty, it replaces Step 1's scope resolution — group its files by parent directory into analysis areas; when empty, run Step 3's normal directory scan over `config.scope.paths`, or the full project when that list is empty.
 
-If `config.pr_description` is non-null **and the base skill defines a PR/MR context block** (code-review does; refactor does not), treat it as equivalent to the `pr-description` that interactive Step 3 captures from `gh pr view`: inject it into agent prompts per Step 5 "PR/MR context injection" and apply the Step 6 "PR/MR description as intent signal" soft-confidence adjustment during validation. Do not re-fetch via `gh pr view` — the orchestrator already captured it.
+If `config.pr_description` is non-null and the skill defines a PR/MR context block (code-review does; refactor does not), treat it as the interactive `pr-description`: inject it per Step 5 "PR/MR context injection" and apply Step 6 "PR/MR description as intent signal".
 
 ### 2. Build iteration context (iterations 2+)
 
 If `iteration-count` > 1, construct the Iteration Context Block from the accumulated findings using the "Iteration Context Block" template in `$CLAUDE_PLUGIN_ROOT/references/context-injection-blocks.md` — that file is the single source for the block, including the status-values legend, the empty-field fallbacks, and the closing "Focus your review on NEW issues only" instruction.
-
-Harness-specific deltas:
-
-- Do NOT include code content (`pre_edit_content` / `post_edit_content`) in the block — the table uses only the compact fields (file, line, category, summary, status); code content would recreate context bloat.
-- Source the "Failed Fix Attempts" bullets from `accumulated-findings`: `fix_description` (what was tried) and `last_failure_hint` (truncated test failure output, max ~200 chars) give the next iteration enough signal to try a different approach instead of repeating the same fix.
 
 ### 3. Run one analysis cycle
 
@@ -52,11 +40,9 @@ Launch all agents in parallel — same agents, same prompts, same parallelism as
 
 ### 4. Validate findings
 
-Apply the same validation protocol as the skill's normal validation step. Independently verify each finding, check for false positives, apply change-intent awareness from git history. One clause of that protocol does not carry over: **do not drop what you could not confirm** — see the gate below.
+Apply the skill's normal validation protocol, with one override.
 
-**Auto-apply gate.** Nothing here gets user review before it lands, so only findings your own validation *confirms* earn a fix in step 6. An unconfirmed finding is still recorded in `new_findings` with its confidence. That is a deliberate override of the base protocol's "a finding you cannot confirm is dropped" rule (`references/finding-validation.md`, and the equivalent line in each skill's validation step): dropping keeps an interactive report tight, but here it also erases the loop's only evidence that the iteration found anything — an iteration whose findings were all unconfirmed would emit `no_new_findings: true` and terminate the entire run as `convergence`, reporting clean. Record it instead, and let the empty edit pair mark it un-fixed.
-
-Emit `pre_edit_content` and `post_edit_content` as **empty strings** for such a finding — not omitted. The schema requires both under `additionalProperties: false`, but the runtime validator checks only the envelope — the required arrays and flags — not per-finding keys; the schema validator lives in the test suite. So an omitted key fails *silently*, not loudly — step 6's promotion guard reads it as `None` and skips the finding exactly as it skips an empty string, and the run carries on with output that no longer matches its own contract. An empty `pre_edit_content` is the affirmative "no fix was applied" the rest of this protocol is built on. Agents are told to report rather than pre-filter; this gate, not their silence, is what keeps auto-applied edits honest.
+**Auto-apply gate.** Nothing here gets user review before it lands, so only findings your validation confirms earn a fix in step 6. But **do not drop a finding you could not confirm.** Record it in `new_findings` with its post-validation confidence, and set `pre_edit_content` and `post_edit_content` to empty strings rather than omitting them (the schema requires both). Dropping would hide it: an iteration whose findings were all unconfirmed would report `no_new_findings: true` and end the run as a clean `convergence`.
 
 ### 5. Consolidate and deduplicate findings
 
