@@ -480,9 +480,17 @@ def test_directory_replacing_output_is_a_protected_input(tmp_path):
     assert _cmd(progress, "commit-checkpoint") == 1
 
 
-def test_source_edited_during_tests_fails_validation(tmp_path, capsys):
-    command = _python_command("Path('app.txt').write_bytes(b'GOOD edited')")
-    progress = _setup(tmp_path, test_command=command, baseline=False)
+@pytest.mark.parametrize(
+    "change",
+    [
+        "Path('app.txt').write_bytes(b'GOOD edited')",
+        "Path('app.txt').unlink()",
+        "Path('app.txt').unlink(); Path('app.txt').mkdir(); Path('app.txt/x').touch()",
+    ],
+    ids=["edited", "deleted", "replaced-by-directory"],
+)
+def test_source_changed_during_tests_fails_validation(tmp_path, capsys, change):
+    progress = _setup(tmp_path, test_command=_python_command(change), baseline=False)
     assert _cmd(progress, "baseline") == 1
     assert "changed during tests" in capsys.readouterr().out
 

@@ -19,6 +19,7 @@ from harness_common.git import (
     commit_checkpoint,
     get_open_pr_data,
     git_apply_snapshot,
+    git_check_nested_repositories,
     git_current_branch,
     git_diff_has_changes,
     git_discover_branch_files,
@@ -29,6 +30,8 @@ from harness_common.git import (
     git_restore_tracked_to,
     git_rev_parse_head,
     git_stash_snapshot,
+    git_test_output_paths,
+    git_test_tree_state,
     restore_working_tree,
 )
 
@@ -1215,3 +1218,52 @@ def test_package_run_branch_files_stay_package_relative(tmp_path):
         ["a.py"],
         "origin/main",
     )
+
+
+class TestTreeInspectionFailures:
+    """Git state the harness cannot read must raise, never fingerprint as clean."""
+
+    def test_unborn_head_cannot_be_fingerprinted(self, tmp_path):
+        _run_git(tmp_path, "init")
+        with pytest.raises(RuntimeError, match="Cannot inspect test tree"):
+            git_test_tree_state(tmp_path, str(tmp_path / "progress.json"))
+        with pytest.raises(RuntimeError, match="Cannot check tracked test outputs"):
+            git_test_output_paths(tmp_path, ["out.xml"])
+
+    def test_output_paths_drop_escapes_absolutes_and_directories(self, tmp_path):
+        _init_repo(tmp_path)
+        (tmp_path / "somedir").mkdir()
+        paths = ["../out.xml", str(tmp_path / "abs.xml"), "somedir"]
+        assert git_test_output_paths(tmp_path, paths) == []
+
+    @pytest.mark.parametrize(
+        "failed, message",
+        [
+            (("ls-files", "--stage"), "Cannot inspect nested repositories"),
+            (("ls-tree",), "Cannot inspect restore tree"),
+            (("status",), "Cannot inspect nested repository: "),
+            (("ls-files", "-v"), "Cannot inspect nested repository tracking flags"),
+        ],
+    )
+    def test_nested_repository_inspection_failure_raises(
+        self, tmp_path, failed, message
+    ):
+        (tmp_path / "lib" / ".git").mkdir(parents=True)
+
+        def run(args, **kwargs):
+            command = tuple(args[1:])
+            if command[: len(failed)] == failed:
+                return subprocess.CompletedProcess(args, 1, b"", b"inspect failed")
+            output = b"lib\0" if command[:2] == ("ls-files", "--stage") else b""
+            return subprocess.CompletedProcess(args, 0, output, b"")
+
+        with pytest.raises(RuntimeError, match=message):
+            git_check_nested_repositories(tmp_path, _run=run, restore_commit="abc123")
+
+    def test_restore_index_failure_raises(self, tmp_path):
+        def run(args, **kwargs):
+            failed = tuple(args[1:3]) == ("ls-files", "--cached")
+            return subprocess.CompletedProcess(args, int(failed), "", "index locked")
+
+        with pytest.raises(RuntimeError, match="Cannot inspect restore index"):
+            git_restore_tracked_to("abc123", tmp_path, _run=run)
