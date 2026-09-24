@@ -25,7 +25,7 @@ Resolve the root: when `git rev-parse --is-inside-work-tree` returns `true`, use
 
 ## Step 3: Classify artifacts against version control
 
-Per repo (per child repo in a multi-repo workspace, where paths and SHAs are also repo-qualified): find the branch and short HEAD SHA for **Origin**, each path's tracked / modified / staged / untracked status, and unpushed commits via `git log --oneline @{upstream}..HEAD` (fallback `origin/HEAD..HEAD`; no upstream or detached HEAD → treat local commits as unpushed). Not a git repo → note "not a git repo" in **Origin** and inline everything. Sort every artifact into three buckets:
+Per repo (per child repo in a multi-repo workspace, where paths and SHAs are also repo-qualified): find the branch and short HEAD SHA for **Origin**, each path's tracked / modified / staged / untracked status, and unpushed commits via `git log --oneline HEAD --not --remotes` (commits no remote-tracking branch contains). Not a git repo → note "not a git repo" in **Origin** and inline everything. Sort every artifact into three buckets:
 
 1. **Tracked and pushed** → reference by repo-relative path / SHA / URL, never inline.
 2. **Tracked-but-modified, staged-not-committed, or committed-not-pushed** → inline the relevant content (diff, file body, or commit message) — another clone will not have it.
