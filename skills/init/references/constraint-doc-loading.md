@@ -32,7 +32,7 @@ The presence of `.claude/docs/skill-writing-guidelines.md` means the project aut
 
 ## Monorepo Scoping Rule
 
-When operating on a subproject's code, apply its own constraint docs — not another subproject's. `coding-guidelines.md` and `skill-writing-guidelines.md` are shared at root (`.claude/docs/`) and apply everywhere; `testing.md`, `styling.md`, and `architecture.md` are per subproject (`<subproject>/docs/<doc>.md`), so backend conventions never govern frontend code or vice versa. For root-as-project, its scoped docs sit in `.claude/docs/` alongside the shared guidelines.
+When operating on a subproject's code, apply its own constraint docs from the Monorepo list above — never another subproject's, so backend conventions never govern frontend code or vice versa.
 
 ## Submodule Exclusion
 
