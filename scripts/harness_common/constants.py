@@ -55,8 +55,9 @@ FOCUS_MODES_BY_SKILL = {"refactor": VALID_FOCUS_MODES}
 # file in .claude/. Consumed bare by cli.py's final-report cleanup (globbing
 # inside the .claude/ dir) and anchored with a ".claude/" prefix by git.py's
 # _HARNESS_STATE_EXCLUDES. This repo's .gitignore and
-# references/orchestrator-loop-single.md mirror them for the harness dev loop
-# and the orchestrator — rename a prefix here and update those two mirrors.
+# references/orchestrator-loop-*.md (pinned by test_skill_contract.py) mirror
+# them for the harness dev loop and the orchestrator — rename a prefix here
+# and update those mirrors.
 SCRATCH_GLOBS = (".deep-iteration-*", ".unit-test-deep-*")
 
 SKILL_COMMIT_TYPE = {

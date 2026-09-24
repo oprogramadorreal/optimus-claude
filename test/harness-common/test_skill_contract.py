@@ -11,7 +11,9 @@ the unit tests will pass but a real `/optimus:deep` invocation will either
 hang the subagent or terminate the loop on the first iteration.
 """
 
+import fnmatch
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -24,6 +26,7 @@ from harness_common.constants import (
     DEFAULT_MAX_ITERATIONS,
     MAX_CYCLES_HARD_CAP,
     MAX_ITERATIONS_HARD_CAP,
+    SCRATCH_GLOBS,
     TERMINATION_REASONS,
 )
 
@@ -118,6 +121,23 @@ def test_deep_pins_progress_file_paths():
         assert (
             progress in skill_md
         ), f"{DEEP_SKILL} must pin progress file {progress} (--skill {base_skill})"
+
+
+def test_loop_scratch_files_match_scratch_globs():
+    """Loop scratch files must fall under constants.SCRATCH_GLOBS.
+
+    commit_checkpoint's un-stage step and final-report's cleanup match only
+    SCRATCH_GLOBS, so a scratch path a loop reference names outside them is
+    committed with the checkpoint and never swept. Sourced from DEEP_TARGETS
+    so a new loop reference is covered automatically.
+    """
+    for loop_ref in sorted({ref for _skill, ref in DEEP_TARGETS.values()}):
+        names = re.findall(r"\.claude/(\.[\w.-]+)", _read(loop_ref))
+        assert names, f"{loop_ref} must name its .claude/ scratch files"
+        for name in names:
+            assert any(
+                fnmatch.fnmatchcase(name, glob) for glob in SCRATCH_GLOBS
+            ), f"{loop_ref} scratch file {name} escapes SCRATCH_GLOBS"
 
 
 def test_deep_targets_match_variant_skills():
