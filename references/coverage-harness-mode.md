@@ -25,9 +25,9 @@ Then load the project docs per SKILL.md Step 1 "Prerequisites and project docs" 
 
 ### 2. Run discovery and coverage analysis
 
-Run the same Test Infrastructure Analyzer agent as normal mode (Step 2 of SKILL.md).
+Run SKILL.md Step 2, inline or delegated per its size rule.
 
-**Cycle context block (cycles 2+):** when `cycle.current` is greater than 1, prepend a concise context block to the agent prompt before the main instructions. Source the data from the progress file's `tests_created`, `untestable_code`, and `coverage.history`. Include:
+**Cycle context block (cycles 2+):** when `cycle.current` is greater than 1, prepend a concise context block to the analyzer's prompt before the main instructions, or read it as your own context when running Step 2 inline. Source the data from the progress file's `tests_created`, `untestable_code`, and `coverage.history`. Include:
 
 - **Tests already added** — `file → target` for `tests_created` entries with status `pass` or `fail-fixed`, so the agent skips those targets.
 - **Abandoned items** — `tests_created` entries with status `fail-abandoned` (with `failure_reason`), so the agent does not re-propose them.

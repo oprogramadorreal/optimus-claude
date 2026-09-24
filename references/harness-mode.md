@@ -36,7 +36,7 @@ If `iteration-count` > 1, construct the Iteration Context Block from the accumul
 
 ### 3. Run one analysis cycle
 
-Launch all agents in parallel — same agents, same prompts, same parallelism as the skill's normal agent step. Inject the Iteration Context Block (from step 2) into agent prompts before the file list, following the same injection order as interactive mode.
+Run the skill's normal analysis step, inline or fanned out per its own sizing rule. On iterations 2+, inject the Iteration Context Block (step 2) into each agent prompt before the file list, in interactive mode's injection order. When analyzing inline, read it as your own context instead.
 
 ### 4. Validate findings
 
