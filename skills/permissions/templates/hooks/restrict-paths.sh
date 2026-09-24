@@ -27,8 +27,8 @@
 #   - rm/rmdir commands outside the project     → hard blocked
 #   - Edit/Write of precious unversioned files  → prompts you for approval
 #   - rm/rmdir of precious unversioned files    → hard blocked
-#   - Git operations on feature branches        → silently allowed
-#   - Git operations on protected branches       → hard blocked
+#   - Git history changes on feature branches   → silently allowed
+#   - Git history changes on protected branches → hard blocked
 #   - Everything else (reads, searches, etc.)   → passes through unchanged
 #
 # WHAT THIS SCRIPT DOES NOT DO:
@@ -179,6 +179,8 @@
 # TO DISABLE OR REMOVE:
 #   1. Delete this file: rm .claude/hooks/restrict-paths.sh
 #   2. Remove the PreToolUse hook entry from .claude/settings.json
+#   Or run /optimus:reset permissions, which also removes the settings rules
+#   and .claude/.optimus-managed.json entries that /optimus:permissions added.
 #   Or simply ignore it — the hook only runs when Claude Code invokes tools.
 # ============================================================================
 
@@ -1141,9 +1143,10 @@ unwrap_shell_c() {
 
 # --- Git branch protection ---
 # Customize this list to match your project's protected branches.
-# These branches are shielded from commits, pushes, rebases, resets,
-# and deletions. All other branches are treated as feature branches
-# where git operations are allowed without prompts.
+# These branches are shielded from commits (incl. cherry-pick/revert/am),
+# merges, pushes, rebases, hard resets, restores/discards, and branch rewrites
+# or deletions (including update-ref). All other branches are treated as
+# feature branches where git operations are allowed without prompts.
 PROTECTED_BRANCHES=("master" "main" "develop" "dev" "development" "staging" "stage" "prod" "production" "release")
 
 is_protected_branch() {
