@@ -6,6 +6,7 @@ from harness_common.findings import (
     finding_matches,
     mark_all_fixed,
     mark_finding_status,
+    normalize_line,
     update_scope,
 )
 
@@ -34,6 +35,22 @@ class TestTruncateFailureHint:
         assert result == "abcde..."
 
 
+class TestNormalizeLine:
+    @pytest.mark.parametrize(
+        "raw,expected",
+        [
+            (42, 42),
+            ("42", 42),
+            (" 42.0 ", 42),
+            (None, None),
+            (True, None),
+            ("abc", "abc"),
+        ],
+    )
+    def test_coerces_numbers_and_keeps_non_numeric_strings(self, raw, expected):
+        assert normalize_line(raw) == expected
+
+
 class TestFindingMatches:
     def test_exact_match(self):
         finding = {"file": "src/a.js", "line": 10, "category": "bug"}
@@ -59,6 +76,11 @@ class TestFindingMatches:
         finding = {"file": "src/a.js", "line": 10, "category": "bug"}
         fix = {"file": "src/a.js"}
         assert finding_matches(finding, fix) is False
+
+    def test_matches_across_path_separator_and_line_type(self):
+        finding = {"file": "src\\a.js", "line": "10", "category": "bug"}
+        fix = {"file": "src/a.js", "line": 10, "category": "bug"}
+        assert finding_matches(finding, fix) is True
 
 
 class TestMarkFindingStatus:
@@ -96,6 +118,19 @@ class TestMarkFindingStatus:
         mark_finding_status(
             sample_progress, sample_fix, "reverted — test failure", "fail 2"
         )
+        assert sample_progress["findings"][0]["status"] == "reverted — attempt 2"
+
+    def test_escalation_survives_line_type_change(self, sample_progress, sample_fix):
+        mark_finding_status(
+            sample_progress, sample_fix, "reverted — test failure", "fail 1"
+        )
+        mark_finding_status(
+            sample_progress,
+            {**sample_fix, "line": "42"},
+            "reverted — test failure",
+            "fail 2",
+        )
+        assert len(sample_progress["findings"]) == 1
         assert sample_progress["findings"][0]["status"] == "reverted — attempt 2"
 
     def test_revert_escalation_survives_applied_pending_test(
