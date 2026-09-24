@@ -76,7 +76,7 @@ Run in Step 4 for every **Docker-preferred** service and every **Shared-cloud pr
    - Env-var value: `^<[A-Za-z_][A-Za-z0-9_-]*>$` (placeholder), OR `^[A-Za-z0-9_.,+-]{1,64}$` (vendor-documented constant; comma for lists like `SERVICES=s3,sns,sqs`), OR `^[0-9]+$`. For env-var names whose uppercase form is exactly `TOKEN` / `SECRET` / `PASSWORD` / `PWD` / `CREDENTIAL` / `KEY`, or ends with `_TOKEN` / `_SECRET` / `_PASSWORD` / `_PWD` / `_CREDENTIAL` / `_KEY`, or starts with `TOKEN_` / `SECRET_` / `PASSWORD_` / `PWD_` / `CREDENTIAL_` / `KEY_`, ONLY the placeholder form is permitted (deliberately not substring-anywhere — that would force placeholders into benign names like `APIKEY_HEADER_NAME`).
    - Port: `^[0-9]{1,5}$`, value ≤ 65535.
    - Volume mount path: `^/[A-Za-z0-9_./+-]{0,255}$` (absolute Unix path, no spaces, no `:`, no shell metacharacters); then split on `/` and reject `.` / `..` segments.
-   - Vendor page URL: must start `https://`; `<host>` = substring between `://` and the first `/`, `:`, `?`, `#`, or end. Lowercased, `<host>` must exactly match `hub.docker.com`, `learn.microsoft.com`, `quay.io`, `gcr.io`, `ghcr.io`, `gallery.ecr.aws`, or a vendor-owned docs domain (`docs.<vendor>.com` or `<vendor>.com/docs/...` where `<vendor>` matches the image's vendor namespace). Reject URLs containing `)`, `@`, `\`, unencoded whitespace, control characters, or non-ASCII.
+   - Vendor page URL: must pass [§Citation Format](#citation-format).
    - Free-text fields (title, notes): strip every backtick, `[`, `]`, `(`, `)`, `<`, `>`, newline, carriage return, NUL, and Cc/Cf character; truncate to 120 characters.
 6. **Prefer explicit compatible version tags over moving labels.** Preserve project pins and supported major versions; do not upgrade a database or reuse its existing volume with a new major merely to document setup. For a fresh service with no project version constraint, prefer a vendor-recommended stable/LTS numeric tag matching `^[0-9]+(\.[0-9]+){0,2}([.-][A-Za-z0-9_.-]+)?$`. A bare moving label (`latest`, `stable`, `edge`, `nightly`, `canary`, `main`, `current`, `rolling`) is permitted only when the canonical page documents no numeric tag. Record that exception in working context as service + exact image + source URL + reason, render a caution, and pass the evidence to Step 6 for rechecking.
 7. **Cite the source URL** per [§Citation Format](#citation-format) — the vendor/registry page, not the WebSearch result page.
@@ -254,7 +254,7 @@ Never echo the committed connection string or reconstruct the new one — a misc
 
 ## Citation Format
 
-Every `- Source: [<title>](<url>)` line written to `HOW-TO-RUN.md` MUST be exactly `- Source: [<Vendor page title>](<vendor page URL>).`. Apply the same host extraction as recipe step 5 (URL starts `https://`; reject `@`, `\`, unencoded whitespace, control chars, non-ASCII). `<host>` (lowercased) must equal exactly one of:
+Every `- Source: [<title>](<url>)` line written to `HOW-TO-RUN.md` MUST be exactly `- Source: [<Vendor page title>](<vendor page URL>).`. The URL must start `https://` and contain no `)`, `@`, `\`, unencoded whitespace, control characters, or non-ASCII; `<host>` = the substring between `://` and the first `/`, `:`, `?`, `#`, or end, lowercased, and must equal exactly one of:
 
 - `hub.docker.com` — ONLY when the image registry resolves to `docker.io`. For Docker Official Images (`docker.io/library/<name>`), `hub.docker.com` is the ONLY accepted citation host.
 - `learn.microsoft.com` — ONLY when the registry is `mcr.microsoft.com`.
