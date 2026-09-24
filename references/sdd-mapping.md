@@ -10,7 +10,7 @@ Higher docs (`docs/product/product-context.md`, `docs/product/mvp-prd.md`, `docs
 
 ## Spec location and discovery
 
-The active build spec lives in `docs/specs/` — written by `/optimus:brainstorm` (`docs/specs/<YYYY-MM-DD-slug>.md`) or dropped in from outside. Implement skills auto-discover the most recent file there (filename date prefix, else modification time). Discovery precedence, first match wins: `docs/specs/` build spec → `docs/jira/` context → none.
+The active build spec lives in `docs/specs/` — written by `/optimus:brainstorm` (`docs/specs/<YYYY-MM-DD-slug>.md`) or dropped in from outside. `/optimus:tdd` auto-discovers the most recent file there (filename date prefix, else modification time). Discovery precedence, first match wins: `docs/specs/` build spec → `docs/jira/` context → none.
 
 ## Authoring boundary
 
