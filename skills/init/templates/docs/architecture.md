@@ -1,6 +1,6 @@
 # Architecture
 
-Sections with nothing project-specific to say should be deleted, not filled with generalities. Every bullet count below is a ceiling, not a target.
+<!-- Delete any section with nothing project-specific to say rather than filling it with generalities; every bullet count below is a ceiling, not a target. -->
 
 ## Overview
 
