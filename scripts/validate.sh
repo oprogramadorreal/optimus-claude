@@ -378,7 +378,7 @@ for skill_dir in ./skills/*/; do
 done
 # Check each actual skill is mentioned in README.md
 for skill in $actual_skills; do
-  if ! grep -q "/optimus:$skill" README.md 2>/dev/null; then
+  if ! grep -qE "/optimus:${skill}([^a-z0-9-]|\$)" README.md 2>/dev/null; then
     readme_mismatch+="  skills/$skill: not listed in README.md\n"
   fi
 done
@@ -389,9 +389,9 @@ for skill in $actual_skills; do
     readme_mismatch+="  skills/$skill: not listed in CONTRIBUTING.md project structure\n"
   fi
 done
-check "README lists all skills" test -z "$readme_mismatch"
+check "README and CONTRIBUTING list all skills" test -z "$readme_mismatch"
 if [ -n "$readme_mismatch" ]; then
-  printf "       Missing from README:\n%b" "$readme_mismatch"
+  printf "       Missing entries:\n%b" "$readme_mismatch"
 fi
 
 # --- 14. Hook configuration validity ---
