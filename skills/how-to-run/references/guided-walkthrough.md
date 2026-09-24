@@ -32,14 +32,14 @@ One soft warning sentence prepended to the question; they never change the optio
 
 ## Display sanitization
 
-`AskUserQuestion` renders question text as markdown. Apply to BOTH the command preview AND the section heading, BEFORE substituting them into the question template — never run the sanitizer over the assembled prompt (the advisory text and option labels contain intentional punctuation):
+`AskUserQuestion` renders question text as markdown. Apply these rules to the section heading BEFORE printing it or substituting it into the question template — never run the sanitizer over the assembled prompt (the advisory text and option labels contain intentional punctuation). The printed command gets only the first rule, keeping its newlines and tabs; never truncate it or rewrite its shell syntax.
 
 - Strip ASCII control characters (Cc) and Unicode format characters (Cf), including bidi overrides (U+202A–U+202E, U+2066–U+2069), zero-width spaces (U+200B–U+200D, U+FEFF), and NUL.
 - Replace every backtick with `'`.
 - Strip `<`, `>`, `\`, `&` (the `&` strip closes a CommonMark numeric-character-reference bypass).
 - Escape every `[` as `\[` and every `]` as `\]`.
 - Replace every `://` with `: //` to defuse bare-URL autolinks.
-- Truncate the command preview to 60 characters and the section heading to 80 characters.
+- Truncate the section heading to 80 characters.
 
 ## Completion summary
 
