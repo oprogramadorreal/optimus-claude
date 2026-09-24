@@ -1076,6 +1076,39 @@ assert_decision "Commit with quoted message still guarded" DENY \
 assert_decision "cherry-pick on protected denied" DENY "$(rp_git_decision 'git cherry-pick abc123')"
 assert_decision "revert on protected denied"      DENY "$(rp_git_decision 'git revert HEAD')"
 assert_decision "am on protected denied"          DENY "$(rp_git_decision 'git am patch.mbox')"
+# The remaining hard-block arms, each beside a control proving the arm — not a
+# blanket deny — is what answers.
+assert_decision "reset --hard on protected denied"   DENY  "$(rp_git_decision 'git reset --hard HEAD~1')"
+assert_decision "reset --soft is not blocked"        ALLOW "$(rp_git_decision 'git reset --soft HEAD~1')"
+assert_decision "rebase on protected denied"         DENY  "$(rp_git_decision 'git rebase main')"
+assert_decision "merge on protected denied"          DENY  "$(rp_git_decision 'git merge feature-x')"
+assert_decision "restore on protected denied"        DENY  "$(rp_git_decision 'git restore src/a.txt')"
+assert_decision "checkout -- discard denied"         DENY  "$(rp_git_decision 'git checkout -- src/a.txt')"
+assert_decision "checkout . discard denied"          DENY  "$(rp_git_decision 'git checkout .')"
+assert_decision "checkout -B onto protected denied"  DENY  "$(rp_git_decision 'git checkout -B master')"
+assert_decision "checkout -b feature allowed"        ALLOW "$(rp_git_decision 'git checkout -b feature-y')"
+assert_decision "switch -C onto protected denied"    DENY  "$(rp_git_decision 'git switch -C master')"
+assert_decision "switch -c feature allowed"          ALLOW "$(rp_git_decision 'git switch -c feature-y')"
+assert_decision "push --delete protected denied"     DENY  "$(rp_git_decision 'git push origin --delete master')"
+assert_decision "push -d feature allowed"            ALLOW "$(rp_git_decision 'git push -d origin feature-x')"
+assert_decision "push src:protected refspec denied"  DENY  "$(rp_git_decision 'git push origin feature-x:master')"
+assert_decision "push +protected refspec denied"     DENY  "$(rp_git_decision 'git push origin +master')"
+assert_decision "push refs/heads/protected denied"   DENY  "$(rp_git_decision 'git push origin refs/heads/master')"
+# --all/--mirror must deny from ANY branch. On master a bare push is denied
+# anyway, so only a feature checkout shows the flag arm doing the work.
+rp_git_feat="$rp_tmp/gitfeat"
+mkdir -p "$rp_git_feat"
+git -C "$rp_git_feat" init -q -b feature-x 2>/dev/null \
+  || { git -C "$rp_git_feat" init -q && git -C "$rp_git_feat" checkout -q -b feature-x; }
+git -C "$rp_git_feat" -c user.email=t@t -c user.name=t -c commit.gpgsign=false \
+  commit -q --allow-empty -m init
+assert_decision "push --all from a feature branch denied"    DENY  "$(rp_decision Bash command "git -C $rp_git_feat push --all")"
+assert_decision "push --mirror from a feature branch denied" DENY  "$(rp_decision Bash command "git -C $rp_git_feat push --mirror")"
+assert_decision "plain push from a feature branch allowed"   ALLOW "$(rp_decision Bash command "git -C $rp_git_feat push")"
+# Multi-repo workspace: $rp_tmp/proj is not a repo, so the target repo comes from -C or the chain's cd.
+assert_decision "git -C <repo> commit on protected denied"    DENY  "$(rp_decision Bash command "git -C $rp_git commit -m x")"
+assert_decision "cd <repo> && git commit on protected denied" DENY  "$(rp_decision Bash command "cd $rp_git && git commit -m x")"
+assert_decision "git commit with no repo in reach fails open" ALLOW "$(rp_decision Bash command 'git commit -m x')"
 
 echo "[restrict-paths: command-parsing bypasses]"
 # Every case here is the SAME command a plain-spelling assertion above already
