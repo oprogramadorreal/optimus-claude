@@ -10,7 +10,7 @@ Implement a feature or bug fix test-first: for each behavior, write a failing te
 
 **The Iron Law: no production code without a failing test first.** If this cycle's implementation is written before its test, undo only that implementation using the ownership record below and begin the cycle fresh. Preserve pre-existing code and user edits; write the cycle's implementation once the failing test exists.
 
-Coming from plan mode? TDD runs in normal mode in a fresh conversation; plan-mode iterations that feed it are review-only — see `$CLAUDE_PLUGIN_ROOT/skills/brainstorm/references/plan-mode-handoff.md`.
+If this conversation is in plan mode, stop: TDD needs normal mode. Tell the user to toggle plan mode off without approving, save any refined plan to its spec, and invoke TDD in a fresh conversation.
 
 ## Step 1: Pre-flight
 
