@@ -59,7 +59,7 @@ Recommend `/optimus:commit` to actually commit — stay in this conversation so 
 
 ## Branch mode — create a named branch, nothing else
 
-A purely local move: `git checkout -b` only. Never commit, push, stage, stash, reset, or modify any file or the index — staged, unstaged, and untracked changes carry to the new branch untouched. Ask questions only for multi-repo ambiguity or missing naming signal.
+A purely local move: `git checkout -b` only. Never commit, push, stage, stash, reset, or modify any file or the index — staged, unstaged, and untracked changes carry to the new branch untouched. Ask questions only for multi-repo ambiguity.
 
 1. **Target repo** (workspace only): one repo with local changes → target it silently, unless the description or conversation names a different repo (that repo's clean tree is the starting-fresh case; leave the dirty repo untouched). Multiple dirty repos → `AskUserQuestion` — header "Target repo", one option per repo. No dirty repos → pick the repo the description or conversation points to; ask if ambiguous; with no context at all, inform the user and stop.
 
