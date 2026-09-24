@@ -5,6 +5,7 @@ import io
 import json
 import subprocess
 import sys
+import types
 from pathlib import Path
 
 import pytest
@@ -12,8 +13,10 @@ from harness_common import cli, reporting
 from harness_common.constants import (
     COMMIT_COMMITTED,
     COMMIT_FAILED,
+    COMMIT_NOTHING,
     DEFAULT_TEST_TIMEOUT,
 )
+from harness_common.git import TreeState
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -49,21 +52,19 @@ def _coverage_result(values):
 
 
 @pytest.fixture(autouse=True)
-def _tree_state_for_repo_like_scaffolds(monkeypatch):
-    """Mock only non-Git unit scaffolds; real-repository safety tests use Git."""
+def scaffold_tree(monkeypatch):
+    """Mock only non-Git unit scaffolds; real-repository safety tests use Git.
+
+    Set ``scaffold_tree.dirty = True`` to give a scaffold an uncommitted change.
+    """
     actual = cli.git_test_tree_state
     actual_nested_check = cli.git_check_nested_repositories
-    original_dirty = cli.git_diff_has_changes
+    knob = types.SimpleNamespace(dirty=False)
 
     def state(root, progress_file, **kwargs):
         if (Path(root) / ".git").exists():
             return actual(root, progress_file, **kwargs)
-        dirty = (
-            cli.git_diff_has_changes(root)
-            if cli.git_diff_has_changes is not original_dirty
-            else False
-        )
-        return cli.TreeState("fixture-green", dirty, "fixture-green", {})
+        return TreeState("fixture-green", knob.dirty, "fixture-green", {})
 
     monkeypatch.setattr(cli, "git_test_tree_state", state)
 
@@ -72,6 +73,7 @@ def _tree_state_for_repo_like_scaffolds(monkeypatch):
             return actual_nested_check(root, **kwargs)
 
     monkeypatch.setattr(cli, "git_check_nested_repositories", nested_check)
+    return knob
 
 
 def _run(*argv):
@@ -1495,7 +1497,7 @@ class TestParse:
         monkeypatch.setattr(
             cli,
             "restore_working_tree",
-            lambda stash, head, _root: calls.append((stash, head)),
+            lambda stash, head, _root: calls.append((stash, head)) or True,
         )
         exit_code = _run(
             "parse",
@@ -1507,6 +1509,7 @@ class TestParse:
         assert exit_code == 1
         assert calls == [(None, "deadbeef")]
         assert _read_progress(progress_path)["parse_failure_count"] == 1
+        assert "_safety_error" not in _read_progress(progress_path)
 
     def test_parse_failure_rollback_exception_records_safety_error(
         self, tmp_path, monkeypatch
@@ -1777,11 +1780,10 @@ def _one_fix_result():
 
 
 class TestDeepStep:
-    def test_convergence(self, tmp_path, capsys, monkeypatch):
+    def test_convergence(self, tmp_path, capsys):
         ppath = _seed_deep_progress(tmp_path)
         # A converged iteration applies no fixes, so the tree is clean and the
         # safe-exit tree-vet is a no-op (no test runs).
-        monkeypatch.setattr(cli, "git_diff_has_changes", lambda *a, **k: False)
         result = tmp_path / "result.json"
         result.write_text(
             json.dumps(
@@ -1811,13 +1813,12 @@ class TestDeepStep:
         # No tests ran on this (clean-tree) path — test_passed must be None.
         assert data["iteration_history"][-1]["test_passed"] is None
 
-    def test_string_false_flags_do_not_converge(self, tmp_path, capsys, monkeypatch):
+    def test_string_false_flags_do_not_converge(self, tmp_path, capsys):
         # The SAME untrusted-scalar class convergence.py guards, on the OTHER
         # orchestrator: read raw, the string "false" is truthy in Python, so
         # deep-step terminated on iteration 1 with reason "convergence" and
         # printed a clean tree while the subagent had just reported findings.
         ppath = _seed_deep_progress(tmp_path)
-        monkeypatch.setattr(cli, "git_diff_has_changes", lambda *a, **k: False)
         result = tmp_path / "result.json"
         result.write_text(
             json.dumps(
@@ -1845,11 +1846,10 @@ class TestDeepStep:
         data = _read_progress(ppath)
         assert (data.get("termination") or {}).get("reason") is None
 
-    def test_no_actionable(self, tmp_path, capsys, monkeypatch):
+    def test_no_actionable(self, tmp_path, capsys):
         ppath = _seed_deep_progress(tmp_path)
         # No actionable fixes were applied, so the tree is clean and the
         # safe-exit tree-vet is a no-op.
-        monkeypatch.setattr(cli, "git_diff_has_changes", lambda *a, **k: False)
         result = tmp_path / "result.json"
         result.write_text(
             json.dumps(
@@ -2213,13 +2213,12 @@ class TestDeepStep:
         assert data["iteration_history"][-1]["fixed"] == 1
         assert data["termination"]["reason"] is None
 
-    def test_promote_skips_when_edit_pair_invalid(self, tmp_path, capsys, monkeypatch):
+    def test_promote_skips_when_edit_pair_invalid(self, tmp_path, capsys):
         # _promote_actionable_fixes must NOT promote a finding whose
         # pre_edit_content equals post_edit_content (no edit) or whose
         # post_edit_content is None. Original "no-actionable" termination
         # must stand.
         ppath = _seed_deep_progress(tmp_path)
-        monkeypatch.setattr(cli, "git_diff_has_changes", lambda *a, **k: False)
         result = tmp_path / "result.json"
         result.write_text(
             json.dumps(
@@ -3267,7 +3266,7 @@ class TestCheckTermination:
         assert exit_code == 0
         assert capsys.readouterr().out.strip() == "continue"
 
-    def test_diminishing_returns_coverage(self, tmp_path, capsys, monkeypatch):
+    def test_diminishing_returns_coverage(self, tmp_path, capsys):
         # Drive check_coverage_plateau via the coverage variant: two
         # consecutive zero-delta history entries should trigger
         # diminishing-returns and record the termination reason.
@@ -3278,16 +3277,12 @@ class TestCheckTermination:
             {"cycle": 2, "before": 60, "after": 60, "delta": 0},
         ]
         ppath.write_text(json.dumps(data, indent=2), encoding="utf-8")
-        monkeypatch.setattr(
-            cli,
-            "check_coverage_plateau",
-            lambda _hist: (True, "plateau detected"),
-        )
         exit_code = _run("check-termination", "--progress-file", str(ppath))
         assert exit_code == 0
         assert capsys.readouterr().out.strip() == "diminishing-returns"
         data = _read_progress(ppath)
         assert data["termination"]["reason"] == "diminishing-returns"
+        assert "Zero coverage gain" in data["termination"]["message"]
 
 
 # ---------------------------------------------------------------------------
@@ -3364,16 +3359,15 @@ class TestMarkTermination:
 
 
 class TestCommitCheckpoint:
-    def test_nothing_to_commit(self, tmp_path, capsys, monkeypatch):
+    def test_nothing_to_commit(self, tmp_path, capsys):
         ppath = _seed_deep_progress(tmp_path)
-        monkeypatch.setattr(cli, "git_diff_has_changes", lambda _cwd: False)
         exit_code = _run("commit-checkpoint", "--progress-file", str(ppath))
         assert exit_code == 0
         assert capsys.readouterr().out.strip() == "nothing-to-commit"
 
-    def test_commit_success_deep(self, tmp_path, capsys, monkeypatch):
+    def test_commit_success_deep(self, tmp_path, capsys, monkeypatch, scaffold_tree):
         ppath = _seed_deep_progress(tmp_path)
-        monkeypatch.setattr(cli, "git_diff_has_changes", lambda _cwd: True)
+        scaffold_tree.dirty = True
         captured = {}
 
         def fake_commit(message, cwd, pf, **kw):
@@ -3386,7 +3380,9 @@ class TestCommitCheckpoint:
         assert capsys.readouterr().out.strip() == "committed"
         assert "deep-orchestrator" in captured["message"]
 
-    def test_commit_success_coverage_unit_test(self, tmp_path, capsys, monkeypatch):
+    def test_commit_success_coverage_unit_test(
+        self, tmp_path, capsys, monkeypatch, scaffold_tree
+    ):
         # Coverage variant with phase=unit-test: title prefix is "test"
         # (per PHASE_COMMIT_TYPE) and the body lists the cycle's tests_created.
         ppath = _seed_coverage_progress(tmp_path)
@@ -3403,7 +3399,7 @@ class TestCommitCheckpoint:
             },
         ]
         ppath.write_text(json.dumps(data, indent=2), encoding="utf-8")
-        monkeypatch.setattr(cli, "git_diff_has_changes", lambda _cwd: True)
+        scaffold_tree.dirty = True
         captured = {}
 
         def fake_commit(message, cwd, pf, **kw):
@@ -3424,7 +3420,9 @@ class TestCommitCheckpoint:
         assert "1 tests written" in captured["message"]
         assert "Tests written:" in captured["message"]
 
-    def test_commit_success_coverage_refactor(self, tmp_path, capsys, monkeypatch):
+    def test_commit_success_coverage_refactor(
+        self, tmp_path, capsys, monkeypatch, scaffold_tree
+    ):
         # Coverage variant with phase=refactor: title prefix is "refactor"
         # and the body lists the cycle's fixed refactor_findings.
         ppath = _seed_coverage_progress(tmp_path)
@@ -3440,7 +3438,7 @@ class TestCommitCheckpoint:
             },
         ]
         ppath.write_text(json.dumps(data, indent=2), encoding="utf-8")
-        monkeypatch.setattr(cli, "git_diff_has_changes", lambda _cwd: True)
+        scaffold_tree.dirty = True
         captured = {}
 
         def fake_commit(message, cwd, pf, **kw):
@@ -3461,12 +3459,14 @@ class TestCommitCheckpoint:
         assert "1 fixed" in captured["message"]
         assert "Testability fixes applied:" in captured["message"]
 
-    def test_commit_failed_exit_code_and_marker(self, tmp_path, capsys, monkeypatch):
+    def test_commit_failed_exit_code_and_marker(
+        self, tmp_path, capsys, monkeypatch, scaffold_tree
+    ):
         # On commit-failed the CLI durably sets commit_disabled, so later
         # snapshots auto-stash and later checkpoints self-skip — the orchestrator
         # no longer has to switch modes by hand.
         ppath = _seed_deep_progress(tmp_path)
-        monkeypatch.setattr(cli, "git_diff_has_changes", lambda _cwd: True)
+        scaffold_tree.dirty = True
         monkeypatch.setattr(
             cli, "git_commit_checkpoint", lambda *_a, **_kw: COMMIT_FAILED
         )
@@ -3475,11 +3475,27 @@ class TestCommitCheckpoint:
         assert capsys.readouterr().out.strip() == "commit-failed"
         assert _read_progress(ppath)["commit_disabled"] is True
 
+    def test_commit_nothing_keeps_commits_enabled(
+        self, tmp_path, capsys, monkeypatch, scaffold_tree
+    ):
+        # A dirty tree whose staged set empties after the harness-state un-stage
+        # (COMMIT_NOTHING) is a clean no-op: nothing-to-commit, commits stay enabled.
+        ppath = _seed_deep_progress(tmp_path)
+        scaffold_tree.dirty = True
+        monkeypatch.setattr(
+            cli, "git_commit_checkpoint", lambda *_a, **_kw: COMMIT_NOTHING
+        )
+        exit_code = _run("commit-checkpoint", "--progress-file", str(ppath))
+        assert exit_code == 0
+        assert capsys.readouterr().out.strip() == "nothing-to-commit"
+        assert not _read_progress(ppath).get("commit_disabled")
+
     def test_no_fix_iteration_keeps_commits_enabled(self, tmp_path, capsys):
         # End-to-end regression with a REAL git repo (no monkeypatching of the
-        # git layer): a no-fix iteration whose only tree change is the untracked
-        # progress file must report nothing-to-commit and leave commit_disabled
-        # False — the field bug that durably killed checkpoint recoverability.
+        # git layer): a no-fix iteration whose only change is the excluded
+        # progress file is a clean tree — nothing-to-commit, commits stay
+        # enabled. The COMMIT_NOTHING mapping is pinned by
+        # test_commit_nothing_keeps_commits_enabled.
         _git_init(tmp_path)
         ppath = _seed_deep_progress(tmp_path)
         # _seed_deep_progress points project_root at tmp_path; the progress file
@@ -4577,9 +4593,8 @@ class TestReviewFixRegressions:
         assert exit_code == 1
         assert "requires an array" in capsys.readouterr().err
 
-    def test_deep_step_rejects_null_arrays(self, tmp_path, capsys, monkeypatch):
+    def test_deep_step_rejects_null_arrays(self, tmp_path, capsys):
         ppath = _seed_deep_progress(tmp_path)
-        monkeypatch.setattr(cli, "git_diff_has_changes", lambda *a, **k: False)
         result = tmp_path / "result.json"
         result.write_text(
             json.dumps(
@@ -4744,9 +4759,8 @@ class TestReviewFixRegressions:
         assert len(_read_progress(ppath)["untestable_code"]) == 1
 
     # --- A1: a non-string pre_edit_content is not promoted (would crash bisect) ---
-    def test_promote_skips_non_string_pre(self, tmp_path, capsys, monkeypatch):
+    def test_promote_skips_non_string_pre(self, tmp_path, capsys):
         ppath = _seed_deep_progress(tmp_path)
-        monkeypatch.setattr(cli, "git_diff_has_changes", lambda *a, **k: False)
         result = tmp_path / "result.json"
         result.write_text(
             json.dumps(
