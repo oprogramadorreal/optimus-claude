@@ -1,7 +1,7 @@
 # Orchestrator Loop — Paired Cycles (Coverage Variant)
 
 ## Contents
-1. [Per-cycle body](#per-cycle-body) — steps 1–11 (unit-test phase, refactor phase, history, termination)
+1. [Per-cycle body](#per-cycle-body) — steps 1–11 (unit-test phase, refactor phase, advance, termination)
 2. [After the loop](#after-the-loop)
 3. [Per-phase notes](#per-phase-notes)
 
@@ -175,18 +175,16 @@ PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli commit-che
 
 Self-skips in no-commit mode (same contract as step 5).
 
-### 10. Record the cycle history + advance
+### 10. Advance the cycle
 
 ```bash
 PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli record-cycle \
-    --progress-file "<progress-path>" \
-    --unit-test-summary "<json>" \
-    [--refactor-summary "<json>"]
+    --progress-file "<progress-path>"
 ```
 
-`record-cycle` appends a `cycle_history` entry and increments `cycle.current`. The summaries are JSON snippets you can build from the phase outputs you captured at steps 4 and 8 (counts of tests written, fixes applied, etc.).
+`record-cycle` appends a `cycle_history` entry and increments `cycle.current` (step 11's cap check reads it).
 
-Step 4's `continue` does not distinguish a green merge from a red-suite rollback, so the unit-test counts are subagent-reported, not CLI-confirmed. In commit mode, `nothing-to-commit` from step 5 despite reported tests indicates the cycle was rolled back — record zero tests written for the phase and say so in the status update; otherwise attribute counts to the subagent (e.g. *"subagent reported 4 tests"*) rather than asserting they were kept.
+Step 4's `continue` does not distinguish a green merge from a red-suite rollback, so unit-test counts in the status update are subagent-reported, not CLI-confirmed. Attribute them to the subagent (e.g. *"subagent reported 4 tests"*). In commit mode, `nothing-to-commit` from step 5 despite reported tests means the cycle was rolled back, so say so.
 
 ### 11. Check termination
 
@@ -211,4 +209,4 @@ PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli final-repo
 ## Per-phase notes
 
 - The orchestrator never reads the full `untestable_code` array between cycles — only `pending-refactor-count` decides whether to dispatch the refactor phase.
-- **Parse-failure recovery:** apply `orchestrator-loop-single.md` "Parse-failure recovery", including the fresh-snapshot and `_safety_error` checks before treating rollback as successful. A rollback or unexpected I/O failure stops this loop. For a successfully recovered malformed-output failure, never run a `*-step` against the stale result file: a unit-test-phase failure skips steps 4–9, a refactor-phase failure skips steps 8–9; continue at step 10 (record the parse failure) then step 11. Either phase counts toward the two-consecutive-failures threshold.
+- **Parse-failure recovery:** apply `orchestrator-loop-single.md` "Parse-failure recovery", including the fresh-snapshot and `_safety_error` checks before treating rollback as successful. A rollback or unexpected I/O failure stops this loop. For a successfully recovered malformed-output failure, never run a `*-step` against the stale result file: a unit-test-phase failure skips steps 4–9, a refactor-phase failure skips steps 8–9; continue at step 10 then step 11. Either phase counts toward the two-consecutive-failures threshold.
