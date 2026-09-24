@@ -83,7 +83,7 @@ History-modifying git operations (`commit`, `cherry-pick`, `revert`, `push`, `re
 
 ### Precious file protection (always on)
 
-Well-known sensitive unversioned files are protected automatically: edits prompt, deletions are blocked. Categories: secrets (`.env*`, `credentials.*`, `local.settings.json`, ...), keys and certificates (`*.key`, `*.pem`, `*.pfx`, ...), databases (`*.sqlite`, `*.mdf`, ...), local config overrides (`docker-compose.override.yml`, ...), and IDE user settings. The `is_precious()` function in [`templates/hooks/restrict-paths.sh`](templates/hooks/restrict-paths.sh) is the single source of truth for the pattern list.
+Well-known sensitive unversioned files are protected automatically: edits prompt, deletions are blocked. Categories: secrets (`.env*`, `credentials.*`, `local.settings.json`, ...), keys and certificates (`*.key`, `*.pem`, `*.pfx`, ...), databases (`*.sqlite`, `*.mdf`, ...), local config overrides (`docker-compose.override.yml`, ...), and IDE user settings. `is_precious_name()` and `is_recoverable_precious_name()` in [`templates/hooks/restrict-paths.sh`](templates/hooks/restrict-paths.sh) are the single source of truth for the pattern list.
 
 Backups and IDE scratch (`*.bak`, `*.suo`, `*.user`) are intentionally deletable: they prompt on edit but do not trigger the hook's delete block. This category is a policy choice, not proof that another copy exists. Backups of hard-precious files retain protection through backup/rotation suffixes; `.env.bak`, `id_rsa.pem.old`, `server.key.1`, `app.sqlite~`, and names also matching the hard list such as `.env.suo` stay protected. Ordinary rotated logs and merge leftovers are not added to that list.
 

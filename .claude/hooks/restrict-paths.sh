@@ -52,8 +52,9 @@
 # PRECIOUS FILE PROTECTION (always-on):
 #   Well-known sensitive files (.env, *.key, *.pem, *.sqlite, etc.) that are
 #   not tracked by git receive extra protection: edits prompt for approval,
-#   deletions are blocked. No configuration needed — patterns are hardcoded
-#   in the is_precious() function. See the skill's README for the full list.
+#   deletions are blocked. No configuration needed — the patterns live in
+#   is_precious_name() (delete blocked) and is_recoverable_precious_name()
+#   (backups/IDE scratch: edit asks, delete allowed).
 #
 # CLAUDE MEMORY STORE (always-allowed):
 #   Claude Code keeps a per-project auto-memory store under
