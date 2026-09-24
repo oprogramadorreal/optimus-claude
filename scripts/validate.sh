@@ -147,8 +147,7 @@ check "restrict-paths template declares a HOOK_VERSION in its banner" \
 # pinned them, so a rule added for users could silently miss this repo's own
 # review passes. skill-writing-guidelines.md is deliberately NOT pinned: this
 # repo's copy carries plugin-specific rules (no `name:` frontmatter, the
-# two-level reference allowance, the closing-recommendation convention) that
-# have no meaning in a user project.
+# closing-recommendation convention) that have no meaning in a user project.
 if command -v diff &>/dev/null; then
   check "coding-guidelines.md matches its template below line 1" \
     bash -c "diff -q <(tail -n +2 .claude/docs/coding-guidelines.md) <(tail -n +2 skills/init/templates/docs/coding-guidelines.md) >/dev/null"

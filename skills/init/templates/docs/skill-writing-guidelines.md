@@ -21,7 +21,7 @@ Match specificity to fragility, and treat it as a binary:
 - **High freedom** (brief goals and criteria) — judgment tasks: review criteria, document structure, report content. **This is the default.**
 - **Low freedom** (exact commands, no deviation) — fragile sequences: schema migrations, git surgery, data formats a script parses. Exact commands here are not bloat.
 
-Over-specified step lists for judgment tasks are the most common failure mode in instruction authoring. Give one sensible default plus an escape hatch, not an option menu. State numeric bounds as guidance with a stated escape ("at most 3 questions — a maximum, not a target; skip them when intent is clear"), not as hard gates.
+Over-specified step lists for judgment tasks are the most common failure mode in instruction authoring. Give one sensible default plus an escape hatch, not an option menu. State numeric bounds as guidance with a stated escape ("at most 3 questions — a maximum, not a target; skip them when intent is clear"), not as hard gates. Scripted user-question dialogs are justified only at genuine decision gates (destructive actions, scope approval, cost confirmation) — not for choreography.
 
 ## What not to instruct
 
@@ -49,6 +49,7 @@ These are candidates for simplification, not universal claims about every model 
 - Lead with the differentiating verb phrase. Declare side effects (writes files, commits, pushes) and hard prerequisites.
 - Keep feature inventories out — those belong in a README. A description that lists everything truncates before it reaches what distinguishes it.
 - If your instructions are only ever invoked explicitly, the description's real audience is a human scanning a truncating menu; concise beats keyword-rich.
+- Frontmatter must parse as YAML: a `: ` inside an unquoted scalar can make a loader drop the metadata or skip the file. Use a folded `>-` scalar when in doubt.
 
 ## Progressive disclosure
 
