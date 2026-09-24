@@ -74,7 +74,9 @@ from .findings import (
     update_scope,
 )
 from .fixes import bisect_fixes
-from .git import TreeState
+from .git import (
+    TreeState,
+)
 from .git import commit_checkpoint as git_commit_checkpoint
 from .git import (
     get_open_pr_data,
@@ -1837,6 +1839,14 @@ def cmd_final_report(args):
     else:
         print_deep_report(progress)
     if args.archive:
+        # A recorded safety failure still needs its recovery state; archiving
+        # would strand it in .done.json, which --resume cannot reopen.
+        if progress.get("_safety_error"):
+            print(
+                "not-archived: a safety failure is recorded. Inspect/recover the "
+                "tree, then re-run with --resume (a green baseline clears it)."
+            )
+            return 0
         # A soft, resumable exit — the termination message tells the user to
         # --resume. Archiving renames the progress file to .done.json, which
         # cmd_resume then refuses, breaking the advertised --resume. Leave the
@@ -1845,7 +1855,8 @@ def cmd_final_report(args):
         if reason in RESUMABLE_TERMINATIONS:
             print(
                 f"not-archived: run left resumable ({reason}). Re-run "
-                "with --resume to continue, or delete the progress file to discard."
+                "with --resume to continue, or delete the progress file and "
+                "its .bak backup to discard."
             )
             return 0
         done_path = progress_path.with_suffix(".done.json")

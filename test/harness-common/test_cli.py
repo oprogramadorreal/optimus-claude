@@ -3713,6 +3713,21 @@ class TestFinalReport:
         assert ppath.exists()
         assert not (tmp_path / "progress.done.json").exists()
 
+    def test_safety_error_not_archived(self, tmp_path, capsys, monkeypatch):
+        # A recorded safety failure must keep progress/recovery state in place
+        # (architecture.md: never archive on this failure path).
+        ppath = _seed_deep_progress(tmp_path)
+        data = _read_progress(ppath)
+        data["termination"] = {"reason": "parse-failure", "message": "x"}
+        data["_safety_error"] = "restore failed"
+        ppath.write_text(json.dumps(data), encoding="utf-8")
+        monkeypatch.setattr(reporting, "git_current_branch", lambda _cwd: "")
+        exit_code = _run("final-report", "--progress-file", str(ppath), "--archive")
+        assert exit_code == 0
+        assert "not-archived" in capsys.readouterr().out
+        assert ppath.exists()
+        assert not (tmp_path / "progress.done.json").exists()
+
 
 # ---------------------------------------------------------------------------
 # snapshot
