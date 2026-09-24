@@ -49,11 +49,11 @@ Installs a hook and merges settings, recording only file changes and settings ad
 
 ### Allow list
 
-Auto-approves 14 built-in tools (`Bash`, `Read`, `Edit`, `Write`, `Agent` and its legacy alias `Task`, ...) so routine work is prompt-free. MCP servers found in `.mcp.json` are auto-added as `mcp__<server>` entries. Source of truth: [`templates/settings.json`](templates/settings.json).
+Auto-approves built-in tools (`Bash`, `Read`, `Edit`, `Write`, `Agent` and its legacy alias `Task`, ...) so routine work is prompt-free. MCP servers found in `.mcp.json` are auto-added as `mcp__<server>` entries. Source of truth: [`templates/settings.json`](templates/settings.json).
 
 ### Deny list
 
-Blocks 30 dangerous Bash patterns across six categories: git history rewriting (`push --force`, `reset --hard`, `clean`, ...), system destruction (`rm -rf /`, `sudo`), piped remote code execution (`curl | bash`, ...), infrastructure destruction (`docker system prune`, `kubectl delete`, ...), package publishing (`npm publish`, `twine upload`, ...), and best-effort data exfiltration (`curl -d @file` — trivially bypassable). The exact pattern list lives in [`templates/settings.json`](templates/settings.json) — that file, not this README, is the source of truth.
+Blocks dangerous Bash patterns across six categories: git history rewriting (`push --force`, `reset --hard`, `clean`, ...), system destruction (`rm -rf /`, `sudo`), piped remote code execution (`curl | bash`, ...), infrastructure destruction (`docker system prune`, `kubectl delete`, ...), package publishing (`npm publish`, `twine upload`, ...), and best-effort data exfiltration (`curl -d @file` — trivially bypassable). The exact pattern list lives in [`templates/settings.json`](templates/settings.json) — that file, not this README, is the source of truth.
 
 ### PreToolUse Hook
 
