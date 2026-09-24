@@ -53,7 +53,7 @@ Present a per-aspect status table from the audit. **Only when the detector repor
 - **Absent:** run the per-item unverifiable prompts below, then go to Step 4.
 - **Exists** (accurate, partial, or stale): `AskUserQuestion` — header "How to Run Documentation", question "HOW-TO-RUN.md already exists (audit findings above). How would you like to proceed?":
   - **Walk through it** — "I'll guide you through each step in-chat — show each command, what it does, and the audit verdict. You run the commands locally; I never execute anything for you." → Step 3a.
-  - **Regenerate** — "Show the diff and rewrite HOW-TO-RUN.md to match the current project state." → show current content vs proposed correction per outdated item, then the per-item prompts below, then Step 4.
+  - **Regenerate** — "Show the diff and rewrite HOW-TO-RUN.md to match the current project state." → the per-item prompts below, then Step 4.
   - **Skip** — "No changes. Print the audit findings and stop." → Step 6 (report only).
 
 **Per-item unverifiable prompts (Regenerate path or fresh write).** For each "Documented but unverifiable" audit item, `AskUserQuestion` whether to include it, showing the source file and heading. On approval, record `{aspect, source_file, source_heading, text, rendered_line}` into an in-memory `approved-unverifiable-items` list, applying every rule in `$CLAUDE_PLUGIN_ROOT/skills/how-to-run/references/step6-verification-audits.md` §Record-time validation before storing. `rendered_line` is filled in at Step 4 — it is the exact line Step 6 exempts.
