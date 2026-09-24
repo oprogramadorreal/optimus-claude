@@ -194,11 +194,11 @@ Then sweep template-derived content for surviving `[placeholder]` text and unres
 
 **Broken baseline:** if the Step 5b health check recorded failing tests, append `— baseline broken ([N] failing)` to the Test-infra value (per subproject/repo where applicable) and add immediately after the table:
 
-> **Baseline broken** — init does not fix failing tests by design. Ask Claude to triage the failing tests before running skills that need a green baseline.
+> **Baseline broken** — init does not fix failing tests by design. Ask the agent to triage the failing tests before running skills that need a green baseline.
 
 Conditional warnings after the table:
 
-- Scaffolding created `<name>/` → "**New project root:** the project now lives in `<name>/` — start future Claude Code sessions from that directory, or the generated CLAUDE.md and hooks will not load."
+- Scaffolding created `<name>/` → "**New project root:** the project now lives in `<name>/` — start future sessions from that directory, or the generated project guidance and hooks will not load."
 - Test framework installed from scratch → "**Important:** the project has no test files yet, so the test command passes with 0 tests — a false safety net. `/optimus:unit-test` writes initial tests and establishes real coverage."
 - Test infrastructure declined → "**Note:** test infrastructure was not installed — `/optimus:tdd`, `/optimus:unit-test`, and `/optimus:deep` will stop, and `/optimus:code-review` and `/optimus:refactor` lose their test checks. Re-run `/optimus:init` to install it later."
 
