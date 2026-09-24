@@ -163,8 +163,17 @@ For the workspace root (not version-controlled). H2 sections, in this order:
 ## External Services
 [shared infrastructure across repos]
 
+## Build
+[compiled stacks only — per-repo build commands]
+
 ## Running Everything
 [how to start all services/apps together]
+
+## Running Tests
+[per-repo test commands]
+
+## Common Issues
+[only on clear signals, incl. the External Services Verify bullets and diagnostic ladder]
 ```
 
 Environment Setup is deliberately BEFORE Setup here: per-repo Setup commands (installs, migrations, seeds) frequently read connection strings, registry tokens, and credentials whose committed defaults must be overridden first. The single-project analog: when the *Private registry* signal is set or *Local TLS cert* is `mkcert`, Environment Setup must precede the language-level install — Step 6 surfaces a conflict when it doesn't.
