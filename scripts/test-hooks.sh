@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Unit tests for plugin hooks (session-start and formatter hooks).
-# These are the only executable code in the plugin — they run on user machines.
+# Tests for the hooks that run on user machines: session-start, the formatter
+# templates, and the restrict-paths.sh permissions template.
 # Run: bash scripts/test-hooks.sh
 
 set -euo pipefail
@@ -325,7 +325,7 @@ assert_output_not_contains "Suppresses init notice when the marker is at depth 4
 assert_exit_zero "Exits 0 when the marker is at depth 4" "$hook_status"
 cleanup_fixture
 
-echo "[session-start: workspace root with settings only, marker in sub-repo (mirrors audaces/isa)]"
+echo "[session-start: workspace root with settings only, marker in sub-repo]"
 setup_fixture
 mkdir -p .claude
 echo "{}" > .claude/settings.json
@@ -333,8 +333,8 @@ echo "# Workspace" > CLAUDE.md
 mkdir -p sub/.claude
 echo "1.64.2" > sub/.claude/.optimus-version
 run_session_start
-assert_output_not_contains "Suppresses init notice in audaces/isa-style layout" "/optimus:init" "$output"
-assert_exit_zero "Exits 0 in audaces/isa-style layout" "$hook_status"
+assert_output_not_contains "Suppresses init notice in workspace-root layout" "/optimus:init" "$output"
+assert_exit_zero "Exits 0 in workspace-root layout" "$hook_status"
 cleanup_fixture
 
 echo "[session-start: no markers anywhere — regression for clean dir]"
@@ -728,12 +728,6 @@ rp_normalize_no_realpath() { # $1=path -> normalized on a realpath-less platform
   rp_drive_fn "$RP_NO_PATH_TOOLS" collapse_dot_segments,normalize 'normalize "$1"' "$1"
 }
 
-# Normalize as MSYS/Cygwin would: a cygpath that maps backslashes to slashes and
-# a realpath that PRESERVES a distinct '//' root. Stubbed rather than relying on
-# the host, so the case is exercised on Linux CI too — and it is the only way to
-# reach the branch where the OS spelling ('\\server\share') differs from the raw
-# argument, which is exactly where probing "$1" instead of the post-cygpath
-# string silently collapses a remote path onto an unrelated local one.
 rp_collapse() { # $1=path -> lexically resolved, driving the function directly
   rp_drive_fn "" collapse_dot_segments \
     'collapse_dot_segments "$1"; printf "%s" "$_collapsed"' "$1"
@@ -768,6 +762,12 @@ rp_single_segment() { # $1=segment -> YES | NO
     'is_single_segment "$1" && echo YES || echo NO' "$1"
 }
 
+# Normalize as MSYS/Cygwin would: a cygpath that maps backslashes to slashes and
+# a realpath that PRESERVES a distinct '//' root. Stubbed rather than relying on
+# the host, so the case is exercised on Linux CI too — and it is the only way to
+# reach the branch where the OS spelling ('\\server\share') differs from the raw
+# argument, which is exactly where probing "$1" instead of the post-cygpath
+# string silently collapses a remote path onto an unrelated local one.
 rp_normalize_msys() { # $1=path -> normalized with cygpath+distinct-// realpath
   local d="$rp_tmp/msysbin"
   if [ ! -x "$d/cygpath" ]; then
@@ -826,10 +826,9 @@ assert_decision "Delete in memory store allowed"       ALLOW "$(rp_decision Bash
 assert_decision "Delete traversal out of memory denied" DENY "$(rp_decision Bash command "rm $mem/../../../settings.json")"
 
 # --- Fail-closed defensive branches (not reachable through the standard env above) ---
-# (1) When realpath cannot resolve '..' (non-GNU/BSD realpath — e.g. macOS, where
-# 'realpath -m' is unsupported), normalize() leaves the traversal intact and the
-# literal-'..' guard in is_claude_memory must still reject the exemption. Force that
-# branch with a non-resolving 'realpath' stub on PATH. (Robust either way: if the
+# (1) With a realpath that rejects '-m' (macOS/BSD), normalize() resolves the '..'
+# itself (collapse_dot_segments); the path must land outside the memory store.
+# Forced with a non-resolving 'realpath' stub on PATH. (Robust either way: if the
 # stub is bypassed and realpath resolves '..', the path still misses the memory
 # prefix and the expected ask/deny holds — only a wrongful allow would fail these.)
 rp_stub_bin="$rp_tmp/stubbin"
@@ -875,10 +874,10 @@ assert_decision "Nested scratchpad (deep) asks"        ASK   "$(rp_decision_scra
 assert_decision "Scratchpad traversal escape asks"     ASK   "$(rp_decision_scratch Write file_path "$scratch/../../../../outside/x.md")"
 assert_decision "Scratchpad delete traversal denied"   DENY  "$(rp_decision_scratch Bash command "rm $scratch/../../../../outside/x.md")"
 
-# Fail-closed: (1) the literal-'..' guard must reject the exemption when realpath
-# can't resolve '..' (reuses the non-resolving realpath stub from the memory block),
-# and (2) when no temp root can be resolved from the environment, scratchpad paths
-# fall back to the out-of-project gate. (rp_stub_bin is defined in the memory block.)
+# Fail-closed: (1) under the non-resolving realpath stub, normalize() still resolves
+# the '..', landing outside the scratchpad shape; (2) with TMPDIR/TEMP/TMP unset only
+# /tmp remains a temp root, so this tree is no longer a scratchpad.
+# (rp_stub_bin is defined in the memory block.)
 assert_decision "Scratchpad traversal asks when realpath can't resolve .." ASK \
   "$(rp_decision_env HOME="$rp_tmp/home" CLAUDE_PROJECT_DIR="$rp_tmp/proj" TMPDIR="$scratch_root" PATH="$rp_stub_bin:$PATH" -- Write file_path "$scratch/../../settings.json")"
 assert_decision "Scratchpad write asks when temp vars unset" ASK \
@@ -1751,10 +1750,6 @@ assert_decision "Literal '*' in an in-project filename still allowed" ALLOW \
   "$(cd "$rp_glob_cwd" && rp_decision_env HOME="$rp_tmp/home" CLAUDE_PROJECT_DIR="$rp_tmp/proj" PATH="$rp_stub_bin:$PATH" -- Write file_path "$rp_tmp/proj/star*file.txt")"
 
 echo "[restrict-paths: no realpath at all (cd/pwd fallback)]"
-# $rp_stub_bin models a realpath that EXISTS and rejects '-m'. A realpath that is
-# absent entirely is a different platform (older macOS, distroless) and reaches
-# normalize()'s cd/pwd branch, which splices '//tmp' when the parent is '/'.
-# Nothing else in this file exercises that branch.
 assert_decision "normalize collapses a spliced //tmp"  "/tmp"     "$(rp_normalize_no_realpath /tmp)"
 assert_decision "normalize collapses a spliced //var"  "/var"     "$(rp_normalize_no_realpath /var)"
 assert_decision "normalize leaves an ordinary path"    "/tmp/a/b" "$(rp_normalize_no_realpath /tmp/a/b)"
@@ -1900,9 +1895,6 @@ assert_decision "collapse: '*' consumes exactly one '..'" "/x/y" "$(rp_collapse_
 assert_decision "collapse: '*' cannot absorb a climb out" "/y" "$(rp_collapse_globcwd '/x/*/../../y')"
 
 echo "[restrict-paths: defensive predicates]"
-# These two are backstops behind normalize()'s central resolution, so no tool
-# call can reach them any more — delete either and every end-to-end assertion
-# still passes. Pin them directly, or they rot silently while looking guarded.
 assert_decision "traversal: bare '..'"            YES "$(rp_has_traversal '..')"
 assert_decision "traversal: leading '../'"        YES "$(rp_has_traversal '../x')"
 assert_decision "traversal: embedded '/../'"      YES "$(rp_has_traversal '/a/../b')"
@@ -1942,8 +1934,7 @@ rp_run HOME="$rp_tmp/home" CLAUDE_PROJECT_DIR="$rp_tmp/proj" -- Write file_path 
 assert_reason_has "Formfeed is escaped as \\f, not dropped" 'a\fb'
 # Every decision must be parseable JSON — that is what makes escaping load-bearing.
 # Probe by RUNNING the interpreter, not `command -v`: on Windows a bare `python`
-# can resolve to the Store alias stub, which exists but cannot run anything
-# (same probe validate.sh uses).
+# can resolve to the Store alias stub, which exists but cannot run anything.
 rp_py=""
 if python3 --version >/dev/null 2>&1; then rp_py="python3"
 elif python --version >/dev/null 2>&1; then rp_py="python"
