@@ -120,15 +120,11 @@ Only when the current behavior is a bug reproduction (skip for feature behaviors
 
 If the test passes at step 3 with the fix reverted, it isn't catching the bug: restore the saved green implementation, then rewrite the test to target the actual failure condition.
 
-### Lint / type-check
-
-If a lint or type-check command is configured (`CLAUDE.md` or project manifest), run it — type errors can hide behind passing tests. Fix failures before proceeding.
-
 ## Step 6: Refactor — Clean Up While Green
 
 Review this cycle's test and implementation against `coding-guidelines.md`. Scope: code written in this session plus the files it directly imports, calls, or inherits from — extract duplication with those files, align naming, adjust an existing method to cleanly serve old and new usage. Do not restructure beyond that scope, add features, or handle untested edge cases. Also check the test: behavior-spec name, focused assertions, `testing.md` conventions.
 
-Run the test suite when the cycle's cleanup is done; if it goes red, undo the change that broke it. Re-run the Step 5 lint / type-check as well — it last ran *before* this cleanup edited the code, and Step 7 commits without checking again.
+When the cycle's cleanup is done, run the lint / type-check command if one is configured (`CLAUDE.md` or project manifest) and fix failures — type errors can hide behind passing tests. Then run the test suite; if it goes red, undo the change that broke it. Step 7 commits without checking again.
 
 ## Step 7: Commit and Loop
 
