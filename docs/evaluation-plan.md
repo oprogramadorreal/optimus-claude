@@ -49,7 +49,7 @@ The first three fixture-backed questions are inexpensive pilots. A successful sm
 
 ## Fixture execution and scoring
 
-Copy each case fixture to a new repository with spaces in its path. Commit its initial contents except when the case explicitly requires an untracked handoff. Save initial working-tree bytes and index hashes outside the model-visible project. Run the exact task text in [cases.json](../test/evaluations/cases.json), supplying the selected condition's instructions through normal host discovery. For standalone command smoke tests, inspect the emitted commands and actual files rather than matching final prose.
+Copy each case fixture to a new repository with spaces in its path. Commit its initial contents except when the case explicitly requires an untracked handoff. For `review-app`, make an empty initial commit and stage the fixture files without committing them, because `/optimus:code-review` reviews local changes, a PR or a branch diff, not a whole tree. Save initial working-tree bytes and index hashes outside the model-visible project. Run the exact task text in [cases.json](../test/evaluations/cases.json), supplying the selected condition's instructions through normal host discovery. For standalone command smoke tests, inspect the emitted commands and actual files rather than matching final prose.
 
 The maintained deterministic oracle can be run from the plugin checkout, outside the model's project:
 
