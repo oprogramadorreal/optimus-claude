@@ -88,7 +88,7 @@ Open a skill's documentation for examples, options, and prerequisites. Run `init
 | [`/optimus:how-to-run`](skills/how-to-run/README.md) | Generate or refresh a `HOW-TO-RUN.md` for local setup and development. |
 | [`/optimus:permissions`](skills/permissions/README.md) | **Claude Code only:** configure branch protection, file safeguards, and routine tool permissions. |
 | [`/optimus:prompt`](skills/prompt/README.md) | Turn an idea into a copy-ready prompt for an AI tool. |
-| [`/optimus:reset`](skills/reset/README.md) | Remove selected Optimus project artifacts; use `permissions` to remove only the permissions setup while keeping init. Preserves tests and does not uninstall the plugin. |
+| [`/optimus:reset`](skills/reset/README.md) | Remove selected init and permissions setup; use `permissions` to remove only the permissions setup while keeping init. Preserves tests and does not uninstall the plugin. |
 | [`/optimus:dream`](skills/dream/README.md) | **Claude Code only:** review and consolidate stale auto-memory, with confirmation before deletion. |
 
 ## Recommended Workflow
@@ -100,7 +100,7 @@ Open a skill's documentation for examples, options, and prerequisites. Run `init
 
 For longer work, `deep review`, `deep refactor`, and `deep coverage` repeat those passes automatically. Codex orchestration remains experimental; check its [support limits](#support-matrix) before unattended use.
 
-**Maintenance:** re-run `init` after major changes, use `how-to-run` for setup guidance, and `reset` to remove generated project files. The [reset documentation](skills/reset/README.md) also covers uninstalling the plugin.
+**Maintenance:** re-run `init` after major changes, use `how-to-run` for setup guidance, and `reset` to remove init and permissions setup. The [reset documentation](skills/reset/README.md) also covers uninstalling the plugin.
 
 ## Using with OpenAI Codex
 

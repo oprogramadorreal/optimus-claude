@@ -1,5 +1,5 @@
 ---
-description: Removes selected Optimus project artifacts, or only the permissions setup with the permissions argument. Reviews ownership, current content, and Git recoverability; preserves ambiguous user content and backs up selected changes when needed. Requires a concrete deletion selection. Tests are never touched. Monorepo and multi-repo aware.
+description: Removes selected init and permissions setup from the project, or only the permissions setup with the permissions argument. Reviews ownership, current content, and Git recoverability; preserves ambiguous user content and backs up selected changes when needed. Requires a concrete deletion selection. Tests are never touched. Monorepo and multi-repo aware.
 disable-model-invocation: true
 argument-hint: "[permissions]"
 ---
