@@ -127,7 +127,7 @@ def build_deep_commit_body(progress, iteration, max_entries=10):
     persistent = [f for f in iter_findings if f.get("status") == PERSISTENT_STATUS]
     lines = ["Orchestrator checkpoint — automated fixes applied and tested.", ""]
     lines.extend(format_section("Fixed:", fixed, max_entries))
-    lines.extend(format_section("Reverted (test failure):", reverted, max_entries))
+    lines.extend(format_section("Reverted or skipped:", reverted, max_entries))
     lines.extend(
         format_section("Persistent (all attempts failed):", persistent, max_entries)
     )
@@ -158,9 +158,9 @@ def build_coverage_commit_body(progress, cycle, phase, max_entries=10):
             f for f in progress.get("refactor_findings", []) if f.get("cycle") == cycle
         ]
         fixed = [f for f in findings if f.get("status") in FIXED_STATUSES]
-        reverted = [f for f in findings if "reverted" in (f.get("status") or "")]
+        reverted = [f for f in findings if f.get("status") in REVERTED_STATUSES]
         lines.extend(format_section("Testability fixes applied:", fixed, max_entries))
-        lines.extend(format_section("Reverted (test failure):", reverted, max_entries))
+        lines.extend(format_section("Reverted or skipped:", reverted, max_entries))
     return "\n".join(lines)
 
 
@@ -206,7 +206,7 @@ def print_deep_report(progress):
     print(f"  Skill:         {progress['skill']}")
     print(f"  Iterations:    {iterations}")
     print(f"  Fixed:         {total_fixed}")
-    print(f"  Reverted:      {total_reverted}")
+    print(f"  Reverted/skipped: {total_reverted}")
     print(f"  Persistent:    {total_persistent}")
     print(f"  Final tests:   {last_test}")
     termination = progress.get("termination") or {}

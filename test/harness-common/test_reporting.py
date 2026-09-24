@@ -243,7 +243,7 @@ class TestBuildDeepCommitBody:
         }
         body = build_deep_commit_body(progress, iteration=1)
         assert "Fixed:" in body
-        assert "Reverted (test failure):" in body
+        assert "Reverted or skipped:" in body
         assert "Persistent (all attempts failed):" in body
         # Each finding appears under its own section, not duplicated across.
         assert body.count("f.py:") == 1
@@ -318,7 +318,7 @@ class TestBuildCoverageCommitBody:
         body = build_coverage_commit_body(progress, cycle=1, phase="refactor")
         assert "Testability fixes applied:" in body
         assert "f.py:10" in body
-        assert "Reverted (test failure):" in body
+        assert "Reverted or skipped:" in body
         assert "r.py:20" in body
 
     def test_refactor_phase_with_no_findings_returns_minimal_body(self):
