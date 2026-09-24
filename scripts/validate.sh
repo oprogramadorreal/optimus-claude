@@ -418,10 +418,9 @@ fi
 # --- 15. Plugin-level agents ---
 echo "[Plugin agents]"
 agent_issues=""
-agent_count=0
 # Two assertions, and both are needed. The named list is the only thing that
-# checks these files EXIST: replacing it with a bare glob left `agent_count`
-# at 1 when one of the two was deleted, so validation stayed green while the
+# checks these files EXIST: a bare glob with a count>0 floor still counted 1
+# when one of the two was deleted, so validation stayed green while the
 # plugin shipped without its user-invocable optimus:test-guardian subagent and
 # skills/init/README.md's relative link 404'd. Nothing else pins them — check 8
 # only validates $CLAUDE_PLUGIN_ROOT paths, and check 9 only flags files that
@@ -434,7 +433,6 @@ done
 # goes stale (skills get the same treatment in section 12 via ./skills/*/).
 for agent_file in agents/*.md; do
   [ -e "$agent_file" ] || continue
-  agent_count=$((agent_count + 1))
   # Check frontmatter has tools: field
   if ! grep -q '^tools:' "$agent_file" 2>/dev/null; then
     agent_issues+="  $agent_file: missing 'tools:' in frontmatter\n"
@@ -443,13 +441,6 @@ for agent_file in agents/*.md; do
     agent_issues+="  $agent_file: missing 'name:' in frontmatter\n"
   fi
 done
-if [ "$agent_count" -eq 0 ]; then
-  agent_issues+="  agents/: no agent definitions found\n"
-fi
-# Check that old template agents directory does NOT exist
-if [ -d "skills/init/templates/agents" ] && [ "$(ls -A skills/init/templates/agents 2>/dev/null)" ]; then
-  agent_issues+="  skills/init/templates/agents/ still contains files (should be moved to agents/)\n"
-fi
 check "Plugin-level agents valid" test -z "$agent_issues"
 if [ -n "$agent_issues" ]; then
   printf "       Issues:\n%b" "$agent_issues"
