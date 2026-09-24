@@ -180,14 +180,14 @@ Return your findings in this exact structure:
 ### Build System & Toolchain
 | Build system | Min version | Source |
 |--------------|-------------|--------|
-| [e.g., CMake] | [e.g., 3.20] | [e.g., cmake_minimum_required in CMakeLists.txt] |
+| [e.g., CMake] | [e.g., 3.20] | [e.g., CMakeLists.txt:1] |
 
 [If none beyond language-level PMs, state "No non-manifest build system detected."]
 
 ### SDKs & System Packages
 | SDK / Package | OS | Package identifier | Source |
 |---------------|----|--------------------|--------|
-| [e.g., Vulkan SDK] | [Windows] | [e.g., KhronosGroup.VulkanSDK (winget)] | [e.g., find_package(Vulkan) in CMakeLists.txt] |
+| [e.g., Vulkan SDK] | [Windows] | [e.g., KhronosGroup.VulkanSDK (winget)] | [e.g., CMakeLists.txt:14] |
 
 Report the package identifier only — the main skill renders the trusted install command from identifier + OS. [If none, state "No system-level SDKs or packages detected."]
 
@@ -221,7 +221,7 @@ Mark sibling repos `(candidate)` when derived only from a path grep; mark confir
 ### Runtime Version Constraints
 | Runtime | Constraint | Source |
 |---------|-----------|--------|
-| [e.g., Node.js] | [e.g., >=18] | [e.g., engines.node in package.json] |
+| [e.g., Node.js] | [e.g., >=18] | [e.g., package.json:12] |
 
 [If none, state "No runtime version constraints detected."]
 
