@@ -1,6 +1,6 @@
 # New Project Scaffolding
 
-Procedure for scaffolding a new project from scratch in an empty directory. Referenced from Step 1 of the init skill.
+Procedure for scaffolding a new project from scratch in an empty directory.
 
 ## Scope Guard
 
@@ -73,4 +73,4 @@ Scaffold commands create a `<name>/` subdirectory — `cd <name>` before these s
 - **Verify the project works:** run the build or dev command and confirm success; diagnose and fix failures before proceeding. For dev servers: start with a 30-second timeout, verify a ready signal ("listening on port", "ready"), then stop it; no signal within the timeout → stop the process and report for diagnosis.
 - **Git init:** run `git init` only when `git rev-parse --is-inside-work-tree` fails with `fatal: not a git repository` — the scaffold is outside any working tree and not a bare repository. Do not reinitialize a linked worktree, and do not treat any other Git error as a missing repository.
 
-Then print **"Scaffolding complete. Resuming project detection..."** and return control to init Step 1's project detection to re-detect the now-populated project from scratch.
+Then return control to init Step 1's project detection to re-detect the now-populated project from scratch.

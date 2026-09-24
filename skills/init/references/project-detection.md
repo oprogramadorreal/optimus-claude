@@ -6,7 +6,7 @@ Detection algorithm for identifying monorepo and multi-repo workspace structures
 
 If `git rev-parse --is-inside-work-tree` returns `true`, resolve `git rev-parse --show-toplevel` and run Step A at that root — normal checkouts and linked worktrees both take this common path.
 
-Otherwise apply the **Multi-Repo Workspace Detection** algorithm from `multi-repo-detection.md`, which your prompt's reference list points you at for exactly this case. On a confirmed workspace, run Steps A/B/C inside each enumerated repo to classify it as single project or monorepo. (Canonical source: `multi-repo-detection.md`, shared with every other skill that needs it — there is no second copy to keep in sync.)
+Otherwise apply the **Multi-Repo Workspace Detection** algorithm from `multi-repo-detection.md`, which your prompt's reference list points you at for exactly this case. On a confirmed workspace, run Steps A/B/C inside each enumerated repo to classify it as single project or monorepo.
 
 **Manifest validity (applies to all steps):** A lock file without its corresponding manifest (e.g., `package-lock.json` without `package.json`) does not count as a valid manifest.
 

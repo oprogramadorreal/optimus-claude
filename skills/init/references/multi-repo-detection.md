@@ -1,6 +1,6 @@
 # Multi-Repo Workspace Detection
 
-Canonical detection algorithm, read by every skill that needs it — including `project-detection.md` Step 0. Each consuming skill applies its own policy after detection. Change it here; there is no second copy to sync.
+Canonical detection algorithm. Each consuming skill applies its own policy after detection.
 
 ## Detection Algorithm
 

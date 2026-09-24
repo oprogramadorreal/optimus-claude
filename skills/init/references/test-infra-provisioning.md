@@ -1,6 +1,6 @@
 # Test Infrastructure Provisioning
 
-Complete test infrastructure setup: framework and coverage tooling installation, health check, and Optimus documentation provisioning. Read by init's test infrastructure step.
+Complete test infrastructure setup: framework and coverage tooling installation, health check, and Optimus documentation provisioning.
 
 ## Framework and Coverage Tooling Installation
 

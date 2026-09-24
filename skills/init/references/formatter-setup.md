@@ -1,6 +1,6 @@
 # Formatter Hook Setup
 
-Instructions for installing auto-format hooks per tech stack. Referenced from Step 5 of the init skill.
+Instructions for installing auto-format hooks per tech stack.
 
 ## Prefer the project's existing workflow
 

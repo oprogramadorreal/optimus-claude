@@ -1,6 +1,6 @@
 # Tech Stack Detection
 
-Shared detection tables for identifying project type and package manager from manifest files. Referenced by init and how-to-run.
+Shared detection tables for identifying project type and package manager from manifest files.
 
 ## Manifest → Project Type
 
