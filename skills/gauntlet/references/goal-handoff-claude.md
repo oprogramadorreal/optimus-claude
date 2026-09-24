@@ -28,7 +28,7 @@ completion evidence each turn so the evaluator can assess it.
   can clear or pause it. Inspect the stated reason and fix a real blocker
   before restarting; if the evaluator mistook a hard bar for an impossible
   one, re-paste the same condition. Clearing is not proof of success.
-- After the run, commit any leftovers with `/optimus:commit`, then review
-  the branch with `/optimus:code-review` in a fresh conversation.
+- After the run, in the run's session: `/optimus:commit` for any leftovers,
+  then `/optimus:pr`; then `/optimus:code-review` in a fresh conversation.
 
 Behavior source: [Claude Code goals](https://code.claude.com/docs/en/goal).

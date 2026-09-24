@@ -57,8 +57,8 @@ Include these in the handoff page for the destination lead:
   corresponding progress-row controls. A budget limit or blocked/paused
   state is not success. Resume with the checkpoint available; a different
   session needs the exported instructions and files again.
-- After the run, commit any leftovers with `$optimus:commit`, then review
-  the branch with `$optimus:code-review` in a fresh conversation.
+- After the run, in the run's session: `$optimus:commit` for any leftovers,
+  then `$optimus:pr`; then `$optimus:code-review` in a fresh conversation.
 
 Sources: [Codex goals](https://learn.chatgpt.com/use-cases/follow-goals),
 [goal controls and size limit](https://learn.chatgpt.com/docs/developer-commands?surface=cli),

@@ -181,7 +181,7 @@ On "Start the run", execute the prompt yourself as the lead agent; this choice
 does not itself request a native goal. Create one only if the user explicitly
 asked for it, using the host's available controls.
 
-Close on the outcome — uncommitted work → `/optimus:commit`; already committed
-→ `/optimus:pr`, then `/optimus:code-review` in a fresh conversation — and say
-plainly whether the run beat the bar, plateaued, or was interrupted, and
-whether the suite is green.
+Close on the outcome — `/optimus:commit` for uncommitted work, then
+`/optimus:pr`, both in this conversation; then `/optimus:code-review` in a
+fresh one — and say plainly whether the run beat the bar, plateaued, or was
+interrupted, and whether the suite is green.
