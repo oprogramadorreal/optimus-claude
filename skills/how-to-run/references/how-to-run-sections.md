@@ -128,7 +128,7 @@ Substitution — from the same snippet the External Services subsection rendered
 
 ```markdown
 - **Host can't connect to <Service> on `<host>:<host-port>` but `docker ps` shows the container as `Up`?** Walk down this ladder:
-  1. **Does the connection work from inside the container?** Run the `**Verify <service> is reachable.**` bullet above. If it succeeds inside but the host fails, the problem is between the host and the published port.
+  1. **Does the connection work from inside the container?** Run the *Verify <service> is reachable* bullet above. If it succeeds inside but the host fails, the problem is between the host and the published port.
   2. **(Windows hosts) Does your connection string still use `localhost`?** Replace `localhost` with `127.0.0.1`. The snippet publishes `-p 127.0.0.1:<host-port>:<container-port>` (IPv4-only); Windows resolves `localhost` to `::1` (IPv6) first and the lookup times out. (Render only when Hardware / OS Requirements contains Windows; otherwise drop and renumber.)
   3. **Is the host port actually mapped?** `docker port <project-slug>-<service-slug>` — expect `<container-port>/tcp -> 127.0.0.1:<host-port>`. If not, recreate the container with the correct `-p`.
 ```
