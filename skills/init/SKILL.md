@@ -91,6 +91,7 @@ Fill every template placeholder with real detected values — no `[placeholder]`
 **Single project** — template `$CLAUDE_PLUGIN_ROOT/skills/init/templates/single-project-claude.md`:
 - Gotchas: from the agent's **Gotchas** findings and doc-sourced insights. Keep only what survives the template's own bar; drop the section entirely when nothing does.
 - Documentation table: the Code row always; one row per non-guideline doc that actually exists — none on a first run, since Steps 5b/6 add entries as they create docs.
+- Nested app root → point every command at that subdirectory (`cd <path> && …`) and name it once, in the identity line.
 - No manifest detected → omit unknown commands and unsupported claims; say which setup information remains unavailable. Never emit a placeholder as a runnable command.
 
 **Monorepo** — template `$CLAUDE_PLUGIN_ROOT/skills/init/templates/monorepo-claude.md`:
@@ -99,7 +100,7 @@ Fill every template placeholder with real detected values — no `[placeholder]`
 - More than 6 subprojects → group by category in root CLAUDE.md; create or reconcile `.claude/docs/architecture.md` for the full workspace map and route it from root CLAUDE.md. This root map is an explicit exception to subproject-only architecture placement.
 - Root-as-project: also route its root-scoped docs in the Documentation table.
 
-**Multi-repo workspace** — run the full init flow (Steps 3-7) independently inside each repo, as if init were invoked there (single-project or monorepo template as appropriate; each repo's `.claude/` is version-controlled and self-contained). Then create a lightweight workspace-root `CLAUDE.md` (NOT inside `.claude/`) from `$CLAUDE_PLUGIN_ROOT/skills/init/templates/multi-repo-claude.md` — tell the user it is local-only and not version-controlled. If a repo has a nested app root, its CLAUDE.md must note the nested structure and point all commands at the correct subdirectory.
+**Multi-repo workspace** — run the full init flow (Steps 3-7) independently inside each repo, as if init were invoked there (single-project or monorepo template as appropriate; each repo's `.claude/` is version-controlled and self-contained). Then create a lightweight workspace-root `CLAUDE.md` (NOT inside `.claude/`) from `$CLAUDE_PLUGIN_ROOT/skills/init/templates/multi-repo-claude.md` — tell the user it is local-only and not version-controlled.
 
 **Step 4b — subproject CLAUDE.md files (monorepo only):** for each subproject except root-as-project/root-as-member (root CLAUDE.md covers those), use `$CLAUDE_PLUGIN_ROOT/skills/init/templates/subproject-claude.md`: commands run from its directory, that package's own gotchas, local `docs/` routes, parent monorepo named in the opening line.
 
