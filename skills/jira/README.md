@@ -82,14 +82,14 @@ Given/When/Then criteria are extracted as-is. Use comments for decisions that af
 
 ## Relationship to Other Skills
 
-The saved `docs/jira/<ISSUE-KEY>.md` is auto-detected by downstream skills — no copy-paste needed.
+The recommended next command names the saved `docs/jira/<ISSUE-KEY>.md` explicitly — its path, its key, or a refactor scope drawn from it. `/optimus:tdd` and `/optimus:brainstorm` also auto-detect the file.
 
 | Task complexity | Workflow |
 |----------------|----------|
-| Simple | `/optimus:jira PROJ-123` → `/optimus:tdd` |
+| Simple | `/optimus:jira PROJ-123` → `/optimus:tdd docs/jira/PROJ-123.md` |
 | Medium | `/optimus:jira PROJ-123` → plan mode (jira generates the prompt) → `/optimus:tdd` |
-| Complex | `/optimus:jira PROJ-123` → `/optimus:brainstorm` → plan mode → `/optimus:tdd` |
-| Tech debt | `/optimus:jira PROJ-123` → `/optimus:refactor` |
+| Complex | `/optimus:jira PROJ-123` → `/optimus:brainstorm PROJ-123` → plan mode → `/optimus:tdd` |
+| Tech debt | `/optimus:jira PROJ-123` → `/optimus:refactor "<scope>"` |
 
 The skill recommends the right path based on codebase-assessed complexity. It never creates branches or writes code — its only side effects are the task file under `docs/jira/` and the opt-in JIRA writes.
 

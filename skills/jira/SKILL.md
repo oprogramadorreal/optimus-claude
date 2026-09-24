@@ -72,10 +72,10 @@ On either update choice, run the **Task File Update** procedure first — the lo
 
 ## Step 6: Recommend Next Step
 
-Route by issue type and the Scope Assessment — this run's Step 5, else the task file's `### Scope Assessment` (fall back to acceptance-criteria count when absent or inconclusive). The recommended skill gathers its own context, so suggest a fresh conversation for it.
+Route by issue type and the Scope Assessment — this run's Step 5, else the task file's `### Scope Assessment` (fall back to acceptance-criteria count when absent or inconclusive). Pass the task to the recommended skill explicitly, as below, and suggest a fresh conversation for it.
 
-- **Tech debt / refactoring** (issue type, labels like `tech-debt`/`refactor`, or a goal that restructures code without changing behavior) → recommend `/optimus:refactor`.
-- **Simple** (assessment simple, or 1–3 criteria in a single component) → recommend `/optimus:tdd` — it auto-detects `docs/jira/<ISSUE-KEY>.md`.
-- **Complex** (assessment complex, or 7+ criteria, multiple components, architecture/migration concerns, unclear design) → recommend `/optimus:brainstorm` — it auto-detects the task file.
+- **Tech debt / refactoring** (issue type, labels like `tech-debt`/`refactor`, or a goal that restructures code without changing behavior) → recommend `/optimus:refactor "<scope>"`, the scope drawn from the Goal and Codebase Impact — refactor does not read `docs/jira/`.
+- **Simple** (assessment simple, or 1–3 criteria in a single component) → recommend `/optimus:tdd docs/jira/<ISSUE-KEY>.md`.
+- **Complex** (assessment complex, or 7+ criteria, multiple components, architecture/migration concerns, unclear design) → recommend `/optimus:brainstorm <ISSUE-KEY>`.
 - **Medium** (between the two) → offer a plan-mode prompt: read `$CLAUDE_PLUGIN_ROOT/skills/jira/references/plan-mode-prompt.md` and follow it. If the user declines, recommend `/optimus:tdd` as for Simple.
 
