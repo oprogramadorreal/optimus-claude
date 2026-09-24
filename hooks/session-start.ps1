@@ -2,7 +2,6 @@
 # change cwd, and mixing Git's bundled shell with another Bash can lose env vars.
 $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding $false
-$OutputEncoding = [Console]::OutputEncoding
 
 function Find-NativeBash {
     if ($env:CLAUDE_CODE_GIT_BASH_PATH) {
