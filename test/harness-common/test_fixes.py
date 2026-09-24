@@ -285,13 +285,6 @@ class TestBisectFixes:
             "pre_edit_content": "old_a",
             "post_edit_content": "new_a",
         }
-        # After revert, file has "old_a". Now make re-apply impossible by
-        # writing ambiguous content before apply step runs.
-        original_apply = (
-            apply_single_fix.__wrapped__
-            if hasattr(apply_single_fix, "__wrapped__")
-            else None
-        )
 
         def run_tests(cmd, cwd):
             return (True, "ok")

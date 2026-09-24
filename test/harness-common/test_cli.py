@@ -81,20 +81,18 @@ def _run(*argv):
     return cli.main(list(argv))
 
 
-def _make_repo(tmp_path, *, head="abc1234567890abc", test_command="npm test"):
+def _make_repo(tmp_path):
     """Initialize a minimal repo-like scaffold with .claude/CLAUDE.md."""
     (tmp_path / ".claude").mkdir()
     (tmp_path / ".claude" / "CLAUDE.md").write_text(
-        f"# Project\n\n```bash\n{test_command}\n```\n",
+        "# Project\n\n```bash\nnpm test\n```\n",
         encoding="utf-8",
     )
     return tmp_path
 
 
-def _stub_git(
-    monkeypatch, *, head="abc1234567890abc", branch_files=None, pr=None, dirty=False
-):
-    monkeypatch.setattr(cli, "git_rev_parse_head", lambda _cwd: head)
+def _stub_git(monkeypatch, *, branch_files=None, pr=None, dirty=False):
+    monkeypatch.setattr(cli, "git_rev_parse_head", lambda _cwd: "abc1234567890abc")
     monkeypatch.setattr(cli, "get_open_pr_data", lambda _cwd: None)
     monkeypatch.setattr(
         cli,
@@ -1722,32 +1720,16 @@ class TestParse:
 # ---------------------------------------------------------------------------
 
 
-def _seed_deep_progress(tmp_path, *, iteration=1, scope_files=None):
-    progress = {
-        "schema_version": 1,
-        "skill": "code-review",
-        "started_at": "2025-01-01T00:00:00Z",
-        "_validated_tree": "fixture-green",
-        "config": {
-            "max_iterations": 8,
-            "test_command": "npm test",
-            "scope": {"mode": "local-changes", "paths": [], "base_ref": None},
-            "project_root": str(tmp_path),
-            "base_commit": "abc1234",
-            "focus": "",
-            "pr_description": None,
-        },
-        "iteration": {"current": iteration, "completed": iteration - 1},
-        "findings": [],
-        "scope_files": {"current": scope_files or []},
-        "test_results": {"last_full_run": None, "last_run_output_summary": None},
-        "iteration_history": [],
-        "termination": {"reason": None, "message": None},
-        "_snapshot": {
-            "pre_head": "abc1234",
-            "pre_stash": None,
-            "iteration_token": iteration,
-        },
+def _seed_deep_progress(tmp_path, *, iteration=1):
+    progress = cli._make_deep_progress(
+        "code-review", "", 8, "npm test", tmp_path, "", "abc1234", False
+    )
+    progress["iteration"] = {"current": iteration, "completed": iteration - 1}
+    progress["_validated_tree"] = "fixture-green"
+    progress["_snapshot"] = {
+        "pre_head": "abc1234",
+        "pre_stash": None,
+        "iteration_token": iteration,
     }
     path = tmp_path / "progress.json"
     path.write_text(json.dumps(progress, indent=2), encoding="utf-8")
@@ -2052,9 +2034,12 @@ class TestDeepStep:
         assert captured["timeout"] == 777
 
     def test_absent_timeout_falls_back_to_default(self, tmp_path, monkeypatch):
-        # _seed_deep_progress writes no test_timeout, mirroring an old/resumed
-        # progress file — run_tests must still get DEFAULT_TEST_TIMEOUT.
+        # Drop test_timeout to mirror an old/resumed progress file —
+        # run_tests must still get DEFAULT_TEST_TIMEOUT.
         ppath = _seed_deep_progress(tmp_path)
+        data = _read_progress(ppath)
+        del data["config"]["test_timeout"]
+        ppath.write_text(json.dumps(data, indent=2), encoding="utf-8")
         captured = {}
 
         def fake_run_tests(tc, cwd, timeout=None, **kw):
@@ -2521,34 +2506,13 @@ class TestDeepStep:
 
 
 def _seed_coverage_progress(tmp_path, *, cycle=1):
-    progress = {
-        "schema_version": 1,
-        "harness": "test-coverage",
-        "skill": "unit-test",
-        "started_at": "2025-01-01T00:00:00Z",
-        "_validated_tree": "fixture-green",
-        "config": {
-            "max_cycles": 5,
-            "test_command": "pytest",
-            "scope": "",
-            "project_root": str(tmp_path),
-            "base_commit": "abc1234",
-        },
-        "cycle": {"current": cycle, "completed": cycle - 1},
-        "phase": "unit-test",
-        "coverage": {"baseline": None, "current": None, "tool": None, "history": []},
-        "tests_created": [],
-        "untestable_code": [],
-        "refactor_findings": [],
-        "bugs_discovered": [],
-        "cycle_history": [],
-        "test_results": {"last_full_run": None, "last_run_output_summary": None},
-        "termination": {"reason": None, "message": None},
-        "_snapshot": {
-            "pre_head": "abc1234",
-            "pre_stash": None,
-            "iteration_token": cycle,
-        },
+    progress = cli._make_coverage_progress(None, 5, "pytest", tmp_path, "abc1234")
+    progress["cycle"] = {"current": cycle, "completed": cycle - 1}
+    progress["_validated_tree"] = "fixture-green"
+    progress["_snapshot"] = {
+        "pre_head": "abc1234",
+        "pre_stash": None,
+        "iteration_token": cycle,
     }
     path = tmp_path / "progress.json"
     path.write_text(json.dumps(progress, indent=2), encoding="utf-8")
@@ -2564,7 +2528,6 @@ class TestUnitTestStep:
             json.dumps(
                 _coverage_result(
                     {
-                        "iteration": 1,
                         "phase": "unit-test",
                         "coverage": {
                             "before": 50,
@@ -2605,7 +2568,6 @@ class TestUnitTestStep:
             json.dumps(
                 _coverage_result(
                     {
-                        "iteration": 1,
                         "phase": "unit-test",
                         "coverage": {
                             "before": 50,
@@ -2692,8 +2654,6 @@ class TestRefactorStep:
             json.dumps(
                 _deep_result(
                     {
-                        "cycle": 1,
-                        "phase": "refactor",
                         "new_findings": [],
                         "fixes_applied": [],
                         "no_new_findings": True,
@@ -2731,8 +2691,6 @@ class TestRefactorStep:
             json.dumps(
                 _deep_result(
                     {
-                        "cycle": 1,
-                        "phase": "refactor",
                         "new_findings": [
                             {
                                 "file": "u.py",
@@ -2772,8 +2730,6 @@ class TestRefactorStep:
             json.dumps(
                 _deep_result(
                     {
-                        "cycle": 1,
-                        "phase": "refactor",
                         "new_findings": [
                             {
                                 "file": "u.py",
@@ -2832,8 +2788,6 @@ class TestRefactorStep:
             json.dumps(
                 _deep_result(
                     {
-                        "cycle": 1,
-                        "phase": "refactor",
                         "new_findings": [],  # subagent did not echo the fix as a finding
                         "fixes_applied": [
                             {
@@ -2884,8 +2838,6 @@ class TestRefactorStep:
             json.dumps(
                 _deep_result(
                     {
-                        "cycle": 1,
-                        "phase": "refactor",
                         "new_findings": [
                             {
                                 "file": "pkg\\u.py",
@@ -2950,8 +2902,6 @@ class TestRefactorStep:
             json.dumps(
                 _deep_result(
                     {
-                        "cycle": 1,
-                        "phase": "refactor",
                         "new_findings": [
                             {
                                 "file": "u.py",
@@ -3012,8 +2962,6 @@ class TestRefactorStep:
             json.dumps(
                 _deep_result(
                     {
-                        "cycle": 1,
-                        "phase": "refactor",
                         "new_findings": [
                             {
                                 "file": "u.py",
@@ -3085,8 +3033,6 @@ class TestRefactorStep:
             json.dumps(
                 _deep_result(
                     {
-                        "cycle": 1,
-                        "phase": "refactor",
                         "new_findings": [
                             {
                                 "file": "u.py",
@@ -3621,8 +3567,16 @@ class TestCommitCheckpoint:
 
 
 class TestBaseline:
-    def test_green_floor_keeps_default_timeout(self, tmp_path, capsys, monkeypatch):
+    @staticmethod
+    def _seed_with_timeout(tmp_path, timeout):
         ppath = _seed_deep_progress(tmp_path)
+        data = _read_progress(ppath)
+        data["config"]["test_timeout"] = timeout
+        ppath.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        return ppath
+
+    def test_green_floor_keeps_default_timeout(self, tmp_path, capsys, monkeypatch):
+        ppath = self._seed_with_timeout(tmp_path, 1)
         monkeypatch.setattr(cli, "run_tests", lambda *a, **kw: (True, "ok"))
         # Fast suite → calibrated timeout never drops below the default floor.
         times = iter([1000.0, 1005.0])
@@ -3651,7 +3605,7 @@ class TestBaseline:
         assert out.strip().splitlines()[-1] == "baseline-green timeout=720"
 
     def test_red_refuses_to_start(self, tmp_path, capsys, monkeypatch):
-        ppath = _seed_deep_progress(tmp_path)
+        ppath = self._seed_with_timeout(tmp_path, 1)
         monkeypatch.setattr(cli, "run_tests", lambda *a, **kw: (False, "assert boom"))
         exit_code = _run("baseline", "--progress-file", str(ppath))
         assert exit_code == 1
@@ -3659,18 +3613,18 @@ class TestBaseline:
         assert "assert boom" in out
         assert out.strip().splitlines()[-1] == "baseline-red"
         # A red run's duration is untrustworthy — no calibration written.
-        assert "test_timeout" not in _read_progress(ppath)["config"]
+        assert _read_progress(ppath)["config"]["test_timeout"] == 1
 
     def test_red_allowed_proceeds_without_calibration(
         self, tmp_path, capsys, monkeypatch
     ):
-        ppath = _seed_deep_progress(tmp_path)
+        ppath = self._seed_with_timeout(tmp_path, 1)
         monkeypatch.setattr(cli, "run_tests", lambda *a, **kw: (False, "assert boom"))
         exit_code = _run("baseline", "--progress-file", str(ppath), "--allow-red")
         assert exit_code == 0
         out = capsys.readouterr().out
         assert out.strip().splitlines()[-1] == "baseline-red-allowed"
-        assert "test_timeout" not in _read_progress(ppath)["config"]
+        assert _read_progress(ppath)["config"]["test_timeout"] == 1
 
 
 # ---------------------------------------------------------------------------

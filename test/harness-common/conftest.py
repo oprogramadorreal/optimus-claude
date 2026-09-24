@@ -17,26 +17,11 @@ def claude_md_dir(tmp_path):
 @pytest.fixture
 def sample_progress():
     """Minimal valid deep-variant progress dict."""
-    return {
-        "schema_version": 1,
-        "skill": "code-review",
-        "started_at": "2025-01-01T00:00:00Z",
-        "config": {
-            "max_iterations": 8,
-            "test_command": "npm test",
-            "scope": {"mode": "local-changes", "paths": [], "base_ref": None},
-            "project_root": "/tmp/project",
-            "base_commit": "abc1234567890",
-            "focus": "",
-            "pr_description": None,
-        },
-        "iteration": {"current": 1, "completed": 0},
-        "findings": [],
-        "scope_files": {"current": []},
-        "test_results": {"last_full_run": None, "last_run_output_summary": None},
-        "iteration_history": [],
-        "termination": {"reason": None, "message": None},
-    }
+    from harness_common import cli
+
+    return cli._make_deep_progress(
+        "code-review", "", 8, "npm test", "/tmp/project", "", "abc1234567890", False
+    )
 
 
 @pytest.fixture
