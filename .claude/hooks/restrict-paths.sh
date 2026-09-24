@@ -160,8 +160,11 @@
 #   relative path meaning what it says — a target is resolved against the chain's
 #   own `cd` first, so `cd /etc && rm passwd` is judged as /etc/passwd.
 #   Not covered, by design: command substitution (`rm $(cat list)`) and
-#   `find -exec`, where the delete is not the fragment's own command. This is a
-#   guardrail against accidents, not a sandbox against a determined bypass.
+#   `find -exec`, where the delete is not the fragment's own command, and the
+#   CONTENTS of a deleted directory (`rm -rf config/`) or a mid-word brace
+#   (`.env.{a,b}`): the precious test sees the named target, or each match of a
+#   glob, only. This is a guardrail against accidents, not a sandbox against a
+#   determined bypass.
 #
 #   Known false positive, and deliberately kept: stage 1 splits on operators
 #   BEFORE stage 2 parses quotes, so an operator INSIDE a quoted argument
@@ -1579,7 +1582,8 @@ count_frag_closes() {
 
 scan_command_string() {
   local _split="$1"
-  local _subcmd _cd_tok _cd_target _cd_base _cd_noop word target nword skip_next
+  local _subcmd _cd_tok _cd_target _cd_base _cd_noop word target nword skip_next _m _ifs _ng
+  local -a _matches
   local _saved_cd _saved_prev _wrap_base _wrap_cd _eff_cd _n_close
   local -a _frag
   local -a _saved_stack=()
@@ -1874,9 +1878,27 @@ scan_command_string() {
         # Precious file protection: block deletion of sensitive unversioned files.
         # Recoverable ones (backups, IDE scratch) are excluded by is_hard_precious
         # testing the hard list alone — a deny here could never be overridden.
-        if [[ -e "$target" ]] && is_inside_project_n "$nword" \
-           && is_hard_precious "$target" && ! is_git_tracked "$target"; then
-          deny_operation "BLOCKED: '$(basename "$word")' is a precious file not tracked by git. Deletion denied."
+        # A glob word names no file itself, so judge what the shell expands it
+        # to: `rm -f .env*` and `rm -f *.sqlite` otherwise failed the -e test and
+        # deleted the very files `rm .env` is denied for. IFS= keeps a match that
+        # holds a space whole; nullglob drops a pattern that matches nothing.
+        # `|| _ng=1`, not `_ng=$?`: a bare failing `shopt -q` would abort the
+        # hook under an inherited errexit before it printed any decision.
+        _matches=("$target")
+        if [[ "$target" == *[*?[]* ]]; then
+          _ng=""; shopt -q nullglob || _ng=1
+          shopt -s nullglob
+          _ifs="$IFS"; IFS=
+          _matches=($target)
+          IFS="$_ifs"
+          [[ -n "$_ng" ]] && shopt -u nullglob
+        fi
+        if is_inside_project_n "$nword"; then
+          for _m in ${_matches[@]+"${_matches[@]}"}; do
+            if [[ -e "$_m" ]] && is_hard_precious "$_m" && ! is_git_tracked "$_m"; then
+              deny_operation "BLOCKED: '$(basename "$_m")' is a precious file not tracked by git. Deletion denied."
+            fi
+          done
         fi
       done
     fi

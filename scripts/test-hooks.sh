@@ -1576,6 +1576,12 @@ assert_decision "delete secrets.user denied"    DENY  "$(rp_git_decision "rm $rp
 # model, not the user, so it could never be overridden.
 assert_decision "delete proj.suo allowed"       ALLOW "$(rp_git_decision "rm $rp_git/proj.suo")"
 assert_decision "delete notes.txt.bak allowed"  ALLOW "$(rp_git_decision "rm $rp_git/notes.txt.bak")"
+# A glob names no file itself, so the gate judges what the shell expands it to.
+: > "$rp_git/app.sqlite"
+assert_decision "glob matching .env denied"     DENY  "$(rp_git_decision "rm -f $rp_git/.env*")"
+assert_decision "glob matching *.sqlite denied" DENY  "$(rp_git_decision "rm -f $rp_git/*.sqlite")"
+assert_decision "glob of a recoverable allowed" ALLOW "$(rp_git_decision "rm -f $rp_git/notes*.bak")"
+assert_decision "glob matching nothing allowed" ALLOW "$(rp_git_decision "rm -f $rp_git/nomatch*")"
 
 # Claude Code spells file_path with backslashes on Windows, and splitting on '/'
 # alone left the WHOLE path as the basename — which no prefix or exact precious
@@ -1902,6 +1908,9 @@ assert_decision "In-project rm stays silent under errexit" ALLOW \
   "$(rp_ee_bash "rm -rf $rp_tmp/proj/src/a.txt" "$rp_tmp/proj")"
 assert_decision "Escaped word decides under errexit" DENY \
   "$(rp_ee_bash "rm -rf \\\\$rp_tmp/outside/a.txt" "$rp_tmp/proj")"
+# The glob branch probes nullglob with `shopt -q`, which fails when it is off.
+assert_decision "Precious glob delete decides under errexit" DENY \
+  "$(rp_ee_bash "rm -f $rp_git/.env*" "$rp_git")"
 
 # ============================================================
 # Summary

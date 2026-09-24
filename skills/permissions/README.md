@@ -87,7 +87,7 @@ Well-known sensitive unversioned files are protected automatically: edits prompt
 
 Backups and IDE scratch (`*.bak`, `*.suo`, `*.user`) are intentionally deletable: they prompt on edit but do not trigger the hook's delete block. This category is a policy choice, not proof that another copy exists. Backups of hard-precious files retain protection through backup/rotation suffixes; `.env.bak`, `id_rsa.pem.old`, `server.key.1`, `app.sqlite~`, and names also matching the hard list such as `.env.suo` stay protected. Ordinary rotated logs and merge leftovers are not added to that list.
 
-Git-tracked files bypass this hook's precious-file gate; uncommitted edits are still not recoverable through checkout. Matching is by basename, the list is not exhaustive, and prompts may repeat. Do not stage secrets, keys, or databases merely to suppress prompts. For an intentional exception, review the specific installed-hook rule and its consequences; `/optimus:permissions` can preserve approved customizations on later updates.
+Git-tracked files bypass this hook's precious-file gate; uncommitted edits are still not recoverable through checkout. Matching is by basename, the list is not exhaustive, and prompts may repeat. The delete block checks each named target and each file a glob matches (`rm .env*`), not the contents of a deleted directory (`rm -rf config/`). Do not stage secrets, keys, or databases merely to suppress prompts. For an intentional exception, review the specific installed-hook rule and its consequences; `/optimus:permissions` can preserve approved customizations on later updates.
 
 ## Trust Model and Assumptions
 
