@@ -16,7 +16,7 @@ Orchestrate a base skill in an iterative auto-fix loop. Each iteration runs in a
 | `refactor` | `refactor` | `.claude/refactor-deep-progress.json` | `--max-iterations` 8/20 | `references/orchestrator-loop-single.md` | yes |
 | `coverage` | `unit-test` | `.claude/unit-test-deep-progress.json` | `--max-cycles` 5/10 | `references/orchestrator-loop-paired.md` | no — pinned to `testability` for its refactor phase; a user-supplied focus is rejected |
 
-The progress-file paths are load-bearing CLI defaults — never rename them. The `coverage` target counts **cycles**, not iterations: each cycle dispatches a unit-test phase (write tests, measure coverage, flag untestable code) and, when untestable items are pending, a refactor phase with testability focus.
+The `coverage` target counts **cycles**, not iterations: each cycle dispatches a unit-test phase (write tests, measure coverage, flag untestable code) and, when untestable items are pending, a refactor phase with testability focus.
 
 ## Step 1: Parse Arguments and Guard Against Re-entry
 
@@ -56,11 +56,9 @@ If `.claude/CLAUDE.md` is missing, stop: *"Deep mode requires `/optimus:init` to
 
 Read `.claude/CLAUDE.md` and capture the documented test command verbatim (e.g. `npm test`, `pytest`) as `test_command` — the auto-fix loop has no safety net without one, so if none is documented, stop and recommend `/optimus:init`. Pass this captured command to `init` in Step 4 via `--test-command` (the CLI's own CLAUDE.md parser is stricter than a human read — passing the string you read avoids a spurious "No test command found" failure).
 
-For `coverage`: if `/optimus:init` flagged the test framework as missing or "installed but no tests yet," warn the user but proceed — the unit-test phase will surface the gap.
-
 ### Git state
 
-On a fresh (non-`--resume`) run, refuse to proceed if the working tree has uncommitted changes unless `--no-commit` is passed — uncommitted state would be ambiguous with the orchestrator's own checkpoint commits. Untracked harness state in `.claude/` (a prior run's progress, `.bak` and `.done.json` files, and the loop's dot-prefixed scratch files) does not count. On `--resume`, the existing progress file's `_snapshot.pre_head` is the recovery anchor; uncommitted state is preserved.
+On a fresh (non-`--resume`) run, refuse to proceed if the working tree has uncommitted changes unless `--no-commit` is passed — uncommitted state would be ambiguous with the orchestrator's own checkpoint commits. Untracked harness state in `.claude/` (a prior run's progress, `.bak` and `.done.json` files, and the loop's dot-prefixed scratch files) does not count.
 
 ## Step 3: User Confirmation
 
@@ -83,7 +81,7 @@ If the user selects **Cancel**, stop.
 
 ## Step 4: Initialize or Resume Progress
 
-Read `$CLAUDE_PLUGIN_ROOT/references/harness-init-resume.md` and apply its shared init/resume semantics — the `resume` invocation and cap raising, `init` error recovery (a prior run is discarded by re-invoking `init` with `--force`), `--no-commit` persistence, and `.done.json` archival — with `<progress-path>` and `<cap-flag>` from the Targets table.
+Read `$CLAUDE_PLUGIN_ROOT/references/harness-init-resume.md` and apply it with `<progress-path>` and `<cap-flag>` from the Targets table.
 
 ### On fresh run
 
@@ -103,7 +101,7 @@ Pass `--focus` only for the refactor target, and only with the value from Step 1
 
 ### Baseline
 
-Run `cli baseline` before entering the loop. Skip it on `--resume` only when the progress file's completed counter is greater than 0 — `iteration.completed` for the review and refactor targets, `cycle.completed` for the coverage target (a targeted read — do not load the `findings` array into context); if it is 0, the prior run never entered the loop and `resume` never re-checks the baseline — run it after `resume`. Also run it after `resume` when the progress file records `_safety_error` (targeted read): the CLI refuses `snapshot` and every step command until a green baseline clears that flag, so a resumed run would otherwise stop again at its first snapshot.
+Run `cli baseline` before entering the loop. On `--resume`, run it after `resume`, skipping it only when the progress file's completed counter (`iteration.completed`, or `cycle.completed` for coverage) is above 0 and no `_safety_error` is recorded — targeted reads, never the `findings` array. `resume` never re-runs the baseline, and the CLI refuses `snapshot` and every step command until a green baseline clears `_safety_error`.
 
 ```bash
 PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli baseline \
@@ -133,9 +131,5 @@ Between iterations, tell the user in one line what the CLI reported (the `deep-s
 ## Step 6: Final Report
 
 After the loop, follow the loop reference's "After the loop" section. For a fresh second-opinion pass after a clean finish, re-run `/optimus:deep <target>` without `--resume`.
-
-## Important
-
-Approval recorded at Step 3 stands for the entire loop — fixes are applied without per-change confirmation. The base skill's harness-mode protocol is the source of truth for which fixes get applied.
 
 Recommend `/optimus:commit` next, then `/optimus:pr` once the branch is ready — the user should stay in this conversation for those so the implementation context is captured.
