@@ -7,6 +7,7 @@ The skill holds no state; the CLI reads/writes a JSON progress file on disk.
 Subcommand summary:
   init                    — create initial progress file
   resume                  — validate existing progress file for continuation
+  baseline                — run the suite once; calibrate the timeout, gate a red start
   snapshot                — capture pre-iteration git state into progress
   parse                   — extract json:harness-output from subagent text
   deep-step               — apply/test/bisect for the review / refactor targets
@@ -15,11 +16,12 @@ Subcommand summary:
   record-cycle            — append cycle_history entry (paired variant)
   commit-checkpoint       — create git checkpoint commit
   check-termination       — print one of continue|convergence|no-actionable|
-                            all-reverted|diminishing-returns|cap
+                            all-reverted|diminishing-returns|cap|parse-failure|
+                            blocked
   advance                 — increment iteration counter (deep variant)
   pending-refactor-count  — count untestable_code items still pending refactor
-  mark-termination        — record an externally-driven termination reason
-                            (e.g. parse-failure after two consecutive failures)
+  mark-termination        — record a termination reason by hand (no loop
+                            calls it; unit-test-step records `blocked`)
   final-report            — print the cumulative report
 """
 
@@ -217,8 +219,8 @@ def _make_coverage_progress(
 def _promote_actionable_fixes(result):
     """Promote findings with valid edit pairs into fixes_applied.
 
-    Defensive guard for the false-no-actionable case — see
-    `references/harness-mode.md`.
+    Defensive guard for the false-no-actionable case — see ``no_actionable_fixes``
+    in `references/schemas/harness-output.schema.json`.
     """
     if not read_flag(result, "no_actionable_fixes"):
         return
@@ -749,9 +751,8 @@ def cmd_init(args):
         )
         return 1
 
-    # Skill-side focus matching is case-insensitive (refactor SKILL.md is the
-    # declared single source for the rule) — normalize so the gate below
-    # enforces the same contract instead of rejecting what the skill accepted.
+    # Normalize --focus to lowercase so the gate below accepts any casing the
+    # skill passes through (e.g. `Testability`) instead of rejecting it.
     if args.focus:
         args.focus = args.focus.lower()
 
@@ -1316,8 +1317,7 @@ def cmd_unit_test_step(args):
     # edit; roll the working tree back to the pre-cycle snapshot and DROP the
     # session output entirely — its coverage numbers, untestable items, and bugs
     # describe code that is now gone, so they must not leak into later cycles and
-    # the step-5 checkpoint must not commit a red tree. (Restores the
-    # pre-consolidation _run_unit_test_phase safety net.)
+    # the step-5 checkpoint must not commit a red tree.
     passed, summary = _run_verified_tests(progress, project_root, test_command)
     if not passed:
         pre_stash, pre_head = _snapshot_from_progress(progress)
@@ -1418,8 +1418,8 @@ def cmd_unit_test_step(args):
     converged, reason = check_unit_test_convergence(result)
     if converged:
         # Record the cycle that just ran before terminating — the orchestrator
-        # loop skips step 10 (record-cycle) on the converged path, so the
-        # final report would otherwise miss this cycle in cycle_history.
+        # loop skips step 10 (record-cycle) on the converged path, so
+        # cycle_history would otherwise miss this cycle.
         _record_converged_cycle(
             progress, cycle, {"cycle": cycle, "unit_test": {"converged": True}}
         )
@@ -1583,8 +1583,9 @@ def cmd_baseline(args):
     ``--allow-red``, which warns and proceeds without calibrating the timeout.
     On success, calibrates ``config.test_timeout`` from the measured wall-clock
     duration so the per-iteration runs — and bisection's re-runs — have headroom,
-    then prints ``baseline-green``. The orchestrator calls this once on a fresh
-    run only (skipped on ``--resume``, where the timeout is already persisted).
+    then prints ``baseline-green``. The orchestrator runs it before the loop; on
+    ``--resume`` only when no iteration/cycle completed or ``_safety_error`` is
+    recorded (otherwise the persisted timeout stands).
     The status token is always the last line so the orchestrator can read it.
     """
     progress_path = Path(args.progress_file)

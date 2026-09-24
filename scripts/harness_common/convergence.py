@@ -4,29 +4,16 @@
 def read_flag(output, key):
     """Read one convergence flag out of untrusted subagent JSON.
 
-    These flags decide whether the run STOPS, so a FALSE reading is strict: only
-    a value that positively spells true can converge. The parse boundary
-    requires these keys to be present but coerces nothing, and a subagent emits
-    the string ``"false"`` as readily as the literal. Read raw, ``"false"`` is truthy in Python, so the run
-    terminated on cycle 1 reporting a coverage plateau that never happened.
+    These flags decide whether the run STOPS, and a subagent emits the string
+    ``"false"`` (truthy in Python) as readily as the literal, so FALSE is
+    strict: only a value that positively spells true converges. TRUE is
+    generous (bools, non-zero ints, common true spellings), because a missed
+    true spelling silently burns the remaining cap: ``termination.reason`` comes
+    back ``cap`` with no sign a convergence signal was dropped. Anything else
+    means "keep going", which the cycle cap bounds.
 
-    Anything unrecognized means "keep going", which the cycle cap already
-    bounds. This is the same untrusted-scalar class ``_finite_number`` guards
-    for the coverage numbers, applied to the flags that end the run.
-
-    Public because ``cmd_deep_step`` reads the SAME schema fields for the review
-    and refactor targets. Kept private here, that consumer read them raw and
-    ``"false"`` ended the run on iteration 1 — reporting a clean codebase while
-    the subagent's applied edits sat untested and un-bisected.
-
-    Strict about what is FALSE, generous about what is TRUE. The asymmetry is
-    the point: a spelling this function fails to recognize as true costs the
-    whole remaining cycle cap, and costs it invisibly — ``termination.reason``
-    comes back ``max_cycles`` with nothing to say a convergence signal arrived
-    and was dropped. ``1`` and ``"1"`` converged before this guard existed, so
-    rejecting them was a silent regression; the JSON-ish true spellings are
-    accepted for the same reason. Anything else still means "keep going", which
-    the cycle cap bounds.
+    Public because ``cmd_deep_step`` reads the same flags for the review and
+    refactor targets.
     """
     value = output.get(key, False)
     if isinstance(value, bool):

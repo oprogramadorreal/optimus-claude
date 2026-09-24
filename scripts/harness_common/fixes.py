@@ -117,8 +117,8 @@ def _bisect_via_clean_reset(
         """Restore to the clean base, then re-apply the kept fixes.
 
         Returns False if the clean reset itself failed: ``reset_to_clean``
-        (``restore_working_tree`` → ``git_restore_to``) raises ``RuntimeError``
-        when its ``git checkout`` errors (a locked index, a missing commit).
+        (``cli._clean_reset_hook``) raises ``RuntimeError`` when its ``git
+        restore`` or snapshot apply errors (a locked index, a missing commit).
         Testing a candidate on a dirty base gives a meaningless pass/fail, so
         the caller aborts and reports the still-undecided fixes as skipped
         rather than letting the exception crash the whole bisect (and, through

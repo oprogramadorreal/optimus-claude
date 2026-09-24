@@ -9,7 +9,7 @@ _FLAG_SPELLINGS = frozenset(
 
 
 def validate_harness_output(value, variant=None):
-    """Validate the safety-critical envelope, retaining legacy scalar coercion.
+    """Validate the safety-critical envelope (counter, containers, flag spellings).
 
     The published schemas describe the full authoring contract. Runtime checks
     reject missing/wrong containers before callers iterate them; coverage values

@@ -369,9 +369,8 @@ class TestInit:
         assert not progress_path.exists()
 
     def test_focus_is_case_normalized(self, tmp_path, monkeypatch):
-        # The skill layer matches focus case-insensitively (refactor SKILL.md is
-        # the declared single source for that rule) — the CLI must accept and
-        # canonicalize rather than reject what the skill accepted.
+        # The skill layer may pass focus in any casing — the CLI must accept and
+        # canonicalize it rather than reject it.
         repo = _make_repo(tmp_path)
         _stub_git(monkeypatch)
         progress_path = repo / "progress.json"

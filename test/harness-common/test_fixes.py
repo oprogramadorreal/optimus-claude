@@ -848,8 +848,8 @@ class TestBisectCleanReset:
         assert skipped == 1
 
     def test_clean_reset_raise_on_first_pass_does_not_crash(self, tmp_path):
-        # reset_to_clean is restore_working_tree → git_restore_to, which raises
-        # RuntimeError when its `git checkout` fails. The clean-reset bisect must
+        # reset_to_clean (cli._clean_reset_hook) raises RuntimeError when its
+        # git restore or snapshot apply fails. The clean-reset bisect must
         # abort gracefully (undecided fixes reported skipped) rather than let the
         # exception propagate out and crash the deep-step / refactor-step.
         deletion = {

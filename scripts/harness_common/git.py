@@ -337,8 +337,9 @@ def git_rev_parse_head(cwd):
     return _rev_parse("HEAD", cwd, subprocess.run)
 
 
-# Authoritative harness-state patterns matched by commit_checkpoint's un-stage
-# step and _clean_working_tree. The scratch prefixes come from
+# Authoritative harness-state patterns, excluded from tree fingerprints
+# (git_test_tree_state), untracked snapshots, the init clean-tree gate,
+# cleanup and checkpoint staging. The scratch prefixes come from
 # constants.SCRATCH_GLOBS (shared with cli.py's final-report cleanup); this
 # repo's own .gitignore mirrors the full set as a convenience for harness
 # development, and references/orchestrator-loop-single.md names them for the
@@ -390,7 +391,7 @@ def git_restore_tracked_to(commit, cwd, _run=None):
     subagent's tracked edits back to the pre-iteration commit while preserving
     the non-fix working state that kept fixes may depend on — matching the
     legacy in-place bisect, which never removed untracked files. Raises on a
-    failed checkout so the bisect aborts rather than test a candidate on a dirty
+    failed restore so the bisect aborts rather than test a candidate on a dirty
     base.
     """
     _run = _run or subprocess.run
