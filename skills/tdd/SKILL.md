@@ -190,6 +190,4 @@ Recommend `/optimus:code-review` first: cross-cycle issues — duplication betwe
 
 ### Worktree cleanup
 
-Run this last — after the `/optimus:pr` recommendation, never before it. Removing the worktree deletes the directory this conversation is working in, so `/optimus:pr` must be able to run first.
-
-If a worktree was used, **offer** cleanup rather than performing it: the user may want to keep the worktree for `/optimus:pr` or follow-up work. If they accept, follow the **Cleanup** section of `$CLAUDE_PLUGIN_ROOT/skills/worktree/references/worktree-setup.md`; if they decline, follow that section's keep-the-worktree note.
+If a worktree was used, ask last, after the recommendations above: `AskUserQuestion`, header "Worktree", question "Remove the worktree now? `/optimus:code-review` and `/optimus:pr` must run from it, so remove it only if you won't run them in this conversation.", options **Keep (Recommended)** / **Remove now**. Remove now → follow the **Cleanup** section of `$CLAUDE_PLUGIN_ROOT/skills/worktree/references/worktree-setup.md`; Keep → follow that section's keep-the-worktree note.
