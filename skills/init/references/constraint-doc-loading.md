@@ -20,6 +20,7 @@ Load project constraint documents that define the rules for analysis and code ge
 3. `.claude/docs/skill-writing-guidelines.md` (if exists) — shared skill-writing standards, applying to markdown instruction files in every subproject
 4. For each subproject in scope:
    - `<subproject>/CLAUDE.md` — subproject-specific overview, commands, tech stack
+   - `<subproject>/docs/coding-guidelines.md` (if exists) — subproject coding standards, refining the shared root guide for that subproject's code
    - `<subproject>/docs/testing.md` (if exists) — subproject-specific testing conventions
    - `<subproject>/docs/architecture.md` (if exists) — subproject-specific architecture
    - `<subproject>/docs/styling.md` (if exists) — subproject-specific UI/CSS conventions
