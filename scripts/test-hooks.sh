@@ -1534,9 +1534,9 @@ assert_decision "switch --force is not force-create" ALLOW \
 # against is_precious_name directly: the delete gate needs an untracked file to
 # exist in a git repo, and the classification is what a regression would break.
 rp_precious_name() { # $1=basename -> PRECIOUS | RECOVERABLE | ORDINARY
-  rp_drive_fn "" strip_backup_suffix,is_precious_name,basename_of,precious_basename,is_recoverable_precious,is_recoverable_precious_name \
+  rp_drive_fn "" strip_backup_suffix,is_precious_name,is_recoverable_precious_name \
     'if is_precious_name "$1"; then echo PRECIOUS
-     elif is_recoverable_precious "$1"; then echo RECOVERABLE
+     elif is_recoverable_precious_name "$1"; then echo RECOVERABLE
      else echo ORDINARY; fi' "$1"
 }
 assert_decision ".env is precious"              PRECIOUS    "$(rp_precious_name '.env')"

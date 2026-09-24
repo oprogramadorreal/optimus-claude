@@ -332,8 +332,7 @@ strip_backup_suffix() {
 }
 
 # The hard list, matched on a basename the caller has already case-folded.
-# Split out of is_precious so is_recoverable_precious can re-test a '.bak' stem
-# against it without recursing back through the tail call below.
+# Split out so is_recoverable_precious_name can re-test a '.bak' stem against it.
 is_precious_name() {
   local lname="$1"
   case "$lname" in
@@ -374,11 +373,7 @@ is_precious_name() {
 # the user, so there is no path to "yes, delete it" — and these are exactly the
 # files a cleanup step legitimately removes (the harness writes
 # .claude/<skill>-deep-progress.json.bak on every run).
-is_recoverable_precious() {
-  precious_basename "$1"
-  is_recoverable_precious_name "$_basename"
-}
-
+#
 # Matched on a basename the caller has already case-folded, like is_precious_name.
 # The trigger list stays deliberately narrower than strip_backup_suffix: this one
 # also decides which ORDINARY files prompt before an overwrite, so widening it to
