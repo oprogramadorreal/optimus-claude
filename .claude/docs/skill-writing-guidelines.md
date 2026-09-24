@@ -28,7 +28,7 @@ These are candidates for simplification, not universal claims about every model 
 
 - **Vague self-verification** — prefer concrete acceptance criteria and external checks: tests, schema validation, or installed-file comparison. Keep a focused self-check when it prevents an observed failure. The harness's no-child-tests rule has a different purpose: the parent owns test execution and rollback.
 - **Automatic subagent review** — delegate independent review when its perspective or context isolation justifies the cost, supplying the needed evidence. Reuse `/optimus:code-review` where applicable instead of maintaining a private copy. Neither adding an agent nor sharing context guarantees a better result.
-- **Delegating what the skill could do inline** — a fan-out that fires regardless of input size spawns agents on a three-file diff. Give every agent step a floor below which the skill does the work itself; the fan-out earns its cost on genuinely independent tracks, or when the material would crowd out the step that follows.
+- **Delegating what the skill could do inline** — a fan-out that fires regardless of input size spawns agents on a three-file diff, and how readily a model delegates changes between releases. Give every agent step an input-size floor below which the skill does the work itself, instead of a fixed agent count; the fan-out earns its cost on genuinely independent tracks, or when the material would crowd out the step that follows.
 - **Per-step narration** — describe the cadence you want (one line up front, updates on something important, outcome first at the end) rather than mandating a report after every step.
 - **Conservatism in analysis agents** — "only report what you're confident about" makes the model report less. Have agents report with an honest confidence label and filter in the consuming step, where the code is actually available to check against.
 
@@ -39,8 +39,8 @@ These are candidates for simplification, not universal claims about every model 
 - Descriptions must parse as YAML: a `: ` inside an unquoted scalar ("Read-only: applies…") makes Claude Code load the skill with empty metadata — dropping `disable-model-invocation` — and makes Codex skip it. Use the folded `>-` form when in doubt. `validate_skill_metadata.py` parses frontmatter and the Codex policy and requires actual boolean values, not strings.
 - Descriptions: third person, lead with the differentiating verb phrase, state WHAT and WHEN, declare side effects (commits, pushes, file writes) and hard prerequisites. Target 250–450 chars (platform cap 1024). Feature inventories belong in README.md.
 - Names: short verb/noun slash-command style (`init`, `commit`, `deep`), consistent with the existing set.
-- Directory: `SKILL.md`, `README.md`, and `agents/openai.yaml` (all required); optional `references/`, `templates/`, and agent prompt files under `agents/`. Agent prompt files are self-contained — inline their criteria; do not chain them through plugin-level agent files or pointer files.
-- Host portability: write for Claude Code and name its tools (`AskUserQuestion`, the Agent tool) — the session-start hook maps the skill prefix and `AskUserQuestion` for Codex, and a Codex model maps the remaining tool names to its own equivalents, so host-neutral paraphrases only add words. Never rely on `$CLAUDE_PLUGIN_ROOT` being set in a Bash call: Claude Code leaves it empty on some platforms and Codex sets it only for hooks. Resolve the root once, the way `deep` does, and substitute absolute paths into every subagent prompt.
+- Directory: `SKILL.md`, `README.md`, and `agents/openai.yaml` (all required); optional `references/`, `templates/`, and agent prompt files under `agents/`.
+- Host portability: write for Claude Code and name its tools (`AskUserQuestion`, the Agent tool) — the session-start hook maps the skill prefix and `AskUserQuestion` for Codex, and a Codex model maps the remaining tool names to its own equivalents, so host-neutral paraphrases only add words. Never rely on `$CLAUDE_PLUGIN_ROOT` being set in a Bash call: Claude Code leaves it empty on some platforms and Codex sets it only for hooks. Resolve the root once, the way `deep` does.
 - When a procedure is used by 2+ skills, extract it to a reference owned by the canonical skill; consumers read it and apply their own policy. Don't extract single-use content.
 - `.claude/docs/coding-guidelines.md` (installed by init) is the single source of truth for code-quality rules — reference it, never restate it.
 
@@ -48,7 +48,7 @@ These are candidates for simplification, not universal claims about every model 
 
 - Imperative steps, consistent terminology (one term per concept), no time-sensitive content.
 - Output templates stay plain: headings, bold, blockquotes — no decorative emoji, no hand-rolled "[Step N/M]" progress lines.
-- For parallel-agent steps, say to launch them in a single message — that instruction is about parallelism, not head count. Size the fan-out to the input rather than mandating a count: a step that always spawns N agents spawns them on inputs one pass would cover, and how readily a model delegates on its own changes between releases, so the input-size floor is the rule that survives. Name the lenses that must be covered, give a floor below which the skill does them inline, and let the model size the rest.
+- For parallel-agent steps, say to launch them in a single message — that instruction is about parallelism, not head count. Name the lenses that must be covered and let the model size the fan-out above the floor.
 - Don't instruct Claude to narrate or transcribe its reasoning; ask for conclusions and rationale.
 - Calibrate authored deliverables. A skill that writes a document states its target length once, where the template is defined (`brainstorm`'s "keep the spec under 200 lines" is the model). Current models write long by default, and an uncalibrated document fills with filler sections and restated summaries.
 
@@ -58,7 +58,7 @@ End with one or two plain lines recommending the next step, chosen by outcome (f
 
 ## Agents
 
-- Skill-level agents (`skills/<name>/agents/*.md`) carry their own criteria inline. Shared behavioral rules live once in `references/shared-agent-constraints.md`; a skill's `agents/shared-constraints.md` holds only genuine addendums plus the skill's canonical output format.
+- Skill-level agents (`skills/<name>/agents/*.md`) are self-contained: they carry their own criteria inline and never chain through plugin-level agent files or pointer files. Shared behavioral rules live once in `references/shared-agent-constraints.md`; a skill's `agents/shared-constraints.md` holds only genuine addendums plus the skill's canonical output format.
 - Subagents inherit neither `$CLAUDE_PLUGIN_ROOT` nor the agents directory as cwd — at dispatch, substitute the resolved absolute root into every path and inline or absolutize bare relative references (see `references/agent-architecture.md`).
 
 ## Evaluation
