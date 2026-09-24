@@ -143,7 +143,7 @@ Synonym lookup for Decision Heuristics rules 2 and 3. Rows targeting the **Canon
 
 Render **one** template per service, chosen by the heuristics, all under the same External Services container. Templates show the multi-repo H3 form; in single-project / monorepo demote every heading one level (`###` → `####`).
 
-**Placeholder substitution (every template):** substitute `<host-port>` / `<container-port>` with the validated numeric ports, `<container-volume-path>` with the validated volume path, `<registry>/<name>:<stable-tag>` with the validated image reference, `<project-slug>` / `<service-slug>` with the kebab-cased project / service names (lowercased ASCII, `[^A-Za-z0-9]+` collapsed to a single `-`, leading/trailing `-` trimmed). Only env-var placeholders (`<REQUIRED_ENV_VAR>`, or an angle-bracket value like `<password>`) may remain unsubstituted (they signal a required user action).
+**Placeholder substitution (every template):** substitute `<host-port>` / `<container-port>` with the validated numeric ports, `<container-volume-path>` with the validated volume path, `<registry>/<name>:<stable-tag>` with the validated image reference, `<project-slug>` / `<service-slug>` with the kebab-cased project / service names (lowercased ASCII, `[^A-Za-z0-9]+` collapsed to a single `-`, leading/trailing `-` trimmed). Only env-var placeholders (`<REQUIRED_ENV_VAR>`, or an angle-bracket value like `<password>`) may remain unsubstituted (they signal a required user action). `<install page URL>` is the vendor's own local-install/download page (rule 2: the Known Vendor Emulators Canonical source), never the Docker page on the `- Source:` line; with none known, drop the link and name the vendor's installer.
 
 **Env-var rule (both Docker templates):** one `-e '<VAR>=<value>'` line per env var the vendor page marks required — `<value>` is the vendor-documented constant (e.g., `ACCEPT_EULA=Y`) or a placeholder (e.g., `<password>`; secret-named vars always take the placeholder, per recipe step 5); omit `-e` entirely for images with none (e.g., `redis`).
 
@@ -183,7 +183,7 @@ docker run -d --name <project-slug>-<service-slug> \
 - <Windows / ARM caveat if applicable.>
 - Connection details for <relevant config file / env var>: `<connection string template with the placeholder values>`.
 
-**Alternative: local install.** <One-sentence reason to pick local.> Install from [<vendor page>](<vendor page URL>).
+**Alternative: local install.** <One-sentence reason to pick local.> Install from [<install page title>](<install page URL>).
 ````
 
 ### Shared-cloud primary (Docker optional)
@@ -225,7 +225,7 @@ docker run -d --name <project-slug>-<service-slug> \
 
 <One-sentence reason for this selected path — e.g., "Use the vendor's local emulator guide for this service." Do not infer that a vendor container is unavailable merely because this catalogue does not generate it.>
 
-Install from [<vendor page>](<vendor page URL>).
+Install from [<install page title>](<install page URL>).
 
 [Optional: one-line note on a CLI alternative inside a related container, or the vendor's local-emulator tool.]
 ```
