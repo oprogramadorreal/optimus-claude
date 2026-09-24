@@ -3,8 +3,13 @@
 # Uses `dart format` (ships with both Dart and Flutter SDKs).
 
 input=$(cat)
-[[ "$input" =~ \"file_path\"[[:space:]]*:[[:space:]]*\"([^\"]+)\" ]] || exit 0
+_fp_re='"file_path"[[:space:]]*:[[:space:]]*"(([^"\]|\\.)*)"'
+[[ "$input" =~ $_fp_re ]] || exit 0
 file_path="${BASH_REMATCH[1]}"
+file_path="${file_path//\\\\/$'\001'}"
+file_path="${file_path//\\\"/\"}"
+file_path="${file_path//\\\//\/}"
+file_path="${file_path//$'\001'/\\}"
 
 [[ "$file_path" == *.dart ]] || exit 0
 

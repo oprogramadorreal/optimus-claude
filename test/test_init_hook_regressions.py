@@ -226,3 +226,43 @@ def test_rust_hook_requires_explicit_nearest_config_edition(tmp_path, edition):
     else:
         assert not log.exists()
         assert "cargo fmt" in result.stderr
+
+
+@pytest.mark.parametrize(
+    "hook, tool, flags, ext",
+    [
+        ("format-go.sh", "gofmt", ["-w"], "go"),
+        ("format-dart.sh", "dart", ["format"], "dart"),
+        ("format-cpp.sh", "clang-format", ["-i"], "cpp"),
+        ("format-java.sh", "google-java-format", ["--replace"], "java"),
+    ],
+)
+# Literal payloads so every OS checks the decode: Windows separators must not
+# arrive doubled, and an escaped quote must not truncate into a silent skip.
+@pytest.mark.parametrize(
+    "target",
+    [
+        "C:\\proj dir\\src\\main.{ext}",
+        '/proj/we"ird\\dir/main.{ext}',
+        "/proj/notes.txt",
+    ],
+)
+def test_simple_formatter_hook_passes_flags_and_decoded_path(
+    tmp_path, hook, tool, flags, ext, target
+):
+    target = target.format(ext=ext)
+    log = tmp_path / "argv.txt"
+    result = _bash(
+        f'{tool}() {{ printf "%s\\n" "$@" > "$HOOK_LOG"; }}\n'
+        f'export -f {tool}\nbash "$1"\n',
+        tmp_path,
+        HOOKS / hook,
+        payload=json.dumps({"tool_input": {"file_path": target}}),
+        env={"HOOK_LOG": log.as_posix()},
+    )
+    assert result.returncode == 0, result.stderr
+    if target.endswith(".txt"):
+        assert not log.exists(), result.stderr
+    else:
+        assert log.exists(), result.stderr
+        assert log.read_text(encoding="utf-8").splitlines() == [*flags, target]

@@ -101,8 +101,8 @@ check "Codex marketplace installs plugin '$plugin_name' from ./" \
 # format-python.sh is the same arrangement with the coverage inverted: the
 # pytest suite drives the .claude/ copy and scripts/test-hooks.sh drives the
 # template, so each is only as good as this pin. It is the one format-* hook
-# with logic beyond parse-guard-invoke — it resolves black and isort out of a
-# virtualenv — which is exactly where a template-only or .claude/-only fix hurts.
+# dogfooded under .claude/hooks/, and its virtualenv resolution of black and
+# isort is exactly where a template-only or .claude/-only fix hurts.
 if command -v cmp &>/dev/null; then
   check "restrict-paths hook copies are in sync" \
     cmp -s .claude/hooks/restrict-paths.sh skills/permissions/templates/hooks/restrict-paths.sh
