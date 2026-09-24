@@ -470,12 +470,13 @@ fi
 # --- 17. Producer/consumer contracts ---
 # A pin belongs here only when a rename on one side breaks a handoff that the
 # reading model cannot recover by meaning. That is true in exactly two cases:
-#   (a) a program parses the string — HARNESS_MODE_INLINE and the harness
-#       reference paths are dispatched on by scripts/harness_common/cli.py;
-#   (b) the string crosses a conversation boundary through an artifact on disk
-#       or an agent return block — one skill writes '## Scenarios' into a spec
-#       file that another skill greps weeks later; an agent names the block its
-#       dispatcher picks out of a long return.
+#   (a) a program parses the string;
+#   (b) the string crosses a conversation boundary through an artifact on disk,
+#       a dispatch prompt, or an agent return block — one skill writes
+#       '## Scenarios' into a spec file that another skill greps weeks later;
+#       the deep loop references inject HARNESS_MODE_INLINE into each subagent's
+#       prompt and its base SKILL.md routes on it to the harness reference; an
+#       agent names the block its dispatcher picks out of a long return.
 # Everything else is a model reading prose, and Claude resolves a renamed
 # heading by meaning. Pinning the wording of a skill's own instructions makes CI
 # the thing that blocks simplifying it — the anti-pattern this plugin's own
@@ -520,7 +521,7 @@ fi
 
 # Harness routing: /optimus:deep dispatches the base skills with
 # HARNESS_MODE_INLINE and each base SKILL.md routes on it to its variant's
-# reference (runtime contract with scripts/harness_common/cli.py; see
+# reference (dispatch contract with the deep loop references; see
 # test_skill_contract.py). The roster is derived from constants.py's variant
 # frozensets, so a new deep target is covered here automatically instead of
 # shipping unvalidated when a hardcoded list goes stale.
