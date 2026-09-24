@@ -1,5 +1,5 @@
 ---
-description: Configures Claude Code permissions for safe agent autonomy. Creates settings.json with allow/deny rules and a hook enforcing path restrictions, git branch protection (commit/push blocked on master/main), and precious-file safeguards. Use after /optimus:init to enable autonomous agent workflows, or standalone to lock down a project's permission boundaries.
+description: Configures Claude Code permissions for low-prompt work inside a project; changes nothing under Codex. Creates or merges allow/deny rules in .claude/settings.json and installs a PreToolUse hook gating out-of-project writes and deletes, precious untracked files, and history-changing git on protected branches. Writes only under .claude/, including an ownership record. Use after /optimus:init or standalone.
 disable-model-invocation: true
 ---
 
