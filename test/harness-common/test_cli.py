@@ -104,9 +104,7 @@ def _stub_git(
             "origin/main",
         ),
     )
-    monkeypatch.setattr(
-        cli, "git_fetch_open_pr_description", lambda _cwd, pr_info=None: pr
-    )
+    monkeypatch.setattr(cli, "git_fetch_open_pr_description", lambda _pr_info: pr)
     monkeypatch.setattr(cli, "git_diff_has_changes", lambda _cwd: dirty)
 
 
@@ -860,7 +858,7 @@ class TestInit:
             received["discover"] = pr_info
             return [], "origin/main"
 
-        def _fake_desc(_cwd, pr_info=None):
+        def _fake_desc(pr_info):
             received["desc"] = pr_info
             return None
 
@@ -1594,7 +1592,6 @@ class TestParse:
         progress_path.write_text(
             json.dumps(
                 {
-                    "schema_version": 1,
                     "skill": "code-review",
                     "parse_failure_count": 0,
                 }
@@ -1631,7 +1628,6 @@ class TestParse:
         progress_path.write_text(
             json.dumps(
                 {
-                    "schema_version": 1,
                     "skill": "code-review",
                     "parse_failure_count": 1,
                 }
@@ -1677,7 +1673,6 @@ class TestParse:
         progress_path.write_text(
             json.dumps(
                 {
-                    "schema_version": 1,
                     "skill": "code-review",
                     "config": {"project_root": str(tmp_path)},
                     "parse_failure_count": 0,

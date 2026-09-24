@@ -185,15 +185,6 @@ class TestRunTests:
 
     @patch("harness_common.runner.sys")
     @patch("harness_common.runner.subprocess.Popen")
-    def test_custom_prefix(self, mock_run, mock_sys, capsys):
-        mock_sys.platform = "linux"
-        mock_run.side_effect = _popen(0, b"ok\n", b"")
-        run_tests("npm test", "/tmp", prefix="[custom]")
-        output = capsys.readouterr().out
-        assert "[custom]" in output
-
-    @patch("harness_common.runner.sys")
-    @patch("harness_common.runner.subprocess.Popen")
     def test_default_prefix(self, mock_run, mock_sys, capsys):
         mock_sys.platform = "linux"
         mock_run.side_effect = _popen(0, b"ok\n", b"")

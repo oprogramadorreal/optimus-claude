@@ -1,23 +1,8 @@
 import re
-import sys
 from pathlib import Path
 
 from .constants import FIXED_STATUSES, PERSISTENT_STATUS, REVERTED_STATUSES
 from .git import git_current_branch
-
-
-def _force_utf8_stdout():
-    """Best-effort: make stdout encode as UTF-8 with replacement so report
-    content carrying non-ASCII (accented identifiers, em-dashes quoted from
-    user code) can't raise UnicodeEncodeError mid-report on a legacy Windows
-    console. No-op when stdout lacks reconfigure (e.g. under test capture)."""
-    reconfigure = getattr(sys.stdout, "reconfigure", None)
-    if reconfigure is not None:
-        try:
-            reconfigure(encoding="utf-8", errors="replace")
-        except (ValueError, OSError):
-            pass
-
 
 _SHELL_FENCE_LANGS = (
     "bash",
@@ -201,7 +186,6 @@ def _print_rollback_footer(progress, has_changes_to_undo):
 
 
 def print_deep_report(progress):
-    _force_utf8_stdout()
     findings = progress["findings"]
     total_fixed = sum(1 for f in findings if f["status"] in FIXED_STATUSES)
     total_reverted = sum(1 for f in findings if f["status"] in REVERTED_STATUSES)
@@ -246,7 +230,6 @@ def print_deep_report(progress):
 
 
 def print_coverage_report(progress):
-    _force_utf8_stdout()
     cycles = progress["cycle"]["completed"]
     coverage = progress["coverage"]
     baseline = coverage.get("baseline")

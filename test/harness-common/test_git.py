@@ -14,7 +14,6 @@ from harness_common.git import (
     _base_from_symbolic_ref,
     _clean_working_tree,
     _detect_base_branch,
-    _fetch_open_pr_data,
     _verify_ref,
     commit_checkpoint,
     get_open_pr_data,
@@ -53,13 +52,6 @@ def test_gitignore_mirrors_harness_state_excludes():
             assert pattern in gitignore, f"{pattern} missing from .gitignore"
 
 
-@patch("harness_common.git._fetch_open_pr_data")
-def test_get_open_pr_data_delegates(mock_fetch):
-    mock_fetch.return_value = {"state": "OPEN"}
-    assert get_open_pr_data("/tmp/project") == {"state": "OPEN"}
-    mock_fetch.assert_called_once_with("/tmp/project")
-
-
 class TestGitRevParseHead:
     @patch("harness_common.git.subprocess.run")
     def test_success(self, mock_run):
@@ -78,7 +70,7 @@ class TestCleanWorkingTree:
         mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
         _clean_working_tree("/tmp/project")
         commands = [call.args[0][1] for call in mock_run.call_args_list]
-        assert commands.index("checkout") < commands.index("clean")
+        assert "checkout" not in commands
 
     @patch("harness_common.git.subprocess.run")
     def test_clean_failure_stops_restore(self, mock_run):
@@ -90,18 +82,6 @@ class TestCleanWorkingTree:
         mock_run.side_effect = run
         with pytest.raises(RuntimeError, match="git clean"):
             _clean_working_tree("/tmp/project")
-
-    @patch("harness_common.git.subprocess.run")
-    def test_checkout_failure_stops_before_clean(self, mock_run):
-        def run(args, **kwargs):
-            return subprocess.CompletedProcess(
-                args, 1 if args[1] == "checkout" else 0, "", "checkout failed"
-            )
-
-        mock_run.side_effect = run
-        with pytest.raises(RuntimeError, match="git checkout"):
-            _clean_working_tree("/tmp/project")
-        assert not any(call.args[0][1] == "clean" for call in mock_run.call_args_list)
 
     @patch("harness_common.git.subprocess.run")
     def test_prefix_failure_stops_before_any_mutation(self, mock_run):
@@ -340,7 +320,7 @@ class TestGitRestoreTo:
             "--",
             ".",
         ]
-        mock_clean.assert_called_once_with("/tmp", _run=mock_run, reset_tracked=False)
+        mock_clean.assert_called_once_with("/tmp", _run=mock_run)
 
     @pytest.mark.parametrize("failed_command", ["ls-tree", "restore"])
     @patch("harness_common.git._clean_working_tree")
@@ -702,7 +682,7 @@ class TestFetchOpenPrData:
             }
         )
         mock_run.return_value = MagicMock(returncode=0, stdout=pr_json)
-        result = _fetch_open_pr_data("/tmp/project")
+        result = get_open_pr_data("/tmp/project")
         assert result is not None
         assert result["body"] == body
         # Regression guard for commit 9e0553a — without these kwargs, Windows
@@ -722,12 +702,12 @@ class TestFetchOpenPrData:
             }
         )
         mock_run.return_value = MagicMock(returncode=0, stdout=pr_json)
-        assert _fetch_open_pr_data("/tmp/project") is None
+        assert get_open_pr_data("/tmp/project") is None
 
     @patch("harness_common.git.subprocess.run")
     def test_returns_none_on_gh_failure(self, mock_run):
         mock_run.return_value = MagicMock(returncode=1, stdout="")
-        assert _fetch_open_pr_data("/tmp/project") is None
+        assert get_open_pr_data("/tmp/project") is None
 
     @patch("harness_common.git.subprocess.run")
     def test_returns_none_when_gh_missing(self, mock_run):
@@ -735,14 +715,14 @@ class TestFetchOpenPrData:
         # except clause absorbs into None (graceful degradation — PR context is
         # simply not injected). Mirrors _verify_ref's covered failure branch.
         mock_run.side_effect = FileNotFoundError("gh not found")
-        assert _fetch_open_pr_data("/tmp/project") is None
+        assert get_open_pr_data("/tmp/project") is None
 
     @patch("harness_common.git.subprocess.run")
     def test_returns_none_on_malformed_json(self, mock_run):
         # gh exited 0 but emitted non-JSON (truncated / interleaved output):
         # json.loads raises ValueError, also absorbed into None.
         mock_run.return_value = MagicMock(returncode=0, stdout="not json{")
-        assert _fetch_open_pr_data("/tmp/project") is None
+        assert get_open_pr_data("/tmp/project") is None
 
 
 class TestVerifyRef:
@@ -769,47 +749,33 @@ class TestVerifyRef:
 
 class TestBaseFromOpenPr:
     @patch("harness_common.git._verify_ref", return_value=True)
-    @patch("harness_common.git._fetch_open_pr_data")
-    def test_returns_origin_prefixed_base(self, mock_fetch, _mock_verify):
-        mock_fetch.return_value = {
+    def test_returns_origin_prefixed_base(self, _mock_verify):
+        pr_info = {
             "title": "x",
             "body": "y",
             "baseRefName": "main",
             "state": "OPEN",
         }
-        assert _base_from_open_pr("/tmp") == "origin/main"
+        assert _base_from_open_pr("/tmp", pr_info) == "origin/main"
 
-    @patch("harness_common.git._fetch_open_pr_data", return_value=None)
-    def test_returns_none_when_no_pr(self, _mock_fetch):
-        assert _base_from_open_pr("/tmp") is None
+    def test_returns_none_when_no_pr(self):
+        assert _base_from_open_pr("/tmp", None) is None
 
     @patch("harness_common.git._verify_ref", return_value=False)
-    @patch("harness_common.git._fetch_open_pr_data")
-    def test_returns_none_when_local_ref_missing(self, mock_fetch, _mock_verify):
+    def test_returns_none_when_local_ref_missing(self, _mock_verify):
         # Open PR exists upstream, but the user has not fetched its base —
         # so the local `origin/<base>` ref doesn't resolve. Fall through.
-        mock_fetch.return_value = {
+        pr_info = {
             "title": "x",
             "body": "y",
             "baseRefName": "feature/upstream-base-not-fetched",
             "state": "OPEN",
         }
-        assert _base_from_open_pr("/tmp") is None
+        assert _base_from_open_pr("/tmp", pr_info) is None
 
-    @patch("harness_common.git._fetch_open_pr_data")
-    def test_returns_none_when_baseref_missing(self, mock_fetch):
-        mock_fetch.return_value = {"title": "x", "body": "y", "state": "OPEN"}
-        assert _base_from_open_pr("/tmp") is None
-
-    @patch("harness_common.git._verify_ref", return_value=True)
-    @patch("harness_common.git._fetch_open_pr_data")
-    def test_provided_pr_info_skips_refetch(self, mock_fetch, _mock_verify):
-        # CL1: threading pr_info (dict or None) must not trigger a re-fetch —
-        # None means "fetched, no open PR", not "not provided".
-        pr = {"baseRefName": "main", "state": "OPEN"}
-        assert _base_from_open_pr("/tmp", pr) == "origin/main"
-        assert _base_from_open_pr("/tmp", None) is None
-        mock_fetch.assert_not_called()
+    def test_returns_none_when_baseref_missing(self):
+        pr_info = {"title": "x", "body": "y", "state": "OPEN"}
+        assert _base_from_open_pr("/tmp", pr_info) is None
 
 
 class TestBaseFromSymbolicRef:
@@ -865,7 +831,7 @@ class TestDetectBaseBranch:
     @patch("harness_common.git._base_from_open_pr")
     def test_open_pr_wins_first(self, mock_open_pr, mock_symbolic, mock_default):
         mock_open_pr.return_value = "origin/feature-base"
-        assert _detect_base_branch("/tmp") == "origin/feature-base"
+        assert _detect_base_branch("/tmp", None) == "origin/feature-base"
         mock_symbolic.assert_not_called()
         mock_default.assert_not_called()
 
@@ -874,7 +840,7 @@ class TestDetectBaseBranch:
     @patch("harness_common.git._base_from_open_pr", return_value=None)
     def test_symbolic_ref_wins_second(self, _mock_open_pr, mock_symbolic, mock_default):
         mock_symbolic.return_value = "origin/develop"
-        assert _detect_base_branch("/tmp") == "origin/develop"
+        assert _detect_base_branch("/tmp", None) == "origin/develop"
         mock_default.assert_not_called()
 
     @patch("harness_common.git._base_from_default_branches")
@@ -882,13 +848,13 @@ class TestDetectBaseBranch:
     @patch("harness_common.git._base_from_open_pr", return_value=None)
     def test_default_branches_third(self, _mock_open_pr, _mock_symbolic, mock_default):
         mock_default.return_value = "origin/master"
-        assert _detect_base_branch("/tmp") == "origin/master"
+        assert _detect_base_branch("/tmp", None) == "origin/master"
 
     @patch("harness_common.git._base_from_default_branches", return_value=None)
     @patch("harness_common.git._base_from_symbolic_ref", return_value=None)
     @patch("harness_common.git._base_from_open_pr", return_value=None)
     def test_returns_none_when_all_fail(self, *_mocks):
-        assert _detect_base_branch("/tmp") is None
+        assert _detect_base_branch("/tmp", None) is None
 
 
 class TestGitDiscoverBranchFiles:
@@ -896,7 +862,7 @@ class TestGitDiscoverBranchFiles:
     @patch("harness_common.git._detect_base_branch", return_value="origin/main")
     def test_returns_files_and_base(self, _mock_base, mock_run):
         mock_run.return_value = MagicMock(returncode=0, stdout="src/a.py\nsrc/b.py\n")
-        files, base = git_discover_branch_files("/tmp")
+        files, base = git_discover_branch_files("/tmp", None)
         assert files == ["src/a.py", "src/b.py"]
         assert base == "origin/main"
         # Diff uses three-dot to compare branch vs merge-base, with
@@ -911,7 +877,7 @@ class TestGitDiscoverBranchFiles:
     @patch("harness_common.git._detect_base_branch", return_value="origin/main")
     def test_path_filter_injects_pathspec(self, _mock_base, mock_run):
         mock_run.return_value = MagicMock(returncode=0, stdout="src/auth/login.py\n")
-        files, base = git_discover_branch_files("/tmp", path_filter="src/auth")
+        files, base = git_discover_branch_files("/tmp", None, path_filter="src/auth")
         assert files == ["src/auth/login.py"]
         assert base == "origin/main"
         args = mock_run.call_args.args[0]
@@ -924,7 +890,7 @@ class TestGitDiscoverBranchFiles:
     @patch("harness_common.git.subprocess.run")
     @patch("harness_common.git._detect_base_branch", return_value=None)
     def test_returns_empty_and_none_when_no_base_detected(self, _mock_base, mock_run):
-        assert git_discover_branch_files("/tmp") == ([], None)
+        assert git_discover_branch_files("/tmp", None) == ([], None)
         # We must NOT have run git diff when no base could be detected.
         mock_run.assert_not_called()
 
@@ -932,7 +898,7 @@ class TestGitDiscoverBranchFiles:
     @patch("harness_common.git._detect_base_branch", return_value="origin/main")
     def test_empty_diff_returns_empty_list(self, _mock_base, mock_run):
         mock_run.return_value = MagicMock(returncode=0, stdout="\n")
-        files, base = git_discover_branch_files("/tmp")
+        files, base = git_discover_branch_files("/tmp", None)
         assert files == []
         assert base == "origin/main"
 
@@ -940,7 +906,7 @@ class TestGitDiscoverBranchFiles:
     @patch("harness_common.git._detect_base_branch", return_value="origin/main")
     def test_diff_failure_returns_empty(self, _mock_base, mock_run):
         mock_run.return_value = MagicMock(returncode=128, stdout="")
-        files, base = git_discover_branch_files("/tmp")
+        files, base = git_discover_branch_files("/tmp", None)
         assert files == []
         # Base is preserved so the caller can still report which base we tried.
         assert base == "origin/main"
@@ -949,7 +915,7 @@ class TestGitDiscoverBranchFiles:
     @patch("harness_common.git._detect_base_branch", return_value="origin/main")
     def test_timeout_returns_empty(self, _mock_base, mock_run):
         mock_run.side_effect = subprocess.TimeoutExpired(cmd="git", timeout=30)
-        files, base = git_discover_branch_files("/tmp")
+        files, base = git_discover_branch_files("/tmp", None)
         assert files == []
         assert base == "origin/main"
 
@@ -960,7 +926,7 @@ class TestGitDiscoverBranchFiles:
         # encoding="utf-8" kwarg keeps branch-file discovery cross-platform
         # (regression for commit fac1fec, mirrors TestFetchOpenPrData).
         mock_run.return_value = MagicMock(returncode=0, stdout="src/café.py\n")
-        files, _base = git_discover_branch_files("/tmp")
+        files, _base = git_discover_branch_files("/tmp", None)
         assert files == ["src/café.py"]
         _args, kwargs = mock_run.call_args
         assert kwargs.get("encoding") == "utf-8"
@@ -968,97 +934,83 @@ class TestGitDiscoverBranchFiles:
 
 
 class TestGitFetchOpenPrDescription:
-    @patch("harness_common.git._fetch_open_pr_data")
-    def test_returns_truncated_payload(self, mock_fetch):
-        mock_fetch.return_value = {
+    def test_returns_truncated_payload(self):
+        pr_info = {
             "title": "feat: x",
             "body": "Implements x",
             "baseRefName": "develop",
             "state": "OPEN",
         }
-        out = git_fetch_open_pr_description("/tmp")
+        out = git_fetch_open_pr_description(pr_info)
         assert out == {
             "title": "feat: x",
             "body": "Implements x",
             "base_ref": "origin/develop",
         }
 
-    @patch("harness_common.git._fetch_open_pr_data", return_value=None)
-    def test_returns_none_when_no_pr(self, _mock_fetch):
-        assert git_fetch_open_pr_description("/tmp") is None
+    def test_returns_none_when_no_pr(self):
+        assert git_fetch_open_pr_description(None) is None
 
-    @patch("harness_common.git._fetch_open_pr_data")
-    def test_provided_none_skips_refetch(self, mock_fetch):
-        # CL1: threading pr_info=None (no open PR) must not re-fetch.
-        assert git_fetch_open_pr_description("/tmp", None) is None
-        mock_fetch.assert_not_called()
-
-    @patch("harness_common.git._fetch_open_pr_data")
-    def test_title_truncated_at_limit(self, mock_fetch):
+    def test_title_truncated_at_limit(self):
         long_title = "x" * (_PR_TITLE_TRUNCATE_LIMIT + 50)
-        mock_fetch.return_value = {
+        pr_info = {
             "title": long_title,
             "body": "",
             "baseRefName": "main",
             "state": "OPEN",
         }
-        out = git_fetch_open_pr_description("/tmp")
+        out = git_fetch_open_pr_description(pr_info)
         assert len(out["title"]) == _PR_TITLE_TRUNCATE_LIMIT
 
-    @patch("harness_common.git._fetch_open_pr_data")
-    def test_title_at_exactly_limit_not_truncated(self, mock_fetch):
+    def test_title_at_exactly_limit_not_truncated(self):
         title = "x" * _PR_TITLE_TRUNCATE_LIMIT
-        mock_fetch.return_value = {
+        pr_info = {
             "title": title,
             "body": "",
             "baseRefName": "main",
             "state": "OPEN",
         }
-        out = git_fetch_open_pr_description("/tmp")
+        out = git_fetch_open_pr_description(pr_info)
         assert out["title"] == title
 
-    @patch("harness_common.git._fetch_open_pr_data")
-    def test_body_truncated_at_limit_with_marker(self, mock_fetch):
+    def test_body_truncated_at_limit_with_marker(self):
         body = "y" * (_PR_BODY_TRUNCATE_LIMIT + 100)
-        mock_fetch.return_value = {
+        pr_info = {
             "title": "x",
             "body": body,
             "baseRefName": "main",
             "state": "OPEN",
         }
-        out = git_fetch_open_pr_description("/tmp")
+        out = git_fetch_open_pr_description(pr_info)
         # Original body is sliced to the limit, then a marker is appended.
         assert out["body"].startswith("y" * _PR_BODY_TRUNCATE_LIMIT)
         assert out["body"].endswith("[...truncated...]")
 
-    @patch("harness_common.git._fetch_open_pr_data")
-    def test_body_at_exactly_limit_not_truncated(self, mock_fetch):
+    def test_body_at_exactly_limit_not_truncated(self):
         body = "y" * _PR_BODY_TRUNCATE_LIMIT
-        mock_fetch.return_value = {
+        pr_info = {
             "title": "x",
             "body": body,
             "baseRefName": "main",
             "state": "OPEN",
         }
-        out = git_fetch_open_pr_description("/tmp")
+        out = git_fetch_open_pr_description(pr_info)
         assert out["body"] == body
         assert "[...truncated...]" not in out["body"]
 
-    @patch("harness_common.git._fetch_open_pr_data")
-    def test_base_ref_none_when_baseref_absent(self, mock_fetch):
-        mock_fetch.return_value = {
+    def test_base_ref_none_when_baseref_absent(self):
+        pr_info = {
             "title": "x",
             "body": "y",
             "baseRefName": None,
             "state": "OPEN",
         }
-        out = git_fetch_open_pr_description("/tmp")
+        out = git_fetch_open_pr_description(pr_info)
         assert out["base_ref"] is None
 
-    @patch("harness_common.git._fetch_open_pr_data")
-    def test_missing_title_and_body_default_to_empty(self, mock_fetch):
-        mock_fetch.return_value = {"baseRefName": "main", "state": "OPEN"}
-        out = git_fetch_open_pr_description("/tmp")
+    def test_missing_title_and_body_default_to_empty(self):
+        pr_info = {"baseRefName": "main", "state": "OPEN"}
+        out = git_fetch_open_pr_description(pr_info)
         assert out["title"] == ""
         assert out["body"] == ""
         assert out["base_ref"] == "origin/main"

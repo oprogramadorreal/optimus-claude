@@ -9,6 +9,8 @@ from pathlib import Path
 
 from .constants import DEFAULT_TEST_TIMEOUT
 
+_PREFIX = "[harness]"
+
 
 def _find_bash(platform=None, which_fn=None, run_fn=None):
     """Return the path to a usable bash executable, preferring Git Bash on Windows."""
@@ -120,9 +122,9 @@ def _read_output(log):
     return text.replace("\r\n", "\n").replace("\r", "\n")
 
 
-def run_tests(test_command, cwd, timeout=DEFAULT_TEST_TIMEOUT, prefix="[harness]"):
+def run_tests(test_command, cwd, timeout=DEFAULT_TEST_TIMEOUT):
     """Run the project's test command. Returns (passed: bool, output: str)."""
-    print(f"{prefix} Running tests: {test_command}")
+    print(f"{_PREFIX} Running tests: {test_command}")
     # shell=True would mean cmd.exe on Windows and /bin/sh (dash on
     # Debian/Ubuntu) elsewhere; run the documented command under bash on every
     # platform so &&, $(...), $VAR, 2> and `source` behave as in the Bash tool.
@@ -130,7 +132,7 @@ def run_tests(test_command, cwd, timeout=DEFAULT_TEST_TIMEOUT, prefix="[harness]
         bash = _find_bash()
     except FileNotFoundError as exc:
         msg = f"{exc.strerror}: {exc.filename}"
-        print(f"{prefix} {msg}")
+        print(f"{_PREFIX} {msg}")
         return False, msg
     # Capture to files, not pipes: after a timeout, draining a pipe waits for
     # every process still holding it open, so one surviving grandchild would
@@ -153,14 +155,14 @@ def run_tests(test_command, cwd, timeout=DEFAULT_TEST_TIMEOUT, prefix="[harness]
             msg = f"Command not found: {exc.filename or 'bash'}"
             if sys.platform == "win32":
                 msg += " (install Git Bash and ensure 'bash' is on PATH)"
-            print(f"{prefix} {msg}")
+            print(f"{_PREFIX} {msg}")
             return False, msg
         try:
             proc.wait(timeout=timeout)
         except subprocess.TimeoutExpired:
             _kill_tree(proc)
             proc.wait()
-            print(f"{prefix} Tests timed out after {timeout}s")
+            print(f"{_PREFIX} Tests timed out after {timeout}s")
             partial = "\n".join(
                 filter(None, [_read_output(out), _read_output(err)])
             ).strip()
@@ -175,5 +177,5 @@ def run_tests(test_command, cwd, timeout=DEFAULT_TEST_TIMEOUT, prefix="[harness]
     combined = "\n".join(filter(None, [stdout, stderr])).strip()
     summary = "\n".join(combined.split("\n")[-5:])
     status = "PASS" if passed else "FAIL"
-    print(f"{prefix} Tests: {status}")
+    print(f"{_PREFIX} Tests: {status}")
     return passed, summary

@@ -17,10 +17,6 @@ from .constants import (
 
 _PREFIX = "[harness]"
 
-# Sentinel distinguishing "PR data not provided → fetch it" from "provided as
-# None" (an explicit no-open-PR result that must NOT trigger a re-fetch).
-_UNSET = object()
-
 
 TreeState = namedtuple("TreeState", "digest dirty base entries")
 
@@ -355,8 +351,8 @@ _HARNESS_STATE_EXCLUDES = (
 )
 
 
-def _clean_working_tree(cwd, _run=None, *, reset_tracked=True):
-    """Reset tracked files and remove untracked files/dirs.
+def _clean_working_tree(cwd, _run=None):
+    """Remove untracked files/dirs (callers restore tracked files first).
 
     Preserves orchestrator state files (progress JSON, backups, per-iteration
     temp files) so the user can `--resume` after a clean-triggered restore.
@@ -370,10 +366,6 @@ def _clean_working_tree(cwd, _run=None, *, reset_tracked=True):
     prefix = prefix_result.stdout.rstrip("\n")
     for char in ("\\", "*", "?", "[", "]"):
         prefix = prefix.replace(char, "\\" + char)
-    if reset_tracked:
-        checkout = _run_git_text(_run, ["git", "checkout", "."], cwd)
-        if checkout.returncode != 0:
-            raise RuntimeError(f"git checkout . failed: {checkout.stderr[:200]}")
     clean_cmd = ["git", "clean", "-fd"]
     for pattern in _HARNESS_STATE_EXCLUDES:
         clean_cmd.extend(["-e", f"/{prefix}{pattern}" if prefix else pattern])
@@ -386,7 +378,7 @@ def git_restore_to(commit, cwd, _run=None):
     """Restore working tree to match a commit (resets tracked, removes untracked)."""
     _run = _run or subprocess.run
     git_restore_tracked_to(commit, cwd, _run=_run)
-    _clean_working_tree(cwd, _run=_run, reset_tracked=False)
+    _clean_working_tree(cwd, _run=_run)
 
 
 def git_restore_tracked_to(commit, cwd, _run=None):
@@ -636,7 +628,7 @@ def git_apply_snapshot(snapshot_sha, cwd, _run=None, *, clean_untracked=True):
     try:
         _restore_tree(snapshot_sha, cwd, _run)
         if clean_untracked:
-            _clean_working_tree(cwd, _run=_run, reset_tracked=False)
+            _clean_working_tree(cwd, _run=_run)
         _restore_tree(index_tree, cwd, _run, worktree=False)
         if untracked_tree:
             _restore_tree(untracked_tree, cwd, _run, staged=False, overlay=True)
@@ -732,8 +724,13 @@ def _verify_ref(cwd_str, ref):
     return result.returncode == 0
 
 
-def _fetch_open_pr_data(cwd_str):
-    """Return the parsed open-PR metadata dict, or ``None``."""
+def get_open_pr_data(cwd):
+    """Fetch the current branch's open-PR metadata once, or ``None``.
+
+    ``init`` fetches the open-PR JSON a single time and threads it into both
+    base-branch detection and the PR-description builder, instead of each
+    re-shelling out to ``gh pr view``.
+    """
     try:
         result = subprocess.run(
             ["gh", "pr", "view", "--json", "title,body,baseRefName,state"],
@@ -741,38 +738,21 @@ def _fetch_open_pr_data(cwd_str):
             text=True,
             encoding="utf-8",
             errors="replace",
-            cwd=cwd_str,
+            cwd=str(cwd),
             timeout=10,
         )
         if result.returncode != 0:
             return None
         pr_info = json.loads(result.stdout)
-    except (
-        subprocess.TimeoutExpired,
-        FileNotFoundError,
-        ValueError,
-        UnicodeDecodeError,
-    ):
+    except (subprocess.TimeoutExpired, FileNotFoundError, ValueError):
         return None
     if not (isinstance(pr_info, dict) and pr_info.get("state") == "OPEN"):
         return None
     return pr_info
 
 
-def get_open_pr_data(cwd):
-    """Fetch the current branch's open-PR metadata once, or ``None``.
-
-    Public accessor so a caller (``init``) can fetch the open-PR JSON a single
-    time and thread it into both base-branch detection and the PR-description
-    builder, instead of each re-shelling out to ``gh pr view``.
-    """
-    return _fetch_open_pr_data(str(cwd))
-
-
-def _base_from_open_pr(cwd_str, pr_info=_UNSET):
+def _base_from_open_pr(cwd_str, pr_info):
     """Return the open PR's base ref (e.g. ``origin/main``) if it exists locally."""
-    if pr_info is _UNSET:
-        pr_info = _fetch_open_pr_data(cwd_str)
     if not (pr_info and pr_info.get("baseRefName")):
         return None
     pr_base = f"origin/{pr_info['baseRefName']}"
@@ -809,7 +789,7 @@ def _base_from_default_branches(cwd_str):
     return None
 
 
-def _detect_base_branch(cwd, pr_info=_UNSET):
+def _detect_base_branch(cwd, pr_info):
     """Detect the base branch for the current feature branch."""
     cwd_str = str(cwd)
     return (
@@ -819,7 +799,7 @@ def _detect_base_branch(cwd, pr_info=_UNSET):
     )
 
 
-def git_discover_branch_files(cwd, path_filter=None, pr_info=_UNSET):
+def git_discover_branch_files(cwd, pr_info, path_filter=None):
     """Discover all files changed in the current feature branch vs. the base branch.
 
     Returns ``(files, base_ref)`` — ``files`` lists paths relative to ``cwd``;
@@ -869,18 +849,13 @@ _PR_BODY_TRUNCATE_LIMIT = 4000
 _PR_TITLE_TRUNCATE_LIMIT = 500
 
 
-def git_fetch_open_pr_description(cwd, pr_info=_UNSET):
-    """Return metadata for the current branch's open PR, or ``None``.
+def git_fetch_open_pr_description(pr_info):
+    """Build the PR description from :func:`get_open_pr_data`'s payload.
 
     Returns ``{"title": str, "body": str, "base_ref": str | None}`` when an
-    open PR exists. Returns ``None`` for any failure mode (closed PR, no PR,
-    ``gh`` missing, timeout, malformed or non-UTF-8 output). Pass ``pr_info``
-    (from :func:`get_open_pr_data`) to reuse an already-fetched payload instead
-    of re-shelling out to ``gh``.
+    open PR exists, or ``None`` when there is none (closed PR, no PR, ``gh``
+    missing, timeout, malformed output).
     """
-    cwd_str = str(cwd)
-    if pr_info is _UNSET:
-        pr_info = _fetch_open_pr_data(cwd_str)
     if not pr_info:
         return None
     title = (pr_info.get("title") or "")[:_PR_TITLE_TRUNCATE_LIMIT]

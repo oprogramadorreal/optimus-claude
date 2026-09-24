@@ -75,9 +75,6 @@ from .findings import (
     update_scope,
 )
 from .fixes import bisect_fixes
-from .git import (
-    TreeState,
-)
 from .git import commit_checkpoint as git_commit_checkpoint
 from .git import (
     get_open_pr_data,
@@ -127,7 +124,6 @@ def _make_deep_progress(
     no_commit=False,
 ):
     return {
-        "schema_version": 1,
         "skill": skill,
         "config": {
             "max_iterations": max_iterations,
@@ -170,7 +166,6 @@ def _make_coverage_progress(
     # re-dispatch from this field, so pinning it to one skill name would break
     # any future second coverage variant the roster otherwise supports.
     return {
-        "schema_version": 1,
         "harness": "test-coverage",
         "skill": skill,
         "config": {
@@ -719,7 +714,7 @@ def _init_deep(args, project_root, test_command, base_commit):
     if branch_files:
         progress["scope_files"]["current"] = branch_files
         progress["config"]["scope"]["base_ref"] = base_ref
-    pr_info = git_fetch_open_pr_description(project_root, pr_info=pr_data)
+    pr_info = git_fetch_open_pr_description(pr_data)
     if pr_info:
         progress["config"]["pr_description"] = pr_info
     return progress
@@ -1596,7 +1591,6 @@ def cmd_baseline(args):
     progress = _read_run_progress(progress_path)
     project_root = Path(progress["config"]["project_root"])
     test_command = progress["config"]["test_command"]
-    timeout = _effective_timeout(progress)
 
     start = time.monotonic()
     passed, summary = _run_verified_tests(progress, project_root, test_command)
