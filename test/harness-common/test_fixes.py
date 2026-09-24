@@ -190,6 +190,32 @@ class TestRevertSingleFix:
         assert f.read_text(encoding="utf-8") == "obj.value"
 
 
+class TestSwapContentLineEndings:
+    def test_lf_file_keeps_lf(self, tmp_path):
+        f = tmp_path / "a.py"
+        f.write_bytes(b"a = 1\nb = 2\nc = 3\n")
+        fix = {
+            "file": "a.py",
+            "pre_edit_content": "b = 2",
+            "post_edit_content": "b = 20",
+        }
+        assert apply_single_fix(fix, str(tmp_path)) is True
+        assert f.read_bytes() == b"a = 1\nb = 20\nc = 3\n"
+
+    def test_crlf_file_keeps_crlf_for_lf_recorded_content(self, tmp_path):
+        f = tmp_path / "a.py"
+        f.write_bytes(b"a = 1\r\nb = 2\r\nc = 3\r\n")
+        fix = {
+            "file": "a.py",
+            "pre_edit_content": "b = 2\nc = 3",
+            "post_edit_content": "b = 20\nc = 30",
+        }
+        assert apply_single_fix(fix, str(tmp_path)) is True
+        assert f.read_bytes() == b"a = 1\r\nb = 20\r\nc = 30\r\n"
+        assert revert_single_fix(fix, str(tmp_path)) is True
+        assert f.read_bytes() == b"a = 1\r\nb = 2\r\nc = 3\r\n"
+
+
 def _make_fix(tmp_path, filename, pre, post):
     """Helper: create a file with post content (applied state) and return fix dict."""
     f = tmp_path / filename

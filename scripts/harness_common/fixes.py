@@ -27,9 +27,14 @@ def _swap_content(fix, cwd, source_field, target_field):
     if not filepath.exists():
         return False
     try:
-        content = filepath.read_text(encoding="utf-8")
+        # newline="" exposes the file's own line endings so the write below can
+        # keep them; matching still runs on "\n", the form recorded edits use.
+        with filepath.open(encoding="utf-8", newline="") as stream:
+            raw = stream.read()
     except (UnicodeDecodeError, OSError):
         return False
+    newline = "\r\n" if "\r\n" in raw else "\n"
+    content = raw.replace("\r\n", "\n")
     find = fix.get(source_field, "")
     replace = fix.get(target_field, "")
     # Both content fields must be strings. A non-string value (e.g. a JSON number
@@ -37,6 +42,8 @@ def _swap_content(fix, cwd, source_field, target_field):
     # test and str.replace below — refuse the swap instead of raising.
     if not isinstance(find, str) or not isinstance(replace, str):
         return False
+    find = find.replace("\r\n", "\n")
+    replace = replace.replace("\r\n", "\n")
     if not find:
         # Empty find string — cannot locate target in file content.
         # This happens when reverting a deletion fix (empty post_edit_content):
@@ -46,7 +53,8 @@ def _swap_content(fix, cwd, source_field, target_field):
         return False
     if content.count(find) != 1:
         return False  # Ambiguous match — refuse to apply/revert
-    filepath.write_text(content.replace(find, replace, 1), encoding="utf-8")
+    with filepath.open("w", encoding="utf-8", newline=newline) as stream:
+        stream.write(content.replace(find, replace, 1))
     return True
 
 
