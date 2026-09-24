@@ -371,38 +371,21 @@ EOF
   echo "  Created: multi-repo-workspace"
 }
 
-# --- Available fixtures ---
-declare -A GENERATORS=(
-  [node]=generate_node_project
-  [python]=generate_python_project
-  [go]=generate_go_project
-  [rust]=generate_rust_project
-  [csharp]=generate_csharp_project
-  [monorepo]=generate_monorepo_project
-  [empty]=generate_empty_project
-  [multi-repo]=generate_multi_repo_workspace
-)
-
 # --- Main ---
+
+ALL_FIXTURES=(node python go rust csharp monorepo empty multi-repo)
 
 echo "=== Generating test fixtures ==="
 
 mkdir -p "$FIXTURES_DIR"
 
-if [ $# -eq 0 ]; then
-  # Generate all fixtures
-  targets=(node python go rust csharp monorepo empty multi-repo)
-else
-  targets=("$@")
-fi
-
-for target in "${targets[@]}"; do
-  if [ -n "${GENERATORS[$target]+x}" ]; then
-    ${GENERATORS[$target]}
-  else
-    echo "  ERROR: Unknown fixture '$target'. Available: ${!GENERATORS[*]}"
-    exit 1
-  fi
+[ $# -eq 0 ] && set -- "${ALL_FIXTURES[@]}"
+for target in "$@"; do
+  case "$target" in
+    node|python|go|rust|csharp|monorepo|empty) "generate_${target}_project" ;;
+    multi-repo) generate_multi_repo_workspace ;;
+    *) echo "  ERROR: Unknown fixture '$target'. Available: ${ALL_FIXTURES[*]}"; exit 1 ;;
+  esac
 done
 
 echo
