@@ -57,11 +57,7 @@ Classify the task:
 
 ### Feature branch
 
-All work happens on a new branch; the user's original branch is never modified.
-
-1. Record the current branch (`git rev-parse --abbrev-ref HEAD`) — it becomes the PR/MR target.
-2. Name the branch per `$CLAUDE_PLUGIN_ROOT/skills/commit/references/branch-naming.md` — type `feat` or `fix` from Step 2's classification.
-3. Create and switch: `git checkout -b <branch-name>`. Report the new branch and its origin branch.
+All work happens on a new branch; the original branch recorded in Step 1 (`<original-branch>`) is never modified. Name the new branch per `$CLAUDE_PLUGIN_ROOT/skills/commit/references/branch-naming.md` (`feat` for a feature, `fix` for a bug fix), create it with `git checkout -b <branch-name>`, and report both branch names.
 
 ### Worktree isolation (optional)
 
@@ -184,7 +180,7 @@ coverage command was found or either run produced no parseable number.]
 
 If a mixed-file commit is still deferred, leave the branch local and report what decision is needed before delivery. Continue with a partial push only if the user explicitly chose that scope.
 
-Push the branch: `git push -u origin <branch-name>`. If the push fails, report the error and stop — skip the rest of Step 8 and leave any worktree in place; the user must push manually, then run `/optimus:pr` (a new `/optimus:tdd` invocation starts fresh — it does not resume this one). On success, report the branch, its origin branch, and the commit count.
+Push the branch: `git push -u origin <branch-name>`. If the push fails, report the error and stop — skip the rest of Step 8 and leave any worktree in place; once the push problem is fixed, `/optimus:pr` pushes the branch and opens the PR/MR (a new `/optimus:tdd` invocation starts fresh — it does not resume this one). On success, report the branch, its origin branch, and the commit count.
 
 If behaviors remain unfinished, note them and suggest a follow-up `/optimus:tdd` run with them as the task, started from this feature branch — each run is a fresh decomposition; there is no resume.
 
