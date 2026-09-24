@@ -24,7 +24,7 @@ In Claude Code:
 
 In Codex, invoke `$optimus:how-to-run` or select it from the skill picker. See [supported hosts and versions](../../README.md#supported-hosts-and-versions) for surface-specific availability.
 
-First-run writes go through directly after you approve the plan; updates to an existing `HOW-TO-RUN.md` show the full diff and wait for approval. When the file already exists you choose: **Walk through it** (guided, display-only), **Regenerate**, or **Skip**.
+First-run writes go through directly once you confirm the detected context; updates to an existing `HOW-TO-RUN.md` show the full diff and wait for approval. When the file already exists you choose: **Walk through it** (guided, display-only), **Regenerate**, or **Skip**.
 
 ## When to Run
 

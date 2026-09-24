@@ -52,7 +52,7 @@ Present a per-aspect status table from the audit. **Only when the detector repor
 
 **Branch on whether `HOW-TO-RUN.md` exists:**
 
-- **Absent:** run the per-item unverifiable prompts below, then go to Step 4. Step 5 writes directly without re-asking — the user approved the plan here.
+- **Absent:** run the per-item unverifiable prompts below, then go to Step 4.
 - **Exists** (accurate, partial, or stale): `AskUserQuestion` — header "How to Run Documentation", question "HOW-TO-RUN.md already exists (audit findings above). How would you like to proceed?":
   - **Walk through it** — "I'll guide you through each step in-chat — show each command, what it does, and the audit verdict. You run the commands locally; I never execute anything for you." → Step 3a.
   - **Regenerate** — "Show the diff and rewrite HOW-TO-RUN.md to match the current project state." → show current content vs proposed correction per outdated item, then the per-item prompts below, then Step 4.
@@ -91,7 +91,7 @@ Generate only sections with at least one detected signal (per the digest), in ca
 
 ## Step 5: Place content
 
-- **`HOW-TO-RUN.md` does not exist:** write directly — the plan was approved in Step 3 and nothing is overwritten.
+- **`HOW-TO-RUN.md` does not exist:** write directly — nothing is overwritten and the context was confirmed in Step 1.
 - **`HOW-TO-RUN.md` exists:** show the full diff (section-by-section when updating) and wait for user approval before writing. Never silently replace existing content. Never delete content outside the sections being replaced; preserve formatting, badges, images, and links in untouched sections. If the existing structure is too unusual to update safely, show the generated content and ask where to place it.
 
 Placement by topology: **single project / monorepo** → repo-root `HOW-TO-RUN.md` (monorepo: whole-project scope — workspace install, shared services, per-subproject and run-everything instructions); **multi-repo workspace** → workspace-root `HOW-TO-RUN.md` per §Multi-Repo Workspace Template (not version-controlled — no `.git` at workspace root).
