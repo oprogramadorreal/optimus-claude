@@ -42,15 +42,15 @@ A directory is **near-empty** when it contains at most `.git` (file or directory
 
 On **Scaffold**: read and execute `$CLAUDE_PLUGIN_ROOT/skills/init/references/new-project-scaffolding.md`. If it returns an unsupported-stack signal, apply `$CLAUDE_PLUGIN_ROOT/skills/init/references/unsupported-stack-fallback.md` (steps 1-4) to find the stack's official scaffolding CLI; if that reaches graceful skip, instead create a minimal project manually (manifest + hello-world entry point + `.gitignore`) with user approval. After scaffolding, discard all prior detection state and restart Step 1's project detection from scratch.
 
-### Project detection (agent-assisted)
+### Project detection (inline or agent)
 
-Read `$CLAUDE_PLUGIN_ROOT/skills/init/agents/project-analyzer.md` and launch 1 `general-purpose` agent with that prompt, prepended with the "Agent Constraints" section of `$CLAUDE_PLUGIN_ROOT/references/shared-agent-constraints.md`. Assemble the prompt per "Prompt assembly at dispatch time" in `$CLAUDE_PLUGIN_ROOT/references/agent-architecture.md` — the agent reads the detection references itself via the absolutized paths its prompt carries.
+`$CLAUDE_PLUGIN_ROOT/skills/init/agents/project-analyzer.md` defines detection — its tasks, reference files, and Detection Results shape. For a small single project — one root manifest, no workspace config, roughly under 100 source files (a fresh scaffold always qualifies) — **run it yourself**, reading its reference files directly; the findings stay in context for the gotchas and commands Step 4 writes. Otherwise launch 1 `general-purpose` agent with that prompt, prepended with the "Agent Constraints" section of `$CLAUDE_PLUGIN_ROOT/references/shared-agent-constraints.md`. Assemble the prompt per "Prompt assembly at dispatch time" in `$CLAUDE_PLUGIN_ROOT/references/agent-architecture.md` — the agent reads the detection references itself via the absolutized paths its prompt carries.
 
-If the agent reports the structure as **ambiguous**, resolve via `AskUserQuestion`: ask the user to confirm whether this is a monorepo and identify subproject directories.
+If detection reports the structure as **ambiguous**, resolve via `AskUserQuestion`: ask the user to confirm whether this is a monorepo and identify subproject directories.
 
 ### Checkpoint
 
-Print the agent's **Detection Results**. If a field of its return format came back empty or absent (project name through Gotchas), fill that specific gap yourself — don't re-run the detection the agent just did. An empty **Gotchas** list is a legitimate answer, not a gap: fill it only if you already know of one this project has. If no test infrastructure was detected, append:
+Print the **Detection Results**. If a field of its return format came back empty or absent (project name through Gotchas), fill that specific gap yourself — don't re-run the detection the agent just did. An empty **Gotchas** list is a legitimate answer, not a gap: fill it only if you already know of one this project has. If no test infrastructure was detected, append:
 
 > **Tests:** No test framework, test script, or test directory detected — Step 5b will offer to install one. Strongly recommended: multiple optimus skills depend on test infrastructure.
 
