@@ -17,7 +17,7 @@ Security model in brief: the installed hook prompts on writes and blocks deletes
 
 ## Step 1: Detect existing configuration
 
-1. If `.claude/settings.json` exists, read it in full — it will be preserved during the merge.
+1. If `.claude/settings.json` exists, read it in full; if it is not valid JSON, show the parse problem and ask the user how to proceed before changing any file.
 2. Note whether `.claude/hooks/restrict-paths.sh` already exists (fresh install vs update).
 3. If `.mcp.json` exists at the project root, extract the top-level MCP server names for Step 3.
 
@@ -38,7 +38,7 @@ If `.claude/settings.json` does not exist, create it from the template. If it ex
 3. **hooks.PreToolUse** — add the template's hook entry as a separate matcher group, appending to any existing array; skip if an entry already references `restrict-paths.sh`.
 4. **Preserve everything else** — existing PostToolUse hooks, custom sections, all unrelated configuration.
 
-In either case, if `.mcp.json` was found, add `mcp__<server-name>` entries to `permissions.allow` for each server. The result must be valid JSON. If the existing file is not valid JSON, do not repair or overwrite it silently — show the parse problem and ask the user how to proceed.
+In either case, if `.mcp.json` was found, add `mcp__<server-name>` entries to `permissions.allow` for each server. The result must be valid JSON.
 
 ## Step 4: Verify and report
 
