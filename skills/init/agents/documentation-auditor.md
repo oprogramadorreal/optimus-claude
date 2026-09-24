@@ -51,7 +51,7 @@ Return your findings in this exact structure:
 [If a previously user-added item is outdated, note: "(previously user-added)"]
 
 ### Missing
-[numbered list — each item: what project aspect lacks documentation]
+[numbered list continuing Outdated's numbering — each item: what project aspect lacks documentation]
 
 ### Accurate
 [brief summary of items still correct — no need for individual entries]
