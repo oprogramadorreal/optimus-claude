@@ -114,7 +114,7 @@ Severity: **Critical** — testability barrier blocking unit testing, cross-cutt
 
 Use `AskUserQuestion` (header "Action"): **Apply all** / **Selective** — ask which finding numbers / **Skip** — keep the report as reference.
 
-Apply each approved finding with Edit, then run the project's test command from `.claude/CLAUDE.md` if one exists and report the actual result. If tests fail, revert ALL changes, then re-apply one at a time with a test run after each, keeping only the changes that pass. If no test command exists, warn the user that the changes were applied without automated verification and carry higher risk.
+Apply each approved finding with Edit, then run the project's test command from `.claude/CLAUDE.md` if one exists and report the actual result. If tests fail, revert ALL your changes by reversing your own edits — never `git checkout`, `git restore`, or `git stash`, which would also discard the user's uncommitted work — then re-apply one at a time with a test run after each, keeping only the changes that pass. If no test command exists, warn the user that the changes were applied without automated verification and carry higher risk.
 
 Close with a final summary: scope analyzed, changes applied/skipped/reverted (with file references), test results, findings beyond the cap, and how many changes made code testable for `/optimus:unit-test`.
 

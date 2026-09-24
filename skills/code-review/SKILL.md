@@ -166,7 +166,7 @@ In PR mode, include full-SHA code links:
 Verdict **CHANGES LOOK GOOD** → skip this step entirely; go to the closing recommendation.
 
 Verdict **ISSUES FOUND** → `AskUserQuestion` (header "Action", question "How would you like to proceed with the review findings?"):
-- **Fix issues** — apply suggested fixes directly, then run tests to verify
+- **Fix issues** — apply suggested fixes directly, then run tests to verify and report the result; undo a fix only by reversing your own edits — never `git checkout`, `git restore`, or `git stash`, which would discard the uncommitted changes under review
 - **Post comment** (PR/MR mode only) — post the review summary as a PR/MR comment
 - **Skip** — keep the report as reference only
 
