@@ -30,7 +30,7 @@ If `scope_files.current` is non-empty, use it as the file list for agents — th
 
 ### Skill-step execution under harness mode
 
-After reading the progress file, proceed through all of the skill's remaining numbered steps in order — skip only the user confirmation step (the orchestrator handles approval upfront), the interactive scope offers, and the scope summary presentation. Scope handling is skill-specific:
+After reading the progress file, run the skill's scope, context-loading, analysis, validation, and consolidation steps in order under the overrides below; skip every user prompt (the orchestrator handles approval upfront) and every summary, report, or next-step recommendation the skill would present — steps 6–9 of this protocol replace the skill's approval, apply, verification, and report steps. A missing-docs prerequisite takes its bundled-baseline fallback without asking. Scope handling is skill-specific:
 
 - **code-review**: Step 3 must take the **No local changes → auto-route** branch and always land on its branch-diff outcome — never PR mode, even when an open PR/MR exists and HEAD is fully pushed (the orchestrator pre-captured the PR description into `config.pr_description`; do not re-fetch via `gh pr view`) — regardless of the working tree's actual state (in `--no-commit` mode the `snapshot` step takes a non-destructive stash via `git stash create`/`store`, so uncommitted changes may still be present), and skip the large-diff warning.
 - **refactor**: when `scope_files.current` is non-empty, it replaces Step 1's scope resolution — group its files by parent directory into analysis areas; when empty, run Step 3's normal directory scan with full-project scope.
