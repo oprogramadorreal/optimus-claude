@@ -224,36 +224,21 @@ _rp_root="${CLAUDE_PROJECT_DIR}"
 # Fail-open: if project root is unknown, allow rather than block all tool use
 [[ -z "$_rp_root" ]] && exit 0
 
-# --- Git repo resolution (per-path, with caching) ---
+# --- Git repo resolution (per-path) ---
 # In multi-repo workspaces the project root may not be a git repo.
 # We resolve the git toplevel from each file's directory instead.
-declare -A _git_root_cache 2>/dev/null || true  # associative array; ignore if bash < 4
 
 find_git_root() {
   # Returns the git toplevel for a given path, or empty string if not in a repo.
-  # Results are cached to avoid repeated git calls.
   local target_dir="$1"
   [[ -d "$target_dir" ]] || target_dir="$(dirname "$target_dir")"
   [[ -d "$target_dir" ]] || { echo ""; return; }
-
-  # Check cache (bash 4+ associative arrays)
-  if declare -p _git_root_cache &>/dev/null 2>&1; then
-    if [[ -n "${_git_root_cache[$target_dir]+_}" ]]; then
-      echo "${_git_root_cache[$target_dir]}"
-      return
-    fi
-  fi
 
   local result
   result="$(git -C "$target_dir" rev-parse --show-toplevel 2>/dev/null)" || result=""
   # Normalize on Windows
   if [[ -n "$result" ]] && command -v cygpath &>/dev/null; then
     result="$(cygpath -u "$result" 2>/dev/null || echo "$result")"
-  fi
-
-  # Cache result
-  if declare -p _git_root_cache &>/dev/null 2>&1; then
-    _git_root_cache[$target_dir]="$result"
   fi
   echo "$result"
 }
