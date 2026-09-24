@@ -923,13 +923,13 @@ mkdir -p "$scratch_root/pre-existing"
 : > "$rp_existing"
 rp_run_scratch Edit file_path "$rp_existing"
 assert_decision "Existing temp file edit asks"        ASK "$(rp_verdict)"
-assert_reason_lacks "Existing temp file gets no nudge" "scratchpad"
+assert_reason_lacks "Existing temp file gets no nudge" '"additionalContext"'
 rp_run_scratch Write file_path "$scratch_root/pre-existing/new.md"
 assert_decision "New file in the same dir asks"       ASK "$(rp_verdict)"
 rp_run HOME="$rp_tmp/home" CLAUDE_PROJECT_DIR="$rp_tmp/proj" TMPDIR="$scratch_root" -- \
   Write file_path "/var/opt/optimus-not-temp/a.txt"
 assert_decision "Non-temp outside path asks"          ASK "$(rp_verdict)"
-assert_reason_lacks "Non-temp path gets no nudge" "scratchpad"
+assert_reason_lacks "Non-temp path gets no nudge" '"additionalContext"'
 
 # ~/.claude is config, not scratch: it keeps the plain prompt even when HOME
 # itself sits under the temp root (CI images), while the memory store stays exempt.
@@ -938,7 +938,7 @@ mkdir -p "$rp_temp_home/.claude/projects/hash/memory"
 rp_run HOME="$rp_temp_home" CLAUDE_PROJECT_DIR="$rp_tmp/proj" TMPDIR="$scratch_root" -- \
   Write file_path "$rp_temp_home/.claude/settings.json"
 assert_decision "HOME under temp root: settings.json asks" ASK "$(rp_verdict)"
-assert_reason_lacks "settings.json gets no nudge" "scratchpad"
+assert_reason_lacks "settings.json gets no nudge" '"additionalContext"'
 rp_run HOME="$rp_temp_home" CLAUDE_PROJECT_DIR="$rp_tmp/proj" TMPDIR="$scratch_root" -- \
   Write file_path "$rp_temp_home/.claude/projects/hash/memory/M.md"
 assert_decision "HOME under temp root: memory store allowed" ALLOW "$(rp_verdict)"
@@ -951,7 +951,7 @@ mkdir -p "$rp_tmp/home/tmp"
 rp_run HOME="$rp_tmp/home" CLAUDE_PROJECT_DIR="$rp_tmp/proj" TMPDIR="$rp_tmp/home/tmp" -- \
   Write file_path "$rp_tmp/home/tmp/invented/x.md"
 assert_decision "Temp root under HOME still asks"     ASK "$(rp_verdict)"
-assert_reason_has "Temp root under HOME still nudges" "scratchpad"
+assert_reason_has "Temp root under HOME still nudges" '"additionalContext"'
 
 echo "[restrict-paths: platform path shapes]"
 # macOS ships a TMPDIR ending in '/' and (13+) a realpath that rejects GNU's
@@ -964,10 +964,10 @@ assert_decision "Scratchpad write allowed under non-GNU realpath" ALLOW \
 # ...and the nudge on each, so a base that stops matching cannot go unnoticed.
 rp_run HOME="$rp_tmp/home" CLAUDE_PROJECT_DIR="$rp_tmp/proj" TMPDIR="$scratch_root/" -- \
   Write file_path "$scratch_root/scratch-foo/x.md"
-assert_reason_has "Trailing-slash temp root still nudges" "scratchpad"
+assert_reason_has "Trailing-slash temp root still nudges" '"additionalContext"'
 rp_run HOME="$rp_tmp/home" CLAUDE_PROJECT_DIR="$rp_tmp/proj" TMPDIR="$scratch_root/" PATH="$rp_stub_bin:$PATH" -- \
   Write file_path "$scratch_root/scratch-foo/x.md"
-assert_reason_has "Non-GNU realpath still nudges" "scratchpad"
+assert_reason_has "Non-GNU realpath still nudges" '"additionalContext"'
 
 # A RELATIVE temp root must be rejected outright: normalize() resolves it against
 # the hook's working directory, which would make an arbitrary sibling of the
