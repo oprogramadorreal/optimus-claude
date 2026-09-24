@@ -2,6 +2,7 @@ import os
 import subprocess
 import sys
 import time
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -200,6 +201,20 @@ class TestRunTests:
         output = capsys.readouterr().out
         assert "[harness]" in output
 
+    @patch("harness_common.runner.subprocess.Popen")
+    @patch("harness_common.runner.sys")
+    def test_invalid_windows_override_fails_without_running(
+        self, mock_sys, mock_run, monkeypatch, tmp_path
+    ):
+        mock_sys.platform = "win32"
+        missing = tmp_path / "missing" / "bash.exe"
+        monkeypatch.setenv("CLAUDE_CODE_GIT_BASH_PATH", str(missing))
+        passed, summary = run_tests("npm test", tmp_path)
+        assert passed is False
+        assert "CLAUDE_CODE_GIT_BASH_PATH" in summary
+        assert str(missing) in summary
+        mock_run.assert_not_called()
+
 
 class TestRunTestsEndToEnd:
     """Real-subprocess checks — no mocks, exercising the actual decode path."""
@@ -228,8 +243,6 @@ class TestRunTestsEndToEnd:
     @pytest.mark.skipif(sys.platform != "win32", reason="Git for Windows PATH")
     def test_native_utilities_with_only_git_cmd_on_path(self, tmp_path, monkeypatch):
         bash = _find_bash()
-        from pathlib import Path
-
         root = Path(bash).parent.parent
         if root.name.lower() == "usr":
             root = root.parent
@@ -299,19 +312,34 @@ class TestFindBashGitExecPath:
             result = _find_bash()
         assert result == "bash"
 
-    @patch("harness_common.runner.sys")
-    @patch("harness_common.runner.shutil.which")
-    @patch("harness_common.runner.subprocess.run")
-    def test_common_path_found(self, mock_run, mock_which, mock_sys):
-        mock_sys.platform = "win32"
-        mock_which.return_value = "C:\\Windows\\System32\\bash.exe"
-        mock_run.return_value = MagicMock(returncode=1)
-        with patch("harness_common.runner.Path") as mock_path_cls:
-            mock_instance = MagicMock()
-            mock_instance.exists.side_effect = [True]
-            mock_path_cls.return_value = mock_instance
-            result = _find_bash()
-        assert result == str(mock_instance)
+    def test_common_path_found(self):
+        # Real Path objects: the loop must skip the missing first candidate and
+        # return the specific one that exists, not just "some mocked Path".
+        existing = "C:/Program Files (x86)/Git/bin/bash.exe"
+        with patch.object(
+            Path,
+            "exists",
+            autospec=True,
+            side_effect=lambda p: p.as_posix() == existing,
+        ):
+            result = _find_bash(
+                platform="win32",
+                which_fn=lambda _name: None,
+                run_fn=lambda cmd, **_kw: subprocess.CompletedProcess(cmd, 1, "", ""),
+            )
+        assert result == str(Path(existing))
+
+    def test_git_exec_path_without_bash_falls_back(self, tmp_path):
+        exec_path = tmp_path / "mingw64" / "libexec" / "git-core"
+        with patch.object(Path, "exists", autospec=True, return_value=False):
+            result = _find_bash(
+                platform="win32",
+                which_fn=lambda _name: None,
+                run_fn=lambda cmd, **_kw: subprocess.CompletedProcess(
+                    cmd, 0, f"{exec_path}\n", ""
+                ),
+            )
+        assert result == "bash"
 
     @patch("harness_common.runner.sys")
     @patch("harness_common.runner.shutil.which")
