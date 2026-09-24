@@ -1,5 +1,5 @@
 ---
-description: Improves unit test coverage on demand — discovers testing gaps via a reconnaissance agent and writes new tests that follow project conventions. Requires /optimus:init to have set up test infrastructure. Conservative — only adds new tests, never modifies existing test logic or source code; untestable code is flagged for /optimus:refactor. For an automated multi-cycle coverage loop, use /optimus:deep coverage.
+description: Improves unit test coverage — discovers testing gaps and writes new tests that follow project conventions. Requires /optimus:init to have set up test infrastructure. Conservative — only adds new tests, never modifies existing test logic or source code; untestable code is flagged for /optimus:refactor. For an automated multi-cycle coverage loop, use /optimus:deep coverage.
 disable-model-invocation: true
 argument-hint: "[path]"
 ---

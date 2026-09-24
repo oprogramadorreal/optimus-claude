@@ -25,7 +25,7 @@ For an automated multi-cycle loop that alternates test generation with testabili
 - After `/optimus:init` — establish coverage for a newly initialized project
 - On established codebases that grew without systematic testing
 - Before releases, or after major refactors
-- Periodically — coverage improves incrementally (10 tests per run)
+- Periodically — coverage improves incrementally (up to 10 plan items per run)
 
 ## How It Works
 
