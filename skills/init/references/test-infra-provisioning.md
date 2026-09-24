@@ -17,7 +17,7 @@ Recommend the stack's dominant framework — these pins override general knowled
 - PHP → PHPUnit (coverage via Xdebug or PCOV); Ruby → RSpec + SimpleCov.
 - Unknown stack → search the web for the most popular framework and coverage tooling, applying the command validation and approval rules from `$CLAUDE_PLUGIN_ROOT/skills/init/references/unsupported-stack-fallback.md`.
 
-Ask for **explicit user approval** before installing anything. If installation fails (network issues, version conflicts, incompatible environments), report the error and stop — do not proceed without a working framework.
+Ask for **explicit user approval** before installing anything. If the framework install fails (network issues, version conflicts, incompatible environments), report the error and treat it as declined: skip the rest of this reference and continue init. Step 7 reports Test infra as `Not installed (install failed)` with the declined-infra note.
 
 ### Coverage tooling gaps
 
