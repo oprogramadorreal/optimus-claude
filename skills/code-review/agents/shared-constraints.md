@@ -20,7 +20,7 @@ Report each finding in this exact shape. Every agent uses `Current:`/`Suggested:
 
 - **File:** file:line
 - **Category:** [agent-specific — see your prompt file]
-- **Confidence:** High | Medium | Low — Low means you could not confirm the evidence yourself. Use it; do not round up to Medium and do not drop the finding. Step 6 validation promotes or drops it.
+- **Confidence:** High | Medium | Low — report a Low as Low; never round it up to Medium or drop the finding.
 - **Guideline:** [exact project-doc rule, "General: <domain>", or for Intent Mismatch the literal `Intent (see Intent claim)`]
 - **Intent claim:** [Intent Mismatch only — the quoted claim from `## Intent`]
 - **Issue:** [concrete description]

@@ -11,7 +11,7 @@ Report each finding in this exact format. Your agent prompt defines the **Catego
 
 - **File:** file:line
 - **Category:** [per agent prompt]
-- **Confidence:** High | Medium | Low — Low means you could not confirm the evidence yourself. Use it; do not round up to Medium and do not drop the finding. Step 5 validation promotes or drops it.
+- **Confidence:** High | Medium | Low — report a Low as Low; never round it up to Medium or drop the finding.
 - **Guideline:** [which project guideline this addresses]
 - **Issue:** [what is wrong and why it matters]
 - **Current:**
