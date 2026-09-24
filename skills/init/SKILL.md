@@ -65,8 +65,6 @@ On **Correct**: ask what to change, update the detection results, and re-present
 
 `$CLAUDE_PLUGIN_ROOT/skills/init/agents/documentation-auditor.md` defines the audit — its classification levels, its standard of proof, and its Audit Report shape. When the inventory found only a handful of small docs, **run it yourself**: reading six files and classifying them is a handful of tool calls, and the content stays in context for the Step 2 edits that follow. Delegate to 1 `general-purpose` agent with that prompt when the doc surface is large enough to be worth isolating, prepended with the same "Agent Constraints" section plus the Detection Results from Step 1 (same prompt-assembly rule). Either way, present the **Audit Report** to the user.
 
-**Standard of proof:** only content directly contradicted by source code is Outdated. When a user-added item looks outdated, confirm via `AskUserQuestion` before discarding — the user may have context the codebase doesn't show.
-
 Use `AskUserQuestion` — header "Audit", question "How would you like to handle the documentation audit findings?":
 - **Update all** — "Apply all recommended changes"
 - **Selective** — "Pick which findings to apply by number" (then ask for the numbers; unapproved findings are left as-is)
@@ -163,7 +161,7 @@ The architecture template carries two HTML-comment-marked optional sections: kee
 
 ## Step 6b: Sync Existing Documentation
 
-Skip when the project has no docs of its own (no README.md, CONTRIBUTING.md, ARCHITECTURE.md, or docs/ files). This step runs independently of the Step 1b audit choice (Fresh start governs only `.claude/` files) — it operates on project-owned files.
+Skip when the project has no docs of its own (no README.md, CONTRIBUTING.md, ARCHITECTURE.md, or docs/ files).
 
 Cross-check README.md (root, and each subproject's in monorepos), CONTRIBUTING.md, ARCHITECTURE.md, and docs/ files that overlap generated topics against source code (manifests, lock files, directory structure). Fix only claims directly contradicted by source — wrong commands or package manager, tech no longer in deps, renamed directories, stale subproject lists, removed dependencies. Surgical, never editorial: leave prose, tone, structure, and imprecise-but-not-wrong descriptions untouched; never add sections or create files; touch nothing outside the project root.
 
