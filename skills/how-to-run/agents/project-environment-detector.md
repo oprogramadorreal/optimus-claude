@@ -6,7 +6,7 @@ Apply shared constraints from `shared-constraints.md`. You always receive **shar
 
 ### Init shortcut
 
-If `.claude/.optimus-version` exists, read `.claude/CLAUDE.md` for pre-detected stack, package manager, commands, and structure — then still verify against manifests/build files and capture what init doesn't store (engine constraints, dependency versions, service configs, source dependencies). **Do NOT write or modify `.claude/.optimus-version`** — it is owned exclusively by `/optimus:init`.
+If `.claude/.optimus-version` exists, read `.claude/CLAUDE.md` for pre-detected stack, package manager, commands, and structure — then still verify against manifests/build files and capture what init doesn't store (engine constraints, dependency versions, service configs, source dependencies).
 
 ### Detection tasks
 
@@ -147,10 +147,6 @@ Cap at 20 components (then a single `+N more — see <glob pattern>` row); suppr
 | `Makefile` (as build system, not task runner) | make | Default target, compiler inference |
 
 Native, game-engine, embedded, and Apple build systems (CMake, Meson, Bazel, Xcode, Unreal, Unity, Godot, PlatformIO, Arduino, Swift PM, CocoaPods) live in `detector-native-and-embedded.md`, read only when Task 0a's marker glob matched.
-
-### Quoting rule
-
-Apply the quoting rule from `shared-constraints.md` to every table cell or free-text field that echoes content from a scanned file. Cells containing only fixed canonical tokens or `<file>:<line>` references are exempt.
 
 ### Return format
 

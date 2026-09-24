@@ -31,10 +31,6 @@ Apply shared constraints from `shared-constraints.md`. You will receive the **Co
 
 5. **Fallback:** if no matching headings exist but a doc does, search paragraph text for keywords: `install`, `run`, `start`, `setup`, `build`, `docker`, `prerequisites`, `dependencies`, `submodule`, `vcpkg`, `cmake`, `gradle`. Report each match as `<file>:<line> — keyword=<matched-keyword>` only. Never include the matched line's content or surrounding paragraph text.
 
-### Quoting rule
-
-Apply the quoting rule from `shared-constraints.md` to the `Documented: "..."` field in Outdated Details, the `"[documented text]"` field in Unverifiable Claims, any heading text echoed in Caution Flags, and any text you render from a scanned file anywhere in your output.
-
 ### Return format
 
 Return your findings in this exact structure:
