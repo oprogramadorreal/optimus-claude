@@ -10,6 +10,18 @@ COMMIT_COMMITTED = "committed"
 COMMIT_NOTHING = "nothing-to-commit"
 COMMIT_FAILED = "failed"
 
+# Every reason a run can record in progress["termination"]. mark-termination's
+# --reason choices and the deep README vocabulary test both derive from this.
+TERMINATION_REASONS = (
+    "convergence",
+    "no-actionable",
+    "all-reverted",
+    "diminishing-returns",
+    "cap",
+    "parse-failure",
+    "blocked",
+)
+
 # Termination reasons that leave the run resumable. final-report --archive skips
 # archiving for these: archiving renames the progress file to .done.json, which
 # cmd_resume refuses. Both are soft exits the user can act on and continue from —

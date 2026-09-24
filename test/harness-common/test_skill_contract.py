@@ -24,6 +24,7 @@ from harness_common.constants import (
     DEFAULT_MAX_ITERATIONS,
     MAX_CYCLES_HARD_CAP,
     MAX_ITERATIONS_HARD_CAP,
+    TERMINATION_REASONS,
 )
 
 PLUGIN_ROOT = Path(__file__).resolve().parents[2]
@@ -344,29 +345,22 @@ def test_loop_reference_dispatches_via_skill_md_read(loop_ref, expected_paths):
 
 
 # ---------------------------------------------------------------------------
-# harness-mode.md termination vocabulary
+# deep README termination vocabulary
 # ---------------------------------------------------------------------------
 # The JSON contract itself is enforced in test_harness_schema.py, against
 # references/schemas/*.json and the golden fixtures — not re-typed here.
 
 
-def test_harness_mode_documents_all_termination_reasons():
-    """harness-mode.md's "Termination reasons" section must enumerate every
-    reason cli.py's check-termination can emit — otherwise the docs lie about
-    what the orchestrator might see.
+def test_deep_readme_documents_all_termination_reasons():
+    """skills/deep/README.md must enumerate every reason in
+    constants.TERMINATION_REASONS (what the CLI can record and check-termination
+    can echo) — otherwise the user-facing docs lie about how a run can end.
     """
-    ref = _read("references/harness-mode.md")
-    for reason in (
-        "convergence",
-        "no-actionable",
-        "all-reverted",
-        "diminishing-returns",
-        "cap",
-        "parse-failure",
-    ):
+    readme = _read(DEEP_README)
+    for reason in TERMINATION_REASONS:
         assert (
-            f"`{reason}`" in ref
-        ), f"references/harness-mode.md must document termination reason '{reason}'"
+            f"`{reason}`" in readme
+        ), f"{DEEP_README} must document termination reason '{reason}'"
 
 
 def test_paired_loop_resnapshots_before_refactor_phase():

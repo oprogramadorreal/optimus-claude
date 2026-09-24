@@ -57,6 +57,7 @@ from .constants import (
     SOFT_EXIT_LOW_YIELD_THRESHOLD,
     SOFT_EXIT_MIN_ITERATION,
     SOFT_EXIT_WINDOW,
+    TERMINATION_REASONS,
     normalize_path,
 )
 from .convergence import (
@@ -2046,15 +2047,7 @@ def _build_parser():
     p.add_argument(
         "--reason",
         required=True,
-        choices=[
-            "convergence",
-            "no-actionable",
-            "all-reverted",
-            "diminishing-returns",
-            "cap",
-            "parse-failure",
-            "blocked",
-        ],
+        choices=TERMINATION_REASONS,
         help="Termination reason to record in progress[termination]",
     )
     p.add_argument(

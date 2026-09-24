@@ -4,7 +4,6 @@
 
 1. [Single-Iteration Execution](#single-iteration-execution) — progress file, analysis cycle, fix application, structured JSON output (steps 1–9)
 2. [Skill-step execution under harness mode](#skill-step-execution-under-harness-mode) — which base-skill steps run, per-skill scope rules, `pr_description` handling
-3. [Termination reasons](#termination-reasons) — enum of exit reasons the orchestrator may record
 
 ## Single-Iteration Execution
 
@@ -80,15 +79,3 @@ The one thing the schema cannot state: `category` values are skill-specific — 
 ### 9. Exit
 
 Stop immediately after outputting the JSON block. Do NOT loop back to the analysis step, present a cumulative or per-iteration report, recommend next steps, use `AskUserQuestion`, or check termination conditions. The orchestrator parses the JSON output, runs tests via the harness CLI, updates the progress file, and decides whether to dispatch another iteration.
-
-### Termination reasons
-
-The orchestrator may record one of these reasons on exit:
-
-- **`convergence`** — zero new findings
-- **`no-actionable`** — findings exist but have no code edits
-- **`all-reverted`** — every fix this iteration failed tests
-- **`diminishing-returns`** — yield plateaued at ≤1 new finding for two consecutive iterations ending at iter 4 or later, with no reverted fixes in either window iteration; remaining issues may exist and can be resumed via `--resume`
-- **`cap`** — max iterations hit
-- **`parse-failure`** — subagent error (after two consecutive iterations produced no parseable JSON)
-- **`blocked`** — coverage target only: the unit-test phase hit a stop gate it cannot work past (no test framework, red baseline). Like `diminishing-returns` it is a resumable soft exit — the orchestrator records it before leaving the loop, and the progress file is left un-archived so `--resume` works once the user clears the prerequisite
