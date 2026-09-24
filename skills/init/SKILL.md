@@ -124,9 +124,9 @@ Agent instructions for this workspace live in `CLAUDE.md`. Read it first; it map
 
 ## Step 5: Install Formatter Hooks
 
-Under Codex, skip hook installation and preserve existing hooks/settings byte-for-byte. Document the project's existing formatter/check command for use at task boundaries and its editor/CI integration. This plugin's Claude PostToolUse formatters are not installed in Codex; the documentation and test-infrastructure steps still apply.
+Under Codex, skip hook installation; document the project's existing formatter/check command in CLAUDE.md's Commands for use at task boundaries, noting its editor/CI integration.
 
-Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/formatter-setup.md` and install the applicable hooks so files are auto-formatted after every Edit/Write (templates in `$CLAUDE_PLUGIN_ROOT/skills/init/templates/hooks/`; supported: Python, Node.js, Rust, Go, C#/.NET, Java, C/C++, Dart/Flutter — other stacks via `$CLAUDE_PLUGIN_ROOT/skills/init/references/unsupported-stack-fallback.md`). Hooks are Generated files; `settings.json` follows its merge semantics. External formatters not already in deps → ask the user before installing.
+Otherwise read `$CLAUDE_PLUGIN_ROOT/skills/init/references/formatter-setup.md` and install the applicable hooks so files are auto-formatted after every Edit/Write.
 
 ## Step 5b: Test Infrastructure Setup
 
@@ -168,7 +168,7 @@ Cross-check README.md (root, and each subproject's in monorepos), CONTRIBUTING.m
 
 When Step 5 ran, verify the hooks and settings against their sources before reporting:
 
-- **Hooks written this run match their source** — each newly copied template hook is byte-identical to its template (`diff` them), except explicitly approved customizations; custom fallback hooks follow that reference's validation rules. A preexisting hook the user kept is outside this comparison and must remain untouched.
+- **Hooks written this run match their source** — each newly copied template hook is byte-identical to its template (`diff` them), except explicitly approved customizations; custom fallback hooks follow `unsupported-stack-fallback.md`'s validation rules. A preexisting hook the user kept is outside this comparison and must remain untouched.
 - **settings.json survived the merge** — every format hook *this skill* installed has a matching `hooks.PostToolUse` entry resolving to that installed file. Preserve preexisting entries, including commands outside `.claude/hooks/`, except exact migrations the user approved. Hooks owned by another skill are out of scope: `/optimus:permissions` registers `restrict-paths.sh` under **PreToolUse**, not PostToolUse. Compare pre/post settings to detect dropped user entries; don't normalize unrelated hooks into this skill's template shape.
 
 Then sweep template-derived content for surviving `[placeholder]` text and unresolved template HTML comments — retain each file's line-1 identity comment, the `optimus:pointer` markers in `AGENTS.md`, and user-authored content. Fix any failure before reporting.
