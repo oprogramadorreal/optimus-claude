@@ -1,6 +1,7 @@
 import os
 import subprocess
 import sys
+import time
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -11,6 +12,20 @@ from harness_common.runner import _find_bash, bash_environment, run_tests
 def isolate_bash_override(monkeypatch):
     """Discovery tests supply their own override instead of inheriting one."""
     monkeypatch.delenv("CLAUDE_CODE_GIT_BASH_PATH", raising=False)
+
+
+def _popen(returncode=0, stdout=b"", stderr=b"", timeout=False):
+    """Fake Popen that writes into run_tests' capture files."""
+
+    def start(command, **kwargs):
+        kwargs["stdout"].write(stdout)
+        kwargs["stderr"].write(stderr)
+        proc = MagicMock(returncode=returncode, pid=0)
+        if timeout:
+            proc.wait.side_effect = [subprocess.TimeoutExpired(command, 300), None]
+        return proc
+
+    return start
 
 
 class TestFindBash:
@@ -56,45 +71,40 @@ class TestFindBash:
 
 class TestRunTests:
     @patch("harness_common.runner.sys")
-    @patch("harness_common.runner.subprocess.run")
+    @patch("harness_common.runner.subprocess.Popen")
     def test_passing_tests_unix(self, mock_run, mock_sys):
         mock_sys.platform = "linux"
-        mock_run.return_value = MagicMock(
-            returncode=0, stdout="All tests passed\n", stderr=""
-        )
+        mock_run.side_effect = _popen(0, b"All tests passed\n", b"")
         passed, summary = run_tests("npm test", "/tmp/project")
         assert passed is True
         assert "All tests passed" in summary
 
     @patch("harness_common.runner.sys")
-    @patch("harness_common.runner.subprocess.run")
+    @patch("harness_common.runner.subprocess.Popen")
     def test_failing_tests(self, mock_run, mock_sys):
         mock_sys.platform = "linux"
-        mock_run.return_value = MagicMock(
-            returncode=1, stdout="1 test failed\n", stderr=""
-        )
+        mock_run.side_effect = _popen(1, b"1 test failed\n", b"")
         passed, summary = run_tests("npm test", "/tmp/project")
         assert passed is False
 
+    @patch("harness_common.runner._kill_tree")
     @patch("harness_common.runner.sys")
-    @patch("harness_common.runner.subprocess.run")
-    def test_timeout(self, mock_run, mock_sys):
+    @patch("harness_common.runner.subprocess.Popen")
+    def test_timeout(self, mock_run, mock_sys, mock_kill):
         mock_sys.platform = "linux"
-        mock_run.side_effect = subprocess.TimeoutExpired("npm test", 300)
+        mock_run.side_effect = _popen(timeout=True)
         passed, summary = run_tests("npm test", "/tmp/project")
         assert passed is False
         assert "timed out" in summary
 
+    @patch("harness_common.runner._kill_tree")
     @patch("harness_common.runner.sys")
-    @patch("harness_common.runner.subprocess.run")
-    def test_timeout_includes_partial_output_tail(self, mock_run, mock_sys):
-        """Bytes stdout/stderr from TimeoutExpired are decoded and tail appended."""
+    @patch("harness_common.runner.subprocess.Popen")
+    def test_timeout_includes_partial_output_tail(self, mock_run, mock_sys, mock_kill):
+        """Output captured before the timeout is decoded and its tail appended."""
         mock_sys.platform = "linux"
-        mock_run.side_effect = subprocess.TimeoutExpired(
-            "npm test",
-            300,
-            output=b"line1\nline2\nlast\n",
-            stderr=b"err-tail\n",
+        mock_run.side_effect = _popen(
+            stdout=b"line1\nline2\nlast\n", stderr=b"err-tail\n", timeout=True
         )
         passed, summary = run_tests("npm test", "/tmp/project")
         assert passed is False
@@ -104,7 +114,7 @@ class TestRunTests:
         assert "err-tail" in summary
 
     @patch("harness_common.runner.sys")
-    @patch("harness_common.runner.subprocess.run")
+    @patch("harness_common.runner.subprocess.Popen")
     def test_command_not_found_unix(self, mock_run, mock_sys, capsys):
         """FileNotFoundError surfaces an actionable error instead of crashing."""
         mock_sys.platform = "linux"
@@ -120,7 +130,7 @@ class TestRunTests:
 
     @patch("harness_common.runner._find_bash", return_value="bash")
     @patch("harness_common.runner.sys")
-    @patch("harness_common.runner.subprocess.run")
+    @patch("harness_common.runner.subprocess.Popen")
     def test_command_not_found_windows_includes_git_bash_hint(
         self, mock_run, mock_sys, mock_find_bash
     ):
@@ -133,7 +143,7 @@ class TestRunTests:
         assert "Git Bash" in summary
 
     @patch("harness_common.runner.sys")
-    @patch("harness_common.runner.subprocess.run")
+    @patch("harness_common.runner.subprocess.Popen")
     def test_command_not_found_no_filename(self, mock_run, mock_sys):
         """FileNotFoundError without a filename falls back to 'bash' label."""
         mock_sys.platform = "linux"
@@ -144,10 +154,10 @@ class TestRunTests:
 
     @patch("harness_common.runner._find_bash", return_value="C:\\Git\\bin\\bash.exe")
     @patch("harness_common.runner.sys")
-    @patch("harness_common.runner.subprocess.run")
+    @patch("harness_common.runner.subprocess.Popen")
     def test_windows_routes_through_bash(self, mock_run, mock_sys, mock_find_bash):
         mock_sys.platform = "win32"
-        mock_run.return_value = MagicMock(returncode=0, stdout="pass\n", stderr="")
+        mock_run.side_effect = _popen(0, b"pass\n", b"")
         passed, summary = run_tests("npm test && npm run lint", "/tmp/project")
         assert passed is True
         call_args = mock_run.call_args
@@ -159,11 +169,11 @@ class TestRunTests:
         assert call_args[1]["shell"] is False
 
     @patch("harness_common.runner.sys")
-    @patch("harness_common.runner.subprocess.run")
+    @patch("harness_common.runner.subprocess.Popen")
     def test_unix_routes_through_bash(self, mock_run, mock_sys):
         # /bin/sh is dash on Debian/Ubuntu, which has no `source`.
         mock_sys.platform = "linux"
-        mock_run.return_value = MagicMock(returncode=0, stdout="ok\n", stderr="")
+        mock_run.side_effect = _popen(0, b"ok\n", b"")
         run_tests("source .venv/bin/activate && pytest", "/tmp/project")
         assert mock_run.call_args[0][0] == [
             "bash",
@@ -173,37 +183,22 @@ class TestRunTests:
         assert mock_run.call_args[1]["shell"] is False
 
     @patch("harness_common.runner.sys")
-    @patch("harness_common.runner.subprocess.run")
+    @patch("harness_common.runner.subprocess.Popen")
     def test_custom_prefix(self, mock_run, mock_sys, capsys):
         mock_sys.platform = "linux"
-        mock_run.return_value = MagicMock(returncode=0, stdout="ok\n", stderr="")
+        mock_run.side_effect = _popen(0, b"ok\n", b"")
         run_tests("npm test", "/tmp", prefix="[custom]")
         output = capsys.readouterr().out
         assert "[custom]" in output
 
     @patch("harness_common.runner.sys")
-    @patch("harness_common.runner.subprocess.run")
+    @patch("harness_common.runner.subprocess.Popen")
     def test_default_prefix(self, mock_run, mock_sys, capsys):
         mock_sys.platform = "linux"
-        mock_run.return_value = MagicMock(returncode=0, stdout="ok\n", stderr="")
+        mock_run.side_effect = _popen(0, b"ok\n", b"")
         run_tests("npm test", "/tmp")
         output = capsys.readouterr().out
         assert "[harness]" in output
-
-    @patch("harness_common.runner.sys")
-    @patch("harness_common.runner.subprocess.run")
-    def test_forces_utf8_decoding(self, mock_run, mock_sys):
-        # Regression guard (mirrors TestFetchOpenPrData in test_git): without
-        # these kwargs, text=True decodes with the locale codec (cp1252 on
-        # Windows), where one non-decodable byte in test output kills the
-        # reader thread and run_tests returns empty stdout/stderr — losing
-        # all failure diagnostics while the pass/fail verdict looks normal.
-        mock_sys.platform = "linux"
-        mock_run.return_value = MagicMock(returncode=0, stdout="ok\n", stderr="")
-        run_tests("npm test", "/tmp/project")
-        _args, kwargs = mock_run.call_args
-        assert kwargs.get("encoding") == "utf-8"
-        assert kwargs.get("errors") == "replace"
 
 
 class TestRunTestsEndToEnd:
@@ -220,6 +215,15 @@ class TestRunTestsEndToEnd:
         assert passed is True
         assert "ok" in summary
         assert "”" in summary
+
+    @pytest.mark.parametrize(
+        "command", ["sleep 30", "sleep 30 && echo done", "(sleep 30 &); sleep 30"]
+    )
+    def test_timeout_stops_the_whole_process_tree(self, tmp_path, command):
+        start = time.monotonic()
+        passed, summary = run_tests(command, tmp_path, timeout=1)
+        assert time.monotonic() - start < 15
+        assert not passed and "timed out after 1s" in summary
 
     @pytest.mark.skipif(sys.platform != "win32", reason="Git for Windows PATH")
     def test_native_utilities_with_only_git_cmd_on_path(self, tmp_path, monkeypatch):

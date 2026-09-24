@@ -1,8 +1,10 @@
 import errno
 import os
 import shutil
+import signal
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 from .constants import DEFAULT_TEST_TIMEOUT
@@ -92,6 +94,32 @@ def bash_environment(bash, env=None, platform=None):
     return environment
 
 
+def _kill_tree(proc):
+    """Kill the test shell and, best effort, every process it started."""
+    try:
+        if sys.platform == "win32":
+            # /T follows Windows parent PIDs; an MSYS fork+exec can break that
+            # link, which is why run_tests never waits on a pipe afterwards.
+            subprocess.run(
+                ["taskkill", "/F", "/T", "/PID", str(proc.pid)],
+                capture_output=True,
+                timeout=30,
+            )
+        else:
+            os.killpg(proc.pid, signal.SIGKILL)
+    except (OSError, subprocess.SubprocessError):
+        pass
+    proc.kill()
+
+
+def _read_output(log):
+    # Decode as UTF-8, never the locale codec (cp1252 on Windows), and
+    # normalize newlines the way text mode would.
+    log.seek(0)
+    text = log.read().decode("utf-8", errors="replace")
+    return text.replace("\r\n", "\n").replace("\r", "\n")
+
+
 def run_tests(test_command, cwd, timeout=DEFAULT_TEST_TIMEOUT, prefix="[harness]"):
     """Run the project's test command. Returns (passed: bool, output: str)."""
     print(f"{prefix} Running tests: {test_command}")
@@ -104,48 +132,47 @@ def run_tests(test_command, cwd, timeout=DEFAULT_TEST_TIMEOUT, prefix="[harness]
         msg = f"{exc.strerror}: {exc.filename}"
         print(f"{prefix} {msg}")
         return False, msg
-    try:
-        # encoding= is mandatory: without it, text=True decodes with the locale
-        # codec (cp1252 on Windows), and a single non-decodable byte in test
-        # output kills the reader thread — subprocess.run returns "successfully"
-        # with empty stdout/stderr, destroying all failure diagnostics.
-        result = subprocess.run(
-            [bash, "-c", test_command],
-            shell=False,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            cwd=str(cwd),
-            timeout=timeout,
-            env=bash_environment(bash),
-        )
-    except FileNotFoundError as exc:
-        # Most commonly: bash not on PATH on Windows when Git Bash is missing.
-        # Surface a clear, actionable message instead of letting the harness crash.
-        msg = f"Command not found: {exc.filename or 'bash'}"
-        if sys.platform == "win32":
-            msg += " (install Git Bash and ensure 'bash' is on PATH)"
-        print(f"{prefix} {msg}")
-        return False, msg
-    except subprocess.TimeoutExpired as exc:
-        print(f"{prefix} Tests timed out after {timeout}s")
-
-        def _decode(blob):
-            if blob is None:
-                return ""
-            return blob.decode(errors="replace") if isinstance(blob, bytes) else blob
-
-        partial = "\n".join(
-            filter(None, [_decode(exc.stdout), _decode(exc.stderr)])
-        ).strip()
-        tail = "\n".join(partial.split("\n")[-5:]) if partial else ""
-        summary = f"Test command timed out after {timeout}s"
-        if tail:
-            summary = f"{summary}\n{tail}"
-        return False, summary
-    passed = result.returncode == 0
-    combined = "\n".join(filter(None, [result.stdout, result.stderr])).strip()
+    # Capture to files, not pipes: after a timeout, draining a pipe waits for
+    # every process still holding it open, so one surviving grandchild would
+    # make the timeout unbounded.
+    with tempfile.TemporaryFile() as out, tempfile.TemporaryFile() as err:
+        try:
+            proc = subprocess.Popen(
+                [bash, "-c", test_command],
+                shell=False,
+                stdout=out,
+                stderr=err,
+                cwd=str(cwd),
+                env=bash_environment(bash),
+                # POSIX: own process group, so a timeout kills the whole tree.
+                start_new_session=sys.platform != "win32",
+            )
+        except FileNotFoundError as exc:
+            # Most commonly: bash not on PATH on Windows when Git Bash is missing.
+            # Surface a clear, actionable message instead of letting the harness crash.
+            msg = f"Command not found: {exc.filename or 'bash'}"
+            if sys.platform == "win32":
+                msg += " (install Git Bash and ensure 'bash' is on PATH)"
+            print(f"{prefix} {msg}")
+            return False, msg
+        try:
+            proc.wait(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            _kill_tree(proc)
+            proc.wait()
+            print(f"{prefix} Tests timed out after {timeout}s")
+            partial = "\n".join(
+                filter(None, [_read_output(out), _read_output(err)])
+            ).strip()
+            tail = "\n".join(partial.split("\n")[-5:]) if partial else ""
+            summary = f"Test command timed out after {timeout}s"
+            return False, f"{summary}\n{tail}" if tail else summary
+        except BaseException:
+            _kill_tree(proc)
+            raise
+        stdout, stderr = _read_output(out), _read_output(err)
+    passed = proc.returncode == 0
+    combined = "\n".join(filter(None, [stdout, stderr])).strip()
     summary = "\n".join(combined.split("\n")[-5:])
     status = "PASS" if passed else "FAIL"
     print(f"{prefix} Tests: {status}")
