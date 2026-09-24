@@ -58,7 +58,7 @@ All other write tools (`editJiraIssue`, `jira_update_issue`, `transitionJiraIssu
 
 Given an issue key, fetch in this order. If an optional field fails or returns empty, skip it silently — never fail on optional fields.
 
-1. **Issue details** — get-single-issue tool (`getJiraIssue` / `jira_get_issue`); if unavailable, fall back to the search tool with JQL `key = {KEY}`. Capture summary, description, issue type, status, priority, assignee, sprint, epic/parent, and labels.
+1. **Issue details** — get-single-issue tool (`getJiraIssue` / `jira_get_issue`). Capture summary, description, issue type, status, priority, assignee, sprint, epic/parent, and labels.
 2. **Linked issues and subtasks** — from the issue details: link type + key + summary per linked issue; subtasks listed separately.
 3. **Comments** — the last 10, from the issue data already fetched in step 1 (embedded — make no separate MCP call). Record author, relative date, and body.
 4. **Sprint context** — if the issue has a sprint: record the sprint name and goal, then fetch sibling issues (keys + summaries) with JQL `sprint = {SPRINT_ID} AND key != {KEY} ORDER BY rank ASC`, where `{SPRINT_ID}` is the id of the issue's current (latest) sprint. Skip entirely if sprint data is unavailable.

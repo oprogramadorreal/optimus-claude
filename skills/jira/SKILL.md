@@ -18,7 +18,7 @@ Content written back to JIRA MUST stay in the issue's original language — neve
 
 ## Step 1: Detect JIRA MCP Server
 
-Read `$CLAUDE_PLUGIN_ROOT/skills/jira/references/jira-context-extraction.md` and follow its **Detection Procedure**. Server detected → record the server name and tool prefix, continue. None detected under Codex → stop and ask the user to configure a compatible JIRA MCP server in Codex, then re-run this skill; the bundled setup configures Claude Code only. Otherwise read `$CLAUDE_PLUGIN_ROOT/skills/jira/references/jira-setup.md` and follow it; if the user skips setup, stop.
+Read `$CLAUDE_PLUGIN_ROOT/skills/jira/references/jira-context-extraction.md` and follow its **Detection Procedure**. Server detected → continue. None detected under Codex → stop and ask the user to configure a compatible JIRA MCP server in Codex, then re-run this skill; the bundled setup configures Claude Code only. Otherwise read `$CLAUDE_PLUGIN_ROOT/skills/jira/references/jira-setup.md` and follow it; if the user skips setup, stop.
 
 ## Step 2: Find the Issue
 
@@ -58,7 +58,7 @@ description-refresh-date: [YYYY-MM-DD]
 
 ## Step 5: Analyze Against Codebase
 
-Read `$CLAUDE_PLUGIN_ROOT/skills/jira/references/jira-codebase-analysis.md` and follow the **Analysis Procedure** using the Goal and the ORIGINAL Acceptance Criteria from the task file (exclude items tagged `(from codebase analysis)` — prior enrichment, not source criteria). Present the **Impact Summary**.
+Read `$CLAUDE_PLUGIN_ROOT/skills/jira/references/jira-codebase-analysis.md` and follow the **Analysis Procedure**. Present the **Impact Summary**.
 
 Verify that the detected server's add-comment tool named in the MCP Safety permitted-write table (`addCommentToJiraIssue` for Rovo, `jira_add_comment` for sooperset) is available, found as in the Detection Procedure — do not probe for other comment-like tools. Then ask the user (AskUserQuestion) how to use the findings:
 
@@ -66,7 +66,7 @@ Verify that the detected server's add-comment tool named in the MCP Safety permi
 - **Update local context only** — enrich `docs/jira/<ISSUE-KEY>.md` only
 - **Skip** — proceed without changes
 
-On either update choice, run the **Task File Update** procedure first — the local file is the single source of truth. On the JIRA branch, then post the comment per the **JIRA Comment Format**, translated to the issue's original language if it isn't English; comments are append-only, so no further confirmation is needed. If the tool call fails at runtime, inform the user and keep the local update.
+On either update choice, run the **Task File Update** procedure first — the local file is the single source of truth. On the JIRA branch, then post the comment per the **JIRA Comment Format**; comments are append-only, so no further confirmation is needed. If the tool call fails at runtime, inform the user and keep the local update.
 
 **Complex scope, JIRA branch only:** if the Scope Assessment is `Complex` and the user chose "Update JIRA and local context", read `$CLAUDE_PLUGIN_ROOT/skills/jira/references/jira-implementation-tickets.md` and follow it to optionally spawn implementation tickets — it has its own confirmation gate defaulting to no JIRA writes.
 

@@ -96,7 +96,7 @@ depends on what. Make the task directly workable for /optimus:brainstorm and
 [Simple/Medium/Complex with explanation]
 ```
 
-5. Update YAML frontmatter (set or overwrite — do not skip if already present): `enriched-date: [YYYY-MM-DD]` = today; `description-refresh-date: [YYYY-MM-DD]` = today (see `jira-refresh.md` "Frontmatter update"). Preserve `date` unchanged.
+5. Update YAML frontmatter (set or overwrite — do not skip if already present): `enriched-date: [YYYY-MM-DD]` = today; `description-refresh-date: [YYYY-MM-DD]` = today. Preserve `date` unchanged.
 6. Write the file.
 
 The local file is the single source of truth: self-contained, in English, directly consumable by `/optimus:brainstorm` and `/optimus:tdd` without cross-referencing JIRA. When the user also chose to update JIRA, Step 5 of the skill posts the comment using the format below.

@@ -1,8 +1,6 @@
 # JIRA Implementation Ticket Creation
 
-Create implementation tickets in JIRA after a Complex-scope codebase analysis. Called only from Step 5 of SKILL.md, only on the "Update JIRA and local context" branch, and only when the Scope Assessment is `Complex`. This is the only place in the skill that creates new JIRA issues — the **MCP Safety** table in [`jira-context-extraction.md`](jira-context-extraction.md) enumerates the write tools this procedure may call and at which gate.
-
-Flow: [Entry condition](#entry-condition) → [Decomposition](#decomposition) → [Confirmation gate](#confirmation-gate) → [Creation procedure](#creation-procedure) → [Linking](#linking) → [Recording](#recording). Skip-mode jumps from the gate straight to Recording.
+Create implementation tickets in JIRA after a Complex-scope codebase analysis. This is the only place in the skill that creates new JIRA issues — the **MCP Safety** table in [`jira-context-extraction.md`](jira-context-extraction.md) enumerates the write tools this procedure may call and at which gate.
 
 ## Entry condition
 
@@ -56,7 +54,7 @@ Always run after the batch completes or is skipped. Read `docs/jira/<KEY>.md` an
 | <KEY-2> | <summary> | <KEY-1> |
 ```
 
-- **Created mode (Create all / Review one-by-one):** real JIRA keys in the `Ticket` column; note above the table: `Created on YYYY-MM-DD as part of /optimus:jira analysis.` Bump `description-refresh-date` to today (see `jira-refresh.md` "Frontmatter update").
+- **Created mode (Create all / Review one-by-one):** real JIRA keys in the `Ticket` column; note above the table: `Created on YYYY-MM-DD as part of /optimus:jira analysis.` Bump `description-refresh-date` to today.
 - **Proposed mode (Skip):** `(proposed-N)` placeholders in the `Ticket` column; note above the table: `Proposed on YYYY-MM-DD; not yet created in JIRA.` Do NOT bump `description-refresh-date` — no JIRA-driven change occurred.
 
 ## Refresh interaction
