@@ -14,7 +14,7 @@ Ask for the **project name** if not clear from context. It must match `^[a-zA-Z]
 
 ## Scaffold Commands
 
-Use the official scaffolding CLI — do NOT hand-generate boilerplate the official tool produces. Adjust the package-manager prefix per detection (`pnpm create`, `yarn create`, `bun create`).
+Use the official scaffolding CLI — do NOT hand-generate boilerplate the official tool produces. Commands may run without a TTY, so pass flags that answer every prompt (an unanswered prompt hangs or aborts the run). Adjust the package-manager prefix and flags per detection (`pnpm create`, `yarn create`, `bun create`).
 
 ### Web app
 
@@ -23,8 +23,8 @@ Use the official scaffolding CLI — do NOT hand-generate boilerplate the offici
 | React (Vite) | `npm create vite@latest <name> -- --template react-ts` |
 | Next.js | `npx create-next-app@latest <name> --ts --app` |
 | Vue (Vite) | `npm create vite@latest <name> -- --template vue-ts` |
-| Nuxt | `npx nuxi@latest init <name>` |
-| Svelte (SvelteKit) | `npx sv create <name>` |
+| Nuxt | `npm create nuxt@latest <name> -- --template minimal --packageManager npm --no-gitInit` |
+| Svelte (SvelteKit) | `npx sv create <name> --template minimal --types ts --no-add-ons` |
 | Angular | `npx @angular/cli@latest new <name>` |
 | Flutter (web) | `flutter create --platforms web <name>` |
 
