@@ -1,5 +1,5 @@
 ---
-description: Refactors code toward project-guideline compliance and testability (so /optimus:unit-test can safely increase coverage) across four analysis lenses, fanned out to parallel agents when the scope warrants it. Supports "testability" or "guidelines" focus plus flexible scoping. Read-only until the user approves the plan; applied changes stay local. Use after /optimus:init, before /optimus:unit-test, or for an iterative loop /optimus:deep refactor.
+description: Refactors code toward project-guideline compliance and testability (so /optimus:unit-test can safely increase coverage) across four analysis lenses, fanned out to parallel agents when the scope warrants it. Supports "testability" or "guidelines" focus plus flexible scoping. Read-only until the user approves the plan; applied changes stay local. Use after /optimus:init, before /optimus:unit-test; for an iterative loop, use /optimus:deep refactor.
 disable-model-invocation: true
 argument-hint: "[testability|guidelines] [scope]"
 ---
