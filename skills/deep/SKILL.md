@@ -128,6 +128,6 @@ Between iterations, tell the user in one line what the CLI reported (the `deep-s
 
 ## Step 6: Final Report
 
-After the loop, follow the loop reference's "After the loop" section. For a fresh second-opinion pass after a clean finish, re-run `/optimus:deep <target>` without `--resume`.
+After the loop, follow the loop reference's "After the loop" section, then open your closing message with the outcome in two or three lines. Give the stop reason, the report's headline counts (fixed/reverted, or coverage before → after and tests created), and any `--resume` hint or rollback command the report printed, because the host may collapse the command's output. For a fresh second-opinion pass after a clean finish, re-run `/optimus:deep <target>` without `--resume`.
 
-Recommend `/optimus:commit` next, then `/optimus:pr` once the branch is ready — the user should stay in this conversation for those so the implementation context is captured.
+Close on the outcome — changes left uncommitted (`--no-commit`, or commits disabled mid-run) → `/optimus:commit`; checkpoint commits made → `/optimus:pr` once the branch is ready (squash first if wanted — the final report prints the command) — either way, stay in this conversation so the implementation context is captured.

@@ -96,4 +96,4 @@ Report to the user (one block per repo in multi-repo workspaces, with the repo n
 - [Flagged code, with the structural change each item would need]
 ```
 
-If untestable code was flagged, recommend `/optimus:refactor testability` in a fresh conversation to restructure it; otherwise recommend `/optimus:commit`, staying in this conversation so the context is captured. For an automated loop that alternates test generation with testability refactoring, mention `/optimus:deep coverage`.
+If tests were written, recommend `/optimus:commit`, staying in this conversation so the context is captured. If code was flagged as untestable, recommend `/optimus:refactor testability` in a fresh conversation to restructure it. For an automated loop that alternates test generation with testability refactoring, mention `/optimus:deep coverage`.
