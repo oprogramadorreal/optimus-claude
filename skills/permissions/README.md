@@ -29,7 +29,7 @@ Use sandboxing or devcontainers when you can — they are the gold standard (on 
 
 - **Deny rules run first.** `permissions.deny` is evaluated before the classifier and works on every model and provider, so the deny list stays the hardest boundary even in auto mode.
 - **Hooks run in every permission mode.** Branch and precious-file protection keep working under auto mode — and the hook is deterministic where the classifier is probabilistic.
-- **The allow list matters most outside auto mode.** On entering auto mode, Claude Code drops broad execution-granting allow rules (the template's `Bash` and `Task` entries) and lets the classifier govern those calls, restoring the rules when you leave.
+- **The allow list matters most outside auto mode.** On entering auto mode, Claude Code drops broad execution-granting allow rules (the template's `Bash`, `Agent`, and `Task` entries) and lets the classifier govern those calls, restoring the rules when you leave.
 
 This skill does not enable or configure auto mode; an `autoMode` block is ignored in the checked-in `.claude/settings.json` it manages. Enable auto mode with `Shift+Tab`, `claude --permission-mode auto`, or your user settings.
 
