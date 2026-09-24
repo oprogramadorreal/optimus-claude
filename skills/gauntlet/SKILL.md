@@ -79,9 +79,8 @@ piece.
 
 Use the host's available agent capacity; sequence dispatches rather than drop
 pieces or reviews. Under Codex, disable conversation inheritance for each
-critic (`fork_turns: "none"` when that option exists), supplying only its
-frozen remit and resolvable bar/artifact paths. Reuse each piece's builder
-across rounds. Carry these dispatch rules into the prompt.
+critic (`fork_turns: "none"` when that option exists). Carry these dispatch
+rules into the prompt.
 
 Each piece's critic prompt is written once, before its first round, kept on
 the progress page, and sent every round with only the artifact paths changed.
@@ -169,21 +168,17 @@ Then use `AskUserQuestion` — header "Gauntlet", question confirming the start
 of a long-running multi-agent run that spawns many subagents, edits files
 without per-change approval, and consumes credits in proportion to how long it
 runs — with options "Start the run", "Adjust first", "Copy as /goal prompt",
-and "Cancel". Offer the copy option in both hosts, explaining that it prepares
-a prompt for a new session in the same host, without starting the run here.
-Preserve an explicit destination/model request, such as a new Codex/Astra
-session. Honor an already supplied choice; otherwise wait for the actual
-answer before either running or preparing the handoff. Apply requested
-adjustments and ask again. On "Cancel", stop.
+and "Cancel". Offer Copy in both hosts, explaining that it prepares a prompt
+for a fresh session in this host, or in a destination/model the user named,
+without starting the run here. Honor an already supplied choice. Apply
+requested adjustments and ask again. On "Cancel", stop.
 On "Copy as /goal prompt", read
 `$CLAUDE_PLUGIN_ROOT/skills/gauntlet/references/goal-handoff.md` and follow
 it: the run is handed to a fresh session instead of executed here.
 
 On "Start the run", execute the prompt yourself as the lead agent; this choice
 does not itself request a native goal. Create one only if the user explicitly
-asked for it, using the host's available controls. There is no
-arbitrary final round: the run ends when the output beats the bar or when the
-user stops it, subject to the host suspension rules above.
+asked for it, using the host's available controls.
 
 Close on the outcome — uncommitted work → `/optimus:commit`; already committed
 → `/optimus:pr`, then `/optimus:code-review` in a fresh conversation — and say
