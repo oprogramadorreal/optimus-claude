@@ -42,7 +42,7 @@ Match the service name against the first table's image patterns and service name
 | `AWS CLI`, `Azure CLI`, `gcloud CLI`, `kubectl`, or any name ending with a standalone `CLI` token | cli-tool |
 | `Firebase`, `Firestore`, `Firebase Auth`, `Firebase Storage`, `License Manager`, `LicenseManager`, or any `<Vendor>Settings` / `<Vendor>Config` / `<Vendor>Options` name whose prefix is a vendor-branded token AND whose section values contain at least one external FQDN (per detector Task 5b) — purely-internal names (`AppSettings`, `LoggingSettings`, `CorsOptions`, `KestrelSettings`, …) never qualify | cloud-native-only |
 | `OIDC`, `OpenIdConnect`, `IdentityProvider`, `IdentityServer`, `Cognito`, `Auth0`, `Okta` (as config-section names, not a Keycloak-style self-hosted deployment) | cloud-native-only |
-| `AWS <Product>`, `Azure <Product>`, `Google Cloud <Product>` / `GCP <Product>` / bare `Pub/Sub` | cloud-native-only (consult the [Emulator Index](#vendor-service--emulator-index) for a Docker offline alternative) |
+| `AWS <Product>`, `Azure <Product>`, `Google Cloud <Product>` / `GCP <Product>`, or any name in the [Emulator Index](#vendor-service--emulator-index) | cloud-native-only |
 | Any other unknown name | unknown — web-search recipe decides |
 
 ## Decision Heuristics
