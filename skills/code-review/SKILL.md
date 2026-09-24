@@ -153,7 +153,7 @@ Open with a **Change Summary** — 2–4 factual sentences on what the changes a
 
 **[N]. [Finding title]** (Critical/Warning/Suggestion — [Category])
 - **File:** `file:line`
-- **Category:** [Bug | Security | Guideline Violation | Code Quality | Test Coverage Gap | Contract Quality | Intent Mismatch]
+- **Category:** [the category the raising lens's prompt file defines]
 - **Guideline:** [project rule, "General: ...", or for Intent Mismatch the literal "Intent (see Intent claim)"]
 - **Intent claim:** [Intent Mismatch only — the quoted claim from `## Intent`]
 - **Issue:** [concrete description]
