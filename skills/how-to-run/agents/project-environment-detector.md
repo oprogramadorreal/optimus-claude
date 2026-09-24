@@ -55,7 +55,7 @@ If Tasks 0a–0d AND the manifest scan all come up empty or classify the project
 1. **Tech stack & package manager:** apply the tables in tech-stack-detection.md to manifests and lock files.
 2. **Manifest scripts:** extract `dev`, `start`, `build`, `test`, `lint` and variants (`start:dev`, `test:unit`); record exact script names.
 3. **Project structure:** when project-detection.md was provided, apply its full algorithm (multi-repo workspace detection, workspace configs, depth-2 manifest scan, supporting signals; apply multi-repo-detection.md when that was provided too). When it was not, the dispatcher already established this is a single project — record it as such.
-4. **Runtime version constraints** from manifests: `engines.node`, `python_requires`, `rust-version`, `environment.sdk`, `toolchain.channel` in `rust-toolchain.toml`, `go.mod` `go` directive, `.java-version` / `pom.xml` `maven.compiler.source`, and similar. One row each; Source = `<file>:<line>` (line required — Step 6 re-reads it).
+4. **Runtime version constraints** from manifests: `engines.node`, `project.requires-python` / `python_requires`, `rust-version`, `environment.sdk`, `go.mod` `go` directive, `pom.xml` `maven.compiler.source`, and similar. One row each; Source = `<file>:<line>` (line required — Step 6 re-reads it).
 
    **Version-manager files are authoritative when the manifest is silent** — emit a row cited `Source: <version-manager-file>` (no line needed):
    - `.python-version` → `Python == <content>` (treat `3.10` without patch level as `3.10.x`)
