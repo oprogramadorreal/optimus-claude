@@ -78,19 +78,13 @@ The routing rule itself lives in `references/shared-agent-constraints.md` under 
 
 `.claude-plugin/marketplace.json` is how Claude Code discovers the plugin. Its `source` object accepts an optional `ref` to pin plugin code to a branch, tag, or SHA; that is only for the feature-branch testing flow below, and `validate.sh` fails while it is present.
 
-`.agents/plugins/marketplace.json` is the same catalog for OpenAI Codex. Codex reads it before the Claude one and installs the plugin from `./`. `validate.sh` pins the plugin name across the catalogs and manifests. Claude Code uses the default `hooks/hooks.json` to launch Bash directly. Codex's `.codex-plugin/plugin.json` explicitly selects `hooks/codex-hooks.json` instead of that default, so it does not run both hooks. The Codex config uses Bash on macOS/Linux and `commandWindows` to invoke `hooks/session-start.ps1` on Windows. That launcher finds native Bash without a Git alias; both hosts run the shared `hooks/session-start` script in the invoking directory. See `.claude/docs/architecture.md` for the launcher constraints.
+`.agents/plugins/marketplace.json` is the same catalog for OpenAI Codex. Codex reads it before the Claude one and installs the plugin from `./`. `validate.sh` pins the plugin name across the catalogs and manifests. Per-host hook wiring (the default `hooks/hooks.json` for Claude Code, `hooks/codex-hooks.json` selected by the Codex manifest) and the launcher constraints are in `.claude/docs/architecture.md` under Two hosts, one plugin.
 
 ## Testing
 
 This plugin is mostly markdown-based. Testing is split into layers: fast structural checks, hook tests, and Python unit tests that run in CI, and slower skill execution tests that run locally.
 
-**Before merging significant changes**, run the automated gates below and the relevant authenticated skill smoke tests. Record any unavailable model or environment checks as unverified. To exercise the whole Claude smoke matrix in a fresh worktree:
-
-```shell
-bash scripts/test-skills.sh --model claude-fable-5-1 --fresh --all --worktree
-```
-
-This removes and regenerates fixtures inside the test worktree and invokes every configured smoke pair via `claude -p`. The worktree uses committed `HEAD`, so commit the candidate first if testing with `--worktree`; a normal run tests the current checkout through `--plugin-dir`. File/content oracles are narrower than a full semantic evaluation. See the subsections below for individual layers and finer-grained options.
+**Before merging significant changes**, run the automated gates below and the relevant authenticated [skill execution tests](#skill-execution-tests-local). Record any unavailable model or environment checks as unverified.
 
 ### Structural validation (CI)
 
@@ -116,31 +110,9 @@ Each assertion names itself in the output. The rationale for individual guards l
 
 ### Python unit tests (CI)
 
-Unit tests for the orchestrator CLI and its supporting modules under `scripts/harness_common/`, plus the `.claude/hooks/format-python.sh` formatter hook.
+Covers the orchestrator CLI, the session-start, formatter and restrict-paths hooks, the installer, skill metadata and Git snippets, the smoke runner, and the evaluation scorers. Setup (`install.cmd` on Windows, or a `.venv` from `requirements-dev.txt` on macOS/Linux) and commands (`test.cmd`, `test-coverage.cmd`, `python -m pytest test/`) are in [.claude/docs/testing.md](.claude/docs/testing.md).
 
-**First-time setup:**
-
-```shell
-install.cmd                    # Windows: creates .venv and installs dev dependencies
-```
-
-There is no `install.sh`; on macOS/Linux run `python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt`. The formatter-hook tests and harness commands use Bash. Windows contributors need native Git Bash; the runner locates it separately from WSL and supplies utilities from the selected installation even when only Git's `cmd` directory is on PATH. `CLAUDE_CODE_GIT_BASH_PATH` can select a custom native installation. This does not convert PowerShell-only project commands into Bash syntax.
-
-**Run tests:**
-
-```shell
-test.cmd                       # run all Python unit tests
-test-coverage.cmd              # run with coverage (HTML report in htmlcov/)
-```
-
-Or manually via pytest:
-
-```shell
-.venv\Scripts\activate
-python -m pytest test/ -v
-```
-
-**Note:** The project uses `pyproject.toml` with `--import-mode=importlib` (kept for general robustness against same-name modules across test trees).
+The formatter-hook tests and harness commands use Bash. Windows contributors need native Git Bash; the runner locates it separately from WSL and supplies utilities from the selected installation even when only Git's `cmd` directory is on PATH. `CLAUDE_CODE_GIT_BASH_PATH` can select a custom native installation. This does not convert PowerShell-only project commands into Bash syntax.
 
 ### Fixture generator (local)
 
