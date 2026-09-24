@@ -85,7 +85,7 @@ Keep **High**-confidence findings and keep **Medium** with a note.
 
 ### Summary
 - Scope: [full project / directory / changed since X] | Focus: [testability / guidelines / balanced]
-- Areas analyzed: [N] | Findings: [N] shown (of ~[M] detected) — Critical: [N], Warning: [N], Suggestion: [N]
+- Areas analyzed: [N] | Findings: [N] shown (of ~[M] detected; [D] unconfirmed dropped) — Critical: [N], Warning: [N], Suggestion: [N]
 - Testability improvements: [N] findings will make code testable for /optimus:unit-test
 - Top recommendation: [one-sentence highest-impact finding]
 
@@ -95,7 +95,7 @@ Keep **High**-confidence findings and keep **Medium** with a note.
 
 #### [Area] — [path]
 
-**[N]. [Finding title]** (Critical/Warning/Suggestion)
+**[N]. [Finding title]** (Critical/Warning/Suggestion[, Medium confidence])
 - **File:** `file:line` — cross-cutting findings list **Files:** `file1:line`, `file2:line`, ...
 - **Category:** [Guideline Violation | Testability Barrier | Code Quality | Duplication | Inconsistency | Missing Abstraction | Architectural Drift]
 - **Guideline:** [which project guideline this addresses]

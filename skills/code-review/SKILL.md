@@ -141,6 +141,7 @@ Open with a **Change Summary** — 2–4 factual sentences on what the changes a
 - Files reviewed: [N]
 - Lines changed: +[A] / -[R]
 - Findings: [N] (Critical: [N], Warning: [N], Suggestion: [N])
+- Unconfirmed findings dropped: [N]
 - Docs used: [list]
 - Agents: [list of agents run]
 - Verdict: CHANGES LOOK GOOD / ISSUES FOUND
