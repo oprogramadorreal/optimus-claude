@@ -100,6 +100,7 @@ from .reporting import (
     build_coverage_commit_body,
     build_deep_commit_body,
     detect_test_command,
+    kept_tests,
     print_coverage_report,
     print_deep_report,
 )
@@ -1647,9 +1648,7 @@ def cmd_commit_checkpoint(args):
         cycle = progress["cycle"]["current"]
         phase = args.phase or progress.get("phase", "unit-test")
         if phase == "unit-test":
-            count = sum(
-                1 for t in progress.get("tests_created", []) if t.get("cycle") == cycle
-            )
+            count = len(kept_tests(progress, cycle))
             detail = f"{count} tests written"
         else:
             count = sum(

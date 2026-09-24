@@ -6,6 +6,7 @@ from harness_common.reporting import (
     detect_test_command,
     format_finding_line,
     format_section,
+    print_coverage_report,
 )
 
 
@@ -321,8 +322,56 @@ class TestBuildCoverageCommitBody:
         assert "Reverted or skipped:" in body
         assert "r.py:20" in body
 
+    def test_abandoned_tests_are_not_listed_as_written(self):
+        progress = {
+            "tests_created": [
+                {"file": "test_auth.py", "test_count": 6, "status": "pass", "cycle": 1},
+                {
+                    "file": "test_billing.py",
+                    "test_count": 2,
+                    "status": "fail-abandoned",
+                    "cycle": 1,
+                },
+            ]
+        }
+        body = build_coverage_commit_body(progress, cycle=1, phase="unit-test")
+        assert "test_auth.py" in body
+        assert "test_billing.py" not in body
+
     def test_refactor_phase_with_no_findings_returns_minimal_body(self):
         progress = {"refactor_findings": []}
         body = build_coverage_commit_body(progress, cycle=1, phase="refactor")
         # Header line is still emitted so commits remain consistent in shape.
         assert "Coverage orchestrator checkpoint" in body
+
+
+def test_coverage_report_counts_only_kept_tests_and_pending_items(capsys, monkeypatch):
+    # Abandoned tests were reverted and attempted items were refactored: neither
+    # is still in the tree, so neither may inflate the report.
+    monkeypatch.setattr("harness_common.reporting.git_current_branch", lambda _cwd: "")
+    progress = {
+        "config": {"project_root": ".", "base_commit": "abc1234"},
+        "cycle": {"completed": 2},
+        "coverage": {"baseline": 40, "current": 55, "history": []},
+        "tests_created": [
+            {"file": "test_auth.py", "test_count": 6, "status": "pass", "cycle": 1},
+            {
+                "file": "test_billing.py",
+                "test_count": 2,
+                "status": "fail-abandoned",
+                "cycle": 1,
+            },
+            {"file": "test_auth.py", "test_count": 1, "status": "pass", "cycle": 2},
+        ],
+        "untestable_code": [
+            {"file": "a.py", "status": "attempted"},
+            {"file": "b.py", "status": "pending"},
+        ],
+        "refactor_findings": [],
+        "bugs_discovered": [],
+        "test_results": {"last_full_run": "pass"},
+    }
+    print_coverage_report(progress)
+    out = capsys.readouterr().out
+    assert "7 tests in 1 files" in out
+    assert "Still untestable: 1" in out

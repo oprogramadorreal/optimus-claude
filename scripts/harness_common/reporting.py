@@ -134,15 +134,25 @@ def build_deep_commit_body(progress, iteration, max_entries=10):
     return "\n".join(lines)
 
 
+def kept_tests(progress, cycle=None):
+    """tests_created entries whose tests are still in the tree. The unit-test
+    phase reverts a fail-abandoned item's tests; the entry stays in progress
+    only so later cycles do not re-propose it."""
+    return [
+        t
+        for t in progress.get("tests_created", [])
+        if t.get("status") != "fail-abandoned"
+        and (cycle is None or t.get("cycle") == cycle)
+    ]
+
+
 def build_coverage_commit_body(progress, cycle, phase, max_entries=10):
     lines = [
         "Coverage orchestrator checkpoint — automated changes applied and tested.",
         "",
     ]
     if phase == "unit-test":
-        tests = [
-            t for t in progress.get("tests_created", []) if t.get("cycle") == cycle
-        ]
+        tests = kept_tests(progress, cycle)
         if tests:
             lines.append("Tests written:")
             for t in tests[:max_entries]:
@@ -240,10 +250,12 @@ def print_coverage_report(progress):
     coverage = progress["coverage"]
     baseline = coverage.get("baseline")
     current = coverage.get("current")
-    tests = progress.get("tests_created", [])
+    tests = kept_tests(progress)
     total_tests = sum(t.get("test_count", 0) for t in tests)
-    total_files = len(tests)
-    untestable = progress.get("untestable_code", [])
+    total_files = len({t.get("file") for t in tests})
+    untestable = [
+        u for u in progress.get("untestable_code", []) if u.get("status") != "attempted"
+    ]
     refactor_findings = progress.get("refactor_findings", [])
     fixed = sum(1 for f in refactor_findings if f.get("status") in FIXED_STATUSES)
     bugs = progress.get("bugs_discovered", [])
