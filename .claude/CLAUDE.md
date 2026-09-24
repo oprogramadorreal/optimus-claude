@@ -15,7 +15,7 @@ Load the doc that matches the change — not all of them.
 | A skill, agent, or shared reference (`skills/`, `agents/`, `references/`) | `.claude/docs/skill-writing-guidelines.md` |
 | Scripts or hooks (`scripts/`, `hooks/`) | `.claude/docs/coding-guidelines.md` |
 | Tests, or anything under `scripts/harness_common/` | `.claude/docs/testing.md` |
-| Directory map, orchestrator data flow, reference hierarchy | `.claude/docs/architecture.md` |
+| Deep-loop invariants, harness JSON contracts, agent and reference tiers, Claude/Codex host wiring | `.claude/docs/architecture.md` |
 | Contribution workflow, skill anatomy, feature-branch testing, version bumping | `CONTRIBUTING.md` |
 
 ## Key rules

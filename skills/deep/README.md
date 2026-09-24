@@ -71,7 +71,7 @@ Deep runs multiply credit and time with the iteration count — coverage is the 
 | *(shared)* `references/orchestrator-loop-paired.md` | Per-cycle loop (coverage) |
 | *(shared)* `references/harness-mode.md`, `references/coverage-harness-mode.md` | Subagent-side single-pass protocols |
 
-The loop primitives (snapshot, parse, deep-step, commit-checkpoint, check-termination, final-report) live in `scripts/harness_common/cli.py` — see [.claude/docs/architecture.md](../../.claude/docs/architecture.md) for the data flow.
+The loop primitives (snapshot, parse, deep-step, commit-checkpoint, check-termination, final-report) live in `scripts/harness_common/cli.py` — see [.claude/docs/architecture.md](../../.claude/docs/architecture.md) for the loop invariants.
 
 ## License
 
