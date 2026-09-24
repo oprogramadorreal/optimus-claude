@@ -4786,6 +4786,62 @@ class TestReviewFixRegressions:
         assert data["iteration"]["current"] == 9
         assert data["termination"]["reason"] is None
 
+    def test_resume_after_cap_with_parse_failed_final_iteration_refuses(
+        self, tmp_path, capsys
+    ):
+        ppath = _seed_deep_progress(tmp_path, iteration=8)  # completed == 7
+        data = _read_progress(ppath)
+        data["termination"] = {"reason": "cap", "message": "Reached iteration cap (8)"}
+        ppath.write_text(json.dumps(data), encoding="utf-8")
+        assert _run("resume", "--progress-file", str(ppath)) == 1
+        assert "already reached its cap" in capsys.readouterr().err
+
+    def test_resume_refuses_cap_lowered_below_next_iteration(self, tmp_path, capsys):
+        ppath = _seed_deep_progress(tmp_path, iteration=5)
+        data = _read_progress(ppath)
+        data["termination"] = {"reason": "diminishing-returns", "message": "plateau"}
+        ppath.write_text(json.dumps(data), encoding="utf-8")
+        assert (
+            _run("resume", "--progress-file", str(ppath), "--max-iterations", "3") == 1
+        )
+        assert "already reached its cap" in capsys.readouterr().err
+
+    # --- coverage twin: cap refusal and cycle counter on cap / diminishing-returns ---
+    def test_resume_after_coverage_cap_without_raise_refuses(self, tmp_path, capsys):
+        ppath = _seed_coverage_progress(tmp_path, cycle=6)  # completed=5 == max_cycles
+        data = _read_progress(ppath)
+        data["termination"] = {"reason": "cap", "message": "Reached cycle cap (5)"}
+        ppath.write_text(json.dumps(data), encoding="utf-8")
+        exit_code = _run("resume", "--progress-file", str(ppath))
+        assert exit_code == 1
+        assert "--max-cycles" in capsys.readouterr().err
+        assert _read_progress(ppath)["termination"]["reason"] == "cap"
+
+    def test_resume_after_coverage_cap_with_raise_keeps_cycle(self, tmp_path):
+        # check-termination set the cap after record-cycle advanced current,
+        # so current != completed and resume must not bump it again.
+        ppath = _seed_coverage_progress(tmp_path, cycle=6)
+        data = _read_progress(ppath)
+        data["termination"] = {"reason": "cap", "message": "Reached cycle cap (5)"}
+        ppath.write_text(json.dumps(data), encoding="utf-8")
+        exit_code = _run("resume", "--progress-file", str(ppath), "--max-cycles", "8")
+        assert exit_code == 0
+        data = _read_progress(ppath)
+        assert data["config"]["max_cycles"] == 8
+        assert data["cycle"]["current"] == 6
+        assert data["termination"]["reason"] is None
+
+    def test_resume_after_coverage_diminishing_returns_keeps_cycle(self, tmp_path):
+        ppath = _seed_coverage_progress(tmp_path, cycle=4)  # completed=3
+        data = _read_progress(ppath)
+        data["termination"] = {"reason": "diminishing-returns", "message": "plateau"}
+        ppath.write_text(json.dumps(data), encoding="utf-8")
+        exit_code = _run("resume", "--progress-file", str(ppath))
+        assert exit_code == 0
+        data = _read_progress(ppath)
+        assert data["cycle"]["current"] == 4
+        assert data["termination"]["reason"] is None
+
     # --- E1: resume recovers from a torn (corrupt) primary via the backup ---
     def test_resume_recovers_from_corrupt_primary(self, tmp_path):
         ppath = _seed_deep_progress(tmp_path)

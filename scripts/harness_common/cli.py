@@ -933,29 +933,6 @@ def cmd_resume(args):
             config["max_cycles"] = new_cap
             mutated = True
 
-    # Refuse to silently overrun a hard cap. `check-termination` is a late loop
-    # step, so clearing a `cap` reason without actually raising the cap would let
-    # the loop run one full extra unit (dispatch + apply + commit) before the cap
-    # re-fires. Require the (possibly just-raised) cap to exceed the completed
-    # count; otherwise tell the user to raise it. (Returns before any write, so
-    # the in-memory cap bump above is not persisted on this path.)
-    if prior_reason == "cap":
-        if _is_coverage(progress):
-            completed = (progress.get("cycle") or {}).get("completed", 0)
-            cap = config.get("max_cycles", 0)
-            flag = "--max-cycles"
-        else:
-            completed = (progress.get("iteration") or {}).get("completed", 0)
-            cap = config.get("max_iterations", 0)
-            flag = "--max-iterations"
-        if cap <= completed:
-            print(
-                f"ERROR: this run already reached its cap ({cap}). Re-run with a "
-                f"higher {flag} to continue.",
-                file=sys.stderr,
-            )
-            return 1
-
     # Resuming means "continue the loop". Clear any stored terminal reason so
     # `check-termination` re-evaluates from scratch instead of immediately
     # re-emitting the soft-exit (diminishing-returns) that left this file
@@ -983,6 +960,22 @@ def cmd_resume(args):
             # interrupted iteration is correctly re-run instead of skipped.
             progress["iteration"]["current"] += 1
         mutated = True
+
+    # Refuse to overrun the cap: `check-termination` fires only after a unit is
+    # dispatched, applied and committed, so the unit the resumed loop runs next
+    # must not exceed the (possibly just-raised) cap. Returns before the write,
+    # so nothing above is persisted on this path.
+    coverage = _is_coverage(progress)
+    unit = progress.get("cycle" if coverage else "iteration") or {}
+    cap = config.get("max_cycles" if coverage else "max_iterations")
+    if cap and unit.get("current", 0) > cap:
+        flag = "--max-cycles" if coverage else "--max-iterations"
+        print(
+            f"ERROR: this run already reached its cap ({cap}). Re-run with a "
+            f"higher {flag} to continue.",
+            file=sys.stderr,
+        )
+        return 1
 
     if mutated:
         write_progress(progress_path, progress)
