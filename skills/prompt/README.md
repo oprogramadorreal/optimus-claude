@@ -95,6 +95,7 @@ For Codex, use its separate host profile and Template H with the requested write
 | `SKILL.md` | 7-step prompt crafting workflow with inline diagnostic checklist |
 | `references/tool-routing.md` | Tool-specific routing for 30+ AI tools |
 | `references/templates.md` | 14 prompt architecture templates |
+| *(shared)* `brainstorm/references/plan-mode-handoff.md` | Plan-mode carve-out when a Template M prompt feeds `/optimus:tdd` |
 
 ## Acknowledgements
 

@@ -79,6 +79,7 @@ Earlier versions ran a two-agent quality gate inline at the end of the run. That
 | *(shared)* `commit/references/branch-naming.md` | Branch naming convention |
 | *(shared)* `commit/references/conventional-commit-format.md` | Commit message format |
 | *(shared)* `worktree/references/worktree-setup.md` | Worktree setup and cleanup |
+| *(shared)* `references/sdd-mapping.md` | Steering-doc precedence (only when `docs/product/` files exist) |
 
 ## Requirements
 

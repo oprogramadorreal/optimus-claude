@@ -53,8 +53,10 @@ Under Codex, the handoff uses its available plan/review controls and `$optimus:t
 |------|---------|
 | `SKILL.md` | Design workflow, scaffold mode, and the spec template |
 | `references/scenario-style.md` | Given/When/Then discipline for the Scenarios section |
-| `references/plan-mode-handoff.md` | Plan-mode handoff procedure (shared — also read by `/optimus:jira`) |
+| `references/plan-mode-handoff.md` | Plan-mode handoff procedure (shared — also read by `/optimus:jira` and `/optimus:prompt`) |
 | `templates/product/` | Steering-cascade skeletons emitted by scaffold mode |
+| *(shared)* `references/sdd-mapping.md` | Steering precedence and authoring boundary |
+| *(shared)* `init/references/multi-repo-detection.md` | Multi-repo workspace detection (only outside a Git working tree) |
 
 ## Requirements
 
