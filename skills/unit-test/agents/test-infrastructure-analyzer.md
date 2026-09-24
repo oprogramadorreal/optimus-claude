@@ -18,12 +18,12 @@ Scan for:
 
 ### Test suite execution
 
-Run the existing test suite with the discovered runner command. Record pass/fail status, test counts, and failing test names:
+Run the existing test suite once with the discovered runner command, with coverage enabled when coverage tooling is configured, so the one run gives pass/fail status, test counts, failing test names, and baseline coverage. A coverage-threshold miss is not a test failure.
 
 - Assertion failures (tests compile and run, but some fail) → status "Fail - assertion" with the list of failing tests
 - Build/bootstrap errors → status "Fail - build" with the error summary
 
-Then measure baseline coverage: run the coverage tooling if available; otherwise estimate heuristically by pairing source files against test files by naming convention.
+Without coverage tooling, estimate baseline coverage heuristically by pairing source files against test files by naming convention.
 
 ### Testability classification
 
