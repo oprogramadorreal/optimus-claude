@@ -132,13 +132,13 @@ Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/formatter-setup.md` and install
 
 Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/test-infra-provisioning.md`.
 
-**If test infrastructure was detected in Step 1:** run the full procedure — health check (run the suite; fix build/bootstrap failures only with user approval; record assertion failures as `{scope, failing_count}` for Step 7), coverage-tooling gap check, and provisioning (testing.md, CLAUDE.md refs, README section, .gitignore).
+**If test infrastructure was detected in Step 1:** run the reference's health check, coverage-gap check, and provisioning.
 
 **If not detected:** use `AskUserQuestion` — header "Test Infrastructure", question "No test framework was detected. Would you like to install one?":
 - **Yes (strongly recommended)** — "Install a test framework and coverage tooling. `/optimus:tdd`, `/optimus:unit-test`, and `/optimus:deep` stop without one."
 - **No** — "Skip test infrastructure setup — some optimus skills will have reduced functionality"
 
-On **Yes**: follow the reference's installation section (framework recommendation, explicit user approval, install, health check), then the full provisioning. On **No**: skip all provisioning; Step 7's summary carries the declined-infra note.
+On **Yes**: follow the reference's installation section, then its health check and provisioning. On **No**: skip all provisioning; Step 7's summary carries the declined-infra note.
 
 ## Step 6: Create Documentation Files
 

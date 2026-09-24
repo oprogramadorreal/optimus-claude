@@ -8,8 +8,8 @@ Complete test infrastructure setup: framework and coverage tooling installation,
 
 Recommend the stack's dominant framework — these pins override general knowledge; analyze the actual project to decide:
 
-- Prefer whatever framework the project or its peer projects already use; keep an existing Jest setup unless migration is explicitly requested.
-- Node.js/TypeScript with Vite, ESBuild, or SWC → Vitest (built-in v8 coverage); otherwise Jest (`--coverage`). New Angular projects → Vitest; existing Angular tests → keep what's there.
+- Prefer whatever framework the project or its peer projects already use.
+- Node.js/TypeScript with Vite, ESBuild, or SWC → Vitest (built-in v8 coverage); otherwise Jest (`--coverage`). New Angular projects → Vitest.
 - Go and Rust → built-in test tooling (no third-party framework). Rust coverage: cargo-tarpaulin (`--out Html`) or cargo-llvm-cov (`--html`).
 - C#/.NET → xUnit + coverlet; coverlet emits machine-readable output only, so also install `dotnet-reportgenerator-globaltool` for readable reports.
 - Flutter → flutter_test (`flutter test --coverage`, LCOV); pure Dart → package:test. Filter generated files (`*.g.dart`, `*.freezed.dart`) from coverage reports; integration tests go in `integration_test/`.
