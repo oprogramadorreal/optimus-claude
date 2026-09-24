@@ -37,7 +37,7 @@ skills/<skill-name>/
 ├── SKILL.md                  # Step-by-step instructions (the skill's "source code")
 ├── README.md                 # User-facing documentation
 ├── templates/                # YAML, markdown, and shell templates (optional)
-│   ├── hooks/                # PostToolUse hook scripts
+│   ├── hooks/                # Hook script templates
 │   └── docs/                 # Documentation templates
 ├── agents/
 │   ├── openai.yaml           # Codex twin of disable-model-invocation (required; validate.sh checks it)
@@ -45,7 +45,7 @@ skills/<skill-name>/
 └── references/               # Technical reference docs consumed by the skill (optional)
 ```
 
-**`SKILL.md`** is the key file. It starts with YAML frontmatter and contains the instructions Claude Code follows when the skill is invoked:
+**`SKILL.md`** is the key file: YAML frontmatter plus the instructions Claude Code follows when the skill is invoked.
 
 Frontmatter rules — including why there is no `name:` field — are in `.claude/docs/skill-writing-guidelines.md` under Structure, and `scripts/validate.sh` enforces them.
 
@@ -149,11 +149,13 @@ Not intended for CI — run locally before merging significant changes.
 
 ### Codex smoke test (local)
 
-Codex support is experimental. CI checks metadata and launcher behavior; it does not run model-driven workflows. Record the date, exact plugin commit/version, host version, OS, and pass/fail/untested results. No minimum Codex version is claimed. Use this small core check before promoting the core workflows beyond experimental:
+Codex support is experimental. CI checks metadata and launcher behavior; it does not run model-driven workflows. Record the date, exact plugin commit/version, host version, OS, and pass/fail/untested results. No minimum Codex version is claimed.
 
 For a model-free local loader check, run `python scripts/test-codex-plugin.py` with a native Codex executable on PATH, or supply `--codex-exe <absolute-native-executable>`. Windows `.cmd`/`.ps1` wrappers are not accepted by this helper. Optional `--output <report-path>` saves JSON evidence. The helper creates and cleans up a temporary `CODEX_HOME`, installs this checkout, requests the actual skill inventory, and compares every cached tracked file to source. It neither changes your installed plugin nor invokes a model. Successful discovery is separate from every semantic check below. Tested host versions are in the [support table](README.md#supported-hosts-and-versions).
 
 Use an isolated Codex configuration and a disposable project. Trust the project and configure its native sandbox before model execution, in addition to reviewing the plugin hook. On Windows, follow [sandbox setup](https://learn.chatgpt.com/docs/windows/windows-sandbox). Record the effective sandbox and any tool denials: an exit-zero model response that reports blocked commands is not a passing workflow test. If automation uses the documented one-run hook-trust override for an already reviewed hook, record that separately from testing the interactive `/hooks` trust flow.
+
+Before promoting the core workflows beyond experimental, run this core check:
 
 1. **Install, trust, invoke** — with an authenticated Codex CLI, run `codex plugin marketplace add oprogramadorreal/optimus-claude` and `codex plugin add optimus@optimus-claude` from a terminal (or follow the [Codex feature-branch setup](#codex) to test another branch), then review/trust its hooks in `/hooks`. In a fresh session, confirm the agent received `[optimus] Running under Codex` and the installed plugin path without a hook error — ask it, or read the `developer` message in the session rollout under `~/.codex/sessions/`. In a disposable repo with a change, run `$optimus:commit suggest`; it must read its bundled references and suggest a message without writing. A separate plain "write a commit message for this" request must not auto-load the skill.
 2. **Init, routing, preservation, reset** — generate fixtures with `bash scripts/generate-fixtures.sh monorepo multi-repo`. In `test/fixtures/monorepo-project`, run `$optimus:init`; add user text/comments outside its `AGENTS.md` block and custom Claude hooks/settings, then re-run init. Compare the original hook/settings bytes and surrounding user text; only one pointer block should remain. In fresh root and package sessions ask "Which test command applies here? Read the project instructions without editing." Confirm the applicable CLAUDE.md files were read. Run `$optimus:reset` and confirm only the managed pointer is removed from `AGENTS.md`. Repeat the routing/pointer check at `test/fixtures/multi-repo-workspace` and inside a child repo. Also verify `$optimus:jira TEST-1` without MCP tools stops at Codex setup guidance, and `permissions`/`dream` explain their exclusion without changing Claude state.
