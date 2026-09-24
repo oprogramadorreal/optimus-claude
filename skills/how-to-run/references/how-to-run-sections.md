@@ -79,7 +79,7 @@ The task runner and package manager are separate facts. For `lerna`, `nx`, and `
 | `nx` | `<pm-install>` (root) | `<exec> nx run-many -t build` | `<exec> nx build <pkg>` | `<exec> nx serve <pkg>` / `<exec> nx run <pkg>:<target>` | `<exec> nx run-many -t test` |
 | `turbo` | `<pm-install>` (root) | `<exec> turbo run build` | `<exec> turbo run build --filter=<pkg>` | `<exec> turbo run <script> --filter=<pkg>` | `<exec> turbo run test` |
 | `cargo-workspace` | — (Cargo resolves automatically) | `cargo build --workspace` | `cargo build -p <crate>` | `cargo run -p <crate>` | `cargo test --workspace` |
-| `go-workspace` | Follow the repository's dependency setup; `go work sync` updates workspace module dependencies | Within each listed module: `go build ./...` | Within the chosen module: `go build ./...` | Within the chosen module: `go run <detected-main-package>` | Within each listed module: `go test ./...` |
+| `go-workspace` | — (Go downloads modules on first build) | Within each listed module: `go build ./...` | Within the chosen module: `go build ./...` | Within the chosen module: `go run <detected-main-package>` | Within each listed module: `go test ./...` |
 | `gradle-multi-module` | — (Gradle resolves automatically) | `./gradlew build` | `./gradlew :<module>:build` | `./gradlew :<module>:run` | `./gradlew test` |
 | `maven-multi-module` | — (Maven resolves automatically) | `mvn install` (root; `-DskipTests` for faster dev builds) | `mvn -pl <module> -am install` | `mvn -pl <module> exec:java` (if configured) | `mvn test` |
 
