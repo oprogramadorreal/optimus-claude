@@ -85,7 +85,7 @@ The table below is the list of lenses this review has to cover. How many context
 
 **On a small diff — roughly 3 files or fewer and under 150 changed lines — apply the lenses yourself in one pass.** Five subagents over a five-line change each re-read the project docs and the same diff to produce findings you would reach directly; read the agent prompt files for their criteria and work through them. Fan out when the diff is large enough that one context cannot hold it with the docs, when the lenses need to read genuinely different parts of the tree, or in harness mode where the iteration's context is fresh and disposable.
 
-When you do fan out, launch every applicable agent as a `general-purpose` Agent tool call in a **single** message so they run in parallel — separate messages serialize them for no benefit. Each agent covers a lens the others do not, so dropping one leaves that category unreviewed; the conditional rules below are how the fan-out shrinks on a narrow diff.
+When you do fan out, launch every applicable agent as a `general-purpose` Agent tool call in a **single** message so they run in parallel — separate messages serialize them for no benefit. Each agent covers a lens the others do not, so dropping one leaves that category unreviewed; the conditional rules below are how the fan-out shrinks on a narrow diff. Wait for every launched agent to complete before Step 6.
 
 | Agent | Role | Prompt file |
 |-------|------|-------------|
@@ -101,13 +101,11 @@ Lenses 1–5 always apply, inline or by agent. Lens 6 (Agent 6) applies when tes
 
 **Prompt assembly**: read the prompt files from `$CLAUDE_PLUGIN_ROOT/skills/code-review/agents/`, plus `agents/shared-constraints.md` for the shared quality bar and output format. Compose per "Prompt assembly at dispatch time" in `$CLAUDE_PLUGIN_ROOT/references/agent-architecture.md`. For Agent 3, replace the `<!-- dispatcher: ... -->` line in `guideline-reviewer.md` with the concrete doc paths resolved in Step 4 for this project's layout.
 
-End every assembled prompt with the changed-file list (from Step 3, or `scope_files.current` in harness mode when pre-populated) followed by the diff hunks — at minimum the changed line ranges per file when the diff is too large to inline. Agents have no sanctioned way to compute the diff themselves; never send file paths alone. Findings are bounded by the Finding Cap in `$CLAUDE_PLUGIN_ROOT/references/shared-agent-constraints.md`.
+End every assembled prompt with the changed-file list (from Step 3, or `scope_files.current` in harness mode when pre-populated) followed by the diff hunks — at minimum the changed line ranges per file when the diff is too large to inline. Agents have no sanctioned way to compute the diff themselves; never send file paths alone.
 
 ### PR/MR context injection (PR/MR mode only)
 
-If the `pr-description` body captured in Step 3 is non-empty, prepend the PR/MR Context Block from `$CLAUDE_PLUGIN_ROOT/references/context-injection-blocks.md` (template, truncation rule, guardrail language) to every agent prompt immediately before the file list. Under `HARNESS_MODE_INLINE` on iterations 2+, also prepend the Iteration Context Block from the same reference — it defines the ordering when both blocks apply.
-
-Wait for all launched agents to complete before proceeding to Step 6. This applies to every mode, not just the PR/MR path above: an agent still running when Step 6 starts contributes no findings to validate and none to the report, and the review prints its verdict anyway.
+If the `pr-description` body captured in Step 3 is non-empty, prepend the PR/MR Context Block from `$CLAUDE_PLUGIN_ROOT/references/context-injection-blocks.md` (template, truncation rule, guardrail language) to every agent prompt immediately before the file list.
 
 ## Step 6: Validate Findings
 
