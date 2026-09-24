@@ -1193,7 +1193,10 @@ class TestResume:
                     "skill": "code-review",
                     "config": {"project_root": str(tmp_path), "max_iterations": 12},
                     "iteration": {"current": 8, "completed": 7},
-                    "termination": {"reason": "cap", "message": "Reached cap (8)"},
+                    "termination": {
+                        "reason": "diminishing-returns",
+                        "message": "plateaued",
+                    },
                 }
             ),
             encoding="utf-8",
@@ -1204,8 +1207,6 @@ class TestResume:
             str(progress_path),
             "--project-dir",
             str(tmp_path),
-            "--max-iterations",
-            "12",
         )
         assert exit_code == 0
         assert _read_progress(progress_path)["iteration"]["current"] == 9
@@ -3633,14 +3634,6 @@ class TestBaseline:
 
 
 class TestFinalReport:
-    def test_deep_report_prints(self, tmp_path, capsys, monkeypatch):
-        ppath = _seed_deep_progress(tmp_path)
-        monkeypatch.setattr(reporting, "git_current_branch", lambda _cwd: "feat/x")
-        exit_code = _run("final-report", "--progress-file", str(ppath))
-        assert exit_code == 0
-        out = capsys.readouterr().out
-        assert "Deep-orchestrator cumulative report" in out
-
     def test_archive_removes_iteration_temps(self, tmp_path, monkeypatch):
         monkeypatch.setattr(reporting, "git_current_branch", lambda _cwd: "feat/x")
         ppath = _seed_deep_progress(tmp_path)
@@ -3693,6 +3686,7 @@ class TestFinalReport:
         out = capsys.readouterr().out
         out.encode("ascii")  # raises if a non-ASCII separator slipped back in
         assert "convergence - Zero new findings" in out
+        assert "Deep-orchestrator cumulative report" in out
 
     def test_coverage_delta_separator_is_ascii(self, tmp_path, capsys, monkeypatch):
         # The coverage delta arrow must be ASCII for the same reason.
@@ -3706,13 +3700,6 @@ class TestFinalReport:
         out = capsys.readouterr().out
         out.encode("ascii")
         assert "50% -> 80%" in out
-
-    def test_coverage_report_prints(self, tmp_path, capsys, monkeypatch):
-        ppath = _seed_coverage_progress(tmp_path)
-        monkeypatch.setattr(reporting, "git_current_branch", lambda _cwd: "feat/x")
-        exit_code = _run("final-report", "--progress-file", str(ppath))
-        assert exit_code == 0
-        out = capsys.readouterr().out
         assert "Coverage orchestrator report" in out
 
     def test_archive_moves_file(self, tmp_path, monkeypatch):

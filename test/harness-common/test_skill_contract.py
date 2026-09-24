@@ -1,10 +1,10 @@
 """Pins the orchestrator ↔ base-skill ↔ CLI wiring contract.
 
-These tests catch silent breakages that the unit-level CLI tests miss: a base
-SKILL.md losing its `HARNESS_MODE_INLINE` router, the deep orchestrator
-stopping pointing at a loop reference, the harness-mode.md JSON schema
-drifting from what `cli.py parse` actually accepts. Each assertion below
-encodes one rung of the dispatch chain.
+These tests catch silent breakages that the unit-level CLI tests miss: the
+deep orchestrator stopping pointing at a loop reference. Base-skill
+`HARNESS_MODE_INLINE` routing and skill frontmatter are pinned by
+scripts/validate.sh (sections 3 and 17), not re-checked here. Each assertion
+below encodes one rung of the dispatch chain.
 
 If one of these fails, the in-conversation deep-mode flow is silently broken —
 the unit tests will pass but a real `/optimus:deep` invocation will either
@@ -35,43 +35,6 @@ DEEP_README = "skills/deep/README.md"
 
 def _read(rel_path):
     return (PLUGIN_ROOT / rel_path).read_text(encoding="utf-8")
-
-
-# ---------------------------------------------------------------------------
-# Base SKILL.md must route HARNESS_MODE_INLINE to the right reference
-# ---------------------------------------------------------------------------
-
-
-# Derived from the variant frozensets, not frozen literals: a skill added to
-# constants.py (e.g. a fourth deep target) immediately appears in this
-# parametrization, so it cannot ship with zero contract coverage while the
-# suite stays green — the exact drift test_deep_pins_progress_file_paths
-# already guards for progress paths (see its docstring).
-BASE_SKILL_ROUTES = sorted(
-    [(skill, "references/harness-mode.md") for skill in DEEP_VARIANT_SKILLS]
-    + [
-        (skill, "references/coverage-harness-mode.md")
-        for skill in COVERAGE_VARIANT_SKILLS
-    ]
-)
-
-
-@pytest.mark.parametrize("base_skill,harness_ref", BASE_SKILL_ROUTES)
-def test_base_skill_routes_harness_mode_inline(base_skill, harness_ref):
-    """Each base SKILL.md must detect HARNESS_MODE_INLINE and route to the right reference.
-
-    The orchestrator's subagent prompt injects `HARNESS_MODE_INLINE` and tells
-    the subagent to read the base SKILL.md and execute its harness-mode
-    protocol. If the SKILL.md's router goes away, the subagent runs interactive
-    mode and hangs.
-    """
-    skill_md = _read(f"skills/{base_skill}/SKILL.md")
-    assert (
-        "HARNESS_MODE_INLINE" in skill_md
-    ), f"skills/{base_skill}/SKILL.md must contain HARNESS_MODE_INLINE detection"
-    assert (
-        harness_ref in skill_md
-    ), f"skills/{base_skill}/SKILL.md must route to {harness_ref}"
 
 
 # ---------------------------------------------------------------------------
@@ -227,19 +190,9 @@ def test_deep_readme_matches_constants():
     )
 
 
-def test_deep_disables_model_invocation():
-    """The orchestrator must not be reachable via slash-command dispatch from a
-    subagent — `disable-model-invocation: true` prevents recursive deep-mode
-    runs; the re-entry guard inside the SKILL.md is the second line of defense.
-    """
-    skill_md = _read(DEEP_SKILL)
-    assert "disable-model-invocation: true" in skill_md
-
-
 def test_deep_has_reentry_guard():
     skill_md = _read(DEEP_SKILL)
     assert "Re-entry guard" in skill_md, f"{DEEP_SKILL} must have a Re-entry guard step"
-    assert "HARNESS_MODE_INLINE" in skill_md
 
 
 def test_deep_has_plugin_root_resolution():

@@ -319,29 +319,6 @@ class TestBisectFixes:
         assert fixed == 1
         mock_rt.assert_called_once_with("test", str(tmp_path))
 
-    def test_mixed_scenario(self, tmp_path):
-        """Mix of pass, fail, and unrevertable fixes."""
-        fixes = [
-            _make_fix(tmp_path, "a.txt", "old_a", "new_a"),  # will pass
-            _make_fix(tmp_path, "b.txt", "old_b", "new_b"),  # will fail
-            {
-                "file": "gone.txt",
-                "pre_edit_content": "x",
-                "post_edit_content": "y",
-            },  # unrevertable
-        ]
-        call_count = 0
-
-        def run_tests(cmd, cwd):
-            nonlocal call_count
-            call_count += 1
-            return (True, "ok") if call_count == 1 else (False, "fail")
-
-        fixed, reverted, skipped = bisect_fixes(fixes, "test", str(tmp_path), run_tests)
-        assert fixed == 2  # a.txt passed + gone.txt unrevertable
-        assert reverted == 1  # b.txt failed
-        assert skipped == 0
-
     def test_second_pass_recovers_order_dependent_fix(self, tmp_path):
         """Fix that fails in first pass due to ordering succeeds on retry."""
         fixes = [

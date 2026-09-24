@@ -45,22 +45,14 @@ class TestDetectTestCommand:
         content = "test command: `npm test # Run unit tests`\n"
         assert detect_test_command("/unused", content=content) == "npm test"
 
-    def test_code_block_with_comment_line(self):
-        content = "```bash\n# setup\nnpm test\n```\n"
-        assert detect_test_command("/unused", content=content) == "npm test"
-
     def test_code_block_skips_comment_only_lines(self):
-        content = "```bash\n# This is a comment\npytest\n```\n"
+        # The comment carries a runner token, so dropping the "#" guard fails this.
+        content = "```bash\n# run the tests\npytest\n```\n"
         assert detect_test_command("/unused", content=content) == "pytest"
 
     def test_no_test_command_found(self):
         content = "# Project\n\nJust some docs.\n"
         assert detect_test_command("/unused", content=content) is None
-
-    def test_content_parameter_skips_filesystem(self):
-        content = "test command: `go test ./...`\n"
-        result = detect_test_command("/nonexistent/path", content=content)
-        assert result == "go test ./..."
 
     @pytest.mark.parametrize("lang", [*_SHELL_FENCE_LANGS, ""])
     def test_shell_fence_languages(self, lang):
@@ -74,10 +66,6 @@ class TestDetectTestCommand:
             "pytest                                    # Run tests\n"
             "```\n"
         )
-        assert detect_test_command("/unused", content=content) == "pytest"
-
-    def test_powershell_block_skips_comment_lines(self):
-        content = "```powershell\n# install\npytest\n```\n"
         assert detect_test_command("/unused", content=content) == "pytest"
 
     @pytest.mark.parametrize("lang", ["python", "yaml", "dockerfile"])
