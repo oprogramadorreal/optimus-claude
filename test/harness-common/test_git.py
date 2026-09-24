@@ -436,84 +436,77 @@ class TestRestoreWorkingTree:
         assert "no snapshot to restore from" in capsys.readouterr().out
 
 
+def _snapshot_capture_runner(*, failed=(), untracked="new.txt\0"):
+    """Drive git_stash_snapshot with command-keyed Git responses."""
+    calls = []
+    outputs = {
+        ("stash", "create"): "base1",
+        ("ls-files", "--others"): untracked,
+        ("write-tree",): "utree",
+        ("commit-tree", "utree"): "ucommit",
+        ("rev-parse", "HEAD"): "headsha",
+        ("rev-parse", "base1^{tree}"): "wtree",
+        ("rev-parse", "base1^2"): "idxcommit",
+        ("commit-tree", "wtree"): "stash3p",
+    }
+
+    def run(args, **kwargs):
+        command = tuple(args[1:])
+        calls.append(command)
+        if failed and command[: len(failed)] == failed:
+            return subprocess.CompletedProcess(args, 1, "", "capture failed")
+        output = next((v for k, v in outputs.items() if command[: len(k)] == k), "")
+        return subprocess.CompletedProcess(args, 0, output, "")
+
+    return run, calls
+
+
 class TestGitStashSnapshot:
-    @patch("harness_common.git.subprocess.run")
-    def test_success(self, mock_run):
-        mock_run.side_effect = [
-            MagicMock(returncode=0, stdout=""),  # no nested repositories
-            MagicMock(returncode=0, stdout="abc123\n"),  # stash create
-            MagicMock(returncode=0, stdout=""),  # ls-files: no untracked
-            MagicMock(returncode=0),  # stash store
-        ]
-        assert git_stash_snapshot("/tmp") == "abc123"
+    def test_success(self):
+        run, calls = _snapshot_capture_runner(untracked="")
+        assert git_stash_snapshot("/tmp", _run=run) == "base1"
+        assert calls[-1] == ("stash", "store", "-m", "harness snapshot", "base1")
 
     @patch("harness_common.git.subprocess.run")
     def test_no_changes(self, mock_run):
         mock_run.return_value = MagicMock(returncode=0, stdout="")
         assert git_stash_snapshot("/tmp") is None
 
-    @patch("harness_common.git.subprocess.run")
-    def test_store_failure_raises(self, mock_run):
-        mock_run.side_effect = [
-            MagicMock(returncode=0, stdout=""),
-            MagicMock(returncode=0, stdout="abc123\n"),
-            MagicMock(returncode=0, stdout=""),
-            MagicMock(returncode=1, stderr="error storing"),
-        ]
+    def test_store_failure_raises(self):
+        run, _ = _snapshot_capture_runner(failed=("stash", "store"), untracked="")
         with pytest.raises(RuntimeError, match="git stash store failed"):
-            git_stash_snapshot("/tmp")
+            git_stash_snapshot("/tmp", _run=run)
 
-    @patch("harness_common.git.subprocess.run")
-    def test_untracked_files_grafted_as_third_parent(self, mock_run):
+    def test_untracked_files_grafted_as_third_parent(self):
         # git stash create cannot capture untracked files, so the snapshot
         # synthesizes a 3-parent stash commit — the shape `git stash apply`
         # restores untracked files from.
-        mock_run.side_effect = [
-            MagicMock(returncode=0, stdout=""),  # no nested repositories
-            MagicMock(returncode=0, stdout="base1\n"),  # stash create
-            MagicMock(returncode=0, stdout="new.txt\0"),  # ls-files
-            MagicMock(returncode=0),  # update-index (temp index)
-            MagicMock(returncode=0, stdout="utree\n"),  # write-tree
-            MagicMock(returncode=0, stdout="ucommit\n"),  # commit-tree untracked
-            MagicMock(returncode=0, stdout="headsha\n"),  # rev-parse HEAD
-            MagicMock(returncode=0, stdout="wtree\n"),  # rev-parse base^{tree}
-            MagicMock(returncode=0, stdout="idxcommit\n"),  # rev-parse base^2
-            MagicMock(returncode=0, stdout="stash3p\n"),  # commit-tree 3-parent
-            MagicMock(returncode=0),  # stash store
-        ]
-        assert git_stash_snapshot("/tmp") == "stash3p"
-        three_parent = mock_run.call_args_list[9].args[0]
-        assert three_parent[:3] == ["git", "commit-tree", "wtree"]
-        assert three_parent[3:9] == [
+        run, calls = _snapshot_capture_runner()
+        assert git_stash_snapshot("/tmp", _run=run) == "stash3p"
+        three_parent = next(c for c in calls if c[:2] == ("commit-tree", "wtree"))
+        assert three_parent[2:8] == (
             "-p",
             "headsha",
             "-p",
             "idxcommit",
             "-p",
             "ucommit",
-        ]
-        stored = mock_run.call_args_list[10].args[0]
-        assert stored == ["git", "stash", "store", "-m", "harness snapshot", "stash3p"]
+        )
+        assert calls[-1] == ("stash", "store", "-m", "harness snapshot", "stash3p")
 
-    @patch("harness_common.git.subprocess.run")
-    def test_untracked_capture_excludes_harness_state(self, mock_run):
+    def test_untracked_capture_excludes_harness_state(self):
         # Progress/iteration files are orchestrator bookkeeping: they are
         # preserved in place by _clean_working_tree during restores, so they
         # must not be captured (re-applying a stale copy would corrupt the
         # run's state). Only harness paths untracked → plain 2-parent stash.
-        mock_run.side_effect = [
-            MagicMock(returncode=0, stdout=""),  # no nested repositories
-            MagicMock(returncode=0, stdout="base1\n"),
-            MagicMock(
-                returncode=0,
-                stdout=(
-                    ".claude/code-review-deep-progress.json\0"
-                    ".claude/.deep-iteration-raw.txt\0"
-                ),
-            ),
-            MagicMock(returncode=0),  # store
-        ]
-        assert git_stash_snapshot("/tmp") == "base1"
+        run, calls = _snapshot_capture_runner(
+            untracked=(
+                ".claude/code-review-deep-progress.json\0"
+                ".claude/.deep-iteration-raw.txt\0"
+            )
+        )
+        assert git_stash_snapshot("/tmp", _run=run) == "base1"
+        assert not any(c[:1] == ("update-index",) for c in calls)
 
     @pytest.mark.parametrize(
         "failed",
@@ -529,26 +522,7 @@ class TestGitStashSnapshot:
         ],
     )
     def test_partial_capture_is_never_a_usable_snapshot(self, failed):
-        calls = []
-
-        def run(args, **kwargs):
-            command = tuple(args[1:])
-            calls.append(command)
-            if command[: len(failed)] == failed:
-                return subprocess.CompletedProcess(args, 1, "", "capture failed")
-            outputs = {
-                ("stash", "create"): "base1",
-                ("ls-files", "--others"): "new.txt\0",
-                ("write-tree",): "utree",
-                ("commit-tree", "utree"): "ucommit",
-                ("rev-parse", "HEAD"): "headsha",
-                ("rev-parse", "base1^{tree}"): "wtree",
-                ("rev-parse", "base1^2"): "idxcommit",
-                ("commit-tree", "wtree"): "stash3p",
-            }
-            output = next((v for k, v in outputs.items() if command[: len(k)] == k), "")
-            return subprocess.CompletedProcess(args, 0, output, "")
-
+        run, calls = _snapshot_capture_runner(failed=failed)
         with pytest.raises(RuntimeError):
             git_stash_snapshot("/tmp", _run=run)
         if failed != ("stash", "store"):

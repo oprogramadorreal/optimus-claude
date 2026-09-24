@@ -7,12 +7,23 @@ from pathlib import Path
 
 import pytest
 from harness_common import cli, git, reporting
+from harness_common.runner import _find_bash, bash_environment
 
 
 def _git(root, *args):
     return subprocess.run(
         ["git", *args], cwd=root, capture_output=True, check=True
     ).stdout
+
+
+def _submodule_add(cwd, url, name):
+    subprocess.run(
+        ["git", "-c", "protocol.file.allow=always", "submodule", "add", url, name],
+        cwd=cwd,
+        env=bash_environment(_find_bash()),
+        capture_output=True,
+        check=True,
+    )
 
 
 def _init_repo(root):
@@ -518,19 +529,13 @@ def test_uninitialized_submodule_does_not_block_baseline(tmp_path):
     upstream = tmp_path / "upstream"
     upstream.mkdir()
     _init_repo(upstream)
-    _git(
-        upstream,
-        "-c",
-        "protocol.file.allow=always",
-        "submodule",
-        "add",
-        library.as_posix(),
-        "library",
-    )
+    _submodule_add(upstream, library.as_posix(), "library")
     _git(upstream, "commit", "-m", "add submodule")
     clone = tmp_path / "clone"
     subprocess.run(
-        ["git", "clone", "-q", upstream.as_posix(), clone.as_posix()], check=True
+        ["git", "clone", "-q", upstream.as_posix(), clone.as_posix()],
+        env=bash_environment(_find_bash()),
+        check=True,
     )
     assert not (clone / "library" / ".git").exists()
     _git(clone, "config", "user.name", "Fixture")
@@ -623,8 +628,6 @@ def test_uncommitted_report_never_suggests_destructive_rollback(mode, capsys):
 
 
 def _nested_repository_fixture(tmp_path, kind="submodule"):
-    from harness_common.runner import _find_bash, bash_environment
-
     root = tmp_path / "project"
     root.mkdir()
     _init_repo(root)
@@ -632,21 +635,7 @@ def _nested_repository_fixture(tmp_path, kind="submodule"):
         upstream = tmp_path / "upstream"
         upstream.mkdir()
         _init_repo(upstream)
-        subprocess.run(
-            [
-                "git",
-                "-c",
-                "protocol.file.allow=always",
-                "submodule",
-                "add",
-                upstream.as_posix(),
-                "library",
-            ],
-            cwd=root,
-            env=bash_environment(_find_bash()),
-            capture_output=True,
-            check=True,
-        )
+        _submodule_add(root, upstream.as_posix(), "library")
         _git(root, "commit", "-m", "add library")
     progress = _setup(root, init_repo=False)
     library = root / "library"
@@ -893,27 +882,11 @@ def test_hidden_submodule_edits_block_git_operations_without_changing_flags(
 
 
 def test_hidden_grandchild_edits_cannot_bypass_capture_or_restore(tmp_path):
-    from harness_common.runner import _find_bash, bash_environment
-
     root, library, _progress = _nested_repository_fixture(tmp_path)
     upstream = tmp_path / "leaf-upstream"
     upstream.mkdir()
     _init_repo(upstream)
-    subprocess.run(
-        [
-            "git",
-            "-c",
-            "protocol.file.allow=always",
-            "submodule",
-            "add",
-            upstream.as_posix(),
-            "leaf",
-        ],
-        cwd=library,
-        env=bash_environment(_find_bash()),
-        capture_output=True,
-        check=True,
-    )
+    _submodule_add(library, upstream.as_posix(), "leaf")
     _git(library, "commit", "-m", "add leaf")
     _git(root, "add", "library")
     _git(root, "commit", "-m", "update library")
