@@ -27,6 +27,8 @@ The directory layout is discoverable; what follows is what reading it does not t
 
 Two tiers, no inheritance: `agents/` holds standalone user-invocable agents, and `skills/<name>/agents/` holds prompt files scoped to one skill, each carrying its criteria inline. `deep` owns none — it dispatches base skills, which own the analysis agents. The dispatch-time path-substitution rule is in `references/agent-architecture.md`; the rest of the authoring rules are in `.claude/docs/skill-writing-guidelines.md`, which `validate.sh` enforces the two-level reference depth cap for.
 
+`agents/test-guardian.md` (dispatched with no plugin-root substitution, so it cannot read plugin paths) and `skills/code-review/agents/test-guardian.md` (self-contained like every skill-level agent) restate the rules of `skills/tdd/references/testing-anti-patterns.md` inline, so change all three together.
+
 ## Two hosts, one plugin
 
 Claude Code reads `.claude-plugin/plugin.json` and the default `hooks/hooks.json`. Codex reads `.codex-plugin/plugin.json` through `.agents/plugins/marketplace.json` (installing from `./`); its explicit `hooks` entry selects `hooks/codex-hooks.json` instead of the default. The manifests share a name and version, and both launch the same `hooks/session-start` script. What the layout does not tell you:

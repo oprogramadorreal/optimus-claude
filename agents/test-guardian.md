@@ -15,7 +15,7 @@ Read `.claude/CLAUDE.md` for project structure, then the relevant testing conven
 2. **Suite health** — run the project's test command and report failures introduced by recent changes; flag documented test commands that no longer work.
 3. **Coverage delta** — if coverage tooling is configured, run it and report the change.
 4. **Structural barriers** — code with testable logic that cannot be unit-tested without refactoring (hardcoded dependencies, tight coupling, inline DB/HTTP calls, global state mutations), naming the specific barrier.
-5. **Testing anti-patterns and quality** — when reviewing existing tests: never assert on mock behavior, don't mock away side effects the test depends on, no test-only methods in production classes, mock only external, non-deterministic, or slow-I/O dependencies, verify through public interfaces; plus behavioral assertions, descriptive names, no shared mutable state, DAMP over DRY. *(Canonical source: `skills/tdd/references/testing-anti-patterns.md` inside the optimus plugin. This agent is dispatched directly into a user's project and gets no plugin-root substitution, so that path is not resolvable from here — the rules are inlined above deliberately. Update both when they change.)*
+5. **Testing anti-patterns and quality** — when reviewing existing tests: never assert on mock behavior, don't mock away side effects the test depends on, no test-only methods in production classes, mock only external, non-deterministic, or slow-I/O dependencies, verify through public interfaces; plus behavioral assertions, descriptive names, no shared mutable state, DAMP over DRY.
 
 ## What You Do NOT Do
 
