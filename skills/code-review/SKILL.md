@@ -170,10 +170,10 @@ Verdict **ISSUES FOUND** → `AskUserQuestion` (header "Action", question "How w
 - **Post comment** (PR/MR mode only) — post the review summary as a PR/MR comment
 - **Skip** — keep the report as reference only
 
-**Posting a comment**: write the review summary to a temp file in the current working directory: `TMPFILE=$(mktemp ./review-summary-XXXXXX.md)`. Always clean up after the posting attempt (whether it succeeds or fails): `rm -f "$TMPFILE"`. Use a relative path, not `/tmp` — on Windows, Git Bash's `/tmp` mount is unresolvable by the native `gh.exe`/`glab.exe`, which would silently submit an empty comment.
+**Posting a comment**: run `mktemp ./review-summary-XXXXXX` — a relative path, not `/tmp` (on Windows, Git Bash's `/tmp` mount is unresolvable by the native `gh.exe`/`glab.exe`, which would silently submit an empty comment). Write the review summary to the printed path with the Write tool and substitute that literal path for `<summary-file>` below (shell variables do not persist between Bash calls). Always `rm -f <summary-file>` after the posting attempt, whether it succeeds or fails.
 
-- GitHub: `gh pr comment <N> --body-file "$TMPFILE"`
-- GitLab: `glab api -X POST "projects/:id/merge_requests/<N>/notes" -F body=@"$TMPFILE"` — avoids the shell metacharacter breakage `glab mr note --message "$(cat ...)"` would hit with code snippets in the summary
+- GitHub: `gh pr comment <N> --body-file <summary-file>`
+- GitLab: `glab api -X POST "projects/:id/merge_requests/<N>/notes" -F body=@<summary-file>` — avoids the shell metacharacter breakage `glab mr note --message "$(cat ...)"` would hit with code snippets in the summary
 
 ## Important
 
