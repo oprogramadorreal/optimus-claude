@@ -49,7 +49,7 @@ Agent tool call:
     the orchestrator owns all test execution and bisection.
 ```
 
-`<base-skill>` is `code-review` or `refactor`. The subagent inherits the working tree and applies edits via `Edit`/`MultiEdit`; on return, the working tree carries the iteration's changes and its final message contains the structured JSON.
+`<base-skill>` is `code-review` or `refactor`. The subagent inherits the working tree and applies edits via `Edit`; on return, the working tree carries the iteration's changes and its final message contains the structured JSON.
 
 ### 3. Save the subagent return to a temp file
 

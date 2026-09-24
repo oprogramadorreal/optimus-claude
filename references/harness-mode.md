@@ -59,9 +59,9 @@ Apply every confirmed finding left in `new_findings` using Edit — same as norm
 - `pre_edit_content` — the exact original code before editing (the string that was replaced)
 - `post_edit_content` — the exact code after editing (the replacement string)
 
-These content pairs enable the orchestrator to mechanically apply/revert individual fixes during test bisection without needing another subagent dispatch. Each pair must be precise enough that `content.replace(pre_edit_content, post_edit_content)` produces the same result as the Edit tool call.
+These content pairs let the orchestrator bisect a test failure without another subagent dispatch: it rebuilds from the pre-iteration snapshot and re-applies the pairs in list order, skipping any whose `pre_edit_content` does not occur exactly once at that point. So list entries in the order you made the edits, and make each `pre_edit_content` unique in the file at the moment of its edit.
 
-An empty `post_edit_content` is valid — it means the fix deletes the matched code (e.g., removing dead code or a redundant check). The orchestrator supports this.
+An empty `post_edit_content` is valid — it means the fix deletes the matched code (e.g., removing dead code or a redundant check).
 
 For fixes that span multiple locations in a single file, output one entry per edit location.
 

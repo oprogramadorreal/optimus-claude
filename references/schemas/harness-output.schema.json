@@ -25,7 +25,7 @@
     },
     "fixes_applied": {
       "type": "array",
-      "description": "The subset of new_findings actually edited into the tree via Edit/MultiEdit. One entry per edit location: a fix spanning several places in one file contributes several entries.",
+      "description": "The subset of new_findings actually edited into the tree via Edit. One entry per edit location: a fix spanning several places in one file contributes several entries.",
       "items": { "$ref": "#/$defs/finding" }
     },
     "no_new_findings": {
@@ -94,7 +94,7 @@
         },
         "pre_edit_content": {
           "type": "string",
-          "description": "The exact original text that was replaced. Empty means no fix was applied. Bisection reverts by string swap, so this must match the tree byte for byte."
+          "description": "The exact original text that was replaced. Empty means no fix was applied. Bisection re-applies fixes in list order by string swap, so this must occur exactly once in the file at that point, byte for byte."
         },
         "post_edit_content": {
           "type": "string",
