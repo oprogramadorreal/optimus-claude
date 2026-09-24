@@ -89,14 +89,14 @@ fi
 # --- 4. No ref in marketplace.json ---
 echo "[Manifests]"
 check "No ref field in marketplace.json" \
-  bash -c '! grep -q "\"ref\"" .claude-plugin/marketplace.json'
+  bash -c 'test -f .claude-plugin/marketplace.json && ! grep -q "\"ref\"" .claude-plugin/marketplace.json'
 
 # The Codex marketplace mirrors the Claude one. Codex reads
 # .agents/plugins/marketplace.json first and installs the plugin from "./",
 # then reads .codex-plugin/plugin.json — so the marketplace plugin name has
 # to be the one both manifests declare, or Codex installs a
 # plugin it cannot find skills for. Read without jq so these pins never SKIP.
-plugin_name=$(sed -n 's/^ *"name": *"\([^"]*\)".*/\1/p' .claude-plugin/plugin.json | head -1)
+plugin_name=$(sed -n 's/^ *"name": *"\([^"]*\)".*/\1/p' .claude-plugin/plugin.json 2>/dev/null | head -1) || true
 check "Codex marketplace installs plugin '$plugin_name' from ./" \
   bash -c "grep -q '\"name\": \"$plugin_name\"' .agents/plugins/marketplace.json && grep -q '\"path\": \"./\"' .agents/plugins/marketplace.json"
 check "Claude marketplace lists plugin '$plugin_name'" \
