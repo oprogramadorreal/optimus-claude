@@ -33,7 +33,7 @@ Use the official scaffolding CLI — do NOT hand-generate boilerplate the offici
 | Framework | Scaffold Command |
 |-----------|-----------------|
 | Node.js / Express | `mkdir <name> && cd <name> && npm init -y`, then `npm install express` + minimal `index.js` hello-world route + `start` script |
-| Python / FastAPI | `uv init <name>`, then `cd <name> && uv add fastapi` + minimal `main.py` endpoint. No uv → manual venv (`python3 -m venv .venv`), `pip install fastapi uvicorn` |
+| Python / FastAPI | `uv init <name>`, then `cd <name> && uv add "fastapi[standard]"` + minimal `main.py` endpoint. No uv → manual venv (`python3 -m venv .venv`), `pip install "fastapi[standard]"` |
 | Rust / Axum | `cargo init <name>`, then add `axum` + `tokio` to `Cargo.toml` + minimal hello-world server in `main.rs` |
 | Go | `mkdir <name> && cd <name> && go mod init <name>` + minimal `main.go` HTTP server. Bare-name module path is the starter — offer a URL-like path (e.g., `github.com/user/<name>`); validate custom paths against `^[a-zA-Z0-9][a-zA-Z0-9._/-]*$` before use |
 | C# / .NET Web API | `dotnet new webapi -o <name>` |
@@ -44,7 +44,7 @@ Use the official scaffolding CLI — do NOT hand-generate boilerplate the offici
 | Language | Scaffold Command |
 |----------|-----------------|
 | Node.js | `mkdir <name> && cd <name> && npm init -y` + `bin/<name>.js` with shebang + `bin` field |
-| Python | `uv init <name>` + `<name>/__main__.py` hello-world (no uv → manual venv) |
+| Python | `uv init --package <name>` (no uv → manual venv) |
 | Rust | `cargo init <name>` |
 | Go | `mkdir <name> && cd <name> && go mod init <name>` + hello-world `main.go` (same module-path rule as Backend) |
 
