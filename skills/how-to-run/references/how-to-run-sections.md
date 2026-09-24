@@ -69,7 +69,7 @@ Write each section as a competent onboarding doc would — the rules below are t
 
 When the detector's `Workspace kind` is not `none`, use these forms — the wrong per-package form is a silent failure (`cargo build` at a workspace root builds only the root crate; `go mod download` does not resolve `go.work` modules). Render the Install row under Installation, Build-all under Build, per-module Run rows under Running in Development.
 
-The task runner and package manager are separate facts. For `lerna`, `nx`, and `turbo`, `<pm-install>` is the detected manager's install command and `<exec>` invokes an already-installed local tool: npm `npm exec --no --`, pnpm `pnpm exec`, Yarn `yarn`, Bun `bun run`. Prefer an existing project script that wraps the tool. Never introduce a second lockfile or fetch a missing task runner implicitly. Substitute actual declared targets for `build`, `test`, and `serve`; omit unavailable targets. The Yarn `foreach` examples require modern Yarn; for Yarn Classic use its documented `yarn workspaces run <script>` form.
+The task runner and package manager are separate facts. `<pm-install>` is the detected manager's install command and `<exec>` invokes an already-installed local tool: npm `npm exec --no --`, pnpm `pnpm exec`, Yarn `yarn`, Bun `bun run`. Prefer an existing project script that wraps the tool. Never introduce a second lockfile or fetch a missing task runner implicitly. Substitute actual declared targets for `build`, `test`, and `serve`; omit unavailable targets. The Yarn `foreach` examples require modern Yarn; for Yarn Classic use its documented `yarn workspaces run <script>` form.
 
 | Workspace kind | Install | Build (all) | Build (one) | Run (one) | Test (all) |
 |----------------|---------|-------------|-------------|-----------|------------|
@@ -96,16 +96,18 @@ Rendered inside Installation. **Pick exactly one primary mechanism per destinati
 2. **Raw-SQL only** → the first `raw-sql` row by detector order is primary; demote the rest.
 3. **Seed / fixture only** → render as the "populate seed data" step. Seeds never compete with schema mechanisms — when both exist, schema first, then a follow-up bullet: "After the schema is in place, populate seed data: `<seed-invocation>`".
 
+Node tools run via `<exec>` (§Workspace-Kind Command Branches); Python tools take the detected runner prefix (`uv run`, `poetry run`).
+
 | ORM tool | Migrate command |
 |---|---|
-| `prisma` | `npx prisma migrate deploy` |
+| `prisma` | `<exec> prisma migrate deploy` |
 | `alembic` | `alembic upgrade head` |
 | `flyway` | `flyway migrate` |
 | `ef` / Entity Framework Core | `dotnet ef database update` |
 | `liquibase` | `liquibase update` |
-| `knex` | `npx knex migrate:latest` |
-| `sequelize` | `npx sequelize db:migrate` |
-| `typeorm` | `npm run typeorm migration:run` (or the project's wrapping script) |
+| `knex` | `<exec> knex migrate:latest` |
+| `sequelize` | `<exec> sequelize db:migrate` |
+| `typeorm` | `<exec> typeorm migration:run` (or the project's wrapping script) |
 | `rails` | `bundle exec rails db:migrate` |
 | `phoenix-ecto` | `mix ecto.migrate` |
 
