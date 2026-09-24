@@ -10,7 +10,7 @@ If `.claude/.optimus-version` exists, read `.claude/CLAUDE.md` for pre-detected 
 
 ### Detection tasks
 
-Run the non-manifest tasks (0a–0e) in parallel with the manifest tasks (1–7); a project may hit both branches (e.g., a Node CLI wrapping a C++ addon), and both must report.
+Run the non-manifest tasks (0a–0d2) in parallel with the manifest tasks (1–7); a project may hit both branches (e.g., a Node CLI wrapping a C++ addon), and both must report. Task 0e runs last, on their results.
 
 #### Task 0a — Build system & toolchain
 
