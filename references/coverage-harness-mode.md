@@ -29,14 +29,14 @@ Run the same Test Infrastructure Analyzer agent as normal mode (Step 2 of SKILL.
 
 **Cycle context block (cycles 2+):** when `cycle.current` is greater than 1, prepend a concise context block to the agent prompt before the main instructions. Source the data from the progress file's `tests_created`, `untestable_code`, and `coverage.history`. Include:
 
-- **Tests already added** — `file → target` entries from `tests_created` with status `pass`, so the agent skips those targets.
-- **Items previously reverted, abandoned, or bug-found** — entries from `tests_created` with status `fail-abandoned` or similar, so the agent does not re-propose them.
+- **Tests already added** — `file → target` for `tests_created` entries with status `pass` or `fail-fixed`, so the agent skips those targets.
+- **Abandoned items** — `tests_created` entries with status `fail-abandoned` (with `failure_reason`), so the agent does not re-propose them.
 - **Untestable code already flagged** — entries from `untestable_code`, so the agent does not re-flag them.
 - **Cumulative coverage delta** — one line derived from `coverage.history`.
 
 The goal is convergence: each cycle proposes **new** testable items, not duplicates. Keep the block under ~30 lines.
 
-**Stop gates under harness mode:** if a SKILL.md Step 2 stop gate fires (no test framework detected, or the baseline suite fails), do not print the conversational handoff messages — skip sections 3–4 and emit the section 5 JSON immediately with `no_new_tests: true`, empty `tests_written` and `untestable_code` arrays (list any failing tests found under `bugs_discovered`), and a non-null `blocked` field naming the gate and why. The orchestrator terminates the loop on a non-null `blocked` and surfaces the reason to the user.
+**Stop gates under harness mode:** if a SKILL.md Step 2 stop gate fires (no test framework detected, or the baseline suite fails), do not print the conversational handoff messages — skip sections 3–4 and emit the section 5 JSON immediately with `no_new_tests: true`, empty `tests_written`, `untestable_code` and `bugs_discovered` arrays, and a non-null `blocked` field naming the gate and why — for a red baseline, add the failing test names on that same line (at most ten, then a count of the rest). `unit-test-step` records only that text as the run's stop reason, and the loop ends.
 
 ### 3. Generate and write tests
 
