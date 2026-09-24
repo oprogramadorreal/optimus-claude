@@ -105,6 +105,7 @@ In spec-driven-development terms, `/optimus:jira` is the supported path for PM-a
 | `references/jira-codebase-analysis.md` | Codebase impact analysis, scope assessment, task-file enrichment |
 | `references/jira-refresh.md` | Re-run reconciliation — diff JIRA against the local file, preserve enrichment |
 | `references/jira-implementation-tickets.md` | Opt-in implementation-ticket creation for Complex scope |
+| `references/plan-mode-prompt.md` | Medium-route plan-mode prompt, built on brainstorm's shared `references/plan-mode-handoff.md` |
 
 ## Requirements
 
