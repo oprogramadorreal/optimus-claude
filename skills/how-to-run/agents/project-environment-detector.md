@@ -29,12 +29,10 @@ Record build system, minimum toolchain version, and any SDK requirements discove
 #### Task 0b — Source dependencies
 
 - **Git submodules:** read `.gitmodules` if present; extract each path + URL. Validate paths against `^[A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)*$`, then split on `/` and reject empty/`.`/`..` segments. Validate URLs with the clone-URL rules below. Reject failures and note "sanitized" in the Source column.
-- **CMake source deps:** grep `CMakeLists.txt` / `*.cmake` for `FetchContent_Declare`, `ExternalProject_Add`, `add_subdirectory(../`.
 - **Sibling repo candidates:** grep CI files (`.github/workflows/*.yml`, `azure-pipelines.yml`, `.gitlab-ci.yml`), build files, and existing docs for `../[A-Za-z0-9_][A-Za-z0-9._-]*` references. Filter obvious false positives (`../node_modules`, `../dist`, `../build`, `../target`, `../vendor`). Report the rest as *candidates* with their source line — never as facts.
   - **Path validation:** `^\.\./[A-Za-z0-9_][A-Za-z0-9._-]*(/[A-Za-z0-9._-]+)*$`; then split on `/` and reject if any segment after the leading `..` is empty, `.`, or `..`.
   - **Clone URL validation:** `^(https?|ssh)://[A-Za-z0-9.-]+(:[0-9]+)?(/[A-Za-z0-9._/-]+)*$` OR SCP form `^[A-Za-z0-9_][A-Za-z0-9_-]*@[A-Za-z0-9.-]+:[A-Za-z0-9._-][A-Za-z0-9._/-]*(\.git)?$`. Extract the path portion (after host and optional port from the first `/`; after the first `:` for SCP), split on `/`, reject empty/`.`/`..` segments.
 - **Doc hints:** read `README.md`, `BUILDING.md`, `INSTALL.md`, `docs/*.md` for "clone alongside", "sister repo", "requires the X repo", "must be checked out at `../`" — record as candidates with source location.
-- **Zephyr / AOSP:** `west.yml` or `.repo/manifests/default.xml` → record the workspace tool + manifest.
 
 #### Task 0c — System packages & SDKs
 
@@ -86,7 +84,7 @@ If nothing matched, record no Task 5b services and move on. If something did, re
 
 #### Task 5c — Runtime-bind ports
 
-Ports the application itself listens on (distinct from Task 5 service ports). Every row MUST carry a `<file>:<line>` Source citation — no framework defaults, no inference from unrelated config. One Runtime Ports row per detected `(component, port)` pair; apply every rule whose signals are present:
+Ports the application itself listens on (distinct from Task 5 service ports). Every row MUST carry a `<file>:<line>` Source citation — no framework defaults (ASP.NET `5000`, Rails `3000`, Django `8000`, Spring Boot `8080`), no inference from unrelated config. One Runtime Ports row per detected `(component, port)` pair; apply every rule whose signals are present:
 
 - **.NET / ASP.NET Core:** glob `**/Properties/launchSettings.json` (depth cap 6, never follow symlinks). Extract `iisSettings.iisExpress.applicationUrl` and every `profiles.<name>.applicationUrl`; split each value on `;`, **trim leading/trailing whitespace from each token**, then apply `^https?://(?:\[[0-9a-fA-F:]+\]|[^:/]+):([0-9]{1,5})(?:/|$)` per token (bracketed IPv6 hosts like `[::1]` accepted). Component = parent `src/<Component>/` directory name (else the file's grandparent). Skip URLs without an explicit port.
 - **Rails / Ruby:** read `config/puma.rb`; grep for `port` and `bind` (skip lines whose first non-whitespace is `#`). Component is "Puma" or the app directory name in a monorepo.
@@ -149,16 +147,6 @@ Cap at 20 components (then a single `+N more — see <glob pattern>` row); suppr
 | `Makefile` (as build system, not task runner) | make | Default target, compiler inference |
 
 Native, game-engine, embedded, and Apple build systems (CMake, Meson, Bazel, Xcode, Unreal, Unity, Godot, PlatformIO, Arduino, Swift PM, CocoaPods) live in `detector-native-and-embedded.md`, read only when Task 0a's marker glob matched.
-
-#### Source Dependencies Detection
-
-| Source | Pattern | Meaning |
-|--------|---------|---------|
-| `.gitmodules` at repo root | Any content | Submodules — recommend `git clone --recursive`, document submodule update |
-| CI files | `git clone ... ../<name>` or hardcoded `../<name>` in working-directory | Sibling repo expected |
-| Existing docs | "clone alongside", "sister repo", "requires the X repo", "must be checked out at ../" | Sibling repo candidate — cross-check with build-file signals |
-
-CMake source deps, Zephyr west, and AOSP repo patterns live in the same conditional file.
 
 ### Quoting rule
 
@@ -232,16 +220,12 @@ Mark sibling repos `(candidate)` when derived only from a path grep; mark confir
 
 [If none, state "No runnable components detected."]
 
-Populated by Task 5d, in topological order (roots first) — drives the main skill's *Running in Development* layout.
-
 ### Runtime Ports
 | Component | Port | Source |
 |-----------|------|--------|
 | [e.g., App.Web] | [e.g., 51914] | [e.g., src/App.Web/Properties/launchSettings.json:6] |
 
 [If none, state "No bound runtime ports detected."]
-
-Populated by Task 5c — drives the Step 6 Specific-Token Audit's grounded-ports set. Every row MUST carry a `<file>:<line>` Source the main skill can re-read; omit the row entirely if none can be produced. NEVER emit a framework default (ASP.NET `5000`, Rails `3000`, Django `8000`, Spring Boot `8080`) without a live citation.
 
 ### External Services
 | Service | Source | Port | Type | Confidence | Endpoint semantics |
@@ -251,8 +235,6 @@ Populated by Task 5c — drives the Step 6 Specific-Token Audit's grounded-ports
 
 [If none, state "No external services detected."]
 
-Confidence: `confirmed` — from compose / ORM migration tool / database config (Task 5); `candidate` — from a framework config file (Task 5b), rendered with a `(candidate)` marker downstream.
-
 `Endpoint semantics` values (database-type rows; others emit `—`):
 
 - `docker-compose` — Source is `docker-compose.yml` / `compose.yml`; no connection-string shift needed.
@@ -261,9 +243,7 @@ Confidence: `confirmed` — from compose / ORM migration tool / database config 
 - `local-windows-auth` — the string contains `Integrated Security=(True|Yes|SSPI)` or `Trusted_Connection=(Yes|True|1)` (case-insensitive); Windows-only auth mode.
 - `local-socket` — the string references a Unix domain socket (`unix:/…`, `/var/run/postgresql/`), a Windows named pipe (`\\.\pipe\<name>`), or a MongoDB Unix-socket URI (`mongodb://%2F…`, `mongodb+unix://`); transports Docker's standard publish form cannot reproduce.
 - `remote` — the hostname is a real FQDN (Task 5b hostname regex); already remote, no shift needed.
-- `ambiguous` — file unreadable or no value matched; the main skill treats as `local-default` and appends a "verify the connection string" caution to the Step 3 assessment.
-
-The main skill's Pre-Conditions Block (external-services-docker.md) reads this field at Step 4.
+- `ambiguous` — file unreadable or no value matched.
 
 ### Environment Setup
 | File | Format | Variable count | Key variables | Key leaves | Secrets committed |
@@ -273,7 +253,7 @@ The main skill's Pre-Conditions Block (external-services-docker.md) reads this f
 
 [If none, state "No environment config templates detected."]
 
-`Variable count` is the true count (not the displayed sample) so the main skill can render a "See `<file>` for the full list" footnote after truncation. `Key leaves` is `—` for dotenv rows.
+`Key leaves` is `—` for dotenv rows.
 
 ### Schema Bootstrap
 | File | Directory | Bootstrap mechanism | Invocation hint |
@@ -282,8 +262,6 @@ The main skill's Pre-Conditions Block (external-services-docker.md) reads this f
 | [e.g., db/seeds.rb] | [db/] | seed-script | [rails db:seed] |
 
 [If no schema-bootstrap files detected, OR no SQL/NoSQL service detected, state "No schema-bootstrap scripts detected."]
-
-`Bootstrap mechanism` (`raw-sql` / `seed-script` / `fixture-load`) combines with the *Database migrations* row below to drive the main skill's Schema Bootstrap pick-one rule (how-to-run-sections.md).
 
 ### Dev Workflow Signals
 - **Docker-based:** [yes/no]
