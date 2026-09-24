@@ -290,13 +290,7 @@ if command -v bash &>/dev/null; then
     if ! bash -n "$f" 2>/dev/null; then
       syntax_errors+="  $f: bash syntax error\n"
     fi
-  done < <(find ./skills -path '*/templates/*.sh' -o -path '*/templates/**/*.sh' 2>/dev/null | sort)
-  # Also check hooks/session-start
-  if [ -f "./hooks/session-start" ]; then
-    if ! bash -n "./hooks/session-start" 2>/dev/null; then
-      syntax_errors+="  hooks/session-start: bash syntax error\n"
-    fi
-  fi
+  done < <({ find ./skills -path '*/templates/*.sh' 2>/dev/null; find ./scripts -name '*.sh' 2>/dev/null; echo ./hooks/session-start; } | sort -u)
 fi
 
 # Node.js scripts
