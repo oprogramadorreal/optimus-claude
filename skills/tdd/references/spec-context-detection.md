@@ -6,13 +6,15 @@ Resolves the task description from the project's spec and JIRA artifacts before 
 
 Evaluate in order; first match wins. Run this regardless of whether the user also gave an inline task description.
 
-1. **Explicit reference** — if the user's input references a file path ending in `.md` inside `docs/specs/` or `docs/jira/`, read that file and use its Goal section as the task description. (A `docs/specs/<spec>.md` is the active build spec — authored by `/optimus:brainstorm` or brought by a human; see `$CLAUDE_PLUGIN_ROOT/references/sdd-mapping.md`.) Proceed to distillation below if the goal is longer than 2-3 sentences.
+1. **Explicit reference** — if the user's input references a file path ending in `.md` inside `docs/specs/` or `docs/jira/`, read that file and use the sections item 2 (spec) or item 3 (JIRA) names as the task description. (A `docs/specs/<spec>.md` is the active build spec — authored by `/optimus:brainstorm` or brought by a human; see `$CLAUDE_PLUGIN_ROOT/references/sdd-mapping.md`.)
 
 2. **Build spec auto-discovery** (wins over JIRA context: a brainstorm-authored spec already incorporates it) — if item 1 did not fire and `docs/specs/` exists with `.md` files, select the most recent (by filename date prefix if present, otherwise file modification time). Present it via `AskUserQuestion` — question "Found build spec `<path>` — use it as the basis?", header "Build spec", options "Use it" / "Ignore — describe a different task". If that date — the filename prefix, or the modification time when there is no prefix — is older than 7 days, add a note to the question: "(This spec is [N] days old — if it is a `/optimus:brainstorm`-authored spec, you may want to re-run brainstorm for a fresh design.)" A `docs/specs/` build spec is either a `/optimus:brainstorm`-authored spec (full approach details — use Goal, Components, and Interfaces) or a human-authored spec (use Goal and Acceptance Criteria). A `## Scenarios` section in Given/When/Then form carries stakeholder-approved acceptance criteria — the consuming skill decides how to use it.
 
 3. **JIRA context auto-discovery** — if no build spec resolved (none found, or the user ignored it) but `docs/jira/` exists with `.md` files, read each file's YAML frontmatter and select the one with the most recent `description-refresh-date` field. Present it via `AskUserQuestion` — question "Found JIRA context `<path>` — use it as the basis?", header "JIRA context", options "Use it" / "Ignore — describe a different task". If that date is older than 7 days, add a note to the question: "(This context is [N] days old — you may want to re-run `/optimus:jira` for fresh data.)" JIRA context provides Goal and Acceptance Criteria as the task description.
 
 4. **No context found** — fall back to the consuming skill's own task gathering (inline argument, else ask the user).
+
+Whichever item resolves a file, a `### Refined plan` section in it (appended by the plan-mode handoff) takes precedence over the original approach — build from it.
 
 ## Distillation
 
