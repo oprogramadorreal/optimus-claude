@@ -458,8 +458,8 @@ fi
 # --- 16. Reference depth check (max 2 levels from SKILL.md) ---
 echo "[Reference depth]"
 deep_refs=""
-# For each reference file that is loaded by a SKILL.md, check if it loads further
-# references that themselves load more (3+ levels deep)
+# Level 1 = every skill-local references/ or agents/ file, plus each root
+# references/*.md a SKILL.md loads. Flag any level-2 file that loads more markdown.
 while IFS= read -r ref_file; do
   # This is a level-1 reference (loaded by SKILL.md). Check what it references.
   # Iterate over every reference rather than every line: with one path extracted
@@ -470,13 +470,13 @@ while IFS= read -r ref_file; do
       continue
     fi
     # This is a level-2 reference. Check if IT references more files (level-3 = too deep)
-    # Exclude references to top-level agents/ and references/ — these are leaf files (role definitions, shared constraints)
-    has_deep=$(grep '\$[{]\{0,1\}CLAUDE_PLUGIN_ROOT[}]\{0,1\}/' "./$l2_path" 2>/dev/null | grep -v '\$[{]\{0,1\}CLAUDE_PLUGIN_ROOT[}]\{0,1\}/agents/' | grep -v '\$[{]\{0,1\}CLAUDE_PLUGIN_ROOT[}]\{0,1\}/references/' || true)
+    # Only markdown targets count as depth; shared-agent-constraints.md is the one shared leaf every agent loads.
+    has_deep=$(grep -oE '\$\{?CLAUDE_PLUGIN_ROOT\}?/[^ `"'"'"']*\.md' "./$l2_path" 2>/dev/null | grep -v 'references/shared-agent-constraints\.md' || true)
     if [ -n "$has_deep" ]; then
       deep_refs+="  $ref_file -> $l2_path -> (further refs)\n"
     fi
   done < <(grep -oE '\$\{?CLAUDE_PLUGIN_ROOT\}?/[^ `"'"'"']*' "./$ref_file" 2>/dev/null | sed 's|^\$[{]\{0,1\}CLAUDE_PLUGIN_ROOT[}]\{0,1\}/||' || true)
-done < <(find ./skills -path '*/references/*.md' -o -path '*/agents/*.md' | sort)
+done < <({ find ./skills -path '*/references/*.md' -o -path '*/agents/*.md'; grep -hoE '\$\{?CLAUDE_PLUGIN_ROOT\}?/references/[^ `"'"'"']*\.md' skills/*/SKILL.md | sed 's|^\$[{]\{0,1\}CLAUDE_PLUGIN_ROOT[}]\{0,1\}/||'; } | sort -u)
 check "Reference depth <= 2 levels" test -z "$deep_refs"
 if [ -n "$deep_refs" ]; then
   printf "       Deep reference chains (3+ levels):\n%b" "$deep_refs"
