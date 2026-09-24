@@ -16,6 +16,7 @@ Rendering rules for Step 4 (content generation). Per-service Docker/local/shared
 
 | Detected signal | Render |
 |--------|----------------------|
+| Recognized tech stack + package manager | Prerequisites (runtime) + Installation (clone + install) |
 | Runtime version constraints / version-manager files | Prerequisites — preserve the actual manifest range and the exact selected version/alias from the pin file; label their different roles when both exist |
 | Hardware/OS tokens; private-registry files | Prerequisites (OS-version token as the first bullet when present) |
 | Recommended Developer Tools rows | Prerequisites — *Recommended developer tools* sub-list (one bullet per detected token, detector order, optional one-line "why"; never invent tools) |
@@ -23,7 +24,7 @@ Rendering rules for Step 4 (content generation). Per-service Docker/local/shared
 | `.gitmodules`; sibling repos; CMake FetchContent/ExternalProject; `west.yml` / repo tool | Source Dependencies |
 | Setup scripts (Dev Workflow Signals) | Installation — *One-shot setup* block BEFORE the per-PM install ("Alternate setup scripts: …" when >1; don't auto-pick) |
 | `docker-compose.yml` services | External Services (Branch A) |
-| Framework-config candidates (detector Task 5b) | External Services (Branch B, `(candidate)` marker) |
+| Services no compose file covers (Task 5 database configs; Task 5b candidates) | External Services (Branch B; `(candidate)` marker on Task 5b rows) |
 | `Dockerfile` without local-run scripts | Running in Development (Docker-based primary path) |
 | `Makefile` / `Justfile` dev targets (`dev` / `start` / `setup` / `run` / `serve` / `up` / `docker-up`) | Running in Development (invoke the make/just target) |
 | `flake.nix` / `shell.nix` / `default.nix` | Prerequisites + Installation (`nix develop` / `nix-shell` replaces manual toolchain setup) |
