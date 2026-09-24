@@ -1390,6 +1390,10 @@ check_git_command() {
           -c*) sw_flag="-c"; sw_target="${tokens[si]#-c}"; break ;;
           -C) sw_flag="-C"; sw_target="${tokens[si+1]:-}"; break ;;
           -C*) sw_flag="-C"; sw_target="${tokens[si]#-C}"; break ;;
+          # --force-create is -C's long form; git also takes any unique prefix
+          # of it (--force-c, even --force-), with the name attached by = or not.
+          --force-*=*) sw_flag="-C"; sw_target="${tokens[si]#*=}"; break ;;
+          --force-*) sw_flag="-C"; sw_target="${tokens[si+1]:-}"; break ;;
         esac
       done
       # Allow 'git switch -c' (create new branch, fails if exists — always safe)

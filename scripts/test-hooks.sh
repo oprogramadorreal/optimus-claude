@@ -1513,6 +1513,18 @@ assert_decision "single-arg -M rename off master denied" DENY \
 # would deny an ordinary branch create.
 assert_decision "git -c global option is not a branch copy" ALLOW \
   "$(rp_git_decision 'git -c user.name=x branch feature-y')"
+# --force-create is -C's long form, and git accepts any unique prefix of it:
+# each spelling force-resets its target exactly as `switch -C` does.
+assert_decision "switch --force-create onto protected denied" DENY \
+  "$(rp_git_decision 'git switch --force-create master')"
+assert_decision "switch --force-create= onto protected denied" DENY \
+  "$(rp_git_decision 'git switch --force-create=master')"
+assert_decision "switch abbreviated --force-c onto protected denied" DENY \
+  "$(rp_git_decision 'git switch --force-c master')"
+assert_decision "switch --force-create feature allowed" ALLOW \
+  "$(rp_git_decision 'git switch --force-create feature-x')"
+assert_decision "switch --force is not force-create" ALLOW \
+  "$(rp_git_decision 'git switch --force master')"
 
 # A backup suffix must not launder a file off the hard precious list. These run
 # against is_precious_name directly: the delete gate needs an untracked file to
