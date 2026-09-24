@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/oprogramadorreal/optimus-claude/references/schemas/harness-output.schema.json",
   "title": "Harness output (review / refactor variant)",
-  "description": "The object a base skill emits inside a ```json:harness-output fenced block when running under HARNESS_MODE_INLINE for the review or refactor deep target. Parsed by scripts/harness_common/parser.py. This schema is the contract; references/harness-mode.md step 8 shows it in context.",
+  "description": "The object a base skill emits inside a ```json:harness-output fenced block when running under HARNESS_MODE_INLINE for the review or refactor deep target. Parsed by scripts/harness_common/parser.py.",
   "type": "object",
   "required": [
     "iteration",
@@ -40,7 +40,7 @@
     },
     "no_actionable_fixes": {
       "type": "boolean",
-      "description": "True ONLY when every finding has an empty pre_edit_content, i.e. no swap pair was captured for any of them. A finding with a non-empty pre_edit_content and a different post_edit_content is actionable regardless of file type — markdown, JSON, config, and code all qualify. Enforced by test/harness-common/test_harness_schema.py, which JSON Schema alone cannot express."
+      "description": "True ONLY when every finding has an empty pre_edit_content, i.e. no swap pair was captured for any of them. A finding with a non-empty pre_edit_content and a different post_edit_content is actionable regardless of file type — markdown, JSON, config, and code all qualify."
     }
   },
   "$defs": {
