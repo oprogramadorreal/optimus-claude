@@ -74,7 +74,6 @@ def _empty_valid():
         iteration=1,
         new_findings=[],
         fixes_applied=[],
-        fixes_skipped_persistent=[],
         no_new_findings=False,
         no_actionable_fixes=False,
     )

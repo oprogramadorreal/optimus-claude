@@ -46,14 +46,14 @@ Apply the skill's normal validation protocol, with one override.
 
 ### 5. Consolidate and deduplicate findings
 
-Apply the same deduplication rules as the skill's normal mode, matching against `accumulated-findings` by file + line range + category:
-- If existing finding is `"fixed"` → skip new entry (code was intentionally changed)
-- If existing finding is `"persistent — fix failed"` → annotate new as `"persistent — fix failed"`
-- If existing finding is `"reverted — test failure"` → annotate new as `"reverted — attempt 2"` (the orchestrator will promote to `"persistent — fix failed"` if it fails again)
+Apply the same deduplication rules as the skill's normal mode, then match each finding against `accumulated-findings` by file + line range + category:
+- `fixed` → drop it (the code was intentionally changed)
+- `persistent — fix failed` → drop it too (every fix attempt already failed); apply no fix
+- any other status → keep it as a new finding; the orchestrator escalates repeat reverts itself
 
 ### 6. Apply fixes
 
-Apply all validated findings using Edit or MultiEdit — same as normal mode. Skip any annotated `"persistent — fix failed"`.
+Apply every confirmed finding left in `new_findings` using Edit — same as normal mode.
 
 **Critical for orchestrator bisection**: For EACH fix applied, record:
 - `pre_edit_content` — the exact original code before editing (the string that was replaced)

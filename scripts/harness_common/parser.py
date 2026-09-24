@@ -28,7 +28,7 @@ def validate_harness_output(value, variant=None):
     arrays = (
         ("tests_written", "untestable_code", "bugs_discovered")
         if coverage
-        else ("new_findings", "fixes_applied", "fixes_skipped_persistent")
+        else ("new_findings", "fixes_applied")
     )
     flags = (
         ("no_new_tests", "no_untestable_code", "no_coverage_gained")
@@ -38,8 +38,7 @@ def validate_harness_output(value, variant=None):
     for field in arrays:
         if not isinstance(value.get(field), list):
             raise ValueError(f"harness output requires an array: {field}")
-        item_type = str if field == "fixes_skipped_persistent" else dict
-        if any(not isinstance(item, item_type) for item in value[field]):
+        if any(not isinstance(item, dict) for item in value[field]):
             raise ValueError(f"invalid item in {field}")
     for field in flags:
         flag = value.get(field)

@@ -8,7 +8,6 @@
     "iteration",
     "new_findings",
     "fixes_applied",
-    "fixes_skipped_persistent",
     "no_new_findings",
     "no_actionable_fixes"
   ],
@@ -28,11 +27,6 @@
       "type": "array",
       "description": "The subset of new_findings actually edited into the tree via Edit/MultiEdit. One entry per edit location: a fix spanning several places in one file contributes several entries.",
       "items": { "$ref": "#/$defs/finding" }
-    },
-    "fixes_skipped_persistent": {
-      "type": "array",
-      "description": "Identifiers of findings skipped because a prior iteration already recorded them as 'persistent — fix failed'.",
-      "items": { "type": "string" }
     },
     "no_new_findings": {
       "type": "boolean",

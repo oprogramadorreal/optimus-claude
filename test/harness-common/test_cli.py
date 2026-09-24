@@ -26,7 +26,6 @@ def _deep_result(values):
         "iteration": 1,
         "new_findings": [],
         "fixes_applied": [],
-        "fixes_skipped_persistent": [],
         "no_new_findings": False,
         "no_actionable_fixes": False,
         **values,
@@ -1396,7 +1395,7 @@ class TestParse:
     def test_extracts_json_block(self, tmp_path, capsys):
         raw = tmp_path / "raw.txt"
         raw.write_text(
-            'Some preamble text.\n\n```json:harness-output\n{"iteration": 1, "new_findings": [], "fixes_applied": [], "fixes_skipped_persistent": [], "no_new_findings": false, "no_actionable_fixes": false}\n```\n',
+            'Some preamble text.\n\n```json:harness-output\n{"iteration": 1, "new_findings": [], "fixes_applied": [], "no_new_findings": false, "no_actionable_fixes": false}\n```\n',
             encoding="utf-8",
         )
         exit_code = _run("parse", "--input-file", str(raw))
@@ -1413,7 +1412,7 @@ class TestParse:
     def test_output_file(self, tmp_path, capsys):
         raw = tmp_path / "raw.txt"
         raw.write_text(
-            '```json:harness-output\n{"iteration": 1, "new_findings": [], "fixes_applied": [], "fixes_skipped_persistent": [], "no_new_findings": false, "no_actionable_fixes": false}\n```\n',
+            '```json:harness-output\n{"iteration": 1, "new_findings": [], "fixes_applied": [], "no_new_findings": false, "no_actionable_fixes": false}\n```\n',
             encoding="utf-8",
         )
         out = tmp_path / "out.json"
@@ -1456,7 +1455,7 @@ class TestParse:
         # not a raw traceback. Regression for the try/except around the write.
         raw = tmp_path / "raw.txt"
         raw.write_text(
-            '```json:harness-output\n{"iteration": 1, "new_findings": [], "fixes_applied": [], "fixes_skipped_persistent": [], "no_new_findings": false, "no_actionable_fixes": false}\n```\n',
+            '```json:harness-output\n{"iteration": 1, "new_findings": [], "fixes_applied": [], "no_new_findings": false, "no_actionable_fixes": false}\n```\n',
             encoding="utf-8",
         )
         bad_output = tmp_path / "no_such_dir" / "out.json"  # parent dir is missing
@@ -1650,7 +1649,7 @@ class TestParse:
         # works — the orchestrator's init step will create it later.
         raw = tmp_path / "raw.txt"
         raw.write_text(
-            '```json:harness-output\n{"iteration": 1, "new_findings": [], "fixes_applied": [], "fixes_skipped_persistent": [], "no_new_findings": false, "no_actionable_fixes": false}\n```\n',
+            '```json:harness-output\n{"iteration": 1, "new_findings": [], "fixes_applied": [], "no_new_findings": false, "no_actionable_fixes": false}\n```\n',
             encoding="utf-8",
         )
         exit_code = _run(

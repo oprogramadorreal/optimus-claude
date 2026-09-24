@@ -103,7 +103,6 @@ def test_missing_required_envelope_field_rejected(coverage):
             "iteration",
             "new_findings",
             "fixes_applied",
-            "fixes_skipped_persistent",
             "no_new_findings",
             "no_actionable_fixes",
         )
