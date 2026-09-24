@@ -17,7 +17,7 @@ where uv >nul 2>nul
 IF ERRORLEVEL 1 (
     python -m venv "%PYTHON_ENV_DIR%"
 ) ELSE (
-    uv venv --seed "%PYTHON_ENV_DIR%"
+    CALL uv venv --seed "%PYTHON_ENV_DIR%"
 )
 
 IF ERRORLEVEL 1 (
