@@ -1152,6 +1152,19 @@ assert_decision "rm inside an if body denied" DENY \
 # cases above never reach.
 assert_decision "rm in a case arm denied" DENY \
   "$(rp_decision Bash command "case x in y) rm $rp_tmp/outside/a.txt;; esac")"
+# Only the first arm follows `case`: `;;`, a pattern's `|` and a newline start
+# the others at their pattern. A `$(...)` subject holds a ')' of its own, and an
+# arm BODY's `$(...)` is not a pattern.
+assert_decision "rm in a later case arm denied" DENY \
+  "$(rp_decision Bash command "case x in a) echo;; b) rm $rp_tmp/outside/a.txt;; esac")"
+assert_decision "rm after a case pattern alternation denied" DENY \
+  "$(rp_decision Bash command "case x in a|b) rm $rp_tmp/outside/a.txt;; esac")"
+assert_decision "rm in a case arm on its own line denied" DENY \
+  "$(rp_decision Bash command "case x in\\na) rm $rp_tmp/outside/a.txt;;\\nesac")"
+assert_decision "rm under a substituted case subject denied" DENY \
+  "$(rp_decision Bash command "case \$(uname) in *) rm $rp_tmp/outside/a.txt;; esac")"
+assert_decision "Substitution in an arm body is not a pattern" DENY \
+  "$(rp_decision Bash command "case x in a) FOO=\$(pwd)/x rm $rp_tmp/outside/a.txt;; esac")"
 assert_decision "rm in a function body denied" DENY \
   "$(rp_decision Bash command "f() { rm $rp_tmp/outside/a.txt; }")"
 assert_decision "rm in a brace group denied" DENY \
@@ -1170,6 +1183,8 @@ assert_decision "Backgrounded push to protected branch denied" DENY \
   "$(rp_git_decision 'true & git push origin master')"
 assert_decision "Push to protected branch in a loop body denied" DENY \
   "$(rp_git_decision 'for f in a; do git push origin master; done')"
+assert_decision "Push in a later case arm denied" DENY \
+  "$(rp_git_decision 'case x in a) echo;; b) git push origin master;; esac')"
 assert_decision "Quoted protected branch name denied" DENY \
   "$(rp_git_decision 'git push origin \"master\"')"
 # A backslash-newline is a line CONTINUATION, not a separator. Split on the
@@ -1502,6 +1517,14 @@ assert_decision "double-quoted paren is not a subshell close" DENY \
   "$(rp_decision_cwd "(cd $rp_tmp/outside && echo \\\"a)b\\\" && rm a.txt)")"
 assert_decision "close followed by a redirection still closes" ALLOW \
   "$(rp_decision_cwd "(cd $rp_tmp/outside && ls) 2>&1 && rm -rf build")"
+# A case pattern's ')' closes no subshell, alone on its line or not — while a
+# subshell's close inside an arm, `make) 2>&1`, still does.
+assert_decision "case arm paren is not a subshell close" DENY \
+  "$(rp_decision_cwd "(cd $rp_tmp/outside && case x in a) echo;; esac; rm a.txt)")"
+assert_decision "case pattern on its own line is not a close" DENY \
+  "$(rp_decision_cwd "(cd $rp_tmp/outside && case x in\\na)\\nrm a.txt;;\\nesac)")"
+assert_decision "subshell close inside a case arm still closes" ALLOW \
+  "$(rp_decision_cwd "case x in\\na)\\n(cd $rp_tmp/outside && make) 2>&1\\nrm -rf build;;\\nesac")"
 
 # A wrapper option can move the command with no `cd` in sight. The walk already
 # had to step over the value to reach the command word; discarding it meant the

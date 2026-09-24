@@ -140,9 +140,9 @@
 #     1. Join backslash-newline line continuations (a continuation is one
 #        command, not two), then split on the shell's command operators — '&&',
 #        '||', ';', '|', '&' and newline — then peel any leading keyword ('do ',
-#        'then ', '{ ') the split left at the front of a fragment. A subshell's
-#        parens are counted, not just stripped, so a `cd` inside one does not
-#        outlive it.
+#        'then ', '{ ') or case pattern ('b) ') the split left at the front of a
+#        fragment. A subshell's parens are counted, not just stripped, so a `cd`
+#        inside one does not outlive it.
 #     2. shell_split() each fragment into words, honouring quotes and escapes and
 #        expanding '~' and every SET $VAR, so a gate compares the path the shell
 #        will act on rather than the characters as typed. A name this hook cannot
@@ -1589,7 +1589,9 @@ scan_command_string() {
   local -a _frag
   local -a _saved_stack=()
   local -a _cd_stack=()
-  local _cd_depth=0 _cd_pending_close=0
+  local _cd_depth=0 _cd_pending_close=0 _base_depth _pat
+  # The subshell depth each open `case` sits at, innermost last.
+  local _case_depths=""
 
   # A backslash-newline is a LINE CONTINUATION, not a command separator: the
   # shell joins the two lines and runs ONE command. Splitting on the newline
@@ -1629,6 +1631,7 @@ scan_command_string() {
     # `(cd /tmp && ./deploy.sh) && rm -rf build` stayed in force for the rest of
     # the chain, and an ordinary in-project cleanup resolved to /tmp/build and
     # was hard-DENIED.
+    _base_depth=$_cd_depth
     while [[ "$_subcmd" == '('* ]]; do
       _subcmd="${_subcmd#\(}"
       _subcmd="${_subcmd#"${_subcmd%%[![:space:]]*}"}"
@@ -1636,18 +1639,7 @@ scan_command_string() {
       _cd_depth=$(( _cd_depth + 1 ))
     done
     count_frag_closes "$_subcmd"
-    _cd_pending_close=$(( _cd_pending_close + _frag_closes ))
-    # Strip only as many trailing ')' as there are real closes, so the command
-    # word stays reachable without eating the ')' of a `$(...)` target. A close
-    # that is NOT last (a redirection follows it) keeps its paren glued to the
-    # word; that costs a stray character in the deny message, never a verdict,
-    # because the paren is on the far side of the path either way.
     _n_close=$_frag_closes
-    while (( _n_close > 0 )) && [[ "$_subcmd" == *')' ]]; do
-      _subcmd="${_subcmd%\)}"
-      _subcmd="${_subcmd%"${_subcmd##*[![:space:]]}"}"
-      _n_close=$(( _n_close - 1 ))
-    done
 
     # Peel leading shell keywords. `for f in *; do rm <outside>; done` splits
     # into a fragment beginning 'do rm ...' and `if x; then rm <outside>; fi`
@@ -1660,19 +1652,51 @@ scan_command_string() {
     # command word, cmd_word_index bailed, and every guard below was skipped. A
     # generated `cleanup() { rm -rf "$BUILD"; }` is an accident shape, not only
     # an adversarial one. Peeling only ever exposes MORE to the guards.
+    # Only the first arm follows `case`: `;;`, `|` and a newline start every
+    # other one at its pattern, `b) rm <outside>`. A pattern is peeled only in a
+    # case, at that case's own subshell depth — `(cd X && ls) 2>&1` leaves
+    # `ls) 2>`, a close — and only as one word with no '(': `x=$(pwd)/y rm` is
+    # an arm's body. Its ')' closes no subshell, so it leaves the count, unless
+    # the '(' loop above pushed the level it pops: a `(b)` arm.
     while :; do
       case "$_subcmd" in
-        do|then|else|elif|fi|done|esac|in|'{'|'}'|'!') _subcmd="" ;;
+        do|then|else|elif|fi|done|in|'{'|'}'|'!') _subcmd="" ;;
+        'esac'|'esac '*|'esac)'*) _subcmd="" _case_depths="${_case_depths% *}" ;;
         do\ *|then\ *|else\ *|elif\ *|if\ *|while\ *|until\ *|'{'\ *|'!'\ *)
           _subcmd="${_subcmd#* }" ;;
         *'()'*'{'*) _subcmd="${_subcmd#*\{}" ;;
-        case\ *')'*) _subcmd="${_subcmd#*\)}" ;;
+        case\ *) _case_depths="$_case_depths $_cd_depth"
+          # Not up to the first ')': the subject can hold one, `case "$(uname)"`.
+          if [[ "$_subcmd" == *' in'[[:space:]]* ]]; then
+            _subcmd="${_subcmd#* in[[:space:]]}"
+          else _subcmd=""; fi ;;
+        *')'*)
+          _pat="${_subcmd%%)*}"
+          _pat="${_pat%"${_pat##*[![:space:]]}"}"   # `a ) cmd` is valid too
+          [[ -n "$_case_depths" && "${_case_depths##* }" == "$_base_depth" ]] || break
+          [[ "${_pat#\(}" != *[[:space:]\(]* ]] || break
+          (( _base_depth < _cd_depth )) || [[ "$_pat" == '('* ]] \
+            || _n_close=$(( _n_close > 0 ? _n_close - 1 : 0 ))
+          _subcmd="${_subcmd#*\)}" ;;
         *) break ;;
       esac
+      _base_depth=$_cd_depth
       _subcmd="${_subcmd#"${_subcmd%%[![:space:]]*}"}"
       [[ -n "$_subcmd" ]] || break
     done
+    _cd_pending_close=$(( _cd_pending_close + _n_close ))
     [[ -n "$_subcmd" ]] || continue
+    # Strip only as many trailing ')' as there are real closes, so the command
+    # word stays reachable without eating the ')' of a `$(...)` target. A close
+    # that is NOT last (a redirection follows it) keeps its paren glued to the
+    # word; that costs a stray character in the deny message, never a verdict,
+    # because the paren is on the far side of the path either way. It runs after
+    # the peel, which needs the ')' of a pattern alone on its line, `a)`.
+    while (( _n_close > 0 )) && [[ "$_subcmd" == *')' ]]; do
+      _subcmd="${_subcmd%\)}"
+      _subcmd="${_subcmd%"${_subcmd##*[![:space:]]}"}"
+      _n_close=$(( _n_close - 1 ))
+    done
 
     # One quote-aware split per fragment, shared by all the gates below.
     shell_split "$_subcmd"
