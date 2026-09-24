@@ -789,6 +789,11 @@ assert_decision "Memory-store write allowed"           ALLOW "$(rp_decision Writ
 assert_decision "Memory-store subdir write allowed"    ALLOW "$(rp_decision Edit file_path "$mem/topics/x.md")"
 assert_decision "Memory-store notebook allowed"        ALLOW "$(rp_decision NotebookEdit notebook_path "$mem/nb.ipynb")"
 assert_decision "Global ~/.claude/settings.json asks"  ASK   "$(rp_decision Write file_path "$rp_tmp/home/.claude/settings.json")"
+assert_decision "MultiEdit outside project asks"       ASK   "$(rp_decision MultiEdit file_path "$rp_tmp/outside/a.txt")"
+assert_decision "Read tool passes through"             ALLOW "$(rp_decision Read file_path "$rp_tmp/outside/a.txt")"
+# An unknown project root is the documented FAIL-OPEN case: allow, never block.
+assert_decision "Unset CLAUDE_PROJECT_DIR fails open"  ALLOW \
+  "$(rp_decision_env -u CLAUDE_PROJECT_DIR HOME="$rp_tmp/home" -- Write file_path "$rp_tmp/outside/a.txt")"
 
 # Negative boundary: only a single-segment projects/<project>/memory subtree is
 # exempt. Traversal out of it, a sibling of memory/, a look-alike dir name, and a
@@ -1147,6 +1152,25 @@ assert_decision "rm inside a for-loop body denied" DENY \
   "$(rp_decision Bash command "for f in a; do rm $rp_tmp/outside/a.txt; done")"
 assert_decision "rm inside an if body denied" DENY \
   "$(rp_decision Bash command "if true; then rm $rp_tmp/outside/a.txt; fi")"
+# A case arm, a function body, a brace group, a negation, and a while/until/if
+# CONDITION put the command behind punctuation or a keyword that the do/then
+# cases above never reach.
+assert_decision "rm in a case arm denied" DENY \
+  "$(rp_decision Bash command "case x in y) rm $rp_tmp/outside/a.txt;; esac")"
+assert_decision "rm in a function body denied" DENY \
+  "$(rp_decision Bash command "f() { rm $rp_tmp/outside/a.txt; }")"
+assert_decision "rm in a brace group denied" DENY \
+  "$(rp_decision Bash command "{ rm $rp_tmp/outside/a.txt; }")"
+assert_decision "negated rm denied" DENY \
+  "$(rp_decision Bash command "! rm $rp_tmp/outside/a.txt")"
+assert_decision "rm in a while condition denied" DENY \
+  "$(rp_decision Bash command "while rm $rp_tmp/outside/a.txt; do :; done")"
+assert_decision "rm in an until condition denied" DENY \
+  "$(rp_decision Bash command "until rm $rp_tmp/outside/a.txt; do :; done")"
+assert_decision "rm in an if condition denied" DENY \
+  "$(rp_decision Bash command "if rm $rp_tmp/outside/a.txt; then :; fi")"
+assert_decision "rmdir outside project denied" DENY \
+  "$(rp_decision Bash command "rmdir $rp_tmp/outside")"
 assert_decision "Backgrounded push to protected branch denied" DENY \
   "$(rp_git_decision 'true & git push origin master')"
 assert_decision "Push to protected branch in a loop body denied" DENY \
@@ -1502,6 +1526,12 @@ assert_decision "env -C chdir is tracked" DENY \
 # spawns, not the shell, so nothing after the fragment inherits it.
 assert_decision "wrapper chdir does not leak to the next fragment" ALLOW \
   "$(rp_decision_cwd "env -C $rp_tmp/outside ls && rm -rf build")"
+# A cd inside `sh -c` dies with the child shell; one inside `eval` runs in the
+# current shell and carries over to the next fragment.
+assert_decision "sh -c cd does not leak to the next fragment" ALLOW \
+  "$(rp_decision_cwd "bash -c 'cd $rp_tmp/outside' ; rm a.txt")"
+assert_decision "eval cd carries to the next fragment" DENY \
+  "$(rp_decision_cwd "eval cd $rp_tmp/outside ; rm a.txt")"
 
 # Deleting a protected branch was blocked; MOVING one was not, though it loses
 # exactly as much. `git update-ref` does it with no branch subcommand at all,
