@@ -19,9 +19,9 @@ New files of any class are written directly — no confirmation prompts. **Prese
 
 ## CLAUDE.md authoring rules
 
-Claude Code discovers CLAUDE.md natively; Codex reads it through the AGENTS.md pointer in Step 4c. Spend its context on what reading the repository does not give the model.
+Spend CLAUDE.md's context on what reading the repository does not give the model.
 
-- **Spend it on gotchas.** Invariants a script or CI depends on, a command that must run from a specific directory, a file that looks editable but is generated, a convention the code deliberately breaks in one place, setup that fails in a non-obvious way, why a decision was made. Write fewer real ones rather than padding to a count — an empty Gotchas section is a valid outcome, and better than five lines of restated obviousness.
+- **Spend it on gotchas** that clear the template's Gotchas bar, plus why a non-obvious decision was made. Write fewer real ones rather than padding to a count — an empty Gotchas section is valid, and better than restated obviousness.
 - **Never restate what the filesystem shows.** No directory listings, no "the stack is TypeScript" when `package.json` says so, no per-file roles. One line of identity and stack at the top is the whole allowance.
 - Commands do belong here: which of a dozen scripts is the real build/test/lint entry point, with the detected package-manager prefix, is not inferable.
 - Target <= 60 lines. The limit is soft: condense template-generated content first; if user-added content still pushes it over, exceed the limit and note the overage in the Step 7 summary.
@@ -29,8 +29,6 @@ Claude Code discovers CLAUDE.md natively; Codex reads it through the AGENTS.md p
 - Progressive disclosure: the Documentation table routes a kind of change to the one doc that governs it, so a typo fix does not load the architecture doc.
 - `file:line` references, not code snippets — snippets go stale.
 - Defer mechanical style to the project's configured formatter when present. Preserve existing conventions that tooling does not enforce; Codex and projects declining hooks still need the documented formatter command.
-- Monorepo: root CLAUDE.md is an orchestrator — subproject table, workspace-wide commands, workspace-level gotchas only; each subproject's CLAUDE.md carries that package's gotchas (native discovery in Claude Code, explicit nested reads through the Codex pointer). Shared guidelines stay at root `.claude/docs/`; `testing.md`/`styling.md`/`architecture.md` are scoped per subproject.
-- Multi-repo workspace: each repo is fully self-contained (own `.claude/`); the parent CLAUDE.md is a lightweight local-only map — nothing is shared at root.
 
 ## Step 1: Detect Project Context
 
