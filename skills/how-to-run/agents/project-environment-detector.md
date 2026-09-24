@@ -82,7 +82,7 @@ Services wired through application config (Spring, ASP.NET Core, Rails, Phoenix,
 
 Glob `appsettings*.json`; `application.yml` / `.yaml` / `.properties` and `application-*` profile variants; `config/*.yml` / `*.yaml` / `*.exs` / `*.php`; `config.php`; `config.yaml` / `config.yml` / `config.toml` — at most 2 levels deep under those roots, never following symlinks.
 
-If nothing matched, record no Task 5b services and move on. If something did, read `$CLAUDE_PLUGIN_ROOT/skills/how-to-run/references/detector-framework-config-services.md` and apply it in full — its matching, hostname, sanitization, cap, and confidence rules are all load-bearing, and every match it produces is `candidate` confidence.
+If nothing matched, record no Task 5b services and move on. If something did, read `$CLAUDE_PLUGIN_ROOT/skills/how-to-run/references/detector-framework-config-services.md` and apply it in full.
 
 #### Task 5c — Runtime-bind ports
 
