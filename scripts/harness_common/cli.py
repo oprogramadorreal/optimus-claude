@@ -586,14 +586,15 @@ def _record_converged_cycle(progress, cycle, history_entry):
 def _vet_safe_exit_tree(progress, project_root, test_command, pre_stash, pre_head):
     """Vet a dirty working tree on a deep-step safe exit (no fixes applied).
 
-    A well-behaved subagent leaves the tree clean when it reports
-    ``no_new_findings`` / ``no_actionable_fixes``. If it left stray edits, run
-    the suite and roll the tree back to the snapshot on red so the step-6
-    checkpoint never commits untested, test-breaking changes (mirrors the
-    pre-consolidation ``_handle_safe_exit``). Returns the test result, or
-    ``None`` when the tree was clean (no test ran).
+    A well-behaved subagent leaves the tree as the last green validation left
+    it when it reports ``no_new_findings`` / ``no_actionable_fixes``. If it left
+    stray edits, run the suite and roll the tree back to the snapshot on red so
+    the step-6 checkpoint never commits untested, test-breaking changes. Returns
+    the test result, or ``None`` when the tree is clean or matches
+    ``_validated_tree`` (no test ran).
     """
-    if not _tree_state(progress, project_root).dirty:
+    state = _tree_state(progress, project_root)
+    if not state.dirty or state.digest == progress.get("_validated_tree"):
         return None
     passed, summary = _run_verified_tests(progress, project_root, test_command)
     if not passed:

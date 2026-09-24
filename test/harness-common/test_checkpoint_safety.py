@@ -156,6 +156,23 @@ def test_checkpoint_requires_same_green_bytes_without_repeating_tests(
     assert not _git(tmp_path, "ls-tree", "-r", "--name-only", "HEAD", ".claude")
 
 
+def test_no_commit_no_fix_exit_does_not_retest_validated_tree(tmp_path, monkeypatch):
+    progress = _setup(tmp_path, baseline=False)
+    data = json.loads(progress.read_text(encoding="utf-8"))
+    data["config"]["no_commit"] = True
+    progress.write_text(json.dumps(data), encoding="utf-8")
+    (tmp_path / "app.txt").write_bytes(b"accepted GOOD\n")
+    assert _cmd(progress, "baseline") == 0
+    assert _cmd(progress, "snapshot") == 0
+    monkeypatch.setattr(
+        cli,
+        "run_tests",
+        lambda *a, **kw: pytest.fail("Safe exit re-tested an already-green tree"),
+    )
+    output = dict(_empty_valid(), no_new_findings=True)
+    assert _cmd(progress, "deep-step", "--result-file", _result(tmp_path, output)) == 0
+
+
 @pytest.mark.parametrize("stage_new_file", [False, True])
 def test_snapshot_restores_original_index_and_working_bytes(tmp_path, stage_new_file):
     progress = _setup(tmp_path)
