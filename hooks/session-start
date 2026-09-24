@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# SessionStart hook — outputs dynamic project state so Claude knows what's
-# configured and what's missing. Only outputs items that need attention.
-# Fully configured projects produce no output (zero context waste).
-# Runs fast (~20-50ms — test -f, pruned find calls, and one git log).
+# SessionStart hook — reports only project state that needs attention, so a fully
+# configured Claude Code project produces no output. Under Codex it always adds the
+# host-adaptation context (section 5).
 # Working-tree status is NOT reported here — Claude Code injects its own
 # gitStatus snapshot (branch, porcelain status, recent commits). That snapshot
 # has NO upstream-divergence line, so unpushed commits are the one git signal
@@ -72,12 +71,9 @@ unpushed=$(git rev-list --count '@{u}..HEAD' 2>/dev/null) || unpushed=0
 # keep running a hook that predates a security fix with nothing to say so. The
 # HOOK_VERSION line in each copy makes that drift visible. Silent unless the
 # project actually has the hook installed and the plugin's copy is newer.
-# Result in a global, and read with the shell rather than sed. This runs TWICE
-# on every session start, and the version marker sits in the first few lines —
-# but `v="$(sed ... | head -1)"` scanned all 1400+ of them behind three forks
-# (subshell + sed + head) per call. On Windows, where a fork is expensive and
-# nothing else on this path pays for one, those six forks were most of the
-# hook's runtime. A bounded read costs none of them.
+# Returns through a global and reads with a bounded shell loop, not
+# `$(sed ... | head -1)`: this runs twice per session start, and each of those
+# three forks (subshell, sed, head) is costly on Windows.
 _hook_version=0
 read_hook_version() { # $1=file -> sets _hook_version; no marker means pre-versioning
   local v="" line n=0
