@@ -8,13 +8,14 @@ Shared detection tables for identifying project type and package manager from ma
 |----------|------|-----------------|
 | package.json | Node.js | npm, yarn, pnpm, bun |
 | Cargo.toml | Rust | cargo |
-| pyproject.toml, setup.py, requirements.txt | Python | pip, poetry, uv |
+| pyproject.toml, setup.py, requirements.txt, Pipfile | Python | pip, poetry, uv, pipenv |
 | *.csproj, *.sln | C#/.NET | dotnet |
 | pom.xml | Java | maven |
-| build.gradle | Java | gradle |
+| build.gradle(.kts) | Java/Kotlin | gradle |
 | go.mod | Go | go |
-| CMakeLists.txt, Makefile | C/C++ | cmake, make |
+| CMakeLists.txt, or a Makefile beside C/C++ sources | C/C++ | cmake, make |
 | Gemfile | Ruby | bundler |
+| composer.json | PHP | composer |
 | pubspec.yaml | Dart/Flutter | pub |
 | (other manifest file) | Detect language from file contents | Report it as unsupported — the calling skill runs its fallback |
 
@@ -38,6 +39,7 @@ Determines command prefixes for all generated commands.
 | Node.js | default / `package-lock.json` | npm |
 | Python | `uv.lock` exists OR `[tool.uv]` in pyproject.toml | uv (prefix commands with `uv run`) |
 | Python | `poetry.lock` exists OR `[tool.poetry]` in pyproject.toml | poetry (prefix with `poetry run`) |
+| Python | `Pipfile` exists | pipenv (prefix with `pipenv run`) |
 | Python | default | pip (bare commands: `pytest`, `ruff`, etc.) |
 | Dart/Flutter | `pubspec.yaml` has Flutter SDK dependency (`dependencies.flutter.sdk: flutter`) | flutter (prefix commands with `flutter`) |
 | Dart/Flutter | `pubspec.yaml` without Flutter SDK dependency (pure Dart package) | dart (prefix commands with `dart`) |
