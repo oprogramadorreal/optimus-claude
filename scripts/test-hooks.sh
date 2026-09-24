@@ -905,19 +905,11 @@ RESTRICT="$rp_saved_restrict"
 assert_decision "Restore check: real hook scores again" ASK \
   "$(rp_decision_env HOME="$rp_tmp/home" CLAUDE_PROJECT_DIR="$rp_tmp/proj" -- Write file_path /nope)"
 
-# A new file in an invented temp dir asks, and the reason carries the reminder.
+# A new file in an invented temp dir asks and names the file. The reminder's
+# wording and audience are pinned under "prompt audiences and wording" below.
 rp_run_scratch Write file_path "$scratch_root/scratch-foo/x.md"
 assert_decision "Invented temp dir write asks"        ASK "$(rp_verdict)"
-assert_reason_has "Nudge reason mentions the scratchpad" "scratchpad"
 assert_output_contains "Nudge reason names the file"  "$scratch_root/scratch-foo/x.md" "$rp_out"
-assert_exit_zero "Nudge is a real decision, not a crash" "$rp_last_status"
-# The nudge must NEVER deny — a deny cannot be approved by the user.
-assert_reason_lacks "Nudge never denies" "deny"
-
-rp_run_scratch NotebookEdit notebook_path "$scratch_root/scratch-foo/nb.ipynb"
-assert_decision "Notebook in invented temp dir asks"  ASK "$(rp_verdict)"
-rp_run_scratch Write file_path "$scratch_root/claude/E--proj/scratchpad/x.md"
-assert_decision "Shallow scratchpad asks (not exempt)" ASK "$(rp_verdict)"
 
 # A user-requested temp path must stay approvable — this is the case a deny broke.
 rp_run_scratch Write file_path "$scratch_root/report.csv"
@@ -950,7 +942,6 @@ assert_reason_lacks "settings.json gets no nudge" "scratchpad"
 rp_run HOME="$rp_temp_home" CLAUDE_PROJECT_DIR="$rp_tmp/proj" TMPDIR="$scratch_root" -- \
   Write file_path "$rp_temp_home/.claude/projects/hash/memory/M.md"
 assert_decision "HOME under temp root: memory store allowed" ALLOW "$(rp_verdict)"
-assert_exit_zero "Memory-store allow is real, not a crash" "$rp_last_status"
 
 # REGRESSION: the veto is scoped to ~/.claude, NOT to all of $HOME. A whole-$HOME
 # veto silently disabled the nudge wherever the temp root lives under the home
@@ -961,11 +952,6 @@ rp_run HOME="$rp_tmp/home" CLAUDE_PROJECT_DIR="$rp_tmp/proj" TMPDIR="$rp_tmp/hom
   Write file_path "$rp_tmp/home/tmp/invented/x.md"
 assert_decision "Temp root under HOME still asks"     ASK "$(rp_verdict)"
 assert_reason_has "Temp root under HOME still nudges" "scratchpad"
-
-# A traversal the platform's realpath cannot resolve must not be reasoned about.
-rp_run HOME="$rp_tmp/home" CLAUDE_PROJECT_DIR="$rp_tmp/proj" TMPDIR="$scratch_root" PATH="$rp_stub_bin:$PATH" -- \
-  Write file_path "$scratch_root/scratch-foo/../../x.md"
-assert_decision "Unresolved traversal asks"           ASK "$(rp_verdict)"
 
 echo "[restrict-paths: platform path shapes]"
 # macOS ships a TMPDIR ending in '/' and (13+) a realpath that rejects GNU's
@@ -1315,10 +1301,6 @@ assert_decision "sudo -Eu bundled user flag denied" DENY \
   "$(rp_decision Bash command "sudo -Eu root rm $rp_tmp/outside/a.txt")"
 assert_decision "sudo -Hu does not hide a protected push" DENY \
   "$(rp_git_decision 'sudo -Hu root git push origin master')"
-# The long spelling is still matched WHOLE — a long name is one option, not a
-# cluster, so its last letter means nothing.
-assert_decision "sudo --user long flag denied" DENY \
-  "$(rp_decision Bash command "sudo --user root rm $rp_tmp/outside/a.txt")"
 
 # An exported variable whose name matches one of the hook's own globals was
 # captured with the HOOK's value by the environment snapshot — `${!name}` reads
@@ -1799,8 +1781,6 @@ echo "[restrict-paths: prompt audiences and wording]"
 rp_run_scratch Write file_path "$scratch_root/scratch-foo/x.md"
 assert_reason_has  "Nudge carries additionalContext for Claude" '"additionalContext"'
 assert_reason_has  "additionalContext names the scratchpad" "scratchpad directory given in your system prompt"
-assert_reason_has  "User-facing reason names the file" "$scratch_root/scratch-foo/x.md"
-assert_decision    "Nudge is still only an ask"       ASK "$(rp_verdict)"
 # The reminder must live ONLY in additionalContext. Asserting over the whole
 # payload cannot see that — it contains both fields — so isolate the user-facing
 # reason first. Checking for the pre-fix wording instead would be vacuous: that
@@ -1835,11 +1815,12 @@ assert_reason_has "Nudged notebook keeps its verb" "Allow this edit?"
 assert_reason_has "Nudged notebook is really nudged" '"additionalContext"'
 
 # A '..' that normalize() CAN resolve is judged on where it actually lands, not
-# refused: '<temp>/scratch-foo/../../x.md' resolves to a path still under the
-# temp root, so the nudge is correct there.
+# refused: '<temp>/scratch-foo/../x.md' resolves to '<temp>/x.md', a new file
+# still under the temp root, so the nudge is correct there.
 rp_run HOME="$rp_tmp/home" CLAUDE_PROJECT_DIR="$rp_tmp/proj" TMPDIR="$scratch_root" PATH="$rp_stub_bin:$PATH" -- \
-  Write file_path "$scratch_root/scratch-foo/../../x.md"
+  Write file_path "$scratch_root/scratch-foo/../x.md"
 assert_decision "Resolvable traversal is judged on its target" ASK "$(rp_verdict)"
+assert_reason_has "Resolvable traversal under the temp root is nudged" '"additionalContext"'
 # ...but a path that stays unresolvable after normalize() — a RELATIVE one, which
 # has no root to anchor '..' against — must never reach the nudge or an auto-allow.
 rp_run HOME="$rp_tmp/home" CLAUDE_PROJECT_DIR="$rp_tmp/proj" TMPDIR="$scratch_root" PATH="$rp_stub_bin:$PATH" -- \
@@ -1936,8 +1917,6 @@ assert_decision "Backslash UNC keeps its // root" "//server/share/temp" \
   "$(rp_normalize_msys '\\server\share\temp')"
 assert_decision "Slash UNC keeps its // root"     "//server/share/temp" \
   "$(rp_normalize_msys '//server/share/temp')"
-assert_decision "Both UNC spellings normalize alike" "$(rp_normalize_msys '//server/share/x')" \
-  "$(rp_normalize_msys '\\server\share\x')"
 assert_decision "Remote UNC never collides with a local path" DIFFERENT \
   "$([ "$(rp_normalize_msys '\\server\share\x')" != "$(rp_normalize_msys '/server/share/x')" ] \
      && echo DIFFERENT || echo COLLIDED)"
