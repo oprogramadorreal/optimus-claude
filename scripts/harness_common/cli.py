@@ -1096,6 +1096,10 @@ def cmd_parse(args):
         except OSError as exc:
             print(f"ERROR: Cannot write {args.output_file}: {exc}", file=sys.stderr)
             return 1
+        # The payload is on disk; echoing it would put every edit string back
+        # into the orchestrator's context.
+        print("parsed")
+        return 0
     print(json.dumps(parsed))
     return 0
 
@@ -1290,7 +1294,7 @@ def cmd_unit_test_step(args):
     """Process the unit-test phase of a coverage-target cycle.
 
     Inputs: progress file path, result file path (unit-test phase JSON).
-    Output: one of converged | continue
+    Output: one of converged | continue | blocked
     """
     progress_path = Path(args.progress_file)
     progress = _read_run_progress(progress_path)
@@ -1300,6 +1304,15 @@ def cmd_unit_test_step(args):
     if not _verify_snapshot_fresh(progress, cycle):
         return 1
     result = _load_result(args.result_file, "coverage", cycle)
+
+    # A fired stop gate (no test framework, red baseline): record the resumable
+    # `blocked` exit BEFORE the suite run below, which would otherwise roll the
+    # cycle back, print `continue`, and lose the reason.
+    if result["blocked"] is not None:
+        progress["termination"] = {"reason": "blocked", "message": result["blocked"]}
+        write_progress(progress_path, progress)
+        print("blocked")
+        return 0
 
     # Run the full suite BEFORE merging the session's results. If the suite is
     # red, the unit-test subagent left a failing test or a tree-breaking source
@@ -1808,9 +1821,9 @@ def cmd_pending_refactor_count(args):
 def cmd_mark_termination(args):
     """Write a terminal reason to progress["termination"] without other side effects.
 
-    The coverage loop invokes it for the `blocked` soft exit
-    (references/orchestrator-loop-paired.md); the parse-failure path stays
-    automatic via the parse counter and check-termination. It lets an
+    No loop reference calls it today: `unit-test-step` records `blocked`, and
+    parse-failure stays automatic via the parse counter and check-termination.
+    It lets an
     orchestrator end the loop for a reason the per-iteration steps don't
     naturally surface without touching the progress file's internals —
     preserving the "slice-only progress reads" invariant.
@@ -1964,7 +1977,7 @@ def _build_parser():
     p.add_argument(
         "--output-file",
         default=None,
-        help="If supplied, also write canonical JSON to this path",
+        help="If supplied, write canonical JSON here and print only `parsed`",
     )
     p.add_argument(
         "--progress-file",

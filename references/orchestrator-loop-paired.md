@@ -60,15 +60,6 @@ PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli parse \
 
 Passing `--progress-file` lets the CLI track consecutive parse failures across cycles (and across `--resume`); two consecutive failures cause step 11 (`check-termination`) to return `parse-failure` and terminate the loop. The counter is shared across both phases — a refactor parse failure followed by the next cycle's unit-test parse failure counts as two consecutive failures.
 
-**Blocked gate:** if the extracted JSON has a non-null `blocked` field, the unit-test phase hit a stop gate it cannot work past (no test framework, failing baseline — see coverage-harness-mode.md "Stop gates under harness mode"). Do not run `unit-test-step` and do not dispatch further cycles. Record the reason first — without this the final report names no cause at all:
-
-```bash
-PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli mark-termination \
-    --progress-file "<progress-path>" --reason blocked --message "<the blocked text>"
-```
-
-Then exit the loop, report the `blocked` reason to the user with the matching base-skill recovery advice (`/optimus:init` for a missing framework or broken build; triage the failing tests for a red baseline), and proceed to "After the loop". `blocked` is a resumable soft exit: the prerequisite is one the user can fix, so `final-report --archive` leaves the progress file in place and `--resume` picks the run up afterwards.
-
 ### 4. Record the unit-test phase
 
 ```bash
@@ -83,6 +74,7 @@ The last stdout line is one of:
 |---|---|
 | `converged` | Skill reported plateau (`no_new_tests` + `no_untestable_code`, or `no_new_tests` + `no_coverage_gained`) — cycle ends, loop terminates. |
 | `continue` | Unit-test phase complete — proceed to step 5. Also printed after a red-suite rollback (the CLI reverts the cycle's tests and drops the phase JSON without a distinct token). |
+| `blocked` | The phase hit a stop gate (no test framework, red baseline; see coverage-harness-mode.md "Stop gates under harness mode"). The CLI recorded it without running the suite. Exit the loop and go to "After the loop". Relay the reason from the final report's `Stopped:` line with recovery advice: `/optimus:init` for a missing framework or broken build, triage the failing tests for a red baseline. Tell the user to re-run with `--resume` once fixed; `final-report --archive` leaves the progress file in place. |
 
 ### 5. Commit the unit-test phase checkpoint
 

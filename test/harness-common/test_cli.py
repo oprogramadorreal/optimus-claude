@@ -1410,7 +1410,7 @@ class TestParse:
         exit_code = _run("parse", "--input-file", str(raw))
         assert exit_code == 1
 
-    def test_output_file(self, tmp_path):
+    def test_output_file(self, tmp_path, capsys):
         raw = tmp_path / "raw.txt"
         raw.write_text(
             '```json:harness-output\n{"iteration": 1, "new_findings": [], "fixes_applied": [], "fixes_skipped_persistent": [], "no_new_findings": false, "no_actionable_fixes": false}\n```\n',
@@ -1419,6 +1419,8 @@ class TestParse:
         out = tmp_path / "out.json"
         _run("parse", "--input-file", str(raw), "--output-file", str(out))
         assert json.loads(out.read_text(encoding="utf-8"))["iteration"] == 1
+        # The payload stays on disk, out of the orchestrator's context.
+        assert capsys.readouterr().out.strip() == "parsed"
 
     def test_missing_input_file_emits_error(self, tmp_path, capsys):
         # Regression for 9e0553a: read_text wrapped in try/except OSError so
@@ -4463,6 +4465,38 @@ class TestSoftExitBranches:
 
 class TestReviewFixRegressions:
     """Regression tests for the deep-mode code-review findings."""
+
+    def test_unit_test_step_records_blocked_without_running_tests(
+        self, tmp_path, capsys, monkeypatch
+    ):
+        ppath = _seed_coverage_progress(tmp_path)
+
+        def _no_tests(*a, **kw):
+            raise AssertionError("a blocked phase must not run the suite")
+
+        monkeypatch.setattr(cli, "run_tests", _no_tests)
+        result = tmp_path / "result.json"
+        result.write_text(
+            json.dumps(
+                _coverage_result(
+                    {"no_new_tests": True, "blocked": "no test framework detected"}
+                )
+            ),
+            encoding="utf-8",
+        )
+        exit_code = _run(
+            "unit-test-step",
+            "--progress-file",
+            str(ppath),
+            "--result-file",
+            str(result),
+        )
+        assert exit_code == 0
+        assert capsys.readouterr().out.strip() == "blocked"
+        assert _read_progress(ppath)["termination"] == {
+            "reason": "blocked",
+            "message": "no test framework detected",
+        }
 
     # --- B1: a red unit-test phase rolls back and drops the session's data ---
     def test_unit_test_step_red_rolls_back_and_skips_merge(
