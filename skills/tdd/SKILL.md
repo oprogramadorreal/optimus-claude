@@ -61,7 +61,7 @@ All work happens on a new branch; the original branch recorded in Step 1 (`<orig
 
 ### Worktree isolation (optional)
 
-Run `git worktree list`; if the current directory is inside a linked worktree, skip this offer — the environment is already isolated. Otherwise use `AskUserQuestion` — header "Workspace", question "Use a git worktree for isolated development? Your main workspace stays on the original branch.", options **Use worktree (Recommended)** / **Stay on branch**. On yes, follow the **Setup** section of `$CLAUDE_PLUGIN_ROOT/skills/worktree/references/worktree-setup.md` with `<branch-name>` and `<original-branch>`; if creation fails, fall back to the branch workflow and say so. All subsequent commands run inside the worktree.
+Run `git worktree list`; if the current directory is inside a linked worktree, skip this offer — the environment is already isolated. Otherwise use `AskUserQuestion` — header "Workspace", question "Use a git worktree for isolated development? Your main workspace stays on the original branch.", options **Use worktree (Recommended)** / **Stay on branch**. On yes, follow the **Setup** section of `$CLAUDE_PLUGIN_ROOT/skills/worktree/references/worktree-setup.md` with `<branch-name>` and `<original-branch>`; if creation fails, follow its **Failure handling**, then run `git checkout <branch-name>` and continue on the branch without a worktree; say so. Otherwise all subsequent commands run inside the worktree.
 
 ### Decompose into behaviors
 
