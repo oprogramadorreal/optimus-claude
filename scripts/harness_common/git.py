@@ -675,7 +675,8 @@ def git_current_branch(cwd):
 
 
 def git_diff_has_changes(cwd):
-    """Check if there are any uncommitted changes (staged, unstaged, or untracked)."""
+    """Check for uncommitted changes (staged, unstaged, or untracked), ignoring
+    untracked harness state (_HARNESS_STATE_EXCLUDES)."""
     cwd_str = str(cwd)
     for args in (
         ["git", "diff", "--quiet"],
@@ -684,9 +685,14 @@ def git_diff_has_changes(cwd):
         if subprocess.run(args, cwd=cwd_str, capture_output=True).returncode != 0:
             return True
     untracked = _run_git_text(
-        subprocess.run, ["git", "ls-files", "--others", "--exclude-standard"], cwd_str
+        subprocess.run,
+        ["git", "ls-files", "--others", "--exclude-standard", "-z"],
+        cwd_str,
     )
-    return bool(untracked.stdout.strip())
+    return any(
+        path and not _is_harness_state_path(path)
+        for path in untracked.stdout.split("\0")
+    )
 
 
 def restore_working_tree(stash_sha, head_commit, cwd, _run=None):

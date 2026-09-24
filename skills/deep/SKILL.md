@@ -60,7 +60,7 @@ For `coverage`: if `/optimus:init` flagged the test framework as missing or "ins
 
 ### Git state
 
-On a fresh (non-`--resume`) run, refuse to proceed if the working tree has uncommitted changes unless `--no-commit` is passed — uncommitted state would be ambiguous with the orchestrator's own checkpoint commits. On `--resume`, the existing progress file's `_snapshot.pre_head` is the recovery anchor; uncommitted state is preserved.
+On a fresh (non-`--resume`) run, refuse to proceed if the working tree has uncommitted changes unless `--no-commit` is passed — uncommitted state would be ambiguous with the orchestrator's own checkpoint commits. Untracked harness state in `.claude/` (a prior run's progress, `.bak` and `.done.json` files, and the loop's dot-prefixed scratch files) does not count. On `--resume`, the existing progress file's `_snapshot.pre_head` is the recovery anchor; uncommitted state is preserved.
 
 ## Step 3: User Confirmation
 

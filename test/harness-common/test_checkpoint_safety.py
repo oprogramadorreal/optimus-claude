@@ -556,6 +556,17 @@ def test_resume_after_safety_error_points_to_baseline(tmp_path, capsys):
     assert _cmd(progress, "snapshot") == 0
 
 
+def test_fresh_init_ignores_prior_harness_state(tmp_path):
+    _init_repo(tmp_path)
+    progress = tmp_path / ".claude" / "code-review-deep-progress.json"
+    init = ["init", "--skill", "code-review", "--project-dir", str(tmp_path)]
+    init += ["--test-command", _python_command("pass"), "--progress-file"]
+    assert cli.main([*init, str(progress)]) == 0
+    assert cli.main([*init, str(progress), "--force"]) == 0  # untracked prior run
+    progress.replace(progress.with_suffix(".done.json"))
+    assert cli.main([*init, str(progress)]) == 0  # an archived prior run
+
+
 @pytest.mark.parametrize("mode", ["no_commit", "commit_disabled"])
 def test_uncommitted_report_never_suggests_destructive_rollback(mode, capsys):
     progress = {"config": {"base_commit": "abc123"}}

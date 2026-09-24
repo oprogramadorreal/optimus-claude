@@ -399,6 +399,22 @@ class TestGitDiffHasChanges:
         ]
         assert git_diff_has_changes("/tmp") is False
 
+    def test_untracked_harness_state_is_not_a_change(self, tmp_path):
+        _init_repo(tmp_path)
+        claude = tmp_path / ".claude"
+        claude.mkdir()
+        for name in (
+            "code-review-deep-progress.json",
+            "code-review-deep-progress.json.bak",
+            "refactor-deep-progress.done.json",
+            ".deep-iteration-raw.txt",
+            ".unit-test-deep-result.json",
+        ):
+            (claude / name).write_text("{}", encoding="utf-8")
+        assert git_diff_has_changes(tmp_path) is False
+        (claude / "notes.md").write_text("user work\n", encoding="utf-8")
+        assert git_diff_has_changes(tmp_path) is True
+
 
 class TestRestoreWorkingTree:
     @patch("harness_common.git.git_restore_to")
