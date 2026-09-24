@@ -110,7 +110,7 @@ Rendered inside Installation. **Pick exactly one primary mechanism per destinati
 
 In-code migrations (e.g., GORM `AutoMigrate`): skip the migrate bullet and render `> Schema is migrated in application code — there is no separate migrate command.` Demoted mechanisms render as a 2-space-indented blockquote under the primary bullet, exactly: `> **Alternative bootstrap script:** \`<demoted-invocation>\` — apply only if the primary leaves required tables missing. Otherwise running both can conflict.`
 
-**Connection-mode-aware invocation.** When the destination DB's *Recommended runtime* is `Docker-preferred` (or the user kept *Docker (offline)*), replace the detector's bare invocation hint with the host-side form below — the bare form assumes a local default instance with Windows/peer auth, wrong for Docker. Keep the bare form for *Local install only*. Passwords go through the per-tool env var (`export <VAR>='<password-placeholder>'` bash; `$env:<VAR> = '<password-placeholder>'` PowerShell); `mongosh` keeps the password in the URI (no env-var alternative).
+**Connection-mode-aware invocation.** When the destination DB's *Recommended runtime* is `Docker-preferred` (or its External Services subsection renders a *Docker (offline)* snippet), replace the detector's bare invocation hint with the host-side form below — the bare form assumes a local default instance with Windows/peer auth, wrong for Docker. Keep the bare form for *Local install only*. Passwords go through the per-tool env var (`export <VAR>='<password-placeholder>'` bash; `$env:<VAR> = '<password-placeholder>'` PowerShell); `mongosh` keeps the password in the URI (no env-var alternative).
 
 | CLI | Bare form (Local install only) | Docker-preferred / Docker (offline) form | Password env var |
 |---|---|---|---|
@@ -124,7 +124,7 @@ Substitution — from the same snippet the External Services subsection rendered
 
 ## Diagnostic Ladder — container running but host can't connect
 
-**Trigger:** a service is Docker-preferred (or Docker (offline) kept) AND its *Verify `<service>` is reachable* bullet rendered in Common Issues (if that bullet was dropped, drop the ladder too). Render as one bullet in Common Issues:
+**Trigger:** a service is Docker-preferred (or renders a *Docker (offline)* snippet) AND its *Verify `<service>` is reachable* bullet rendered in Common Issues (if that bullet was dropped, drop the ladder too). Render as one bullet in Common Issues:
 
 ```markdown
 - **Host can't connect to <Service> on `<host>:<host-port>` but `docker ps` shows the container as `Up`?** Walk down this ladder:

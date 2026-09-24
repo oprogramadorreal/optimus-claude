@@ -238,7 +238,7 @@ Install from [<install page title>](<install page URL>).
 
 Surfaces a required connection-string override when the committed config can't reach the Docker runtime.
 
-**Trigger** — both must hold: the row's Recommended runtime is `Docker-preferred` (or Alternative `Docker (offline)` kept via the downgrade prompt), AND its `Endpoint semantics` is `local-windows-auth`, `local-named-instance`, or `local-socket`.
+**Trigger** — both must hold: the row's Recommended runtime is `Docker-preferred`, AND its `Endpoint semantics` is `local-windows-auth`, `local-named-instance`, or `local-socket`.
 
 **Format** — render as the FIRST element inside the service's per-service heading, above the `**Recommended: Docker.**` paragraph:
 
