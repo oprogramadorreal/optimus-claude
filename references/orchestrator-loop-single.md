@@ -8,8 +8,6 @@
 
 Shared iteration template for `/optimus:deep review` and `/optimus:deep refactor`. The orchestrator dispatches its base skill into a fresh subagent context per iteration, parses the structured JSON the base skill emits, and uses the harness CLI to manage state, test/bisect, and decide termination. All state lives in the progress file — the orchestrator never holds findings or fixes in conversation prose; it reads the CLI's stdout to make decisions.
 
-**Plugin root.** `$CLAUDE_PLUGIN_ROOT` below means the root the orchestrator resolved in its Step 2 — substitute that absolute path literally into every command and dispatch prompt here, because Bash-tool environment variables do not persist across calls and read empty on some platforms.
-
 **Command failures.** Inspect each CLI command's exit status and stderr before using stdout. A nonzero `snapshot`, `deep-step`, or `commit-checkpoint` stops the loop: do not dispatch, advance, commit, or archive afterward. Preserve progress and recovery snapshots and report the actual error; the user inspects/recovers the tree, and only a successful `baseline` on `--resume` permits continuation. Never clear `_safety_error` by hand or infer a green tree from earlier tests. Other unexpected CLI errors also stop; the only retry exception is the verified parse recovery below.
 
 ## Per-iteration body
@@ -22,7 +20,7 @@ The orchestrator skill repeats steps 1–8 below until step 7 (`check-terminatio
 PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli snapshot --progress-file "<progress-path>"
 ```
 
-Records `HEAD` into `progress["_snapshot"]["pre_head"]` and stamps the current iteration into `progress["_snapshot"]["iteration_token"]`. In no-commit mode — the run was started `--no-commit`, or a prior commit failed — `snapshot` also captures a working-tree stash automatically, so the iteration stays restorable; you do **not** need to pass `--include-stash` (it remains an explicit override).
+Records `HEAD` into `progress["_snapshot"]["pre_head"]` and stamps the current iteration into `progress["_snapshot"]["iteration_token"]`. In no-commit mode — the run was started `--no-commit`, or a prior commit failed — `snapshot` also captures a working-tree stash automatically, so the iteration stays restorable.
 
 ### 2. Dispatch the base skill into a fresh subagent
 
@@ -51,13 +49,13 @@ Agent tool call:
     the orchestrator owns all test execution and bisection.
 ```
 
-`<base-skill>` is `code-review` or `refactor`. The subagent inherits the working tree and applies edits via `Edit`/`MultiEdit`; on return, the working tree carries the iteration's changes and its final message contains the structured JSON. It must substitute the absolute root onward into the fan-out agent prompts it composes, per "Prompt assembly at dispatch time" in `$CLAUDE_PLUGIN_ROOT/references/agent-architecture.md`.
+`<base-skill>` is `code-review` or `refactor`. The subagent inherits the working tree and applies edits via `Edit`/`MultiEdit`; on return, the working tree carries the iteration's changes and its final message contains the structured JSON.
 
 ### 3. Save the subagent return to a temp file
 
 Write the subagent's final message text to `.claude/.deep-iteration-raw.txt` **verbatim** — never summarize, abbreviate, or re-type any part of it: the `pre_edit_content`/`post_edit_content` strings inside the JSON are the bisect's apply/revert data, and a corrupted copy makes its fix unrecoverable (`skipped — apply failed`). Saving to a file also keeps the raw output out of the orchestrator's parent context. Step 4 writes the extracted JSON to `.claude/.deep-iteration-result.json`.
 
-These files must live in `.claude/` and carry these exact filename prefixes (`.deep-iteration-` and `.unit-test-deep-`) — the checkpoint commit's un-stage step (`commit_checkpoint` in `scripts/harness_common/git.py`) matches the `.claude/`-anchored patterns `.claude/.deep-iteration-*` and `.claude/.unit-test-deep-*` to keep harness state out of the commit, and `final-report`'s scratch cleanup only sweeps the progress file's own directory.
+Keep these exact `.claude/` paths: the checkpoint's un-stage step and `final-report`'s cleanup match the `.deep-iteration-*` and `.unit-test-deep-*` prefixes.
 
 ### 4. Extract the structured JSON
 
@@ -93,7 +91,7 @@ This single subcommand: promotes actionable fixes, registers findings, runs test
 PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli commit-checkpoint --progress-file "<progress-path>"
 ```
 
-Returns `committed`, `nothing-to-commit`, `commit-skipped`, or `commit-failed`. Call it every iteration — the CLI owns the decision: in no-commit mode it self-skips and prints `commit-skipped`. `commit-failed` is nonzero: stop now and report the error under **Command failures** above. The CLI also durably disables commits. After inspection/recovery and a successful baseline, a resumed run's snapshots auto-stash and its checkpoints self-skip, keeping the accumulated uncommitted work restorable.
+Returns `committed`, `nothing-to-commit`, `commit-skipped`, or `commit-failed`. Call it every iteration — the CLI owns the decision: in no-commit mode it self-skips and prints `commit-skipped`. `commit-failed` is nonzero: stop now and report the error under **Command failures** above.
 
 ### 7. Check termination
 
@@ -114,11 +112,8 @@ Increments `iteration.current`. Then loop back to step 1.
 
 ## Loop control invariants
 
-- **Snapshot before dispatch.** The CLI's `deep-step` needs a fresh `pre_head` to recover from test failures, and verifies the snapshot's `iteration_token` matches the current iteration — a skipped snapshot makes `deep-step` exit non-zero rather than restore to a stale commit.
-- **Always write progress before dispatching.** Cancellation between dispatches is recoverable via `--resume`; cancellation mid-dispatch leaves the progress file valid as of the prior iteration.
 - **Slice-only progress reads.** Never read the full progress file's `findings` array in the orchestrator's own context. `check-termination` returns a single word; trust it.
 - **Subagent output is text, not state.** Save each subagent's return to a temp file verbatim, parse it, then forget it — do not keep the raw output in the orchestrator's conversation.
-- **Re-entry guard.** If the orchestrator's own invocation prompt body already contains `HARNESS_MODE_INLINE`, stop with `"Deep mode cannot run inside deep mode"` — this prevents a misbehaving subagent from triggering recursion.
 - **Don't end a turn on a promise.** Mid-loop, if the next step is a tool call, issue it — end only at termination or when blocked on input only the user can provide.
 - **Report only what the CLI confirmed.** Per-iteration status comes from `deep-step` / `check-termination` stdout — if a step was skipped or a count is unverified, say so.
 

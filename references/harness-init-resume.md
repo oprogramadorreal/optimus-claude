@@ -5,7 +5,7 @@ Shared `harness_common.cli` init/resume semantics for the `/optimus:deep` orches
 - `<progress-path>` — the target's progress file (e.g. `.claude/code-review-deep-progress.json`)
 - `<cap-flag>` — `--max-iterations` (review, refactor targets) or `--max-cycles` (coverage target)
 
-Per-target deltas stay inline in the deep SKILL.md: the `init` invocation itself (its `--skill`, cap, `--focus`, and `--scope` flags differ) and the baseline `--allow-red` policy. Wherever the commands below write `$CLAUDE_PLUGIN_ROOT`, use the plugin root the skill resolved in its Step 2.
+Per-target deltas stay inline in the deep SKILL.md: the `init` invocation itself (its `--skill`, cap, `--focus`, and `--scope` flags differ) and the baseline `--allow-red` policy.
 
 ## On `--resume`
 

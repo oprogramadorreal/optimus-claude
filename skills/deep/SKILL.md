@@ -46,7 +46,7 @@ Resolve `plugin_root` (the absolute path to the installed plugin) and keep it fo
 2. Otherwise derive the root from this skill's own location — the "Base directory for this skill:" line in your invocation context (Claude Code), the `Plugin root:` in the session-start note (Codex), or the path of this SKILL.md — strip the trailing `/skills/...` segment and use it if `<derived>/scripts/harness_common` exists.
 3. If neither candidate contains `scripts/harness_common`, stop: *"Cannot resolve plugin root — ensure optimus-claude is installed as a plugin."*
 
-Wherever the steps below (and `orchestrator-loop-*.md`) write `$CLAUDE_PLUGIN_ROOT`, use this resolved `plugin_root`; if `echo $CLAUDE_PLUGIN_ROOT` was empty, substitute the absolute path literally.
+Wherever the steps below and the references they load write `$CLAUDE_PLUGIN_ROOT` in a command or path, substitute this `plugin_root` literally; `<absolute-plugin-root>` in dispatch prompts is the same value.
 
 ### Prerequisites
 

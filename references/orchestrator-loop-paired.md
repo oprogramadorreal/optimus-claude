@@ -7,9 +7,7 @@
 
 Iteration template for `/optimus:deep coverage`. Each **cycle** runs a unit-test phase followed by a conditional refactor-testability phase. The orchestrator dispatches `/optimus:unit-test` and `/optimus:refactor` as two distinct subagents per cycle, each in its own fresh context.
 
-The loop control discipline mirrors `references/orchestrator-loop-single.md` (snapshot before dispatch, slice-only progress reads, subagent output is text not state, don't end a turn on a promise, report only what the CLI confirmed) — see that reference for the rationale. Only the cycle structure differs.
-
-**Plugin root.** As in `orchestrator-loop-single.md`: substitute the root the orchestrator resolved in its Step 2 into every command and both dispatch prompts below.
+**Loop discipline.** Read only the progress fields a step names, never a full array; keep subagent output in the raw files, not in conversation; don't end a turn on a promise; report only what the CLI confirmed.
 
 **Command failures.** Check each CLI command's exit status and stderr before interpreting stdout. A nonzero snapshot, phase step, or checkpoint stops the loop: do not dispatch another phase, record/advance the cycle, commit, or archive. Preserve progress and recovery snapshots and report the error; the user inspects/recovers the tree, and only a successful `baseline` on `--resume` permits continuing. Never clear `_safety_error` by hand. Other unexpected CLI errors also stop; only the verified malformed-output recovery described below may continue.
 
@@ -21,7 +19,7 @@ The loop control discipline mirrors `references/orchestrator-loop-single.md` (sn
 PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli snapshot --progress-file "<progress-path>"
 ```
 
-Records `pre_head` and stamps the current cycle into `_snapshot.iteration_token` (steps 4 and 8 error out on a stale token). In no-commit mode `snapshot` also captures a working-tree stash automatically, so you do **not** need `--include-stash` (it remains an explicit override).
+Records `pre_head` and stamps the current cycle into `_snapshot.iteration_token` (steps 4 and 8 error out on a stale token). In no-commit mode `snapshot` also captures a working-tree stash automatically.
 
 ### 2. Dispatch the unit-test subagent
 
@@ -84,7 +82,7 @@ The last stdout line is one of:
 | Output | Meaning |
 |---|---|
 | `converged` | Skill reported plateau (`no_new_tests` + `no_untestable_code`, or `no_new_tests` + `no_coverage_gained`) — cycle ends, loop terminates. |
-| `continue` | Unit-test phase complete — proceed to step 5. Also printed after a red-suite rollback (the CLI reverts the cycle's tests and drops the phase JSON without a distinct token — see Per-phase notes). |
+| `continue` | Unit-test phase complete — proceed to step 5. Also printed after a red-suite rollback (the CLI reverts the cycle's tests and drops the phase JSON without a distinct token). |
 
 ### 5. Commit the unit-test phase checkpoint
 
@@ -93,7 +91,7 @@ PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli commit-che
     --progress-file "<progress-path>" --phase unit-test
 ```
 
-Call this every cycle — in no-commit mode it self-skips (`commit-skipped`). `commit-failed` is nonzero: stop and report the error under **Command failures** above. Commits stay disabled; automatic stashing applies only after inspection/recovery and a successful baseline permits resuming. Same contract as `orchestrator-loop-single.md` step 6.
+Call this every cycle — in no-commit mode it self-skips (`commit-skipped`). `commit-failed` is nonzero: stop and report the error under **Command failures** above.
 
 ### 6. Conditionally dispatch the refactor phase
 
@@ -111,8 +109,6 @@ Otherwise, **re-snapshot before dispatching the refactor subagent** so a refacto
 ```bash
 PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli snapshot --progress-file "<progress-path>"
 ```
-
-The step-1 snapshot predates the tests the unit-test phase wrote this cycle — a refactor-phase restore against it would discard them. Re-running `snapshot` re-stamps the cycle token (step 8's freshness check still passes) and moves `pre_head`/`pre_stash` to the post-unit-test state, so a refactor rollback preserves the cycle's tests.
 
 Then dispatch:
 
@@ -190,7 +186,7 @@ PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli record-cyc
 
 `record-cycle` appends a `cycle_history` entry and increments `cycle.current`. The summaries are JSON snippets you can build from the phase outputs you captured at steps 4 and 8 (counts of tests written, fixes applied, etc.).
 
-Step 4's `continue` does not distinguish a green merge from a red-suite rollback (see Per-phase notes), so the unit-test counts are subagent-reported, not CLI-confirmed. In commit mode, `nothing-to-commit` from step 5 despite reported tests indicates the cycle was rolled back — record zero tests written for the phase and say so in the status update; otherwise attribute counts to the subagent (e.g. *"subagent reported 4 tests"*) rather than asserting they were kept.
+Step 4's `continue` does not distinguish a green merge from a red-suite rollback, so the unit-test counts are subagent-reported, not CLI-confirmed. In commit mode, `nothing-to-commit` from step 5 despite reported tests indicates the cycle was rolled back — record zero tests written for the phase and say so in the status update; otherwise attribute counts to the subagent (e.g. *"subagent reported 4 tests"*) rather than asserting they were kept.
 
 ### 11. Check termination
 
@@ -199,7 +195,7 @@ PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli check-term
     --progress-file "<progress-path>"
 ```
 
-Possible values: `continue`, `convergence`, `cap`, `diminishing-returns`, `parse-failure`, `blocked`. If anything other than `continue`, exit the loop. (`parse-failure` is surfaced automatically when the CLI's `parse_failure_count` reaches its threshold — see the parse step above. `blocked` is echoed back here after the unit-test phase records it — see that step.)
+Possible values: `continue`, `convergence`, `cap`, `diminishing-returns`, `parse-failure`, `blocked`. If anything other than `continue`, exit the loop.
 
 ## After the loop
 
@@ -214,8 +210,5 @@ PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli final-repo
 
 ## Per-phase notes
 
-- The unit-test phase runs full project tests (the CLI calls `run_tests` internally) **before** merging the session's results: a red suite rolls the working tree back to the pre-cycle snapshot and drops the session output, so a failing cycle is never committed and its coverage/untestable/bug data never leaks into later cycles. The refactor phase bisects on failure (same algorithm as `deep-step`).
-- The unit-test base skill is expected to leave the suite green (failing tests it writes are marked `fail-fixed` or `fail-abandoned`, not left active); the CLI does not retest individual tests — its full-suite run is the safety net.
-- Coverage delta comes from the unit-test subagent's `coverage.delta`, or is derived from `coverage.before`/`coverage.after` when omitted, so the plateau check still fires on a genuine zero-gain cycle. The CLI records the history.
 - The orchestrator never reads the full `untestable_code` array between cycles — only `pending-refactor-count` decides whether to dispatch the refactor phase.
 - **Parse-failure recovery:** apply `orchestrator-loop-single.md` "Parse-failure recovery", including the fresh-snapshot and `_safety_error` checks before treating rollback as successful. A rollback or unexpected I/O failure stops this loop. For a successfully recovered malformed-output failure, never run a `*-step` against the stale result file: a unit-test-phase failure skips steps 4–9, a refactor-phase failure skips steps 8–9; continue at step 10 (record the parse failure) then step 11. Either phase counts toward the two-consecutive-failures threshold.
