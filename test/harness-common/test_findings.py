@@ -141,7 +141,7 @@ class TestMarkFindingStatus:
     def test_revert_escalation_survives_applied_pending_test(
         self, sample_progress, sample_fix
     ):
-        """Regression test for 9e0553a: APPLIED_PENDING_TEST writes between
+        """APPLIED_PENDING_TEST writes between
         revert attempts must not reset the escalation chain. Each new
         iteration registers findings as ``applied-pending-test`` before
         bisection writes the terminal status; if escalation only looks at the

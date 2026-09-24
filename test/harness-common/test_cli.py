@@ -663,7 +663,7 @@ class TestInit:
         assert data["config"]["pr_description"]["title"] == "Test PR"
 
     def test_deep_natural_language_scope(self, tmp_path, monkeypatch):
-        # Regression for c53086d: non-existent scope is treated as prose, not
+        # Non-existent scope is treated as prose, not
         # a git pathspec, so config.scope.mode stays "branch-diff" and the
         # natural-language text is preserved in scope_text.
         repo = _make_repo(tmp_path)
@@ -757,7 +757,7 @@ class TestInit:
     def test_deep_absolute_path_outside_project_falls_back_to_branch_diff(
         self, tmp_path, monkeypatch
     ):
-        # Regression for 310c928: an absolute path scope (e.g. "/etc",
+        # An absolute path scope (e.g. "/etc",
         # "C:\\Windows") must not be treated as a git pathspec. Path semantics
         # let `project_root / "/etc"` collapse to `/etc`, and without the
         # containment check the loop would silently `git diff -- /etc` (empty)
@@ -839,7 +839,7 @@ class TestInit:
         assert _read_progress(progress_path)["config"]["no_commit"] is True
 
     def test_fetches_pr_data_once_and_threads_it(self, tmp_path, monkeypatch):
-        # CL1: init fetches open-PR data once via get_open_pr_data and threads it
+        # Init fetches open-PR data once via get_open_pr_data and threads it
         # into both branch discovery and the description builder, rather than
         # each re-shelling out to `gh pr view`.
         repo = _make_repo(tmp_path)
@@ -1419,7 +1419,7 @@ class TestParse:
         assert capsys.readouterr().out.strip() == "parsed"
 
     def test_missing_input_file_emits_error(self, tmp_path, capsys):
-        # Regression for 9e0553a: read_text wrapped in try/except OSError so
+        # read_text is wrapped in try/except OSError so
         # parse-failure recovery sees a clean stderr + exit 1 instead of a raw
         # traceback.
         exit_code = _run("parse", "--input-file", str(tmp_path / "no_such.txt"))
@@ -1985,8 +1985,8 @@ class TestDeepStep:
 
     def test_combined_regression_survives_restore_failure(self, tmp_path, monkeypatch):
         # If the full-tree restore itself raises (git checkout errors on a
-        # locked/corrupt index), the step must catch it and still record the
-        # combined regression rather than crash deep-step.
+        # locked/corrupt index), deep-step must fail safe rather than crash:
+        # exit 1, record _safety_error, and record no iteration history.
         ppath = _seed_deep_progress(tmp_path)
         data = _read_progress(ppath)
         data["config"]["no_commit"] = True
@@ -2680,7 +2680,7 @@ class TestRefactorStep:
         assert data["cycle"]["completed"] == 1
 
     def test_empty_fixes_prints_test_passed_dash(self, tmp_path, capsys):
-        # Regression for 310c928 / parity with TestDeepStep:
+        # Parity with TestDeepStep::
         # test_malformed_empty_fixes_does_not_crash: when fixes_applied is
         # empty but no_actionable_fixes is False (subagent reported new
         # findings but no actionable edit pairs), refactor-step must print
@@ -4604,7 +4604,7 @@ class TestSoftExitBranches:
 
 
 class TestReviewFixRegressions:
-    """Regression tests for the deep-mode code-review findings."""
+    """Regression tests for deep-mode harness robustness fixes."""
 
     def test_unit_test_step_records_blocked_without_running_tests(
         self, tmp_path, capsys, monkeypatch
@@ -4638,7 +4638,7 @@ class TestReviewFixRegressions:
             "message": "no test framework detected",
         }
 
-    # --- B1: a red unit-test phase rolls back and drops the session's data ---
+    # --- a red unit-test phase rolls back and drops the session's data ---
     def test_unit_test_step_red_rolls_back_and_skips_merge(
         self, tmp_path, capsys, monkeypatch
     ):
@@ -4687,7 +4687,7 @@ class TestReviewFixRegressions:
         assert data["coverage"]["history"] == []
         assert data["test_results"]["last_full_run"] == "fail"
 
-    # --- B3: explicit JSON null array fields must not crash a step ---
+    # --- explicit JSON null array fields must not crash a step ---
     def test_unit_test_step_rejects_null_arrays(self, tmp_path, capsys, monkeypatch):
         ppath = _seed_coverage_progress(tmp_path)
         monkeypatch.setattr(cli, "run_tests", lambda *a, **kw: (True, "ok"))
@@ -4744,7 +4744,7 @@ class TestReviewFixRegressions:
         assert exit_code == 1
         assert "requires an array" in capsys.readouterr().err
 
-    # --- B4: a file-less untestable item is skipped, not stranded pending ---
+    # --- a file-less untestable item is skipped, not stranded pending ---
     def test_unit_test_step_skips_fileless_untestable(
         self, tmp_path, capsys, monkeypatch
     ):
@@ -4781,7 +4781,7 @@ class TestReviewFixRegressions:
         assert len(data["untestable_code"]) == 1
         assert data["untestable_code"][0]["file"] == "u.py"
 
-    # --- D2: coverage delta is derived from before/after when omitted ---
+    # --- coverage delta is derived from before/after when omitted ---
     def test_unit_test_step_derives_missing_delta(self, tmp_path, monkeypatch):
         ppath = _seed_coverage_progress(tmp_path)
         monkeypatch.setattr(cli, "run_tests", lambda *a, **kw: (True, "ok"))
@@ -4883,7 +4883,7 @@ class TestReviewFixRegressions:
         )
         assert len(_read_progress(ppath)["untestable_code"]) == 1
 
-    # --- A1: a non-string pre_edit_content is not promoted (would crash bisect) ---
+    # --- a non-string pre_edit_content is not promoted (would crash bisect) ---
     def test_promote_skips_non_string_pre(self, tmp_path, capsys):
         ppath = _seed_deep_progress(tmp_path)
         result = tmp_path / "result.json"
@@ -4919,7 +4919,7 @@ class TestReviewFixRegressions:
         assert exit_code == 0
         assert capsys.readouterr().out.strip() == "no-actionable"
 
-    # --- A3: resume after a coverage convergence advances the cycle counter ---
+    # --- resume after a coverage convergence advances the cycle counter ---
     def test_resume_after_coverage_convergence_bumps_cycle(self, tmp_path):
         ppath = _seed_coverage_progress(tmp_path, cycle=2)
         data = _read_progress(ppath)
@@ -4932,7 +4932,7 @@ class TestReviewFixRegressions:
         assert data["cycle"]["current"] == 3
         assert data["termination"]["reason"] is None
 
-    # --- E2: a capped run refuses to resume unless the cap is actually raised ---
+    # --- a capped run refuses to resume unless the cap is actually raised ---
     def test_resume_after_cap_without_raise_refuses(self, tmp_path, capsys):
         ppath = _seed_deep_progress(tmp_path, iteration=8)
         data = _read_progress(ppath)
@@ -5014,7 +5014,7 @@ class TestReviewFixRegressions:
         assert data["cycle"]["current"] == 4
         assert data["termination"]["reason"] is None
 
-    # --- E1: resume recovers from a torn (corrupt) primary via the backup ---
+    # --- resume recovers from a torn (corrupt) primary via the backup ---
     def test_resume_recovers_from_corrupt_primary(self, tmp_path):
         ppath = _seed_deep_progress(tmp_path)
         good = ppath.read_text(encoding="utf-8")

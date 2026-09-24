@@ -8,8 +8,8 @@ terminated with ``parse-failure`` on every iteration.
 
 The schemas under ``references/schemas/`` are now the single definition. These
 tests check that the golden fixtures satisfy them, that the fixtures survive
-``cli parse``, and that the docs still name every required field — so a one-sided
-rename fails here rather than in production.
+``cli parse``, and that the docs point subagents at both the schema and the
+fixture by real path — so a one-sided rename fails here rather than in production.
 
 No ``jsonschema`` dependency: the project is stdlib-only, and ``_validate`` below
 covers exactly the keywords these two schemas use. It raises on an unknown

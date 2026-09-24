@@ -428,7 +428,7 @@ class TestRestoreWorkingTree:
 
     @patch("harness_common.git.git_restore_to")
     def test_no_stash_no_head_returns_false(self, mock_restore_to, capsys):
-        # Regression for c53086d: when both inputs are None, restore_working_tree
+        # When both inputs are None, restore_working_tree
         # warns and returns False rather than raising on the missing fallback.
         result = restore_working_tree(None, None, "/tmp")
         assert result is False
@@ -685,7 +685,7 @@ class TestFetchOpenPrData:
         result = get_open_pr_data("/tmp/project")
         assert result is not None
         assert result["body"] == body
-        # Regression guard for commit 9e0553a — without these kwargs, Windows
+        # Without these kwargs, Windows
         # would re-default to cp1252 and silently drop non-Latin-1 PR bodies.
         _args, kwargs = mock_run.call_args
         assert kwargs.get("encoding") == "utf-8"
@@ -924,7 +924,7 @@ class TestGitDiscoverBranchFiles:
     def test_diff_uses_utf8_encoding(self, _mock_base, mock_run):
         # Non-ASCII filenames would fail under Windows-default cp1252; the
         # encoding="utf-8" kwarg keeps branch-file discovery cross-platform
-        # (regression for commit fac1fec, mirrors TestFetchOpenPrData).
+        # (mirrors TestFetchOpenPrData).
         mock_run.return_value = MagicMock(returncode=0, stdout="src/café.py\n")
         files, _base = git_discover_branch_files("/tmp", None)
         assert files == ["src/café.py"]
@@ -1134,7 +1134,7 @@ class TestGitRestoreTrackedTo:
         git_restore_tracked_to(head, tmp_path)
 
         # Tracked edit undone; the untracked dependency survives isolation so a
-        # re-applied fix that imports it still passes (the B1 regression).
+        # re-applied fix that imports it still passes.
         assert (tmp_path / "tracked.txt").read_text(encoding="utf-8") == "base\n"
         assert (tmp_path / "new_module.py").read_text(encoding="utf-8") == "VALUE = 1\n"
 

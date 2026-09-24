@@ -689,7 +689,7 @@ class TestBisectCleanReset:
     def test_clean_reset_first_pass_apply_failure_skipped(self, tmp_path):
         # A fix that fails to apply on the clean-reset first pass is counted as
         # skipped (the clean-reset path has its own skip branch, separate from
-        # the legacy bisect's). A deletion fix routes the set through clean-reset.
+        # the legacy bisect's).
         deletion = {
             "file": "del.py",
             "category": "dead-code",

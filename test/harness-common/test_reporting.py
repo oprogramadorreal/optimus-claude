@@ -157,7 +157,7 @@ class TestFormatFindingLine:
         assert "f.py:?" in line
 
     def test_missing_file_renders_question_mark(self):
-        # Regression for e60aa78: the defensive `finding.get('file', '?')`
+        # The defensive `finding.get('file', '?')`
         # branch had no test, so reverting to `finding['file']` would have
         # passed every other case.
         line = format_finding_line({"line": 1, "category": "Bug", "summary": "x"})
@@ -255,7 +255,7 @@ class TestBuildDeepCommitBody:
     def test_no_iteration_findings_returns_empty(self):
         progress = {"findings": [self._finding(iteration_last_attempted=5)]}
         # No matching iteration_last_attempted → empty body so the caller
-        # falls back to title-only commit (cli.py:902).
+        # falls back to title-only commit.
         assert build_deep_commit_body(progress, iteration=1) == ""
 
 

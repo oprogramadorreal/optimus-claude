@@ -110,7 +110,7 @@ class TestRunTests:
         passed, summary = run_tests("npm test", "/tmp/project")
         assert passed is False
         assert "timed out after 300s" in summary
-        # Tail of decoded output should appear in summary (line 99 path)
+        # Tail of decoded output should appear in summary
         assert "last" in summary
         assert "err-tail" in summary
 
