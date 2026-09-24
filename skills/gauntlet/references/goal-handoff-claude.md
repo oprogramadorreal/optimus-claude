@@ -1,15 +1,14 @@
 # Claude Code goal handoff
 
-Use this only for a Claude Code destination. Shared export, completion, and
-size rules live in the calling `goal-handoff.md` reference.
+Shared export, completion, and size rules live in the calling
+`goal-handoff.md` reference.
 
 ## Runtime instructions
 
 Keep these in the handoff page and add a compact sentence to the message:
 the small per-turn goal evaluator reads only conversation evidence and uses
 no tools. Its reason is a continuation nudge, never a critic gap or a new
-rule. Fresh-context critics remain the only quality judges. Show the shared
-completion evidence each turn so the evaluator can assess it.
+rule. Fresh-context critics remain the only quality judges.
 
 ## Checklist above the message
 

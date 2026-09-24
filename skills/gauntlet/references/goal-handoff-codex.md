@@ -1,8 +1,7 @@
 # Codex goal handoff
 
-Use this only for a Codex destination. Shared export, completion, and size
-rules live in the calling `goal-handoff.md` reference. Preserve a requested
-model such as GPT-6 Astra (`gpt-6-astra`); do not choose a substitute.
+Shared export, completion, and size rules live in the calling
+`goal-handoff.md` reference.
 
 ## Opening instruction
 
@@ -30,21 +29,18 @@ Include these in the handoff page for the destination lead:
   and stop; never silently claim an ordinary run has goal continuation. A
   message that starts "Plain fallback" skips the goal steps and runs in this
   session, saying that nothing continues across turns automatically.
-- Use `update_goal` only as its current contract permits. Mark `complete`
-  only after reading the actual critic verdict files, checking the assembled
-  artifact and current test/Git evidence. Native goal status is not a critic.
-  Follow the host's blocked-state threshold; do not equate difficult work or
-  a plateau with an impasse while actionable work remains.
+- Use `update_goal` only as its current contract permits. Native goal
+  status is not a critic. Follow the host's blocked-state threshold; do not
+  equate difficult work or a plateau with an impasse while actionable work
+  remains.
 - Set a token budget only when the user explicitly requested one. Honor
   host pause, usage, budget and permission controls without declaring the
   goal complete or inventing tool operations to bypass them. Preserve the
   unresolved gaps and next action in the checkpoint when suspended.
-- Use fresh critic contexts with no inherited lead/builder conversation
-  (`fork_turns: "none"` when supported). Supply only the frozen remit and
-  resolvable artifact/bar paths. Keep each builder across rounds and sequence
-  dispatches to fit available agent slots. On a new-session resume, rebuild
-  each builder's context from the checkpoint; do not assume live agents
-  transfer. Reopen the bar and verify saved evidence before continuing.
+- Use fresh critic contexts (`fork_turns: "none"` when supported) and
+  sequence dispatches to fit available agent slots. On a new-session resume,
+  rebuild each builder's context from the checkpoint; do not assume live
+  agents transfer. Reopen the bar and verify saved evidence before continuing.
 
 ## Checklist above the message
 
@@ -55,8 +51,7 @@ Include these in the handoff page for the destination lead:
 - Verify that native `/goal` is available. If absent, check the host/version
   and `features.goals` setting; enable it through the host only if desired;
   otherwise paste the labeled plain fallback instead, which runs without
-  cross-turn continuation. Do not change the preparing session's settings.
-  Keep this export even if the destination needs setup.
+  cross-turn continuation.
 - Paste the block, then inspect `/goal` or the goal progress row to confirm
   the full objective and final completion condition are active. Correct a
   truncated objective before letting the run continue.
