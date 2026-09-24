@@ -18,7 +18,7 @@ Read the JSON progress file at the path specified in your invocation prompt. Ext
 - `coverage` — prior coverage data (baseline, current, history)
 - `tests_created` — tests written in prior cycles
 - `untestable_code` — items flagged as untestable in prior cycles
-- `config.test_command` — the test command (for reference only — do NOT run it)
+- `config.test_command` — the test command: section 2's baseline and coverage runs may use it; section 3 bars a final verification run
 - `config.scope` — path filter (apply to discovery); `null` means the full project. The CLI populates it only when the user's scope resolved to a real path, so it is never free text — do not treat `config.scope_text` (recorded intent) as a filter. (`resume` enforces the same invariant for legacy 2.x progress files: a free-text 2.x scope is migrated into `scope_text` and `scope` becomes `null` before the loop continues.)
 
 ### 2. Run discovery and coverage analysis
@@ -41,7 +41,7 @@ The goal is convergence: each cycle proposes **new** testable items, not duplica
 Run Steps 3–4 of SKILL.md (plan + write) with these harness modifications:
 - **Skip `AskUserQuestion`** — auto-approve all planned items
 - **Cap at 10 items** per pass (same as normal mode)
-- **Do NOT run the full test suite as a final verification gate**, nor any `scripts/*.sh` test/lint/build wrapper — the orchestrator owns the full run and bisection. Coverage measurement is fine, including one coverage-instrumented run after tests are written to obtain `coverage.after` — but its pass/fail outcome must not trigger reverts or fixes beyond the per-test workflow
+- **Do NOT run the full test suite as a final verification gate**, nor any `scripts/*.sh` test/lint/build wrapper — the orchestrator owns the full run. Coverage measurement is fine, including one coverage-instrumented run after tests are written to obtain `coverage.after` — but its pass/fail outcome must not trigger reverts or fixes beyond the per-test workflow
 
 ### 4. Collect results
 
