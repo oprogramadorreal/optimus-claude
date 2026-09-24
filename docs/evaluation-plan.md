@@ -51,7 +51,7 @@ The first three fixture-backed questions are inexpensive pilots. A successful sm
 
 Copy each case fixture to a new repository with spaces in its path. Commit its initial contents except when the case explicitly requires an untracked handoff. For `review-app`, make an empty initial commit and stage the fixture files without committing them, because `/optimus:code-review` reviews local changes, a PR or a branch diff, not a whole tree. Save initial working-tree bytes and index hashes outside the model-visible project. Run the exact task text in [cases.json](../test/evaluations/cases.json), supplying the selected condition's instructions through normal host discovery. For standalone command smoke tests, inspect the emitted commands and actual files rather than matching final prose.
 
-The maintained deterministic oracle can be run from the plugin checkout, outside the model's project:
+The maintained deterministic oracle runs from the plugin checkout, outside the model's project. It imports the copied project's model-edited Python into its own process and, like [`paper_score.py`](paper-reproduction-evaluation.md#local-replay-and-structural-checks), is not a security sandbox; run it in a disposable, credential-free sandbox or container:
 
 ```text
 python test/evaluations/score.py guidance-app <copied-project>
