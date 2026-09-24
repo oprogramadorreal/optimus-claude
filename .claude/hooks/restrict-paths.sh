@@ -694,6 +694,17 @@ json_escape() {
   _json_escaped="$s"
 }
 
+# The reverse, for a tool_input string value, so the guards judge what the tool
+# will actually touch. \001 shields literal backslashes from the later passes;
+# the value never reaches emitted JSON, so the sentinel cannot leak.
+_json_unescaped=""
+json_unescape() {
+  local s="${1//\\\\/$'\001'}"
+  s="${s//\\\"/\"}"; s="${s//\\\//\/}"
+  s="${s//\\n/$'\n'}"; s="${s//\\r/$'\r'}"; s="${s//\\t/$'\t'}"
+  _json_unescaped="${s//$'\001'/\\}"
+}
+
 # $1 = decision, $2 = reason for the USER, $3 = optional context for CLAUDE.
 # The two audiences are distinct — see header: TEMP-WRITE NUDGE. printf, not a
 # `cat` heredoc, so emitting a decision costs no fork.
@@ -1904,47 +1915,24 @@ scan_command_string() {
 _rp_tool_name="${BASH_REMATCH[1]}"
 
 case "$_rp_tool_name" in
-  Edit|MultiEdit|Write)
-    # Fail-open: if file_path cannot be extracted, allow rather than block.
+  Edit|MultiEdit|Write|NotebookEdit)
+    # Fail-open: if the path cannot be extracted, allow rather than block.
     # The value is a JSON string: walk over escaped quotes ([^"\]|\\.) as the
     # Bash branch does — stopping at the first \" judged only the path's prefix.
-    _rp_path_re='"file_path"[[:space:]]*:[[:space:]]*"(([^"\]|\\.)*)"'
-    [[ "$_rp_input" =~ $_rp_path_re ]] || exit 0
-    filepath="${BASH_REMATCH[1]}"
-    # Undo the JSON escapes the same way the Bash branch does, so a path that
-    # contains an escaped quote is judged whole rather than on its prefix.
-    filepath="${filepath//\\\\/$'\001'}"
-    filepath="${filepath//\\\"/\"}"
-    filepath="${filepath//\\\//\/}"
-    filepath="${filepath//\\n/$'\n'}"
-    filepath="${filepath//\\r/$'\r'}"
-    filepath="${filepath//\\t/$'\t'}"
-    filepath="${filepath//$'\001'/\\}"
-    guard_out_of_project_write "$filepath" "File" "write"
-    # Precious file protection: prompt before modifying sensitive unversioned files
-    if [[ -e "$filepath" ]] && is_precious "$filepath" && ! is_git_tracked "$filepath"; then
-      ask_permission "File '$(basename "$filepath")' is a precious file not tracked by git. Changes may be permanent. Allow this write?"
+    if [[ "$_rp_tool_name" == NotebookEdit ]]; then
+      _rp_path_re='"notebook_path"[[:space:]]*:[[:space:]]*"(([^"\]|\\.)*)"'
+      _rp_noun=Notebook _rp_verb=edit
+    else
+      _rp_path_re='"file_path"[[:space:]]*:[[:space:]]*"(([^"\]|\\.)*)"'
+      _rp_noun=File _rp_verb=write
     fi
-    exit 0
-    ;;
-  NotebookEdit)
-    # Fail-open: if notebook_path cannot be extracted, allow rather than block
-    _rp_path_re='"notebook_path"[[:space:]]*:[[:space:]]*"(([^"\]|\\.)*)"'
     [[ "$_rp_input" =~ $_rp_path_re ]] || exit 0
-    filepath="${BASH_REMATCH[1]}"
-    # Undo the JSON escapes the same way the Bash branch does, so a path that
-    # contains an escaped quote is judged whole rather than on its prefix.
-    filepath="${filepath//\\\\/$'\001'}"
-    filepath="${filepath//\\\"/\"}"
-    filepath="${filepath//\\\//\/}"
-    filepath="${filepath//\\n/$'\n'}"
-    filepath="${filepath//\\r/$'\r'}"
-    filepath="${filepath//\\t/$'\t'}"
-    filepath="${filepath//$'\001'/\\}"
-    guard_out_of_project_write "$filepath" "Notebook" "edit"
-    # Precious file protection: prompt before modifying sensitive unversioned notebooks
-    if [[ -e "$filepath" ]] && is_precious "$filepath" && ! is_git_tracked "$filepath"; then
-      ask_permission "File '$(basename "$filepath")' is a precious file not tracked by git. Changes may be permanent. Allow this edit?"
+    json_unescape "${BASH_REMATCH[1]}"
+    _rp_path="$_json_unescaped"
+    guard_out_of_project_write "$_rp_path" "$_rp_noun" "$_rp_verb"
+    # Precious file protection: prompt before modifying sensitive unversioned files
+    if [[ -e "$_rp_path" ]] && is_precious "$_rp_path" && ! is_git_tracked "$_rp_path"; then
+      ask_permission "File '$(basename "$_rp_path")' is a precious file not tracked by git. Changes may be permanent. Allow this $_rp_verb?"
     fi
     exit 0
     ;;
@@ -1955,17 +1943,8 @@ case "$_rp_tool_name" in
     # skipped every guard for anything as ordinary as `git commit -m "msg"`.
     _bash_cmd_re='"command"[[:space:]]*:[[:space:]]*"(([^"\]|\\.)*)"'
     [[ "$_rp_input" =~ $_bash_cmd_re ]] || exit 0
-    _rp_cmd="${BASH_REMATCH[1]}"
-    # Undo the JSON escapes so the guards see what the shell will run. \001
-    # shields literal backslashes from the later passes; cmd never reaches the
-    # emitted JSON, so the sentinel cannot leak into output.
-    _rp_cmd="${_rp_cmd//\\\\/$'\001'}"
-    _rp_cmd="${_rp_cmd//\\\"/\"}"
-    _rp_cmd="${_rp_cmd//\\\//\/}"
-    _rp_cmd="${_rp_cmd//\\n/$'\n'}"
-    _rp_cmd="${_rp_cmd//\\r/$'\r'}"
-    _rp_cmd="${_rp_cmd//\\t/$'\t'}"
-    _rp_cmd="${_rp_cmd//$'\001'/\\}"
+    json_unescape "${BASH_REMATCH[1]}"
+    _rp_cmd="$_json_unescaped"
 
     # --- Git branch protection + Delete protection ---
     # Both live in scan_command_string, which splits the string on the shell's
