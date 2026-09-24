@@ -16,7 +16,7 @@ from pathlib import Path
 
 import pytest
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+REPO_ROOT = Path(__file__).resolve().parents[1]
 PR_TEMPLATE = REPO_ROOT / "skills" / "pr" / "references" / "pr-template.md"
 CODE_REVIEW_SKILL = REPO_ROOT / "skills" / "code-review" / "SKILL.md"
 PR_SKILL = REPO_ROOT / "skills" / "pr" / "SKILL.md"

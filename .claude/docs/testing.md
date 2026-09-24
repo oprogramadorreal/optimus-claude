@@ -35,7 +35,7 @@ test.cmd                                                                        
 
 - Use plain pytest. Grouping related tests under `Test*` classes for navigation is fine when a module has many tests — a class-scoped fixture is not required to justify it (the harness suites, e.g. `test_cli.py`, group this way; `test_skill_contract.py` uses plain functions — both are acceptable). Name tests `test_<behavior>`.
 - Prefer `tmp_path` and real file I/O over mocking the filesystem — the CLI is I/O-heavy and mocked paths have masked real bugs before.
-- Keep fixtures local to the test module unless they are reused across modules; shared fixtures live in `test/harness-common/conftest.py`.
+- Keep fixtures local to the test module unless they are reused across modules; shared fixtures go in `test/harness-common/conftest.py`.
 
 ## Coverage
 

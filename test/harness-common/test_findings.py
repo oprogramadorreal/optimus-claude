@@ -1,4 +1,5 @@
 import pytest
+from harness_common import cli
 from harness_common.constants import APPLIED_PENDING_TEST
 from harness_common.findings import (
     _escalate_revert_status,
@@ -10,6 +11,33 @@ from harness_common.findings import (
     normalize_line,
     update_scope,
 )
+
+
+@pytest.fixture
+def sample_progress():
+    """Minimal valid deep-variant progress dict."""
+    return cli._make_deep_progress(
+        "code-review", "", 8, "npm test", "/tmp/project", "", "abc1234567890", False
+    )
+
+
+@pytest.fixture
+def sample_fix():
+    """Fix dict matching the harness-output schema."""
+    return {
+        "file": "src/app.js",
+        "line": 42,
+        "end_line": 42,
+        "category": "bug",
+        "guideline": "General: avoid null dereference",
+        "summary": "Add null check before accessing property",
+        "fix_description": "Added null guard",
+        "severity": "Critical",
+        "confidence": "High",
+        "agent": "bug-detector",
+        "pre_edit_content": "obj.value",
+        "post_edit_content": "obj?.value",
+    }
 
 
 class TestTruncateFailureHint:

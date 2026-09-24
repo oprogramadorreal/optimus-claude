@@ -133,59 +133,6 @@ def _git_init(tmp_path):
     g("commit", "-m", "base")
 
 
-def test_failed_snapshot_preserves_work_and_invalidates_dispatch(tmp_path):
-    _git_init(tmp_path)
-    seed = tmp_path / "seed.txt"
-    seed.write_text("first user edit\n", encoding="utf-8")
-    notes = tmp_path / "user-notes.txt"
-    notes.write_text("untracked user work\n", encoding="utf-8")
-    progress_path = tmp_path / ".claude" / "code-review-deep-progress.json"
-    assert (
-        _run(
-            "init",
-            "--skill",
-            "code-review",
-            "--project-dir",
-            str(tmp_path),
-            "--test-command",
-            "echo ok",
-            "--no-commit",
-            "--progress-file",
-            str(progress_path),
-        )
-        == 0
-    )
-    assert _run("snapshot", "--progress-file", str(progress_path)) == 0
-    recovery = _read_progress(progress_path)["_snapshot"]["pre_stash"]
-    seed.write_text("newer user edit\n", encoding="utf-8")
-    original_index = (tmp_path / ".git" / "index").read_bytes()
-    lock = tmp_path / ".git" / "index.lock"
-    lock.write_text("audit fixture lock", encoding="utf-8")
-    try:
-        assert _run("snapshot", "--progress-file", str(progress_path)) == 1
-    finally:
-        lock.unlink()
-    snap = _read_progress(progress_path)["_snapshot"]
-    assert snap["pre_stash"] == recovery
-    assert "iteration_token" not in snap
-    assert seed.read_text(encoding="utf-8") == "newer user edit\n"
-    assert notes.read_text(encoding="utf-8") == "untracked user work\n"
-    assert (tmp_path / ".git" / "index").read_bytes() == original_index
-    result = tmp_path / ".claude" / ".deep-iteration-result.json"
-    result.write_text("{}", encoding="utf-8")
-    assert (
-        _run(
-            "deep-step",
-            "--progress-file",
-            str(progress_path),
-            "--result-file",
-            str(result),
-        )
-        == 1
-    )
-    assert seed.read_text(encoding="utf-8") == "newer user edit\n"
-
-
 # ---------------------------------------------------------------------------
 # _progress_path_for_skill (default-path resolution)
 # ---------------------------------------------------------------------------
@@ -3396,6 +3343,22 @@ class TestMarkTermination:
         assert data["termination"]["reason"] == "parse-failure"
         assert "two consecutive" in data["termination"]["message"]
 
+    def test_blocked_is_a_recordable_reason(self, tmp_path):
+        # The coverage loop's blocked gate (no test framework, red baseline) has
+        # to be recordable, or the final report names no cause at all.
+        ppath = _seed_deep_progress(tmp_path)
+        exit_code = _run(
+            "mark-termination",
+            "--progress-file",
+            str(ppath),
+            "--reason",
+            "blocked",
+            "--message",
+            "no test framework detected",
+        )
+        assert exit_code == 0
+        assert _read_progress(ppath)["termination"]["reason"] == "blocked"
+
     def test_rejects_unknown_reason(self, tmp_path):
         ppath = _seed_deep_progress(tmp_path)
         with pytest.raises(SystemExit):
@@ -3747,22 +3710,6 @@ class TestFinalReport:
         assert "not-archived" in out
         assert ppath.exists()
         assert not (tmp_path / "progress.done.json").exists()
-
-    def test_blocked_is_a_recordable_reason(self, tmp_path):
-        # The coverage loop's blocked gate (no test framework, red baseline) has
-        # to be recordable, or the final report names no cause at all.
-        ppath = _seed_deep_progress(tmp_path)
-        exit_code = _run(
-            "mark-termination",
-            "--progress-file",
-            str(ppath),
-            "--reason",
-            "blocked",
-            "--message",
-            "no test framework detected",
-        )
-        assert exit_code == 0
-        assert _read_progress(ppath)["termination"]["reason"] == "blocked"
 
     def test_blocked_not_archived(self, tmp_path, capsys, monkeypatch):
         # blocked is a soft exit on a prerequisite the USER can fix. Archiving

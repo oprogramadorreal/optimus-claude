@@ -239,30 +239,6 @@ class TestCommitCheckpoint:
         assert "errored" in capsys.readouterr().out
 
 
-def _git(cwd, *args):
-    """Run a git command in ``cwd``, raising on failure."""
-    subprocess.run(
-        ["git", *args],
-        cwd=str(cwd),
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-        check=True,
-    )
-
-
-def _head(cwd):
-    return subprocess.run(
-        ["git", "rev-parse", "HEAD"],
-        cwd=str(cwd),
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-    ).stdout.strip()
-
-
 def test_no_fix_iteration_with_untracked_progress_is_nothing_to_commit(tmp_path):
     """Real-repo regression for the masked commit-checkpoint bug.
 
@@ -274,13 +250,8 @@ def test_no_fix_iteration_with_untracked_progress_is_nothing_to_commit(tmp_path)
     that would durably disable checkpoints. A mocked test masked this; only a
     real git repo exercises the actual git phrasing.
     """
-    _git(tmp_path, "init")
-    _git(tmp_path, "config", "user.email", "t@t.test")
-    _git(tmp_path, "config", "user.name", "t")
-    (tmp_path / "file.txt").write_text("hello\n", encoding="utf-8")
-    _git(tmp_path, "add", "file.txt")
-    _git(tmp_path, "commit", "-m", "base")
-    head_before = _head(tmp_path)
+    _init_repo(tmp_path)
+    head_before = _run_git(tmp_path, "rev-parse", "HEAD").stdout.strip()
 
     # Simulate a no-fix iteration: the only tree change is the untracked,
     # NON-gitignored progress file (this scratch repo has no .gitignore).
@@ -292,7 +263,8 @@ def test_no_fix_iteration_with_untracked_progress_is_nothing_to_commit(tmp_path)
         "chore: checkpoint", tmp_path, ".claude/code-review-deep-progress.json"
     )
     assert status == COMMIT_NOTHING
-    assert _head(tmp_path) == head_before  # no checkpoint commit was created
+    head_after = _run_git(tmp_path, "rev-parse", "HEAD").stdout.strip()
+    assert head_after == head_before  # no checkpoint commit was created
 
 
 class TestGitRestoreTo:

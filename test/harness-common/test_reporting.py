@@ -1,6 +1,7 @@
 import pytest
 from harness_common.reporting import (
     _SHELL_FENCE_LANGS,
+    _print_rollback_footer,
     build_coverage_commit_body,
     build_deep_commit_body,
     detect_test_command,
@@ -9,6 +10,19 @@ from harness_common.reporting import (
     print_coverage_report,
     print_deep_report,
 )
+
+
+@pytest.fixture
+def claude_md_dir(tmp_path):
+    """tmp_path with .claude/CLAUDE.md containing a test command."""
+    claude_dir = tmp_path / ".claude"
+    claude_dir.mkdir()
+    claude_md = claude_dir / "CLAUDE.md"
+    claude_md.write_text(
+        "# Project\n\n## Commands\n\n```bash\nnpm test  # Run tests\n```\n",
+        encoding="utf-8",
+    )
+    return tmp_path
 
 
 class TestDetectTestCommand:
@@ -407,3 +421,14 @@ def test_coverage_report_counts_numeric_string_test_counts(capsys, monkeypatch):
         }
     )
     assert "4 tests in 1 files" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("mode", ["no_commit", "commit_disabled"])
+def test_uncommitted_report_never_suggests_destructive_rollback(mode, capsys):
+    progress = {"config": {"base_commit": "abc123"}}
+    (progress["config"] if mode == "no_commit" else progress)[mode] = True
+    _print_rollback_footer(progress, True)
+    output = capsys.readouterr().out
+    assert "uncommitted" in output
+    assert "reset --hard" not in output
+    assert "rebase" not in output

@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 
 import pytest
-from harness_common import cli, git, reporting
+from harness_common import cli, git
 from harness_common.runner import _find_bash, bash_environment
 
 
@@ -616,17 +616,6 @@ def test_fresh_init_ignores_prior_harness_state(tmp_path):
     assert cli.main([*init, str(progress)]) == 0  # an archived prior run
 
 
-@pytest.mark.parametrize("mode", ["no_commit", "commit_disabled"])
-def test_uncommitted_report_never_suggests_destructive_rollback(mode, capsys):
-    progress = {"config": {"base_commit": "abc123"}}
-    (progress["config"] if mode == "no_commit" else progress)[mode] = True
-    reporting._print_rollback_footer(progress, True)
-    output = capsys.readouterr().out
-    assert "uncommitted" in output
-    assert "reset --hard" not in output
-    assert "rebase" not in output
-
-
 def _nested_repository_fixture(tmp_path, kind="submodule"):
     root = tmp_path / "project"
     root.mkdir()
@@ -903,3 +892,34 @@ def test_hidden_grandchild_edits_cannot_bypass_capture_or_restore(tmp_path):
         git.git_restore_to(head, root)
     assert (root / "app.txt").read_bytes() == b"user GOOD\n"
     assert (leaf / "app.txt").read_bytes() == b"hidden leaf GOOD\n"
+
+
+def test_failed_snapshot_preserves_work_and_invalidates_dispatch(tmp_path):
+    _init_repo(tmp_path)
+    app = tmp_path / "app.txt"
+    app.write_bytes(b"first user edit\n")
+    notes = tmp_path / "user-notes.txt"
+    notes.write_bytes(b"untracked user work\n")
+    progress = tmp_path / ".claude" / "code-review-deep-progress.json"
+    init = ["init", "--skill", "code-review", "--project-dir", str(tmp_path)]
+    init += ["--test-command", "echo ok", "--no-commit", "--progress-file"]
+    assert cli.main([*init, str(progress)]) == 0
+    assert _cmd(progress, "snapshot") == 0
+    recovery = json.loads(progress.read_text(encoding="utf-8"))["_snapshot"]
+    app.write_bytes(b"newer user edit\n")
+    index = tmp_path / ".git" / "index"
+    original_index = index.read_bytes()
+    lock = tmp_path / ".git" / "index.lock"
+    lock.write_bytes(b"fixture lock")
+    try:
+        assert _cmd(progress, "snapshot") == 1
+    finally:
+        lock.unlink()
+    snap = json.loads(progress.read_text(encoding="utf-8"))["_snapshot"]
+    assert snap["pre_stash"] == recovery["pre_stash"]
+    assert "iteration_token" not in snap
+    assert app.read_bytes() == b"newer user edit\n"
+    assert notes.read_bytes() == b"untracked user work\n"
+    assert index.read_bytes() == original_index
+    assert _cmd(progress, "deep-step", "--result-file", _result(tmp_path, {})) == 1
+    assert app.read_bytes() == b"newer user edit\n"
