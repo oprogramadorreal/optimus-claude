@@ -42,6 +42,7 @@ Return your findings in this exact structure:
 - **Project name:** [from manifest or README]
 - **Tech stack:** [languages, frameworks]
 - **Package manager:** [detected from lock files / config]
+- **Unsupported stack:** [language + the unrecognized manifest or lock file | none]
 - **Build command:** [prefixed with package manager]
 - **Test command:** [prefixed with package manager]
 - **Lint command:** [prefixed with package manager]

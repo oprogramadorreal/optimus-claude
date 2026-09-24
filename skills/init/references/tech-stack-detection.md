@@ -16,7 +16,7 @@ Shared detection tables for identifying project type and package manager from ma
 | CMakeLists.txt, Makefile | C/C++ | cmake, make |
 | Gemfile | Ruby | bundler |
 | pubspec.yaml | Dart/Flutter | pub |
-| (other manifest file) | Detect language from file contents | Apply the unsupported-stack fallback (`unsupported-stack-fallback.md`, sibling file) with the detected language |
+| (other manifest file) | Detect language from file contents | Report it as unsupported — the calling skill runs its fallback |
 
 ### .NET note
 
@@ -42,7 +42,7 @@ Determines command prefixes for all generated commands.
 | Dart/Flutter | `pubspec.yaml` has Flutter SDK dependency (`dependencies.flutter.sdk: flutter`) | flutter (prefix commands with `flutter`) |
 | Dart/Flutter | `pubspec.yaml` without Flutter SDK dependency (pure Dart package) | dart (prefix commands with `dart`) |
 
-If a lock file doesn't match any row and the package manager was not already determined by manifest detection, apply the unsupported-stack fallback (`unsupported-stack-fallback.md`) to identify it via web search.
+If a lock file matches no row and manifest detection did not settle the package manager, report it as unsupported — the calling skill runs its fallback.
 
 ## Runtime Version Constraint Fields
 

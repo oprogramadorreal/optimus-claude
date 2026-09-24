@@ -50,7 +50,7 @@ If detection reports the structure as **ambiguous**, resolve via `AskUserQuestio
 
 ### Checkpoint
 
-Print the **Detection Results**. If a field of its return format came back empty or absent (project name through Gotchas), fill that specific gap yourself — don't re-run the detection the agent just did. An empty **Gotchas** list is a legitimate answer, not a gap: fill it only if you already know of one this project has. If no test infrastructure was detected, append:
+If detection reports an **Unsupported stack**, first run steps 1-3 of `$CLAUDE_PLUGIN_ROOT/skills/init/references/unsupported-stack-fallback.md` to find its package manager and build/test/lint commands; the Detection gate below is its step-4 approval. Print the **Detection Results**. If a field of its return format came back empty or absent (project name through Gotchas), fill that specific gap yourself — don't re-run the detection the agent just did. An empty **Gotchas** list is a legitimate answer, not a gap: fill it only if you already know of one this project has. If no test infrastructure was detected, append:
 
 > **Tests:** No test framework, test script, or test directory detected — Step 5b will offer to install one. Strongly recommended: multiple optimus skills depend on test infrastructure.
 
