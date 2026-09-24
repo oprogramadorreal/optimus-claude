@@ -96,7 +96,7 @@ def detect_test_command(project_root, content=None):
 def format_finding_line(finding):
     location = f"{finding.get('file', '?')}:{finding.get('line', '?')}"
     category = finding.get("category", "unknown")
-    summary = finding.get("summary", "").replace("\n", " ").replace("\r", "")
+    summary = str(finding.get("summary") or "").replace("\n", " ").replace("\r", "")
     if len(summary) > 72:
         summary = summary[:69] + "..."
     return f"- {location} [{category}] {summary}"
@@ -235,11 +235,12 @@ def print_deep_report(progress):
             file_location = f"{finding['file']}:{finding.get('line', '?')}"
             if len(file_location) > 40:
                 file_location = "..." + file_location[-37:]
-            summary = finding["summary"][:40]
+            summary = str(finding.get("summary") or "")[:40]
             iter_num = finding.get("iteration_discovered", "?")
             print(
                 f"  {row_num:<4} {iter_num:<5} {file_location:<40} "
-                f"{finding['category']:<15} {summary:<40} {finding['status']}"
+                f"{str(finding.get('category') or ''):<15} {summary:<40} "
+                f"{finding['status']}"
             )
     _print_rollback_footer(progress, total_fixed > 0)
 
@@ -251,7 +252,11 @@ def print_coverage_report(progress):
     baseline = coverage.get("baseline")
     current = coverage.get("current")
     tests = kept_tests(progress)
-    total_tests = sum(t.get("test_count", 0) for t in tests)
+    total_tests = sum(
+        int(count)
+        for count in (str(t.get("test_count", "")) for t in tests)
+        if count.isdecimal()
+    )
     total_files = len({t.get("file") for t in tests})
     untestable = [
         u for u in progress.get("untestable_code", []) if u.get("status") != "attempted"

@@ -7,6 +7,7 @@ from harness_common.reporting import (
     format_finding_line,
     format_section,
     print_coverage_report,
+    print_deep_report,
 )
 
 
@@ -375,3 +376,46 @@ def test_coverage_report_counts_only_kept_tests_and_pending_items(capsys, monkey
     out = capsys.readouterr().out
     assert "7 tests in 1 files" in out
     assert "Still untestable: 1" in out
+
+
+@pytest.mark.parametrize("field", ["summary", "category"])
+def test_null_finding_scalars_do_not_crash_reports(capsys, monkeypatch, field):
+    # The runtime validator checks only the envelope, so a subagent can store a
+    # finding with a null summary or category; the report and commit body must
+    # still render.
+    monkeypatch.setattr("harness_common.reporting.git_current_branch", lambda _cwd: "")
+    finding = {
+        "file": "a.py",
+        "line": 1,
+        "category": "Bug",
+        "summary": "s",
+        "status": "fixed",
+        "iteration_last_attempted": 1,
+        field: None,
+    }
+    assert format_finding_line(finding).startswith("- a.py:1")
+    assert "a.py:1" in build_deep_commit_body({"findings": [finding]}, iteration=1)
+    print_deep_report(
+        {
+            "skill": "code-review",
+            "config": {"project_root": ".", "base_commit": "abc1234"},
+            "iteration": {"completed": 1},
+            "findings": [finding],
+            "test_results": {"last_full_run": "pass"},
+        }
+    )
+    assert "a.py:1" in capsys.readouterr().out
+
+
+def test_coverage_report_counts_numeric_string_test_counts(capsys, monkeypatch):
+    monkeypatch.setattr("harness_common.reporting.git_current_branch", lambda _cwd: "")
+    print_coverage_report(
+        {
+            "config": {"project_root": ".", "base_commit": "abc1234"},
+            "cycle": {"completed": 1},
+            "coverage": {"baseline": None, "current": None, "history": []},
+            "tests_created": [{"file": "t.py", "test_count": "4", "status": "pass"}],
+            "test_results": {"last_full_run": "pass"},
+        }
+    )
+    assert "4 tests in 1 files" in capsys.readouterr().out

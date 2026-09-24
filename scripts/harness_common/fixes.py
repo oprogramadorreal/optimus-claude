@@ -15,7 +15,9 @@ def _is_path_within(filepath, root):
 def _swap_content(fix, cwd, source_field, target_field):
     """Swap one content string for another in a file."""
     # Normalize path separators for cross-platform compatibility
-    fix_file = normalize_path(fix["file"])
+    fix_file = normalize_path(fix.get("file"))
+    if not fix_file:
+        return False
     filepath = (Path(cwd) / fix_file).resolve()
     cwd_resolved = Path(cwd).resolve()
     if not _is_path_within(filepath, cwd_resolved):

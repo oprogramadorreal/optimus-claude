@@ -1382,12 +1382,12 @@ def cmd_unit_test_step(args):
         for u in progress["untestable_code"]
     }
     for item in result.get("untestable_code") or []:
-        if not item.get("file"):
+        item_file = normalize_path(item.get("file"))
+        if not item_file:
             # A file-less untestable item can never be scoped to a refactor or
             # marked attempted, so storing it would inflate pending-refactor-count
             # and waste a refactor dispatch every cycle. Skip it.
             continue
-        item_file = normalize_path(item["file"])
         key = (item_file, normalize_line(item.get("line")), item.get("function"))
         if key in existing_keys:
             continue

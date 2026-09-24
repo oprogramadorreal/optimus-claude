@@ -96,5 +96,9 @@ DEEP_TARGETS = {
 
 
 def normalize_path(path_str):
-    """Normalize path separators for cross-platform compatibility."""
-    return path_str.replace("\\", "/")
+    """Normalize path separators for cross-platform compatibility.
+
+    A non-string (a subagent's ``"file": null`` or a number) is no path, the
+    same as an omitted ``file``.
+    """
+    return path_str.replace("\\", "/") if isinstance(path_str, str) else ""

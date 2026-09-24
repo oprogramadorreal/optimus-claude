@@ -3,6 +3,7 @@ from harness_common.constants import APPLIED_PENDING_TEST
 from harness_common.findings import (
     _escalate_revert_status,
     _truncate_failure_hint,
+    finding_key,
     finding_matches,
     mark_all_fixed,
     mark_finding_status,
@@ -76,6 +77,10 @@ class TestFindingMatches:
         finding = {"file": "src/a.js", "line": 10, "category": "bug"}
         fix = {"file": "src/a.js"}
         assert finding_matches(finding, fix) is False
+
+    def test_non_string_file_keys_like_a_missing_one(self):
+        assert finding_key({"file": None}) == finding_key({})
+        assert finding_key({"file": 5}) == finding_key({})
 
     def test_matches_across_path_separator_and_line_type(self):
         finding = {"file": "src\\a.js", "line": "10", "category": "bug"}

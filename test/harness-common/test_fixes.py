@@ -165,6 +165,10 @@ class TestSwapContent:
 
 
 class TestApplySingleFix:
+    def test_fix_without_file_is_refused(self, tmp_path):
+        fix = {"pre_edit_content": "a", "post_edit_content": "b"}
+        assert apply_single_fix(fix, str(tmp_path)) is False
+
     def test_applies_pre_to_post(self, tmp_path):
         f = tmp_path / "src.js"
         f.write_text("obj.value", encoding="utf-8")
