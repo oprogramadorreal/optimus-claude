@@ -1,5 +1,5 @@
 ---
-description: Bootstraps a project for Claude Code or Codex — generates routed project guidance from detected structure, reconciles existing docs, and offers test infrastructure. Claude Code can also install formatter hooks. Writes under .claude/ and subproject docs/, preserving existing user guidance through review and recorded ownership. Use for initial setup or upgrades.
+description: Bootstraps a project for Claude Code or Codex — generates routed project guidance from detected structure, reconciles existing docs, and offers test infrastructure. Claude Code can also install formatter hooks. Writes .claude/, CLAUDE.md, AGENTS.md and subproject docs/; may append to README/.gitignore and, with approval, install dev dependencies. Preserves existing guidance through review and recorded ownership. Use for initial setup or upgrades.
 disable-model-invocation: true
 ---
 
