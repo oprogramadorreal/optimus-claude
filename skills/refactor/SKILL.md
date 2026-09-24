@@ -56,7 +56,7 @@ When you do fan out, launch all 4 agents as `general-purpose` Agent tool calls i
 | 3 — Consistency Analyzer | `agents/consistency-analyzer.md` | Cross-file duplication, inconsistency, drift |
 | 4 — Code Simplifier | `agents/code-simplifier.md` | Unnecessary complexity, naming, dead code |
 
-Read the prompt files from `$CLAUDE_PLUGIN_ROOT/skills/refactor/agents/` (shared rules and the canonical output format live in `agents/shared-constraints.md`) and give every agent the Step 3 scope — the file list when the scope is a file set (changed-since, or `scope_files.current` under harness), otherwise the ranked areas. Construct Agent 1's prompt dynamically from Step 3's doc-loading results (single-project vs monorepo paths). Assemble each prompt per "Prompt assembly at dispatch time" in `$CLAUDE_PLUGIN_ROOT/references/agent-architecture.md`: substitute the resolved absolute plugin root for every `$CLAUDE_PLUGIN_ROOT` reference and inline or absolutize the bare `shared-constraints.md` reference. Wait for all 4 to complete.
+Read the prompt files from `$CLAUDE_PLUGIN_ROOT/skills/refactor/agents/` (shared rules and the canonical output format live in `agents/shared-constraints.md`) and give every agent the Step 3 scope — the file list when the scope is a file set (changed-since, or `scope_files.current` under harness), otherwise the ranked areas. Construct Agent 1's prompt dynamically from Step 3's doc-loading results (single-project vs monorepo paths). Assemble each prompt per "Prompt assembly at dispatch time" in `$CLAUDE_PLUGIN_ROOT/references/agent-architecture.md`. Wait for all 4 to complete.
 
 ## Step 5: Validate findings and present the plan
 
@@ -66,7 +66,7 @@ Keep **High**-confidence findings and keep **Medium** with a note.
 
 **Deduplicate and resolve:** same file/line-range/category from two agents → keep the more detailed version; an Agent 1 + Agent 3 overlap → merge and note "confirmed by independent review". When two agents contradict each other on the same region, decide on the evidence in the code and say which you kept and why.
 
-**Cap:** at most **15 findings**, each a distinct root cause — never pad. With an active focus, rank that category first and let only high-severity findings from the others take the remaining slots; without a focus, rank by severity then confidence across all categories. If more issues exist, disclose it ("15 of ~24 detected") and suggest a narrower scope or `/optimus:deep refactor`.
+**Cap:** at most **15 findings**, each a distinct root cause — never pad. With an active focus, rank that category first and let only high-severity findings from the others take the remaining slots; without a focus, rank by severity then confidence across all categories. If more issues exist or the scope was too broad to analyze fully, disclose it ("15 of ~24 detected") and suggest a narrower scope or `/optimus:deep refactor`.
 
 ### Output format
 
@@ -111,6 +111,5 @@ Close with a final summary: scope analyzed, changes applied/skipped/reverted (wi
 ## Important
 
 - Outside harness mode, never modify files, commit, or push without explicit user approval — all changes stay local for `git diff` review. Under `HARNESS_MODE_INLINE` the orchestrator holds that approval and Step 2's protocol governs instead.
-- When the scope is too broad for effective analysis, recommend narrowing it
 
 If fixes were applied, recommend `/optimus:commit` next — the user should stay in this conversation so the implementation context is captured — then `/optimus:unit-test` in a fresh conversation to cover the restructured code. For iterative refactoring in an automated loop, mention `/optimus:deep refactor` (requires a test command in `.claude/CLAUDE.md`).

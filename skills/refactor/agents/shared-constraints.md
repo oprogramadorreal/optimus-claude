@@ -5,7 +5,6 @@ Read `$CLAUDE_PLUGIN_ROOT/references/shared-agent-constraints.md` for the base c
 Refactor addendums:
 
 - Analyze the provided files, or the source files in the provided areas.
-- Every suggested fix must be concrete and demonstrable.
 - Scope-expansion carve-out: cross-file consistency findings are a primary goal of refactor — report them even when the related file lies outside the original scope (the base rule's 3-extra-files-per-finding limit still applies).
 
 ## Output format
