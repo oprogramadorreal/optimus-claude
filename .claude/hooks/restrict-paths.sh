@@ -1317,7 +1317,9 @@ check_git_command() {
       # Delegate to check_git_push with tokens after "git push"
       check_git_push "${tokens[@]:$((git_subcmd_idx+1))}"
       ;;
-    commit|merge)
+    # cherry-pick/revert/am create commits on the checked-out branch exactly
+    # like commit, so they share its block.
+    commit|merge|cherry-pick|revert|am)
       current_branch="$(get_current_branch "$git_repo_dir")" || return 0
       [[ "$current_branch" == "HEAD" ]] && return 0
       if is_protected_branch "$current_branch"; then

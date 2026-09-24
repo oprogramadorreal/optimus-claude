@@ -79,7 +79,7 @@ For structured tools the hook validates the `file_path` field directly — it ca
 
 ### Branch protection
 
-History-modifying git operations (`commit`, `push`, `rebase`, `merge`, `restore`, `checkout --`, `branch -D`, ...) are allowed on feature branches but **blocked on protected branches** (default: master, main, develop, dev, development, staging, stage, prod, production, release). Creating new branches (`checkout -b`, `switch -c`) is always allowed — enabling a feature-branch + pull-request workflow. Customize the `PROTECTED_BRANCHES` array in `.claude/hooks/restrict-paths.sh`.
+History-modifying git operations (`commit`, `cherry-pick`, `revert`, `push`, `rebase`, `merge`, `restore`, `checkout --`, `branch -D`, ...) are allowed on feature branches but **blocked on protected branches** (default: master, main, develop, dev, development, staging, stage, prod, production, release). Creating new branches (`checkout -b`, `switch -c`) is always allowed — enabling a feature-branch + pull-request workflow. Customize the `PROTECTED_BRANCHES` array in `.claude/hooks/restrict-paths.sh`.
 
 ### Precious file protection (always on)
 

@@ -1072,6 +1072,10 @@ assert_decision "Bundled -Df branch delete denied"     DENY  "$(rp_git_decision 
 assert_decision "Bundled -Df feature delete allowed"   ALLOW "$(rp_git_decision 'git branch -Df feature-x')"
 assert_decision "Commit with quoted message still guarded" DENY \
   "$(rp_git_decision 'git commit -m \"fix: something\"')"
+# cherry-pick/revert/am create commits exactly like 'commit' — same block.
+assert_decision "cherry-pick on protected denied" DENY "$(rp_git_decision 'git cherry-pick abc123')"
+assert_decision "revert on protected denied"      DENY "$(rp_git_decision 'git revert HEAD')"
+assert_decision "am on protected denied"          DENY "$(rp_git_decision 'git am patch.mbox')"
 
 echo "[restrict-paths: command-parsing bypasses]"
 # Every case here is the SAME command a plain-spelling assertion above already
