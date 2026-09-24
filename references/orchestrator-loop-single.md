@@ -55,12 +55,7 @@ Agent tool call:
 
 ### 3. Save the subagent return to a temp file
 
-Write the subagent's final message text to a temp file **verbatim** — never summarize, abbreviate, or re-type any part of it: the `pre_edit_content`/`post_edit_content` strings inside the JSON are the bisect's apply/revert data, and a corrupted copy makes its fix unrecoverable (`skipped — apply failed`). Saving to a file also keeps the raw output out of the orchestrator's parent context:
-
-```bash
-TMP_RAW=".claude/.deep-iteration-raw.txt"
-TMP_RESULT=".claude/.deep-iteration-result.json"
-```
+Write the subagent's final message text to `.claude/.deep-iteration-raw.txt` **verbatim** — never summarize, abbreviate, or re-type any part of it: the `pre_edit_content`/`post_edit_content` strings inside the JSON are the bisect's apply/revert data, and a corrupted copy makes its fix unrecoverable (`skipped — apply failed`). Saving to a file also keeps the raw output out of the orchestrator's parent context. Step 4 writes the extracted JSON to `.claude/.deep-iteration-result.json`.
 
 These files must live in `.claude/` and carry these exact filename prefixes (`.deep-iteration-` and `.unit-test-deep-`) — the checkpoint commit's un-stage step (`commit_checkpoint` in `scripts/harness_common/git.py`) matches the `.claude/`-anchored patterns `.claude/.deep-iteration-*` and `.claude/.unit-test-deep-*` to keep harness state out of the commit, and `final-report`'s scratch cleanup only sweeps the progress file's own directory.
 
@@ -68,8 +63,8 @@ These files must live in `.claude/` and carry these exact filename prefixes (`.d
 
 ```bash
 PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli parse \
-    --input-file "$TMP_RAW" \
-    --output-file "$TMP_RESULT" \
+    --input-file ".claude/.deep-iteration-raw.txt" \
+    --output-file ".claude/.deep-iteration-result.json" \
     --progress-file "<progress-path>"
 ```
 
@@ -80,10 +75,10 @@ Errors on missing `json:harness-output` block. Passing `--progress-file` lets th
 ```bash
 PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli deep-step \
     --progress-file "<progress-path>" \
-    --result-file "$TMP_RESULT"
+    --result-file ".claude/.deep-iteration-result.json"
 ```
 
-This single subcommand: promotes actionable fixes, registers findings, runs tests, bisects on failure, updates per-finding statuses, appends iteration history, widens scope, and writes the result. Its stdout is one of:
+This single subcommand: promotes actionable fixes, registers findings, runs tests, bisects on failure, updates per-finding statuses, appends iteration history, widens scope, and writes the result. Its last stdout line is one of:
 
 | Output | Meaning |
 |---|---|
@@ -103,8 +98,8 @@ Returns `committed`, `nothing-to-commit`, `commit-skipped`, or `commit-failed`. 
 ### 7. Check termination
 
 ```bash
-TERMINATION=$(PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli check-termination \
-    --progress-file "<progress-path>")
+PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli check-termination \
+    --progress-file "<progress-path>"
 ```
 
 Possible values: `continue`, `convergence`, `no-actionable`, `all-reverted`, `cap`, `diminishing-returns`, `parse-failure`. If the value is anything other than `continue`, exit the loop.
@@ -133,7 +128,7 @@ The CLI's `parse` subcommand can exit nonzero for malformed output, input/output
 
 For an ordinary malformed-output failure, inspect stderr and only the progress fields `_snapshot` and `_safety_error` needed to confirm recovery. Continue only when the snapshot belongs to this iteration, rollback succeeded, and no safety error is recorded. A rollback failure or an unexpected input/output error stops the loop under **Command failures** above; a parse exit code of 1 alone does not prove recovery.
 
-After a single successfully recovered malformed-output failure, warn the user and skip steps 5–6 — `parse` only rewrites `$TMP_RESULT` on success, so it may still hold the previous iteration's JSON and `deep-step` would silently re-process it. Continue at step 7 (`check-termination`) then step 8 (`advance`). On two consecutive failures, `check-termination` returns `parse-failure`; exit the loop and surface the error for the user to investigate.
+After a single successfully recovered malformed-output failure, warn the user and skip steps 5–6 — `parse` only rewrites the result file on success, so it may still hold the previous iteration's JSON and `deep-step` would silently re-process it. Continue at step 7 (`check-termination`) then step 8 (`advance`). On two consecutive failures, `check-termination` returns `parse-failure`; exit the loop and surface the error for the user to investigate.
 
 The counter lives in the progress file under `parse_failure_count`, resets to 0 on every successful parse, and survives `--resume`.
 
