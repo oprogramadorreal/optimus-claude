@@ -12,10 +12,10 @@ Evaluate in order; first match wins. Run this regardless of whether the user als
 
 3. **JIRA context auto-discovery** — if no build spec resolved (none found, or the user ignored it) but `docs/jira/` exists with `.md` files, read each file's YAML frontmatter and select the one with the most recent `description-refresh-date` field. Present it via `AskUserQuestion` — question "Found JIRA context `<path>` — use it as the basis?", header "JIRA context", options "Use it" / "Ignore — describe a different task". If that date is older than 7 days, add a note to the question: "(This context is [N] days old — you may want to re-run `/optimus:jira` for fresh data.)" JIRA context provides Goal and Acceptance Criteria as the task description.
 
-4. **No context found** — fall back to the consuming skill's own task gathering (inline argument, else `AskUserQuestion`).
+4. **No context found** — fall back to the consuming skill's own task gathering (inline argument, else ask the user).
 
 ## Distillation
 
-Apply this to the **final task description, whatever its source** — a spec or JIRA context resolved by the cascade above, *or* a long task the user pasted inline (or supplied via the consuming skill's fallback `AskUserQuestion`). If it is longer than ~2-3 sentences (e.g., a pasted spec, JIRA ticket, or acceptance-criteria list), distill it into a **single-sentence goal** and confirm with `AskUserQuestion` — header "Distilled goal", question "I've distilled your spec to: '[single-sentence summary]'. Is this accurate?":
+Apply this to the **final task description, whatever its source** — a spec or JIRA context resolved by the cascade above, *or* a long task the user pasted inline (or supplied via the consuming skill's fallback question). If it is longer than ~2-3 sentences (e.g., a pasted spec, JIRA ticket, or acceptance-criteria list), distill it into a **single-sentence goal** and confirm with `AskUserQuestion` — header "Distilled goal", question "I've distilled your spec to: '[single-sentence summary]'. Is this accurate?":
 - **Looks good** — "Proceed with this goal"
 - **Adjust** — "Let me refine the focus"

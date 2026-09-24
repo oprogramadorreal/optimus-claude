@@ -45,7 +45,7 @@ Then find a coverage command — first match wins: the coverage section of `test
 
 ## Step 2: Task and Suitability
 
-Resolve the task with the cascade in `$CLAUDE_PLUGIN_ROOT/skills/tdd/references/spec-context-detection.md`. If nothing resolves and no inline argument was given, use `AskUserQuestion` — header "TDD scope", question "What feature or bug fix do you want to implement with TDD?", options **New feature** / **Bug fix**. Whatever the source, apply the reference's **Distillation** step to the final description. Resolved context feeds this step — it does not bypass Step 3 decomposition (except the scenario-driven shortcut).
+Resolve the task with the cascade in `$CLAUDE_PLUGIN_ROOT/skills/tdd/references/spec-context-detection.md`. If nothing resolves and no inline argument was given, ask in plain text what feature or bug fix to implement. Whatever the source, apply the reference's **Distillation** step to the final description. Resolved context feeds this step — it does not bypass Step 3 decomposition (except the scenario-driven shortcut).
 
 Classify the task:
 
