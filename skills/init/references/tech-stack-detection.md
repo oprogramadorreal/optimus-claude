@@ -44,17 +44,6 @@ Determines command prefixes for all generated commands.
 
 If a lock file matches no row and manifest detection did not settle the package manager, report it as unsupported — the calling skill runs its fallback.
 
-## Runtime Version Constraint Fields
-
-These manifest fields specify runtime version constraints — used by how-to-run for Prerequisites sections:
-
-| Manifest | Field | Example |
-|----------|-------|---------|
-| package.json | `engines.node` | `">=18"` |
-| pyproject.toml | `project.requires-python` / `python_requires` | `">=3.11"` |
-| Cargo.toml | `rust-version` | `"1.75"` |
-| pubspec.yaml | `environment.sdk` | `">=3.0.0 <4.0.0"` |
-
 ## Command Prefix Rules
 
 Use the detected package manager for all generated commands — e.g., `pnpm run build` not `npm run build`; `uv run pytest` not bare `pytest`; `flutter test` not `dart test` in Flutter projects.
