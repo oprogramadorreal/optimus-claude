@@ -71,7 +71,7 @@ The orchestrator owns all test execution and bisection — running them here wou
 
 ### 8. Output structured JSON
 
-At the end of the response, emit the iteration results in one `json:harness-output` fenced block.
+Make your final message exactly one `json:harness-output` fenced block and nothing else — the orchestrator copies that message verbatim.
 
 Read `$CLAUDE_PLUGIN_ROOT/references/schemas/harness-output.schema.json` — it is the contract, and it carries field names, types, which fields are required, the enums, and what `no_actionable_fixes` means. `$CLAUDE_PLUGIN_ROOT/test/harness-common/fixtures/harness-output.golden.json` is a complete worked instance to copy the shape from.
 
