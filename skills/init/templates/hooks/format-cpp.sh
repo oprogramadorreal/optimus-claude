@@ -15,8 +15,6 @@ case "$file_path" in
   *) exit 0 ;;
 esac
 
-if command -v clang-format &>/dev/null; then
-  if ! output=$(clang-format -i "$file_path" 2>&1); then
-    echo "[format-cpp] clang-format failed: $(echo "$output" | head -1)" >&2
-  fi
+if ! output=$(clang-format -i "$file_path" 2>&1); then
+  echo "[format-cpp] clang-format failed: $(echo "$output" | head -1)" >&2
 fi
