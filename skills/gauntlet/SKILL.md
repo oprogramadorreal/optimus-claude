@@ -105,18 +105,18 @@ Each critic compares ours against the bar unlabeled — blind A/B when the
 artifacts allow it, side by side otherwise; never an older and a newer
 version of our own work, which measures the round, not the bar — and writes
 its verdict to its own file under `.claude/gauntlet/`, named by piece and
-round, ending with one of two final lines: exactly **beats the bar**, or the
+round, ending with one of two final lines: exactly `beats the bar`, or the
 single biggest remaining gap, which goes back for another round. A gap is a
 way the bar beats ours; checks the bar cannot show — interaction,
 robustness, window sizes — belong in the remit from round one or in the test
 suite, never added round by round. The progress page copies every verdict
-from its file. A piece is done when its critic's file reads *beats the bar*.
+from its file. A piece is done when its critic's file reads `beats the bar`.
 
 Pieces that individually beat the bar can still disagree with each other, so
 when every piece is done, a fresh integration critic judges the assembled
 whole against the same bar, and any gap it names goes back for another round,
 judged again by a fresh integration critic. The run ends when the integration
-critic returns *beats the bar* or when the user stops it — and in practice it
+critic returns `beats the bar` or when the user stops it — and in practice it
 is usually the second. Never treat a plateau as completion: if a piece's last two rounds
 close no gap its critic can still name, report the plateau to the user and
 keep working on the rest while they decide whether it is worth more compute.
@@ -129,8 +129,8 @@ while its tests fail.
 The run never touches the default branch: before the first edit, the lead
 agent creates and switches to a descriptively named feature branch (a
 worktree made at confirmation already is one). Each piece, then the assembled whole, is committed, with
-its verdict files and the progress page, when its critic returns *beats the
-bar* and the suite is green — focused commits at judged milestones, never
+its verdict files and the progress page, when its critic returns `beats the
+bar` and the suite is green — focused commits at judged milestones, never
 one giant commit at the end — and the run never pushes, merges, or opens a
 PR unless the user asked for it.
 
