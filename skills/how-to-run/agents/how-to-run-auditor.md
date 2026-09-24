@@ -22,7 +22,7 @@ Apply shared constraints from `shared-constraints.md`. You will receive the **Co
    - **Documented but unverifiable** — mentioned, but the detector has no codebase signal to confirm or refute. Classify all of these as unverifiable:
      - **codebase-signal gaps** (e.g., "Requires an NVIDIA GPU" with no CUDA/graphics flags in build files)
      - **conditional caveats** describing behavior when a prerequisite is missing (e.g., "Developers without access can still build the frontend, but custom theming will be missing")
-     - **workspace characterization sentences** describing build/deploy artifacts outside the detector's Task 0d canonical-token list (e.g., "The backend is deployed as a Windows service on the prod cluster")
+     - **workspace characterization sentences** describing build/deploy artifacts absent from the Context Detection Results' Hardware / OS Requirements list (e.g., "The backend is deployed as a Windows service on the prod cluster")
      - **team/access conventions** (e.g., "Contact X for credentials", "Requires Y group membership")
 
      Surface these separately — the user decides per item.
