@@ -23,7 +23,7 @@ The `permissions` scope removes Claude Code configuration from either host; it d
 
 ## Step 1 — Detect and inventory
 
-If `git rev-parse --is-inside-work-tree` returns `true`, resolve `git rev-parse --show-toplevel` (including linked worktrees). Otherwise apply `$CLAUDE_PLUGIN_ROOT/skills/init/references/multi-repo-detection.md`. Process each selected child repo independently; include workspace-root context files only when applicable.
+If `git rev-parse --is-inside-work-tree` returns `true`, resolve `git rev-parse --show-toplevel` (including linked worktrees). Otherwise apply `$CLAUDE_PLUGIN_ROOT/skills/init/references/multi-repo-detection.md`. Process each child repo independently; include workspace-root context files only when applicable.
 
 Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/managed-files.md` and any `.claude/.optimus-managed.json`.
 
