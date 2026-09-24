@@ -3,7 +3,7 @@ description: >-
   Generates or updates a project's HOW-TO-RUN.md — one verified document
   teaching a new developer to set up their environment and run the project
   locally. Detects toolchain, source dependencies, external services, and env
-  config via read-only agents; audits an existing file against actual project
+  config via a read-only agent; audits an existing file against actual project
   state and offers a display-only guided walkthrough. Never runs setup commands;
   writes only HOW-TO-RUN.md.
 disable-model-invocation: true
