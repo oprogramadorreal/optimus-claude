@@ -160,6 +160,20 @@ class TestRunTests:
 
     @patch("harness_common.runner.sys")
     @patch("harness_common.runner.subprocess.run")
+    def test_unix_routes_through_bash(self, mock_run, mock_sys):
+        # /bin/sh is dash on Debian/Ubuntu, which has no `source`.
+        mock_sys.platform = "linux"
+        mock_run.return_value = MagicMock(returncode=0, stdout="ok\n", stderr="")
+        run_tests("source .venv/bin/activate && pytest", "/tmp/project")
+        assert mock_run.call_args[0][0] == [
+            "bash",
+            "-c",
+            "source .venv/bin/activate && pytest",
+        ]
+        assert mock_run.call_args[1]["shell"] is False
+
+    @patch("harness_common.runner.sys")
+    @patch("harness_common.runner.subprocess.run")
     def test_custom_prefix(self, mock_run, mock_sys, capsys):
         mock_sys.platform = "linux"
         mock_run.return_value = MagicMock(returncode=0, stdout="ok\n", stderr="")

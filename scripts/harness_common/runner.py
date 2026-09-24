@@ -95,38 +95,30 @@ def bash_environment(bash, env=None, platform=None):
 def run_tests(test_command, cwd, timeout=DEFAULT_TEST_TIMEOUT, prefix="[harness]"):
     """Run the project's test command. Returns (passed: bool, output: str)."""
     print(f"{prefix} Running tests: {test_command}")
-    if sys.platform == "win32":
-        # On Windows, shell=True uses cmd.exe which misparses bash operators
-        # (&&, ||), subshells ($(...)), env vars ($VAR), and redirections (2>).
-        # Always route through bash for consistent behavior.
-        try:
-            bash = _find_bash()
-        except FileNotFoundError as exc:
-            msg = f"{exc.strerror}: {exc.filename}"
-            print(f"{prefix} {msg}")
-            return False, msg
-        effective_command = [bash, "-c", test_command]
-        environment = bash_environment(bash)
-        use_shell = False
-    else:
-        effective_command = test_command
-        use_shell = True
-        environment = None
+    # shell=True would mean cmd.exe on Windows and /bin/sh (dash on
+    # Debian/Ubuntu) elsewhere; run the documented command under bash on every
+    # platform so &&, $(...), $VAR, 2> and `source` behave as in the Bash tool.
+    try:
+        bash = _find_bash()
+    except FileNotFoundError as exc:
+        msg = f"{exc.strerror}: {exc.filename}"
+        print(f"{prefix} {msg}")
+        return False, msg
     try:
         # encoding= is mandatory: without it, text=True decodes with the locale
         # codec (cp1252 on Windows), and a single non-decodable byte in test
         # output kills the reader thread — subprocess.run returns "successfully"
         # with empty stdout/stderr, destroying all failure diagnostics.
         result = subprocess.run(
-            effective_command,
-            shell=use_shell,
+            [bash, "-c", test_command],
+            shell=False,
             capture_output=True,
             text=True,
             encoding="utf-8",
             errors="replace",
             cwd=str(cwd),
             timeout=timeout,
-            env=environment,
+            env=bash_environment(bash),
         )
     except FileNotFoundError as exc:
         # Most commonly: bash not on PATH on Windows when Git Bash is missing.
