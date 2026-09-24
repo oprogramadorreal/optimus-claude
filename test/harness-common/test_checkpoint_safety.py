@@ -268,6 +268,26 @@ def test_package_restore_preserves_sibling_work(tmp_path, mode, package_name):
         assert not _git(tmp_path, "ls-files", "--", f"{package_name}/notes.txt")
 
 
+def test_package_checkpoint_leaves_sibling_work_uncommitted(tmp_path):
+    _init_repo(tmp_path)
+    package = tmp_path / "package"
+    package.mkdir()
+    (package / "app.txt").write_bytes(b"GOOD\n")
+    _git(tmp_path, "add", "package")
+    _git(tmp_path, "commit", "-m", "package")
+    progress = _setup(package, init_repo=False)
+    (package / "app.txt").write_bytes(b"GOOD fix\n")
+    assert _cmd(progress, "baseline") == 0
+    (tmp_path / "app.txt").write_bytes(b"sibling edit\n")
+    (tmp_path / "notes.txt").write_bytes(b"sibling notes\n")
+
+    assert _cmd(progress, "commit-checkpoint") == 0
+    committed = _git(tmp_path, "show", "--name-only", "--format=", "HEAD")
+    assert committed.split() == [b"package/app.txt"]
+    assert (tmp_path / "app.txt").read_bytes() == b"sibling edit\n"
+    assert not _git(tmp_path, "ls-files", "--", "notes.txt")
+
+
 @pytest.mark.parametrize("stage_addition", [False, True])
 def test_restore_empty_tree_handles_empty_scope_and_staged_additions(
     tmp_path, stage_addition

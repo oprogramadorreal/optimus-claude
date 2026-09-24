@@ -1184,3 +1184,22 @@ class TestGitRestoreTrackedTo:
         _init_repo(tmp_path)
         with pytest.raises(RuntimeError, match="Cannot inspect restore tree"):
             git_restore_tracked_to("does-not-exist-ref", tmp_path)
+
+
+def test_package_run_branch_files_stay_package_relative(tmp_path):
+    # From a package directory the branch diff must stay inside the package
+    # and use package-relative paths: fixes.py and the scoped restore both
+    # resolve paths against the project root, not the repository top.
+    _init_repo(tmp_path)
+    _run_git(tmp_path, "update-ref", "refs/remotes/origin/main", "HEAD")
+    _run_git(tmp_path, "checkout", "-b", "feature")
+    package = tmp_path / "pkg"
+    package.mkdir()
+    (package / "a.py").write_text("x\n", encoding="utf-8")
+    (tmp_path / "tracked.txt").write_text("sibling\n", encoding="utf-8")
+    _run_git(tmp_path, "add", "-A")
+    _run_git(tmp_path, "commit", "-m", "feature")
+    assert git_discover_branch_files(package, pr_info=None) == (
+        ["a.py"],
+        "origin/main",
+    )

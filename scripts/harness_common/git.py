@@ -274,7 +274,7 @@ def git_check_nested_repositories(cwd, _run=None, *, restore_commit=None):
 def commit_checkpoint(
     commit_message, cwd, progress_file, _run=None, *, exclude_paths=()
 ):
-    """Stage all changes, un-stage harness state files, and commit.
+    """Stage all changes under cwd, un-stage harness state files, and commit.
 
     Returns one of ``COMMIT_COMMITTED`` (a checkpoint was created),
     ``COMMIT_NOTHING`` (nothing remained staged after un-staging harness
@@ -293,11 +293,8 @@ def commit_checkpoint(
     except RuntimeError as exc:
         print(f"{_PREFIX} WARNING: checkpoint refused: {exc}")
         return COMMIT_FAILED
-    add_args = ["git", "add", "-A"]
-    if exclude_paths:
-        add_args.extend(
-            ["--", ".", *(f":(exclude,literal){path}" for path in exclude_paths)]
-        )
+    add_args = ["git", "add", "-A", "--", "."]
+    add_args.extend(f":(exclude,literal){path}" for path in exclude_paths)
     add_result = _run_git_text(_run, add_args, cwd)
     if add_result.returncode != 0:
         print(f"{_PREFIX} WARNING: git add -A failed: {add_result.stderr[:200]}")
@@ -823,7 +820,7 @@ def _detect_base_branch(cwd, pr_info=_UNSET):
 def git_discover_branch_files(cwd, path_filter=None, pr_info=_UNSET):
     """Discover all files changed in the current feature branch vs. the base branch.
 
-    Returns ``(files, base_ref)`` — ``files`` is a list of repo-relative paths;
+    Returns ``(files, base_ref)`` — ``files`` lists paths relative to ``cwd``;
     ``base_ref`` is the detected base (e.g. ``"origin/main"``) or ``None`` when
     detection fails.
     """
@@ -834,7 +831,18 @@ def git_discover_branch_files(cwd, path_filter=None, pr_info=_UNSET):
     # core.quotePath=false keeps non-ASCII paths literal (UTF-8) instead of
     # octal-escaped and double-quoted, so discovered filenames match the
     # downstream normalize_path comparisons rather than being silently dropped.
-    cmd = ["git", "-c", "core.quotePath=false", "diff", "--name-only", f"{base}...HEAD"]
+    # --relative keeps a package-directory run inside its package, with paths
+    # relative to it (the frame fixes.py and the scoped restore use); it is a
+    # no-op at the repository root.
+    cmd = [
+        "git",
+        "-c",
+        "core.quotePath=false",
+        "diff",
+        "--relative",
+        "--name-only",
+        f"{base}...HEAD",
+    ]
     if path_filter:
         cmd.extend(["--", path_filter])
     try:

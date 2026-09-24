@@ -61,7 +61,7 @@
       "properties": {
         "file": {
           "type": "string",
-          "description": "Repo-relative path, forward slashes."
+          "description": "Path relative to the project root, forward slashes."
         },
         "line": { "type": "integer", "description": "1-indexed start line." },
         "end_line": {
