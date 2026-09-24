@@ -181,12 +181,3 @@ def test_tdd_saved_blob_preserves_raw_bytes_after_index_changes(git_project, ori
     assert result.stdout == original
     assert target.read_bytes() == b"cycle implementation\n"
     assert git("show", ":cycle file.txt").stdout == index_before
-
-
-def test_paired_refactor_dispatch_names_existing_field_adapter():
-    loop = (ROOT / "references/orchestrator-loop-paired.md").read_text(encoding="utf-8")
-    dispatch = loop.split("    Phase: refactor\n", 1)[1].split("```", 1)[0]
-    adapter = ROOT / "references/coverage-harness-mode.md"
-    assert "references/coverage-harness-mode.md" in dispatch
-    assert "Refactor Phase Execution" in dispatch
-    assert "## Refactor Phase Execution" in adapter.read_text(encoding="utf-8")

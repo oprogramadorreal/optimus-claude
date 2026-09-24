@@ -387,3 +387,11 @@ def test_paired_loop_resnapshots_before_refactor_phase():
         "refactor subagent so a refactor rollback does not discard the cycle's "
         "unit tests"
     )
+
+
+def test_paired_refactor_dispatch_names_existing_field_adapter():
+    loop = _read("references/orchestrator-loop-paired.md")
+    dispatch = loop.split("    Phase: refactor\n", 1)[1].split("```", 1)[0]
+    assert "references/coverage-harness-mode.md" in dispatch
+    assert "Refactor Phase Execution" in dispatch
+    assert "## Refactor Phase Execution" in _read("references/coverage-harness-mode.md")
