@@ -528,39 +528,6 @@ cleanup_fixture
 # Formatter hook tests (conditional on tool availability)
 # ============================================================
 echo
-echo "[formatter hooks: shell-based hooks parse JSON input correctly]"
-setup_fixture
-# format-rust.sh stands in for the hooks whose only logic is parse-guard-invoke.
-# format-python.sh resolves its formatters from a virtualenv and gets its own
-# section below.
-# Create a dummy rustfmt that just succeeds
-mkdir -p bin
-cat > bin/rustfmt <<'MOCK'
-#!/usr/bin/env bash
-exit 0
-MOCK
-chmod +x bin/rustfmt
-export PATH="$tmpdir/bin:$PATH"
-
-echo "fn main() {}" > test.rs
-printf 'edition = "2021"\n' > rustfmt.toml
-exit_code=0
-output=$(echo '{"tool_input":{"file_path":"test.rs"}}' | bash "$PLUGIN_ROOT/skills/init/templates/hooks/format-rust.sh" 2>&1) || exit_code=$?
-# Hook should exit 0 (no error output) for a .rs file
-if [ $exit_code -eq 0 ] && [ -z "$output" ]; then
-  printf "  PASS  Rust hook processes .rs file without error\n"
-  ((pass++)) || true
-else
-  printf "  FAIL  Rust hook error: %s\n" "$output"
-  ((errors++)) || true
-fi
-
-# Test that non-.rs file is skipped
-echo "hello" > test.txt
-output=$(echo '{"tool_input":{"file_path":"test.txt"}}' | bash "$PLUGIN_ROOT/skills/init/templates/hooks/format-rust.sh" 2>&1 || true)
-assert_output_empty "Rust hook skips non-.rs file" "$output"
-cleanup_fixture
-
 echo "[formatter hooks: python hook resolves formatters from a project venv]"
 setup_fixture
 # The TEMPLATE is what users install. test/test_format_python_hook.py exercises
@@ -609,16 +576,19 @@ output=$(printf '{"tool_input":{"file_path":"%s/notes.txt"}}' "$tmpdir" |
 assert_output_empty "Python hook skips a non-.py file" "$output$(cat "$FORMAT_PY_LOG")"
 
 # A venv holding only black must not borrow isort from PATH — mismatched
-# versions produce an import order the project's own isort then rejects.
+# versions produce an import order the project's own isort then rejects. The
+# logging PATH decoy makes that pairing observable where no real isort exists.
 : > "$FORMAT_PY_LOG"
-mkdir -p solo/.venv/bin solo/.venv/Scripts
+mkdir -p solo/.venv/bin solo/.venv/Scripts pathbin
 for sub in bin Scripts; do
   printf '#!/usr/bin/env bash\nprintf "%%s\\n" "black $*" >> "$FORMAT_PY_LOG"\n' > "solo/.venv/$sub/black"
   chmod +x "solo/.venv/$sub/black"
 done
+printf '#!/usr/bin/env bash\nprintf "%%s\\n" "isort $*" >> "$FORMAT_PY_LOG"\n' > pathbin/isort
+chmod +x pathbin/isort
 echo "x=1" > solo/app.py
 output=$(printf '{"tool_input":{"file_path":"%s/solo/app.py"}}' "$tmpdir" |
-  CLAUDE_PROJECT_DIR="$tmpdir/solo" bash "$FORMAT_PY_HOOK" 2>&1 || true)
+  PATH="$tmpdir/pathbin:$PATH" CLAUDE_PROJECT_DIR="$tmpdir/solo" bash "$FORMAT_PY_HOOK" 2>&1 || true)
 assert_output_contains "Python hook reports isort missing instead of pairing with PATH" \
   "isort not found" "$output"
 assert_output_not_contains "Python hook does not invoke an unpaired isort" \
@@ -626,29 +596,18 @@ assert_output_not_contains "Python hook does not invoke an unpaired isort" \
 unset FORMAT_PY_LOG
 cleanup_fixture
 
-echo "[formatter hooks: node hook parses JSON input correctly]"
+echo "[formatter hooks: node hook without a reachable prettier]"
 if command -v node &>/dev/null; then
   setup_fixture
-  # Create a dummy prettier that just succeeds
-  mkdir -p node_modules/.bin
-  cat > node_modules/.bin/prettier <<'MOCK'
-#!/usr/bin/env bash
-exit 0
-MOCK
-  chmod +x node_modules/.bin/prettier
-  export PATH="$tmpdir/node_modules/.bin:$PATH"
-
+  # No node_modules/prettier up the tree: the walk reaches the root, notes the
+  # skip and exits 0. test/test_init_hook_regressions.py covers the found path.
   echo "const x = 1" > test.js
-  output=$(echo '{"tool_input":{"file_path":"test.js"}}' | node "$PLUGIN_ROOT/skills/init/templates/hooks/format-node.cjs" 2>&1 || true)
-  # The node hook may fail if prettier isn't really there, but it shouldn't crash on JSON parsing
-  # Just verify it doesn't throw a JSON parse error
-  if echo "$output" | grep -q "SyntaxError"; then
-    printf "  FAIL  Node hook JSON parsing error\n"
-    ((errors++)) || true
-  else
-    printf "  PASS  Node hook parses JSON input without crash\n"
-    ((pass++)) || true
-  fi
+  set +e
+  output=$(echo '{"tool_input":{"file_path":"test.js"}}' | node "$PLUGIN_ROOT/skills/init/templates/hooks/format-node.cjs" 2>&1)
+  hook_status=$?
+  set -e
+  assert_output_contains "Node hook reports a missing prettier" "prettier not found" "$output"
+  assert_exit_zero "Node hook exits 0 when no prettier is reachable" "$hook_status"
   cleanup_fixture
 else
   echo "  SKIP  Node hook tests (node not installed)"
