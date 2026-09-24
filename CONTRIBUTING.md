@@ -74,7 +74,7 @@ The routing rule itself lives in `references/shared-agent-constraints.md` under 
 
 ## Plugin manifests
 
-`.claude-plugin/plugin.json` and `.codex-plugin/plugin.json` carry the same plugin identity and version. Bump both for any meaningful change and update the version badge in `README.md` to match; `validate.sh` checks that they agree.
+`.claude-plugin/plugin.json` and `.codex-plugin/plugin.json` carry the same plugin identity and version. Every PR to master bumps both and updates the version badge in `README.md` to match; `validate.sh` fails a PR whose version equals master's or whose manifests and badge disagree. It SKIPs the bump and badge checks when `origin/master` is unavailable, so a local pass is not proof.
 
 `.claude-plugin/marketplace.json` is how Claude Code discovers the plugin. Its `source` object accepts an optional `ref` to pin plugin code to a branch, tag, or SHA; that is only for the feature-branch testing flow below, and `validate.sh` fails while it is present.
 
@@ -301,4 +301,4 @@ A local checkout works too: `codex plugin marketplace add ./path/to/optimus-clau
 
 ## Version bumping
 
-Manifest versions affect update/cache behavior. If two refs have the same version, a host may reuse the cached release. Bump both `.claude-plugin/plugin.json` and `.codex-plugin/plugin.json` for meaningful releases and update the README badge. `.claude/.optimus-version` records this repository's last initialization; do not bump it merely to match a plugin release.
+Manifest versions affect update/cache behavior. If two refs have the same version, a host may reuse the cached release. `.claude/.optimus-version` records this repository's last initialization; do not bump it merely to match a plugin release.
