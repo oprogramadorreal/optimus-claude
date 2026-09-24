@@ -616,13 +616,14 @@ def git_drop_stash(snapshot_sha, cwd, _run=None):
             break
 
 
-def git_apply_snapshot(snapshot_sha, cwd, _run=None):
+def git_apply_snapshot(snapshot_sha, cwd, _run=None, *, clean_untracked=True):
     """Restore the working tree from a stash snapshot without consuming it.
 
     Restores only cwd from the snapshot's working, index and untracked trees,
-    leaving its stash reflog entry in place so the restore is repeatable. This
-    backs the bisect's clean-reset rebuilds in no-commit mode. Returns True on
-    success.
+    leaving its stash reflog entry in place so the restore is repeatable. The
+    no-commit bisect rebuild passes ``clean_untracked=False`` so files created
+    after the snapshot (e.g. a new module a kept fix imports) survive, as in
+    commit mode. Returns True on success.
     """
     _run = _run or subprocess.run
     git_check_nested_repositories(cwd, _run=_run, restore_commit=snapshot_sha)
@@ -634,7 +635,8 @@ def git_apply_snapshot(snapshot_sha, cwd, _run=None):
     # work is untouched, including edits made after the snapshot was captured.
     try:
         _restore_tree(snapshot_sha, cwd, _run)
-        _clean_working_tree(cwd, _run=_run, reset_tracked=False)
+        if clean_untracked:
+            _clean_working_tree(cwd, _run=_run, reset_tracked=False)
         _restore_tree(index_tree, cwd, _run, worktree=False)
         if untracked_tree:
             _restore_tree(untracked_tree, cwd, _run, staged=False, overlay=True)

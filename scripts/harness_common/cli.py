@@ -313,23 +313,23 @@ def _format_test_passed(test_passed):
 def _clean_reset_hook(pre_stash, pre_head, project_root):
     """Return a repeatable clean-reset callback for bisect, or None.
 
-    Commit mode (pre_stash is None) resets tracked files to pre_head with
-    git_restore_tracked_to, which does NOT run ``git clean`` — so untracked
-    work the subagent created this iteration (e.g. a new module a kept fix
-    imports) survives each rebuild and the fix is isolated against its real
-    dependencies, matching the legacy in-place bisect. No-commit mode applies
-    the stash snapshot WITHOUT dropping it (git_apply_snapshot), so the restore
+    Neither variant runs ``git clean``: untracked work the subagent created
+    this iteration (e.g. a new module a kept fix imports) survives each
+    rebuild, so each fix is isolated against its real dependencies, matching
+    the legacy in-place bisect. Commit mode (pre_stash is None) resets tracked
+    files to pre_head with git_restore_tracked_to. No-commit mode applies the
+    stash snapshot WITHOUT dropping it (git_apply_snapshot), so the restore
     stays repeatable across the bisect's rebuilds — the snapshot entry is
     reclaimed later by the iteration's full-revert restore or the next
-    iteration's snapshot; that stash already carries the untracked files. Both
-    variants raise on failure so the bisect aborts instead of testing
-    candidates on a dirty base. None only when no snapshot was recorded,
-    where bisect falls back to its legacy content-swap revert strategy.
+    iteration's snapshot. Both variants raise on failure so the bisect aborts
+    instead of testing candidates on a dirty base. None only when no snapshot
+    was recorded, where bisect falls back to its legacy content-swap revert
+    strategy.
     """
     if pre_stash:
 
         def _apply_stash():
-            if not git_apply_snapshot(pre_stash, project_root):
+            if not git_apply_snapshot(pre_stash, project_root, clean_untracked=False):
                 raise RuntimeError(f"Snapshot restore {pre_stash} failed")
 
         return _apply_stash

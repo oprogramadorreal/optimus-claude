@@ -1151,6 +1151,18 @@ class TestSnapshotRealRepo:
         _init_repo(tmp_path)
         assert git_stash_snapshot(tmp_path) is None
 
+    def test_apply_without_clean_keeps_new_untracked_files(self, tmp_path):
+        # No-commit bisect rebuilds keep a module created after the snapshot,
+        # matching the commit-mode reset (git_restore_tracked_to).
+        _init_repo(tmp_path)
+        (tmp_path / "tracked.txt").write_text("accumulated\n", encoding="utf-8")
+        sha = git_stash_snapshot(tmp_path)
+        (tmp_path / "tracked.txt").write_text("fix\n", encoding="utf-8")
+        (tmp_path / "new_module.py").write_text("VALUE = 1\n", encoding="utf-8")
+        assert git_apply_snapshot(sha, tmp_path, clean_untracked=False) is True
+        assert (tmp_path / "tracked.txt").read_text(encoding="utf-8") == "accumulated\n"
+        assert (tmp_path / "new_module.py").read_text(encoding="utf-8") == "VALUE = 1\n"
+
 
 class TestGitRestoreTrackedTo:
     """git_restore_tracked_to resets tracked files but preserves untracked ones

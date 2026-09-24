@@ -4858,12 +4858,12 @@ class TestCleanResetHook:
         monkeypatch.setattr(
             cli,
             "git_apply_snapshot",
-            lambda sha, root, **_kw: calls.append((sha, root)) or True,
+            lambda sha, root, **kw: calls.append((sha, root, kw)) or True,
         )
         hook = cli._clean_reset_hook("stash_sha", "head_sha", "/proj")
         hook()
         hook()  # repeatable — the stash is not consumed
-        assert calls == [("stash_sha", "/proj"), ("stash_sha", "/proj")]
+        assert calls == [("stash_sha", "/proj", {"clean_untracked": False})] * 2
 
     def test_no_commit_mode_raises_on_failed_apply(self, monkeypatch):
         # The bisect's _rebuild aborts on RuntimeError; a silent False would
