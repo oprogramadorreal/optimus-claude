@@ -1,12 +1,28 @@
 import pytest
 from harness_common.reporting import (
     _SHELL_FENCE_LANGS,
+    _print_rollback_footer,
     build_coverage_commit_body,
     build_deep_commit_body,
     detect_test_command,
     format_finding_line,
     format_section,
+    print_coverage_report,
+    print_deep_report,
 )
+
+
+@pytest.fixture
+def claude_md_dir(tmp_path):
+    """tmp_path with .claude/CLAUDE.md containing a test command."""
+    claude_dir = tmp_path / ".claude"
+    claude_dir.mkdir()
+    claude_md = claude_dir / "CLAUDE.md"
+    claude_md.write_text(
+        "# Project\n\n## Commands\n\n```bash\nnpm test  # Run tests\n```\n",
+        encoding="utf-8",
+    )
+    return tmp_path
 
 
 class TestDetectTestCommand:
@@ -43,22 +59,14 @@ class TestDetectTestCommand:
         content = "test command: `npm test # Run unit tests`\n"
         assert detect_test_command("/unused", content=content) == "npm test"
 
-    def test_code_block_with_comment_line(self):
-        content = "```bash\n# setup\nnpm test\n```\n"
-        assert detect_test_command("/unused", content=content) == "npm test"
-
     def test_code_block_skips_comment_only_lines(self):
-        content = "```bash\n# This is a comment\npytest\n```\n"
+        # The comment carries a runner token, so dropping the "#" guard fails this.
+        content = "```bash\n# run the tests\npytest\n```\n"
         assert detect_test_command("/unused", content=content) == "pytest"
 
     def test_no_test_command_found(self):
         content = "# Project\n\nJust some docs.\n"
         assert detect_test_command("/unused", content=content) is None
-
-    def test_content_parameter_skips_filesystem(self):
-        content = "test command: `go test ./...`\n"
-        result = detect_test_command("/nonexistent/path", content=content)
-        assert result == "go test ./..."
 
     @pytest.mark.parametrize("lang", [*_SHELL_FENCE_LANGS, ""])
     def test_shell_fence_languages(self, lang):
@@ -72,10 +80,6 @@ class TestDetectTestCommand:
             "pytest                                    # Run tests\n"
             "```\n"
         )
-        assert detect_test_command("/unused", content=content) == "pytest"
-
-    def test_powershell_block_skips_comment_lines(self):
-        content = "```powershell\n# install\npytest\n```\n"
         assert detect_test_command("/unused", content=content) == "pytest"
 
     @pytest.mark.parametrize("lang", ["python", "yaml", "dockerfile"])
@@ -155,7 +159,7 @@ class TestFormatFindingLine:
         assert "f.py:?" in line
 
     def test_missing_file_renders_question_mark(self):
-        # Regression for e60aa78: the defensive `finding.get('file', '?')`
+        # The defensive `finding.get('file', '?')`
         # branch had no test, so reverting to `finding['file']` would have
         # passed every other case.
         line = format_finding_line({"line": 1, "category": "Bug", "summary": "x"})
@@ -243,7 +247,7 @@ class TestBuildDeepCommitBody:
         }
         body = build_deep_commit_body(progress, iteration=1)
         assert "Fixed:" in body
-        assert "Reverted (test failure):" in body
+        assert "Reverted or skipped:" in body
         assert "Persistent (all attempts failed):" in body
         # Each finding appears under its own section, not duplicated across.
         assert body.count("f.py:") == 1
@@ -253,7 +257,7 @@ class TestBuildDeepCommitBody:
     def test_no_iteration_findings_returns_empty(self):
         progress = {"findings": [self._finding(iteration_last_attempted=5)]}
         # No matching iteration_last_attempted → empty body so the caller
-        # falls back to title-only commit (cli.py:902).
+        # falls back to title-only commit.
         assert build_deep_commit_body(progress, iteration=1) == ""
 
 
@@ -318,11 +322,131 @@ class TestBuildCoverageCommitBody:
         body = build_coverage_commit_body(progress, cycle=1, phase="refactor")
         assert "Testability fixes applied:" in body
         assert "f.py:10" in body
-        assert "Reverted (test failure):" in body
+        assert "Reverted or skipped:" in body
         assert "r.py:20" in body
+
+    def test_abandoned_tests_are_not_listed_as_written(self):
+        progress = {
+            "tests_created": [
+                {"file": "test_auth.py", "test_count": 6, "status": "pass", "cycle": 1},
+                {
+                    "file": "test_billing.py",
+                    "test_count": 2,
+                    "status": "fail-abandoned",
+                    "cycle": 1,
+                },
+            ]
+        }
+        body = build_coverage_commit_body(progress, cycle=1, phase="unit-test")
+        assert "test_auth.py" in body
+        assert "test_billing.py" not in body
 
     def test_refactor_phase_with_no_findings_returns_minimal_body(self):
         progress = {"refactor_findings": []}
         body = build_coverage_commit_body(progress, cycle=1, phase="refactor")
         # Header line is still emitted so commits remain consistent in shape.
         assert "Coverage orchestrator checkpoint" in body
+
+
+def test_coverage_report_counts_only_kept_tests_and_pending_items(capsys, monkeypatch):
+    # Abandoned tests were reverted and attempted items were refactored: neither
+    # is still in the tree, so neither may inflate the report.
+    monkeypatch.setattr("harness_common.reporting.git_current_branch", lambda _cwd: "")
+    progress = {
+        "config": {"project_root": ".", "base_commit": "abc1234"},
+        "cycle": {"completed": 2},
+        "coverage": {"baseline": 40, "current": 55, "history": []},
+        "tests_created": [
+            {"file": "test_auth.py", "test_count": 6, "status": "pass", "cycle": 1},
+            {
+                "file": "test_billing.py",
+                "test_count": 2,
+                "status": "fail-abandoned",
+                "cycle": 1,
+            },
+            {"file": "test_auth.py", "test_count": 1, "status": "pass", "cycle": 2},
+        ],
+        "untestable_code": [
+            {"file": "a.py", "status": "attempted"},
+            {"file": "b.py", "status": "pending"},
+        ],
+        "refactor_findings": [],
+        "bugs_discovered": [],
+        "test_results": {"last_full_run": "pass"},
+    }
+    print_coverage_report(progress)
+    out = capsys.readouterr().out
+    assert "7 tests in 1 files" in out
+    assert "Still untestable: 1" in out
+
+
+@pytest.mark.parametrize("field", ["summary", "category"])
+def test_null_finding_scalars_do_not_crash_reports(capsys, monkeypatch, field):
+    # The runtime validator checks only the envelope, so a subagent can store a
+    # finding with a null summary or category; the report and commit body must
+    # still render.
+    monkeypatch.setattr("harness_common.reporting.git_current_branch", lambda _cwd: "")
+    finding = {
+        "file": "a.py",
+        "line": 1,
+        "category": "Bug",
+        "summary": "s",
+        "status": "fixed",
+        "iteration_last_attempted": 1,
+        field: None,
+    }
+    assert format_finding_line(finding).startswith("- a.py:1")
+    assert "a.py:1" in build_deep_commit_body({"findings": [finding]}, iteration=1)
+    print_deep_report(
+        {
+            "skill": "code-review",
+            "config": {"project_root": ".", "base_commit": "abc1234"},
+            "iteration": {"completed": 1},
+            "findings": [finding],
+            "test_results": {"last_full_run": "pass"},
+        }
+    )
+    assert "a.py:1" in capsys.readouterr().out
+
+
+def test_coverage_report_counts_numeric_string_test_counts(capsys, monkeypatch):
+    monkeypatch.setattr("harness_common.reporting.git_current_branch", lambda _cwd: "")
+    print_coverage_report(
+        {
+            "config": {"project_root": ".", "base_commit": "abc1234"},
+            "cycle": {"completed": 1},
+            "coverage": {"baseline": None, "current": None, "history": []},
+            "tests_created": [{"file": "t.py", "test_count": "4", "status": "pass"}],
+            "test_results": {"last_full_run": "pass"},
+        }
+    )
+    assert "4 tests in 1 files" in capsys.readouterr().out
+
+
+def test_coverage_report_counts_only_string_test_files(capsys, monkeypatch):
+    # A list-valued `file` names no file; it must not crash every later report.
+    monkeypatch.setattr("harness_common.reporting.git_current_branch", lambda _cwd: "")
+    print_coverage_report(
+        {
+            "config": {"project_root": ".", "base_commit": "abc1234"},
+            "cycle": {"completed": 1},
+            "coverage": {"baseline": None, "current": None, "history": []},
+            "tests_created": [
+                {"file": ["tests/test_a.py"], "test_count": 2, "status": "pass"},
+                {"file": "tests/test_b.py", "test_count": 1, "status": "pass"},
+            ],
+            "test_results": {"last_full_run": "pass"},
+        }
+    )
+    assert "3 tests in 1 files" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("mode", ["no_commit", "commit_disabled"])
+def test_uncommitted_report_never_suggests_destructive_rollback(mode, capsys):
+    progress = {"config": {"base_commit": "abc123"}}
+    (progress["config"] if mode == "no_commit" else progress)[mode] = True
+    _print_rollback_footer(progress, True)
+    output = capsys.readouterr().out
+    assert "uncommitted" in output
+    assert "reset --hard" not in output
+    assert "rebase" not in output

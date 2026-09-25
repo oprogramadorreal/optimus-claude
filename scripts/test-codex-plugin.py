@@ -171,6 +171,19 @@ def main():
                 source = expected[skill["name"]]
                 if cached.read_bytes() != source.read_bytes():
                     raise ValueError(f"Cached skill differs: {skill['name']}")
+            cached_root = Path(actual[0]["path"]).resolve().parents[2]
+            tracked = subprocess.run(
+                ["git", "-C", str(ROOT), "ls-files", "-z"],
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                check=True,
+            ).stdout.split("\0")[:-1]
+            for rel in tracked:
+                copy = cached_root / rel
+                if not copy.is_file() or copy.read_bytes() != (ROOT / rel).read_bytes():
+                    raise ValueError(f"Cached plugin file missing or differs: {rel}")
+            report["files_compared"] = len(tracked)
             report["skills"] = [
                 {
                     "name": name,
@@ -186,6 +199,7 @@ def main():
         KeyError,
         queue.Empty,
         subprocess.TimeoutExpired,
+        subprocess.CalledProcessError,
     ) as exc:
         report["result"] = "FAIL"
         report["error"] = str(exc) or type(exc).__name__

@@ -18,7 +18,7 @@ Content written back to JIRA MUST stay in the issue's original language — neve
 
 ## Step 1: Detect JIRA MCP Server
 
-Read `$CLAUDE_PLUGIN_ROOT/skills/jira/references/jira-context-extraction.md` and follow its **Detection Procedure**. Server detected → record the server name and tool prefix, continue. None detected under Codex → stop and ask the user to configure a compatible JIRA MCP server in Codex, then re-run this skill; the bundled setup configures Claude Code only. Otherwise read `$CLAUDE_PLUGIN_ROOT/skills/jira/references/jira-setup.md` and follow it; if the user skips setup, stop.
+Read `$CLAUDE_PLUGIN_ROOT/skills/jira/references/jira-context-extraction.md` and follow its **Detection Procedure**. Server detected → continue. None detected under Codex → stop and ask the user to configure a compatible JIRA MCP server in Codex, then re-run this skill; the bundled setup configures Claude Code only. Otherwise read `$CLAUDE_PLUGIN_ROOT/skills/jira/references/jira-setup.md` and follow it; if the user skips setup, stop.
 
 ## Step 2: Find the Issue
 
@@ -41,7 +41,7 @@ If `docs/jira/<ISSUE-KEY>.md` exists at the project root, read `$CLAUDE_PLUGIN_R
 
 ## Step 4: Distill into Structured Task
 
-Assemble the fetched data into the **Structured Output Format** from `jira-context-extraction.md` — the single source for section names. Omit sections with no data. If the issue's acceptance criteria use Given/When/Then phrasing, preserve it verbatim in each entry — `/optimus:brainstorm` reformats those into `### Scenario:` blocks.
+Assemble the fetched data into the **Structured Output Format** from `jira-context-extraction.md` — the single source for section names. Omit sections with no data. If the issue's acceptance criteria use Given/When/Then phrasing, preserve it verbatim in each entry (as a faithful English translation if the issue isn't in English) — `/optimus:brainstorm` reformats those into `### Scenario:` blocks.
 
 Present the structured task and confirm with the user, iterating on requested adjustments. Then save it to `docs/jira/<ISSUE-KEY>.md` and report the path:
 
@@ -58,24 +58,24 @@ description-refresh-date: [YYYY-MM-DD]
 
 ## Step 5: Analyze Against Codebase
 
-Read `$CLAUDE_PLUGIN_ROOT/skills/jira/references/jira-codebase-analysis.md` and follow the **Analysis Procedure** using the Goal and the ORIGINAL Acceptance Criteria from the task file (exclude items tagged `(from codebase analysis)` — prior enrichment, not source criteria). Present the **Impact Summary**.
+Read `$CLAUDE_PLUGIN_ROOT/skills/jira/references/jira-codebase-analysis.md` and follow the **Analysis Procedure**. Present the **Impact Summary**.
 
-Verify with `ToolSearch` that the detected server's add-comment tool named in the MCP Safety permitted-write table (`addCommentToJiraIssue` for Rovo, `jira_add_comment` for sooperset) is in the runtime tool list — do not probe for other comment-like tools. Then ask the user (AskUserQuestion) how to use the findings:
+Verify that the detected server's add-comment tool named in the MCP Safety permitted-write table (`addCommentToJiraIssue` for Rovo, `jira_add_comment` for sooperset) is available, found as in the Detection Procedure — do not probe for other comment-like tools. Then ask the user (AskUserQuestion) how to use the findings:
 
 - **Update JIRA and local context** (offer only if the add-comment tool is available) — enrich the local file and post an analysis comment to JIRA
 - **Update local context only** — enrich `docs/jira/<ISSUE-KEY>.md` only
 - **Skip** — proceed without changes
 
-On either update choice, run the **Task File Update** procedure first — the local file is the single source of truth. On the JIRA branch, then post the comment per the **JIRA Comment Format**, translated to the issue's original language if it isn't English; comments are append-only, so no further confirmation is needed. If the tool call fails at runtime, inform the user and keep the local update.
+On either update choice, run the **Task File Update** procedure first — the local file is the single source of truth. On the JIRA branch, then post the comment per the **JIRA Comment Format**; comments are append-only, so no further confirmation is needed. If the tool call fails at runtime, inform the user and keep the local update.
 
 **Complex scope, JIRA branch only:** if the Scope Assessment is `Complex` and the user chose "Update JIRA and local context", read `$CLAUDE_PLUGIN_ROOT/skills/jira/references/jira-implementation-tickets.md` and follow it to optionally spawn implementation tickets — it has its own confirmation gate defaulting to no JIRA writes.
 
 ## Step 6: Recommend Next Step
 
-Route by issue type and the Step 5 Scope Assessment (fall back to acceptance-criteria count when inconclusive). If the user has no feature branch yet, also mention `/optimus:commit branch`. The recommended skill gathers its own context, so suggest a fresh conversation for it.
+Route by issue type and the Scope Assessment — this run's Step 5, else the task file's `### Scope Assessment` (fall back to acceptance-criteria count when absent or inconclusive). Pass the task to the recommended skill explicitly, as below, and suggest a fresh conversation for it.
 
-- **Tech debt / refactoring** (issue type, labels like `tech-debt`/`refactor`, or a goal that restructures code without changing behavior) → recommend `/optimus:refactor`.
-- **Simple** (assessment simple, or 1–3 criteria in a single component) → recommend `/optimus:tdd` — it auto-detects `docs/jira/<ISSUE-KEY>.md`.
-- **Complex** (assessment complex, or 7+ criteria, multiple components, architecture/migration concerns, unclear design) → recommend `/optimus:brainstorm` — it auto-detects the task file.
+- **Tech debt / refactoring** (issue type, labels like `tech-debt`/`refactor`, or a goal that restructures code without changing behavior) → recommend `/optimus:refactor "<scope>"`, the scope drawn from the Goal and Codebase Impact — refactor does not read `docs/jira/`.
+- **Simple** (assessment simple, or 1–3 criteria in a single component) → recommend `/optimus:tdd docs/jira/<ISSUE-KEY>.md`.
+- **Complex** (assessment complex, or 7+ criteria, multiple components, architecture/migration concerns, unclear design) → recommend `/optimus:brainstorm <ISSUE-KEY>`.
 - **Medium** (between the two) → offer a plan-mode prompt: read `$CLAUDE_PLUGIN_ROOT/skills/jira/references/plan-mode-prompt.md` and follow it. If the user declines, recommend `/optimus:tdd` as for Simple.
 

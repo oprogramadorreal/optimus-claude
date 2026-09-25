@@ -25,7 +25,7 @@ Read these reference files before starting (the dispatcher has resolved the path
 
 7. **Existing files inventory** (existence check only — do not read the content of CLAUDE.md files): `.claude/CLAUDE.md`, `.claude/settings.json`, `.claude/docs/*`, `.claude/hooks/*`, `.claude/.optimus-version`, `.claude/.optimus-managed.json`, root `CLAUDE.md`, root `AGENTS.md`, a `.codex/` directory, subproject `CLAUDE.md` files.
 
-8. **Test infrastructure detection:** Report `yes` when any of these hold: a test framework is in dependencies, a `test`/`test:*` script is in the manifest, or a `tests/`/`test/`/`spec/`/`__tests__/`/`integration_test/` directory exists. Otherwise report `no`.
+8. **Test infrastructure detection:** Report `yes` when any of these hold: a test framework is in dependencies, a `test`/`test:*` script other than the `echo "Error: no test specified" && exit 1` stub that `npm init` writes is in the manifest, or a `tests/`/`test/`/`spec/`/`__tests__/`/`integration_test/` directory exists. Otherwise report `no`.
 
 9. **Skill-authoring detection:** Check whether the project authors markdown instructions for an AI agent as part of its stack (Claude Code plugin, Codex skill repo, prompt library, custom agent framework, etc.). The structural signal is: a directory named `skills/`, `agents/`, `prompts/`, `commands/`, or `instructions/` exists AND contains ≥2 subdirectories AND **every** such subdirectory contains a file named `SKILL.md`, `AGENT.md`, `PROMPT.md`, `COMMAND.md`, or `INSTRUCTION.md` (case-insensitive). This signals that the project's "source code" includes markdown instruction files that require a different review lens than code. Apply the check at these roots, in order: the repo root (single-project and monorepo); and for monorepos, also at each detected subproject root — if any match, the repo has a skill-authoring stack. Report `yes` with the detected directory name(s) and the root(s) where the match occurred, or `no`.
 
@@ -42,6 +42,7 @@ Return your findings in this exact structure:
 - **Project name:** [from manifest or README]
 - **Tech stack:** [languages, frameworks]
 - **Package manager:** [detected from lock files / config]
+- **Unsupported stack:** [language + the unrecognized manifest or lock file | none]
 - **Build command:** [prefixed with package manager]
 - **Test command:** [prefixed with package manager]
 - **Lint command:** [prefixed with package manager]
@@ -66,7 +67,12 @@ Return your findings in this exact structure:
 - `.claude/CLAUDE.md`: [exists | missing]
 - `.claude/settings.json`: [exists | missing]
 - `.claude/docs/`: [list of existing files, or "empty/missing"]
+- `.claude/hooks/`: [list of existing files, or "empty/missing"]
+- `.claude/.optimus-version`: [version | missing]
+- `.claude/.optimus-managed.json`: [exists | missing]
 - Root `CLAUDE.md`: [exists | missing]
+- Root `AGENTS.md`: [exists | missing]
+- `.codex/`: [exists | missing]
 - Subproject CLAUDE.md files: [list, or "none"]
 
 ### Doc-sourced insights

@@ -1,6 +1,6 @@
 # New Project Scaffolding
 
-Procedure for scaffolding a new project from scratch in an empty directory. Referenced from Step 1 of the init skill.
+Procedure for scaffolding a new project from scratch in an empty directory.
 
 ## Scope Guard
 
@@ -14,7 +14,7 @@ Ask for the **project name** if not clear from context. It must match `^[a-zA-Z]
 
 ## Scaffold Commands
 
-Use the official scaffolding CLI — do NOT hand-generate boilerplate the official tool produces. Adjust the package-manager prefix per detection (`pnpm create`, `yarn create`, `bun create`).
+Use the official scaffolding CLI — do NOT hand-generate boilerplate the official tool produces. Commands may run without a TTY, so pass flags that answer every prompt (an unanswered prompt hangs or aborts the run). Adjust the package-manager prefix and flags per detection (`pnpm create`, `yarn create`, `bun create`).
 
 ### Web app
 
@@ -23,8 +23,8 @@ Use the official scaffolding CLI — do NOT hand-generate boilerplate the offici
 | React (Vite) | `npm create vite@latest <name> -- --template react-ts` |
 | Next.js | `npx create-next-app@latest <name> --ts --app` |
 | Vue (Vite) | `npm create vite@latest <name> -- --template vue-ts` |
-| Nuxt | `npx nuxi@latest init <name>` |
-| Svelte (SvelteKit) | `npx sv create <name>` |
+| Nuxt | `npm create nuxt@latest <name> -- --template minimal --packageManager npm --no-gitInit` |
+| Svelte (SvelteKit) | `npx sv create <name> --template minimal --types ts --no-add-ons` |
 | Angular | `npx @angular/cli@latest new <name>` |
 | Flutter (web) | `flutter create --platforms web <name>` |
 
@@ -33,7 +33,7 @@ Use the official scaffolding CLI — do NOT hand-generate boilerplate the offici
 | Framework | Scaffold Command |
 |-----------|-----------------|
 | Node.js / Express | `mkdir <name> && cd <name> && npm init -y`, then `npm install express` + minimal `index.js` hello-world route + `start` script |
-| Python / FastAPI | `uv init <name>`, then `cd <name> && uv add fastapi` + minimal `main.py` endpoint. No uv → manual venv (`python3 -m venv .venv`), `pip install fastapi uvicorn` |
+| Python / FastAPI | `uv init <name>`, then `cd <name> && uv add "fastapi[standard]"` + minimal `main.py` endpoint. No uv → manual venv (`python3 -m venv .venv`), `pip install "fastapi[standard]"` |
 | Rust / Axum | `cargo init <name>`, then add `axum` + `tokio` to `Cargo.toml` + minimal hello-world server in `main.rs` |
 | Go | `mkdir <name> && cd <name> && go mod init <name>` + minimal `main.go` HTTP server. Bare-name module path is the starter — offer a URL-like path (e.g., `github.com/user/<name>`); validate custom paths against `^[a-zA-Z0-9][a-zA-Z0-9._/-]*$` before use |
 | C# / .NET Web API | `dotnet new webapi -o <name>` |
@@ -44,7 +44,7 @@ Use the official scaffolding CLI — do NOT hand-generate boilerplate the offici
 | Language | Scaffold Command |
 |----------|-----------------|
 | Node.js | `mkdir <name> && cd <name> && npm init -y` + `bin/<name>.js` with shebang + `bin` field |
-| Python | `uv init <name>` + `<name>/__main__.py` hello-world (no uv → manual venv) |
+| Python | `uv init --package <name>` (no uv → manual venv) |
 | Rust | `cargo init <name>` |
 | Go | `mkdir <name> && cd <name> && go mod init <name>` + hello-world `main.go` (same module-path rule as Backend) |
 
@@ -73,4 +73,4 @@ Scaffold commands create a `<name>/` subdirectory — `cd <name>` before these s
 - **Verify the project works:** run the build or dev command and confirm success; diagnose and fix failures before proceeding. For dev servers: start with a 30-second timeout, verify a ready signal ("listening on port", "ready"), then stop it; no signal within the timeout → stop the process and report for diagnosis.
 - **Git init:** run `git init` only when `git rev-parse --is-inside-work-tree` fails with `fatal: not a git repository` — the scaffold is outside any working tree and not a bare repository. Do not reinitialize a linked worktree, and do not treat any other Git error as a missing repository.
 
-Then print **"Scaffolding complete. Resuming project detection..."** and return control to init Step 1's project detection to re-detect the now-populated project from scratch.
+Then return control to init Step 1's project detection to re-detect the now-populated project from scratch.

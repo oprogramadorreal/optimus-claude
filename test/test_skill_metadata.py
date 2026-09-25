@@ -141,6 +141,8 @@ def test_validation_selects_working_python3(tmp_path, python_available):
     )
     # Execute the real entrypoint. Later manifest checks fail in this intentionally
     # small fixture; the marker is written only after real metadata validation passes.
+    # The whole script runs, and each of its ~20 Python calls goes through a Bash
+    # launcher above: on a loaded Windows machine that takes well over 30 seconds.
     result = subprocess.run(
         [str(bash), str(repo / "scripts" / "validate.sh")],
         cwd=tmp_path,
@@ -149,7 +151,7 @@ def test_validation_selects_working_python3(tmp_path, python_available):
         text=True,
         encoding="utf-8",
         errors="replace",
-        timeout=30,
+        timeout=180,
     )
     assert selected.is_file(), result.stdout + result.stderr
     assert selected.read_text().strip() == ("python" if python_available else "python3")

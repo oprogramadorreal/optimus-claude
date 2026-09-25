@@ -1,5 +1,5 @@
 ---
-description: Creates a git worktree for isolated parallel development — new branch in a separate directory with project setup and test baseline. Enables multiple Claude Code sessions on different tasks simultaneously. Multi-repo aware. Use when you need to work on something else without disturbing current work.
+description: Creates a git worktree for isolated parallel development — new branch in a separate directory with project setup and test baseline. Enables multiple Claude Code sessions on different tasks simultaneously. May append .worktrees/ to .gitignore (left unstaged); never commits or pushes. Multi-repo aware. Use when you need to work on something else without disturbing current work.
 disable-model-invocation: true
 argument-hint: "[description]"
 ---
@@ -35,7 +35,7 @@ git branch <branch-name>
 
 ### 4. Create worktree
 
-Follow the **Setup** procedure from worktree-setup.md with `<branch-name>` and `<original-branch>`. On failure, follow its **Failure handling**, then stop.
+Follow the **Setup** procedure from worktree-setup.md with `<branch-name>` and `<original-branch>`. On failure, follow its **Failure handling**, delete the unused branch (`git branch -d <branch-name>`), then stop.
 
 ### 5. Report
 

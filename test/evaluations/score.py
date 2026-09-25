@@ -60,8 +60,11 @@ def review(project):
 
 if __name__ == "__main__":
     cases = {"guidance-app": guidance, "review-app": review}
-    if len(sys.argv) != 3 or sys.argv[1] not in cases:
-        raise SystemExit("Usage: score.py guidance-app|review-app <copied-project>")
+    if len(sys.argv) != 3 or sys.argv[1] not in cases or not Path(sys.argv[2]).is_dir():
+        print(
+            "Usage: score.py guidance-app|review-app <copied-project>", file=sys.stderr
+        )
+        raise SystemExit(2)
     results = cases[sys.argv[1]](Path(sys.argv[2]).resolve())
     print(json.dumps(results, indent=2))
     raise SystemExit(0 if all(results.values()) else 1)

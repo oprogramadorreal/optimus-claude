@@ -17,10 +17,6 @@ from .constants import (
 
 _PREFIX = "[harness]"
 
-# Sentinel distinguishing "PR data not provided → fetch it" from "provided as
-# None" (an explicit no-open-PR result that must NOT trigger a re-fetch).
-_UNSET = object()
-
 
 TreeState = namedtuple("TreeState", "digest dirty base entries")
 
@@ -274,7 +270,7 @@ def git_check_nested_repositories(cwd, _run=None, *, restore_commit=None):
 def commit_checkpoint(
     commit_message, cwd, progress_file, _run=None, *, exclude_paths=()
 ):
-    """Stage all changes, un-stage harness state files, and commit.
+    """Stage all changes under cwd, un-stage harness state files, and commit.
 
     Returns one of ``COMMIT_COMMITTED`` (a checkpoint was created),
     ``COMMIT_NOTHING`` (nothing remained staged after un-staging harness
@@ -293,11 +289,8 @@ def commit_checkpoint(
     except RuntimeError as exc:
         print(f"{_PREFIX} WARNING: checkpoint refused: {exc}")
         return COMMIT_FAILED
-    add_args = ["git", "add", "-A"]
-    if exclude_paths:
-        add_args.extend(
-            ["--", ".", *(f":(exclude,literal){path}" for path in exclude_paths)]
-        )
+    add_args = ["git", "add", "-A", "--", "."]
+    add_args.extend(f":(exclude,literal){path}" for path in exclude_paths)
     add_result = _run_git_text(_run, add_args, cwd)
     if add_result.returncode != 0:
         print(f"{_PREFIX} WARNING: git add -A failed: {add_result.stderr[:200]}")
@@ -344,8 +337,9 @@ def git_rev_parse_head(cwd):
     return _rev_parse("HEAD", cwd, subprocess.run)
 
 
-# Authoritative harness-state patterns matched by commit_checkpoint's un-stage
-# step and _clean_working_tree. The scratch prefixes come from
+# Authoritative harness-state patterns, excluded from tree fingerprints
+# (git_test_tree_state), untracked snapshots, the init clean-tree gate,
+# cleanup and checkpoint staging. The scratch prefixes come from
 # constants.SCRATCH_GLOBS (shared with cli.py's final-report cleanup); this
 # repo's own .gitignore mirrors the full set as a convenience for harness
 # development, and references/orchestrator-loop-single.md names them for the
@@ -358,8 +352,8 @@ _HARNESS_STATE_EXCLUDES = (
 )
 
 
-def _clean_working_tree(cwd, _run=None, *, reset_tracked=True):
-    """Reset tracked files and remove untracked files/dirs.
+def _clean_working_tree(cwd, _run=None):
+    """Remove untracked files/dirs (callers restore tracked files first).
 
     Preserves orchestrator state files (progress JSON, backups, per-iteration
     temp files) so the user can `--resume` after a clean-triggered restore.
@@ -373,10 +367,6 @@ def _clean_working_tree(cwd, _run=None, *, reset_tracked=True):
     prefix = prefix_result.stdout.rstrip("\n")
     for char in ("\\", "*", "?", "[", "]"):
         prefix = prefix.replace(char, "\\" + char)
-    if reset_tracked:
-        checkout = _run_git_text(_run, ["git", "checkout", "."], cwd)
-        if checkout.returncode != 0:
-            raise RuntimeError(f"git checkout . failed: {checkout.stderr[:200]}")
     clean_cmd = ["git", "clean", "-fd"]
     for pattern in _HARNESS_STATE_EXCLUDES:
         clean_cmd.extend(["-e", f"/{prefix}{pattern}" if prefix else pattern])
@@ -389,7 +379,7 @@ def git_restore_to(commit, cwd, _run=None):
     """Restore working tree to match a commit (resets tracked, removes untracked)."""
     _run = _run or subprocess.run
     git_restore_tracked_to(commit, cwd, _run=_run)
-    _clean_working_tree(cwd, _run=_run, reset_tracked=False)
+    _clean_working_tree(cwd, _run=_run)
 
 
 def git_restore_tracked_to(commit, cwd, _run=None):
@@ -401,7 +391,7 @@ def git_restore_tracked_to(commit, cwd, _run=None):
     subagent's tracked edits back to the pre-iteration commit while preserving
     the non-fix working state that kept fixes may depend on — matching the
     legacy in-place bisect, which never removed untracked files. Raises on a
-    failed checkout so the bisect aborts rather than test a candidate on a dirty
+    failed restore so the bisect aborts rather than test a candidate on a dirty
     base.
     """
     _run = _run or subprocess.run
@@ -619,13 +609,14 @@ def git_drop_stash(snapshot_sha, cwd, _run=None):
             break
 
 
-def git_apply_snapshot(snapshot_sha, cwd, _run=None):
+def git_apply_snapshot(snapshot_sha, cwd, _run=None, *, clean_untracked=True):
     """Restore the working tree from a stash snapshot without consuming it.
 
     Restores only cwd from the snapshot's working, index and untracked trees,
-    leaving its stash reflog entry in place so the restore is repeatable. This
-    backs the bisect's clean-reset rebuilds in no-commit mode. Returns True on
-    success.
+    leaving its stash reflog entry in place so the restore is repeatable. The
+    no-commit bisect rebuild passes ``clean_untracked=False`` so files created
+    after the snapshot (e.g. a new module a kept fix imports) survive, as in
+    commit mode. Returns True on success.
     """
     _run = _run or subprocess.run
     git_check_nested_repositories(cwd, _run=_run, restore_commit=snapshot_sha)
@@ -637,7 +628,8 @@ def git_apply_snapshot(snapshot_sha, cwd, _run=None):
     # work is untouched, including edits made after the snapshot was captured.
     try:
         _restore_tree(snapshot_sha, cwd, _run)
-        _clean_working_tree(cwd, _run=_run, reset_tracked=False)
+        if clean_untracked:
+            _clean_working_tree(cwd, _run=_run)
         _restore_tree(index_tree, cwd, _run, worktree=False)
         if untracked_tree:
             _restore_tree(untracked_tree, cwd, _run, staged=False, overlay=True)
@@ -675,7 +667,8 @@ def git_current_branch(cwd):
 
 
 def git_diff_has_changes(cwd):
-    """Check if there are any uncommitted changes (staged, unstaged, or untracked)."""
+    """Check for uncommitted changes (staged, unstaged, or untracked), ignoring
+    untracked harness state (_HARNESS_STATE_EXCLUDES)."""
     cwd_str = str(cwd)
     for args in (
         ["git", "diff", "--quiet"],
@@ -684,9 +677,14 @@ def git_diff_has_changes(cwd):
         if subprocess.run(args, cwd=cwd_str, capture_output=True).returncode != 0:
             return True
     untracked = _run_git_text(
-        subprocess.run, ["git", "ls-files", "--others", "--exclude-standard"], cwd_str
+        subprocess.run,
+        ["git", "ls-files", "--others", "--exclude-standard", "-z"],
+        cwd_str,
     )
-    return bool(untracked.stdout.strip())
+    return any(
+        path and not _is_harness_state_path(path)
+        for path in untracked.stdout.split("\0")
+    )
 
 
 def restore_working_tree(stash_sha, head_commit, cwd, _run=None):
@@ -727,8 +725,13 @@ def _verify_ref(cwd_str, ref):
     return result.returncode == 0
 
 
-def _fetch_open_pr_data(cwd_str):
-    """Return the parsed open-PR metadata dict, or ``None``."""
+def get_open_pr_data(cwd):
+    """Fetch the current branch's open-PR metadata once, or ``None``.
+
+    ``init`` fetches the open-PR JSON a single time and threads it into both
+    base-branch detection and the PR-description builder, instead of each
+    re-shelling out to ``gh pr view``.
+    """
     try:
         result = subprocess.run(
             ["gh", "pr", "view", "--json", "title,body,baseRefName,state"],
@@ -736,38 +739,21 @@ def _fetch_open_pr_data(cwd_str):
             text=True,
             encoding="utf-8",
             errors="replace",
-            cwd=cwd_str,
+            cwd=str(cwd),
             timeout=10,
         )
         if result.returncode != 0:
             return None
         pr_info = json.loads(result.stdout)
-    except (
-        subprocess.TimeoutExpired,
-        FileNotFoundError,
-        ValueError,
-        UnicodeDecodeError,
-    ):
+    except (subprocess.TimeoutExpired, FileNotFoundError, ValueError):
         return None
     if not (isinstance(pr_info, dict) and pr_info.get("state") == "OPEN"):
         return None
     return pr_info
 
 
-def get_open_pr_data(cwd):
-    """Fetch the current branch's open-PR metadata once, or ``None``.
-
-    Public accessor so a caller (``init``) can fetch the open-PR JSON a single
-    time and thread it into both base-branch detection and the PR-description
-    builder, instead of each re-shelling out to ``gh pr view``.
-    """
-    return _fetch_open_pr_data(str(cwd))
-
-
-def _base_from_open_pr(cwd_str, pr_info=_UNSET):
+def _base_from_open_pr(cwd_str, pr_info):
     """Return the open PR's base ref (e.g. ``origin/main``) if it exists locally."""
-    if pr_info is _UNSET:
-        pr_info = _fetch_open_pr_data(cwd_str)
     if not (pr_info and pr_info.get("baseRefName")):
         return None
     pr_base = f"origin/{pr_info['baseRefName']}"
@@ -804,7 +790,7 @@ def _base_from_default_branches(cwd_str):
     return None
 
 
-def _detect_base_branch(cwd, pr_info=_UNSET):
+def _detect_base_branch(cwd, pr_info):
     """Detect the base branch for the current feature branch."""
     cwd_str = str(cwd)
     return (
@@ -814,10 +800,10 @@ def _detect_base_branch(cwd, pr_info=_UNSET):
     )
 
 
-def git_discover_branch_files(cwd, path_filter=None, pr_info=_UNSET):
+def git_discover_branch_files(cwd, pr_info, path_filter=None):
     """Discover all files changed in the current feature branch vs. the base branch.
 
-    Returns ``(files, base_ref)`` — ``files`` is a list of repo-relative paths;
+    Returns ``(files, base_ref)`` — ``files`` lists paths relative to ``cwd``;
     ``base_ref`` is the detected base (e.g. ``"origin/main"``) or ``None`` when
     detection fails.
     """
@@ -828,7 +814,18 @@ def git_discover_branch_files(cwd, path_filter=None, pr_info=_UNSET):
     # core.quotePath=false keeps non-ASCII paths literal (UTF-8) instead of
     # octal-escaped and double-quoted, so discovered filenames match the
     # downstream normalize_path comparisons rather than being silently dropped.
-    cmd = ["git", "-c", "core.quotePath=false", "diff", "--name-only", f"{base}...HEAD"]
+    # --relative keeps a package-directory run inside its package, with paths
+    # relative to it (the frame fixes.py and the scoped restore use); it is a
+    # no-op at the repository root.
+    cmd = [
+        "git",
+        "-c",
+        "core.quotePath=false",
+        "diff",
+        "--relative",
+        "--name-only",
+        f"{base}...HEAD",
+    ]
     if path_filter:
         cmd.extend(["--", path_filter])
     try:
@@ -853,18 +850,13 @@ _PR_BODY_TRUNCATE_LIMIT = 4000
 _PR_TITLE_TRUNCATE_LIMIT = 500
 
 
-def git_fetch_open_pr_description(cwd, pr_info=_UNSET):
-    """Return metadata for the current branch's open PR, or ``None``.
+def git_fetch_open_pr_description(pr_info):
+    """Build the PR description from :func:`get_open_pr_data`'s payload.
 
     Returns ``{"title": str, "body": str, "base_ref": str | None}`` when an
-    open PR exists. Returns ``None`` for any failure mode (closed PR, no PR,
-    ``gh`` missing, timeout, malformed or non-UTF-8 output). Pass ``pr_info``
-    (from :func:`get_open_pr_data`) to reuse an already-fetched payload instead
-    of re-shelling out to ``gh``.
+    open PR exists, or ``None`` when there is none (closed PR, no PR, ``gh``
+    missing, timeout, malformed output).
     """
-    cwd_str = str(cwd)
-    if pr_info is _UNSET:
-        pr_info = _fetch_open_pr_data(cwd_str)
     if not pr_info:
         return None
     title = (pr_info.get("title") or "")[:_PR_TITLE_TRUNCATE_LIMIT]

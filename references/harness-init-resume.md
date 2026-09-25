@@ -5,7 +5,7 @@ Shared `harness_common.cli` init/resume semantics for the `/optimus:deep` orches
 - `<progress-path>` — the target's progress file (e.g. `.claude/code-review-deep-progress.json`)
 - `<cap-flag>` — `--max-iterations` (review, refactor targets) or `--max-cycles` (coverage target)
 
-Per-target deltas stay inline in the deep SKILL.md: the `init` invocation itself (its `--skill`, cap, `--focus`, and `--scope` flags differ) and the baseline `--allow-red` policy. Wherever the commands below write `$CLAUDE_PLUGIN_ROOT`, use the plugin root the skill resolved in its Step 2.
+Per-target deltas stay inline in the deep SKILL.md: the `init` invocation itself (its `--skill`, cap, `--focus`, and `--scope` flags differ) and the baseline `--allow-red` policy.
 
 ## On `--resume`
 
@@ -16,7 +16,7 @@ PYTHONPATH="$CLAUDE_PLUGIN_ROOT/scripts" python -m harness_common.cli resume \
     --project-dir "."
 ```
 
-If exit code is non-zero, surface the error and stop. Pass `<cap-flag> N` through whenever the user supplied it on `--resume` — the CLI clamps it to the hard cap and, when the prior run ended at its cap, refuses a value at or below the completed count. `resume` persists the new cap (and clears a prior soft-exit stop) so the loop can continue past the previous limit.
+If exit code is non-zero, surface the error and stop. Pass `<cap-flag> N` through whenever the user supplied it on `--resume` — the CLI clamps it to the hard cap and persists it (clearing a prior soft-exit stop) so the loop can continue past the previous limit.
 
 `--resume` only continues a run whose progress file is still on disk: an interrupt, or one of the two soft exits the CLI leaves un-archived — `diminishing-returns`, and `blocked` (coverage target only, once you have cleared the prerequisite that stopped it). A run that finished cleanly was archived to `.done.json`, which `resume` refuses — for a fresh pass after that, re-run the skill without `--resume` so `init` starts a new run.
 
@@ -26,7 +26,7 @@ Run the skill's `init` invocation from its SKILL.md. Pass `--no-commit` through 
 
 If exit code is non-zero, surface the error and stop. Likely errors:
 
-- *"progress file already exists"* — a prior run has not been archived. Tell the user to either pass `--resume` to continue the prior run, or re-invoke the CLI `init` subcommand with `--force` to discard the prior progress and start fresh. `--force` is a flag of `cli.py init`, not of the skill — no user-visible orchestrator flag exists or is needed. Note that `resume` never re-runs the baseline: if the prior run stopped at its baseline, never completed an iteration, or recorded `_safety_error`, apply the skill's baseline step's `--resume` rule before entering the loop.
+- *"progress file already exists"* — a prior run was not archived. Tell the user they can continue it by re-running with `--resume`, or discard it; only on their explicit request to discard, re-run this `init` with `--force` (it deletes the prior findings).
 - *"No test command"* — `.claude/CLAUDE.md` does not document a test command and `--test-command` was not supplied. Recommend `/optimus:init`.
 - *"Working tree has uncommitted changes"* — the CLI re-enforces the Step 2 clean-tree check (it also protects direct CLI callers). Commit or stash first, or run with `--no-commit`.
 - *"Cannot determine HEAD commit"* — the project is not a git repository or has no commits.

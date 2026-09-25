@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/oprogramadorreal/optimus-claude/references/schemas/coverage-harness-output.schema.json",
   "title": "Harness output (coverage variant)",
-  "description": "The object the unit-test phase emits inside a ```json:harness-output fenced block when running under HARNESS_MODE_INLINE for the coverage deep target. Parsed by scripts/harness_common/parser.py. This schema is the contract; references/coverage-harness-mode.md step 5 shows it in context.",
+  "description": "The object the unit-test phase emits inside a ```json:harness-output fenced block when running under HARNESS_MODE_INLINE for the coverage deep target. Parsed by scripts/harness_common/parser.py.",
   "type": "object",
   "required": [
     "cycle",

@@ -1,6 +1,6 @@
 # Test Infrastructure Provisioning
 
-Complete test infrastructure setup: framework and coverage tooling installation, health check, and Optimus documentation provisioning. Read by init's test infrastructure step.
+Complete test infrastructure setup: framework and coverage tooling installation, health check, and Optimus documentation provisioning.
 
 ## Framework and Coverage Tooling Installation
 
@@ -8,8 +8,8 @@ Complete test infrastructure setup: framework and coverage tooling installation,
 
 Recommend the stack's dominant framework — these pins override general knowledge; analyze the actual project to decide:
 
-- Prefer whatever framework the project or its peer projects already use; keep an existing Jest setup unless migration is explicitly requested.
-- Node.js/TypeScript with Vite, ESBuild, or SWC → Vitest (built-in v8 coverage); otherwise Jest (`--coverage`). New Angular projects → Vitest; existing Angular tests → keep what's there.
+- Prefer whatever framework the project or its peer projects already use.
+- Node.js/TypeScript with Vite, ESBuild, or SWC → Vitest (built-in v8 coverage); otherwise Jest (`--coverage`). New Angular projects → Vitest.
 - Go and Rust → built-in test tooling (no third-party framework). Rust coverage: cargo-tarpaulin (`--out Html`) or cargo-llvm-cov (`--html`).
 - C#/.NET → xUnit + coverlet; coverlet emits machine-readable output only, so also install `dotnet-reportgenerator-globaltool` for readable reports.
 - Flutter → flutter_test (`flutter test --coverage`, LCOV); pure Dart → package:test. Filter generated files (`*.g.dart`, `*.freezed.dart`) from coverage reports; integration tests go in `integration_test/`.
@@ -17,7 +17,7 @@ Recommend the stack's dominant framework — these pins override general knowled
 - PHP → PHPUnit (coverage via Xdebug or PCOV); Ruby → RSpec + SimpleCov.
 - Unknown stack → search the web for the most popular framework and coverage tooling, applying the command validation and approval rules from `$CLAUDE_PLUGIN_ROOT/skills/init/references/unsupported-stack-fallback.md`.
 
-Ask for **explicit user approval** before installing anything. If installation fails (network issues, version conflicts, incompatible environments), report the error and stop — do not proceed without a working framework.
+Ask for **explicit user approval** before installing anything. If the framework install fails (network issues, version conflicts, incompatible environments), report the error and treat it as declined: skip the rest of this reference and continue init. Step 7 reports Test infra as `Not installed (install failed)` with the declined-infra note.
 
 ### Coverage tooling gaps
 

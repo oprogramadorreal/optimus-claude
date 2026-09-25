@@ -10,7 +10,7 @@
 #   bash scripts/test-skills.sh --model claude-fable-5-1 --skill init                 # test one skill
 #   bash scripts/test-skills.sh --model claude-fable-5-1 --skill init --fixture node  # test one skill + one fixture
 #   bash scripts/test-skills.sh --model claude-fable-5-1 --all                        # test all testable skills
-#   bash scripts/test-skills.sh --model claude-fable-5-1 --fresh --all --worktree     # full run in isolated worktree
+#   bash scripts/test-skills.sh --model claude-fable-5-1 --all --worktree             # full run in isolated worktree
 #   bash scripts/test-skills.sh --dry-run                    # show what would run
 
 set -euo pipefail
@@ -48,7 +48,7 @@ while [[ $# -gt 0 ]]; do
       echo "Usage: bash scripts/test-skills.sh [options]"
       echo "Options:"
       echo "  --skill <name>     Test specific skill (init, permissions, commit-suggest, commit-branch, how-to-run, prompt)"
-      echo "  --fixture <name>   Test against specific fixture (node, python, go, rust, csharp, monorepo, empty, multi-repo)"
+      echo "  --fixture <name>   Test against specific fixture (node, python, go, rust, csharp, monorepo, empty)"
       echo "  --all              Test all skill/fixture combinations"
       echo "  --fresh            Remove and regenerate all fixtures before testing"
       echo "  --worktree         Run in an isolated git worktree (keeps main tree free)"
@@ -138,9 +138,7 @@ if $ALL_MODE; then
   )
 elif [ -n "$SKILL_FILTER" ] && [ -n "$FIXTURE_FILTER" ]; then
   # Map fixture shorthand to directory name
-  if [[ "$FIXTURE_FILTER" == "multi-repo" ]]; then
-    TEST_MATRIX=("$SKILL_FILTER:multi-repo-workspace")
-  elif [[ "$FIXTURE_FILTER" == *-project ]] || [[ "$FIXTURE_FILTER" == *-workspace ]]; then
+  if [[ "$FIXTURE_FILTER" == *-project ]] || [[ "$FIXTURE_FILTER" == *-workspace ]]; then
     TEST_MATRIX=("$SKILL_FILTER:$FIXTURE_FILTER")
   else
     TEST_MATRIX=("$SKILL_FILTER:${FIXTURE_FILTER}-project")
@@ -172,7 +170,6 @@ fi
 
 errors=0
 pass=0
-skipped=0
 CURRENT_WORK_DIR=""
 trap 'if [ -n "$CURRENT_WORK_DIR" ] && [ -d "$CURRENT_WORK_DIR" ]; then rm -rf "$CURRENT_WORK_DIR"; fi' EXIT INT TERM
 
@@ -206,14 +203,15 @@ run_skill_test() {
   cp -r "$fixture_dir/." "$work_dir/"
   cd "$work_dir"
 
-  # Determine the skill prompt
+  # The prompt must start with the command: Claude Code recognizes a slash
+  # command only there, and every skill disables model invocation.
   local prompt
   case "$skill" in
     init)
-      prompt="Run /optimus:init on this project. Analyze the project structure and set it up for AI-assisted development."
+      prompt="/optimus:init"
       ;;
     permissions)
-      prompt="Run /optimus:permissions to set up branch protection and permission rules for this project."
+      prompt="/optimus:permissions"
       ;;
     commit-suggest)
       # Need some changes to analyze — test for file existence to avoid creating unexpected files
@@ -224,13 +222,13 @@ run_skill_test() {
       else
         echo "# new feature" > README.md
       fi
-      prompt="Run /optimus:commit suggest — suggest a conventional commit message for the current changes without committing."
+      prompt="/optimus:commit suggest"
       ;;
     how-to-run)
-      prompt="Run /optimus:how-to-run to generate a HOW-TO-RUN.md teaching a new developer how to set up their environment and run this project locally."
+      prompt="/optimus:how-to-run"
       ;;
     prompt)
-      prompt="Run /optimus:prompt to craft an optimized prompt for the following idea: Write a Python function that parses CSV files and returns summary statistics."
+      prompt="/optimus:prompt Write a Python function that parses CSV files and returns summary statistics."
       ;;
     commit-branch)
       # Need uncommitted changes for branch mode to have context
@@ -241,7 +239,7 @@ run_skill_test() {
       else
         echo "# add auth middleware" > README.md
       fi
-      prompt="Run /optimus:commit branch — move the current changes to a properly named branch without committing."
+      prompt="/optimus:commit branch"
       ;;
     *)
       echo "  ERROR  No prompt defined for skill: $skill"
@@ -267,8 +265,6 @@ run_skill_test() {
 
   "$PYTHON" "$SUPPORT" snapshot --root "$work_dir" > "$work_root/baseline.json"
 
-  local model_args=()
-  if [ -n "$MODEL" ]; then model_args=(--model "$MODEL"); fi
   local exit_code=0
   claude -p "$prompt" \
     --plugin-dir "$PLUGIN_ROOT" \
@@ -276,7 +272,7 @@ run_skill_test() {
     --dangerously-skip-permissions \
     --max-turns "$MAX_TURNS" \
     --output-format json \
-    ${model_args[@]+"${model_args[@]}"} \
+    --model "$MODEL" \
     > "$work_root/result.json" 2> "$work_root/stderr.log" || exit_code=$?
 
   if [ "$exit_code" -ne 0 ]; then
@@ -304,18 +300,19 @@ run_skill_test() {
 echo "=== optimus-claude skill tests ==="
 echo
 
-# Check claude CLI is available
-if ! command -v claude &>/dev/null; then
-  echo "ERROR: claude CLI not found. Install it first: https://docs.anthropic.com/en/docs/claude-code"
-  echo "       These tests require the claude CLI installed and authenticated."
-  exit 1
-fi
-
 if ! "$PYTHON" -c 'import yaml' >/dev/null 2>&1; then
   echo "ERROR: Python with PyYAML is required. Install requirements-dev.txt."
   exit 1
 fi
-echo "Host: $(claude --version)"
+# Live runs need the claude CLI; a dry run only prints the plan.
+if ! $DRY_RUN; then
+  if ! command -v claude &>/dev/null; then
+    echo "ERROR: claude CLI not found. Install it first: https://docs.anthropic.com/en/docs/claude-code"
+    echo "       These tests require the claude CLI installed and authenticated."
+    exit 1
+  fi
+  echo "Host: $(claude --version)"
+fi
 echo "Model: ${MODEL:-host default (not pinned)}"
 echo "Plugin directory: $PLUGIN_ROOT"
 echo "Plugin commit: $(git -C "$PLUGIN_ROOT" rev-parse HEAD)"
@@ -354,6 +351,6 @@ echo
 if $DRY_RUN; then
   echo "=== Dry run: ${#TEST_MATRIX[@]} tests would execute ==="
 else
-  echo "=== Skill test results: $pass passed, $errors failed, $skipped skipped ==="
+  echo "=== Skill test results: $pass passed, $errors failed ==="
 fi
 if [ "$errors" -gt 0 ]; then exit 1; else exit 0; fi

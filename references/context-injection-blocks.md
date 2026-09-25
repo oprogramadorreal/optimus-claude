@@ -47,7 +47,7 @@ Status values:
 - **skipped — apply failed** — the fix's content swap did not apply cleanly, skipped
 - **persistent — fix failed** — fix attempted multiple times, still failing
 
-[if any findings carry one of exactly these four statuses — reverted — test failure, reverted — attempt 2, skipped — apply failed, persistent — fix failed — append this section. The list is exhaustive on purpose: a catch-all ("anything not fixed") swept in **discovered**, a finding nobody has attempted, and rendered it here as a failed attempt with both fields empty — steering the next iteration away from the straightforward fix.]
+[Append this section only if a finding carries one of exactly these four statuses: reverted — test failure, reverted — attempt 2, skipped — apply failed, persistent — fix failed.]
 
 ### Failed Fix Attempts
 [one bullet per reverted/skipped/persistent finding — omit for discovered, fixed and retained findings]

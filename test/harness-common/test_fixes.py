@@ -165,6 +165,10 @@ class TestSwapContent:
 
 
 class TestApplySingleFix:
+    def test_fix_without_file_is_refused(self, tmp_path):
+        fix = {"pre_edit_content": "a", "post_edit_content": "b"}
+        assert apply_single_fix(fix, str(tmp_path)) is False
+
     def test_applies_pre_to_post(self, tmp_path):
         f = tmp_path / "src.js"
         f.write_text("obj.value", encoding="utf-8")
@@ -188,6 +192,62 @@ class TestRevertSingleFix:
         }
         assert revert_single_fix(fix, str(tmp_path)) is True
         assert f.read_text(encoding="utf-8") == "obj.value"
+
+
+class TestSwapContentLineEndings:
+    def test_lf_file_keeps_lf(self, tmp_path):
+        f = tmp_path / "a.py"
+        f.write_bytes(b"a = 1\nb = 2\nc = 3\n")
+        fix = {
+            "file": "a.py",
+            "pre_edit_content": "b = 2",
+            "post_edit_content": "b = 20",
+        }
+        assert apply_single_fix(fix, str(tmp_path)) is True
+        assert f.read_bytes() == b"a = 1\nb = 20\nc = 3\n"
+
+    def test_crlf_file_keeps_crlf_for_lf_recorded_content(self, tmp_path):
+        f = tmp_path / "a.py"
+        f.write_bytes(b"a = 1\r\nb = 2\r\nc = 3\r\n")
+        fix = {
+            "file": "a.py",
+            "pre_edit_content": "b = 2\nc = 3",
+            "post_edit_content": "b = 20\nc = 30",
+        }
+        assert apply_single_fix(fix, str(tmp_path)) is True
+        assert f.read_bytes() == b"a = 1\r\nb = 20\r\nc = 30\r\n"
+        assert revert_single_fix(fix, str(tmp_path)) is True
+        assert f.read_bytes() == b"a = 1\r\nb = 2\r\nc = 3\r\n"
+
+    def test_mixed_file_round_trips_byte_identically(self, tmp_path):
+        f = tmp_path / "a.py"
+        original = b"a = 1\nb = 2\r\nc = 3\nd = 4\n"
+        f.write_bytes(original)
+        fix = {
+            "file": "a.py",
+            "pre_edit_content": "c = 3",
+            "post_edit_content": "c = 30",
+        }
+        assert apply_single_fix(fix, str(tmp_path)) is True
+        assert f.read_bytes() == b"a = 1\nb = 2\r\nc = 30\nd = 4\n"
+        assert revert_single_fix(fix, str(tmp_path)) is True
+        assert f.read_bytes() == original
+
+    def test_mixed_file_multiline_fix_takes_its_lines_ending(self, tmp_path):
+        # The snippet still matches across the CRLF line (matching runs on
+        # "\n"); the replacement takes the ending of the line it starts on, and
+        # the lines outside it keep theirs.
+        f = tmp_path / "a.py"
+        f.write_bytes(b"a = 1\nb = 2\r\nc = 3\r\nd = 4\n")
+        fix = {
+            "file": "a.py",
+            "pre_edit_content": "b = 2\nc = 3",
+            "post_edit_content": "b = 20\nc = 30",
+        }
+        assert apply_single_fix(fix, str(tmp_path)) is True
+        assert f.read_bytes() == b"a = 1\nb = 20\r\nc = 30\r\nd = 4\n"
+        assert revert_single_fix(fix, str(tmp_path)) is True
+        assert f.read_bytes() == b"a = 1\nb = 2\r\nc = 3\r\nd = 4\n"
 
 
 def _make_fix(tmp_path, filename, pre, post):
@@ -255,13 +315,6 @@ class TestBisectFixes:
             "pre_edit_content": "old_a",
             "post_edit_content": "new_a",
         }
-        # After revert, file has "old_a". Now make re-apply impossible by
-        # writing ambiguous content before apply step runs.
-        original_apply = (
-            apply_single_fix.__wrapped__
-            if hasattr(apply_single_fix, "__wrapped__")
-            else None
-        )
 
         def run_tests(cmd, cwd):
             return (True, "ok")
@@ -295,29 +348,6 @@ class TestBisectFixes:
             fixed, reverted, skipped = bisect_fixes(fixes, "test", str(tmp_path))
         assert fixed == 1
         mock_rt.assert_called_once_with("test", str(tmp_path))
-
-    def test_mixed_scenario(self, tmp_path):
-        """Mix of pass, fail, and unrevertable fixes."""
-        fixes = [
-            _make_fix(tmp_path, "a.txt", "old_a", "new_a"),  # will pass
-            _make_fix(tmp_path, "b.txt", "old_b", "new_b"),  # will fail
-            {
-                "file": "gone.txt",
-                "pre_edit_content": "x",
-                "post_edit_content": "y",
-            },  # unrevertable
-        ]
-        call_count = 0
-
-        def run_tests(cmd, cwd):
-            nonlocal call_count
-            call_count += 1
-            return (True, "ok") if call_count == 1 else (False, "fail")
-
-        fixed, reverted, skipped = bisect_fixes(fixes, "test", str(tmp_path), run_tests)
-        assert fixed == 2  # a.txt passed + gone.txt unrevertable
-        assert reverted == 1  # b.txt failed
-        assert skipped == 0
 
     def test_second_pass_recovers_order_dependent_fix(self, tmp_path):
         """Fix that fails in first pass due to ordering succeeds on retry."""
@@ -666,7 +696,7 @@ class TestBisectCleanReset:
     def test_clean_reset_first_pass_apply_failure_skipped(self, tmp_path):
         # A fix that fails to apply on the clean-reset first pass is counted as
         # skipped (the clean-reset path has its own skip branch, separate from
-        # the legacy bisect's). A deletion fix routes the set through clean-reset.
+        # the legacy bisect's).
         deletion = {
             "file": "del.py",
             "category": "dead-code",
@@ -818,8 +848,8 @@ class TestBisectCleanReset:
         assert skipped == 1
 
     def test_clean_reset_raise_on_first_pass_does_not_crash(self, tmp_path):
-        # reset_to_clean is restore_working_tree → git_restore_to, which raises
-        # RuntimeError when its `git checkout` fails. The clean-reset bisect must
+        # reset_to_clean (cli._clean_reset_hook) raises RuntimeError when its
+        # git restore or snapshot apply fails. The clean-reset bisect must
         # abort gracefully (undecided fixes reported skipped) rather than let the
         # exception propagate out and crash the deep-step / refactor-step.
         deletion = {

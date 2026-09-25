@@ -1,6 +1,6 @@
 # Plan-mode handoff
 
-Shared procedure for skills that hand a design off through Claude Code's plan mode (`brainstorm`, `jira`). Owned by brainstorm.
+Shared procedure for skills that hand a design off through Claude Code's plan mode (`brainstorm`, `jira`, `prompt`). Owned by brainstorm.
 
 ## Codex handoff
 

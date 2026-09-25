@@ -8,8 +8,8 @@ terminated with ``parse-failure`` on every iteration.
 
 The schemas under ``references/schemas/`` are now the single definition. These
 tests check that the golden fixtures satisfy them, that the fixtures survive
-``cli parse``, and that the docs still name every required field — so a one-sided
-rename fails here rather than in production.
+``cli parse``, and that the docs point subagents at both the schema and the
+fixture by real path — so a one-sided rename fails here rather than in production.
 
 No ``jsonschema`` dependency: the project is stdlib-only, and ``_validate`` below
 covers exactly the keywords these two schemas use. It raises on an unknown
@@ -184,29 +184,29 @@ def test_validator_rejects_a_broken_instance():
 
 
 def test_no_actionable_fixes_matches_the_findings_it_describes():
-    """The one rule JSON Schema cannot express, checked directly.
+    """The one rule JSON Schema cannot express, checked against the runtime guard.
 
     ``no_actionable_fixes`` is true only when no finding captured a swap pair. A
     stale ``false`` makes the orchestrator keep iterating on nothing; a stale
-    ``true`` ends the run while real fixes are still pending.
+    ``true`` ends the run while real fixes are still pending. The fixture's flag
+    must equal what ``cli._promote_actionable_fixes`` derives from its findings,
+    so the worked instance and the guard cannot drift apart.
     """
     payload = _load(DEEP_FIXTURE)
 
-    def actionable(findings):
-        return any(
-            f["pre_edit_content"] and f["post_edit_content"] != f["pre_edit_content"]
-            for f in findings
-        )
-
-    assert payload["no_actionable_fixes"] is not actionable(payload["new_findings"])
+    probe = {**payload, "no_actionable_fixes": True, "fixes_applied": []}
+    cli._promote_actionable_fixes(probe)
+    assert probe["no_actionable_fixes"] is payload["no_actionable_fixes"]
 
     barren = {
         **payload,
         "new_findings": [payload["new_findings"][2]],
         "fixes_applied": [],
+        "no_actionable_fixes": True,
     }
-    assert not actionable(
-        barren["new_findings"]
+    cli._promote_actionable_fixes(barren)
+    assert (
+        barren["no_actionable_fixes"] is True and barren["fixes_applied"] == []
     ), "fixture index 2 must stay the unconfirmed, unfixed finding this rule keys on"
 
 

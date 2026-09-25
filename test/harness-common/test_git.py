@@ -14,11 +14,11 @@ from harness_common.git import (
     _base_from_symbolic_ref,
     _clean_working_tree,
     _detect_base_branch,
-    _fetch_open_pr_data,
     _verify_ref,
     commit_checkpoint,
     get_open_pr_data,
     git_apply_snapshot,
+    git_check_nested_repositories,
     git_current_branch,
     git_diff_has_changes,
     git_discover_branch_files,
@@ -29,6 +29,8 @@ from harness_common.git import (
     git_restore_tracked_to,
     git_rev_parse_head,
     git_stash_snapshot,
+    git_test_output_paths,
+    git_test_tree_state,
     restore_working_tree,
 )
 
@@ -50,13 +52,6 @@ def test_gitignore_mirrors_harness_state_excludes():
             assert pattern in gitignore, f"{pattern} missing from .gitignore"
 
 
-@patch("harness_common.git._fetch_open_pr_data")
-def test_get_open_pr_data_delegates(mock_fetch):
-    mock_fetch.return_value = {"state": "OPEN"}
-    assert get_open_pr_data("/tmp/project") == {"state": "OPEN"}
-    mock_fetch.assert_called_once_with("/tmp/project")
-
-
 class TestGitRevParseHead:
     @patch("harness_common.git.subprocess.run")
     def test_success(self, mock_run):
@@ -75,7 +70,7 @@ class TestCleanWorkingTree:
         mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
         _clean_working_tree("/tmp/project")
         commands = [call.args[0][1] for call in mock_run.call_args_list]
-        assert commands.index("checkout") < commands.index("clean")
+        assert "checkout" not in commands
 
     @patch("harness_common.git.subprocess.run")
     def test_clean_failure_stops_restore(self, mock_run):
@@ -87,18 +82,6 @@ class TestCleanWorkingTree:
         mock_run.side_effect = run
         with pytest.raises(RuntimeError, match="git clean"):
             _clean_working_tree("/tmp/project")
-
-    @patch("harness_common.git.subprocess.run")
-    def test_checkout_failure_stops_before_clean(self, mock_run):
-        def run(args, **kwargs):
-            return subprocess.CompletedProcess(
-                args, 1 if args[1] == "checkout" else 0, "", "checkout failed"
-            )
-
-        mock_run.side_effect = run
-        with pytest.raises(RuntimeError, match="git checkout"):
-            _clean_working_tree("/tmp/project")
-        assert not any(call.args[0][1] == "clean" for call in mock_run.call_args_list)
 
     @patch("harness_common.git.subprocess.run")
     def test_prefix_failure_stops_before_any_mutation(self, mock_run):
@@ -256,30 +239,6 @@ class TestCommitCheckpoint:
         assert "errored" in capsys.readouterr().out
 
 
-def _git(cwd, *args):
-    """Run a git command in ``cwd``, raising on failure."""
-    subprocess.run(
-        ["git", *args],
-        cwd=str(cwd),
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-        check=True,
-    )
-
-
-def _head(cwd):
-    return subprocess.run(
-        ["git", "rev-parse", "HEAD"],
-        cwd=str(cwd),
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-    ).stdout.strip()
-
-
 def test_no_fix_iteration_with_untracked_progress_is_nothing_to_commit(tmp_path):
     """Real-repo regression for the masked commit-checkpoint bug.
 
@@ -291,13 +250,8 @@ def test_no_fix_iteration_with_untracked_progress_is_nothing_to_commit(tmp_path)
     that would durably disable checkpoints. A mocked test masked this; only a
     real git repo exercises the actual git phrasing.
     """
-    _git(tmp_path, "init")
-    _git(tmp_path, "config", "user.email", "t@t.test")
-    _git(tmp_path, "config", "user.name", "t")
-    (tmp_path / "file.txt").write_text("hello\n", encoding="utf-8")
-    _git(tmp_path, "add", "file.txt")
-    _git(tmp_path, "commit", "-m", "base")
-    head_before = _head(tmp_path)
+    _init_repo(tmp_path)
+    head_before = _run_git(tmp_path, "rev-parse", "HEAD").stdout.strip()
 
     # Simulate a no-fix iteration: the only tree change is the untracked,
     # NON-gitignored progress file (this scratch repo has no .gitignore).
@@ -309,7 +263,8 @@ def test_no_fix_iteration_with_untracked_progress_is_nothing_to_commit(tmp_path)
         "chore: checkpoint", tmp_path, ".claude/code-review-deep-progress.json"
     )
     assert status == COMMIT_NOTHING
-    assert _head(tmp_path) == head_before  # no checkpoint commit was created
+    head_after = _run_git(tmp_path, "rev-parse", "HEAD").stdout.strip()
+    assert head_after == head_before  # no checkpoint commit was created
 
 
 class TestGitRestoreTo:
@@ -337,7 +292,7 @@ class TestGitRestoreTo:
             "--",
             ".",
         ]
-        mock_clean.assert_called_once_with("/tmp", _run=mock_run, reset_tracked=False)
+        mock_clean.assert_called_once_with("/tmp", _run=mock_run)
 
     @pytest.mark.parametrize("failed_command", ["ls-tree", "restore"])
     @patch("harness_common.git._clean_working_tree")
@@ -399,6 +354,22 @@ class TestGitDiffHasChanges:
         ]
         assert git_diff_has_changes("/tmp") is False
 
+    def test_untracked_harness_state_is_not_a_change(self, tmp_path):
+        _init_repo(tmp_path)
+        claude = tmp_path / ".claude"
+        claude.mkdir()
+        for name in (
+            "code-review-deep-progress.json",
+            "code-review-deep-progress.json.bak",
+            "refactor-deep-progress.done.json",
+            ".deep-iteration-raw.txt",
+            ".unit-test-deep-result.json",
+        ):
+            (claude / name).write_text("{}", encoding="utf-8")
+        assert git_diff_has_changes(tmp_path) is False
+        (claude / "notes.md").write_text("user work\n", encoding="utf-8")
+        assert git_diff_has_changes(tmp_path) is True
+
 
 class TestRestoreWorkingTree:
     @patch("harness_common.git.git_restore_to")
@@ -429,7 +400,7 @@ class TestRestoreWorkingTree:
 
     @patch("harness_common.git.git_restore_to")
     def test_no_stash_no_head_returns_false(self, mock_restore_to, capsys):
-        # Regression for c53086d: when both inputs are None, restore_working_tree
+        # When both inputs are None, restore_working_tree
         # warns and returns False rather than raising on the missing fallback.
         result = restore_working_tree(None, None, "/tmp")
         assert result is False
@@ -437,84 +408,77 @@ class TestRestoreWorkingTree:
         assert "no snapshot to restore from" in capsys.readouterr().out
 
 
+def _snapshot_capture_runner(*, failed=(), untracked="new.txt\0"):
+    """Drive git_stash_snapshot with command-keyed Git responses."""
+    calls = []
+    outputs = {
+        ("stash", "create"): "base1",
+        ("ls-files", "--others"): untracked,
+        ("write-tree",): "utree",
+        ("commit-tree", "utree"): "ucommit",
+        ("rev-parse", "HEAD"): "headsha",
+        ("rev-parse", "base1^{tree}"): "wtree",
+        ("rev-parse", "base1^2"): "idxcommit",
+        ("commit-tree", "wtree"): "stash3p",
+    }
+
+    def run(args, **kwargs):
+        command = tuple(args[1:])
+        calls.append(command)
+        if failed and command[: len(failed)] == failed:
+            return subprocess.CompletedProcess(args, 1, "", "capture failed")
+        output = next((v for k, v in outputs.items() if command[: len(k)] == k), "")
+        return subprocess.CompletedProcess(args, 0, output, "")
+
+    return run, calls
+
+
 class TestGitStashSnapshot:
-    @patch("harness_common.git.subprocess.run")
-    def test_success(self, mock_run):
-        mock_run.side_effect = [
-            MagicMock(returncode=0, stdout=""),  # no nested repositories
-            MagicMock(returncode=0, stdout="abc123\n"),  # stash create
-            MagicMock(returncode=0, stdout=""),  # ls-files: no untracked
-            MagicMock(returncode=0),  # stash store
-        ]
-        assert git_stash_snapshot("/tmp") == "abc123"
+    def test_success(self):
+        run, calls = _snapshot_capture_runner(untracked="")
+        assert git_stash_snapshot("/tmp", _run=run) == "base1"
+        assert calls[-1] == ("stash", "store", "-m", "harness snapshot", "base1")
 
     @patch("harness_common.git.subprocess.run")
     def test_no_changes(self, mock_run):
         mock_run.return_value = MagicMock(returncode=0, stdout="")
         assert git_stash_snapshot("/tmp") is None
 
-    @patch("harness_common.git.subprocess.run")
-    def test_store_failure_raises(self, mock_run):
-        mock_run.side_effect = [
-            MagicMock(returncode=0, stdout=""),
-            MagicMock(returncode=0, stdout="abc123\n"),
-            MagicMock(returncode=0, stdout=""),
-            MagicMock(returncode=1, stderr="error storing"),
-        ]
+    def test_store_failure_raises(self):
+        run, _ = _snapshot_capture_runner(failed=("stash", "store"), untracked="")
         with pytest.raises(RuntimeError, match="git stash store failed"):
-            git_stash_snapshot("/tmp")
+            git_stash_snapshot("/tmp", _run=run)
 
-    @patch("harness_common.git.subprocess.run")
-    def test_untracked_files_grafted_as_third_parent(self, mock_run):
+    def test_untracked_files_grafted_as_third_parent(self):
         # git stash create cannot capture untracked files, so the snapshot
         # synthesizes a 3-parent stash commit — the shape `git stash apply`
         # restores untracked files from.
-        mock_run.side_effect = [
-            MagicMock(returncode=0, stdout=""),  # no nested repositories
-            MagicMock(returncode=0, stdout="base1\n"),  # stash create
-            MagicMock(returncode=0, stdout="new.txt\0"),  # ls-files
-            MagicMock(returncode=0),  # update-index (temp index)
-            MagicMock(returncode=0, stdout="utree\n"),  # write-tree
-            MagicMock(returncode=0, stdout="ucommit\n"),  # commit-tree untracked
-            MagicMock(returncode=0, stdout="headsha\n"),  # rev-parse HEAD
-            MagicMock(returncode=0, stdout="wtree\n"),  # rev-parse base^{tree}
-            MagicMock(returncode=0, stdout="idxcommit\n"),  # rev-parse base^2
-            MagicMock(returncode=0, stdout="stash3p\n"),  # commit-tree 3-parent
-            MagicMock(returncode=0),  # stash store
-        ]
-        assert git_stash_snapshot("/tmp") == "stash3p"
-        three_parent = mock_run.call_args_list[9].args[0]
-        assert three_parent[:3] == ["git", "commit-tree", "wtree"]
-        assert three_parent[3:9] == [
+        run, calls = _snapshot_capture_runner()
+        assert git_stash_snapshot("/tmp", _run=run) == "stash3p"
+        three_parent = next(c for c in calls if c[:2] == ("commit-tree", "wtree"))
+        assert three_parent[2:8] == (
             "-p",
             "headsha",
             "-p",
             "idxcommit",
             "-p",
             "ucommit",
-        ]
-        stored = mock_run.call_args_list[10].args[0]
-        assert stored == ["git", "stash", "store", "-m", "harness snapshot", "stash3p"]
+        )
+        assert calls[-1] == ("stash", "store", "-m", "harness snapshot", "stash3p")
 
-    @patch("harness_common.git.subprocess.run")
-    def test_untracked_capture_excludes_harness_state(self, mock_run):
+    def test_untracked_capture_excludes_harness_state(self):
         # Progress/iteration files are orchestrator bookkeeping: they are
         # preserved in place by _clean_working_tree during restores, so they
         # must not be captured (re-applying a stale copy would corrupt the
         # run's state). Only harness paths untracked → plain 2-parent stash.
-        mock_run.side_effect = [
-            MagicMock(returncode=0, stdout=""),  # no nested repositories
-            MagicMock(returncode=0, stdout="base1\n"),
-            MagicMock(
-                returncode=0,
-                stdout=(
-                    ".claude/code-review-deep-progress.json\0"
-                    ".claude/.deep-iteration-raw.txt\0"
-                ),
-            ),
-            MagicMock(returncode=0),  # store
-        ]
-        assert git_stash_snapshot("/tmp") == "base1"
+        run, calls = _snapshot_capture_runner(
+            untracked=(
+                ".claude/code-review-deep-progress.json\0"
+                ".claude/.deep-iteration-raw.txt\0"
+            )
+        )
+        assert git_stash_snapshot("/tmp", _run=run) == "base1"
+        assert not any(c[:1] == ("update-index",) for c in calls)
 
     @pytest.mark.parametrize(
         "failed",
@@ -530,26 +494,7 @@ class TestGitStashSnapshot:
         ],
     )
     def test_partial_capture_is_never_a_usable_snapshot(self, failed):
-        calls = []
-
-        def run(args, **kwargs):
-            command = tuple(args[1:])
-            calls.append(command)
-            if command[: len(failed)] == failed:
-                return subprocess.CompletedProcess(args, 1, "", "capture failed")
-            outputs = {
-                ("stash", "create"): "base1",
-                ("ls-files", "--others"): "new.txt\0",
-                ("write-tree",): "utree",
-                ("commit-tree", "utree"): "ucommit",
-                ("rev-parse", "HEAD"): "headsha",
-                ("rev-parse", "base1^{tree}"): "wtree",
-                ("rev-parse", "base1^2"): "idxcommit",
-                ("commit-tree", "wtree"): "stash3p",
-            }
-            output = next((v for k, v in outputs.items() if command[: len(k)] == k), "")
-            return subprocess.CompletedProcess(args, 0, output, "")
-
+        run, calls = _snapshot_capture_runner(failed=failed)
         with pytest.raises(RuntimeError):
             git_stash_snapshot("/tmp", _run=run)
         if failed != ("stash", "store"):
@@ -683,10 +628,10 @@ class TestFetchOpenPrData:
             }
         )
         mock_run.return_value = MagicMock(returncode=0, stdout=pr_json)
-        result = _fetch_open_pr_data("/tmp/project")
+        result = get_open_pr_data("/tmp/project")
         assert result is not None
         assert result["body"] == body
-        # Regression guard for commit 9e0553a — without these kwargs, Windows
+        # Without these kwargs, Windows
         # would re-default to cp1252 and silently drop non-Latin-1 PR bodies.
         _args, kwargs = mock_run.call_args
         assert kwargs.get("encoding") == "utf-8"
@@ -703,12 +648,12 @@ class TestFetchOpenPrData:
             }
         )
         mock_run.return_value = MagicMock(returncode=0, stdout=pr_json)
-        assert _fetch_open_pr_data("/tmp/project") is None
+        assert get_open_pr_data("/tmp/project") is None
 
     @patch("harness_common.git.subprocess.run")
     def test_returns_none_on_gh_failure(self, mock_run):
         mock_run.return_value = MagicMock(returncode=1, stdout="")
-        assert _fetch_open_pr_data("/tmp/project") is None
+        assert get_open_pr_data("/tmp/project") is None
 
     @patch("harness_common.git.subprocess.run")
     def test_returns_none_when_gh_missing(self, mock_run):
@@ -716,14 +661,14 @@ class TestFetchOpenPrData:
         # except clause absorbs into None (graceful degradation — PR context is
         # simply not injected). Mirrors _verify_ref's covered failure branch.
         mock_run.side_effect = FileNotFoundError("gh not found")
-        assert _fetch_open_pr_data("/tmp/project") is None
+        assert get_open_pr_data("/tmp/project") is None
 
     @patch("harness_common.git.subprocess.run")
     def test_returns_none_on_malformed_json(self, mock_run):
         # gh exited 0 but emitted non-JSON (truncated / interleaved output):
         # json.loads raises ValueError, also absorbed into None.
         mock_run.return_value = MagicMock(returncode=0, stdout="not json{")
-        assert _fetch_open_pr_data("/tmp/project") is None
+        assert get_open_pr_data("/tmp/project") is None
 
 
 class TestVerifyRef:
@@ -750,47 +695,33 @@ class TestVerifyRef:
 
 class TestBaseFromOpenPr:
     @patch("harness_common.git._verify_ref", return_value=True)
-    @patch("harness_common.git._fetch_open_pr_data")
-    def test_returns_origin_prefixed_base(self, mock_fetch, _mock_verify):
-        mock_fetch.return_value = {
+    def test_returns_origin_prefixed_base(self, _mock_verify):
+        pr_info = {
             "title": "x",
             "body": "y",
             "baseRefName": "main",
             "state": "OPEN",
         }
-        assert _base_from_open_pr("/tmp") == "origin/main"
+        assert _base_from_open_pr("/tmp", pr_info) == "origin/main"
 
-    @patch("harness_common.git._fetch_open_pr_data", return_value=None)
-    def test_returns_none_when_no_pr(self, _mock_fetch):
-        assert _base_from_open_pr("/tmp") is None
+    def test_returns_none_when_no_pr(self):
+        assert _base_from_open_pr("/tmp", None) is None
 
     @patch("harness_common.git._verify_ref", return_value=False)
-    @patch("harness_common.git._fetch_open_pr_data")
-    def test_returns_none_when_local_ref_missing(self, mock_fetch, _mock_verify):
+    def test_returns_none_when_local_ref_missing(self, _mock_verify):
         # Open PR exists upstream, but the user has not fetched its base —
         # so the local `origin/<base>` ref doesn't resolve. Fall through.
-        mock_fetch.return_value = {
+        pr_info = {
             "title": "x",
             "body": "y",
             "baseRefName": "feature/upstream-base-not-fetched",
             "state": "OPEN",
         }
-        assert _base_from_open_pr("/tmp") is None
+        assert _base_from_open_pr("/tmp", pr_info) is None
 
-    @patch("harness_common.git._fetch_open_pr_data")
-    def test_returns_none_when_baseref_missing(self, mock_fetch):
-        mock_fetch.return_value = {"title": "x", "body": "y", "state": "OPEN"}
-        assert _base_from_open_pr("/tmp") is None
-
-    @patch("harness_common.git._verify_ref", return_value=True)
-    @patch("harness_common.git._fetch_open_pr_data")
-    def test_provided_pr_info_skips_refetch(self, mock_fetch, _mock_verify):
-        # CL1: threading pr_info (dict or None) must not trigger a re-fetch —
-        # None means "fetched, no open PR", not "not provided".
-        pr = {"baseRefName": "main", "state": "OPEN"}
-        assert _base_from_open_pr("/tmp", pr) == "origin/main"
-        assert _base_from_open_pr("/tmp", None) is None
-        mock_fetch.assert_not_called()
+    def test_returns_none_when_baseref_missing(self):
+        pr_info = {"title": "x", "body": "y", "state": "OPEN"}
+        assert _base_from_open_pr("/tmp", pr_info) is None
 
 
 class TestBaseFromSymbolicRef:
@@ -846,7 +777,7 @@ class TestDetectBaseBranch:
     @patch("harness_common.git._base_from_open_pr")
     def test_open_pr_wins_first(self, mock_open_pr, mock_symbolic, mock_default):
         mock_open_pr.return_value = "origin/feature-base"
-        assert _detect_base_branch("/tmp") == "origin/feature-base"
+        assert _detect_base_branch("/tmp", None) == "origin/feature-base"
         mock_symbolic.assert_not_called()
         mock_default.assert_not_called()
 
@@ -855,7 +786,7 @@ class TestDetectBaseBranch:
     @patch("harness_common.git._base_from_open_pr", return_value=None)
     def test_symbolic_ref_wins_second(self, _mock_open_pr, mock_symbolic, mock_default):
         mock_symbolic.return_value = "origin/develop"
-        assert _detect_base_branch("/tmp") == "origin/develop"
+        assert _detect_base_branch("/tmp", None) == "origin/develop"
         mock_default.assert_not_called()
 
     @patch("harness_common.git._base_from_default_branches")
@@ -863,13 +794,13 @@ class TestDetectBaseBranch:
     @patch("harness_common.git._base_from_open_pr", return_value=None)
     def test_default_branches_third(self, _mock_open_pr, _mock_symbolic, mock_default):
         mock_default.return_value = "origin/master"
-        assert _detect_base_branch("/tmp") == "origin/master"
+        assert _detect_base_branch("/tmp", None) == "origin/master"
 
     @patch("harness_common.git._base_from_default_branches", return_value=None)
     @patch("harness_common.git._base_from_symbolic_ref", return_value=None)
     @patch("harness_common.git._base_from_open_pr", return_value=None)
     def test_returns_none_when_all_fail(self, *_mocks):
-        assert _detect_base_branch("/tmp") is None
+        assert _detect_base_branch("/tmp", None) is None
 
 
 class TestGitDiscoverBranchFiles:
@@ -877,7 +808,7 @@ class TestGitDiscoverBranchFiles:
     @patch("harness_common.git._detect_base_branch", return_value="origin/main")
     def test_returns_files_and_base(self, _mock_base, mock_run):
         mock_run.return_value = MagicMock(returncode=0, stdout="src/a.py\nsrc/b.py\n")
-        files, base = git_discover_branch_files("/tmp")
+        files, base = git_discover_branch_files("/tmp", None)
         assert files == ["src/a.py", "src/b.py"]
         assert base == "origin/main"
         # Diff uses three-dot to compare branch vs merge-base, with
@@ -892,7 +823,7 @@ class TestGitDiscoverBranchFiles:
     @patch("harness_common.git._detect_base_branch", return_value="origin/main")
     def test_path_filter_injects_pathspec(self, _mock_base, mock_run):
         mock_run.return_value = MagicMock(returncode=0, stdout="src/auth/login.py\n")
-        files, base = git_discover_branch_files("/tmp", path_filter="src/auth")
+        files, base = git_discover_branch_files("/tmp", None, path_filter="src/auth")
         assert files == ["src/auth/login.py"]
         assert base == "origin/main"
         args = mock_run.call_args.args[0]
@@ -905,7 +836,7 @@ class TestGitDiscoverBranchFiles:
     @patch("harness_common.git.subprocess.run")
     @patch("harness_common.git._detect_base_branch", return_value=None)
     def test_returns_empty_and_none_when_no_base_detected(self, _mock_base, mock_run):
-        assert git_discover_branch_files("/tmp") == ([], None)
+        assert git_discover_branch_files("/tmp", None) == ([], None)
         # We must NOT have run git diff when no base could be detected.
         mock_run.assert_not_called()
 
@@ -913,7 +844,7 @@ class TestGitDiscoverBranchFiles:
     @patch("harness_common.git._detect_base_branch", return_value="origin/main")
     def test_empty_diff_returns_empty_list(self, _mock_base, mock_run):
         mock_run.return_value = MagicMock(returncode=0, stdout="\n")
-        files, base = git_discover_branch_files("/tmp")
+        files, base = git_discover_branch_files("/tmp", None)
         assert files == []
         assert base == "origin/main"
 
@@ -921,7 +852,7 @@ class TestGitDiscoverBranchFiles:
     @patch("harness_common.git._detect_base_branch", return_value="origin/main")
     def test_diff_failure_returns_empty(self, _mock_base, mock_run):
         mock_run.return_value = MagicMock(returncode=128, stdout="")
-        files, base = git_discover_branch_files("/tmp")
+        files, base = git_discover_branch_files("/tmp", None)
         assert files == []
         # Base is preserved so the caller can still report which base we tried.
         assert base == "origin/main"
@@ -930,7 +861,7 @@ class TestGitDiscoverBranchFiles:
     @patch("harness_common.git._detect_base_branch", return_value="origin/main")
     def test_timeout_returns_empty(self, _mock_base, mock_run):
         mock_run.side_effect = subprocess.TimeoutExpired(cmd="git", timeout=30)
-        files, base = git_discover_branch_files("/tmp")
+        files, base = git_discover_branch_files("/tmp", None)
         assert files == []
         assert base == "origin/main"
 
@@ -939,9 +870,9 @@ class TestGitDiscoverBranchFiles:
     def test_diff_uses_utf8_encoding(self, _mock_base, mock_run):
         # Non-ASCII filenames would fail under Windows-default cp1252; the
         # encoding="utf-8" kwarg keeps branch-file discovery cross-platform
-        # (regression for commit fac1fec, mirrors TestFetchOpenPrData).
+        # (mirrors TestFetchOpenPrData).
         mock_run.return_value = MagicMock(returncode=0, stdout="src/café.py\n")
-        files, _base = git_discover_branch_files("/tmp")
+        files, _base = git_discover_branch_files("/tmp", None)
         assert files == ["src/café.py"]
         _args, kwargs = mock_run.call_args
         assert kwargs.get("encoding") == "utf-8"
@@ -949,97 +880,83 @@ class TestGitDiscoverBranchFiles:
 
 
 class TestGitFetchOpenPrDescription:
-    @patch("harness_common.git._fetch_open_pr_data")
-    def test_returns_truncated_payload(self, mock_fetch):
-        mock_fetch.return_value = {
+    def test_returns_truncated_payload(self):
+        pr_info = {
             "title": "feat: x",
             "body": "Implements x",
             "baseRefName": "develop",
             "state": "OPEN",
         }
-        out = git_fetch_open_pr_description("/tmp")
+        out = git_fetch_open_pr_description(pr_info)
         assert out == {
             "title": "feat: x",
             "body": "Implements x",
             "base_ref": "origin/develop",
         }
 
-    @patch("harness_common.git._fetch_open_pr_data", return_value=None)
-    def test_returns_none_when_no_pr(self, _mock_fetch):
-        assert git_fetch_open_pr_description("/tmp") is None
+    def test_returns_none_when_no_pr(self):
+        assert git_fetch_open_pr_description(None) is None
 
-    @patch("harness_common.git._fetch_open_pr_data")
-    def test_provided_none_skips_refetch(self, mock_fetch):
-        # CL1: threading pr_info=None (no open PR) must not re-fetch.
-        assert git_fetch_open_pr_description("/tmp", None) is None
-        mock_fetch.assert_not_called()
-
-    @patch("harness_common.git._fetch_open_pr_data")
-    def test_title_truncated_at_limit(self, mock_fetch):
+    def test_title_truncated_at_limit(self):
         long_title = "x" * (_PR_TITLE_TRUNCATE_LIMIT + 50)
-        mock_fetch.return_value = {
+        pr_info = {
             "title": long_title,
             "body": "",
             "baseRefName": "main",
             "state": "OPEN",
         }
-        out = git_fetch_open_pr_description("/tmp")
+        out = git_fetch_open_pr_description(pr_info)
         assert len(out["title"]) == _PR_TITLE_TRUNCATE_LIMIT
 
-    @patch("harness_common.git._fetch_open_pr_data")
-    def test_title_at_exactly_limit_not_truncated(self, mock_fetch):
+    def test_title_at_exactly_limit_not_truncated(self):
         title = "x" * _PR_TITLE_TRUNCATE_LIMIT
-        mock_fetch.return_value = {
+        pr_info = {
             "title": title,
             "body": "",
             "baseRefName": "main",
             "state": "OPEN",
         }
-        out = git_fetch_open_pr_description("/tmp")
+        out = git_fetch_open_pr_description(pr_info)
         assert out["title"] == title
 
-    @patch("harness_common.git._fetch_open_pr_data")
-    def test_body_truncated_at_limit_with_marker(self, mock_fetch):
+    def test_body_truncated_at_limit_with_marker(self):
         body = "y" * (_PR_BODY_TRUNCATE_LIMIT + 100)
-        mock_fetch.return_value = {
+        pr_info = {
             "title": "x",
             "body": body,
             "baseRefName": "main",
             "state": "OPEN",
         }
-        out = git_fetch_open_pr_description("/tmp")
+        out = git_fetch_open_pr_description(pr_info)
         # Original body is sliced to the limit, then a marker is appended.
         assert out["body"].startswith("y" * _PR_BODY_TRUNCATE_LIMIT)
         assert out["body"].endswith("[...truncated...]")
 
-    @patch("harness_common.git._fetch_open_pr_data")
-    def test_body_at_exactly_limit_not_truncated(self, mock_fetch):
+    def test_body_at_exactly_limit_not_truncated(self):
         body = "y" * _PR_BODY_TRUNCATE_LIMIT
-        mock_fetch.return_value = {
+        pr_info = {
             "title": "x",
             "body": body,
             "baseRefName": "main",
             "state": "OPEN",
         }
-        out = git_fetch_open_pr_description("/tmp")
+        out = git_fetch_open_pr_description(pr_info)
         assert out["body"] == body
         assert "[...truncated...]" not in out["body"]
 
-    @patch("harness_common.git._fetch_open_pr_data")
-    def test_base_ref_none_when_baseref_absent(self, mock_fetch):
-        mock_fetch.return_value = {
+    def test_base_ref_none_when_baseref_absent(self):
+        pr_info = {
             "title": "x",
             "body": "y",
             "baseRefName": None,
             "state": "OPEN",
         }
-        out = git_fetch_open_pr_description("/tmp")
+        out = git_fetch_open_pr_description(pr_info)
         assert out["base_ref"] is None
 
-    @patch("harness_common.git._fetch_open_pr_data")
-    def test_missing_title_and_body_default_to_empty(self, mock_fetch):
-        mock_fetch.return_value = {"baseRefName": "main", "state": "OPEN"}
-        out = git_fetch_open_pr_description("/tmp")
+    def test_missing_title_and_body_default_to_empty(self):
+        pr_info = {"baseRefName": "main", "state": "OPEN"}
+        out = git_fetch_open_pr_description(pr_info)
         assert out["title"] == ""
         assert out["body"] == ""
         assert out["base_ref"] == "origin/main"
@@ -1135,6 +1052,18 @@ class TestSnapshotRealRepo:
         _init_repo(tmp_path)
         assert git_stash_snapshot(tmp_path) is None
 
+    def test_apply_without_clean_keeps_new_untracked_files(self, tmp_path):
+        # No-commit bisect rebuilds keep a module created after the snapshot,
+        # matching the commit-mode reset (git_restore_tracked_to).
+        _init_repo(tmp_path)
+        (tmp_path / "tracked.txt").write_text("accumulated\n", encoding="utf-8")
+        sha = git_stash_snapshot(tmp_path)
+        (tmp_path / "tracked.txt").write_text("fix\n", encoding="utf-8")
+        (tmp_path / "new_module.py").write_text("VALUE = 1\n", encoding="utf-8")
+        assert git_apply_snapshot(sha, tmp_path, clean_untracked=False) is True
+        assert (tmp_path / "tracked.txt").read_text(encoding="utf-8") == "accumulated\n"
+        assert (tmp_path / "new_module.py").read_text(encoding="utf-8") == "VALUE = 1\n"
+
 
 class TestGitRestoreTrackedTo:
     """git_restore_tracked_to resets tracked files but preserves untracked ones
@@ -1151,7 +1080,7 @@ class TestGitRestoreTrackedTo:
         git_restore_tracked_to(head, tmp_path)
 
         # Tracked edit undone; the untracked dependency survives isolation so a
-        # re-applied fix that imports it still passes (the B1 regression).
+        # re-applied fix that imports it still passes.
         assert (tmp_path / "tracked.txt").read_text(encoding="utf-8") == "base\n"
         assert (tmp_path / "new_module.py").read_text(encoding="utf-8") == "VALUE = 1\n"
 
@@ -1168,3 +1097,71 @@ class TestGitRestoreTrackedTo:
         _init_repo(tmp_path)
         with pytest.raises(RuntimeError, match="Cannot inspect restore tree"):
             git_restore_tracked_to("does-not-exist-ref", tmp_path)
+
+
+def test_package_run_branch_files_stay_package_relative(tmp_path):
+    # From a package directory the branch diff must stay inside the package
+    # and use package-relative paths: fixes.py and the scoped restore both
+    # resolve paths against the project root, not the repository top.
+    _init_repo(tmp_path)
+    _run_git(tmp_path, "update-ref", "refs/remotes/origin/main", "HEAD")
+    _run_git(tmp_path, "checkout", "-b", "feature")
+    package = tmp_path / "pkg"
+    package.mkdir()
+    (package / "a.py").write_text("x\n", encoding="utf-8")
+    (tmp_path / "tracked.txt").write_text("sibling\n", encoding="utf-8")
+    _run_git(tmp_path, "add", "-A")
+    _run_git(tmp_path, "commit", "-m", "feature")
+    assert git_discover_branch_files(package, pr_info=None) == (
+        ["a.py"],
+        "origin/main",
+    )
+
+
+class TestTreeInspectionFailures:
+    """Git state the harness cannot read must raise, never fingerprint as clean."""
+
+    def test_unborn_head_cannot_be_fingerprinted(self, tmp_path):
+        _run_git(tmp_path, "init")
+        with pytest.raises(RuntimeError, match="Cannot inspect test tree"):
+            git_test_tree_state(tmp_path, str(tmp_path / "progress.json"))
+        with pytest.raises(RuntimeError, match="Cannot check tracked test outputs"):
+            git_test_output_paths(tmp_path, ["out.xml"])
+
+    def test_output_paths_drop_escapes_absolutes_and_directories(self, tmp_path):
+        _init_repo(tmp_path)
+        (tmp_path / "somedir").mkdir()
+        paths = ["../out.xml", str(tmp_path / "abs.xml"), "somedir"]
+        assert git_test_output_paths(tmp_path, paths) == []
+
+    @pytest.mark.parametrize(
+        "failed, message",
+        [
+            (("ls-files", "--stage"), "Cannot inspect nested repositories"),
+            (("ls-tree",), "Cannot inspect restore tree"),
+            (("status",), "Cannot inspect nested repository: "),
+            (("ls-files", "-v"), "Cannot inspect nested repository tracking flags"),
+        ],
+    )
+    def test_nested_repository_inspection_failure_raises(
+        self, tmp_path, failed, message
+    ):
+        (tmp_path / "lib" / ".git").mkdir(parents=True)
+
+        def run(args, **kwargs):
+            command = tuple(args[1:])
+            if command[: len(failed)] == failed:
+                return subprocess.CompletedProcess(args, 1, b"", b"inspect failed")
+            output = b"lib\0" if command[:2] == ("ls-files", "--stage") else b""
+            return subprocess.CompletedProcess(args, 0, output, b"")
+
+        with pytest.raises(RuntimeError, match=message):
+            git_check_nested_repositories(tmp_path, _run=run, restore_commit="abc123")
+
+    def test_restore_index_failure_raises(self, tmp_path):
+        def run(args, **kwargs):
+            failed = tuple(args[1:3]) == ("ls-files", "--cached")
+            return subprocess.CompletedProcess(args, int(failed), "", "index locked")
+
+        with pytest.raises(RuntimeError, match="Cannot inspect restore index"):
+            git_restore_tracked_to("abc123", tmp_path, _run=run)

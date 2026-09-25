@@ -1,17 +1,19 @@
 """Pins the orchestrator ↔ base-skill ↔ CLI wiring contract.
 
-These tests catch silent breakages that the unit-level CLI tests miss: a base
-SKILL.md losing its `HARNESS_MODE_INLINE` router, the deep orchestrator
-stopping pointing at a loop reference, the harness-mode.md JSON schema
-drifting from what `cli.py parse` actually accepts. Each assertion below
-encodes one rung of the dispatch chain.
+These tests catch silent breakages that the unit-level CLI tests miss: the
+deep orchestrator stopping pointing at a loop reference. Base-skill
+`HARNESS_MODE_INLINE` routing and skill frontmatter are pinned by
+scripts/validate.sh (sections 3 and 17), not re-checked here. Each assertion
+below encodes one rung of the dispatch chain.
 
 If one of these fails, the in-conversation deep-mode flow is silently broken —
 the unit tests will pass but a real `/optimus:deep` invocation will either
 hang the subagent or terminate the loop on the first iteration.
 """
 
+import fnmatch
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -24,6 +26,8 @@ from harness_common.constants import (
     DEFAULT_MAX_ITERATIONS,
     MAX_CYCLES_HARD_CAP,
     MAX_ITERATIONS_HARD_CAP,
+    SCRATCH_GLOBS,
+    TERMINATION_REASONS,
 )
 
 PLUGIN_ROOT = Path(__file__).resolve().parents[2]
@@ -34,43 +38,6 @@ DEEP_README = "skills/deep/README.md"
 
 def _read(rel_path):
     return (PLUGIN_ROOT / rel_path).read_text(encoding="utf-8")
-
-
-# ---------------------------------------------------------------------------
-# Base SKILL.md must route HARNESS_MODE_INLINE to the right reference
-# ---------------------------------------------------------------------------
-
-
-# Derived from the variant frozensets, not frozen literals: a skill added to
-# constants.py (e.g. a fourth deep target) immediately appears in this
-# parametrization, so it cannot ship with zero contract coverage while the
-# suite stays green — the exact drift test_deep_pins_progress_file_paths
-# already guards for progress paths (see its docstring).
-BASE_SKILL_ROUTES = sorted(
-    [(skill, "references/harness-mode.md") for skill in DEEP_VARIANT_SKILLS]
-    + [
-        (skill, "references/coverage-harness-mode.md")
-        for skill in COVERAGE_VARIANT_SKILLS
-    ]
-)
-
-
-@pytest.mark.parametrize("base_skill,harness_ref", BASE_SKILL_ROUTES)
-def test_base_skill_routes_harness_mode_inline(base_skill, harness_ref):
-    """Each base SKILL.md must detect HARNESS_MODE_INLINE and route to the right reference.
-
-    The orchestrator's subagent prompt injects `HARNESS_MODE_INLINE` and tells
-    the subagent to read the base SKILL.md and execute its harness-mode
-    protocol. If the SKILL.md's router goes away, the subagent runs interactive
-    mode and hangs.
-    """
-    skill_md = _read(f"skills/{base_skill}/SKILL.md")
-    assert (
-        "HARNESS_MODE_INLINE" in skill_md
-    ), f"skills/{base_skill}/SKILL.md must contain HARNESS_MODE_INLINE detection"
-    assert (
-        harness_ref in skill_md
-    ), f"skills/{base_skill}/SKILL.md must route to {harness_ref}"
 
 
 # ---------------------------------------------------------------------------
@@ -156,6 +123,23 @@ def test_deep_pins_progress_file_paths():
         ), f"{DEEP_SKILL} must pin progress file {progress} (--skill {base_skill})"
 
 
+def test_loop_scratch_files_match_scratch_globs():
+    """Loop scratch files must fall under constants.SCRATCH_GLOBS.
+
+    commit_checkpoint's un-stage step and final-report's cleanup match only
+    SCRATCH_GLOBS, so a scratch path a loop reference names outside them is
+    committed with the checkpoint and never swept. Sourced from DEEP_TARGETS
+    so a new loop reference is covered automatically.
+    """
+    for loop_ref in sorted({ref for _skill, ref in DEEP_TARGETS.values()}):
+        names = re.findall(r"\.claude/(\.[\w.-]+)", _read(loop_ref))
+        assert names, f"{loop_ref} must name its .claude/ scratch files"
+        for name in names:
+            assert any(
+                fnmatch.fnmatchcase(name, glob) for glob in SCRATCH_GLOBS
+            ), f"{loop_ref} scratch file {name} escapes SCRATCH_GLOBS"
+
+
 def test_deep_targets_match_variant_skills():
     """The target→skill mapping must cover exactly the dispatchable skills.
 
@@ -226,19 +210,9 @@ def test_deep_readme_matches_constants():
     )
 
 
-def test_deep_disables_model_invocation():
-    """The orchestrator must not be reachable via slash-command dispatch from a
-    subagent — `disable-model-invocation: true` prevents recursive deep-mode
-    runs; the re-entry guard inside the SKILL.md is the second line of defense.
-    """
-    skill_md = _read(DEEP_SKILL)
-    assert "disable-model-invocation: true" in skill_md
-
-
 def test_deep_has_reentry_guard():
     skill_md = _read(DEEP_SKILL)
     assert "Re-entry guard" in skill_md, f"{DEEP_SKILL} must have a Re-entry guard step"
-    assert "HARNESS_MODE_INLINE" in skill_md
 
 
 def test_deep_has_plugin_root_resolution():
@@ -344,29 +318,22 @@ def test_loop_reference_dispatches_via_skill_md_read(loop_ref, expected_paths):
 
 
 # ---------------------------------------------------------------------------
-# harness-mode.md termination vocabulary
+# deep README termination vocabulary
 # ---------------------------------------------------------------------------
 # The JSON contract itself is enforced in test_harness_schema.py, against
 # references/schemas/*.json and the golden fixtures — not re-typed here.
 
 
-def test_harness_mode_documents_all_termination_reasons():
-    """harness-mode.md's "Termination reasons" section must enumerate every
-    reason cli.py's check-termination can emit — otherwise the docs lie about
-    what the orchestrator might see.
+def test_deep_readme_documents_all_termination_reasons():
+    """skills/deep/README.md must enumerate every reason in
+    constants.TERMINATION_REASONS (what the CLI can record and check-termination
+    can echo) — otherwise the user-facing docs lie about how a run can end.
     """
-    ref = _read("references/harness-mode.md")
-    for reason in (
-        "convergence",
-        "no-actionable",
-        "all-reverted",
-        "diminishing-returns",
-        "cap",
-        "parse-failure",
-    ):
+    readme = _read(DEEP_README)
+    for reason in TERMINATION_REASONS:
         assert (
-            f"`{reason}`" in ref
-        ), f"references/harness-mode.md must document termination reason '{reason}'"
+            f"`{reason}`" in readme
+        ), f"{DEEP_README} must document termination reason '{reason}'"
 
 
 def test_paired_loop_resnapshots_before_refactor_phase():
@@ -387,3 +354,11 @@ def test_paired_loop_resnapshots_before_refactor_phase():
         "refactor subagent so a refactor rollback does not discard the cycle's "
         "unit tests"
     )
+
+
+def test_paired_refactor_dispatch_names_existing_field_adapter():
+    loop = _read("references/orchestrator-loop-paired.md")
+    dispatch = loop.split("    Phase: refactor\n", 1)[1].split("```", 1)[0]
+    assert "references/coverage-harness-mode.md" in dispatch
+    assert "Refactor Phase Execution" in dispatch
+    assert "## Refactor Phase Execution" in _read("references/coverage-harness-mode.md")

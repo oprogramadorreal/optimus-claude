@@ -1,15 +1,14 @@
 # Claude Code goal handoff
 
-Use this only for a Claude Code destination. Shared export, completion, and
-size rules live in the calling `goal-handoff.md` reference.
+Shared export, completion, and size rules live in the calling
+`goal-handoff.md` reference.
 
 ## Runtime instructions
 
 Keep these in the handoff page and add a compact sentence to the message:
 the small per-turn goal evaluator reads only conversation evidence and uses
 no tools. Its reason is a continuation nudge, never a critic gap or a new
-rule. Fresh-context critics remain the only quality judges. Show the shared
-completion evidence each turn so the evaluator can assess it.
+rule. Fresh-context critics remain the only quality judges.
 
 ## Checklist above the message
 
@@ -28,7 +27,7 @@ completion evidence each turn so the evaluator can assess it.
   can clear or pause it. Inspect the stated reason and fix a real blocker
   before restarting; if the evaluator mistook a hard bar for an impossible
   one, re-paste the same condition. Clearing is not proof of success.
-- After the run, commit any leftovers with `/optimus:commit`, then review
-  the branch with `/optimus:code-review` in a fresh conversation.
+- After the run, in the run's session: `/optimus:commit` for any leftovers,
+  then `/optimus:pr`; then `/optimus:code-review` in a fresh conversation.
 
 Behavior source: [Claude Code goals](https://code.claude.com/docs/en/goal).

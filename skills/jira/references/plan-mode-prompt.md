@@ -9,4 +9,4 @@ Emit that reference's **Prompt skeleton** as a copyable plan-mode prompt, with `
 - **Starting Hints** — the task file, plus key files from the impact summary
 - **Scope** — the focus area, and anything the JIRA issue excludes
 
-Close it with the carve-out's `## How this conversation should run` block. Then give the user that reference's handoff steps for the current host — the carve-out's three numbered steps in Claude Code, the **Codex handoff** branch under Codex — and emit the execution prompt as a second copyable block from the same skeleton, carrying the acceptance criteria forward into Starting Hints.
+In Claude Code, close it with the carve-out's `## How this conversation should run` block and give the user the carve-out's three numbered steps; under Codex, use the **Codex handoff** branch instead of both. Then emit the execution prompt as a second copyable block from the same skeleton, carrying the acceptance criteria forward into Starting Hints.

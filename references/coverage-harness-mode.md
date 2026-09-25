@@ -2,14 +2,9 @@
 
 Single-pass protocol for `/optimus:unit-test` when invoked under the `/optimus:deep coverage` orchestrator. The orchestrator alternates unit-test and refactor phases per cycle, but each phase runs in its own fresh subagent context as a single pass.
 
-## Contents
-
-1. [Unit-Test Phase Execution](#unit-test-phase-execution) — single pass under orchestrator control (steps 1–6)
-2. [Refactor Phase Execution](#refactor-phase-execution) — single pass under orchestrator control (delegates to `harness-mode.md`)
-
 ## Unit-Test Phase Execution
 
-When the `/optimus:deep coverage` orchestrator dispatches `/optimus:unit-test` as a subagent for the unit-test phase, the base skill detects `HARNESS_MODE_INLINE` in its invocation prompt and the orchestrator's prompt body includes `Phase: unit-test`. Execute exactly **one pass** of the unit-test workflow, then output structured JSON and exit.
+When the `/optimus:deep coverage` orchestrator dispatches `/optimus:unit-test` as a subagent for the unit-test phase, the base skill detects `HARNESS_MODE_INLINE` in its invocation prompt and the orchestrator's prompt body includes `Phase: unit-test`. Execute exactly **one pass** of the unit-test workflow, then output structured JSON and exit. Never use `AskUserQuestion` in this phase: where a step would ask, proceed without asking — approve every planned item, and accept the project layout as detected.
 
 ### 1. Read progress file
 
@@ -18,38 +13,38 @@ Read the JSON progress file at the path specified in your invocation prompt. Ext
 - `coverage` — prior coverage data (baseline, current, history)
 - `tests_created` — tests written in prior cycles
 - `untestable_code` — items flagged as untestable in prior cycles
-- `config.test_command` — the test command (for reference only — do NOT run it)
-- `config.scope` — path filter (apply to discovery); `null` means the full project. The CLI populates it only when the user's scope resolved to a real path, so it is never free text — do not treat `config.scope_text` (recorded intent) as a filter. (`resume` enforces the same invariant for legacy 2.x progress files: a free-text 2.x scope is migrated into `scope_text` and `scope` becomes `null` before the loop continues.)
+- `config.test_command` — the test command: section 2's baseline and coverage runs may use it; section 3 bars a final verification run
+- `config.scope` — path filter (apply to discovery); `null` means the full project. The CLI populates it only when the user's scope resolved to a real path, so it is never free text — do not treat `config.scope_text` (recorded intent) as a filter.
+
+Then load the project docs per SKILL.md Step 1 "Prerequisites and project docs" — Step 4's test-writing rules depend on them.
 
 ### 2. Run discovery and coverage analysis
 
-Run the same Test Infrastructure Analyzer agent as normal mode (Step 2 of SKILL.md).
+Run SKILL.md Step 2, inline or delegated per its size rule.
 
-**Cycle context block (cycles 2+):** when `cycle.current` is greater than 1, prepend a concise context block to the agent prompt before the main instructions. Source the data from the progress file's `tests_created`, `untestable_code`, and `coverage.history`. Include:
+**Cycle context block (cycles 2+):** when `cycle.current` is greater than 1, prepend a concise context block to the analyzer's prompt before the main instructions, or read it as your own context when running Step 2 inline. Source the data from the progress file's `tests_created`, `untestable_code`, and `coverage.history`. Include:
 
-- **Tests already added** — `file → target` entries from `tests_created` with status `pass`, so the agent skips those targets.
-- **Items previously reverted, abandoned, or bug-found** — entries from `tests_created` with status `fail-abandoned` or similar, so the agent does not re-propose them.
+- **Tests already added** — `file → target` for `tests_created` entries with status `pass` or `fail-fixed`, so the agent skips those targets.
+- **Abandoned items** — `tests_created` entries with status `fail-abandoned` (with `failure_reason`), so the agent does not re-propose them.
 - **Untestable code already flagged** — entries from `untestable_code`, so the agent does not re-flag them.
 - **Cumulative coverage delta** — one line derived from `coverage.history`.
 
 The goal is convergence: each cycle proposes **new** testable items, not duplicates. Keep the block under ~30 lines.
 
-**Stop gates under harness mode:** if a SKILL.md Step 2 stop gate fires (no test framework detected, or the baseline suite fails), do not print the conversational handoff messages — skip sections 3–4 and emit the section 5 JSON immediately with `no_new_tests: true`, empty `tests_written` and `untestable_code` arrays (list any failing tests found under `bugs_discovered`), and a non-null `blocked` field naming the gate and why. The orchestrator terminates the loop on a non-null `blocked` and surfaces the reason to the user.
+**Stop gates under harness mode:** if a SKILL.md Step 2 stop gate fires (no test framework detected, or the baseline suite fails), do not print the conversational handoff messages — skip sections 3–4 and emit the section 5 JSON immediately with `no_new_tests: true`, empty `tests_written`, `untestable_code` and `bugs_discovered` arrays, and a non-null `blocked` field naming the gate and why — for a red baseline, add the failing test names on that same line (at most ten, then a count of the rest). `unit-test-step` records only that text as the run's stop reason, and the loop ends.
 
 ### 3. Generate and write tests
 
 Run Steps 3–4 of SKILL.md (plan + write) with these harness modifications:
-- **Skip `AskUserQuestion`** — auto-approve all planned items
-- **Cap at 10 items** per pass (same as normal mode)
-- **Do NOT run the full test suite as a final verification gate**, nor any `scripts/*.sh` test/lint/build wrapper — the orchestrator owns the full run and bisection. Coverage measurement is fine, including one coverage-instrumented run after tests are written to obtain `coverage.after` — but its pass/fail outcome must not trigger reverts or fixes beyond the per-test workflow
+- **Do NOT run the full test suite as a final verification gate**, nor any `scripts/*.sh` test/lint/build wrapper — the orchestrator owns the full run. Coverage measurement is fine, including one coverage-instrumented run after tests are written to obtain `coverage.after` — but its pass/fail outcome must not trigger reverts or fixes beyond the per-test workflow
 
 ### 4. Collect results
 
-Gather: tests written (file, target, count, status), coverage change, untestable code items — resolve each item's `line` to the definition line of the flagged function or class, since the schema requires it — and bugs discovered.
+Gather: tests written (file, target, count, status), coverage change, untestable code items — resolve each item's `line` to the definition line of the flagged function or class, since the schema requires it — and bugs discovered. Record each item abandoned under SKILL.md Step 4 as `fail-abandoned` in `tests_written` — with `failure_reason` naming the bug when a bug caused it — and list each such bug in `bugs_discovered`.
 
 ### 5. Output structured JSON
 
-Output the results in one `json:harness-output` fenced block.
+Make your final message exactly one `json:harness-output` fenced block and nothing else — the orchestrator copies that message verbatim.
 
 Read `$CLAUDE_PLUGIN_ROOT/references/schemas/coverage-harness-output.schema.json` — it is the contract, and it carries field names, types, which fields are required, and the enums. `$CLAUDE_PLUGIN_ROOT/test/harness-common/fixtures/coverage-harness-output.golden.json` is a complete worked instance to copy the shape from.
 
@@ -57,14 +52,12 @@ Two things the schema cannot state: the convergence signals (`no_new_tests`, `no
 
 ### 6. Exit
 
-Stop immediately. Do not loop, present reports, or use `AskUserQuestion`.
+Stop immediately. Do not loop or present reports.
 
 ---
 
 ## Refactor Phase Execution
 
-When the `/optimus:deep coverage` orchestrator dispatches `/optimus:refactor` as a subagent for the refactor phase, the orchestrator's prompt body includes `Phase: refactor`; the binding testability focus is carried by the progress file's CLI-pinned `config.focus` (the dispatch prompt mentions it only in prose). The `/optimus:refactor` skill detects `HARNESS_MODE_INLINE` and follows the single-iteration protocol from `references/harness-mode.md` — same protocol used by `/optimus:deep refactor`.
+The refactor skill follows the shared single-iteration protocol in `references/harness-mode.md` with the field mapping below. `scope_files.current` already lists the files of the pending `untestable_code` items, and `config.focus` is CLI-pinned to `testability`.
 
-The orchestrator scopes the refactor session to the `untestable_code` items reported by the preceding unit-test phase (the progress file's `scope_files.current` lists those file paths). The CLI's `refactor-step` handles test-and-bisect after the refactor subagent returns.
-
-**Progress-file field mapping.** The coverage-variant progress file differs from the deep-variant schema described in harness-mode.md step 1. When following that protocol here, map: `cycle.current` → `iteration-count` (there is no `iteration` key), `refactor_findings` → `accumulated-findings` (there is no top-level `findings` array), and `config.max_cycles` → the cap. `config.pr_description` does not exist — skip the PR/MR context injection entirely. `config.focus` is present (CLI-pinned to `testability`) and applies as usual. In the output block, set `iteration` to `cycle.current` and emit no `cycle` or `phase` keys: the orchestrator's `refactor-step` rejects a result whose `iteration` differs from the current cycle, and a `cycle` key makes `parse` read the block as unit-test output.
+**Progress-file field mapping.** The coverage-variant progress file differs from the deep-variant schema described in harness-mode.md step 1. When following that protocol here, map: `cycle.current` → `iteration-count` (there is no `iteration` key), `refactor_findings` → `accumulated-findings` (there is no top-level `findings` array), and `config.scope` — a path string, or null for the full project — → `config.scope.paths` as `[config.scope]`, or empty when null. `config.pr_description` does not exist — skip the PR/MR context injection entirely. In the output block, set `iteration` to `cycle.current` (`refactor-step` rejects any other value) and emit no `cycle` or `phase` keys: harness-mode.md step 8's schema forbids them.

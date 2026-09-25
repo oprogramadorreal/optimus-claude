@@ -65,10 +65,10 @@ Suppress the state-3 prompt in states 1 and 2.
 
 Read `$CLAUDE_PLUGIN_ROOT/skills/pr/references/pr-template.md` and generate a title and body. Populate `## Intent` from the conversation (state 1) or the user's reply (state 3), including only sub-fields the source actually answers.
 
-**TDD Summary population rule** — when the handoff signal fired, fill the body from the summary block:
+**TDD Summary population rule** — when a `## TDD Summary` block is present, fill the body from the summary block:
 
 - **Intent → Scope**: one bullet per `### Behaviors Implemented` row with Status `✓ Complete`, description verbatim.
-- **Intent → Non-goals**: one bullet per `Not started` row; omit if none.
+- **Intent → Non-goals**: one bullet per `Not started` row, and per `Skipped` row with its reason and skipped test name; omit if none.
 - **Intent → Key decisions**: refactor-step reasoning captured in the conversation; omit rather than invent.
 - **Intent → Problem**: quote/summarize the spec or JIRA task file loaded in the conversation, else the initiating brief.
 - **Test plan**: one verification item per `✓ Complete` row plus the project's test command; if a `### Coverage` section with `Before:` / `After:` / `Delta:` lines is present, append one line `Coverage: <Before> → <After> (<Delta>)`.
@@ -77,12 +77,12 @@ Read `$CLAUDE_PLUGIN_ROOT/skills/pr/references/pr-template.md` and generate a ti
 
 Show the generated title and body under `## PR Preview` (append `— <repo-name>` in a multi-repo run). Ask (AskUserQuestion): **Create PR** → proceed; **Adjust** → ask what to change, apply, and preview again.
 
-Write the body to a temp file at a relative path: `TMPFILE=$(mktemp ./pr-body-XXXXXX.md)` — never `/tmp` (on Windows, Git Bash's `/tmp` is unresolvable by native `gh.exe`/`glab.exe`, which would silently submit an empty body). Remove it with `rm -f "$TMPFILE"` after the attempt.
+Run `mktemp ./pr-body-XXXXXX` — a relative path, never `/tmp` (on Windows, Git Bash's `/tmp` is unresolvable by native `gh.exe`/`glab.exe`, which would silently submit an empty body). Write the body to the printed path with the Write tool, substitute that literal path for `<body-file>` below (shell variables do not persist between Bash calls), and `rm -f <body-file>` after the attempt.
 
-- **GitHub:** `gh pr create --title "<title>" --body-file "$TMPFILE" --base <default-branch>`
-- **GitLab:** `glab mr create --title "<title>" --description "$(cat "$TMPFILE")" --target-branch <default-branch>`
+- **GitHub:** `gh pr create --title "<title>" --body-file <body-file> --base <default-branch>`
+- **GitLab:** `glab mr create --title "<title>" --description "$(cat <body-file>)" --target-branch <default-branch>`
 
-PRs/MRs are created ready to merge (not draft). Proceed to Step 7.
+PRs/MRs are created ready for review (not draft). Proceed to Step 7.
 
 ## Step 6: Update Flow
 
@@ -108,8 +108,8 @@ Show the existing PR/MR (number, title, URL, current body), then ask (AskUserQue
 
 Apply using the Step 5 temp-file pattern:
 
-- **GitHub:** `gh pr edit <number> --title "<title>" --body-file "$TMPFILE"` (omit `--title` when keeping the title)
-- **GitLab:** `glab mr update <number> --title "<title>" --description "$(cat "$TMPFILE")"`
+- **GitHub:** `gh pr edit <number> --title "<title>" --body-file <body-file>` (omit `--title` when keeping the title)
+- **GitLab:** `glab mr update <number> --title "<title>" --description "$(cat <body-file>)"`
 
 ## Step 7: Per-Repo Report
 
@@ -119,7 +119,6 @@ Apply using the Step 5 temp-file pattern:
 - URL: [url]
 - Title: [title]
 - Target: [target-branch]
-- Status: Ready to merge
 ```
 
 In a multi-repo run, continue with the next repo (back to Step 2); hold all recommendations until every repo is done.

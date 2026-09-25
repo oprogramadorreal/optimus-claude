@@ -8,8 +8,6 @@ Look for: unnecessary complexity or nesting, unclear naming, dead code and unuse
 
 Apply the shared constraints and output format from `shared-constraints.md`.
 
-Analyze source files in the provided areas.
-
 ## Output format
 
 Use the shared skeleton with:

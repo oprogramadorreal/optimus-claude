@@ -1,8 +1,7 @@
 # Codex goal handoff
 
-Use this only for a Codex destination. Shared export, completion, and size
-rules live in the calling `goal-handoff.md` reference. Preserve a requested
-model such as GPT-6 Astra (`gpt-6-astra`); do not choose a substitute.
+Shared export, completion, and size rules live in the calling
+`goal-handoff.md` reference.
 
 ## Opening instruction
 
@@ -10,6 +9,11 @@ Add a compact instruction to use one native Codex goal for the entire run,
 following the runtime instructions in the handoff page, and to mark it
 complete only after verifying the shared completion evidence. Do not carry
 Claude's small-evaluator assumptions or ultracode recommendation into it.
+
+When native goals may be unavailable in the destination, also print a
+separately labeled fallback block: the same body with `/goal ` replaced by
+"Plain fallback: run in this session without a native goal; nothing
+continues across turns automatically." and this opening instruction removed.
 
 ## Runtime instructions
 
@@ -22,22 +26,21 @@ Include these in the handoff page for the destination lead:
   a goal per piece or replace an unrelated unfinished goal.
 - Confirm native goal activation before dispatching work. If the destination
   lacks the required controls, explain that no persistent goal was started
-  and stop; never silently claim an ordinary run has goal continuation.
-- Use `update_goal` only as its current contract permits. Mark `complete`
-  only after reading the actual critic verdict files, checking the assembled
-  artifact and current test/Git evidence. Native goal status is not a critic.
-  Follow the host's blocked-state threshold; do not equate difficult work or
-  a plateau with an impasse while actionable work remains.
+  and stop; never silently claim an ordinary run has goal continuation. A
+  message that starts "Plain fallback" skips the goal steps and runs in this
+  session, saying that nothing continues across turns automatically.
+- Use `update_goal` only as its current contract permits. Native goal
+  status is not a critic. Follow the host's blocked-state threshold; do not
+  equate difficult work or a plateau with an impasse while actionable work
+  remains.
 - Set a token budget only when the user explicitly requested one. Honor
   host pause, usage, budget and permission controls without declaring the
   goal complete or inventing tool operations to bypass them. Preserve the
   unresolved gaps and next action in the checkpoint when suspended.
-- Use fresh critic contexts with no inherited lead/builder conversation
-  (`fork_turns: "none"` when supported). Supply only the frozen remit and
-  resolvable artifact/bar paths. Keep each builder across rounds and sequence
-  dispatches to fit available agent slots. On a new-session resume, rebuild
-  each builder's context from the checkpoint; do not assume live agents
-  transfer. Reopen the bar and verify saved evidence before continuing.
+- Use fresh critic contexts (`fork_turns: "none"` when supported) and
+  sequence dispatches to fit available agent slots. On a new-session resume,
+  rebuild each builder's context from the checkpoint; do not assume live
+  agents transfer. Reopen the bar and verify saved evidence before continuing.
 
 ## Checklist above the message
 
@@ -46,10 +49,9 @@ Include these in the handoff page for the destination lead:
   select GPT-6 Astra. Use Codex's own reasoning controls, not Claude effort
   commands. Check the sandbox and permissions needed by the run.
 - Verify that native `/goal` is available. If absent, check the host/version
-  and `features.goals` setting; enable it through the host only if desired.
-  Do not change the preparing session's settings. Keep this export even if
-  the destination needs setup. A plain in-session prompt can be offered as
-  a separate fallback, explicitly without native cross-turn continuation.
+  and `features.goals` setting; enable it through the host only if desired;
+  otherwise paste the labeled plain fallback instead, which runs without
+  cross-turn continuation.
 - Paste the block, then inspect `/goal` or the goal progress row to confirm
   the full objective and final completion condition are active. Correct a
   truncated objective before letting the run continue.
@@ -57,8 +59,8 @@ Include these in the handoff page for the destination lead:
   corresponding progress-row controls. A budget limit or blocked/paused
   state is not success. Resume with the checkpoint available; a different
   session needs the exported instructions and files again.
-- After the run, commit any leftovers with `$optimus:commit`, then review
-  the branch with `$optimus:code-review` in a fresh conversation.
+- After the run, in the run's session: `$optimus:commit` for any leftovers,
+  then `$optimus:pr`; then `$optimus:code-review` in a fresh conversation.
 
 Sources: [Codex goals](https://learn.chatgpt.com/use-cases/follow-goals),
 [goal controls and size limit](https://learn.chatgpt.com/docs/developer-commands?surface=cli),

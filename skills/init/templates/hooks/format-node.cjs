@@ -38,3 +38,7 @@ while (dir !== path.dirname(dir)) {
   }
   dir = path.dirname(dir);
 }
+// Only a walk that never found prettier ends at the filesystem root.
+if (dir === path.dirname(dir)) {
+  process.stderr.write('[format-node] prettier not found in node_modules above the file — skipped.\n');
+}

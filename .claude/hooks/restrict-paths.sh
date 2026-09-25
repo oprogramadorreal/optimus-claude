@@ -5,7 +5,7 @@
 # Source:       https://github.com/oprogramadorreal/optimus-claude
 # Docs:         skills/permissions/README.md
 # ============================================================================
-# HOOK_VERSION: 11
+# HOOK_VERSION: 13
 # ^ Bump on every behavioural change. The plugin's SessionStart hook compares
 #   this against the copy installed in a project and recommends re-running
 #   /optimus:permissions when the project's copy is older — a plugin update
@@ -27,8 +27,8 @@
 #   - rm/rmdir commands outside the project     → hard blocked
 #   - Edit/Write of precious unversioned files  → prompts you for approval
 #   - rm/rmdir of precious unversioned files    → hard blocked
-#   - Git operations on feature branches        → silently allowed
-#   - Git operations on protected branches       → hard blocked
+#   - Git history changes on feature branches   → silently allowed
+#   - Git history changes on protected branches → hard blocked
 #   - Everything else (reads, searches, etc.)   → passes through unchanged
 #
 # WHAT THIS SCRIPT DOES NOT DO:
@@ -52,8 +52,9 @@
 # PRECIOUS FILE PROTECTION (always-on):
 #   Well-known sensitive files (.env, *.key, *.pem, *.sqlite, etc.) that are
 #   not tracked by git receive extra protection: edits prompt for approval,
-#   deletions are blocked. No configuration needed — patterns are hardcoded
-#   in the is_precious() function. See the skill's README for the full list.
+#   deletions are blocked. No configuration needed — the patterns live in
+#   is_precious_name() (delete blocked) and is_recoverable_precious_name()
+#   (backups/IDE scratch: edit asks, delete allowed).
 #
 # CLAUDE MEMORY STORE (always-allowed):
 #   Claude Code keeps a per-project auto-memory store under
@@ -139,9 +140,9 @@
 #     1. Join backslash-newline line continuations (a continuation is one
 #        command, not two), then split on the shell's command operators — '&&',
 #        '||', ';', '|', '&' and newline — then peel any leading keyword ('do ',
-#        'then ', '{ ') the split left at the front of a fragment. A subshell's
-#        parens are counted, not just stripped, so a `cd` inside one does not
-#        outlive it.
+#        'then ', '{ ') or case pattern ('b) ') the split left at the front of a
+#        fragment. A subshell's parens are counted, not just stripped, so a `cd`
+#        inside one does not outlive it.
 #     2. shell_split() each fragment into words, honouring quotes and escapes and
 #        expanding '~' and every SET $VAR, so a gate compares the path the shell
 #        will act on rather than the characters as typed. A name this hook cannot
@@ -160,8 +161,11 @@
 #   relative path meaning what it says — a target is resolved against the chain's
 #   own `cd` first, so `cd /etc && rm passwd` is judged as /etc/passwd.
 #   Not covered, by design: command substitution (`rm $(cat list)`) and
-#   `find -exec`, where the delete is not the fragment's own command. This is a
-#   guardrail against accidents, not a sandbox against a determined bypass.
+#   `find -exec`, where the delete is not the fragment's own command, and the
+#   CONTENTS of a deleted directory (`rm -rf config/`) or a mid-word brace
+#   (`.env.{a,b}`): the precious test sees the named target, or each match of a
+#   glob, only. This is a guardrail against accidents, not a sandbox against a
+#   determined bypass.
 #
 #   Known false positive, and deliberately kept: stage 1 splits on operators
 #   BEFORE stage 2 parses quotes, so an operator INSIDE a quoted argument
@@ -176,41 +180,60 @@
 # TO DISABLE OR REMOVE:
 #   1. Delete this file: rm .claude/hooks/restrict-paths.sh
 #   2. Remove the PreToolUse hook entry from .claude/settings.json
+#   Or run /optimus:reset permissions, which also removes the settings rules
+#   and .claude/.optimus-managed.json entries that /optimus:permissions added.
 #   Or simply ignore it — the hook only runs when Claude Code invokes tools.
 # ============================================================================
 
-# Every top-level variable this hook owns carries the '_rp_' prefix, and that is
-# load-bearing rather than cosmetic: the environment snapshot below resolves each
-# exported name with an indirect expansion, which reads the SHELL namespace, so a
-# hook global sharing a name with an exported variable wins. Unprefixed, `root`
-# was one of them — with `root=/etc` exported, `rm -rf $root/passwd` expanded to
-# the PROJECT directory, passed every gate as an in-project delete, and the shell
-# removed /etc/passwd. Same for `input`, `cmd` and `tool_name`.
 _rp_input=$(cat)
+
+# --- Environment snapshot for expand_word (see lookup_env_value) ---
+# Taken HERE, before the hook assigns anything else, because `${!name}` reads the
+# SHELL namespace: an exported name matching a hook global is captured with the
+# HOOK's value. Taken later, `root=/etc` exported made `rm -rf $root/passwd` read
+# as an in-project delete while the shell removed /etc/passwd — and prefixing
+# globals cannot close it, since /optimus:commit parses PROTECTED_BRANCHES by
+# name. Here the only names assigned are _rp_-prefixed, and top level is the one
+# scope with no function locals in it.
+#
+# Bash calls with a '$' only: `$(compgen -e)` forks (~34 ms on Windows) on the
+# synchronous path of every tool call, and with no '$' in the command no word
+# reaches a lookup (expand_word loops on `*'$'*`; a leading '~' reads $HOME
+# directly), so an empty snapshot changes no decision. The raw input is a
+# superset of the command — JSON leaves '$' unescaped.
+_rp_env_keys=()
+_rp_env_vals=()
+if [[ "$_rp_input" =~ \"tool_name\"[[:space:]]*:[[:space:]]*\"Bash\" && "$_rp_input" == *'$'* ]]; then
+  while IFS= read -r _rp_env_name; do
+    [[ "$_rp_env_name" =~ ^[a-zA-Z_][a-zA-Z0-9_]*$ ]] || continue
+    _rp_env_keys+=("$_rp_env_name")
+    _rp_env_vals+=("${!_rp_env_name}")
+  done <<< "$(compgen -e 2>/dev/null)"
+  # A bash built without programmable completion has no `compgen`. Fall back
+  # to the names the gates actually depend on rather than expanding nothing,
+  # which would quietly unblock `rm $HOME/.ssh/id_rsa`.
+  if (( ${#_rp_env_keys[@]} == 0 )); then
+    for _rp_env_name in HOME USERPROFILE TMPDIR TEMP TMP CLAUDE_PROJECT_DIR; do
+      [[ -n "${!_rp_env_name+set}" ]] || continue
+      _rp_env_keys+=("$_rp_env_name")
+      _rp_env_vals+=("${!_rp_env_name}")
+    done
+  fi
+fi
 
 _rp_root="${CLAUDE_PROJECT_DIR}"
 # Fail-open: if project root is unknown, allow rather than block all tool use
 [[ -z "$_rp_root" ]] && exit 0
 
-# --- Git repo resolution (per-path, with caching) ---
+# --- Git repo resolution (per-path) ---
 # In multi-repo workspaces the project root may not be a git repo.
 # We resolve the git toplevel from each file's directory instead.
-declare -A _git_root_cache 2>/dev/null || true  # associative array; ignore if bash < 4
 
 find_git_root() {
   # Returns the git toplevel for a given path, or empty string if not in a repo.
-  # Results are cached to avoid repeated git calls.
   local target_dir="$1"
   [[ -d "$target_dir" ]] || target_dir="$(dirname "$target_dir")"
   [[ -d "$target_dir" ]] || { echo ""; return; }
-
-  # Check cache (bash 4+ associative arrays)
-  if declare -p _git_root_cache &>/dev/null 2>&1; then
-    if [[ -n "${_git_root_cache[$target_dir]+_}" ]]; then
-      echo "${_git_root_cache[$target_dir]}"
-      return
-    fi
-  fi
 
   local result
   result="$(git -C "$target_dir" rev-parse --show-toplevel 2>/dev/null)" || result=""
@@ -218,22 +241,30 @@ find_git_root() {
   if [[ -n "$result" ]] && command -v cygpath &>/dev/null; then
     result="$(cygpath -u "$result" 2>/dev/null || echo "$result")"
   fi
-
-  # Cache result
-  if declare -p _git_root_cache &>/dev/null 2>&1; then
-    _git_root_cache[$target_dir]="$result"
-  fi
   echo "$result"
 }
 
 is_git_tracked() {
-  # Check if a file is tracked by git in its containing repo.
+  # Check that every given file is tracked by git in its containing repo.
   # Fail-open: if not in a git repo or git unavailable, assume tracked (allow).
-  local filepath="$1"
-  local repo_root
-  repo_root="$(find_git_root "$filepath")"
+  # One repo lookup and one ls-files per run of files sharing a directory, not
+  # per file: a glob's matches share one, and forks per match let
+  # `rm -f fixtures/*.sqlite` outrun the hook's timeout — which fails OPEN.
+  local filepath dir repo_root="" last_dir="" started=""
+  local -a group=()
+  for filepath in "$@"; do
+    [[ "$filepath" == */* ]] && dir="${filepath%/*}" || dir=.
+    if [[ -z "$started" || "$dir" != "$last_dir" ]]; then
+      if [[ -n "$repo_root" ]]; then
+        git -C "$repo_root" ls-files --error-unmatch -- "${group[@]}" &>/dev/null || return 1
+      fi
+      started=1 last_dir="$dir" group=()
+      repo_root="$(find_git_root "$filepath")"
+    fi
+    group+=("$filepath")
+  done
   [[ -n "$repo_root" ]] || return 0  # fail-open: no repo → assume tracked
-  git -C "$repo_root" ls-files --error-unmatch "$filepath" &>/dev/null
+  git -C "$repo_root" ls-files --error-unmatch -- "${group[@]}" &>/dev/null
 }
 
 # basename without the fork. The precious tests below run on EVERY Edit, Write
@@ -269,7 +300,13 @@ precious_basename() {
     if (( BASH_VERSINFO[0] >= 4 )); then
       _basename="${_basename,,}"
     else
-      _basename="$(printf '%s' "$_basename" | tr '[:upper:]' '[:lower:]')"
+      # Bash 3.2 (macOS /bin/bash) has no ${,,}. Fold ASCII in-process — every
+      # precious pattern is ASCII — because a `printf | tr` fork per name let a
+      # glob delete over thousands of matches outrun the hook's timeout.
+      local _up=ABCDEFGHIJKLMNOPQRSTUVWXYZ _lo=abcdefghijklmnopqrstuvwxyz _i
+      for (( _i = 0; _i < 26; _i++ )); do
+        _basename="${_basename//${_up:_i:1}/${_lo:_i:1}}"
+      done
     fi
   fi
 }
@@ -315,8 +352,7 @@ strip_backup_suffix() {
 }
 
 # The hard list, matched on a basename the caller has already case-folded.
-# Split out of is_precious so is_recoverable_precious can re-test a '.bak' stem
-# against it without recursing back through the tail call below.
+# Split out so is_recoverable_precious_name can re-test a '.bak' stem against it.
 is_precious_name() {
   local lname="$1"
   case "$lname" in
@@ -357,11 +393,7 @@ is_precious_name() {
 # the user, so there is no path to "yes, delete it" — and these are exactly the
 # files a cleanup step legitimately removes (the harness writes
 # .claude/<skill>-deep-progress.json.bak on every run).
-is_recoverable_precious() {
-  precious_basename "$1"
-  is_recoverable_precious_name "$_basename"
-}
-
+#
 # Matched on a basename the caller has already case-folded, like is_precious_name.
 # The trigger list stays deliberately narrower than strip_backup_suffix: this one
 # also decides which ORDINARY files prompt before an overwrite, so widening it to
@@ -682,6 +714,17 @@ json_escape() {
   _json_escaped="$s"
 }
 
+# The reverse, for a tool_input string value, so the guards judge what the tool
+# will actually touch. \001 shields literal backslashes from the later passes;
+# the value never reaches emitted JSON, so the sentinel cannot leak.
+_json_unescaped=""
+json_unescape() {
+  local s="${1//\\\\/$'\001'}"
+  s="${s//\\\"/\"}"; s="${s//\\\//\/}"
+  s="${s//\\n/$'\n'}"; s="${s//\\r/$'\r'}"; s="${s//\\t/$'\t'}"
+  _json_unescaped="${s//$'\001'/\\}"
+}
+
 # $1 = decision, $2 = reason for the USER, $3 = optional context for CLAUDE.
 # The two audiences are distinct — see header: TEMP-WRITE NUDGE. printf, not a
 # `cat` heredoc, so emitting a decision costs no fork.
@@ -864,7 +907,7 @@ expand_word() {
 }
 
 # The caller's view of a $VAR, from a snapshot of the environment (see the
-# populate step in the Bash branch at the bottom of this file).
+# snapshot at the top of this file).
 #
 # What this replaces: `-n "${!name+set}"` followed by `${!name}`. An indirect
 # expansion resolves against the WHOLE shell namespace — this hook's own globals
@@ -881,13 +924,11 @@ expand_word() {
 # macOS) has no `declare -A`, and this must not quietly stop expanding $HOME
 # there. A linear scan of ~100 names per '$' is nothing next to the forks the
 # gates below already pay.
-_env_keys=()
-_env_vals=()
 _env_value=""
 lookup_env_value() {
   local i=0
-  while (( i < ${#_env_keys[@]} )); do
-    if [[ "${_env_keys[i]}" == "$1" ]]; then _env_value="${_env_vals[i]}"; return 0; fi
+  while (( i < ${#_rp_env_keys[@]} )); do
+    if [[ "${_rp_env_keys[i]}" == "$1" ]]; then _env_value="${_rp_env_vals[i]}"; return 0; fi
     (( ++i ))
   done
   return 1
@@ -1113,9 +1154,10 @@ unwrap_shell_c() {
 
 # --- Git branch protection ---
 # Customize this list to match your project's protected branches.
-# These branches are shielded from commits, pushes, rebases, resets,
-# and deletions. All other branches are treated as feature branches
-# where git operations are allowed without prompts.
+# These branches are shielded from commits (incl. cherry-pick/revert/am),
+# merges, pushes, rebases, hard resets, restores/discards, and branch rewrites
+# or deletions (including update-ref). All other branches are treated as
+# feature branches where git operations are allowed without prompts.
 PROTECTED_BRANCHES=("master" "main" "develop" "dev" "development" "staging" "stage" "prod" "production" "release")
 
 is_protected_branch() {
@@ -1289,7 +1331,17 @@ check_git_command() {
       # Delegate to check_git_push with tokens after "git push"
       check_git_push "${tokens[@]:$((git_subcmd_idx+1))}"
       ;;
-    commit|merge)
+    # cherry-pick/revert/am create commits on the checked-out branch exactly
+    # like commit, so they share its block — but not their way OUT of a
+    # conflicted run: --abort and --quit commit nothing, and git refuses them
+    # alongside a commit or another action. --continue and --skip go on to
+    # commit the rest, so they stay blocked.
+    commit|merge|cherry-pick|revert|am)
+      if [[ "$git_subcmd" != commit ]]; then
+        case "${tokens[git_subcmd_idx+1]:-}" in
+          --abort|--quit|--show-current-patch|--show-current-patch=*) return 0 ;;
+        esac
+      fi
       current_branch="$(get_current_branch "$git_repo_dir")" || return 0
       [[ "$current_branch" == "HEAD" ]] && return 0
       if is_protected_branch "$current_branch"; then
@@ -1362,6 +1414,10 @@ check_git_command() {
           -c*) sw_flag="-c"; sw_target="${tokens[si]#-c}"; break ;;
           -C) sw_flag="-C"; sw_target="${tokens[si+1]:-}"; break ;;
           -C*) sw_flag="-C"; sw_target="${tokens[si]#-C}"; break ;;
+          # --force-create is -C's long form; git also takes any unique prefix
+          # of it (--force-c, even --force-), with the name attached by = or not.
+          --force-*=*) sw_flag="-C"; sw_target="${tokens[si]#*=}"; break ;;
+          --force-*) sw_flag="-C"; sw_target="${tokens[si+1]:-}"; break ;;
         esac
       done
       # Allow 'git switch -c' (create new branch, fails if exists — always safe)
@@ -1552,14 +1608,48 @@ count_frag_closes() {
   done
 }
 
+# Split the one shell word at the head of $1 off what follows it; the rest,
+# from the first whitespace or ')' outside quotes and outside any (...) the
+# word opens, lands in _word_rest. The case peel reads a subject and a pattern
+# with it, so `"a b")`, `a\ b)` and `$(uname)` are each one word.
+_word_rest=""
+split_word() {
+  local LC_ALL=C
+  local s="$1"
+  local n=${#s} i=0 c q="" depth=0
+  while (( i < n )); do
+    c="${s:i:1}"
+    if [[ "$q" == "'" ]]; then
+      [[ "$c" == "'" ]] && q=""
+    elif [[ "$q" == '"' ]]; then
+      if [[ "$c" == '\' ]]; then (( ++i ))
+      elif [[ "$c" == '"' ]]; then q=""; fi
+    else
+      case "$c" in
+        "'"|'"') q="$c" ;;
+        '\') (( ++i )) ;;
+        '(') depth=$(( depth + 1 )) ;;
+        ')') (( depth == 0 )) && break
+          depth=$(( depth - 1 )) ;;
+        [[:space:]]) (( depth == 0 )) && break ;;
+      esac
+    fi
+    (( ++i ))
+  done
+  _word_rest="${s:i}"
+}
+
 scan_command_string() {
   local _split="$1"
-  local _subcmd _cd_tok _cd_target _cd_base _cd_noop word target nword skip_next
+  local _subcmd _cd_tok _cd_target _cd_base _cd_noop word target nword skip_next _m _ifs _ng
+  local -a _matches _precious
   local _saved_cd _saved_prev _wrap_base _wrap_cd _eff_cd _n_close
   local -a _frag
   local -a _saved_stack=()
   local -a _cd_stack=()
-  local _cd_depth=0 _cd_pending_close=0
+  local _cd_depth=0 _cd_pending_close=0 _pat _rest _peeled_pat
+  # The subshell depth each open `case` sits at, innermost last.
+  local _case_depths=""
 
   # A backslash-newline is a LINE CONTINUATION, not a command separator: the
   # shell joins the two lines and runs ONE command. Splitting on the newline
@@ -1599,26 +1689,7 @@ scan_command_string() {
     # `(cd /tmp && ./deploy.sh) && rm -rf build` stayed in force for the rest of
     # the chain, and an ordinary in-project cleanup resolved to /tmp/build and
     # was hard-DENIED.
-    while [[ "$_subcmd" == '('* ]]; do
-      _subcmd="${_subcmd#\(}"
-      _subcmd="${_subcmd#"${_subcmd%%[![:space:]]*}"}"
-      _cd_stack[_cd_depth]="$_cd_dir"
-      _cd_depth=$(( _cd_depth + 1 ))
-    done
-    count_frag_closes "$_subcmd"
-    _cd_pending_close=$(( _cd_pending_close + _frag_closes ))
-    # Strip only as many trailing ')' as there are real closes, so the command
-    # word stays reachable without eating the ')' of a `$(...)` target. A close
-    # that is NOT last (a redirection follows it) keeps its paren glued to the
-    # word; that costs a stray character in the deny message, never a verdict,
-    # because the paren is on the far side of the path either way.
-    _n_close=$_frag_closes
-    while (( _n_close > 0 )) && [[ "$_subcmd" == *')' ]]; do
-      _subcmd="${_subcmd%\)}"
-      _subcmd="${_subcmd%"${_subcmd##*[![:space:]]}"}"
-      _n_close=$(( _n_close - 1 ))
-    done
-
+    #
     # Peel leading shell keywords. `for f in *; do rm <outside>; done` splits
     # into a fragment beginning 'do rm ...' and `if x; then rm <outside>; fi`
     # into one beginning 'then rm ...' — neither of which the guards below saw,
@@ -1630,19 +1701,73 @@ scan_command_string() {
     # command word, cmd_word_index bailed, and every guard below was skipped. A
     # generated `cleanup() { rm -rf "$BUILD"; }` is an accident shape, not only
     # an adversarial one. Peeling only ever exposes MORE to the guards.
+    # Only the first arm follows `case`: `;;`, `|` and a newline start every
+    # other one at its pattern, `b) rm <outside>`. A pattern is peeled only in a
+    # case, at that case's own subshell depth — `(cd X && ls) 2>&1` leaves
+    # `ls) 2>`, a close — once per fragment, and only as ONE shell word that a
+    # ')' ends: a quoted `"a b")` is one, while `x=$(pwd)/y rm` is an arm's body,
+    # because its word ends at the space. The subject is one word too, so it is
+    # skipped by the same reading: `case "$(uname)" in`, `case "a in b" in`.
+    # A subshell can open behind any of these — `do (cd /etc && rm passwd)` — so
+    # its '(' is taken inside the loop, not only at the head of the fragment.
+    # Closes are counted on what the peel leaves: a pattern's ')' closes nothing.
+    _peeled_pat=""
     while :; do
+      if [[ -z "$_peeled_pat" && -n "$_case_depths" && "${_case_depths##* }" == "$_cd_depth" ]]; then
+        _pat="${_subcmd#\(}"              # `(b)` is a pattern too, not a subshell
+        split_word "$_pat"
+        _rest="${_word_rest#"${_word_rest%%[![:space:]]*}"}"   # `a ) cmd` is valid
+        if [[ "$_word_rest" != "$_pat" && "${_pat%"$_word_rest"}" != esac \
+              && "$_rest" == ')'* ]]; then
+          _subcmd="${_rest#\)}"
+          _peeled_pat=1
+          _subcmd="${_subcmd#"${_subcmd%%[![:space:]]*}"}"
+          [[ -n "$_subcmd" ]] || break
+          continue
+        fi
+      fi
       case "$_subcmd" in
-        do|then|else|elif|fi|done|esac|in|'{'|'}'|'!') _subcmd="" ;;
-        do\ *|then\ *|else\ *|elif\ *|if\ *|while\ *|until\ *|'{'\ *|'!'\ *)
+        '('*) _subcmd="${_subcmd#\(}"
+          _cd_stack[_cd_depth]="$_cd_dir"
+          _cd_depth=$(( _cd_depth + 1 )) ;;
+        do|then|else|elif|fi|done|in|'{'|'}'|'!') _subcmd="" ;;
+        # `esac)` ends the subshell around the case: keep its ')' for the count.
+        'esac'|'esac '*|'esac)'*) _case_depths="${_case_depths% *}"
+          _subcmd="${_subcmd#esac}"
+          _subcmd="${_subcmd#"${_subcmd%%[![:space:]]*}"}"
+          [[ "$_subcmd" == ')'* ]] || _subcmd="" ;;
+        do\ *|then\ *|else\ *|elif\ *|if\ *|while\ *|until\ *|in\ *|'{'\ *|'!'\ *)
           _subcmd="${_subcmd#* }" ;;
         *'()'*'{'*) _subcmd="${_subcmd#*\{}" ;;
-        case\ *')'*) _subcmd="${_subcmd#*\)}" ;;
+        case\ *) _case_depths="$_case_depths $_cd_depth"
+          _subcmd="${_subcmd#case}"
+          _subcmd="${_subcmd#"${_subcmd%%[![:space:]]*}"}"
+          split_word "$_subcmd"
+          _subcmd="${_word_rest#"${_word_rest%%[![:space:]]*}"}"
+          case "$_subcmd" in
+            in[[:space:]]*) _subcmd="${_subcmd#in}" ;;
+            *) _subcmd="" ;;                # `case x` / `in` on the next line
+          esac ;;
         *) break ;;
       esac
       _subcmd="${_subcmd#"${_subcmd%%[![:space:]]*}"}"
       [[ -n "$_subcmd" ]] || break
     done
+    count_frag_closes "$_subcmd"
+    _n_close=$_frag_closes
+    _cd_pending_close=$(( _cd_pending_close + _n_close ))
     [[ -n "$_subcmd" ]] || continue
+    # Strip only as many trailing ')' as there are real closes, so the command
+    # word stays reachable without eating the ')' of a `$(...)` target. A close
+    # that is NOT last (a redirection follows it) keeps its paren glued to the
+    # word; that costs a stray character in the deny message, never a verdict,
+    # because the paren is on the far side of the path either way. It runs after
+    # the peel, which needs the ')' of a pattern alone on its line, `a)`.
+    while (( _n_close > 0 )) && [[ "$_subcmd" == *')' ]]; do
+      _subcmd="${_subcmd%\)}"
+      _subcmd="${_subcmd%"${_subcmd##*[![:space:]]}"}"
+      _n_close=$(( _n_close - 1 ))
+    done
 
     # One quote-aware split per fragment, shared by all the gates below.
     shell_split "$_subcmd"
@@ -1849,9 +1974,35 @@ scan_command_string() {
         # Precious file protection: block deletion of sensitive unversioned files.
         # Recoverable ones (backups, IDE scratch) are excluded by is_hard_precious
         # testing the hard list alone — a deny here could never be overridden.
-        if [[ -e "$target" ]] && is_inside_project_n "$nword" \
-           && is_hard_precious "$target" && ! is_git_tracked "$target"; then
-          deny_operation "BLOCKED: '$(basename "$word")' is a precious file not tracked by git. Deletion denied."
+        # A glob word names no file itself, so judge what the shell expands it
+        # to: `rm -f .env*` and `rm -f *.sqlite` otherwise failed the -e test and
+        # deleted the very files `rm .env` is denied for. The word stays a
+        # candidate too — quoted, or matching nothing, the shell deletes it as
+        # written, so `rm 'secret[1].key'` removes that very file. IFS= keeps a
+        # match that holds a space whole; nullglob drops a pattern that matches
+        # nothing. `|| _ng=1`, not `_ng=$?`: a bare failing `shopt -q` would abort
+        # the hook under an inherited errexit before it printed any decision.
+        _matches=("$target")
+        if [[ "$target" == *[*?[]* ]]; then
+          _ng=""; shopt -q nullglob || _ng=1
+          shopt -s nullglob
+          _ifs="$IFS"; IFS=
+          _matches+=($target)
+          IFS="$_ifs"
+          [[ -n "$_ng" ]] && shopt -u nullglob
+        fi
+        if is_inside_project_n "$nword"; then
+          # Names first, then ONE tracked check over the precious ones: git per
+          # match cost `rm -f fixtures/*.sqlite` a fork chain for each file.
+          _precious=()
+          for _m in "${_matches[@]}"; do
+            if [[ -e "$_m" ]] && is_hard_precious "$_m"; then _precious+=("$_m"); fi
+          done
+          if (( ${#_precious[@]} )) && ! is_git_tracked "${_precious[@]}"; then
+            (( ${#_precious[@]} > 1 )) \
+              && deny_operation "BLOCKED: '$word' matches a precious file not tracked by git. Deletion denied."
+            deny_operation "BLOCKED: '$(basename "${_precious[0]}")' is a precious file not tracked by git. Deletion denied."
+          fi
         fi
       done
     fi
@@ -1868,47 +2019,24 @@ scan_command_string() {
 _rp_tool_name="${BASH_REMATCH[1]}"
 
 case "$_rp_tool_name" in
-  Edit|MultiEdit|Write)
-    # Fail-open: if file_path cannot be extracted, allow rather than block.
+  Edit|MultiEdit|Write|NotebookEdit)
+    # Fail-open: if the path cannot be extracted, allow rather than block.
     # The value is a JSON string: walk over escaped quotes ([^"\]|\\.) as the
     # Bash branch does — stopping at the first \" judged only the path's prefix.
-    _rp_path_re='"file_path"[[:space:]]*:[[:space:]]*"(([^"\]|\\.)*)"'
-    [[ "$_rp_input" =~ $_rp_path_re ]] || exit 0
-    filepath="${BASH_REMATCH[1]}"
-    # Undo the JSON escapes the same way the Bash branch does, so a path that
-    # contains an escaped quote is judged whole rather than on its prefix.
-    filepath="${filepath//\\\\/$'\001'}"
-    filepath="${filepath//\\\"/\"}"
-    filepath="${filepath//\\\//\/}"
-    filepath="${filepath//\\n/$'\n'}"
-    filepath="${filepath//\\r/$'\r'}"
-    filepath="${filepath//\\t/$'\t'}"
-    filepath="${filepath//$'\001'/\\}"
-    guard_out_of_project_write "$filepath" "File" "write"
-    # Precious file protection: prompt before modifying sensitive unversioned files
-    if [[ -e "$filepath" ]] && is_precious "$filepath" && ! is_git_tracked "$filepath"; then
-      ask_permission "File '$(basename "$filepath")' is a precious file not tracked by git. Changes may be permanent. Allow this write?"
+    if [[ "$_rp_tool_name" == NotebookEdit ]]; then
+      _rp_path_re='"notebook_path"[[:space:]]*:[[:space:]]*"(([^"\]|\\.)*)"'
+      _rp_noun=Notebook _rp_verb=edit
+    else
+      _rp_path_re='"file_path"[[:space:]]*:[[:space:]]*"(([^"\]|\\.)*)"'
+      _rp_noun=File _rp_verb=write
     fi
-    exit 0
-    ;;
-  NotebookEdit)
-    # Fail-open: if notebook_path cannot be extracted, allow rather than block
-    _rp_path_re='"notebook_path"[[:space:]]*:[[:space:]]*"(([^"\]|\\.)*)"'
     [[ "$_rp_input" =~ $_rp_path_re ]] || exit 0
-    filepath="${BASH_REMATCH[1]}"
-    # Undo the JSON escapes the same way the Bash branch does, so a path that
-    # contains an escaped quote is judged whole rather than on its prefix.
-    filepath="${filepath//\\\\/$'\001'}"
-    filepath="${filepath//\\\"/\"}"
-    filepath="${filepath//\\\//\/}"
-    filepath="${filepath//\\n/$'\n'}"
-    filepath="${filepath//\\r/$'\r'}"
-    filepath="${filepath//\\t/$'\t'}"
-    filepath="${filepath//$'\001'/\\}"
-    guard_out_of_project_write "$filepath" "Notebook" "edit"
-    # Precious file protection: prompt before modifying sensitive unversioned notebooks
-    if [[ -e "$filepath" ]] && is_precious "$filepath" && ! is_git_tracked "$filepath"; then
-      ask_permission "File '$(basename "$filepath")' is a precious file not tracked by git. Changes may be permanent. Allow this edit?"
+    json_unescape "${BASH_REMATCH[1]}"
+    _rp_path="$_json_unescaped"
+    guard_out_of_project_write "$_rp_path" "$_rp_noun" "$_rp_verb"
+    # Precious file protection: prompt before modifying sensitive unversioned files
+    if [[ -e "$_rp_path" ]] && is_precious "$_rp_path" && ! is_git_tracked "$_rp_path"; then
+      ask_permission "File '$(basename "$_rp_path")' is a precious file not tracked by git. Changes may be permanent. Allow this $_rp_verb?"
     fi
     exit 0
     ;;
@@ -1919,58 +2047,8 @@ case "$_rp_tool_name" in
     # skipped every guard for anything as ordinary as `git commit -m "msg"`.
     _bash_cmd_re='"command"[[:space:]]*:[[:space:]]*"(([^"\]|\\.)*)"'
     [[ "$_rp_input" =~ $_bash_cmd_re ]] || exit 0
-    _rp_cmd="${BASH_REMATCH[1]}"
-    # Undo the JSON escapes so the guards see what the shell will run. \001
-    # shields literal backslashes from the later passes; cmd never reaches the
-    # emitted JSON, so the sentinel cannot leak into output.
-    _rp_cmd="${_rp_cmd//\\\\/$'\001'}"
-    _rp_cmd="${_rp_cmd//\\\"/\"}"
-    _rp_cmd="${_rp_cmd//\\\//\/}"
-    _rp_cmd="${_rp_cmd//\\n/$'\n'}"
-    _rp_cmd="${_rp_cmd//\\r/$'\r'}"
-    _rp_cmd="${_rp_cmd//\\t/$'\t'}"
-    _rp_cmd="${_rp_cmd//$'\001'/\\}"
-
-    # --- Environment snapshot for expand_word (see lookup_env_value) ---
-    # Taken HERE, at top level, because this is the only scope where the names in
-    # play are the environment's own: read from inside expand_word, an indirect
-    # expansion sees that function's locals and every caller's first. Taken in the
-    # Bash branch only, so the Edit/Write path — which never splits a command —
-    # keeps paying no forks at all.
-    #
-    # Top level is necessary but not sufficient: `${!_env_name}` still resolves
-    # against this script's own globals, so an exported name matching one of them
-    # was captured with the HOOK's value. That is why every global here is
-    # `_rp_`-prefixed (see the top of the file) — no environment variable a user
-    # exports can collide with a name in that namespace.
-    #
-    # Skipped entirely for a command with no '$' in it. `$(compgen -e)` is a
-    # command substitution — a fork — and this is the synchronous PreToolUse path
-    # of EVERY Bash tool call, including the overwhelming majority that never
-    # expand anything: measured at ~34 ms per call against 0.8 ms for the builtin
-    # without the subshell, on the platform whose fork cost is the stated reason
-    # the rest of this file trades sed and head for shell builtins. The gate is
-    # sound because it is the SAME condition expand_word's lookup loop is written
-    # on (`while [[ "$w" == *'$'* ]]`): with no '$' anywhere in the command, no
-    # word can reach a lookup, so an empty snapshot changes no decision. (A
-    # leading '~' does not need it either — that arm reads $HOME directly.)
-    if [[ "$_rp_cmd" == *'$'* ]]; then
-      while IFS= read -r _env_name; do
-        [[ "$_env_name" =~ ^[a-zA-Z_][a-zA-Z0-9_]*$ ]] || continue
-        _env_keys+=("$_env_name")
-        _env_vals+=("${!_env_name}")
-      done <<< "$(compgen -e 2>/dev/null)"
-      # A bash built without programmable completion has no `compgen`. Fall back
-      # to the names the gates actually depend on rather than expanding nothing,
-      # which would quietly unblock `rm $HOME/.ssh/id_rsa`.
-      if (( ${#_env_keys[@]} == 0 )); then
-        for _env_name in HOME USERPROFILE TMPDIR TEMP TMP CLAUDE_PROJECT_DIR; do
-          [[ -n "${!_env_name+set}" ]] || continue
-          _env_keys+=("$_env_name")
-          _env_vals+=("${!_env_name}")
-        done
-      fi
-    fi
+    json_unescape "${BASH_REMATCH[1]}"
+    _rp_cmd="$_json_unescaped"
 
     # --- Git branch protection + Delete protection ---
     # Both live in scan_command_string, which splits the string on the shell's

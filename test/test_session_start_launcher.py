@@ -119,15 +119,11 @@ def test_windows_launcher_uses_git_bash(tmp_path, location, noisy_bash):
         (child_docs / "coding-guidelines.md").write_text("# Code", encoding="utf-8")
         (child_docs / "testing.md").write_text("# Tests", encoding="utf-8")
 
-    direct_env = env.copy()
-    git_root = git_from_cmd.parent.parent
-    direct_env["PATH"] = os.pathsep.join(
-        [str(git_root / "usr" / "bin"), str(git_root / "bin"), env["PATH"]]
-    )
+    bash = _find_bash()
     direct = subprocess.run(
-        [_find_bash(), str(REPO_ROOT / "hooks" / "session-start")],
+        [bash, str(REPO_ROOT / "hooks" / "session-start")],
         cwd=cwd,
-        env=direct_env,
+        env=bash_environment(bash, env),
         capture_output=True,
         text=True,
         encoding="utf-8",
@@ -196,11 +192,7 @@ def test_codex_context_is_not_misdetected_as_json(tmp_path, initialized):
             (docs / name).write_text("# Configured", encoding="utf-8")
     env = os.environ.copy()
     env["PLUGIN_ROOT"] = env["CLAUDE_PLUGIN_ROOT"] = REPO_ROOT.as_posix()
-    if sys.platform == "win32":
-        git_root = Path(bash).parent.parent
-        env["PATH"] = os.pathsep.join(
-            [str(git_root / "usr" / "bin"), str(git_root / "bin"), env["PATH"]]
-        )
+    env = bash_environment(bash, env)
     command = (
         _codex_windows_command()
         if sys.platform == "win32"
@@ -234,11 +226,7 @@ def test_bash_launcher_preserves_claude_cwd_and_output(tmp_path):
     env.pop("PLUGIN_ROOT", None)
     # An inherited Git variable must not affect the normal Bash launch path.
     env["GIT_PREFIX"] = "not-the-working-directory/"
-    if sys.platform == "win32":
-        git_root = Path(bash).parent.parent
-        env["PATH"] = os.pathsep.join(
-            [str(git_root / "usr" / "bin"), str(git_root / "bin"), env["PATH"]]
-        )
+    env = bash_environment(bash, env)
     outputs = []
     for args in (
         [bash, str(REPO_ROOT / "hooks" / "session-start")],

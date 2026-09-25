@@ -1,13 +1,11 @@
 ---
 description: >-
-  Runs a Gauntlet Loop: turns an ambitious goal and optional quality references
-  into a minimal builder/critic prompt judged against a concrete comparison
-  bar, confirms with the user, then executes it as the lead agent until the
-  output beats the bar or the user stops the run — or emits it as a
-  paste-ready /goal prompt for a fresh session. Use for long-horizon goals
-  judged against an inspectable reference. Long-running; spawns many
-  subagents, edits project files, and commits finished pieces to a dedicated
-  feature branch.
+  Runs a Gauntlet Loop: turns an ambitious goal into a builder/critic prompt
+  judged against a concrete quality bar, confirms with the user, then leads
+  the run until the output beats the bar or the user stops it — or exports
+  a paste-ready /goal prompt for a fresh session. Use for long-horizon goals
+  with an inspectable reference. Long-running; spawns many subagents, edits
+  project files, and commits finished pieces to a dedicated feature branch.
 disable-model-invocation: true
 argument-hint: "<goal> [possible references or quality bars]"
 ---
@@ -81,9 +79,8 @@ piece.
 
 Use the host's available agent capacity; sequence dispatches rather than drop
 pieces or reviews. Under Codex, disable conversation inheritance for each
-critic (`fork_turns: "none"` when that option exists), supplying only its
-frozen remit and resolvable bar/artifact paths. Reuse each piece's builder
-across rounds. Carry these dispatch rules into the prompt.
+critic (`fork_turns: "none"` when that option exists). Carry these dispatch
+rules into the prompt.
 
 Each piece's critic prompt is written once, before its first round, kept on
 the progress page, and sent every round with only the artifact paths changed.
@@ -108,18 +105,18 @@ Each critic compares ours against the bar unlabeled — blind A/B when the
 artifacts allow it, side by side otherwise; never an older and a newer
 version of our own work, which measures the round, not the bar — and writes
 its verdict to its own file under `.claude/gauntlet/`, named by piece and
-round, ending with one of two final lines: exactly **beats the bar**, or the
+round, ending with one of two final lines: exactly `beats the bar`, or the
 single biggest remaining gap, which goes back for another round. A gap is a
 way the bar beats ours; checks the bar cannot show — interaction,
 robustness, window sizes — belong in the remit from round one or in the test
 suite, never added round by round. The progress page copies every verdict
-from its file. A piece is done when its critic's file reads *beats the bar*.
+from its file. A piece is done when its critic's file reads `beats the bar`.
 
 Pieces that individually beat the bar can still disagree with each other, so
 when every piece is done, a fresh integration critic judges the assembled
 whole against the same bar, and any gap it names goes back for another round,
 judged again by a fresh integration critic. The run ends when the integration
-critic returns *beats the bar* or when the user stops it — and in practice it
+critic returns `beats the bar` or when the user stops it — and in practice it
 is usually the second. Never treat a plateau as completion: if a piece's last two rounds
 close no gap its critic can still name, report the plateau to the user and
 keep working on the rest while they decide whether it is worth more compute.
@@ -131,9 +128,9 @@ while its tests fail.
 
 The run never touches the default branch: before the first edit, the lead
 agent creates and switches to a descriptively named feature branch (a
-worktree made at confirmation already is one). Each piece is committed, with
-its verdict files and the progress page, when its critic returns *beats the
-bar* and the suite is green — focused commits at judged milestones, never
+worktree made at confirmation already is one). Each piece, then the assembled whole, is committed, with
+its verdict files and the progress page, when its critic returns `beats the
+bar` and the suite is green — focused commits at judged milestones, never
 one giant commit at the end — and the run never pushes, merges, or opens a
 PR unless the user asked for it.
 
@@ -149,8 +146,9 @@ rounds. Keep the prompt short, but short is a budget for phrasing, not licence
 to drop guarantees: one builder per piece, fresh-context critics, the frozen
 remit, the bar materials in every critic prompt, ours-against-the-bar
 comparison, the verdict file with its two-way final line, judging the
-running artifact, the anti-staging rule, the integration critic, and the
-branch-and-commit rules all survive to the final draft. Short also has a
+running artifact, the anti-staging rule, the integration critic, the green
+suite, the plateau and suspension rules, the dispatch rules, the progress
+page, and the branch-and-commit rules all survive to the final draft. Short also has a
 number: keep the prompt under 2,500 characters, because the /goal handoff
 must fit this exact prompt plus an opening instruction and a completion
 condition into either host's /goal 4,000-character message cap, and those need the rest.
@@ -171,23 +169,19 @@ Then use `AskUserQuestion` — header "Gauntlet", question confirming the start
 of a long-running multi-agent run that spawns many subagents, edits files
 without per-change approval, and consumes credits in proportion to how long it
 runs — with options "Start the run", "Adjust first", "Copy as /goal prompt",
-and "Cancel". Offer the copy option in both hosts, explaining that it prepares
-a prompt for a new session in the same host, without starting the run here.
-Preserve an explicit destination/model request, such as a new Codex/Astra
-session. Honor an already supplied choice; otherwise wait for the actual
-answer before either running or preparing the handoff. Apply requested
-adjustments and ask again. On "Cancel", stop.
+and "Cancel". Offer Copy in both hosts, explaining that it prepares a prompt
+for a fresh session in this host, or in a destination/model the user named,
+without starting the run here. Honor an already supplied choice. Apply
+requested adjustments and ask again. On "Cancel", stop.
 On "Copy as /goal prompt", read
 `$CLAUDE_PLUGIN_ROOT/skills/gauntlet/references/goal-handoff.md` and follow
 it: the run is handed to a fresh session instead of executed here.
 
 On "Start the run", execute the prompt yourself as the lead agent; this choice
 does not itself request a native goal. Create one only if the user explicitly
-asked for it, using the host's available controls. There is no
-arbitrary final round: the run ends when the output beats the bar or when the
-user stops it, subject to the host suspension rules above.
+asked for it, using the host's available controls.
 
-Close on the outcome — uncommitted work → `/optimus:commit`; already committed
-→ `/optimus:pr`, then `/optimus:code-review` in a fresh conversation — and say
-plainly whether the run beat the bar, plateaued, or was interrupted, and
-whether the suite is green.
+Close on the outcome — `/optimus:commit` for uncommitted work, then
+`/optimus:pr`, both in this conversation; then `/optimus:code-review` in a
+fresh one — and say plainly whether the run beat the bar, plateaued, or was
+interrupted, and whether the suite is green.

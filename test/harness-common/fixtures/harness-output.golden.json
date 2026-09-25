@@ -74,7 +74,6 @@
       "post_edit_content": ""
     }
   ],
-  "fixes_skipped_persistent": ["src/auth.js:120:Guideline Violation"],
   "no_new_findings": false,
   "no_actionable_fixes": false
 }

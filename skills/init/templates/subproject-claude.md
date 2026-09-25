@@ -10,8 +10,11 @@
 
 ## Documentation
 
-Read the doc that matches the change — not all of them. Root `.claude/docs/coding-guidelines.md`
-applies to code in every package.
+Read the doc that matches the change — not all of them.
+
+| Changing | Read first |
+|---|---|
+| Code | root `.claude/docs/coding-guidelines.md` |
 
 <!-- init adds one row per doc it actually created for this subproject (docs/testing.md,
 docs/styling.md, docs/architecture.md). When skill authoring was detected at the repo level, it

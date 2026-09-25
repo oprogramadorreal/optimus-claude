@@ -16,7 +16,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
-POLICED_FILES = sorted((REPO_ROOT / "scripts" / "harness_common").glob("*.py"))
+POLICED_FILES = sorted((REPO_ROOT / "scripts").rglob("*.py"))
 
 
 def _is_true(node):

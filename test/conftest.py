@@ -1,9 +1,7 @@
-"""Root test conftest — ensures ``scripts/`` is on ``sys.path``.
+"""Root test conftest: puts ``scripts/`` on ``sys.path``.
 
-The harness CLI and its modules live under ``scripts/harness_common/``. Tests
-under ``test/harness-common/`` import them as ``from harness_common.<module>
-import ...`` — this conftest adds the parent ``scripts/`` directory to
-``sys.path`` so those imports resolve.
+Tests import ``harness_common`` and the standalone script modules
+(``skill_test_support``, ``validate_skill_metadata``) from there.
 """
 
 import sys

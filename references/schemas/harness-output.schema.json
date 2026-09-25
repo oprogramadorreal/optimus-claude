@@ -2,13 +2,12 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/oprogramadorreal/optimus-claude/references/schemas/harness-output.schema.json",
   "title": "Harness output (review / refactor variant)",
-  "description": "The object a base skill emits inside a ```json:harness-output fenced block when running under HARNESS_MODE_INLINE for the review or refactor deep target. Parsed by scripts/harness_common/parser.py. This schema is the contract; references/harness-mode.md step 8 shows it in context.",
+  "description": "The object a base skill emits inside a ```json:harness-output fenced block when running under HARNESS_MODE_INLINE for the review or refactor deep target. Parsed by scripts/harness_common/parser.py.",
   "type": "object",
   "required": [
     "iteration",
     "new_findings",
     "fixes_applied",
-    "fixes_skipped_persistent",
     "no_new_findings",
     "no_actionable_fixes"
   ],
@@ -26,13 +25,8 @@
     },
     "fixes_applied": {
       "type": "array",
-      "description": "The subset of new_findings actually edited into the tree via Edit/MultiEdit. One entry per edit location: a fix spanning several places in one file contributes several entries.",
+      "description": "The subset of new_findings actually edited into the tree via Edit. One entry per edit location: a fix spanning several places in one file contributes several entries.",
       "items": { "$ref": "#/$defs/finding" }
-    },
-    "fixes_skipped_persistent": {
-      "type": "array",
-      "description": "Identifiers of findings skipped because a prior iteration already recorded them as 'persistent — fix failed'.",
-      "items": { "type": "string" }
     },
     "no_new_findings": {
       "type": "boolean",
@@ -40,7 +34,7 @@
     },
     "no_actionable_fixes": {
       "type": "boolean",
-      "description": "True ONLY when every finding has an empty pre_edit_content, i.e. no swap pair was captured for any of them. A finding with a non-empty pre_edit_content and a different post_edit_content is actionable regardless of file type — markdown, JSON, config, and code all qualify. Enforced by test/harness-common/test_harness_schema.py, which JSON Schema alone cannot express."
+      "description": "True ONLY when every finding has an empty pre_edit_content, i.e. no swap pair was captured for any of them. A finding with a non-empty pre_edit_content and a different post_edit_content is actionable regardless of file type — markdown, JSON, config, and code all qualify."
     }
   },
   "$defs": {
@@ -61,7 +55,7 @@
       "properties": {
         "file": {
           "type": "string",
-          "description": "Repo-relative path, forward slashes."
+          "description": "Path relative to the project root, forward slashes."
         },
         "line": { "type": "integer", "description": "1-indexed start line." },
         "end_line": {
@@ -100,7 +94,7 @@
         },
         "pre_edit_content": {
           "type": "string",
-          "description": "The exact original text that was replaced. Empty means no fix was applied. Bisection reverts by string swap, so this must match the tree byte for byte."
+          "description": "The exact original text that was replaced. Empty means no fix was applied. Bisection re-applies fixes in list order by string swap, so this must occur exactly once in the file at that point, byte for byte."
         },
         "post_edit_content": {
           "type": "string",

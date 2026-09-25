@@ -24,7 +24,7 @@ Do NOT diff: comments, sub-task statuses, sibling issues, key decisions, or any 
 |--------------|--------|
 | Nothing diverged | [No-change short circuit](#no-change-short-circuit) — its drift-pending guard handles re-entry |
 | Metadata only (Status / Priority / Sprint), no `drift-pending` | [Update procedure](#update-procedure) for the diverged `### Context` lines, skip the re-analysis prompt, continue to Step 6 |
-| Metadata only, `drift-pending: true` in frontmatter | [Update procedure](#update-procedure) for the diverged `### Context` lines, then the [Sub-item walk](#sub-item-walk) (drift-pending re-entry) |
+| Metadata only, `drift-pending: true` in frontmatter | [Update procedure](#update-procedure) for the diverged `### Context` lines, then the [Sub-item walk](#sub-item-walk) (drift-pending re-entry), then the re-analysis prompt |
 | Goal and/or Acceptance Criteria changed | [Update procedure](#update-procedure) for every diverged section, then the [Sub-item walk](#sub-item-walk), then prompt for re-analysis once |
 
 Re-analysis prompt — ask the user (AskUserQuestion): "JIRA criteria changed since the last run. Re-run codebase analysis against the new criteria?" **Skip** (default — update the local file only, continue to Step 6) or **Re-analyze** (jump to Step 5 of SKILL.md with the freshly diffed Goal and Acceptance Criteria; prior enrichment gets replaced via the Task File Update procedure).
@@ -44,7 +44,7 @@ Apply changes in place; preserve everything else.
 
 Entered either **diff-driven** (from the decision matrix after Goal/Acceptance Criteria updates) or as **drift-pending re-entry** (`drift-pending: true` in frontmatter from a prior Stop — via the short circuit's guard or the metadata-only row). Either way `### Acceptance Criteria` is current: freshly updated on diff-driven entry, unchanged from disk on re-entry.
 
-If the local file has no `### Implementation Tickets` section, skip the walk: remove any pre-existing `### Sub-item Drift` block, clear `drift-pending: true` if set, then route per entry path (step 8).
+If the local file has no `### Implementation Tickets` section, skip the walk: remove any pre-existing `### Sub-item Drift` block, clear `drift-pending: true` if set, then go to step 8.
 
 1. Parse `Ticket` cells from the `### Implementation Tickets` table; keep only values matching `^[A-Z][A-Z0-9]+-\d+$` (drops headers, blanks, placeholders like `(proposed-1)`, stray edits). If no keys remain, skip the walk exactly as for a missing section above.
 2. Fetch each remaining key with the get-single-issue tool from the Tool Name Resolution table in `jira-context-extraction.md` (Read-only — no writes). Cap at 15 sub-items; report any beyond that as unwalked.
@@ -53,19 +53,19 @@ If the local file has no `### Implementation Tickets` section, skip the walk: re
 5. If nothing was flagged, go to step 6's no-drift branch. Otherwise do NOT auto-edit sub-items — present the drift summary and ask the user (AskUserQuestion): **Continue** (default — "Note the drift in the local file and proceed") or **Stop** ("Pause so I can update sub-items manually first"). On Stop: set `drift-pending: true` in frontmatter, do NOT write the `### Sub-item Drift` block, and exit the skill immediately (the user resumes by re-running `/optimus:jira <KEY>`).
 6. On Continue with drift: insert a `### Sub-item Drift` block (replacing any prior one — it represents the latest refresh only), a bullet list of `<sub-key>: <reason>` entries, placed immediately after `### Implementation Tickets` and before `### Scope Assessment`. On no drift: remove any prior `### Sub-item Drift` block; write nothing new.
 7. Clear `drift-pending: true` from frontmatter if present. Do NOT bump `description-refresh-date` (see [Frontmatter update](#frontmatter-update)).
-8. Route per entry path: diff-driven → fall through to the re-analyze prompt; drift-pending re-entry → exit to Step 6 of SKILL.md.
+8. Fall through to the re-analysis prompt — on re-entry too: `drift-pending` is set only after a Goal/Acceptance Criteria change whose prompt the Stop skipped.
 
 ## No-change short circuit
 
 **Drift-pending guard:** if frontmatter has `drift-pending: true`, do NOT short-circuit — route to the [Sub-item walk](#sub-item-walk) (drift-pending re-entry), which owns its own routing.
 
-Otherwise: report `No changes detected since description-refresh-date: <YYYY-MM-DD>. Skipping update.` (fall back to the `date` field for legacy files without `description-refresh-date`). Do NOT bump `description-refresh-date`, do NOT post a JIRA comment, and skip directly to Step 6 of SKILL.md.
+Otherwise: report `No changes detected since description-refresh-date: <YYYY-MM-DD>. Skipping update.` Do NOT bump `description-refresh-date`, do NOT post a JIRA comment, and skip directly to Step 6 of SKILL.md.
 
 ## Frontmatter update
 
 `description-refresh-date` tracks the most recent JIRA-driven write to this file. Bump it to today (YYYY-MM-DD) on: Goal/Acceptance Criteria updates, metadata-only updates ([Update procedure](#update-procedure)), Created-mode ticket Recording (`jira-implementation-tickets.md`), and Step 5 enrichment runs (`jira-codebase-analysis.md` Task File Update).
 
-The [Sub-item walk](#sub-item-walk) never bumps it — on diff-driven entry the Update procedure already did; on drift-pending re-entry no JIRA-driven change occurred. Leave `date` and `enriched-date` unchanged. If a legacy file lacks the `description-refresh-date` field, add it directly after `enriched-date` if present, otherwise after `date`.
+The [Sub-item walk](#sub-item-walk) never bumps it — on diff-driven entry the Update procedure already did; on drift-pending re-entry no JIRA-driven change occurred. Leave `date` and `enriched-date` unchanged.
 
 ```yaml
 ---

@@ -1,6 +1,6 @@
 # Conventional PR Format
 
-A structured PR/MR body format inspired by [Conventional Commits](https://www.conventionalcommits.org/), extended with a top-of-body `## Intent` section that carries author intent into the artifact `/optimus:code-review` later consumes.
+A structured PR/MR body format inspired by [Conventional Commits](https://www.conventionalcommits.org/), with a top-of-body `## Intent` section.
 
 ## Title
 
@@ -38,7 +38,7 @@ Example:
 ^##[ \t]+[Ii]ntent[ \t]*(?:\{[^}]*\}|[^\w\s]+)?[ \t]*$
 ```
 
-That accepts `## Intent`, `## Intent:`, and a trailing anchor such as `## Intent {#intent}`; it rejects `## Intentional rollback`, `## Intents`, `## Intent and scope`, `###`-level headings, and any `## Intent` that is indented or quoted. `/optimus:pr` writes against this rule and `/optimus:code-review` reads against it, so both halves of the handoff share one definition — `test/harness-common/test_intent_detection.py` pins it with worked examples on both sides.
+That accepts `## Intent`, `## Intent:`, and a trailing anchor such as `## Intent {#intent}`; it rejects `## Intentional rollback`, `## Intents`, `## Intent and scope`, `###`-level headings, and any `## Intent` that is indented or quoted.
 
 ### `## Summary`
 

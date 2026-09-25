@@ -1,6 +1,6 @@
 # Coding principles for optimus-claude
 
-> Optimus baseline. Init refreshes recorded, unchanged template copies; customized copies remain subject to review. Keep project-specific rules here or in a routed project guide.
+> Optimus baseline. Keep project-specific rules here or in a routed project guide.
 
 ## Follow existing patterns
 

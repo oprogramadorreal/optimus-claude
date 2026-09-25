@@ -1,9 +1,10 @@
 # /goal handoff
 
-The user chose "Copy as /goal prompt": prepare the export, then stop. Do not
-start a goal, dispatch builders or critics, edit the product, commit, or
-change host settings in this session. The progress document below is the
-handoff artifact, not an execution milestone.
+The user chose "Copy as /goal prompt": prepare the export, then stop, even
+when the destination lacks native goals. Do not start a goal, dispatch
+builders or critics, edit the product, commit, or change host settings in
+this session. The progress document below is the handoff artifact, not an
+execution milestone.
 
 Use the current host unless the user requested another destination. Read
 only that destination's sibling reference: [Claude Code](goal-handoff-claude.md)
@@ -33,7 +34,7 @@ delivery envelope; SKILL.md's ban on slash commands and effort keywords
 still governs the body. Use the same gauntlet prompt just shown, not a
 second implementation template. Add concrete repo paths and the test
 command, an opening instruction to read the handoff page and verify that
-the bar opens before dispatching work, the destination's opening instruction,
+the bar opens before dispatching work, the destination reference's message addition,
 and the shared completion condition below as the final paragraph. If the
 bar is inaccessible, report the blocker and follow the host's suspension
 rules without claiming success.
@@ -74,5 +75,4 @@ in the message. Recount after every cut and print only a passing body.
 Above the message, identify the destination host/model and the handoff file,
 then print that host's checklist. Use host-correct skill mentions in the
 checklist. Make clear that pasting starts work in the destination session.
-The copy choice never starts work here, including when the destination's
-native goal feature is unavailable. Then stop; the fresh session owns the run.
+Then stop; the fresh session owns the run.

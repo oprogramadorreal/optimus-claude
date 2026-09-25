@@ -20,6 +20,7 @@ Load project constraint documents that define the rules for analysis and code ge
 3. `.claude/docs/skill-writing-guidelines.md` (if exists) — shared skill-writing standards, applying to markdown instruction files in every subproject
 4. For each subproject in scope:
    - `<subproject>/CLAUDE.md` — subproject-specific overview, commands, tech stack
+   - `<subproject>/docs/coding-guidelines.md` (if exists) — subproject coding standards, refining the shared root guide for that subproject's code
    - `<subproject>/docs/testing.md` (if exists) — subproject-specific testing conventions
    - `<subproject>/docs/architecture.md` (if exists) — subproject-specific architecture
    - `<subproject>/docs/styling.md` (if exists) — subproject-specific UI/CSS conventions
@@ -31,7 +32,7 @@ The presence of `.claude/docs/skill-writing-guidelines.md` means the project aut
 
 ## Monorepo Scoping Rule
 
-When operating on a subproject's code, apply its own constraint docs — not another subproject's. `coding-guidelines.md` and `skill-writing-guidelines.md` are shared at root (`.claude/docs/`) and apply everywhere; `testing.md`, `styling.md`, and `architecture.md` are per subproject (`<subproject>/docs/<doc>.md`), so backend conventions never govern frontend code or vice versa. For root-as-project, its scoped docs sit in `.claude/docs/` alongside the shared guidelines.
+When operating on a subproject's code, apply its own constraint docs from the Monorepo list above — never another subproject's, so backend conventions never govern frontend code or vice versa.
 
 ## Submodule Exclusion
 

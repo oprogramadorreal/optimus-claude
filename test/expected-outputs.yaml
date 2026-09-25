@@ -6,9 +6,9 @@
 #     <fixture-name>:
 #       files_exist: [list of files that must exist after skill runs]
 #       files_contain:
-#         <file-path>: [list of strings that must appear in file]
+#         <file-path>: [strings that must appear in the file; case-sensitive]
 #       files_not_exist: [list of files that must NOT exist]
-#       output_contains: [list of strings in claude stdout]
+#       output_contains: [strings in the final response text; case-insensitive]
 #       output_nonempty: true  # weak completion-only smoke; not semantic success
 #       branch_prefix: "feat/"  # inspect the actual Git branch
 #       files_not_modified: true  # assert no files changed (read-only skills)
@@ -16,7 +16,7 @@
 # Paths are relative to the fixture project root.
 
 init:
-  node-project:
+  node-project: &init-core
     files_exist:
       - .claude/CLAUDE.md
       - .claude/docs/coding-guidelines.md
@@ -24,51 +24,11 @@ init:
     files_contain:
       .claude/docs/coding-guidelines.md:
         - "Coding principles for"
-
-  python-project:
-    files_exist:
-      - .claude/CLAUDE.md
-      - .claude/docs/coding-guidelines.md
-      - .claude/.optimus-version
-    files_contain:
-      .claude/docs/coding-guidelines.md:
-        - "Coding principles for"
-
-  go-project:
-    files_exist:
-      - .claude/CLAUDE.md
-      - .claude/docs/coding-guidelines.md
-      - .claude/.optimus-version
-    files_contain:
-      .claude/docs/coding-guidelines.md:
-        - "Coding principles for"
-
-  rust-project:
-    files_exist:
-      - .claude/CLAUDE.md
-      - .claude/docs/coding-guidelines.md
-      - .claude/.optimus-version
-    files_contain:
-      .claude/docs/coding-guidelines.md:
-        - "Coding principles for"
-
-  csharp-project:
-    files_exist:
-      - .claude/CLAUDE.md
-      - .claude/docs/coding-guidelines.md
-      - .claude/.optimus-version
-    files_contain:
-      .claude/docs/coding-guidelines.md:
-        - "Coding principles for"
-
-  monorepo-project:
-    files_exist:
-      - .claude/CLAUDE.md
-      - .claude/docs/coding-guidelines.md
-      - .claude/.optimus-version
-    files_contain:
-      .claude/docs/coding-guidelines.md:
-        - "Coding principles for"
+  python-project: *init-core
+  go-project: *init-core
+  rust-project: *init-core
+  csharp-project: *init-core
+  monorepo-project: *init-core
 
   empty-project:
     # Empty project triggers scaffolding prompt — init may or may not create files
@@ -80,9 +40,13 @@ permissions:
   node-project:
     files_exist:
       - .claude/hooks/restrict-paths.sh
+      - .claude/settings.json
     files_contain:
       .claude/hooks/restrict-paths.sh:
-        - "#!/usr/bin/env bash"
+        - "# HOOK_VERSION:"
+      .claude/settings.json:
+        - "restrict-paths.sh"
+        - "PreToolUse"
 
 commit-suggest:
   node-project:
@@ -110,6 +74,11 @@ prompt:
   node-project:
     # Read-only skill: crafts a prompt but changes nothing
     files_not_modified: true
+    # The delivered prompt, not a clarifying question: the copy markers and Target line.
+    output_contains:
+      - "BEGIN PROMPT"
+      - "END PROMPT"
+      - "**Target:**"
 
 commit-branch:
   node-project:

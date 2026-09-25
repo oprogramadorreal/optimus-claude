@@ -27,18 +27,17 @@ Use these profiles as starting defaults, not proof of performance on every model
 
 ### Claude (claude.ai, Claude API)
 
-Covers the Claude 5 family (Opus 5, Sonnet 5, Fable 5 and 5.1) and Claude 4.x. Where they differ, the bullet says so.
+Covers Claude 5.x (Fable, Opus, Sonnet) and Claude 4.x. Where they differ, the bullet says so.
 
 - Be explicit and specific — Claude follows instructions literally, not by inference; always specify output format and length
-- XML tags for complex multi-section prompts: `<context>`, `<task>`, `<constraints>`, `<output_format>`
 - Provide context and reasoning WHY, not just WHAT — Claude generalizes better from explanations
 - For complex or multi-step tasks, front-load everything in one turn — intent, constraints, acceptance criteria, relevant files; extra back-and-forth adds reasoning overhead and cost
-- Don't add "think step by step" or a fixed thinking budget — current Claude calibrates reasoning depth automatically. On the API, depth is the `effort` setting, not prompt text; in claude.ai, where the user has no such control, a one-line nudge is the only lever: "Think carefully before responding" (more) or "Prioritize responding quickly" (less)
+- Don't add "think step by step" or a fixed thinking budget — current Claude calibrates reasoning depth automatically. On the API, depth is the `effort` setting (extended thinking's `budget_tokens` on models without it, such as Haiku 4.5), not prompt text; in claude.ai, where the user has no such control, a one-line nudge is the only lever: "Think carefully before responding" (more) or "Prioritize responding quickly" (less)
 - Prefer concrete acceptance criteria and external checks (a test suite, a schema, a live API) over repeated generic self-check instructions. Keep a targeted check when it addresses an observed failure. For a long autonomous build on Fable 5.1, state how its checking harness validates progress against the spec; evaluate changes to that cadence rather than assuming self-verification always helps or never helps.
 - **Bound scope with intent, not prohibitions.** Claude 5 models can widen a task past what was asked (Claude 4.x and Fable 5 over-tidy the same way). One line covers it: *"Deliver what was asked, at the scope intended. Make routine judgment calls yourself; check in only when two readings of the request would lead to materially different work. If a better approach exists, say so in a sentence and continue as asked."*
 - **Length is a separate lever from reasoning.** Claude 5 responses run longer by default, and lowering reasoning effort does not shorten them — ask directly: *"Keep responses focused and brief; spend most of the response on the main answer."* When the prompt produces a written file, add: *"Match the document's length to the substance — no filler sections, redundant summaries, or boilerplate."*
 - Don't add anti-formatting rules ("no bullets", "no headers", "no bold") — Fable 5.1 already under-formats, so they strip formatting the reader wanted. Say when formatting is appropriate instead: *"Use lists and headers when the content is multifaceted enough that they help; plain prose for simple answers and conversational exchanges."*
-- Don't instruct Fable 5.x to echo or transcribe its reasoning as output text — the reasoning-extraction safeguard can refuse the request (and fall back to Opus where fallbacks are configured)
+- Don't instruct Fable 5.x or Opus 5.5 to echo or transcribe its reasoning as output text — their reasoning-extraction safeguard can refuse the request
 
 ### GPT-6 Astra
 
@@ -59,7 +58,7 @@ Source: [official Astra prompting guidance](https://developers.openai.com/api/do
 
 ### Gemini 2.x / Gemini 3 Pro
 
-- Prone to hallucinated citations — always add "Cite only sources you are certain of. If uncertain, say [uncertain]."
+- Prone to hallucinated citations — always add the SKILL.md Step 6 grounding anchor
 - Can drift from strict output formats — use explicit format locks with a labelled example
 - For grounded tasks add "Base your response only on the provided context. Do not extrapolate."
 - Strong at long-context and multimodal — leverage the large context window for document-heavy prompts
@@ -87,7 +86,7 @@ These models perform internal reasoning. Prefer a clear task and output contract
 
 ### Qwen3 (thinking mode)
 
-- Thinking mode (/think or enable_thinking=True): treat exactly like o3 — short clean instructions, no scaffolding
+- Thinking mode (a -Thinking release, or /think / enable_thinking=True on hybrid releases): treat exactly like o3 — short clean instructions, no scaffolding
 - Non-thinking mode: treat like Qwen 2.5 instruct — full structure, explicit format, role assignment
 
 ## Open-Weight LLMs
@@ -104,24 +103,23 @@ These models perform internal reasoning. Prefer a clear task and output contract
 
 ### Ollama (local model deployment)
 
-- ALWAYS ask which model is running before writing — Llama3, Mistral, Qwen2.5, CodeLlama behave differently
+- Ask which model is running if not stated — Llama, Mistral, Qwen, and code-tuned variants behave differently
 - System prompt is the most impactful lever — include it in the output so the user can set it in their Modelfile
 - Shorter simpler prompts outperform complex ones — local models lose coherence with deep nesting
 - Temperature 0.1 for coding/deterministic tasks, 0.7-0.8 for creative tasks
-- For coding: CodeLlama or Qwen2.5-Coder, not general Llama
+- For coding: prefer a current code-tuned model (e.g. the latest Qwen Coder release) over a general chat model
 
 ## IDE AI
 
-Every entry below: anchor each instruction to a path — never a global instruction without a file or directory anchor. Split work that spans several independent changes into sequential prompts per the output contract in SKILL.md.
+Every entry below except Claude Code plan mode and dynamic workflow (Templates M and N govern those): anchor each instruction to a path — never a global instruction without a file or directory anchor. Split work that spans several independent changes into sequential prompts per the output contract in SKILL.md.
 
 ### Claude Code
 
-- Agentic — runs tools, edits files, executes commands autonomously. Structure per Template H: starting state + target state + allowed/forbidden actions + stop conditions + checkpoints
+- Agentic — runs tools, edits files, executes commands autonomously. Structure per Template H: starting state + target state + allowed/forbidden actions + stop conditions + reporting
 - Stop conditions are MANDATORY — runaway loops are the biggest credit killer
 - Apply the [Claude entry](#claude-claudeai-claude-api), including scope, length, and evidence-based verification; effort and thinking depth are host-managed, so never invent an effort command or thinking budget in the task prompt
 - Delegation bias differs by model. Opus 5 over-delegates — cap it: *"Delegate only for large, genuinely independent tracks of work. Don't delegate what you can finish in a handful of tool calls. Keep spawn counts low."* Fable 5.1's parallel subagents are dependable — say when delegation is wanted and let it keep working while they run: *"Delegate independent subtasks to subagents and keep working while they run; intervene if one goes off track or lacks context."* On either model, never use a subagent to verify its own work.
-- Narration cadence differs by model — Opus 5 narrates readily, Fable 5.1 goes quiet during long tool chains — so describe the shape you want rather than banning or demanding updates: *"Say in one sentence what you're about to do before your first tool call; while working, update on something important or a change of direction; close with a short recap that stands on its own — what you found, what you did, what's next."*
-- Carry forward explicit authorization for edits, dependencies, and schema work. Ask before consequential actions outside that authorization or when an unresolved choice changes the scope
+- Narration cadence differs by model — Opus 5 narrates readily, Fable 5.1 goes quiet during long tool chains — so use Template H's Reporting lines rather than banning or demanding updates
 
 ### OpenAI Codex
 
@@ -138,13 +136,11 @@ Goal sources: [Codex goal commands](https://learn.chatgpt.com/docs/developer-com
 
 ### Claude Code (plan mode)
 
-- Produces a self-contained prompt pasted as the first message of a fresh plan-mode conversation — no prior context available
 - All behavioral rules live in templates.md Template M
 
 ### Claude Code (dynamic workflow)
 
-- For fan-out / parallel work at scale: a natural-language prompt that launches a NATIVE dynamic workflow — real subagents in parallel, orchestration designed by Claude Code. Distinct from the [Workflow AI](#workflow-ai) section (Zapier / Make / n8n)
-- Output is a PROMPT only, never a .js script; all behavioral rules live in templates.md Template N
+- Claude Code's native dynamic workflow, distinct from [Workflow AI](#workflow-ai) (Zapier / Make / n8n); all behavioral rules live in templates.md Template N
 
 ### Cursor / Windsurf
 
@@ -160,6 +156,7 @@ Goal sources: [Codex goal commands](https://learn.chatgpt.com/docs/developer-com
 
 ### GitHub Copilot
 
+- Copilot Chat / agent mode: a Template G task prompt; Copilot cloud agent (assigned an issue or prompted in the agents panel): Template H. The bullets below are for inline completion only
 - Write the exact function signature, docstring, or comment immediately before invoking
 - Describe input types, return type, edge cases, and what the function must NOT do
 - Copilot completes what it predicts, not what you intend — leave no ambiguity in the comment
@@ -198,7 +195,7 @@ Perplexity Comet, OpenAI Atlas, Claude in Chrome — these agents control a real
 
 ## Research / Orchestration
 
-### Perplexity / SearchGPT
+### Perplexity / ChatGPT search
 
 - Specify mode: search vs analyze vs compare; add citation requirements
 - Reframe hallucination-prone questions as grounded queries
@@ -216,7 +213,7 @@ First detect: generation from scratch or editing an existing image? If editing �
 ### Midjourney
 
 - Comma-separated descriptors, not prose. Subject first, then style, mood, lighting, composition
-- Parameters at end: `--ar 16:9 --v 6 --style raw`; negative prompts via `--no [unwanted elements]`
+- Parameters at end: `--ar 16:9 --raw`; negative prompts via `--no [unwanted elements]`. Omit `--v` unless the user names a version: V8.2 is the default ([Midjourney updates](https://updates.midjourney.com/), checked 2026-09-23)
 
 ### OpenAI image tools
 
@@ -241,7 +238,7 @@ When the user mentions "change", "edit", "modify", "adjust" anything in an exist
 
 - Always instruct the user to attach the reference image to the tool first
 - Build the prompt around the delta ONLY — what changes, what stays the same
-- Midjourney: `--cref [image URL]` for character reference or `--sref` for style reference
+- Midjourney: on V8.x, attach up to 4 reference images for a character or object (Edit Model; `--edit [image URL]` on Discord); `--sref [image URL]` for style. Older models only: `--oref` (V7), `--cref` (V6). [Edit Model for V8](https://updates.midjourney.com/edit-model-for-v8/), checked 2026-09-23
 - OpenAI image tools: attach the reference to the chosen interface; use its image-editing capability. For the API, select a currently supported GPT Image model and the documented edits or Responses image tool path; a ChatGPT attachment is not an API endpoint
 - Stable Diffusion: use img2img mode, not txt2img. Denoising strength 0.3-0.6 to preserve the original
 
@@ -249,7 +246,7 @@ When the user mentions "change", "edit", "modify", "adjust" anything in an exist
 
 Node-based workflow — not a single prompt box.
 
-- Ask which checkpoint model is loaded before writing (SD 1.5, SDXL, Flux)
+- If not stated, ask which checkpoint model is loaded (SD 1.5, SDXL, Flux)
 - Always output two separate blocks: Positive Prompt and Negative Prompt. Never merge them
 - SD 1.5: shorter prompts, under 75 tokens per block, use (word:weight) syntax. SDXL: handles longer prompts, more natural language. Flux: natural language, less weighted syntax, very responsive to style descriptions
 
@@ -271,18 +268,20 @@ Node-based workflow — not a single prompt box.
 ## Video AI
 
 - **Sora**: describe as if directing a film shot. Camera movement is critical — static vs dolly vs crane changes output dramatically
-- **Runway Gen-3**: responds to cinematic language — reference film styles for consistent aesthetic
+- **Runway**: responds to cinematic language — reference film styles for consistent aesthetic
 - **Kling**: strong at realistic human motion — describe body movement explicitly, specify camera angle and shot type
 - **LTX Video**: fast generation, prompt-sensitive — keep descriptions concise and visual. Specify resolution and motion intensity
 - **Dream Machine (Luma)**: cinematic quality — reference lighting setups, lens types, and color grading styles
-- **Seedance 2 (ByteDance video, ≠ SeeDream)**: prose director-style (Subject → Action → Environment → Camera → Lighting → Style → Audio, ~60-100 words). ONE primary camera move per shot; pacing words, not specs ("slow dolly" not "24fps"). NO negative prompts — phrase exclusions positively ("clean motion, correct hands"). Native synced audio (dialogue in quotes) and `@Image1`/`@Video1` reference tags distinguish it from Sora/Kling. Multi-shot in one prompt: chain with "camera cuts to…" (or "Shot 1: / Shot 2:") and re-name the subject each shot so identity holds. Image-to-video: describe only the motion/change plus "preserve composition and colors"
+- **Seedance 2 (ByteDance video, ≠ SeeDream)**: prose director-style (Subject → Action → Environment → Camera → Lighting → Style → Audio, ~60-100 words). ONE primary camera move per shot; pacing words, not specs ("slow dolly" not "24fps"). NO negative prompts — phrase exclusions positively ("clean motion, correct hands"). Native synced audio (dialogue in quotes); `@Image1`/`@Video1` reference tags. Multi-shot in one prompt: chain with "camera cuts to…" (or "Shot 1: / Shot 2:") and re-name the subject each shot so identity holds. Image-to-video: describe only the motion/change plus "preserve composition and colors"
 
 ## Voice AI
 
 ### ElevenLabs
 
 - Specify emotion, pacing, emphasis markers, and speech rate directly — prose descriptions do not translate
-- Use SSML-like markers for emphasis: indicate which words to stress, where to pause
+- Eleven v3: inline audio tags (`[whispers]`, `[laughs]`, `[pause]`) and ellipses for emotion and pauses; v3 does not support SSML break tags. Other models: SSML `<break time="1s" />` for pauses
+
+Source: [ElevenLabs best practices](https://elevenlabs.io/docs/overview/capabilities/text-to-speech/best-practices), checked 2026-09-23.
 
 ## Workflow AI
 

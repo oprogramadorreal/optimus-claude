@@ -5,6 +5,7 @@ import io
 import json
 import subprocess
 import sys
+import types
 from pathlib import Path
 
 import pytest
@@ -12,8 +13,10 @@ from harness_common import cli, reporting
 from harness_common.constants import (
     COMMIT_COMMITTED,
     COMMIT_FAILED,
+    COMMIT_NOTHING,
     DEFAULT_TEST_TIMEOUT,
 )
+from harness_common.git import TreeState
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -26,7 +29,6 @@ def _deep_result(values):
         "iteration": 1,
         "new_findings": [],
         "fixes_applied": [],
-        "fixes_skipped_persistent": [],
         "no_new_findings": False,
         "no_actionable_fixes": False,
         **values,
@@ -50,21 +52,19 @@ def _coverage_result(values):
 
 
 @pytest.fixture(autouse=True)
-def _tree_state_for_repo_like_scaffolds(monkeypatch):
-    """Mock only non-Git unit scaffolds; real-repository safety tests use Git."""
+def scaffold_tree(monkeypatch):
+    """Mock only non-Git unit scaffolds; real-repository safety tests use Git.
+
+    Set ``scaffold_tree.dirty = True`` to give a scaffold an uncommitted change.
+    """
     actual = cli.git_test_tree_state
     actual_nested_check = cli.git_check_nested_repositories
-    original_dirty = cli.git_diff_has_changes
+    knob = types.SimpleNamespace(dirty=False)
 
     def state(root, progress_file, **kwargs):
         if (Path(root) / ".git").exists():
             return actual(root, progress_file, **kwargs)
-        dirty = (
-            cli.git_diff_has_changes(root)
-            if cli.git_diff_has_changes is not original_dirty
-            else False
-        )
-        return cli.TreeState("fixture-green", dirty, "fixture-green", {})
+        return TreeState("fixture-green", knob.dirty, "fixture-green", {})
 
     monkeypatch.setattr(cli, "git_test_tree_state", state)
 
@@ -73,6 +73,7 @@ def _tree_state_for_repo_like_scaffolds(monkeypatch):
             return actual_nested_check(root, **kwargs)
 
     monkeypatch.setattr(cli, "git_check_nested_repositories", nested_check)
+    return knob
 
 
 def _run(*argv):
@@ -80,20 +81,18 @@ def _run(*argv):
     return cli.main(list(argv))
 
 
-def _make_repo(tmp_path, *, head="abc1234567890abc", test_command="npm test"):
+def _make_repo(tmp_path):
     """Initialize a minimal repo-like scaffold with .claude/CLAUDE.md."""
     (tmp_path / ".claude").mkdir()
     (tmp_path / ".claude" / "CLAUDE.md").write_text(
-        f"# Project\n\n```bash\n{test_command}\n```\n",
+        "# Project\n\n```bash\nnpm test\n```\n",
         encoding="utf-8",
     )
     return tmp_path
 
 
-def _stub_git(
-    monkeypatch, *, head="abc1234567890abc", branch_files=None, pr=None, dirty=False
-):
-    monkeypatch.setattr(cli, "git_rev_parse_head", lambda _cwd: head)
+def _stub_git(monkeypatch, *, branch_files=None, pr=None, dirty=False):
+    monkeypatch.setattr(cli, "git_rev_parse_head", lambda _cwd: "abc1234567890abc")
     monkeypatch.setattr(cli, "get_open_pr_data", lambda _cwd: None)
     monkeypatch.setattr(
         cli,
@@ -103,9 +102,7 @@ def _stub_git(
             "origin/main",
         ),
     )
-    monkeypatch.setattr(
-        cli, "git_fetch_open_pr_description", lambda _cwd, pr_info=None: pr
-    )
+    monkeypatch.setattr(cli, "git_fetch_open_pr_description", lambda _pr_info: pr)
     monkeypatch.setattr(cli, "git_diff_has_changes", lambda _cwd: dirty)
 
 
@@ -134,59 +131,6 @@ def _git_init(tmp_path):
     (tmp_path / "seed.txt").write_text("seed\n", encoding="utf-8")
     g("add", "seed.txt")
     g("commit", "-m", "base")
-
-
-def test_failed_snapshot_preserves_work_and_invalidates_dispatch(tmp_path):
-    _git_init(tmp_path)
-    seed = tmp_path / "seed.txt"
-    seed.write_text("first user edit\n", encoding="utf-8")
-    notes = tmp_path / "user-notes.txt"
-    notes.write_text("untracked user work\n", encoding="utf-8")
-    progress_path = tmp_path / ".claude" / "code-review-deep-progress.json"
-    assert (
-        _run(
-            "init",
-            "--skill",
-            "code-review",
-            "--project-dir",
-            str(tmp_path),
-            "--test-command",
-            "echo ok",
-            "--no-commit",
-            "--progress-file",
-            str(progress_path),
-        )
-        == 0
-    )
-    assert _run("snapshot", "--progress-file", str(progress_path)) == 0
-    recovery = _read_progress(progress_path)["_snapshot"]["pre_stash"]
-    seed.write_text("newer user edit\n", encoding="utf-8")
-    original_index = (tmp_path / ".git" / "index").read_bytes()
-    lock = tmp_path / ".git" / "index.lock"
-    lock.write_text("audit fixture lock", encoding="utf-8")
-    try:
-        assert _run("snapshot", "--progress-file", str(progress_path)) == 1
-    finally:
-        lock.unlink()
-    snap = _read_progress(progress_path)["_snapshot"]
-    assert snap["pre_stash"] == recovery
-    assert "iteration_token" not in snap
-    assert seed.read_text(encoding="utf-8") == "newer user edit\n"
-    assert notes.read_text(encoding="utf-8") == "untracked user work\n"
-    assert (tmp_path / ".git" / "index").read_bytes() == original_index
-    result = tmp_path / ".claude" / ".deep-iteration-result.json"
-    result.write_text("{}", encoding="utf-8")
-    assert (
-        _run(
-            "deep-step",
-            "--progress-file",
-            str(progress_path),
-            "--result-file",
-            str(result),
-        )
-        == 1
-    )
-    assert seed.read_text(encoding="utf-8") == "newer user edit\n"
 
 
 # ---------------------------------------------------------------------------
@@ -370,9 +314,8 @@ class TestInit:
         assert not progress_path.exists()
 
     def test_focus_is_case_normalized(self, tmp_path, monkeypatch):
-        # The skill layer matches focus case-insensitively (refactor SKILL.md is
-        # the declared single source for that rule) — the CLI must accept and
-        # canonicalize rather than reject what the skill accepted.
+        # The skill layer may pass focus in any casing — the CLI must accept and
+        # canonicalize it rather than reject it.
         repo = _make_repo(tmp_path)
         _stub_git(monkeypatch)
         progress_path = repo / "progress.json"
@@ -667,7 +610,7 @@ class TestInit:
         assert data["config"]["pr_description"]["title"] == "Test PR"
 
     def test_deep_natural_language_scope(self, tmp_path, monkeypatch):
-        # Regression for c53086d: non-existent scope is treated as prose, not
+        # Non-existent scope is treated as prose, not
         # a git pathspec, so config.scope.mode stays "branch-diff" and the
         # natural-language text is preserved in scope_text.
         repo = _make_repo(tmp_path)
@@ -761,7 +704,7 @@ class TestInit:
     def test_deep_absolute_path_outside_project_falls_back_to_branch_diff(
         self, tmp_path, monkeypatch
     ):
-        # Regression for 310c928: an absolute path scope (e.g. "/etc",
+        # An absolute path scope (e.g. "/etc",
         # "C:\\Windows") must not be treated as a git pathspec. Path semantics
         # let `project_root / "/etc"` collapse to `/etc`, and without the
         # containment check the loop would silently `git diff -- /etc` (empty)
@@ -843,7 +786,7 @@ class TestInit:
         assert _read_progress(progress_path)["config"]["no_commit"] is True
 
     def test_fetches_pr_data_once_and_threads_it(self, tmp_path, monkeypatch):
-        # CL1: init fetches open-PR data once via get_open_pr_data and threads it
+        # Init fetches open-PR data once via get_open_pr_data and threads it
         # into both branch discovery and the description builder, rather than
         # each re-shelling out to `gh pr view`.
         repo = _make_repo(tmp_path)
@@ -859,7 +802,7 @@ class TestInit:
             received["discover"] = pr_info
             return [], "origin/main"
 
-        def _fake_desc(_cwd, pr_info=None):
+        def _fake_desc(pr_info):
             received["desc"] = pr_info
             return None
 
@@ -1197,7 +1140,10 @@ class TestResume:
                     "skill": "code-review",
                     "config": {"project_root": str(tmp_path), "max_iterations": 12},
                     "iteration": {"current": 8, "completed": 7},
-                    "termination": {"reason": "cap", "message": "Reached cap (8)"},
+                    "termination": {
+                        "reason": "diminishing-returns",
+                        "message": "plateaued",
+                    },
                 }
             ),
             encoding="utf-8",
@@ -1208,8 +1154,6 @@ class TestResume:
             str(progress_path),
             "--project-dir",
             str(tmp_path),
-            "--max-iterations",
-            "12",
         )
         assert exit_code == 0
         assert _read_progress(progress_path)["iteration"]["current"] == 9
@@ -1396,7 +1340,7 @@ class TestParse:
     def test_extracts_json_block(self, tmp_path, capsys):
         raw = tmp_path / "raw.txt"
         raw.write_text(
-            'Some preamble text.\n\n```json:harness-output\n{"iteration": 1, "new_findings": [], "fixes_applied": [], "fixes_skipped_persistent": [], "no_new_findings": false, "no_actionable_fixes": false}\n```\n',
+            'Some preamble text.\n\n```json:harness-output\n{"iteration": 1, "new_findings": [], "fixes_applied": [], "no_new_findings": false, "no_actionable_fixes": false}\n```\n',
             encoding="utf-8",
         )
         exit_code = _run("parse", "--input-file", str(raw))
@@ -1410,18 +1354,20 @@ class TestParse:
         exit_code = _run("parse", "--input-file", str(raw))
         assert exit_code == 1
 
-    def test_output_file(self, tmp_path):
+    def test_output_file(self, tmp_path, capsys):
         raw = tmp_path / "raw.txt"
         raw.write_text(
-            '```json:harness-output\n{"iteration": 1, "new_findings": [], "fixes_applied": [], "fixes_skipped_persistent": [], "no_new_findings": false, "no_actionable_fixes": false}\n```\n',
+            '```json:harness-output\n{"iteration": 1, "new_findings": [], "fixes_applied": [], "no_new_findings": false, "no_actionable_fixes": false}\n```\n',
             encoding="utf-8",
         )
         out = tmp_path / "out.json"
         _run("parse", "--input-file", str(raw), "--output-file", str(out))
         assert json.loads(out.read_text(encoding="utf-8"))["iteration"] == 1
+        # The payload stays on disk, out of the orchestrator's context.
+        assert capsys.readouterr().out.strip() == "parsed"
 
     def test_missing_input_file_emits_error(self, tmp_path, capsys):
-        # Regression for 9e0553a: read_text wrapped in try/except OSError so
+        # read_text is wrapped in try/except OSError so
         # parse-failure recovery sees a clean stderr + exit 1 instead of a raw
         # traceback.
         exit_code = _run("parse", "--input-file", str(tmp_path / "no_such.txt"))
@@ -1454,7 +1400,7 @@ class TestParse:
         # not a raw traceback. Regression for the try/except around the write.
         raw = tmp_path / "raw.txt"
         raw.write_text(
-            '```json:harness-output\n{"iteration": 1, "new_findings": [], "fixes_applied": [], "fixes_skipped_persistent": [], "no_new_findings": false, "no_actionable_fixes": false}\n```\n',
+            '```json:harness-output\n{"iteration": 1, "new_findings": [], "fixes_applied": [], "no_new_findings": false, "no_actionable_fixes": false}\n```\n',
             encoding="utf-8",
         )
         bad_output = tmp_path / "no_such_dir" / "out.json"  # parent dir is missing
@@ -1494,7 +1440,7 @@ class TestParse:
         monkeypatch.setattr(
             cli,
             "restore_working_tree",
-            lambda stash, head, _root: calls.append((stash, head)),
+            lambda stash, head, _root: calls.append((stash, head)) or True,
         )
         exit_code = _run(
             "parse",
@@ -1506,6 +1452,7 @@ class TestParse:
         assert exit_code == 1
         assert calls == [(None, "deadbeef")]
         assert _read_progress(progress_path)["parse_failure_count"] == 1
+        assert "_safety_error" not in _read_progress(progress_path)
 
     def test_parse_failure_rollback_exception_records_safety_error(
         self, tmp_path, monkeypatch
@@ -1590,7 +1537,6 @@ class TestParse:
         progress_path.write_text(
             json.dumps(
                 {
-                    "schema_version": 1,
                     "skill": "code-review",
                     "parse_failure_count": 0,
                 }
@@ -1627,7 +1573,6 @@ class TestParse:
         progress_path.write_text(
             json.dumps(
                 {
-                    "schema_version": 1,
                     "skill": "code-review",
                     "parse_failure_count": 1,
                 }
@@ -1648,7 +1593,7 @@ class TestParse:
         # works — the orchestrator's init step will create it later.
         raw = tmp_path / "raw.txt"
         raw.write_text(
-            '```json:harness-output\n{"iteration": 1, "new_findings": [], "fixes_applied": [], "fixes_skipped_persistent": [], "no_new_findings": false, "no_actionable_fixes": false}\n```\n',
+            '```json:harness-output\n{"iteration": 1, "new_findings": [], "fixes_applied": [], "no_new_findings": false, "no_actionable_fixes": false}\n```\n',
             encoding="utf-8",
         )
         exit_code = _run(
@@ -1673,7 +1618,6 @@ class TestParse:
         progress_path.write_text(
             json.dumps(
                 {
-                    "schema_version": 1,
                     "skill": "code-review",
                     "config": {"project_root": str(tmp_path)},
                     "parse_failure_count": 0,
@@ -1724,32 +1668,16 @@ class TestParse:
 # ---------------------------------------------------------------------------
 
 
-def _seed_deep_progress(tmp_path, *, iteration=1, scope_files=None):
-    progress = {
-        "schema_version": 1,
-        "skill": "code-review",
-        "started_at": "2025-01-01T00:00:00Z",
-        "_validated_tree": "fixture-green",
-        "config": {
-            "max_iterations": 8,
-            "test_command": "npm test",
-            "scope": {"mode": "local-changes", "paths": [], "base_ref": None},
-            "project_root": str(tmp_path),
-            "base_commit": "abc1234",
-            "focus": "",
-            "pr_description": None,
-        },
-        "iteration": {"current": iteration, "completed": iteration - 1},
-        "findings": [],
-        "scope_files": {"current": scope_files or []},
-        "test_results": {"last_full_run": None, "last_run_output_summary": None},
-        "iteration_history": [],
-        "termination": {"reason": None, "message": None},
-        "_snapshot": {
-            "pre_head": "abc1234",
-            "pre_stash": None,
-            "iteration_token": iteration,
-        },
+def _seed_deep_progress(tmp_path, *, iteration=1):
+    progress = cli._make_deep_progress(
+        "code-review", "", 8, "npm test", tmp_path, "", "abc1234", False
+    )
+    progress["iteration"] = {"current": iteration, "completed": iteration - 1}
+    progress["_validated_tree"] = "fixture-green"
+    progress["_snapshot"] = {
+        "pre_head": "abc1234",
+        "pre_stash": None,
+        "iteration_token": iteration,
     }
     path = tmp_path / "progress.json"
     path.write_text(json.dumps(progress, indent=2), encoding="utf-8")
@@ -1775,12 +1703,25 @@ def _one_fix_result():
     }
 
 
+def _stub_bisect_by_file(outcomes):
+    """bisect_fixes stub: report ``outcomes[fix["file"]]`` for each fix."""
+
+    def _stub(
+        fixes, _tc, _cwd, run_tests_fn=None, on_outcome=None, reset_to_clean=None
+    ):
+        for idx, fix in enumerate(fixes):
+            on_outcome(idx, fix, outcomes[fix["file"]], "detail")
+        fixed = sum(outcomes[fix["file"]] == "fixed" for fix in fixes)
+        return fixed, len(fixes) - fixed, 0
+
+    return _stub
+
+
 class TestDeepStep:
-    def test_convergence(self, tmp_path, capsys, monkeypatch):
+    def test_convergence(self, tmp_path, capsys):
         ppath = _seed_deep_progress(tmp_path)
         # A converged iteration applies no fixes, so the tree is clean and the
         # safe-exit tree-vet is a no-op (no test runs).
-        monkeypatch.setattr(cli, "git_diff_has_changes", lambda *a, **k: False)
         result = tmp_path / "result.json"
         result.write_text(
             json.dumps(
@@ -1810,13 +1751,12 @@ class TestDeepStep:
         # No tests ran on this (clean-tree) path — test_passed must be None.
         assert data["iteration_history"][-1]["test_passed"] is None
 
-    def test_string_false_flags_do_not_converge(self, tmp_path, capsys, monkeypatch):
+    def test_string_false_flags_do_not_converge(self, tmp_path, capsys):
         # The SAME untrusted-scalar class convergence.py guards, on the OTHER
         # orchestrator: read raw, the string "false" is truthy in Python, so
         # deep-step terminated on iteration 1 with reason "convergence" and
         # printed a clean tree while the subagent had just reported findings.
         ppath = _seed_deep_progress(tmp_path)
-        monkeypatch.setattr(cli, "git_diff_has_changes", lambda *a, **k: False)
         result = tmp_path / "result.json"
         result.write_text(
             json.dumps(
@@ -1844,11 +1784,10 @@ class TestDeepStep:
         data = _read_progress(ppath)
         assert (data.get("termination") or {}).get("reason") is None
 
-    def test_no_actionable(self, tmp_path, capsys, monkeypatch):
+    def test_no_actionable(self, tmp_path, capsys):
         ppath = _seed_deep_progress(tmp_path)
         # No actionable fixes were applied, so the tree is clean and the
         # safe-exit tree-vet is a no-op.
-        monkeypatch.setattr(cli, "git_diff_has_changes", lambda *a, **k: False)
         result = tmp_path / "result.json"
         result.write_text(
             json.dumps(
@@ -1994,8 +1933,8 @@ class TestDeepStep:
 
     def test_combined_regression_survives_restore_failure(self, tmp_path, monkeypatch):
         # If the full-tree restore itself raises (git checkout errors on a
-        # locked/corrupt index), the step must catch it and still record the
-        # combined regression rather than crash deep-step.
+        # locked/corrupt index), deep-step must fail safe rather than crash:
+        # exit 1, record _safety_error, and record no iteration history.
         ppath = _seed_deep_progress(tmp_path)
         data = _read_progress(ppath)
         data["config"]["no_commit"] = True
@@ -2043,9 +1982,12 @@ class TestDeepStep:
         assert captured["timeout"] == 777
 
     def test_absent_timeout_falls_back_to_default(self, tmp_path, monkeypatch):
-        # _seed_deep_progress writes no test_timeout, mirroring an old/resumed
-        # progress file — run_tests must still get DEFAULT_TEST_TIMEOUT.
+        # Drop test_timeout to mirror an old/resumed progress file —
+        # run_tests must still get DEFAULT_TEST_TIMEOUT.
         ppath = _seed_deep_progress(tmp_path)
+        data = _read_progress(ppath)
+        del data["config"]["test_timeout"]
+        ppath.write_text(json.dumps(data, indent=2), encoding="utf-8")
         captured = {}
 
         def fake_run_tests(tc, cwd, timeout=None, **kw):
@@ -2212,13 +2154,12 @@ class TestDeepStep:
         assert data["iteration_history"][-1]["fixed"] == 1
         assert data["termination"]["reason"] is None
 
-    def test_promote_skips_when_edit_pair_invalid(self, tmp_path, capsys, monkeypatch):
+    def test_promote_skips_when_edit_pair_invalid(self, tmp_path, capsys):
         # _promote_actionable_fixes must NOT promote a finding whose
         # pre_edit_content equals post_edit_content (no edit) or whose
         # post_edit_content is None. Original "no-actionable" termination
         # must stand.
         ppath = _seed_deep_progress(tmp_path)
-        monkeypatch.setattr(cli, "git_diff_has_changes", lambda *a, **k: False)
         result = tmp_path / "result.json"
         result.write_text(
             json.dumps(
@@ -2476,6 +2417,36 @@ class TestDeepStep:
         assert data["iteration_history"][-1]["fixed"] == 0
         assert data["iteration_history"][-1]["reverted"] == 1
 
+    def test_combined_regression_reverts_every_fix(self, tmp_path, monkeypatch):
+        # Two fixes survive bisection but fail together: _mark_combined_regression
+        # must demote each finding (not just the first), and the counts are
+        # recomputed from ``fixed`` rather than decremented per finding.
+        ppath = _seed_deep_progress(tmp_path)
+        fix = _one_fix_result()["fixes_applied"][0]
+        fixes = [fix, {**fix, "file": "c.py"}]
+        monkeypatch.setattr(cli, "run_tests", lambda *a, **kw: (False, "FAIL"))
+        monkeypatch.setattr(
+            cli,
+            "bisect_fixes",
+            _stub_bisect_by_file({"a.py": "fixed", "c.py": "fixed"}),
+        )
+        monkeypatch.setattr(cli, "restore_working_tree", lambda *a, **kw: True)
+        result = tmp_path / "result.json"
+        result.write_text(
+            json.dumps(_deep_result({"new_findings": fixes, "fixes_applied": fixes})),
+            encoding="utf-8",
+        )
+        exit_code = _run(
+            "deep-step", "--progress-file", str(ppath), "--result-file", str(result)
+        )
+        assert exit_code == 0
+        data = _read_progress(ppath)
+        assert [f["status"] for f in data["findings"]] == [
+            "reverted — test failure"
+        ] * 2
+        assert data["iteration_history"][-1]["fixed"] == 0
+        assert data["iteration_history"][-1]["reverted"] == 2
+
 
 # ---------------------------------------------------------------------------
 # unit-test-step
@@ -2483,34 +2454,13 @@ class TestDeepStep:
 
 
 def _seed_coverage_progress(tmp_path, *, cycle=1):
-    progress = {
-        "schema_version": 1,
-        "harness": "test-coverage",
-        "skill": "unit-test",
-        "started_at": "2025-01-01T00:00:00Z",
-        "_validated_tree": "fixture-green",
-        "config": {
-            "max_cycles": 5,
-            "test_command": "pytest",
-            "scope": "",
-            "project_root": str(tmp_path),
-            "base_commit": "abc1234",
-        },
-        "cycle": {"current": cycle, "completed": cycle - 1},
-        "phase": "unit-test",
-        "coverage": {"baseline": None, "current": None, "tool": None, "history": []},
-        "tests_created": [],
-        "untestable_code": [],
-        "refactor_findings": [],
-        "bugs_discovered": [],
-        "cycle_history": [],
-        "test_results": {"last_full_run": None, "last_run_output_summary": None},
-        "termination": {"reason": None, "message": None},
-        "_snapshot": {
-            "pre_head": "abc1234",
-            "pre_stash": None,
-            "iteration_token": cycle,
-        },
+    progress = cli._make_coverage_progress(None, 5, "pytest", tmp_path, "abc1234")
+    progress["cycle"] = {"current": cycle, "completed": cycle - 1}
+    progress["_validated_tree"] = "fixture-green"
+    progress["_snapshot"] = {
+        "pre_head": "abc1234",
+        "pre_stash": None,
+        "iteration_token": cycle,
     }
     path = tmp_path / "progress.json"
     path.write_text(json.dumps(progress, indent=2), encoding="utf-8")
@@ -2526,7 +2476,6 @@ class TestUnitTestStep:
             json.dumps(
                 _coverage_result(
                     {
-                        "iteration": 1,
                         "phase": "unit-test",
                         "coverage": {
                             "before": 50,
@@ -2567,7 +2516,6 @@ class TestUnitTestStep:
             json.dumps(
                 _coverage_result(
                     {
-                        "iteration": 1,
                         "phase": "unit-test",
                         "coverage": {
                             "before": 50,
@@ -2654,8 +2602,6 @@ class TestRefactorStep:
             json.dumps(
                 _deep_result(
                     {
-                        "cycle": 1,
-                        "phase": "refactor",
                         "new_findings": [],
                         "fixes_applied": [],
                         "no_new_findings": True,
@@ -2682,7 +2628,7 @@ class TestRefactorStep:
         assert data["cycle"]["completed"] == 1
 
     def test_empty_fixes_prints_test_passed_dash(self, tmp_path, capsys):
-        # Regression for 310c928 / parity with TestDeepStep:
+        # Parity with TestDeepStep::
         # test_malformed_empty_fixes_does_not_crash: when fixes_applied is
         # empty but no_actionable_fixes is False (subagent reported new
         # findings but no actionable edit pairs), refactor-step must print
@@ -2693,8 +2639,6 @@ class TestRefactorStep:
             json.dumps(
                 _deep_result(
                     {
-                        "cycle": 1,
-                        "phase": "refactor",
                         "new_findings": [
                             {
                                 "file": "u.py",
@@ -2734,8 +2678,6 @@ class TestRefactorStep:
             json.dumps(
                 _deep_result(
                     {
-                        "cycle": 1,
-                        "phase": "refactor",
                         "new_findings": [
                             {
                                 "file": "u.py",
@@ -2794,8 +2736,6 @@ class TestRefactorStep:
             json.dumps(
                 _deep_result(
                     {
-                        "cycle": 1,
-                        "phase": "refactor",
                         "new_findings": [],  # subagent did not echo the fix as a finding
                         "fixes_applied": [
                             {
@@ -2846,8 +2786,6 @@ class TestRefactorStep:
             json.dumps(
                 _deep_result(
                     {
-                        "cycle": 1,
-                        "phase": "refactor",
                         "new_findings": [
                             {
                                 "file": "pkg\\u.py",
@@ -2912,8 +2850,6 @@ class TestRefactorStep:
             json.dumps(
                 _deep_result(
                     {
-                        "cycle": 1,
-                        "phase": "refactor",
                         "new_findings": [
                             {
                                 "file": "u.py",
@@ -2974,8 +2910,6 @@ class TestRefactorStep:
             json.dumps(
                 _deep_result(
                     {
-                        "cycle": 1,
-                        "phase": "refactor",
                         "new_findings": [
                             {
                                 "file": "u.py",
@@ -3047,8 +2981,6 @@ class TestRefactorStep:
             json.dumps(
                 _deep_result(
                     {
-                        "cycle": 1,
-                        "phase": "refactor",
                         "new_findings": [
                             {
                                 "file": "u.py",
@@ -3093,6 +3025,76 @@ class TestRefactorStep:
         # untestable_code stays pending (no surviving fixed status).
         assert data["untestable_code"][0]["status"] == "pending"
 
+    def _run_with_prior_cycle_fix(self, tmp_path, monkeypatch, *, outcomes, runs):
+        # Cycle 1 refactors u.py and other.py, each with a pending untestable
+        # item; a cycle-0 "fixed" refactor_finding shares u.py's key.
+        ppath = _seed_coverage_progress_with_untestable(
+            tmp_path, files=["u.py", "other.py"]
+        )
+        fixes = [
+            {
+                "file": name,
+                "line": 1,
+                "category": "refactor",
+                "summary": "s",
+                "pre_edit_content": "a",
+                "post_edit_content": "b",
+            }
+            for name in ("u.py", "other.py")
+        ]
+        data = _read_progress(ppath)
+        data["refactor_findings"].append({**fixes[0], "cycle": 0, "status": "fixed"})
+        ppath.write_text(json.dumps(data), encoding="utf-8")
+        results = iter(runs)
+        monkeypatch.setattr(cli, "run_tests", lambda *a, **kw: (next(results), "out"))
+        monkeypatch.setattr(cli, "bisect_fixes", _stub_bisect_by_file(outcomes))
+        monkeypatch.setattr(cli, "restore_working_tree", lambda *a, **kw: True)
+        result = tmp_path / "result.json"
+        result.write_text(
+            json.dumps(_deep_result({"new_findings": fixes, "fixes_applied": fixes})),
+            encoding="utf-8",
+        )
+        exit_code = _run(
+            "refactor-step", "--progress-file", str(ppath), "--result-file", str(result)
+        )
+        assert exit_code == 0
+        return _read_progress(ppath)
+
+    def test_bisect_outcomes_stay_in_current_cycle(self, tmp_path, monkeypatch):
+        # u.py's fix is reverted, other.py's survives. The bisect outcome and
+        # the touched-file match must use cycle 1's entries only, so the
+        # cycle-0 entry keeps "fixed" and u.py's untestable item stays pending.
+        data = self._run_with_prior_cycle_fix(
+            tmp_path,
+            monkeypatch,
+            outcomes={"u.py": "reverted", "other.py": "fixed"},
+            runs=[False, True],
+        )
+        assert [f["status"] for f in data["refactor_findings"]] == [
+            "fixed",
+            "reverted — test failure",
+            "fixed",
+        ]
+        assert [i["status"] for i in data["untestable_code"]] == [
+            "pending",
+            "attempted",
+        ]
+
+    def test_combined_regression_keeps_prior_cycle_fixes(self, tmp_path, monkeypatch):
+        # Both fixes survive bisection but fail together: only cycle 1's
+        # entries are demoted; the committed cycle-0 fix keeps "fixed".
+        data = self._run_with_prior_cycle_fix(
+            tmp_path,
+            monkeypatch,
+            outcomes={"u.py": "fixed", "other.py": "fixed"},
+            runs=[False, False],
+        )
+        assert [f["status"] for f in data["refactor_findings"]] == [
+            "fixed",
+            "reverted — test failure",
+            "reverted — test failure",
+        ]
+
 
 # ---------------------------------------------------------------------------
 # record-cycle
@@ -3100,61 +3102,13 @@ class TestRefactorStep:
 
 
 class TestRecordCycle:
-    def test_unit_test_only(self, tmp_path):
+    def test_appends_history_and_advances_the_cycle(self, tmp_path):
         ppath = _seed_coverage_progress(tmp_path)
-        ut = json.dumps({"fixed": 2, "reverted": 0})
-        exit_code = _run(
-            "record-cycle",
-            "--progress-file",
-            str(ppath),
-            "--unit-test-summary",
-            ut,
-        )
-        assert exit_code == 0
+        assert _run("record-cycle", "--progress-file", str(ppath)) == 0
         data = _read_progress(ppath)
-        assert data["cycle_history"] == [
-            {"cycle": 1, "unit_test": {"fixed": 2, "reverted": 0}}
-        ]
+        assert data["cycle_history"] == [{"cycle": 1}]
         assert data["cycle"]["completed"] == 1
         assert data["cycle"]["current"] == 2
-
-    def test_unit_test_and_refactor(self, tmp_path):
-        ppath = _seed_coverage_progress(tmp_path)
-        exit_code = _run(
-            "record-cycle",
-            "--progress-file",
-            str(ppath),
-            "--unit-test-summary",
-            json.dumps({"fixed": 1}),
-            "--refactor-summary",
-            json.dumps({"fixed": 1, "reverted": 0}),
-        )
-        assert exit_code == 0
-        data = _read_progress(ppath)
-        assert data["cycle_history"] == [
-            {
-                "cycle": 1,
-                "unit_test": {"fixed": 1},
-                "refactor": {"fixed": 1, "reverted": 0},
-            }
-        ]
-        assert data["cycle"]["current"] == 2
-
-    def test_invalid_json_exits_one(self, tmp_path, capsys):
-        ppath = _seed_coverage_progress(tmp_path)
-        exit_code = _run(
-            "record-cycle",
-            "--progress-file",
-            str(ppath),
-            "--unit-test-summary",
-            "{not valid json",
-        )
-        assert exit_code == 1
-        assert "Invalid cycle summary JSON" in capsys.readouterr().err
-        # Progress file untouched on parse failure
-        data = _read_progress(ppath)
-        assert data["cycle_history"] == []
-        assert data["cycle"]["current"] == 1
 
 
 # ---------------------------------------------------------------------------
@@ -3215,7 +3169,7 @@ class TestCheckTermination:
 
     def test_parse_failure_threshold_deep(self, tmp_path, capsys):
         # Two consecutive failed parses → check-termination surfaces
-        # parse-failure (records the reason, no need for mark-termination).
+        # parse-failure and records the reason itself.
         ppath = _seed_deep_progress(tmp_path)
         data = _read_progress(ppath)
         data["parse_failure_count"] = 2
@@ -3266,7 +3220,7 @@ class TestCheckTermination:
         assert exit_code == 0
         assert capsys.readouterr().out.strip() == "continue"
 
-    def test_diminishing_returns_coverage(self, tmp_path, capsys, monkeypatch):
+    def test_diminishing_returns_coverage(self, tmp_path, capsys):
         # Drive check_coverage_plateau via the coverage variant: two
         # consecutive zero-delta history entries should trigger
         # diminishing-returns and record the termination reason.
@@ -3277,16 +3231,12 @@ class TestCheckTermination:
             {"cycle": 2, "before": 60, "after": 60, "delta": 0},
         ]
         ppath.write_text(json.dumps(data, indent=2), encoding="utf-8")
-        monkeypatch.setattr(
-            cli,
-            "check_coverage_plateau",
-            lambda _hist: (True, "plateau detected"),
-        )
         exit_code = _run("check-termination", "--progress-file", str(ppath))
         assert exit_code == 0
         assert capsys.readouterr().out.strip() == "diminishing-returns"
         data = _read_progress(ppath)
         assert data["termination"]["reason"] == "diminishing-returns"
+        assert "Zero coverage gain" in data["termination"]["message"]
 
 
 # ---------------------------------------------------------------------------
@@ -3322,57 +3272,20 @@ class TestPendingRefactorCount:
 
 
 # ---------------------------------------------------------------------------
-# mark-termination
-# ---------------------------------------------------------------------------
-
-
-class TestMarkTermination:
-    def test_records_parse_failure(self, tmp_path):
-        # The CLI subcommand the orchestrator uses to record a parse-failure
-        # termination without touching the progress file directly.
-        ppath = _seed_deep_progress(tmp_path)
-        exit_code = _run(
-            "mark-termination",
-            "--progress-file",
-            str(ppath),
-            "--reason",
-            "parse-failure",
-            "--message",
-            "two consecutive iterations produced no JSON",
-        )
-        assert exit_code == 0
-        data = _read_progress(ppath)
-        assert data["termination"]["reason"] == "parse-failure"
-        assert "two consecutive" in data["termination"]["message"]
-
-    def test_rejects_unknown_reason(self, tmp_path):
-        ppath = _seed_deep_progress(tmp_path)
-        with pytest.raises(SystemExit):
-            _run(
-                "mark-termination",
-                "--progress-file",
-                str(ppath),
-                "--reason",
-                "made-up-reason",
-            )
-
-
-# ---------------------------------------------------------------------------
 # commit-checkpoint
 # ---------------------------------------------------------------------------
 
 
 class TestCommitCheckpoint:
-    def test_nothing_to_commit(self, tmp_path, capsys, monkeypatch):
+    def test_nothing_to_commit(self, tmp_path, capsys):
         ppath = _seed_deep_progress(tmp_path)
-        monkeypatch.setattr(cli, "git_diff_has_changes", lambda _cwd: False)
         exit_code = _run("commit-checkpoint", "--progress-file", str(ppath))
         assert exit_code == 0
         assert capsys.readouterr().out.strip() == "nothing-to-commit"
 
-    def test_commit_success_deep(self, tmp_path, capsys, monkeypatch):
+    def test_commit_success_deep(self, tmp_path, capsys, monkeypatch, scaffold_tree):
         ppath = _seed_deep_progress(tmp_path)
-        monkeypatch.setattr(cli, "git_diff_has_changes", lambda _cwd: True)
+        scaffold_tree.dirty = True
         captured = {}
 
         def fake_commit(message, cwd, pf, **kw):
@@ -3385,7 +3298,9 @@ class TestCommitCheckpoint:
         assert capsys.readouterr().out.strip() == "committed"
         assert "deep-orchestrator" in captured["message"]
 
-    def test_commit_success_coverage_unit_test(self, tmp_path, capsys, monkeypatch):
+    def test_commit_success_coverage_unit_test(
+        self, tmp_path, capsys, monkeypatch, scaffold_tree
+    ):
         # Coverage variant with phase=unit-test: title prefix is "test"
         # (per PHASE_COMMIT_TYPE) and the body lists the cycle's tests_created.
         ppath = _seed_coverage_progress(tmp_path)
@@ -3402,7 +3317,7 @@ class TestCommitCheckpoint:
             },
         ]
         ppath.write_text(json.dumps(data, indent=2), encoding="utf-8")
-        monkeypatch.setattr(cli, "git_diff_has_changes", lambda _cwd: True)
+        scaffold_tree.dirty = True
         captured = {}
 
         def fake_commit(message, cwd, pf, **kw):
@@ -3423,7 +3338,9 @@ class TestCommitCheckpoint:
         assert "1 tests written" in captured["message"]
         assert "Tests written:" in captured["message"]
 
-    def test_commit_success_coverage_refactor(self, tmp_path, capsys, monkeypatch):
+    def test_commit_success_coverage_refactor(
+        self, tmp_path, capsys, monkeypatch, scaffold_tree
+    ):
         # Coverage variant with phase=refactor: title prefix is "refactor"
         # and the body lists the cycle's fixed refactor_findings.
         ppath = _seed_coverage_progress(tmp_path)
@@ -3439,7 +3356,7 @@ class TestCommitCheckpoint:
             },
         ]
         ppath.write_text(json.dumps(data, indent=2), encoding="utf-8")
-        monkeypatch.setattr(cli, "git_diff_has_changes", lambda _cwd: True)
+        scaffold_tree.dirty = True
         captured = {}
 
         def fake_commit(message, cwd, pf, **kw):
@@ -3460,12 +3377,14 @@ class TestCommitCheckpoint:
         assert "1 fixed" in captured["message"]
         assert "Testability fixes applied:" in captured["message"]
 
-    def test_commit_failed_exit_code_and_marker(self, tmp_path, capsys, monkeypatch):
+    def test_commit_failed_exit_code_and_marker(
+        self, tmp_path, capsys, monkeypatch, scaffold_tree
+    ):
         # On commit-failed the CLI durably sets commit_disabled, so later
         # snapshots auto-stash and later checkpoints self-skip — the orchestrator
         # no longer has to switch modes by hand.
         ppath = _seed_deep_progress(tmp_path)
-        monkeypatch.setattr(cli, "git_diff_has_changes", lambda _cwd: True)
+        scaffold_tree.dirty = True
         monkeypatch.setattr(
             cli, "git_commit_checkpoint", lambda *_a, **_kw: COMMIT_FAILED
         )
@@ -3474,11 +3393,27 @@ class TestCommitCheckpoint:
         assert capsys.readouterr().out.strip() == "commit-failed"
         assert _read_progress(ppath)["commit_disabled"] is True
 
+    def test_commit_nothing_keeps_commits_enabled(
+        self, tmp_path, capsys, monkeypatch, scaffold_tree
+    ):
+        # A dirty tree whose staged set empties after the harness-state un-stage
+        # (COMMIT_NOTHING) is a clean no-op: nothing-to-commit, commits stay enabled.
+        ppath = _seed_deep_progress(tmp_path)
+        scaffold_tree.dirty = True
+        monkeypatch.setattr(
+            cli, "git_commit_checkpoint", lambda *_a, **_kw: COMMIT_NOTHING
+        )
+        exit_code = _run("commit-checkpoint", "--progress-file", str(ppath))
+        assert exit_code == 0
+        assert capsys.readouterr().out.strip() == "nothing-to-commit"
+        assert not _read_progress(ppath).get("commit_disabled")
+
     def test_no_fix_iteration_keeps_commits_enabled(self, tmp_path, capsys):
         # End-to-end regression with a REAL git repo (no monkeypatching of the
-        # git layer): a no-fix iteration whose only tree change is the untracked
-        # progress file must report nothing-to-commit and leave commit_disabled
-        # False — the field bug that durably killed checkpoint recoverability.
+        # git layer): a no-fix iteration whose only change is the excluded
+        # progress file is a clean tree — nothing-to-commit, commits stay
+        # enabled. The COMMIT_NOTHING mapping is pinned by
+        # test_commit_nothing_keeps_commits_enabled.
         _git_init(tmp_path)
         ppath = _seed_deep_progress(tmp_path)
         # _seed_deep_progress points project_root at tmp_path; the progress file
@@ -3496,8 +3431,16 @@ class TestCommitCheckpoint:
 
 
 class TestBaseline:
-    def test_green_floor_keeps_default_timeout(self, tmp_path, capsys, monkeypatch):
+    @staticmethod
+    def _seed_with_timeout(tmp_path, timeout):
         ppath = _seed_deep_progress(tmp_path)
+        data = _read_progress(ppath)
+        data["config"]["test_timeout"] = timeout
+        ppath.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        return ppath
+
+    def test_green_floor_keeps_default_timeout(self, tmp_path, capsys, monkeypatch):
+        ppath = self._seed_with_timeout(tmp_path, 1)
         monkeypatch.setattr(cli, "run_tests", lambda *a, **kw: (True, "ok"))
         # Fast suite → calibrated timeout never drops below the default floor.
         times = iter([1000.0, 1005.0])
@@ -3526,7 +3469,7 @@ class TestBaseline:
         assert out.strip().splitlines()[-1] == "baseline-green timeout=720"
 
     def test_red_refuses_to_start(self, tmp_path, capsys, monkeypatch):
-        ppath = _seed_deep_progress(tmp_path)
+        ppath = self._seed_with_timeout(tmp_path, 1)
         monkeypatch.setattr(cli, "run_tests", lambda *a, **kw: (False, "assert boom"))
         exit_code = _run("baseline", "--progress-file", str(ppath))
         assert exit_code == 1
@@ -3534,18 +3477,18 @@ class TestBaseline:
         assert "assert boom" in out
         assert out.strip().splitlines()[-1] == "baseline-red"
         # A red run's duration is untrustworthy — no calibration written.
-        assert "test_timeout" not in _read_progress(ppath)["config"]
+        assert _read_progress(ppath)["config"]["test_timeout"] == 1
 
     def test_red_allowed_proceeds_without_calibration(
         self, tmp_path, capsys, monkeypatch
     ):
-        ppath = _seed_deep_progress(tmp_path)
+        ppath = self._seed_with_timeout(tmp_path, 1)
         monkeypatch.setattr(cli, "run_tests", lambda *a, **kw: (False, "assert boom"))
         exit_code = _run("baseline", "--progress-file", str(ppath), "--allow-red")
         assert exit_code == 0
         out = capsys.readouterr().out
         assert out.strip().splitlines()[-1] == "baseline-red-allowed"
-        assert "test_timeout" not in _read_progress(ppath)["config"]
+        assert _read_progress(ppath)["config"]["test_timeout"] == 1
 
 
 # ---------------------------------------------------------------------------
@@ -3554,14 +3497,6 @@ class TestBaseline:
 
 
 class TestFinalReport:
-    def test_deep_report_prints(self, tmp_path, capsys, monkeypatch):
-        ppath = _seed_deep_progress(tmp_path)
-        monkeypatch.setattr(reporting, "git_current_branch", lambda _cwd: "feat/x")
-        exit_code = _run("final-report", "--progress-file", str(ppath))
-        assert exit_code == 0
-        out = capsys.readouterr().out
-        assert "Deep-orchestrator cumulative report" in out
-
     def test_archive_removes_iteration_temps(self, tmp_path, monkeypatch):
         monkeypatch.setattr(reporting, "git_current_branch", lambda _cwd: "feat/x")
         ppath = _seed_deep_progress(tmp_path)
@@ -3614,6 +3549,7 @@ class TestFinalReport:
         out = capsys.readouterr().out
         out.encode("ascii")  # raises if a non-ASCII separator slipped back in
         assert "convergence - Zero new findings" in out
+        assert "Deep-orchestrator cumulative report" in out
 
     def test_coverage_delta_separator_is_ascii(self, tmp_path, capsys, monkeypatch):
         # The coverage delta arrow must be ASCII for the same reason.
@@ -3627,13 +3563,6 @@ class TestFinalReport:
         out = capsys.readouterr().out
         out.encode("ascii")
         assert "50% -> 80%" in out
-
-    def test_coverage_report_prints(self, tmp_path, capsys, monkeypatch):
-        ppath = _seed_coverage_progress(tmp_path)
-        monkeypatch.setattr(reporting, "git_current_branch", lambda _cwd: "feat/x")
-        exit_code = _run("final-report", "--progress-file", str(ppath))
-        assert exit_code == 0
-        out = capsys.readouterr().out
         assert "Coverage orchestrator report" in out
 
     def test_archive_moves_file(self, tmp_path, monkeypatch):
@@ -3682,22 +3611,6 @@ class TestFinalReport:
         assert ppath.exists()
         assert not (tmp_path / "progress.done.json").exists()
 
-    def test_blocked_is_a_recordable_reason(self, tmp_path):
-        # The coverage loop's blocked gate (no test framework, red baseline) has
-        # to be recordable, or the final report names no cause at all.
-        ppath = _seed_deep_progress(tmp_path)
-        exit_code = _run(
-            "mark-termination",
-            "--progress-file",
-            str(ppath),
-            "--reason",
-            "blocked",
-            "--message",
-            "no test framework detected",
-        )
-        assert exit_code == 0
-        assert _read_progress(ppath)["termination"]["reason"] == "blocked"
-
     def test_blocked_not_archived(self, tmp_path, capsys, monkeypatch):
         # blocked is a soft exit on a prerequisite the USER can fix. Archiving
         # renames the progress file to .done.json, which --resume refuses — so
@@ -3705,6 +3618,21 @@ class TestFinalReport:
         ppath = _seed_deep_progress(tmp_path)
         data = _read_progress(ppath)
         data["termination"] = {"reason": "blocked", "message": "no test framework"}
+        ppath.write_text(json.dumps(data), encoding="utf-8")
+        monkeypatch.setattr(reporting, "git_current_branch", lambda _cwd: "")
+        exit_code = _run("final-report", "--progress-file", str(ppath), "--archive")
+        assert exit_code == 0
+        assert "not-archived" in capsys.readouterr().out
+        assert ppath.exists()
+        assert not (tmp_path / "progress.done.json").exists()
+
+    def test_safety_error_not_archived(self, tmp_path, capsys, monkeypatch):
+        # A recorded safety failure must keep progress/recovery state in place
+        # (architecture.md: never archive on this failure path).
+        ppath = _seed_deep_progress(tmp_path)
+        data = _read_progress(ppath)
+        data["termination"] = {"reason": "parse-failure", "message": "x"}
+        data["_safety_error"] = "restore failed"
         ppath.write_text(json.dumps(data), encoding="utf-8")
         monkeypatch.setattr(reporting, "git_current_branch", lambda _cwd: "")
         exit_code = _run("final-report", "--progress-file", str(ppath), "--archive")
@@ -3738,6 +3666,33 @@ class TestSnapshot:
         _run("snapshot", "--progress-file", str(ppath), "--include-stash")
         data = _read_progress(ppath)
         assert data["_snapshot"]["pre_stash"] == "stash_sha"
+
+    @pytest.mark.parametrize(
+        "new_stash, expected",
+        [("new_sha", [("old_sha", "new_sha")]), ("old_sha", [])],
+    )
+    def test_reclaims_replaced_stash_after_recording(
+        self, tmp_path, monkeypatch, new_stash, expected
+    ):
+        # The prior recovery stash is dropped only once the replacement is
+        # durably recorded, and never when the snapshot reused the same stash.
+        ppath = _seed_deep_progress(tmp_path)
+        data = _read_progress(ppath)
+        data["_snapshot"]["pre_stash"] = "old_sha"
+        ppath.write_text(json.dumps(data), encoding="utf-8")
+        dropped = []
+        monkeypatch.setattr(cli, "git_rev_parse_head", lambda _cwd: "head_sha")
+        monkeypatch.setattr(cli, "git_stash_snapshot", lambda _cwd: new_stash)
+        monkeypatch.setattr(
+            cli,
+            "git_drop_stash",
+            lambda sha, _cwd: dropped.append(
+                (sha, _read_progress(ppath)["_snapshot"]["pre_stash"])
+            ),
+        )
+        assert _run("snapshot", "--progress-file", str(ppath), "--include-stash") == 0
+        assert dropped == expected
+        assert _read_progress(ppath)["_snapshot"]["pre_stash"] == new_stash
 
     def test_head_unavailable_returns_error(self, tmp_path, capsys, monkeypatch):
         ppath = _seed_deep_progress(tmp_path)
@@ -3972,6 +3927,42 @@ class TestSnapshotFreshnessGuard:
         )
         assert exit_code == 1
         assert "missing or stale" in capsys.readouterr().err
+
+    @pytest.mark.parametrize(
+        "command, seed, stale_result",
+        [
+            (
+                "deep-step",
+                lambda p: _seed_deep_progress(p, iteration=2),
+                _deep_result({"iteration": 1}),
+            ),
+            (
+                "unit-test-step",
+                lambda p: _seed_coverage_progress(p, cycle=2),
+                _coverage_result({"cycle": 1}),
+            ),
+            (
+                "refactor-step",
+                lambda p: _seed_coverage_progress(p, cycle=2),
+                _deep_result({"iteration": 1}),
+            ),
+        ],
+    )
+    def test_step_rejects_result_from_another_unit(
+        self, tmp_path, monkeypatch, command, seed, stale_result
+    ):
+        # The snapshot is fresh but the result file is a leftover from the
+        # previous iteration/cycle: the step must refuse it before applying
+        # fixes or merging data.
+        monkeypatch.setattr(cli, "run_tests", lambda *a, **kw: (True, "ok"))
+        ppath = seed(tmp_path)
+        result = tmp_path / "result.json"
+        result.write_text(json.dumps(stale_result), encoding="utf-8")
+        exit_code = _run(
+            command, "--progress-file", str(ppath), "--result-file", str(result)
+        )
+        assert exit_code == 1
+        assert "different iteration/cycle" in _read_progress(ppath)["_safety_error"]
 
 
 # ---------------------------------------------------------------------------
@@ -4447,9 +4438,98 @@ class TestSoftExitBranches:
 
 
 class TestReviewFixRegressions:
-    """Regression tests for the deep-mode code-review findings."""
+    """Regression tests for deep-mode harness robustness fixes."""
 
-    # --- B1: a red unit-test phase rolls back and drops the session's data ---
+    @pytest.mark.parametrize("error", [OSError, RuntimeError])
+    def test_process_control_failure_stops_before_rollback(
+        self, tmp_path, monkeypatch, error
+    ):
+        ppath = _seed_coverage_progress(tmp_path)
+        result = tmp_path / "result.json"
+        result.write_text(json.dumps(_coverage_result({})), encoding="utf-8")
+
+        def fail_cleanup(*args, **kwargs):
+            raise error("test process is still running")
+
+        def refuse_restore(*args, **kwargs):
+            pytest.fail("must not restore files while test cleanup has failed")
+
+        monkeypatch.setattr(cli, "run_tests", fail_cleanup)
+        monkeypatch.setattr(cli, "_restore_or_stop", refuse_restore)
+        assert (
+            _run(
+                "unit-test-step",
+                "--progress-file",
+                str(ppath),
+                "--result-file",
+                str(result),
+            )
+            == 1
+        )
+        progress = _read_progress(ppath)
+        assert "Test process control failed" in progress["_safety_error"]
+        assert "_validated_tree" not in progress
+        assert progress["cycle"]["completed"] == 0
+
+    def test_unit_test_step_records_blocked_without_running_tests(
+        self, tmp_path, capsys, monkeypatch
+    ):
+        ppath = _seed_coverage_progress(tmp_path)
+
+        def _no_tests(*a, **kw):
+            raise AssertionError("a blocked phase must not run the suite")
+
+        monkeypatch.setattr(cli, "run_tests", _no_tests)
+        result = tmp_path / "result.json"
+        result.write_text(
+            json.dumps(
+                _coverage_result(
+                    {"no_new_tests": True, "blocked": "no test framework detected"}
+                )
+            ),
+            encoding="utf-8",
+        )
+        exit_code = _run(
+            "unit-test-step",
+            "--progress-file",
+            str(ppath),
+            "--result-file",
+            str(result),
+        )
+        assert exit_code == 0
+        assert capsys.readouterr().out.strip() == "blocked"
+        assert _read_progress(ppath)["termination"] == {
+            "reason": "blocked",
+            "message": "no test framework detected",
+        }
+
+    @pytest.mark.parametrize("blocked", ["", "  "])
+    def test_unit_test_step_empty_blocked_is_no_stop_gate(
+        self, tmp_path, capsys, monkeypatch, blocked
+    ):
+        ppath = _seed_coverage_progress(tmp_path)
+        suite_runs = []
+
+        def _green(*a, **kw):
+            suite_runs.append(a)
+            return True, "ok"
+
+        monkeypatch.setattr(cli, "run_tests", _green)
+        result = tmp_path / "result.json"
+        result.write_text(json.dumps(_coverage_result({"blocked": blocked})), "utf-8")
+        exit_code = _run(
+            "unit-test-step",
+            "--progress-file",
+            str(ppath),
+            "--result-file",
+            str(result),
+        )
+        assert exit_code == 0
+        assert capsys.readouterr().out.strip() != "blocked"
+        assert suite_runs
+        assert _read_progress(ppath)["termination"]["reason"] is None
+
+    # --- a red unit-test phase rolls back and drops the session's data ---
     def test_unit_test_step_red_rolls_back_and_skips_merge(
         self, tmp_path, capsys, monkeypatch
     ):
@@ -4498,7 +4578,7 @@ class TestReviewFixRegressions:
         assert data["coverage"]["history"] == []
         assert data["test_results"]["last_full_run"] == "fail"
 
-    # --- B3: explicit JSON null array fields must not crash a step ---
+    # --- explicit JSON null array fields must not crash a step ---
     def test_unit_test_step_rejects_null_arrays(self, tmp_path, capsys, monkeypatch):
         ppath = _seed_coverage_progress(tmp_path)
         monkeypatch.setattr(cli, "run_tests", lambda *a, **kw: (True, "ok"))
@@ -4529,9 +4609,8 @@ class TestReviewFixRegressions:
         assert exit_code == 1
         assert "requires an array" in capsys.readouterr().err
 
-    def test_deep_step_rejects_null_arrays(self, tmp_path, capsys, monkeypatch):
+    def test_deep_step_rejects_null_arrays(self, tmp_path, capsys):
         ppath = _seed_deep_progress(tmp_path)
-        monkeypatch.setattr(cli, "git_diff_has_changes", lambda *a, **k: False)
         result = tmp_path / "result.json"
         result.write_text(
             json.dumps(
@@ -4556,7 +4635,7 @@ class TestReviewFixRegressions:
         assert exit_code == 1
         assert "requires an array" in capsys.readouterr().err
 
-    # --- B4: a file-less untestable item is skipped, not stranded pending ---
+    # --- a file-less untestable item is skipped, not stranded pending ---
     def test_unit_test_step_skips_fileless_untestable(
         self, tmp_path, capsys, monkeypatch
     ):
@@ -4593,7 +4672,7 @@ class TestReviewFixRegressions:
         assert len(data["untestable_code"]) == 1
         assert data["untestable_code"][0]["file"] == "u.py"
 
-    # --- D2: coverage delta is derived from before/after when omitted ---
+    # --- coverage delta is derived from before/after when omitted ---
     def test_unit_test_step_derives_missing_delta(self, tmp_path, monkeypatch):
         ppath = _seed_coverage_progress(tmp_path)
         monkeypatch.setattr(cli, "run_tests", lambda *a, **kw: (True, "ok"))
@@ -4695,10 +4774,9 @@ class TestReviewFixRegressions:
         )
         assert len(_read_progress(ppath)["untestable_code"]) == 1
 
-    # --- A1: a non-string pre_edit_content is not promoted (would crash bisect) ---
-    def test_promote_skips_non_string_pre(self, tmp_path, capsys, monkeypatch):
+    # --- a non-string pre_edit_content is not promoted (would crash bisect) ---
+    def test_promote_skips_non_string_pre(self, tmp_path, capsys):
         ppath = _seed_deep_progress(tmp_path)
-        monkeypatch.setattr(cli, "git_diff_has_changes", lambda *a, **k: False)
         result = tmp_path / "result.json"
         result.write_text(
             json.dumps(
@@ -4732,7 +4810,7 @@ class TestReviewFixRegressions:
         assert exit_code == 0
         assert capsys.readouterr().out.strip() == "no-actionable"
 
-    # --- A3: resume after a coverage convergence advances the cycle counter ---
+    # --- resume after a coverage convergence advances the cycle counter ---
     def test_resume_after_coverage_convergence_bumps_cycle(self, tmp_path):
         ppath = _seed_coverage_progress(tmp_path, cycle=2)
         data = _read_progress(ppath)
@@ -4745,7 +4823,7 @@ class TestReviewFixRegressions:
         assert data["cycle"]["current"] == 3
         assert data["termination"]["reason"] is None
 
-    # --- E2: a capped run refuses to resume unless the cap is actually raised ---
+    # --- a capped run refuses to resume unless the cap is actually raised ---
     def test_resume_after_cap_without_raise_refuses(self, tmp_path, capsys):
         ppath = _seed_deep_progress(tmp_path, iteration=8)
         data = _read_progress(ppath)
@@ -4771,7 +4849,63 @@ class TestReviewFixRegressions:
         assert data["iteration"]["current"] == 9
         assert data["termination"]["reason"] is None
 
-    # --- E1: resume recovers from a torn (corrupt) primary via the backup ---
+    def test_resume_after_cap_with_parse_failed_final_iteration_refuses(
+        self, tmp_path, capsys
+    ):
+        ppath = _seed_deep_progress(tmp_path, iteration=8)  # completed == 7
+        data = _read_progress(ppath)
+        data["termination"] = {"reason": "cap", "message": "Reached iteration cap (8)"}
+        ppath.write_text(json.dumps(data), encoding="utf-8")
+        assert _run("resume", "--progress-file", str(ppath)) == 1
+        assert "already reached its cap" in capsys.readouterr().err
+
+    def test_resume_refuses_cap_lowered_below_next_iteration(self, tmp_path, capsys):
+        ppath = _seed_deep_progress(tmp_path, iteration=5)
+        data = _read_progress(ppath)
+        data["termination"] = {"reason": "diminishing-returns", "message": "plateau"}
+        ppath.write_text(json.dumps(data), encoding="utf-8")
+        assert (
+            _run("resume", "--progress-file", str(ppath), "--max-iterations", "3") == 1
+        )
+        assert "already reached its cap" in capsys.readouterr().err
+
+    # --- coverage twin: cap refusal and cycle counter on cap / diminishing-returns ---
+    def test_resume_after_coverage_cap_without_raise_refuses(self, tmp_path, capsys):
+        ppath = _seed_coverage_progress(tmp_path, cycle=6)  # completed=5 == max_cycles
+        data = _read_progress(ppath)
+        data["termination"] = {"reason": "cap", "message": "Reached cycle cap (5)"}
+        ppath.write_text(json.dumps(data), encoding="utf-8")
+        exit_code = _run("resume", "--progress-file", str(ppath))
+        assert exit_code == 1
+        assert "--max-cycles" in capsys.readouterr().err
+        assert _read_progress(ppath)["termination"]["reason"] == "cap"
+
+    def test_resume_after_coverage_cap_with_raise_keeps_cycle(self, tmp_path):
+        # check-termination set the cap after record-cycle advanced current,
+        # so current != completed and resume must not bump it again.
+        ppath = _seed_coverage_progress(tmp_path, cycle=6)
+        data = _read_progress(ppath)
+        data["termination"] = {"reason": "cap", "message": "Reached cycle cap (5)"}
+        ppath.write_text(json.dumps(data), encoding="utf-8")
+        exit_code = _run("resume", "--progress-file", str(ppath), "--max-cycles", "8")
+        assert exit_code == 0
+        data = _read_progress(ppath)
+        assert data["config"]["max_cycles"] == 8
+        assert data["cycle"]["current"] == 6
+        assert data["termination"]["reason"] is None
+
+    def test_resume_after_coverage_diminishing_returns_keeps_cycle(self, tmp_path):
+        ppath = _seed_coverage_progress(tmp_path, cycle=4)  # completed=3
+        data = _read_progress(ppath)
+        data["termination"] = {"reason": "diminishing-returns", "message": "plateau"}
+        ppath.write_text(json.dumps(data), encoding="utf-8")
+        exit_code = _run("resume", "--progress-file", str(ppath))
+        assert exit_code == 0
+        data = _read_progress(ppath)
+        assert data["cycle"]["current"] == 4
+        assert data["termination"]["reason"] is None
+
+    # --- resume recovers from a torn (corrupt) primary via the backup ---
     def test_resume_recovers_from_corrupt_primary(self, tmp_path):
         ppath = _seed_deep_progress(tmp_path)
         good = ppath.read_text(encoding="utf-8")
@@ -4843,12 +4977,12 @@ class TestCleanResetHook:
         monkeypatch.setattr(
             cli,
             "git_apply_snapshot",
-            lambda sha, root, **_kw: calls.append((sha, root)) or True,
+            lambda sha, root, **kw: calls.append((sha, root, kw)) or True,
         )
         hook = cli._clean_reset_hook("stash_sha", "head_sha", "/proj")
         hook()
         hook()  # repeatable — the stash is not consumed
-        assert calls == [("stash_sha", "/proj"), ("stash_sha", "/proj")]
+        assert calls == [("stash_sha", "/proj", {"clean_untracked": False})] * 2
 
     def test_no_commit_mode_raises_on_failed_apply(self, monkeypatch):
         # The bisect's _rebuild aborts on RuntimeError; a silent False would

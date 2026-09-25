@@ -13,48 +13,34 @@ Server detection, tool name resolution, MCP safety rules, and the fetch/output p
 
 ## Detection Procedure
 
-1. **Check `.mcp.json`** at the project root, if present: scan `mcpServers` keys for `atlassian` (Rovo, official), `mcp-atlassian` (sooperset, community), `jira` (generic), or any key containing `jira` or `atlassian` (case-insensitive). A match becomes the candidate server name.
-2. **Probe for tools** with `ToolSearch` (in order, stop at first match): query `jira` — look for `jira_search`, `jira_get_issue`, `searchJiraIssuesUsingJql`, or `getJiraIssue`; then query `atlassian` — look for tools containing `jira_` or `Jira`.
-3. **Tools found** → record the server name and tool prefix (`mcp__atlassian__` = Rovo, `mcp__mcp-atlassian__` = sooperset, anything else = generic) and report: `Detected: [server name] ([N] JIRA tools available)`. **No tools found** → the skill routes to `jira-setup.md`.
-
-Under Codex, `.mcp.json` and `ToolSearch` do not exist: inspect the tools available in the session for the names in the table below, or any tool containing `jira`/`Jira`; a match is the detected server, with its prefix read from the tool names. Otherwise report none detected.
+1. **Find the tools:** look among your available tools for names in the table below or containing `jira`/`Jira`. If none match, query `ToolSearch` (when present) for `jira`, then `atlassian`.
+2. **Tools found** → record the server name and tool prefix (`mcp__atlassian__` = Rovo, `mcp__mcp-atlassian__` = sooperset, anything else = generic) and report: `Detected: [server name] ([N] JIRA tools available)`. **No tools found** → the skill routes to `jira-setup.md`.
 
 ## Tool Name Resolution
 
-Use `ToolSearch` at runtime (under Codex, the session's tool list) to discover available tools — never hard-code assumptions.
+Discover tools at runtime as in the [Detection Procedure](#detection-procedure) — never hard-code assumptions.
 
-**Known tool names by server:**
+**Tools the skill calls, by server:**
 
 | Operation | Rovo (`mcp__atlassian__`) | sooperset (`mcp__mcp-atlassian__`) | Safety |
 |-----------|--------------------------|-----------------------------------|--------|
-| Search issues (JQL) | `searchJiraIssuesUsingJql` or `search` | `jira_search` | Read |
+| Search issues (JQL) | `searchJiraIssuesUsingJql` | `jira_search` | Read |
 | Get single issue | `getJiraIssue` | `jira_get_issue` | Read |
-| Get projects | `getVisibleJiraProjects` | `jira_get_all_projects` | Read |
-| Get transitions | `getTransitionsForJiraIssue` | `jira_get_transitions` | Read |
-| Get link types | `getIssueLinkTypes` | — | Read |
-| Get remote links | `getJiraIssueRemoteIssueLinks` | — | Read |
-| Get issue type metadata | `getJiraIssueTypeMetaWithFields` | — | Read |
-| Get project issue types | `getJiraProjectIssueTypesMetadata` | — | Read |
-| Look up user | `lookupJiraAccountId` | — | Read |
-| User info | `atlassianUserInfo` | — | Read |
-| Get sprints | — | `jira_get_sprints_from_board` | Read |
-| Get boards | — | `jira_get_agile_boards` | Read |
-| Update issue | `editJiraIssue` | `jira_update_issue` | **Write** |
+| Get link types | `getIssueLinkTypes` | `jira_get_link_types` | Read |
+| Resolve site (cloudId) | `getAccessibleAtlassianResources` | — | Read |
 | Create issue | `createJiraIssue` | `jira_create_issue` | **Write** |
 | Add comment | `addCommentToJiraIssue` | `jira_add_comment` | **Write** |
-| Transition status | `transitionJiraIssue` | `jira_transition_issue` | **Write** |
 | Create link | `createIssueLink` | `jira_create_issue_link` | **Write** |
-| Add worklog | `addWorklogToJiraIssue` | `jira_add_worklog` | **Write** |
 
 When a **Read** tool is unavailable, fall back to the search tool with targeted JQL (e.g., `key = PROJ-123` when the get-issue tool is missing). Write operations have no fallback — if the specified write tool is unavailable, inform the user and skip the write.
 
-**Generic servers** (detection matched neither Rovo nor sooperset): map each **Read** operation by tool-name pattern via `ToolSearch`. Treat all writes as unavailable unless a discovered tool's name unambiguously matches one of the permitted purposes in the [MCP Safety](#mcp-safety) table (add comment, create issue, create link) — when in doubt, fail closed and skip the write.
+**Generic servers** (detection matched neither Rovo nor sooperset): map each **Read** operation by tool-name pattern among the tools the Detection Procedure found. Treat all writes as unavailable unless a discovered tool's name unambiguously matches one of the permitted purposes in the [MCP Safety](#mcp-safety) table (add comment, create issue, create link) — when in doubt, fail closed and skip the write.
 
 ## MCP Safety
 
 During context extraction (Steps 1–3.5 of the jira skill, including the refresh path), only call tools marked **Read** in the table above.
 
-**Hard rule:** NEVER call any tool whose name **starts with** `add`, `create`, `edit`, `update`, `transition`, or `delete` during context extraction (e.g., `addCommentToJiraIssue`, `editJiraIssue`, `transitionJiraIssue`).
+**Hard rule:** NEVER call any tool whose name, after any server prefix such as `jira_`, **starts with** `add`, `create`, `edit`, `update`, `transition`, or `delete` during context extraction (e.g., `addCommentToJiraIssue`, `jira_add_comment`, `editJiraIssue`, `jira_update_issue`).
 
 **Comments:** comments are embedded in the get-issue response or in search results — there is no dedicated "get comments" tool. Do NOT use `addCommentToJiraIssue` to read comments; it is a write tool that creates a new comment on the issue.
 
@@ -72,10 +58,10 @@ All other write tools (`editJiraIssue`, `jira_update_issue`, `transitionJiraIssu
 
 Given an issue key, fetch in this order. If an optional field fails or returns empty, skip it silently — never fail on optional fields.
 
-1. **Issue details** — get-single-issue tool (`getJiraIssue` / `jira_get_issue`); if unavailable, fall back to the search tool with JQL `key = {KEY}`. Capture summary, description, issue type, status, priority, assignee, sprint, epic/parent, and labels.
+1. **Issue details** — get-single-issue tool (`getJiraIssue` / `jira_get_issue`). Capture summary, description, issue type, status, priority, assignee, sprint, epic/parent, and labels.
 2. **Linked issues and subtasks** — from the issue details: link type + key + summary per linked issue; subtasks listed separately.
 3. **Comments** — the last 10, from the issue data already fetched in step 1 (embedded — make no separate MCP call). Record author, relative date, and body.
-4. **Sprint context** — if the issue has a sprint: record the sprint name and goal, then fetch sibling issues (keys + summaries) with JQL `sprint in openSprints() AND project = {PROJECT_KEY} ORDER BY rank ASC`. Skip entirely if sprint data is unavailable.
+4. **Sprint context** — if the issue has a sprint: record the sprint name and goal, then fetch sibling issues (keys + summaries) with JQL `sprint = {SPRINT_ID} AND key != {KEY} ORDER BY rank ASC`, where `{SPRINT_ID}` is the id of the issue's current (latest) sprint. Skip entirely if sprint data is unavailable.
 
 **Truncation limits:**
 
@@ -84,8 +70,8 @@ Given an issue key, fetch in this order. If an optional field fails or returns e
 | Description | 2000 characters (append "(truncated)" if truncated) |
 | Comments | Max 10 comments, total text capped at 2000 characters (append "(older comments omitted)" if truncated) |
 | Sprint siblings | Max 15 issues, keys + summaries only |
-| Linked issues | Max 10, keys + summaries only |
-| Subtasks | Max 10, keys + summaries only |
+| Linked issues | Max 10 |
+| Subtasks | Max 10 |
 
 ## Structured Output Format
 
@@ -128,7 +114,7 @@ and automated comments. If no meaningful decisions found, omit this section.]
 
 | Error | User-facing message |
 |-------|---------------------|
-| 401 Unauthorized | "Your JIRA authentication has expired. For Rovo: use the current host's connector/MCP authentication controls to reconnect via OAuth; if none are available in this session, reopen the host's connection settings. For mcp-atlassian: verify your API token has not expired at id.atlassian.com/manage-profile/security/api-tokens and update your MCP configuration." |
+| 401 Unauthorized | "Your JIRA authentication has expired. For Rovo: re-authenticate the server (Claude Code: run `/mcp` and re-authenticate it; Codex: `codex mcp login <server>`; elsewhere: the host's MCP connection settings). For mcp-atlassian: verify your API token has not expired at id.atlassian.com/manage-profile/security/api-tokens and update your MCP configuration." |
 | 403 Forbidden | "You don't have permission to view {KEY}. Check your JIRA project access with your JIRA admin." |
 | 404 Not Found | "Issue {KEY} not found. Verify the key is correct (format: PROJECT-NUMBER) and that you have access to the project." |
 | 429 Rate Limited | Retry once after 2 seconds. If still rate limited: "JIRA rate limit reached. Wait a moment and try `/optimus:jira {KEY}` again." |

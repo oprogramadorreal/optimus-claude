@@ -1,6 +1,6 @@
 # Prompt Templates Reference
 
-14 prompt architectures. Load only the template matching the task — do not load the entire file. This file is the single source for the Claude Code plan-mode (Template M) and dynamic-workflow (Template N) behavioral rules.
+14 prompt architectures. Load only the template matching the task — do not load the entire file.
 
 ## Table of Contents
 
@@ -74,25 +74,22 @@ Experiment: [Request variants or alternatives to explore]
 
 ## Template E — Chain of Thought
 
-*Logic-heavy tasks, math, debugging, multi-factor analysis. Gated by SKILL.md's Reasoning guidance rule: use it only where the target's tool-routing.md entry allows explicit reasoning scaffolding — the Claude 5 and reasoning-native entries do not (use their nudge wording instead). The scaffold asks for the visible working steps the deliverable needs, not a transcript of the model's private reasoning. Not for simple or creative tasks.*
+*Logic-heavy tasks, math, debugging, multi-factor analysis — only when the target's tool-routing.md entry does not steer reasoning itself. The Claude and Reasoning-Native entries do: follow them instead (Claude's one-line nudge; a clear task and output contract for reasoning-native) with Template A or C. The scaffold asks for the visible working the deliverable needs, not a transcript of the model's private reasoning. Not for simple or creative tasks.*
 
 ```
 [Task statement]
 
-Before answering, think through this carefully:
-<thinking>
-1. What is the actual problem being asked?
-2. What constraints must the solution respect?
-3. What are the possible approaches?
-4. Which approach is best and why?
-</thinking>
+Before the answer, show your working in <working> tags:
+1. The problem in one sentence and the constraints the solution must respect.
+2. The candidate approaches, and which one you chose and why.
+3. [Task-specific intermediate results — e.g. equations and values, traced state, causes ruled out]
 
-Give your final answer in <answer> tags only.
+Give the final answer in <answer> tags.
 ```
 
 ## Template F — Few-Shot
 
-*When the output format is easier to show than describe. 2-5 examples; include edge cases, not just easy cases; XML tags — Claude parses XML reliably.*
+*When the output format is easier to show than describe. XML tags — Claude parses XML reliably.*
 
 ```
 [Task instruction]
@@ -175,7 +172,7 @@ Pause and ask for human review when a decision remains outside the user's existi
 
 Reporting:
 Say in a line what you're about to do before the first tool call; while working, speak up on something important or a change of direction.
-Lead your final message with the outcome, followed by a summary of every file changed — a recap that stands on its own for a reader who saw none of the work.
+Lead your final message with the outcome, followed by a summary of every file changed and what's next — a recap that stands on its own for a reader who saw none of the work.
 ```
 
 ## Template I — Visual Descriptor
@@ -196,16 +193,11 @@ Negative Prompts: [blurry, watermark, extra fingers, distortion, low quality]
 Style Reference: [artist / film / aesthetic reference if applicable]
 ```
 
-**Tool-specific syntax:**
-- **Midjourney**: comma-separated descriptors, `--ar`, `--style`, `--v 6` at end
-- **Stable Diffusion**: `(word:1.3)` weight syntax, CFG 7-12, mandatory negative prompt
-- **OpenAI image tools**: prose works well; specify whether text is wanted and use the currently supported target chosen under tool-routing.md
-- **Sora / video**: add camera movement (slow dolly, static shot, crane up), duration, cut style
-- **Seedance 2** (video): its prompt shape differs entirely — apply its Video AI entry in tool-routing.md instead of this field list
+**Video:** add camera movement (slow dolly, static shot, crane up), duration, and cut style. **Seedance 2** is the exception — its prompt shape differs entirely; apply its Video AI entry in tool-routing.md instead of this field list.
 
 ## Template J — Reference Image Editing
 
-*When the user has an existing image to modify. Never describe the whole scene — only the change. Before writing the prompt, always tell the user: "Attach your reference image to [tool name] before sending this prompt."*
+*When the user has an existing image to modify. Always add the setup note: "Attach your reference image to [tool name] before sending this prompt."*
 
 ```
 Reference image: [attached / URL]
@@ -216,36 +208,29 @@ Style consistency: maintain the exact style, lighting, and mood of the reference
 Negative prompt: [what to avoid introducing]
 ```
 
-**Tool-specific editing:**
-- Midjourney: `--cref [image URL]` for character reference, `--sref` for style reference
-- OpenAI image tools: attach the reference and use the selected interface's supported editing capability; follow tool-routing.md for API versus ChatGPT distinctions
-- Stable Diffusion: img2img mode, denoising strength 0.3-0.6
+**Tool syntax:** apply tool-routing.md's Image AI — Editing entry.
 
 ## Template K — ComfyUI
 
-*Node-based image workflows. Always output Positive and Negative as separate blocks. Ask first if not stated: "Which checkpoint model are you using? (SD 1.5, SDXL, Flux, or other)"*
+*Node-based image workflows. Positive and Negative paste into different text-encode nodes: output each as its own fenced block in its own marker pair, with its label above the opening marker.*
 
+Positive prompt:
 ```
-POSITIVE PROMPT:
 [subject], [style], [mood], [lighting], [composition], [quality boosters]
-
-NEGATIVE PROMPT:
-[what to exclude: blurry, low quality, watermark, extra limbs, bad anatomy, distorted]
-
-CHECKPOINT: [model name]
-SAMPLER: Euler a
-CFG SCALE: 7
-STEPS: 20-30
-RESOLUTION: [width x height — divisible by 64]
 ```
 
-**Model notes:** SD 1.5: under 75 tokens, use (word:weight). SDXL: longer prompts OK, natural language. Flux: natural language, less weight syntax, responsive to style.
+Negative prompt:
+```
+[what to exclude: blurry, low quality, watermark, extra limbs, bad anatomy, distorted]
+```
+
+**Setup note** (after the Target line, outside the markers): checkpoint [model name], 20-30 steps, resolution [width x height — divisible by 64]. SD 1.5 / SDXL: Euler a, CFG 7. Flux.1: euler, CFG 1.0 plus a FluxGuidance node at ~3.5 (schnell: 4 steps); at CFG 1 the negative prompt has no effect.
 
 ## Template L — Prompt Decompiler
 
 *When the user pastes an existing prompt to break down, adapt, simplify, or split.*
 
-Detect the task: **Break down** (explain what each part does), **Adapt** (rewrite for a different tool, preserving intent — always ask: "What tool is the original from, and what tool are you adapting it for?"), **Simplify** (remove redundancy and tighten), or **Split** (divide a complex one-shot into a cleaner sequence).
+Detect the task: **Break down** (explain what each part does), **Adapt** (rewrite for a different tool, preserving intent — ask for whichever of the source and target tool the user did not name), **Simplify** (remove redundancy and tighten), or **Split** (divide a complex one-shot into a cleaner sequence).
 
 Wrap each pasteable prompt block below — the `Recommended fix`, the `Adapted for [target tool]` block, and each split `[prompt block]` — in its own pair of the SKILL.md output-contract boundary markers. Labels, analysis, and commentary lines stay outside the markers.
 
@@ -339,7 +324,7 @@ The plan should include:
 - Describe the task, the quality bar (e.g. "cross-check findings before reporting"), and the required output. A pattern-type hint (fan-out / pipeline / cross-agent corroboration) is optional preference, never a prescribed phase plan with agent counts
 - Scope is MANDATORY (cost + runaway risk): bound the target set and give an early-stop condition. Concurrency and total-agent caps are the runtime's own fixed limits, not knobs the prompt sets or needs to restate; the prompt's job is only to keep the target set from sprawling
 - Permissions: workflow child tools follow the host's subagent permission rules; do not claim every mode auto-approves edits. For analysis/audit work the prompt MUST say "read-only: do not edit, write, move, or delete any file; report findings only." This states task scope independently of runtime permissions
-- Launch approval depends on host version, mode, and prior consent. Tell the *user* to review the launch prompt when shown and note the token cost in the SKILL.md Step 7 handoff; do not invent an extra approval gate inside the generated task
+- Launch approval is the host's (SKILL.md Step 7 tells the user); do not invent an extra approval gate inside the generated task
 
 ```
 Run a workflow to [TASK — what to do across what bounded target set: files / dirs / items].

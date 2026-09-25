@@ -17,7 +17,7 @@ A [Claude Code](https://docs.anthropic.com/en/docs/claude-code) skill that fetch
 
 This skill is part of the [optimus](https://github.com/oprogramadorreal/optimus-claude) plugin. See the [main README](../../README.md) for installation.
 
-A JIRA MCP server must be configured — in Claude Code, the skill guides setup interactively if none is detected. Under Codex, configure a compatible server in Codex first, then invoke `$optimus:jira`; the setup commands below configure Claude Code only. Claude-specific plan-mode handoffs require manual adaptation, as described in the [Codex support matrix](../../README.md#using-with-openai-codex).
+A JIRA MCP server must be configured — in Claude Code, the skill guides setup interactively if none is detected. Under Codex, configure a compatible server in Codex first, then invoke `$optimus:jira`; the setup commands below configure Claude Code only. Under Codex, the plan-mode handoff uses brainstorm's shared Codex branch instead of Claude's plan-mode steps; see the [Codex support matrix](../../README.md#using-with-openai-codex).
 
 **Atlassian Rovo** (official, JIRA Cloud, OAuth):
 
@@ -25,7 +25,7 @@ A JIRA MCP server must be configured — in Claude Code, the skill guides setup 
 claude mcp add --transport http --scope user atlassian https://mcp.atlassian.com/v1/mcp
 ```
 
-Requires Rovo MCP Server enabled by your org admin (`admin.atlassian.com → Apps → AI settings`). Use `--transport http` — the older SSE transport is deprecated and flaky on Windows.
+Requires Rovo MCP Server enabled by your org admin (`admin.atlassian.com → Apps → AI settings`). Then run `/mcp` in a Claude Code session to authenticate — no JIRA tools appear before that. Use `--transport http` — the older SSE transport is deprecated and flaky on Windows.
 
 **sooperset/mcp-atlassian** (community, JIRA Cloud or Server/Data Center):
 
@@ -78,18 +78,18 @@ Explicit acceptance criteria in the ticket = accurate implementation; vague pros
 - [What this ticket explicitly does NOT cover]
 ```
 
-Given/When/Then criteria are extracted as-is. Use comments for decisions that affect implementation ("We chose JWT over sessions because...") — the skill distills them into a Key Decisions section and ignores status updates.
+Given/When/Then criteria are extracted as-is (translated to English for non-English issues). Use comments for decisions that affect implementation ("We chose JWT over sessions because...") — the skill distills them into a Key Decisions section and ignores status updates.
 
 ## Relationship to Other Skills
 
-The saved `docs/jira/<ISSUE-KEY>.md` is auto-detected by downstream skills — no copy-paste needed.
+The recommended next command names the saved `docs/jira/<ISSUE-KEY>.md` explicitly — its path, its key, or a refactor scope drawn from it. `/optimus:tdd` and `/optimus:brainstorm` also auto-detect the file.
 
 | Task complexity | Workflow |
 |----------------|----------|
-| Simple | `/optimus:jira PROJ-123` → `/optimus:tdd` |
+| Simple | `/optimus:jira PROJ-123` → `/optimus:tdd docs/jira/PROJ-123.md` |
 | Medium | `/optimus:jira PROJ-123` → plan mode (jira generates the prompt) → `/optimus:tdd` |
-| Complex | `/optimus:jira PROJ-123` → `/optimus:brainstorm` → plan mode → `/optimus:tdd` |
-| Tech debt | `/optimus:jira PROJ-123` → `/optimus:refactor` |
+| Complex | `/optimus:jira PROJ-123` → `/optimus:brainstorm PROJ-123` → plan mode → `/optimus:tdd` |
+| Tech debt | `/optimus:jira PROJ-123` → `/optimus:refactor "<scope>"` |
 
 The skill recommends the right path based on codebase-assessed complexity. It never creates branches or writes code — its only side effects are the task file under `docs/jira/` and the opt-in JIRA writes.
 
@@ -105,6 +105,7 @@ In spec-driven-development terms, `/optimus:jira` is the supported path for PM-a
 | `references/jira-codebase-analysis.md` | Codebase impact analysis, scope assessment, task-file enrichment |
 | `references/jira-refresh.md` | Re-run reconciliation — diff JIRA against the local file, preserve enrichment |
 | `references/jira-implementation-tickets.md` | Opt-in implementation-ticket creation for Complex scope |
+| `references/plan-mode-prompt.md` | Medium-route plan-mode prompt, built on brainstorm's shared `references/plan-mode-handoff.md` |
 
 ## Requirements
 

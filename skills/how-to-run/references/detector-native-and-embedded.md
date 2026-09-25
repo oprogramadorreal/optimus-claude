@@ -1,7 +1,5 @@
 # Native, game-engine, embedded, and Apple build systems
 
-Read this only when the marker scan in Task 0a matched. These extraction rules are dead weight on a web or backend project, which is most of them.
-
 ## Build System Detection (niche)
 
 | File | Build system | Extract |
@@ -30,5 +28,3 @@ Read this only when the marker scan in Task 0a matched. These extraction rules a
 ## C++ dependency managers
 
 Check `vcpkg.json`, `conanfile.txt`, `conanfile.py` — a C++ dep-manager bootstrap step belongs in Installation.
-
-Grep `CMakeLists.txt` for `find_package(...)` and report each as a potential SDK/library dependency (Task 0a).

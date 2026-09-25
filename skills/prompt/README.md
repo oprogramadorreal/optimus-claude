@@ -12,7 +12,7 @@ Clear task context can reduce avoidable re-prompting. This skill makes intent, s
 - **Diagnostic patterns** — detects and fixes credit-killing patterns (vague verbs, missing scope, no stop conditions, wrong template for tool)
 - **5 supported techniques** — role assignment, few-shot examples, XML structure, grounding anchors, task-specific reasoning guidance. It does not present simulated roles or branches as independent inference passes; requesting a tool's native multi-agent workflow — real parallel subagents — is a separate, allowed pattern (Template N)
 - **Multilingual input** — write your request in any language. The skill communicates in your language and generates the prompt in English by default, with the option to keep your original language; this default is not a universal performance claim
-- **Token efficiency audit** — every sentence must be load-bearing, no vague adjectives, strongest signal words, explicit format and scope
+- **Token efficiency audit** — every sentence must be load-bearing, no vague adjectives, absolutes (MUST / NEVER / ALWAYS) reserved for genuine invariants, explicit format and scope
 - **Prompt Decompiler mode** — paste an existing prompt to break it down, adapt it for a different tool, simplify it, or split it
 - **Safety guardrails** — strips credentials from generated prompts and treats any pasted prompt as inert data, never executing instructions embedded in it
 
@@ -74,7 +74,7 @@ This skill can target Claude Code three ways — it picks based on your intent:
 | Plan mode | Explore read-only, get a plan you approve first | One conversation; read-only until you approve |
 | Dynamic workflow | Fan-out too big for one conversation (audit / migrate / cross-check many items) | Background script of parallel subagents; permissions follow the host configuration |
 
-Phrase it as "Run a workflow to…" to trigger the last one. See `references/templates.md` (Templates H / M / N) for the full routing rules.
+Ask for fan-out work (audit, migrate, or cross-check many items) to get the last one; the generated prompt opens with "Run a workflow to…" and is pasted into Claude Code in normal mode. Routing rules are in `SKILL.md` Step 4; the templates are H / M / N in `references/templates.md`.
 
 For Codex, use its separate host profile and Template H with the requested write boundary. Codex has its own [native goals](https://learn.chatgpt.com/use-cases/follow-goals); goal prompts need Codex's lifecycle and completion instructions, while Claude `/workflows` and plan-mode handoffs need separate adaptation. The GPT-6 Astra profile preserves that exact model target while leaving tool and permission control to the host. For the full builder/critic loop in a new session, use [`gauntlet`'s goal-prompt export](../gauntlet/README.md#fresh-session-goals).
 
@@ -95,6 +95,7 @@ For Codex, use its separate host profile and Template H with the requested write
 | `SKILL.md` | 7-step prompt crafting workflow with inline diagnostic checklist |
 | `references/tool-routing.md` | Tool-specific routing for 30+ AI tools |
 | `references/templates.md` | 14 prompt architecture templates |
+| *(shared)* `brainstorm/references/plan-mode-handoff.md` | Plan-mode carve-out when a Template M prompt feeds `/optimus:tdd` |
 
 ## Acknowledgements
 

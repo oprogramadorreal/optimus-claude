@@ -1,3 +1,5 @@
+import re
+from bisect import bisect_left
 from pathlib import Path
 
 from .constants import normalize_path
@@ -15,7 +17,9 @@ def _is_path_within(filepath, root):
 def _swap_content(fix, cwd, source_field, target_field):
     """Swap one content string for another in a file."""
     # Normalize path separators for cross-platform compatibility
-    fix_file = normalize_path(fix["file"])
+    fix_file = normalize_path(fix.get("file"))
+    if not fix_file:
+        return False
     filepath = (Path(cwd) / fix_file).resolve()
     cwd_resolved = Path(cwd).resolve()
     if not _is_path_within(filepath, cwd_resolved):
@@ -27,9 +31,13 @@ def _swap_content(fix, cwd, source_field, target_field):
     if not filepath.exists():
         return False
     try:
-        content = filepath.read_text(encoding="utf-8")
+        # newline="" exposes the file's own line endings so the write below can
+        # keep them; matching still runs on "\n", the form recorded edits use.
+        with filepath.open(encoding="utf-8", newline="") as stream:
+            raw = stream.read()
     except (UnicodeDecodeError, OSError):
         return False
+    content = raw.replace("\r\n", "\n")
     find = fix.get(source_field, "")
     replace = fix.get(target_field, "")
     # Both content fields must be strings. A non-string value (e.g. a JSON number
@@ -37,6 +45,8 @@ def _swap_content(fix, cwd, source_field, target_field):
     # test and str.replace below — refuse the swap instead of raising.
     if not isinstance(find, str) or not isinstance(replace, str):
         return False
+    find = find.replace("\r\n", "\n")
+    replace = replace.replace("\r\n", "\n")
     if not find:
         # Empty find string — cannot locate target in file content.
         # This happens when reverting a deletion fix (empty post_edit_content):
@@ -46,7 +56,24 @@ def _swap_content(fix, cwd, source_field, target_field):
         return False
     if content.count(find) != 1:
         return False  # Ambiguous match — refuse to apply/revert
-    filepath.write_text(content.replace(find, replace, 1), encoding="utf-8")
+    # Splice the match back into the raw text so every byte outside it keeps
+    # its own line ending, even in a mixed-ending file. Each CRLF before a
+    # position is one character longer in raw than in content.
+    crlf_starts = [
+        match.start() - count for count, match in enumerate(re.finditer("\r\n", raw))
+    ]
+    start = content.index(find)
+    end = start + len(find)
+    raw_start = start + bisect_left(crlf_starts, start)
+    raw_end = end + bisect_left(crlf_starts, end)
+    # The replacement takes the ending of the line the match starts on.
+    line_end = raw.find("\n", raw_start)
+    if line_end == -1:
+        newline = "\r\n" if crlf_starts else "\n"
+    else:
+        newline = "\r\n" if raw[line_end - 1 : line_end] == "\r" else "\n"
+    with filepath.open("w", encoding="utf-8", newline="") as stream:
+        stream.write(raw[:raw_start] + replace.replace("\n", newline) + raw[raw_end:])
     return True
 
 
@@ -107,8 +134,8 @@ def _bisect_via_clean_reset(
         """Restore to the clean base, then re-apply the kept fixes.
 
         Returns False if the clean reset itself failed: ``reset_to_clean``
-        (``restore_working_tree`` → ``git_restore_to``) raises ``RuntimeError``
-        when its ``git checkout`` errors (a locked index, a missing commit).
+        (``cli._clean_reset_hook``) raises ``RuntimeError`` when its ``git
+        restore`` or snapshot apply errors (a locked index, a missing commit).
         Testing a candidate on a dirty base gives a meaningless pass/fail, so
         the caller aborts and reports the still-undecided fixes as skipped
         rather than letting the exception crash the whole bisect (and, through

@@ -4,7 +4,7 @@ description: >-
   with trade-offs, iterates the design — and writes a user-approved engineering spec
   to docs/specs/ that /optimus:tdd auto-detects. No implementation happens until the
   spec is approved. With the scaffold argument, creates docs/product/ steering
-  skeletons instead (never overwrites, authors no content). Run /optimus:init first.
+  skeletons instead (never overwrites, authors no content). Recommends /optimus:init first.
 disable-model-invocation: true
 argument-hint: "[topic, JIRA key, or scaffold]"
 ---
@@ -15,11 +15,13 @@ Guide the user through a design conversation that produces a written, approved s
 
 **The hard gate: no implementation until the design is approved.** Do not invoke an implementation skill, write production code, or scaffold project structure until a spec is written and the user has approved it — even for seemingly simple tasks.
 
+Resolve the target repo first: if `git rev-parse --is-inside-work-tree` does not return `true`, read `$CLAUDE_PLUGIN_ROOT/skills/init/references/multi-repo-detection.md` and apply it — in a workspace, operate in the repo the user targets, asking which if ambiguous. Otherwise use `git rev-parse --show-toplevel`, including in a linked worktree or subdirectory. Both modes resolve paths from that root.
+
 ## Scaffold mode
 
 When invoked with the `scaffold` argument, or when the user asks to set up the docs-first steering cascade, run this flow instead of the design conversation:
 
-1. Target the current repo root from `git rev-parse --show-toplevel`. If `git rev-parse --is-inside-work-tree` does not return `true`, read `$CLAUDE_PLUGIN_ROOT/skills/init/references/multi-repo-detection.md` and apply it — when a workspace is detected, ask which repo the product lives in and scaffold there (a cascade outside the target repo never auto-loads as steering).
+1. Scaffold in the resolved repo root — a cascade outside the target repo never auto-loads as steering.
 2. For each of `docs/product/product-context.md`, `mvp-prd.md`, and `tech-stack.md`: if it exists, never overwrite — skip it. If missing, copy the matching file from `$CLAUDE_PLUGIN_ROOT/skills/brainstorm/templates/product/` verbatim, creating `docs/product/` if needed. Write nothing else — no `docs/specs/` file (the design flow authors that later), nothing under `.claude/`.
 3. **Emit skeletons with TODO markers only — author no product content (no personas, KPIs, business-value prose, or technology choices) and never fill a TODO; that is the human's job.**
 4. Report created vs skipped files. Tell the user to fill the TODOs top-down (vision → MVP PRD → target stack), then run `/optimus:brainstorm` in a fresh conversation to design the first build.
@@ -30,16 +32,14 @@ If `.claude/CLAUDE.md` or `.claude/docs/coding-guidelines.md` is missing, recomm
 
 Load `.claude/CLAUDE.md` and `.claude/docs/coding-guidelines.md`, plus — only if present — the steering cascade `docs/product/product-context.md`, `mvp-prd.md`, and `tech-stack.md`. Steering informs the design; it is never the task itself or content to copy. Authoring boundary and precedence: `$CLAUDE_PLUGIN_ROOT/references/sdd-mapping.md`. In a monorepo, load the subproject's own `docs/` files (testing, architecture, styling) and shared guidelines from the root `.claude/docs/`.
 
-If `git rev-parse --is-inside-work-tree` does not return `true`, read `$CLAUDE_PLUGIN_ROOT/skills/init/references/multi-repo-detection.md` and apply it — operate within the repo the user is targeting; ask which repo if ambiguous. Otherwise resolve `git rev-parse --show-toplevel`, including linked worktrees.
-
 Scan the project's directory structure, key modules, and existing patterns to ground the conversation in what actually exists.
 
 ## Step 2: Gather Intent
 
 Check for JIRA context before prompting the user:
 
-1. Inline input matching `[A-Z][A-Z0-9]+-\d+` → read `docs/jira/<key>.md` and use its Goal and Acceptance Criteria as the brainstorm input. If the file is missing, tell the user to run `/optimus:jira <KEY>` first, then gather intent normally.
-2. No inline input and `docs/jira/` contains `.md` files → pick the one with the newest frontmatter `description-refresh-date` (falling back to `date` for files without it) and offer it via AskUserQuestion (Use it / Ignore), noting when that date is over 7 days old that re-running `/optimus:jira` refreshes it. **Use it** consumes the file's Goal and Acceptance Criteria and skips the prompts below.
+1. Inline input containing a key matching `[A-Z][A-Z0-9]+-\d+` whose `docs/jira/<key>.md` exists → use that file's Goal and Acceptance Criteria as the brainstorm input. If the whole input is a bare key (`^[A-Z][A-Z0-9]+-\d+$`) with no such file, tell the user to run `/optimus:jira <KEY>` first, then gather intent normally.
+2. No inline input and `docs/jira/` contains `.md` files → pick the one with the newest frontmatter `description-refresh-date` and offer it via AskUserQuestion (Use it / Ignore), noting when that date is over 7 days old that re-running `/optimus:jira` refreshes it. **Use it** consumes the file's Goal and Acceptance Criteria and skips the prompts below.
 
 Otherwise use the inline description; if none, ask what to build or change. Distill input longer than ~3 sentences into a single-sentence goal and confirm it with the user.
 
@@ -53,13 +53,13 @@ The user selects via AskUserQuestion, one option per approach with the recommend
 
 ## Step 4: Design
 
-Develop a detailed design covering the spec template sections in Step 5, omitting those that don't apply. Before writing a Scenarios section, read `$CLAUDE_PLUGIN_ROOT/skills/brainstorm/references/scenario-style.md` for inclusion signals and Given/When/Then discipline — `/optimus:tdd` consumes each scenario as one Red-Green-Refactor cycle.
+Develop a detailed design covering the spec template sections in Step 5, omitting those that don't apply. Include Scenarios when any signal applies — JIRA Acceptance Criteria, an intent naming a user-visible flow (end-user, cross-team, or regulatory), or clarifying answers describing observable outcomes — and omit them for internal refactors, infrastructure changes, and developer-only tooling. When including them, first read `$CLAUDE_PLUGIN_ROOT/skills/brainstorm/references/scenario-style.md` for Given/When/Then discipline — `/optimus:tdd` consumes each scenario as one Red-Green-Refactor cycle.
 
 Present the design in conversation and iterate through an Approve / Adjust AskUserQuestion until the user approves.
 
 ## Step 5: Write the Spec
 
-Write to `docs/specs/YYYY-MM-DD-<topic-slug>.md` (lowercase hyphenated slug from the goal, max 5 words; create `docs/specs/` if needed). The slug must match `[a-z0-9]+(-[a-z0-9]+)*` — reject and re-derive any slug that does not match (tdd's spec discovery and the plan-mode append target depend on a shell-safe, date-prefixed path). If the file already exists, ask the user whether to overwrite or append a `-2`, `-3`, … suffix; on overwrite, carry any existing `### Refined plan` section into the new file — it holds plan-mode iteration. Set Status to `Approved`. Keep the spec under 200 lines.
+Write to `docs/specs/YYYY-MM-DD-<topic-slug>.md` (lowercase hyphenated slug from the goal, max 5 words, matching `[a-z0-9]+(-[a-z0-9]+)*`; create `docs/specs/` if needed). If the file already exists, ask the user whether to overwrite or append a `-2`, `-3`, … suffix; on overwrite, carry any existing `### Refined plan` section into the new file — it holds plan-mode iteration. Keep the spec under 200 lines.
 
 ```markdown
 # Spec: <Title>
@@ -133,4 +133,4 @@ Under Codex, use that reference's **Codex handoff** branch instead of Claude's c
 
 ### Prose flow
 
-`/optimus:tdd` does not apply — use the current host's prose flow from plan-mode-handoff.md. Emit the same plan-mode prompt, but close it with a `## How this conversation should run` section saying: iterate on the plan against the actual codebase; once authorized in a write-enabled conversation, produce the deliverable there; afterwards recommend the host's Optimus commit invocation in that same conversation so the implementation context is captured. For Claude Code, give the reference's native plan-mode steps; for Codex, give its Codex handoff alternative. Skip the execution prompt.
+`/optimus:tdd` does not apply — use the current host's prose flow from plan-mode-handoff.md. Emit the same plan-mode prompt, but close it with a `## How this conversation should run` section saying: iterate on the plan against the actual codebase; once authorized in a write-enabled conversation, produce the deliverable there; afterwards recommend the host's Optimus commit invocation in that same conversation so the implementation context is captured. For Claude Code, tell the user: start a fresh conversation in plan mode, paste the prompt, iterate, and approve the plan when satisfied; under Codex, give the reference's Codex handoff branch. Skip the execution prompt.

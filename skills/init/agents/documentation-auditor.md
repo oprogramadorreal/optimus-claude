@@ -10,9 +10,7 @@ Read `$CLAUDE_PLUGIN_ROOT/.claude-plugin/plugin.json` to get the current plugin 
 
 ### Audit tasks
 
-1. **Read all existing doc files** from the inventory: CLAUDE.md, settings.json, all `.claude/docs/*.md` including `coding-guidelines.md`, and for monorepos each subproject's CLAUDE.md and `docs/*.md`. A generated filename does not prove ownership; retain unrecorded or modified conventions in the proposed changes.
-
-   **Project-customizable lenses** (`testing.md` and, when present, `skill-writing-guidelines.md`): preserve user-added sections, classify rules as outdated only when they contradict current conventions, and flag missing content against the corresponding template (for `skill-writing-guidelines.md`: `$CLAUDE_PLUGIN_ROOT/skills/init/templates/docs/skill-writing-guidelines.md`). Never silently overwrite user content.
+1. **Read all existing doc files** from the inventory: CLAUDE.md files, settings.json, all `.claude/docs/*.md` including `coding-guidelines.md`, for monorepos each subproject's `docs/*.md`, and `.claude/.optimus-managed.json` when present. Compare each doc with its template under `$CLAUDE_PLUGIN_ROOT/skills/init/templates/` (`docs/<name>.md`; CLAUDE.md files use `*-claude.md`) to find Missing content. A generated filename does not prove ownership: retain custom conventions unless the record lists the file with `refresh: "template"` and a matching `sha256` (over LF-normalized bytes), which marks it as unmodified template output.
 
 2. **Compare documented state vs detected state:**
 
@@ -51,7 +49,7 @@ Return your findings in this exact structure:
 [If a previously user-added item is outdated, note: "(previously user-added)"]
 
 ### Missing
-[numbered list — each item: what project aspect lacks documentation]
+[numbered list continuing Outdated's numbering — each item: what project aspect lacks documentation]
 
 ### Accurate
 [brief summary of items still correct — no need for individual entries]

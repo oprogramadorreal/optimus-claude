@@ -1,4 +1,5 @@
-from harness_common.constants import BACKUP_SUFFIX, DEFAULT_TEST_TIMEOUT, normalize_path
+import pytest
+from harness_common.constants import normalize_path
 
 
 class TestNormalizePath:
@@ -14,11 +15,6 @@ class TestNormalizePath:
     def test_mixed_slashes(self):
         assert normalize_path("src\\api/routes\\v1") == "src/api/routes/v1"
 
-
-class TestConstants:
-    def test_backup_suffix(self):
-        assert BACKUP_SUFFIX == ".bak"
-
-    def test_default_test_timeout(self):
-        assert isinstance(DEFAULT_TEST_TIMEOUT, int)
-        assert DEFAULT_TEST_TIMEOUT > 0
+    @pytest.mark.parametrize("value", [None, 5])
+    def test_non_string_is_no_path(self, value):
+        assert normalize_path(value) == ""

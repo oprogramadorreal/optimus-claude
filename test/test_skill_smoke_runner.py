@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -184,6 +185,8 @@ def test_bash_runner_selects_checkout_and_rejects_false_success(
     # evidence without assuming drive-letter spelling.
     assert selected.endswith("/plugin checkout with spaces")
     assert args[args.index("--model") + 1] == "requested-model-id"
+    # A slash command is recognized only at the start of the prompt.
+    assert args[args.index("-p") + 1].startswith("/optimus:commit ")
     assert (fixture / "index.js").read_text(encoding="utf-8") == "base\n"
 
 
@@ -269,3 +272,30 @@ def test_worktree_runs_preserve_previous_failed_worktree(tmp_path):
     assert "Uncommitted source edits are excluded" in succeeded.stdout
     assert sentinel.read_text(encoding="utf-8") == "failed-run evidence"
     assert list((checkout / ".worktrees").glob("skill-tests.*")) == previous
+
+
+def test_file_and_output_oracles(project, tmp_path):
+    (project / "out.md").write_text("Prerequisites\n", encoding="utf-8")
+    ok = {
+        "files_exist": ["out.md"],
+        "files_not_exist": ["gone"],
+        "files_contain": {"out.md": ["Prerequisites"]},
+        "output_contains": ["completed"],
+    }
+    validate(ok, project, result_file(tmp_path), None)
+    for bad in (
+        {"files_exist": ["gone"]},
+        {"files_not_exist": ["out.md"]},
+        {"files_contain": {"out.md": ["prerequisites"]}},
+        {"output_contains": ["absent"]},
+    ):
+        with pytest.raises(ValueError):
+            validate(bad, project, result_file(tmp_path), None)
+
+
+def test_every_matrix_pair_has_a_valid_oracle():
+    runner = (ROOT / "scripts" / "test-skills.sh").read_text(encoding="utf-8")
+    pairs = set(re.findall(r'"([a-z-]+):([a-z-]+-project)"', runner))
+    assert pairs
+    for skill, fixture in pairs:
+        expectation(ROOT / "test" / "expected-outputs.yaml", skill, fixture)

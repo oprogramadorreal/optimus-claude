@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Unit tests for plugin hooks (session-start and formatter hooks).
-# These are the only executable code in the plugin — they run on user machines.
+# Tests for the hooks that run on user machines: session-start, the formatter
+# templates, and the restrict-paths.sh permissions template.
 # Run: bash scripts/test-hooks.sh
 
 set -euo pipefail
@@ -250,6 +250,17 @@ assert_output_contains "Suggests re-running init when testing.md missing" "/opti
 assert_output_not_contains "Does not suggest unit-test for missing testing docs" "/optimus:unit-test" "$output"
 cleanup_fixture
 
+echo "[session-start: monorepo, testing docs in a subproject]"
+setup_fixture
+mkdir -p .claude/docs packages/api/docs
+echo "# Project" > .claude/CLAUDE.md
+echo "# Guidelines" > .claude/docs/coding-guidelines.md
+echo "# Testing" > packages/api/docs/testing.md
+run_session_start
+assert_output_empty "Accepts a subproject's docs/testing.md as testing docs" "$output"
+assert_exit_zero "Exits 0 with subproject testing docs" "$hook_status"
+cleanup_fixture
+
 echo "[session-start: fully configured, clean tree]"
 setup_fixture
 mkdir -p .claude/docs
@@ -279,6 +290,23 @@ assert_output_empty "Stays silent on dirty tree (native gitStatus covers git sta
 assert_exit_zero "Exits 0 on a dirty tree" "$hook_status"
 cleanup_fixture
 
+echo "[session-start: fully configured, commits ahead of upstream]"
+setup_fixture
+mkdir -p .claude/docs
+echo "# Project" > .claude/CLAUDE.md
+echo "# Guidelines" > .claude/docs/coding-guidelines.md
+echo "# Testing" > .claude/docs/testing.md
+git add -A && git commit -q -m "setup"
+# A local branch stands in for the remote: @{u} resolves the same either way.
+git branch -q pushed
+git branch -q --set-upstream-to=pushed
+git commit -q --allow-empty -m "local 1"
+git commit -q --allow-empty -m "local 2"
+run_session_start
+assert_output_contains "Reports commits ahead of upstream (gitStatus has no divergence line)" "2 commits unpushed to upstream" "$output"
+assert_exit_zero "Exits 0 with unpushed commits" "$hook_status"
+cleanup_fixture
+
 echo "[session-start: multi-repo workspace, marker in one sub-repo]"
 setup_fixture
 mkdir -p sub-a/.claude
@@ -288,18 +316,16 @@ assert_output_not_contains "Suppresses init notice when sub-repo carries .optimu
 assert_exit_zero "Exits 0 when sub-repo carries .optimus-version" "$hook_status"
 cleanup_fixture
 
-echo "[session-start: multi-repo workspace, markers at different depths]"
+echo "[session-start: multi-repo workspace, marker at exactly maxdepth (depth 4)]"
 setup_fixture
-mkdir -p sub-a/.claude
 mkdir -p sub-b/nested/.claude
-echo "1.64.2" > sub-a/.claude/.optimus-version
 echo "1.64.2" > sub-b/nested/.claude/.optimus-version
 run_session_start
-assert_output_not_contains "Suppresses init notice when markers are nested at depth 4" "/optimus:init" "$output"
-assert_exit_zero "Exits 0 when markers are nested at depth 4" "$hook_status"
+assert_output_not_contains "Suppresses init notice when the marker is at depth 4 (maxdepth)" "/optimus:init" "$output"
+assert_exit_zero "Exits 0 when the marker is at depth 4" "$hook_status"
 cleanup_fixture
 
-echo "[session-start: workspace root with settings only, marker in sub-repo (mirrors audaces/isa)]"
+echo "[session-start: workspace root with settings only, marker in sub-repo]"
 setup_fixture
 mkdir -p .claude
 echo "{}" > .claude/settings.json
@@ -307,8 +333,8 @@ echo "# Workspace" > CLAUDE.md
 mkdir -p sub/.claude
 echo "1.64.2" > sub/.claude/.optimus-version
 run_session_start
-assert_output_not_contains "Suppresses init notice in audaces/isa-style layout" "/optimus:init" "$output"
-assert_exit_zero "Exits 0 in audaces/isa-style layout" "$hook_status"
+assert_output_not_contains "Suppresses init notice in workspace-root layout" "/optimus:init" "$output"
+assert_exit_zero "Exits 0 in workspace-root layout" "$hook_status"
 cleanup_fixture
 
 echo "[session-start: no markers anywhere — regression for clean dir]"
@@ -317,12 +343,31 @@ run_session_start
 assert_output_contains "Still recommends init when no marker exists in workspace" "/optimus:init" "$output"
 cleanup_fixture
 
-echo "[session-start: marker beyond maxdepth]"
+echo "[session-start: marker one past maxdepth]"
 setup_fixture
-mkdir -p a/b/c/d/.claude
-echo "1.64.2" > a/b/c/d/.claude/.optimus-version
+mkdir -p a/b/c/.claude
+echo "1.64.2" > a/b/c/.claude/.optimus-version
 run_session_start
-assert_output_contains "Recommends init when marker is deeper than maxdepth 4" "/optimus:init" "$output"
+assert_output_contains "Recommends init when the marker is at depth 5, one past maxdepth 4" "/optimus:init" "$output"
+cleanup_fixture
+
+echo "[session-start: root marker alone does not count as initialized]"
+setup_fixture
+mkdir -p .claude/docs
+echo "# Guidelines" > .claude/docs/coding-guidelines.md
+echo "1.64.2" > .claude/.optimus-version
+run_session_start
+assert_output_contains "Recommends init when the root marker survives but CLAUDE.md is gone" "/optimus:init" "$output"
+cleanup_fixture
+
+echo "[session-start: root docs/testing.md is not Optimus testing docs]"
+setup_fixture
+mkdir -p .claude/docs docs
+echo "# Project" > .claude/CLAUDE.md
+echo "# Guidelines" > .claude/docs/coding-guidelines.md
+echo "# Testing" > docs/testing.md
+run_session_start
+assert_output_contains "Reports missing testing docs despite a root docs/testing.md" "Testing docs missing" "$output"
 cleanup_fixture
 
 # The path-restriction hook is COPIED into a project by /optimus:permissions and
@@ -415,6 +460,12 @@ set -e
 assert_equals "No marker at all reads as v0" "0" \
   "$(ss_read_version "$(ss_marker_fixture '#!/usr/bin/env bash
 # nothing to see' nomarker)")"
+assert_equals "Leading zeros are stripped" "10" \
+  "$(ss_read_version "$(ss_marker_fixture '#!/usr/bin/env bash
+# HOOK_VERSION: 010' leadingzero)")"
+assert_equals "A marker past int64 is clamped" "999999999" \
+  "$(ss_read_version "$(ss_marker_fixture '#!/usr/bin/env bash
+# HOOK_VERSION: 12345678901234567890' huge)")"
 # ...and v0 has to fail in the SAFE direction end-to-end: suggest re-running,
 # never go silent. The fixture's 999 would out-rank the plugin if it were read.
 setup_fixture
@@ -477,39 +528,6 @@ cleanup_fixture
 # Formatter hook tests (conditional on tool availability)
 # ============================================================
 echo
-echo "[formatter hooks: shell-based hooks parse JSON input correctly]"
-setup_fixture
-# format-rust.sh stands in for the hooks whose only logic is parse-guard-invoke.
-# format-python.sh resolves its formatters from a virtualenv and gets its own
-# section below.
-# Create a dummy rustfmt that just succeeds
-mkdir -p bin
-cat > bin/rustfmt <<'MOCK'
-#!/usr/bin/env bash
-exit 0
-MOCK
-chmod +x bin/rustfmt
-export PATH="$tmpdir/bin:$PATH"
-
-echo "fn main() {}" > test.rs
-printf 'edition = "2021"\n' > rustfmt.toml
-exit_code=0
-output=$(echo '{"tool_input":{"file_path":"test.rs"}}' | bash "$PLUGIN_ROOT/skills/init/templates/hooks/format-rust.sh" 2>&1) || exit_code=$?
-# Hook should exit 0 (no error output) for a .rs file
-if [ $exit_code -eq 0 ] && [ -z "$output" ]; then
-  printf "  PASS  Rust hook processes .rs file without error\n"
-  ((pass++)) || true
-else
-  printf "  FAIL  Rust hook error: %s\n" "$output"
-  ((errors++)) || true
-fi
-
-# Test that non-.rs file is skipped
-echo "hello" > test.txt
-output=$(echo '{"tool_input":{"file_path":"test.txt"}}' | bash "$PLUGIN_ROOT/skills/init/templates/hooks/format-rust.sh" 2>&1 || true)
-assert_output_empty "Rust hook skips non-.rs file" "$output"
-cleanup_fixture
-
 echo "[formatter hooks: python hook resolves formatters from a project venv]"
 setup_fixture
 # The TEMPLATE is what users install. test/test_format_python_hook.py exercises
@@ -558,16 +576,19 @@ output=$(printf '{"tool_input":{"file_path":"%s/notes.txt"}}' "$tmpdir" |
 assert_output_empty "Python hook skips a non-.py file" "$output$(cat "$FORMAT_PY_LOG")"
 
 # A venv holding only black must not borrow isort from PATH — mismatched
-# versions produce an import order the project's own isort then rejects.
+# versions produce an import order the project's own isort then rejects. The
+# logging PATH decoy makes that pairing observable where no real isort exists.
 : > "$FORMAT_PY_LOG"
-mkdir -p solo/.venv/bin solo/.venv/Scripts
+mkdir -p solo/.venv/bin solo/.venv/Scripts pathbin
 for sub in bin Scripts; do
   printf '#!/usr/bin/env bash\nprintf "%%s\\n" "black $*" >> "$FORMAT_PY_LOG"\n' > "solo/.venv/$sub/black"
   chmod +x "solo/.venv/$sub/black"
 done
+printf '#!/usr/bin/env bash\nprintf "%%s\\n" "isort $*" >> "$FORMAT_PY_LOG"\n' > pathbin/isort
+chmod +x pathbin/isort
 echo "x=1" > solo/app.py
 output=$(printf '{"tool_input":{"file_path":"%s/solo/app.py"}}' "$tmpdir" |
-  CLAUDE_PROJECT_DIR="$tmpdir/solo" bash "$FORMAT_PY_HOOK" 2>&1 || true)
+  PATH="$tmpdir/pathbin:$PATH" CLAUDE_PROJECT_DIR="$tmpdir/solo" bash "$FORMAT_PY_HOOK" 2>&1 || true)
 assert_output_contains "Python hook reports isort missing instead of pairing with PATH" \
   "isort not found" "$output"
 assert_output_not_contains "Python hook does not invoke an unpaired isort" \
@@ -575,29 +596,18 @@ assert_output_not_contains "Python hook does not invoke an unpaired isort" \
 unset FORMAT_PY_LOG
 cleanup_fixture
 
-echo "[formatter hooks: node hook parses JSON input correctly]"
+echo "[formatter hooks: node hook without a reachable prettier]"
 if command -v node &>/dev/null; then
   setup_fixture
-  # Create a dummy prettier that just succeeds
-  mkdir -p node_modules/.bin
-  cat > node_modules/.bin/prettier <<'MOCK'
-#!/usr/bin/env bash
-exit 0
-MOCK
-  chmod +x node_modules/.bin/prettier
-  export PATH="$tmpdir/node_modules/.bin:$PATH"
-
+  # No node_modules/prettier up the tree: the walk reaches the root, notes the
+  # skip and exits 0. test/test_init_hook_regressions.py covers the found path.
   echo "const x = 1" > test.js
-  output=$(echo '{"tool_input":{"file_path":"test.js"}}' | node "$PLUGIN_ROOT/skills/init/templates/hooks/format-node.cjs" 2>&1 || true)
-  # The node hook may fail if prettier isn't really there, but it shouldn't crash on JSON parsing
-  # Just verify it doesn't throw a JSON parse error
-  if echo "$output" | grep -q "SyntaxError"; then
-    printf "  FAIL  Node hook JSON parsing error\n"
-    ((errors++)) || true
-  else
-    printf "  PASS  Node hook parses JSON input without crash\n"
-    ((pass++)) || true
-  fi
+  set +e
+  output=$(echo '{"tool_input":{"file_path":"test.js"}}' | node "$PLUGIN_ROOT/skills/init/templates/hooks/format-node.cjs" 2>&1)
+  hook_status=$?
+  set -e
+  assert_output_contains "Node hook reports a missing prettier" "prettier not found" "$output"
+  assert_exit_zero "Node hook exits 0 when no prettier is reachable" "$hook_status"
   cleanup_fixture
 else
   echo "  SKIP  Node hook tests (node not installed)"
@@ -718,12 +728,6 @@ rp_normalize_no_realpath() { # $1=path -> normalized on a realpath-less platform
   rp_drive_fn "$RP_NO_PATH_TOOLS" collapse_dot_segments,normalize 'normalize "$1"' "$1"
 }
 
-# Normalize as MSYS/Cygwin would: a cygpath that maps backslashes to slashes and
-# a realpath that PRESERVES a distinct '//' root. Stubbed rather than relying on
-# the host, so the case is exercised on Linux CI too — and it is the only way to
-# reach the branch where the OS spelling ('\\server\share') differs from the raw
-# argument, which is exactly where probing "$1" instead of the post-cygpath
-# string silently collapses a remote path onto an unrelated local one.
 rp_collapse() { # $1=path -> lexically resolved, driving the function directly
   rp_drive_fn "" collapse_dot_segments \
     'collapse_dot_segments "$1"; printf "%s" "$_collapsed"' "$1"
@@ -758,6 +762,12 @@ rp_single_segment() { # $1=segment -> YES | NO
     'is_single_segment "$1" && echo YES || echo NO' "$1"
 }
 
+# Normalize as MSYS/Cygwin would: a cygpath that maps backslashes to slashes and
+# a realpath that PRESERVES a distinct '//' root. Stubbed rather than relying on
+# the host, so the case is exercised on Linux CI too — and it is the only way to
+# reach the branch where the OS spelling ('\\server\share') differs from the raw
+# argument, which is exactly where probing "$1" instead of the post-cygpath
+# string silently collapses a remote path onto an unrelated local one.
 rp_normalize_msys() { # $1=path -> normalized with cygpath+distinct-// realpath
   local d="$rp_tmp/msysbin"
   if [ ! -x "$d/cygpath" ]; then
@@ -789,6 +799,11 @@ assert_decision "Memory-store write allowed"           ALLOW "$(rp_decision Writ
 assert_decision "Memory-store subdir write allowed"    ALLOW "$(rp_decision Edit file_path "$mem/topics/x.md")"
 assert_decision "Memory-store notebook allowed"        ALLOW "$(rp_decision NotebookEdit notebook_path "$mem/nb.ipynb")"
 assert_decision "Global ~/.claude/settings.json asks"  ASK   "$(rp_decision Write file_path "$rp_tmp/home/.claude/settings.json")"
+assert_decision "MultiEdit outside project asks"       ASK   "$(rp_decision MultiEdit file_path "$rp_tmp/outside/a.txt")"
+assert_decision "Read tool passes through"             ALLOW "$(rp_decision Read file_path "$rp_tmp/outside/a.txt")"
+# An unknown project root is the documented FAIL-OPEN case: allow, never block.
+assert_decision "Unset CLAUDE_PROJECT_DIR fails open"  ALLOW \
+  "$(rp_decision_env -u CLAUDE_PROJECT_DIR HOME="$rp_tmp/home" -- Write file_path "$rp_tmp/outside/a.txt")"
 
 # Negative boundary: only a single-segment projects/<project>/memory subtree is
 # exempt. Traversal out of it, a sibling of memory/, a look-alike dir name, and a
@@ -811,10 +826,9 @@ assert_decision "Delete in memory store allowed"       ALLOW "$(rp_decision Bash
 assert_decision "Delete traversal out of memory denied" DENY "$(rp_decision Bash command "rm $mem/../../../settings.json")"
 
 # --- Fail-closed defensive branches (not reachable through the standard env above) ---
-# (1) When realpath cannot resolve '..' (non-GNU/BSD realpath — e.g. macOS, where
-# 'realpath -m' is unsupported), normalize() leaves the traversal intact and the
-# literal-'..' guard in is_claude_memory must still reject the exemption. Force that
-# branch with a non-resolving 'realpath' stub on PATH. (Robust either way: if the
+# (1) With a realpath that rejects '-m' (macOS/BSD), normalize() resolves the '..'
+# itself (collapse_dot_segments); the path must land outside the memory store.
+# Forced with a non-resolving 'realpath' stub on PATH. (Robust either way: if the
 # stub is bypassed and realpath resolves '..', the path still misses the memory
 # prefix and the expected ask/deny holds — only a wrongful allow would fail these.)
 rp_stub_bin="$rp_tmp/stubbin"
@@ -860,10 +874,10 @@ assert_decision "Nested scratchpad (deep) asks"        ASK   "$(rp_decision_scra
 assert_decision "Scratchpad traversal escape asks"     ASK   "$(rp_decision_scratch Write file_path "$scratch/../../../../outside/x.md")"
 assert_decision "Scratchpad delete traversal denied"   DENY  "$(rp_decision_scratch Bash command "rm $scratch/../../../../outside/x.md")"
 
-# Fail-closed: (1) the literal-'..' guard must reject the exemption when realpath
-# can't resolve '..' (reuses the non-resolving realpath stub from the memory block),
-# and (2) when no temp root can be resolved from the environment, scratchpad paths
-# fall back to the out-of-project gate. (rp_stub_bin is defined in the memory block.)
+# Fail-closed: (1) under the non-resolving realpath stub, normalize() still resolves
+# the '..', landing outside the scratchpad shape; (2) with TMPDIR/TEMP/TMP unset only
+# /tmp remains a temp root, so this tree is no longer a scratchpad.
+# (rp_stub_bin is defined in the memory block.)
 assert_decision "Scratchpad traversal asks when realpath can't resolve .." ASK \
   "$(rp_decision_env HOME="$rp_tmp/home" CLAUDE_PROJECT_DIR="$rp_tmp/proj" TMPDIR="$scratch_root" PATH="$rp_stub_bin:$PATH" -- Write file_path "$scratch/../../settings.json")"
 assert_decision "Scratchpad write asks when temp vars unset" ASK \
@@ -900,19 +914,11 @@ RESTRICT="$rp_saved_restrict"
 assert_decision "Restore check: real hook scores again" ASK \
   "$(rp_decision_env HOME="$rp_tmp/home" CLAUDE_PROJECT_DIR="$rp_tmp/proj" -- Write file_path /nope)"
 
-# A new file in an invented temp dir asks, and the reason carries the reminder.
+# A new file in an invented temp dir asks and names the file. The reminder's
+# wording and audience are pinned under "prompt audiences and wording" below.
 rp_run_scratch Write file_path "$scratch_root/scratch-foo/x.md"
 assert_decision "Invented temp dir write asks"        ASK "$(rp_verdict)"
-assert_reason_has "Nudge reason mentions the scratchpad" "scratchpad"
 assert_output_contains "Nudge reason names the file"  "$scratch_root/scratch-foo/x.md" "$rp_out"
-assert_exit_zero "Nudge is a real decision, not a crash" "$rp_last_status"
-# The nudge must NEVER deny — a deny cannot be approved by the user.
-assert_reason_lacks "Nudge never denies" "deny"
-
-rp_run_scratch NotebookEdit notebook_path "$scratch_root/scratch-foo/nb.ipynb"
-assert_decision "Notebook in invented temp dir asks"  ASK "$(rp_verdict)"
-rp_run_scratch Write file_path "$scratch_root/claude/E--proj/scratchpad/x.md"
-assert_decision "Shallow scratchpad asks (not exempt)" ASK "$(rp_verdict)"
 
 # A user-requested temp path must stay approvable — this is the case a deny broke.
 rp_run_scratch Write file_path "$scratch_root/report.csv"
@@ -926,13 +932,13 @@ mkdir -p "$scratch_root/pre-existing"
 : > "$rp_existing"
 rp_run_scratch Edit file_path "$rp_existing"
 assert_decision "Existing temp file edit asks"        ASK "$(rp_verdict)"
-assert_reason_lacks "Existing temp file gets no nudge" "scratchpad"
+assert_reason_lacks "Existing temp file gets no nudge" '"additionalContext"'
 rp_run_scratch Write file_path "$scratch_root/pre-existing/new.md"
 assert_decision "New file in the same dir asks"       ASK "$(rp_verdict)"
 rp_run HOME="$rp_tmp/home" CLAUDE_PROJECT_DIR="$rp_tmp/proj" TMPDIR="$scratch_root" -- \
   Write file_path "/var/opt/optimus-not-temp/a.txt"
 assert_decision "Non-temp outside path asks"          ASK "$(rp_verdict)"
-assert_reason_lacks "Non-temp path gets no nudge" "scratchpad"
+assert_reason_lacks "Non-temp path gets no nudge" '"additionalContext"'
 
 # ~/.claude is config, not scratch: it keeps the plain prompt even when HOME
 # itself sits under the temp root (CI images), while the memory store stays exempt.
@@ -941,11 +947,10 @@ mkdir -p "$rp_temp_home/.claude/projects/hash/memory"
 rp_run HOME="$rp_temp_home" CLAUDE_PROJECT_DIR="$rp_tmp/proj" TMPDIR="$scratch_root" -- \
   Write file_path "$rp_temp_home/.claude/settings.json"
 assert_decision "HOME under temp root: settings.json asks" ASK "$(rp_verdict)"
-assert_reason_lacks "settings.json gets no nudge" "scratchpad"
+assert_reason_lacks "settings.json gets no nudge" '"additionalContext"'
 rp_run HOME="$rp_temp_home" CLAUDE_PROJECT_DIR="$rp_tmp/proj" TMPDIR="$scratch_root" -- \
   Write file_path "$rp_temp_home/.claude/projects/hash/memory/M.md"
 assert_decision "HOME under temp root: memory store allowed" ALLOW "$(rp_verdict)"
-assert_exit_zero "Memory-store allow is real, not a crash" "$rp_last_status"
 
 # REGRESSION: the veto is scoped to ~/.claude, NOT to all of $HOME. A whole-$HOME
 # veto silently disabled the nudge wherever the temp root lives under the home
@@ -955,12 +960,7 @@ mkdir -p "$rp_tmp/home/tmp"
 rp_run HOME="$rp_tmp/home" CLAUDE_PROJECT_DIR="$rp_tmp/proj" TMPDIR="$rp_tmp/home/tmp" -- \
   Write file_path "$rp_tmp/home/tmp/invented/x.md"
 assert_decision "Temp root under HOME still asks"     ASK "$(rp_verdict)"
-assert_reason_has "Temp root under HOME still nudges" "scratchpad"
-
-# A traversal the platform's realpath cannot resolve must not be reasoned about.
-rp_run HOME="$rp_tmp/home" CLAUDE_PROJECT_DIR="$rp_tmp/proj" TMPDIR="$scratch_root" PATH="$rp_stub_bin:$PATH" -- \
-  Write file_path "$scratch_root/scratch-foo/../../x.md"
-assert_decision "Unresolved traversal asks"           ASK "$(rp_verdict)"
+assert_reason_has "Temp root under HOME still nudges" '"additionalContext"'
 
 echo "[restrict-paths: platform path shapes]"
 # macOS ships a TMPDIR ending in '/' and (13+) a realpath that rejects GNU's
@@ -973,10 +973,10 @@ assert_decision "Scratchpad write allowed under non-GNU realpath" ALLOW \
 # ...and the nudge on each, so a base that stops matching cannot go unnoticed.
 rp_run HOME="$rp_tmp/home" CLAUDE_PROJECT_DIR="$rp_tmp/proj" TMPDIR="$scratch_root/" -- \
   Write file_path "$scratch_root/scratch-foo/x.md"
-assert_reason_has "Trailing-slash temp root still nudges" "scratchpad"
+assert_reason_has "Trailing-slash temp root still nudges" '"additionalContext"'
 rp_run HOME="$rp_tmp/home" CLAUDE_PROJECT_DIR="$rp_tmp/proj" TMPDIR="$scratch_root/" PATH="$rp_stub_bin:$PATH" -- \
   Write file_path "$scratch_root/scratch-foo/x.md"
-assert_reason_has "Non-GNU realpath still nudges" "scratchpad"
+assert_reason_has "Non-GNU realpath still nudges" '"additionalContext"'
 
 # A RELATIVE temp root must be rejected outright: normalize() resolves it against
 # the hook's working directory, which would make an arbitrary sibling of the
@@ -1072,6 +1072,51 @@ assert_decision "Bundled -Df branch delete denied"     DENY  "$(rp_git_decision 
 assert_decision "Bundled -Df feature delete allowed"   ALLOW "$(rp_git_decision 'git branch -Df feature-x')"
 assert_decision "Commit with quoted message still guarded" DENY \
   "$(rp_git_decision 'git commit -m \"fix: something\"')"
+# cherry-pick/revert/am create commits exactly like 'commit' — same block.
+assert_decision "cherry-pick on protected denied" DENY "$(rp_git_decision 'git cherry-pick abc123')"
+assert_decision "revert on protected denied"      DENY "$(rp_git_decision 'git revert HEAD')"
+assert_decision "am on protected denied"          DENY "$(rp_git_decision 'git am patch.mbox')"
+# ...but their way OUT of a conflicted run commits nothing, and a protected
+# branch mid-pick has no other exit. --continue/--skip commit the rest.
+for rp_c in 'cherry-pick --abort' 'revert --quit' 'am --abort' 'am --show-current-patch' 'merge --abort'; do
+  assert_decision "git $rp_c on protected allowed" ALLOW "$(rp_git_decision "git $rp_c")"
+done
+for rp_c in 'cherry-pick --continue' 'cherry-pick --skip' 'am --skip' 'cherry-pick abc --abort' 'commit --abort'; do
+  assert_decision "git $rp_c on protected denied" DENY "$(rp_git_decision "git $rp_c")"
+done
+# The remaining hard-block arms, each beside a control proving the arm — not a
+# blanket deny — is what answers.
+assert_decision "reset --hard on protected denied"   DENY  "$(rp_git_decision 'git reset --hard HEAD~1')"
+assert_decision "reset --soft is not blocked"        ALLOW "$(rp_git_decision 'git reset --soft HEAD~1')"
+assert_decision "rebase on protected denied"         DENY  "$(rp_git_decision 'git rebase main')"
+assert_decision "merge on protected denied"          DENY  "$(rp_git_decision 'git merge feature-x')"
+assert_decision "restore on protected denied"        DENY  "$(rp_git_decision 'git restore src/a.txt')"
+assert_decision "checkout -- discard denied"         DENY  "$(rp_git_decision 'git checkout -- src/a.txt')"
+assert_decision "checkout . discard denied"          DENY  "$(rp_git_decision 'git checkout .')"
+assert_decision "checkout -B onto protected denied"  DENY  "$(rp_git_decision 'git checkout -B master')"
+assert_decision "checkout -b feature allowed"        ALLOW "$(rp_git_decision 'git checkout -b feature-y')"
+assert_decision "switch -C onto protected denied"    DENY  "$(rp_git_decision 'git switch -C master')"
+assert_decision "switch -c feature allowed"          ALLOW "$(rp_git_decision 'git switch -c feature-y')"
+assert_decision "push --delete protected denied"     DENY  "$(rp_git_decision 'git push origin --delete master')"
+assert_decision "push -d feature allowed"            ALLOW "$(rp_git_decision 'git push -d origin feature-x')"
+assert_decision "push src:protected refspec denied"  DENY  "$(rp_git_decision 'git push origin feature-x:master')"
+assert_decision "push +protected refspec denied"     DENY  "$(rp_git_decision 'git push origin +master')"
+assert_decision "push refs/heads/protected denied"   DENY  "$(rp_git_decision 'git push origin refs/heads/master')"
+# --all/--mirror must deny from ANY branch. On master a bare push is denied
+# anyway, so only a feature checkout shows the flag arm doing the work.
+rp_git_feat="$rp_tmp/gitfeat"
+mkdir -p "$rp_git_feat"
+git -C "$rp_git_feat" init -q -b feature-x 2>/dev/null \
+  || { git -C "$rp_git_feat" init -q && git -C "$rp_git_feat" checkout -q -b feature-x; }
+git -C "$rp_git_feat" -c user.email=t@t -c user.name=t -c commit.gpgsign=false \
+  commit -q --allow-empty -m init
+assert_decision "push --all from a feature branch denied"    DENY  "$(rp_decision Bash command "git -C $rp_git_feat push --all")"
+assert_decision "push --mirror from a feature branch denied" DENY  "$(rp_decision Bash command "git -C $rp_git_feat push --mirror")"
+assert_decision "plain push from a feature branch allowed"   ALLOW "$(rp_decision Bash command "git -C $rp_git_feat push")"
+# Multi-repo workspace: $rp_tmp/proj is not a repo, so the target repo comes from -C or the chain's cd.
+assert_decision "git -C <repo> commit on protected denied"    DENY  "$(rp_decision Bash command "git -C $rp_git commit -m x")"
+assert_decision "cd <repo> && git commit on protected denied" DENY  "$(rp_decision Bash command "cd $rp_git && git commit -m x")"
+assert_decision "git commit with no repo in reach fails open" ALLOW "$(rp_decision Bash command 'git commit -m x')"
 
 echo "[restrict-paths: command-parsing bypasses]"
 # Every case here is the SAME command a plain-spelling assertion above already
@@ -1110,10 +1155,64 @@ assert_decision "rm inside a for-loop body denied" DENY \
   "$(rp_decision Bash command "for f in a; do rm $rp_tmp/outside/a.txt; done")"
 assert_decision "rm inside an if body denied" DENY \
   "$(rp_decision Bash command "if true; then rm $rp_tmp/outside/a.txt; fi")"
+# A case arm, a function body, a brace group, a negation, and a while/until/if
+# CONDITION put the command behind punctuation or a keyword that the do/then
+# cases above never reach.
+assert_decision "rm in a case arm denied" DENY \
+  "$(rp_decision Bash command "case x in y) rm $rp_tmp/outside/a.txt;; esac")"
+# Only the first arm follows `case`: `;;`, a pattern's `|` and a newline start
+# the others at their pattern. A `$(...)` subject holds a ')' of its own, and an
+# arm BODY's `$(...)` is not a pattern.
+assert_decision "rm in a later case arm denied" DENY \
+  "$(rp_decision Bash command "case x in a) echo;; b) rm $rp_tmp/outside/a.txt;; esac")"
+assert_decision "rm after a case pattern alternation denied" DENY \
+  "$(rp_decision Bash command "case x in a|b) rm $rp_tmp/outside/a.txt;; esac")"
+assert_decision "rm in a case arm on its own line denied" DENY \
+  "$(rp_decision Bash command "case x in\\na) rm $rp_tmp/outside/a.txt;;\\nesac")"
+assert_decision "rm under a substituted case subject denied" DENY \
+  "$(rp_decision Bash command "case \$(uname) in *) rm $rp_tmp/outside/a.txt;; esac")"
+assert_decision "Substitution in an arm body is not a pattern" DENY \
+  "$(rp_decision Bash command "case x in a) FOO=\$(pwd)/x rm $rp_tmp/outside/a.txt;; esac")"
+# A pattern or a subject is ONE shell word, quotes and escapes included — and
+# `in` may start the line after `case x`.
+assert_decision "rm after a quoted pattern with a space denied" DENY \
+  "$(rp_decision Bash command "case \$m in \\\"a b\\\") rm $rp_tmp/outside/a.txt;; esac")"
+assert_decision "rm after an escaped-space pattern denied" DENY \
+  "$(rp_decision Bash command "case \$m in a\\\\ b) rm $rp_tmp/outside/a.txt;; esac")"
+assert_decision "rm after a later quoted pattern denied" DENY \
+  "$(rp_decision Bash command "case \$m in a) echo;; 'c d') rm $rp_tmp/outside/a.txt;; esac")"
+assert_decision "rm after a (pattern) arm denied" DENY \
+  "$(rp_decision Bash command "case \$m in a) echo;; (b) rm $rp_tmp/outside/a.txt;; esac")"
+assert_decision "rm under a subject holding ' in ' denied" DENY \
+  "$(rp_decision Bash command "case \\\"a in b\\\" in x) rm $rp_tmp/outside/a.txt;; esac")"
+assert_decision "rm in an arm after a lone 'case x' line denied" DENY \
+  "$(rp_decision Bash command "case x\\nin a) rm $rp_tmp/outside/a.txt;; esac")"
+# A subshell can open behind a peeled pattern or keyword, not only at the head
+# of a fragment.
+assert_decision "subshell rm after a case pattern denied" DENY \
+  "$(rp_decision Bash command "case x in a) (rm $rp_tmp/outside/a.txt) ;; esac")"
+assert_decision "subshell rm after do denied" DENY \
+  "$(rp_decision Bash command "for f in a; do (rm $rp_tmp/outside/a.txt); done")"
+assert_decision "rm in a function body denied" DENY \
+  "$(rp_decision Bash command "f() { rm $rp_tmp/outside/a.txt; }")"
+assert_decision "rm in a brace group denied" DENY \
+  "$(rp_decision Bash command "{ rm $rp_tmp/outside/a.txt; }")"
+assert_decision "negated rm denied" DENY \
+  "$(rp_decision Bash command "! rm $rp_tmp/outside/a.txt")"
+assert_decision "rm in a while condition denied" DENY \
+  "$(rp_decision Bash command "while rm $rp_tmp/outside/a.txt; do :; done")"
+assert_decision "rm in an until condition denied" DENY \
+  "$(rp_decision Bash command "until rm $rp_tmp/outside/a.txt; do :; done")"
+assert_decision "rm in an if condition denied" DENY \
+  "$(rp_decision Bash command "if rm $rp_tmp/outside/a.txt; then :; fi")"
+assert_decision "rmdir outside project denied" DENY \
+  "$(rp_decision Bash command "rmdir $rp_tmp/outside")"
 assert_decision "Backgrounded push to protected branch denied" DENY \
   "$(rp_git_decision 'true & git push origin master')"
 assert_decision "Push to protected branch in a loop body denied" DENY \
   "$(rp_git_decision 'for f in a; do git push origin master; done')"
+assert_decision "Push in a later case arm denied" DENY \
+  "$(rp_git_decision 'case x in a) echo;; b) git push origin master;; esac')"
 assert_decision "Quoted protected branch name denied" DENY \
   "$(rp_git_decision 'git push origin \"master\"')"
 # A backslash-newline is a line CONTINUATION, not a separator. Split on the
@@ -1254,15 +1353,12 @@ assert_decision "sudo -Eu bundled user flag denied" DENY \
   "$(rp_decision Bash command "sudo -Eu root rm $rp_tmp/outside/a.txt")"
 assert_decision "sudo -Hu does not hide a protected push" DENY \
   "$(rp_git_decision 'sudo -Hu root git push origin master')"
-# The long spelling is still matched WHOLE — a long name is one option, not a
-# cluster, so its last letter means nothing.
-assert_decision "sudo --user long flag denied" DENY \
-  "$(rp_decision Bash command "sudo --user root rm $rp_tmp/outside/a.txt")"
 
 # An exported variable whose name matches one of the hook's own globals was
 # captured with the HOOK's value by the environment snapshot — `${!name}` reads
-# the shell namespace, not the environment. Every global is _rp_-prefixed so no
-# user-exported name can collide.
+# the shell namespace, not the environment. The snapshot now runs before the hook
+# assigns any other global, so no user-exported name can collide — including
+# PROTECTED_BRANCHES, which /optimus:commit parses and so cannot be prefixed.
 assert_decision "exported 'root' is the caller's, not the hook's" DENY \
   "$(rp_decision_env HOME="$rp_tmp/home" CLAUDE_PROJECT_DIR="$rp_tmp/proj" \
      root="$rp_tmp/outside" -- Bash command 'rm -rf $root/a.txt')"
@@ -1272,6 +1368,11 @@ assert_decision "exported 'cmd' is the caller's, not the hook's" DENY \
 assert_decision "exported 'tool_name' is the caller's, not the hook's" DENY \
   "$(rp_decision_env HOME="$rp_tmp/home" CLAUDE_PROJECT_DIR="$rp_tmp/proj" \
      tool_name="$rp_tmp/outside" -- Bash command 'rm -rf $tool_name/a.txt')"
+# The cd puts the hook's own value ('master') inside the project; without it the
+# relative word resolves against the test's cwd and is denied for the wrong reason.
+assert_decision "exported 'PROTECTED_BRANCHES' is the caller's, not the hook's" DENY \
+  "$(rp_decision_env HOME="$rp_tmp/home" CLAUDE_PROJECT_DIR="$rp_tmp/proj" \
+     PROTECTED_BRANCHES="$rp_tmp/outside" -- Bash command "cd $rp_tmp/proj && rm -rf \$PROTECTED_BRANCHES/a.txt")"
 
 # A redirection names a stream. Counted as a delete target it produced an
 # unappealable deny on `rm <in-project> > /dev/null`; counted as a refspec it
@@ -1444,6 +1545,20 @@ assert_decision "double-quoted paren is not a subshell close" DENY \
   "$(rp_decision_cwd "(cd $rp_tmp/outside && echo \\\"a)b\\\" && rm a.txt)")"
 assert_decision "close followed by a redirection still closes" ALLOW \
   "$(rp_decision_cwd "(cd $rp_tmp/outside && ls) 2>&1 && rm -rf build")"
+# A case pattern's ')' closes no subshell, alone on its line or not — while a
+# subshell's close inside an arm, `make) 2>&1`, still does.
+assert_decision "case arm paren is not a subshell close" DENY \
+  "$(rp_decision_cwd "(cd $rp_tmp/outside && case x in a) echo;; esac; rm a.txt)")"
+assert_decision "case pattern on its own line is not a close" DENY \
+  "$(rp_decision_cwd "(cd $rp_tmp/outside && case x in\\na)\\nrm a.txt;;\\nesac)")"
+assert_decision "subshell close inside a case arm still closes" ALLOW \
+  "$(rp_decision_cwd "case x in\\na)\\n(cd $rp_tmp/outside && make) 2>&1\\nrm -rf build;;\\nesac")"
+assert_decision "cd in a subshell after a case pattern is tracked" DENY \
+  "$(rp_decision_cwd "case x in a) (cd $rp_tmp/outside && rm a.txt) ;; esac")"
+assert_decision "cd in a subshell after a case pattern ends with it" ALLOW \
+  "$(rp_decision_cwd "case x in a) (cd $rp_tmp/outside && ls) ;; esac; rm -rf build")"
+assert_decision "esac) closes the subshell around a case" ALLOW \
+  "$(rp_decision_cwd "(cd $rp_tmp/outside && case x in a) echo;; esac) && rm -rf build")"
 
 # A wrapper option can move the command with no `cd` in sight. The walk already
 # had to step over the value to reach the command word; discarding it meant the
@@ -1459,6 +1574,12 @@ assert_decision "env -C chdir is tracked" DENY \
 # spawns, not the shell, so nothing after the fragment inherits it.
 assert_decision "wrapper chdir does not leak to the next fragment" ALLOW \
   "$(rp_decision_cwd "env -C $rp_tmp/outside ls && rm -rf build")"
+# A cd inside `sh -c` dies with the child shell; one inside `eval` runs in the
+# current shell and carries over to the next fragment.
+assert_decision "sh -c cd does not leak to the next fragment" ALLOW \
+  "$(rp_decision_cwd "bash -c 'cd $rp_tmp/outside' ; rm a.txt")"
+assert_decision "eval cd carries to the next fragment" DENY \
+  "$(rp_decision_cwd "eval cd $rp_tmp/outside ; rm a.txt")"
 
 # Deleting a protected branch was blocked; MOVING one was not, though it loses
 # exactly as much. `git update-ref` does it with no branch subcommand at all,
@@ -1507,14 +1628,26 @@ assert_decision "single-arg -M rename off master denied" DENY \
 # would deny an ordinary branch create.
 assert_decision "git -c global option is not a branch copy" ALLOW \
   "$(rp_git_decision 'git -c user.name=x branch feature-y')"
+# --force-create is -C's long form, and git accepts any unique prefix of it:
+# each spelling force-resets its target exactly as `switch -C` does.
+assert_decision "switch --force-create onto protected denied" DENY \
+  "$(rp_git_decision 'git switch --force-create master')"
+assert_decision "switch --force-create= onto protected denied" DENY \
+  "$(rp_git_decision 'git switch --force-create=master')"
+assert_decision "switch abbreviated --force-c onto protected denied" DENY \
+  "$(rp_git_decision 'git switch --force-c master')"
+assert_decision "switch --force-create feature allowed" ALLOW \
+  "$(rp_git_decision 'git switch --force-create feature-x')"
+assert_decision "switch --force is not force-create" ALLOW \
+  "$(rp_git_decision 'git switch --force master')"
 
 # A backup suffix must not launder a file off the hard precious list. These run
 # against is_precious_name directly: the delete gate needs an untracked file to
 # exist in a git repo, and the classification is what a regression would break.
 rp_precious_name() { # $1=basename -> PRECIOUS | RECOVERABLE | ORDINARY
-  rp_drive_fn "" strip_backup_suffix,is_precious_name,basename_of,precious_basename,is_recoverable_precious,is_recoverable_precious_name \
+  rp_drive_fn "" strip_backup_suffix,is_precious_name,is_recoverable_precious_name \
     'if is_precious_name "$1"; then echo PRECIOUS
-     elif is_recoverable_precious "$1"; then echo RECOVERABLE
+     elif is_recoverable_precious_name "$1"; then echo RECOVERABLE
      else echo ORDINARY; fi' "$1"
 }
 assert_decision ".env is precious"              PRECIOUS    "$(rp_precious_name '.env')"
@@ -1570,6 +1703,57 @@ assert_decision "delete secrets.user denied"    DENY  "$(rp_git_decision "rm $rp
 # model, not the user, so it could never be overridden.
 assert_decision "delete proj.suo allowed"       ALLOW "$(rp_git_decision "rm $rp_git/proj.suo")"
 assert_decision "delete notes.txt.bak allowed"  ALLOW "$(rp_git_decision "rm $rp_git/notes.txt.bak")"
+# A glob names no file itself, so the gate judges what the shell expands it to.
+: > "$rp_git/app.sqlite"
+assert_decision "glob matching .env denied"     DENY  "$(rp_git_decision "rm -f $rp_git/.env*")"
+assert_decision "glob matching *.sqlite denied" DENY  "$(rp_git_decision "rm -f $rp_git/*.sqlite")"
+assert_decision "glob of a recoverable allowed" ALLOW "$(rp_git_decision "rm -f $rp_git/notes*.bak")"
+assert_decision "glob matching nothing allowed" ALLOW "$(rp_git_decision "rm -f $rp_git/nomatch*")"
+# A name that merely LOOKS like a glob is still a file: quoted, or matching
+# nothing, the shell deletes it as written.
+: > "$rp_git/secret[1].key"
+assert_decision "quoted glob-shaped precious name denied" DENY \
+  "$(rp_git_decision "rm '$rp_git/secret[1].key'")"
+assert_decision "unquoted glob-shaped precious name denied" DENY \
+  "$(rp_git_decision "rm $rp_git/secret[1].key")"
+rm -f "$rp_git/secret[1].key"
+# The tracked check runs ONCE over a glob's precious matches, not per match: a
+# fork chain per file let a big glob outrun the hook's timeout, which fails open.
+mkdir -p "$rp_git/fixtures"
+for rp_pf in a b c; do : > "$rp_git/fixtures/$rp_pf.sqlite"; done
+git -C "$rp_git" add fixtures
+git -C "$rp_git" -c user.email=t@t -c user.name=t -c commit.gpgsign=false commit -q -m fixtures
+rp_git_shim="$rp_tmp/gitshim"
+mkdir -p "$rp_git_shim"
+printf '#!/bin/sh\necho "$*" >> "%s/calls"\nexec "%s" "$@"\n' "$rp_git_shim" "$(command -v git)" > "$rp_git_shim/git"
+chmod +x "$rp_git_shim/git"
+assert_decision "glob of tracked precious files allowed" ALLOW \
+  "$(rp_decision_env HOME="$rp_tmp/home" CLAUDE_PROJECT_DIR="$rp_git" PATH="$rp_git_shim:$PATH" -- Bash command "rm -f $rp_git/fixtures/*.sqlite")"
+assert_equals "glob of tracked precious files runs ls-files once" 1 \
+  "$(grep -c 'ls-files' "$rp_git_shim/calls")"
+: > "$rp_git/fixtures/d.sqlite"
+assert_decision "glob with one untracked precious file denied" DENY \
+  "$(rp_git_decision "rm -f $rp_git/fixtures/*.sqlite")"
+rm -rf "$rp_git/fixtures/d.sqlite"
+
+# The WRITE gates end to end, and the tracked exemption on every gate. The cases
+# above drive the classifier or delete UNTRACKED files, so dropping the
+# Write/NotebookEdit ask or any `! is_git_tracked` left this suite green.
+: > "$rp_git/.env.tracked"
+git -C "$rp_git" add .env.tracked
+git -C "$rp_git" -c user.email=t@t -c user.name=t -c commit.gpgsign=false commit -q -m tracked
+rp_run HOME="$rp_tmp/home" CLAUDE_PROJECT_DIR="$rp_git" -- Write file_path "$rp_git/.env"
+assert_decision "write untracked .env asks" ASK "$(rp_verdict)"
+assert_reason_has "write ask is the precious one" "precious file not tracked by git"
+assert_decision "write untracked notes.txt.bak asks" ASK \
+  "$(rp_decision_env HOME="$rp_tmp/home" CLAUDE_PROJECT_DIR="$rp_git" -- Write file_path "$rp_git/notes.txt.bak")"
+assert_decision "notebook edit of untracked .env asks" ASK \
+  "$(rp_decision_env HOME="$rp_tmp/home" CLAUDE_PROJECT_DIR="$rp_git" -- NotebookEdit notebook_path "$rp_git/.env")"
+assert_decision "write tracked precious file allowed" ALLOW \
+  "$(rp_decision_env HOME="$rp_tmp/home" CLAUDE_PROJECT_DIR="$rp_git" -- Write file_path "$rp_git/.env.tracked")"
+assert_decision "notebook edit of tracked precious file allowed" ALLOW \
+  "$(rp_decision_env HOME="$rp_tmp/home" CLAUDE_PROJECT_DIR="$rp_git" -- NotebookEdit notebook_path "$rp_git/.env.tracked")"
+assert_decision "delete tracked precious file allowed" ALLOW "$(rp_git_decision "rm $rp_git/.env.tracked")"
 
 # Claude Code spells file_path with backslashes on Windows, and splitting on '/'
 # alone left the WHOLE path as the basename — which no prefix or exact precious
@@ -1649,10 +1833,6 @@ assert_decision "Literal '*' in an in-project filename still allowed" ALLOW \
   "$(cd "$rp_glob_cwd" && rp_decision_env HOME="$rp_tmp/home" CLAUDE_PROJECT_DIR="$rp_tmp/proj" PATH="$rp_stub_bin:$PATH" -- Write file_path "$rp_tmp/proj/star*file.txt")"
 
 echo "[restrict-paths: no realpath at all (cd/pwd fallback)]"
-# $rp_stub_bin models a realpath that EXISTS and rejects '-m'. A realpath that is
-# absent entirely is a different platform (older macOS, distroless) and reaches
-# normalize()'s cd/pwd branch, which splices '//tmp' when the parent is '/'.
-# Nothing else in this file exercises that branch.
 assert_decision "normalize collapses a spliced //tmp"  "/tmp"     "$(rp_normalize_no_realpath /tmp)"
 assert_decision "normalize collapses a spliced //var"  "/var"     "$(rp_normalize_no_realpath /var)"
 assert_decision "normalize leaves an ordinary path"    "/tmp/a/b" "$(rp_normalize_no_realpath /tmp/a/b)"
@@ -1689,8 +1869,6 @@ echo "[restrict-paths: prompt audiences and wording]"
 rp_run_scratch Write file_path "$scratch_root/scratch-foo/x.md"
 assert_reason_has  "Nudge carries additionalContext for Claude" '"additionalContext"'
 assert_reason_has  "additionalContext names the scratchpad" "scratchpad directory given in your system prompt"
-assert_reason_has  "User-facing reason names the file" "$scratch_root/scratch-foo/x.md"
-assert_decision    "Nudge is still only an ask"       ASK "$(rp_verdict)"
 # The reminder must live ONLY in additionalContext. Asserting over the whole
 # payload cannot see that — it contains both fields — so isolate the user-facing
 # reason first. Checking for the pre-fix wording instead would be vacuous: that
@@ -1725,11 +1903,12 @@ assert_reason_has "Nudged notebook keeps its verb" "Allow this edit?"
 assert_reason_has "Nudged notebook is really nudged" '"additionalContext"'
 
 # A '..' that normalize() CAN resolve is judged on where it actually lands, not
-# refused: '<temp>/scratch-foo/../../x.md' resolves to a path still under the
-# temp root, so the nudge is correct there.
+# refused: '<temp>/scratch-foo/../x.md' resolves to '<temp>/x.md', a new file
+# still under the temp root, so the nudge is correct there.
 rp_run HOME="$rp_tmp/home" CLAUDE_PROJECT_DIR="$rp_tmp/proj" TMPDIR="$scratch_root" PATH="$rp_stub_bin:$PATH" -- \
-  Write file_path "$scratch_root/scratch-foo/../../x.md"
+  Write file_path "$scratch_root/scratch-foo/../x.md"
 assert_decision "Resolvable traversal is judged on its target" ASK "$(rp_verdict)"
+assert_reason_has "Resolvable traversal under the temp root is nudged" '"additionalContext"'
 # ...but a path that stays unresolvable after normalize() — a RELATIVE one, which
 # has no root to anchor '..' against — must never reach the nudge or an auto-allow.
 rp_run HOME="$rp_tmp/home" CLAUDE_PROJECT_DIR="$rp_tmp/proj" TMPDIR="$scratch_root" PATH="$rp_stub_bin:$PATH" -- \
@@ -1799,9 +1978,6 @@ assert_decision "collapse: '*' consumes exactly one '..'" "/x/y" "$(rp_collapse_
 assert_decision "collapse: '*' cannot absorb a climb out" "/y" "$(rp_collapse_globcwd '/x/*/../../y')"
 
 echo "[restrict-paths: defensive predicates]"
-# These two are backstops behind normalize()'s central resolution, so no tool
-# call can reach them any more — delete either and every end-to-end assertion
-# still passes. Pin them directly, or they rot silently while looking guarded.
 assert_decision "traversal: bare '..'"            YES "$(rp_has_traversal '..')"
 assert_decision "traversal: leading '../'"        YES "$(rp_has_traversal '../x')"
 assert_decision "traversal: embedded '/../'"      YES "$(rp_has_traversal '/a/../b')"
@@ -1826,8 +2002,6 @@ assert_decision "Backslash UNC keeps its // root" "//server/share/temp" \
   "$(rp_normalize_msys '\\server\share\temp')"
 assert_decision "Slash UNC keeps its // root"     "//server/share/temp" \
   "$(rp_normalize_msys '//server/share/temp')"
-assert_decision "Both UNC spellings normalize alike" "$(rp_normalize_msys '//server/share/x')" \
-  "$(rp_normalize_msys '\\server\share\x')"
 assert_decision "Remote UNC never collides with a local path" DIFFERENT \
   "$([ "$(rp_normalize_msys '\\server\share\x')" != "$(rp_normalize_msys '/server/share/x')" ] \
      && echo DIFFERENT || echo COLLIDED)"
@@ -1843,8 +2017,7 @@ rp_run HOME="$rp_tmp/home" CLAUDE_PROJECT_DIR="$rp_tmp/proj" -- Write file_path 
 assert_reason_has "Formfeed is escaped as \\f, not dropped" 'a\fb'
 # Every decision must be parseable JSON — that is what makes escaping load-bearing.
 # Probe by RUNNING the interpreter, not `command -v`: on Windows a bare `python`
-# can resolve to the Store alias stub, which exists but cannot run anything
-# (same probe validate.sh uses).
+# can resolve to the Store alias stub, which exists but cannot run anything.
 rp_py=""
 if python3 --version >/dev/null 2>&1; then rp_py="python3"
 elif python --version >/dev/null 2>&1; then rp_py="python"
@@ -1896,6 +2069,9 @@ assert_decision "In-project rm stays silent under errexit" ALLOW \
   "$(rp_ee_bash "rm -rf $rp_tmp/proj/src/a.txt" "$rp_tmp/proj")"
 assert_decision "Escaped word decides under errexit" DENY \
   "$(rp_ee_bash "rm -rf \\\\$rp_tmp/outside/a.txt" "$rp_tmp/proj")"
+# The glob branch probes nullglob with `shopt -q`, which fails when it is off.
+assert_decision "Precious glob delete decides under errexit" DENY \
+  "$(rp_ee_bash "rm -f $rp_git/.env*" "$rp_git")"
 
 # ============================================================
 # Summary

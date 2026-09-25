@@ -138,6 +138,8 @@ def assess_output(output, expected, config_hash):
         keys = [row_key(row) for row in rows]
         if len(set(keys)) != len(keys) or set(keys) != {row_key(r) for r in expected}:
             return checks
+        # close(x, x) is true only for a finite, non-bool number, so this rejects
+        # missing values, NaN, infinities and ints too large for a float.
         if any(
             not close(row.get(field), row.get(field))
             for row in rows
@@ -196,6 +198,7 @@ def replay(project, entrypoint, evidence, scope="core", timeout=30):
         or entrypoint.drive
         or ".." in entrypoint.parts
         or entrypoint.suffix != ".py"
+        or shutil.ignore_patterns(*IGNORED)("", entrypoint.parts)
         or not (project / entrypoint).is_file()
     ):
         raise ValueError("Entrypoint must be an existing relative Python file")

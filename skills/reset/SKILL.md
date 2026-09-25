@@ -1,5 +1,5 @@
 ---
-description: Removes selected Optimus project artifacts, or only the permissions setup with the permissions argument. Reviews ownership, current content, and Git recoverability; preserves ambiguous user content and backs up selected changes when needed. Requires a concrete deletion selection. Tests are never touched. Monorepo and multi-repo aware.
+description: Removes selected init and permissions setup from the project, or only the permissions setup with the permissions argument. Reviews ownership, current content, and Git recoverability; preserves ambiguous user content and backs up selected changes when needed. Requires a concrete deletion selection. Tests are never touched. Monorepo and multi-repo aware.
 disable-model-invocation: true
 argument-hint: "[permissions]"
 ---
@@ -23,7 +23,7 @@ The `permissions` scope removes Claude Code configuration from either host; it d
 
 ## Step 1 — Detect and inventory
 
-If `git rev-parse --is-inside-work-tree` returns `true`, resolve `git rev-parse --show-toplevel` (including linked worktrees). Otherwise apply `$CLAUDE_PLUGIN_ROOT/skills/init/references/multi-repo-detection.md`. Process each selected child repo independently; include workspace-root context files only when applicable.
+If `git rev-parse --is-inside-work-tree` returns `true`, resolve `git rev-parse --show-toplevel` (including linked worktrees). Otherwise apply `$CLAUDE_PLUGIN_ROOT/skills/init/references/multi-repo-detection.md`. Process each child repo independently; include workspace-root context files only when applicable.
 
 Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/managed-files.md` and any `.claude/.optimus-managed.json`.
 
@@ -47,7 +47,7 @@ Show two independent dimensions for each candidate:
 
 | Content / ownership | Meaning |
 |---|---|
-| `UNMODIFIED` | Current SHA-256 matches a valid recorded file entry's `sha256`. Show whether that baseline is a template or an approved customization (`refresh: "review"`). |
+| `UNMODIFIED` | CRLF-normalized current SHA-256 matches a valid recorded file entry's `sha256`. Show whether that baseline is a template or an approved customization (`refresh: "review"`). |
 | `MODIFIED` | Recorded file differs from its entry's `sha256`. Read it before proposing removal. |
 | `UNKNOWN` | No usable record; may be legacy Optimus content or independently authored. |
 | `COMPLEX` | Shared settings.json, AGENTS.md, or ownership record; propose exact entry/block edits. |

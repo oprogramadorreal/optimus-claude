@@ -6,13 +6,24 @@ import sys
 from pathlib import Path
 
 import pytest
-from harness_common import cli, git, reporting
+from harness_common import cli, git
+from harness_common.runner import _find_bash, bash_environment
 
 
 def _git(root, *args):
     return subprocess.run(
         ["git", *args], cwd=root, capture_output=True, check=True
     ).stdout
+
+
+def _submodule_add(cwd, url, name):
+    subprocess.run(
+        ["git", "-c", "protocol.file.allow=always", "submodule", "add", url, name],
+        cwd=cwd,
+        env=bash_environment(_find_bash()),
+        capture_output=True,
+        check=True,
+    )
 
 
 def _init_repo(root):
@@ -74,7 +85,6 @@ def _empty_valid():
         iteration=1,
         new_findings=[],
         fixes_applied=[],
-        fixes_skipped_persistent=[],
         no_new_findings=False,
         no_actionable_fixes=False,
     )
@@ -154,6 +164,23 @@ def test_checkpoint_requires_same_green_bytes_without_repeating_tests(
     assert _cmd(progress, "commit-checkpoint") == 0
     assert _git(tmp_path, "show", "HEAD:untracked.txt") == b"new work"
     assert not _git(tmp_path, "ls-tree", "-r", "--name-only", "HEAD", ".claude")
+
+
+def test_no_commit_no_fix_exit_does_not_retest_validated_tree(tmp_path, monkeypatch):
+    progress = _setup(tmp_path, baseline=False)
+    data = json.loads(progress.read_text(encoding="utf-8"))
+    data["config"]["no_commit"] = True
+    progress.write_text(json.dumps(data), encoding="utf-8")
+    (tmp_path / "app.txt").write_bytes(b"accepted GOOD\n")
+    assert _cmd(progress, "baseline") == 0
+    assert _cmd(progress, "snapshot") == 0
+    monkeypatch.setattr(
+        cli,
+        "run_tests",
+        lambda *a, **kw: pytest.fail("Safe exit re-tested an already-green tree"),
+    )
+    output = dict(_empty_valid(), no_new_findings=True)
+    assert _cmd(progress, "deep-step", "--result-file", _result(tmp_path, output)) == 0
 
 
 @pytest.mark.parametrize("stage_new_file", [False, True])
@@ -266,6 +293,26 @@ def test_package_restore_preserves_sibling_work(tmp_path, mode, package_name):
     if mode == "snapshot":
         assert (package / "notes.txt").read_bytes() == b"user notes\n"
         assert not _git(tmp_path, "ls-files", "--", f"{package_name}/notes.txt")
+
+
+def test_package_checkpoint_leaves_sibling_work_uncommitted(tmp_path):
+    _init_repo(tmp_path)
+    package = tmp_path / "package"
+    package.mkdir()
+    (package / "app.txt").write_bytes(b"GOOD\n")
+    _git(tmp_path, "add", "package")
+    _git(tmp_path, "commit", "-m", "package")
+    progress = _setup(package, init_repo=False)
+    (package / "app.txt").write_bytes(b"GOOD fix\n")
+    assert _cmd(progress, "baseline") == 0
+    (tmp_path / "app.txt").write_bytes(b"sibling edit\n")
+    (tmp_path / "notes.txt").write_bytes(b"sibling notes\n")
+
+    assert _cmd(progress, "commit-checkpoint") == 0
+    committed = _git(tmp_path, "show", "--name-only", "--format=", "HEAD")
+    assert committed.split() == [b"package/app.txt"]
+    assert (tmp_path / "app.txt").read_bytes() == b"sibling edit\n"
+    assert not _git(tmp_path, "ls-files", "--", "notes.txt")
 
 
 @pytest.mark.parametrize("stage_addition", [False, True])
@@ -460,9 +507,17 @@ def test_directory_replacing_output_is_a_protected_input(tmp_path):
     assert _cmd(progress, "commit-checkpoint") == 1
 
 
-def test_source_edited_during_tests_fails_validation(tmp_path, capsys):
-    command = _python_command("Path('app.txt').write_bytes(b'GOOD edited')")
-    progress = _setup(tmp_path, test_command=command, baseline=False)
+@pytest.mark.parametrize(
+    "change",
+    [
+        "Path('app.txt').write_bytes(b'GOOD edited')",
+        "Path('app.txt').unlink()",
+        "Path('app.txt').unlink(); Path('app.txt').mkdir(); Path('app.txt/x').touch()",
+    ],
+    ids=["edited", "deleted", "replaced-by-directory"],
+)
+def test_source_changed_during_tests_fails_validation(tmp_path, capsys, change):
+    progress = _setup(tmp_path, test_command=_python_command(change), baseline=False)
     assert _cmd(progress, "baseline") == 1
     assert "changed during tests" in capsys.readouterr().out
 
@@ -474,19 +529,13 @@ def test_uninitialized_submodule_does_not_block_baseline(tmp_path):
     upstream = tmp_path / "upstream"
     upstream.mkdir()
     _init_repo(upstream)
-    _git(
-        upstream,
-        "-c",
-        "protocol.file.allow=always",
-        "submodule",
-        "add",
-        library.as_posix(),
-        "library",
-    )
+    _submodule_add(upstream, library.as_posix(), "library")
     _git(upstream, "commit", "-m", "add submodule")
     clone = tmp_path / "clone"
     subprocess.run(
-        ["git", "clone", "-q", upstream.as_posix(), clone.as_posix()], check=True
+        ["git", "clone", "-q", upstream.as_posix(), clone.as_posix()],
+        env=bash_environment(_find_bash()),
+        check=True,
     )
     assert not (clone / "library" / ".git").exists()
     _git(clone, "config", "user.name", "Fixture")
@@ -556,20 +605,18 @@ def test_resume_after_safety_error_points_to_baseline(tmp_path, capsys):
     assert _cmd(progress, "snapshot") == 0
 
 
-@pytest.mark.parametrize("mode", ["no_commit", "commit_disabled"])
-def test_uncommitted_report_never_suggests_destructive_rollback(mode, capsys):
-    progress = {"config": {"base_commit": "abc123"}}
-    (progress["config"] if mode == "no_commit" else progress)[mode] = True
-    reporting._print_rollback_footer(progress, True)
-    output = capsys.readouterr().out
-    assert "uncommitted" in output
-    assert "reset --hard" not in output
-    assert "rebase" not in output
+def test_fresh_init_ignores_prior_harness_state(tmp_path):
+    _init_repo(tmp_path)
+    progress = tmp_path / ".claude" / "code-review-deep-progress.json"
+    init = ["init", "--skill", "code-review", "--project-dir", str(tmp_path)]
+    init += ["--test-command", _python_command("pass"), "--progress-file"]
+    assert cli.main([*init, str(progress)]) == 0
+    assert cli.main([*init, str(progress), "--force"]) == 0  # untracked prior run
+    progress.replace(progress.with_suffix(".done.json"))
+    assert cli.main([*init, str(progress)]) == 0  # an archived prior run
 
 
 def _nested_repository_fixture(tmp_path, kind="submodule"):
-    from harness_common.runner import _find_bash, bash_environment
-
     root = tmp_path / "project"
     root.mkdir()
     _init_repo(root)
@@ -577,21 +624,7 @@ def _nested_repository_fixture(tmp_path, kind="submodule"):
         upstream = tmp_path / "upstream"
         upstream.mkdir()
         _init_repo(upstream)
-        subprocess.run(
-            [
-                "git",
-                "-c",
-                "protocol.file.allow=always",
-                "submodule",
-                "add",
-                upstream.as_posix(),
-                "library",
-            ],
-            cwd=root,
-            env=bash_environment(_find_bash()),
-            capture_output=True,
-            check=True,
-        )
+        _submodule_add(root, upstream.as_posix(), "library")
         _git(root, "commit", "-m", "add library")
     progress = _setup(root, init_repo=False)
     library = root / "library"
@@ -838,27 +871,11 @@ def test_hidden_submodule_edits_block_git_operations_without_changing_flags(
 
 
 def test_hidden_grandchild_edits_cannot_bypass_capture_or_restore(tmp_path):
-    from harness_common.runner import _find_bash, bash_environment
-
     root, library, _progress = _nested_repository_fixture(tmp_path)
     upstream = tmp_path / "leaf-upstream"
     upstream.mkdir()
     _init_repo(upstream)
-    subprocess.run(
-        [
-            "git",
-            "-c",
-            "protocol.file.allow=always",
-            "submodule",
-            "add",
-            upstream.as_posix(),
-            "leaf",
-        ],
-        cwd=library,
-        env=bash_environment(_find_bash()),
-        capture_output=True,
-        check=True,
-    )
+    _submodule_add(library, upstream.as_posix(), "leaf")
     _git(library, "commit", "-m", "add leaf")
     _git(root, "add", "library")
     _git(root, "commit", "-m", "update library")
@@ -875,3 +892,34 @@ def test_hidden_grandchild_edits_cannot_bypass_capture_or_restore(tmp_path):
         git.git_restore_to(head, root)
     assert (root / "app.txt").read_bytes() == b"user GOOD\n"
     assert (leaf / "app.txt").read_bytes() == b"hidden leaf GOOD\n"
+
+
+def test_failed_snapshot_preserves_work_and_invalidates_dispatch(tmp_path):
+    _init_repo(tmp_path)
+    app = tmp_path / "app.txt"
+    app.write_bytes(b"first user edit\n")
+    notes = tmp_path / "user-notes.txt"
+    notes.write_bytes(b"untracked user work\n")
+    progress = tmp_path / ".claude" / "code-review-deep-progress.json"
+    init = ["init", "--skill", "code-review", "--project-dir", str(tmp_path)]
+    init += ["--test-command", "echo ok", "--no-commit", "--progress-file"]
+    assert cli.main([*init, str(progress)]) == 0
+    assert _cmd(progress, "snapshot") == 0
+    recovery = json.loads(progress.read_text(encoding="utf-8"))["_snapshot"]
+    app.write_bytes(b"newer user edit\n")
+    index = tmp_path / ".git" / "index"
+    original_index = index.read_bytes()
+    lock = tmp_path / ".git" / "index.lock"
+    lock.write_bytes(b"fixture lock")
+    try:
+        assert _cmd(progress, "snapshot") == 1
+    finally:
+        lock.unlink()
+    snap = json.loads(progress.read_text(encoding="utf-8"))["_snapshot"]
+    assert snap["pre_stash"] == recovery["pre_stash"]
+    assert "iteration_token" not in snap
+    assert app.read_bytes() == b"newer user edit\n"
+    assert notes.read_bytes() == b"untracked user work\n"
+    assert index.read_bytes() == original_index
+    assert _cmd(progress, "deep-step", "--result-file", _result(tmp_path, {})) == 1
+    assert app.read_bytes() == b"newer user edit\n"

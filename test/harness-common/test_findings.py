@@ -1,13 +1,43 @@
 import pytest
+from harness_common import cli
 from harness_common.constants import APPLIED_PENDING_TEST
 from harness_common.findings import (
     _escalate_revert_status,
     _truncate_failure_hint,
+    finding_key,
     finding_matches,
     mark_all_fixed,
     mark_finding_status,
+    normalize_line,
     update_scope,
 )
+
+
+@pytest.fixture
+def sample_progress():
+    """Minimal valid deep-variant progress dict."""
+    return cli._make_deep_progress(
+        "code-review", "", 8, "npm test", "/tmp/project", "", "abc1234567890", False
+    )
+
+
+@pytest.fixture
+def sample_fix():
+    """Fix dict matching the harness-output schema."""
+    return {
+        "file": "src/app.js",
+        "line": 42,
+        "end_line": 42,
+        "category": "bug",
+        "guideline": "General: avoid null dereference",
+        "summary": "Add null check before accessing property",
+        "fix_description": "Added null guard",
+        "severity": "Critical",
+        "confidence": "High",
+        "agent": "bug-detector",
+        "pre_edit_content": "obj.value",
+        "post_edit_content": "obj?.value",
+    }
 
 
 class TestTruncateFailureHint:
@@ -32,6 +62,22 @@ class TestTruncateFailureHint:
     def test_custom_max_len(self):
         result = _truncate_failure_hint("abcdefghij", max_len=5)
         assert result == "abcde..."
+
+
+class TestNormalizeLine:
+    @pytest.mark.parametrize(
+        "raw,expected",
+        [
+            (42, 42),
+            ("42", 42),
+            (" 42.0 ", 42),
+            (None, None),
+            (True, None),
+            ("abc", "abc"),
+        ],
+    )
+    def test_coerces_numbers_and_keeps_non_numeric_strings(self, raw, expected):
+        assert normalize_line(raw) == expected
 
 
 class TestFindingMatches:
@@ -59,6 +105,15 @@ class TestFindingMatches:
         finding = {"file": "src/a.js", "line": 10, "category": "bug"}
         fix = {"file": "src/a.js"}
         assert finding_matches(finding, fix) is False
+
+    def test_non_string_file_keys_like_a_missing_one(self):
+        assert finding_key({"file": None}) == finding_key({})
+        assert finding_key({"file": 5}) == finding_key({})
+
+    def test_matches_across_path_separator_and_line_type(self):
+        finding = {"file": "src\\a.js", "line": "10", "category": "bug"}
+        fix = {"file": "src/a.js", "line": 10, "category": "bug"}
+        assert finding_matches(finding, fix) is True
 
 
 class TestMarkFindingStatus:
@@ -98,10 +153,23 @@ class TestMarkFindingStatus:
         )
         assert sample_progress["findings"][0]["status"] == "reverted — attempt 2"
 
+    def test_escalation_survives_line_type_change(self, sample_progress, sample_fix):
+        mark_finding_status(
+            sample_progress, sample_fix, "reverted — test failure", "fail 1"
+        )
+        mark_finding_status(
+            sample_progress,
+            {**sample_fix, "line": "42"},
+            "reverted — test failure",
+            "fail 2",
+        )
+        assert len(sample_progress["findings"]) == 1
+        assert sample_progress["findings"][0]["status"] == "reverted — attempt 2"
+
     def test_revert_escalation_survives_applied_pending_test(
         self, sample_progress, sample_fix
     ):
-        """Regression test for 9e0553a: APPLIED_PENDING_TEST writes between
+        """APPLIED_PENDING_TEST writes between
         revert attempts must not reset the escalation chain. Each new
         iteration registers findings as ``applied-pending-test`` before
         bisection writes the terminal status; if escalation only looks at the

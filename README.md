@@ -3,7 +3,7 @@
 </div>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-3.14.0-blue" alt="Version">
+  <img src="https://img.shields.io/badge/version-3.14.1-blue" alt="Version">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
   <img src="https://img.shields.io/badge/Claude_Code-plugin-blueviolet" alt="Claude Code">
   <img src="https://img.shields.io/badge/OpenAI_Codex-experimental-orange" alt="OpenAI Codex: experimental">
@@ -88,7 +88,7 @@ Open a skill's documentation for examples, options, and prerequisites. Run `init
 | [`/optimus:how-to-run`](skills/how-to-run/README.md) | Generate or refresh a `HOW-TO-RUN.md` for local setup and development. |
 | [`/optimus:permissions`](skills/permissions/README.md) | **Claude Code only:** configure branch protection, file safeguards, and routine tool permissions. |
 | [`/optimus:prompt`](skills/prompt/README.md) | Turn an idea into a copy-ready prompt for an AI tool. |
-| [`/optimus:reset`](skills/reset/README.md) | Remove selected Optimus project artifacts; use `permissions` to remove only the permissions setup while keeping init. Preserves tests and does not uninstall the plugin. |
+| [`/optimus:reset`](skills/reset/README.md) | Remove selected init and permissions setup; use `permissions` to remove only the permissions setup while keeping init. Preserves tests and does not uninstall the plugin. |
 | [`/optimus:dream`](skills/dream/README.md) | **Claude Code only:** review and consolidate stale auto-memory, with confirmation before deletion. |
 
 ## Recommended Workflow
@@ -100,7 +100,7 @@ Open a skill's documentation for examples, options, and prerequisites. Run `init
 
 For longer work, `deep review`, `deep refactor`, and `deep coverage` repeat those passes automatically. Codex orchestration remains experimental; check its [support limits](#support-matrix) before unattended use.
 
-**Maintenance:** re-run `init` after major changes, use `how-to-run` for setup guidance, and `reset` to remove generated project files. The [reset documentation](skills/reset/README.md) also covers uninstalling the plugin.
+**Maintenance:** re-run `init` after major changes, use `how-to-run` for setup guidance, and `reset` to remove init and permissions setup. The [reset documentation](skills/reset/README.md) also covers uninstalling the plugin.
 
 ## Using with OpenAI Codex
 
@@ -129,14 +129,14 @@ All Codex workflows remain experimental. **Portable** means no known host-specif
 |------------------|-------------------------|
 | `commit`, `pr`, `handoff`, `worktree`, `how-to-run`, `paper-init`, `code-review`, `refactor`, `unit-test`, `tdd`, `reset` | Portable. Follow each skill's setup, tool, and test prerequisites. |
 | `init` | Partial: creates shared docs, tests, and `AGENTS.md` pointers; preserves existing hooks/settings and skips formatter installation. |
-| `brainstorm`, `jira`, `prompt` | Partial: Claude plan-mode handoffs need manual adaptation. Jira needs a compatible MCP server configured in Codex; bundled setup is Claude-only. |
+| `brainstorm`, `jira`, `prompt` | Partial: `brainstorm` and `jira` use a Codex plan-review handoff instead of Claude's plan-mode steps; `prompt`'s plan-mode and `/workflows` prompts target Claude Code. Jira needs a compatible MCP server configured in Codex; bundled setup is Claude-only. |
 | `deep` | Experimental orchestration: multiple iterations, nested agents, resume, and headless execution need further testing. |
-| `gauntlet` | Experimental orchestration: in-session execution and **Copy as /goal prompt** for a new Codex session. The handoff uses native Codex goals when available, with a plain-prompt fallback; full builder/critic execution remains unverified. Claude's `/effort` → ultracode prerequisite does not apply. |
+| `gauntlet` | Experimental orchestration: in-session execution and **Copy as /goal prompt** for a new Codex session ([details](skills/gauntlet/README.md#fresh-session-goals)). The handoff uses native Codex goals when available, with a plain-prompt fallback; full builder/critic execution remains unverified. Claude's `/effort` → ultracode prerequisite does not apply. |
 | `permissions`, `dream` | Unsupported. Use Codex's own sandbox, approval policy, and memory controls. |
 | Formatter hooks | Unsupported. Use editor formatting or pre-commit hooks. |
 | Standalone `code-simplifier` / `test-guardian` plugin agents | Unsupported. Use the `refactor` / `unit-test` workflows. |
 
-Gauntlet shares its loop protocol across hosts and adds the destination host's goal instructions. In Codex/Astra, **Copy as /goal prompt** prepares a prompt for a new session without starting a goal or loop in the preparing session; see [gauntlet usage and controls](skills/gauntlet/README.md#fresh-session-goals). Claude's `/workflows` and ultracode remain Claude-only. If you use `AGENTS.override.md`, add the project-guidance pointer there yourself: it takes precedence over `AGENTS.md`, and Optimus manages only `AGENTS.md`.
+If you use `AGENTS.override.md`, add the project-guidance pointer there yourself: it takes precedence over `AGENTS.md`, and Optimus manages only `AGENTS.md`.
 
 ### Headless runs
 

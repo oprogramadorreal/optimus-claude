@@ -1,23 +1,13 @@
 import re
-import sys
 from pathlib import Path
 
-from .constants import FIXED_STATUSES, PERSISTENT_STATUS, REVERTED_STATUSES
+from .constants import (
+    FIXED_STATUSES,
+    PERSISTENT_STATUS,
+    REVERTED_STATUSES,
+    normalize_path,
+)
 from .git import git_current_branch
-
-
-def _force_utf8_stdout():
-    """Best-effort: make stdout encode as UTF-8 with replacement so report
-    content carrying non-ASCII (accented identifiers, em-dashes quoted from
-    user code) can't raise UnicodeEncodeError mid-report on a legacy Windows
-    console. No-op when stdout lacks reconfigure (e.g. under test capture)."""
-    reconfigure = getattr(sys.stdout, "reconfigure", None)
-    if reconfigure is not None:
-        try:
-            reconfigure(encoding="utf-8", errors="replace")
-        except (ValueError, OSError):
-            pass
-
 
 _SHELL_FENCE_LANGS = (
     "bash",
@@ -96,7 +86,7 @@ def detect_test_command(project_root, content=None):
 def format_finding_line(finding):
     location = f"{finding.get('file', '?')}:{finding.get('line', '?')}"
     category = finding.get("category", "unknown")
-    summary = finding.get("summary", "").replace("\n", " ").replace("\r", "")
+    summary = str(finding.get("summary") or "").replace("\n", " ").replace("\r", "")
     if len(summary) > 72:
         summary = summary[:69] + "..."
     return f"- {location} [{category}] {summary}"
@@ -127,11 +117,23 @@ def build_deep_commit_body(progress, iteration, max_entries=10):
     persistent = [f for f in iter_findings if f.get("status") == PERSISTENT_STATUS]
     lines = ["Orchestrator checkpoint — automated fixes applied and tested.", ""]
     lines.extend(format_section("Fixed:", fixed, max_entries))
-    lines.extend(format_section("Reverted (test failure):", reverted, max_entries))
+    lines.extend(format_section("Reverted or skipped:", reverted, max_entries))
     lines.extend(
         format_section("Persistent (all attempts failed):", persistent, max_entries)
     )
     return "\n".join(lines)
+
+
+def kept_tests(progress, cycle=None):
+    """tests_created entries whose tests are still in the tree. The unit-test
+    phase reverts a fail-abandoned item's tests; the entry stays in progress
+    only so later cycles do not re-propose it."""
+    return [
+        t
+        for t in progress.get("tests_created", [])
+        if t.get("status") != "fail-abandoned"
+        and (cycle is None or t.get("cycle") == cycle)
+    ]
 
 
 def build_coverage_commit_body(progress, cycle, phase, max_entries=10):
@@ -140,9 +142,7 @@ def build_coverage_commit_body(progress, cycle, phase, max_entries=10):
         "",
     ]
     if phase == "unit-test":
-        tests = [
-            t for t in progress.get("tests_created", []) if t.get("cycle") == cycle
-        ]
+        tests = kept_tests(progress, cycle)
         if tests:
             lines.append("Tests written:")
             for t in tests[:max_entries]:
@@ -158,9 +158,9 @@ def build_coverage_commit_body(progress, cycle, phase, max_entries=10):
             f for f in progress.get("refactor_findings", []) if f.get("cycle") == cycle
         ]
         fixed = [f for f in findings if f.get("status") in FIXED_STATUSES]
-        reverted = [f for f in findings if "reverted" in (f.get("status") or "")]
+        reverted = [f for f in findings if f.get("status") in REVERTED_STATUSES]
         lines.extend(format_section("Testability fixes applied:", fixed, max_entries))
-        lines.extend(format_section("Reverted (test failure):", reverted, max_entries))
+        lines.extend(format_section("Reverted or skipped:", reverted, max_entries))
     return "\n".join(lines)
 
 
@@ -191,7 +191,6 @@ def _print_rollback_footer(progress, has_changes_to_undo):
 
 
 def print_deep_report(progress):
-    _force_utf8_stdout()
     findings = progress["findings"]
     total_fixed = sum(1 for f in findings if f["status"] in FIXED_STATUSES)
     total_reverted = sum(1 for f in findings if f["status"] in REVERTED_STATUSES)
@@ -206,7 +205,7 @@ def print_deep_report(progress):
     print(f"  Skill:         {progress['skill']}")
     print(f"  Iterations:    {iterations}")
     print(f"  Fixed:         {total_fixed}")
-    print(f"  Reverted:      {total_reverted}")
+    print(f"  Reverted/skipped: {total_reverted}")
     print(f"  Persistent:    {total_persistent}")
     print(f"  Final tests:   {last_test}")
     termination = progress.get("termination") or {}
@@ -225,25 +224,31 @@ def print_deep_report(progress):
             file_location = f"{finding['file']}:{finding.get('line', '?')}"
             if len(file_location) > 40:
                 file_location = "..." + file_location[-37:]
-            summary = finding["summary"][:40]
+            summary = str(finding.get("summary") or "")[:40]
             iter_num = finding.get("iteration_discovered", "?")
             print(
                 f"  {row_num:<4} {iter_num:<5} {file_location:<40} "
-                f"{finding['category']:<15} {summary:<40} {finding['status']}"
+                f"{str(finding.get('category') or ''):<15} {summary:<40} "
+                f"{finding['status']}"
             )
     _print_rollback_footer(progress, total_fixed > 0)
 
 
 def print_coverage_report(progress):
-    _force_utf8_stdout()
     cycles = progress["cycle"]["completed"]
     coverage = progress["coverage"]
     baseline = coverage.get("baseline")
     current = coverage.get("current")
-    tests = progress.get("tests_created", [])
-    total_tests = sum(t.get("test_count", 0) for t in tests)
-    total_files = len(tests)
-    untestable = progress.get("untestable_code", [])
+    tests = kept_tests(progress)
+    total_tests = sum(
+        int(count)
+        for count in (str(t.get("test_count", "")) for t in tests)
+        if count.isdecimal()
+    )
+    total_files = len({normalize_path(t.get("file")) for t in tests} - {""})
+    untestable = [
+        u for u in progress.get("untestable_code", []) if u.get("status") != "attempted"
+    ]
     refactor_findings = progress.get("refactor_findings", [])
     fixed = sum(1 for f in refactor_findings if f.get("status") in FIXED_STATUSES)
     bugs = progress.get("bugs_discovered", [])

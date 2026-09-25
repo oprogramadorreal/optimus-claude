@@ -7,6 +7,7 @@ The skill holds no state; the CLI reads/writes a JSON progress file on disk.
 Subcommand summary:
   init                    — create initial progress file
   resume                  — validate existing progress file for continuation
+  baseline                — run the suite once; calibrate the timeout, gate a red start
   snapshot                — capture pre-iteration git state into progress
   parse                   — extract json:harness-output from subagent text
   deep-step               — apply/test/bisect for the review / refactor targets
@@ -15,11 +16,10 @@ Subcommand summary:
   record-cycle            — append cycle_history entry (paired variant)
   commit-checkpoint       — create git checkpoint commit
   check-termination       — print one of continue|convergence|no-actionable|
-                            all-reverted|diminishing-returns|cap
+                            all-reverted|diminishing-returns|cap|parse-failure|
+                            blocked
   advance                 — increment iteration counter (deep variant)
   pending-refactor-count  — count untestable_code items still pending refactor
-  mark-termination        — record an externally-driven termination reason
-                            (e.g. parse-failure after two consecutive failures)
   final-report            — print the cumulative report
 """
 
@@ -74,7 +74,6 @@ from .findings import (
     update_scope,
 )
 from .fixes import bisect_fixes
-from .git import TreeState
 from .git import commit_checkpoint as git_commit_checkpoint
 from .git import (
     get_open_pr_data,
@@ -97,6 +96,7 @@ from .reporting import (
     build_coverage_commit_body,
     build_deep_commit_body,
     detect_test_command,
+    kept_tests,
     print_coverage_report,
     print_deep_report,
 )
@@ -123,7 +123,6 @@ def _make_deep_progress(
     no_commit=False,
 ):
     return {
-        "schema_version": 1,
         "skill": skill,
         "config": {
             "max_iterations": max_iterations,
@@ -166,7 +165,6 @@ def _make_coverage_progress(
     # re-dispatch from this field, so pinning it to one skill name would break
     # any future second coverage variant the roster otherwise supports.
     return {
-        "schema_version": 1,
         "harness": "test-coverage",
         "skill": skill,
         "config": {
@@ -218,8 +216,8 @@ def _make_coverage_progress(
 def _promote_actionable_fixes(result):
     """Promote findings with valid edit pairs into fixes_applied.
 
-    Defensive guard for the false-no-actionable case — see
-    `references/harness-mode.md`.
+    Defensive guard for the false-no-actionable case — see ``no_actionable_fixes``
+    in `references/schemas/harness-output.schema.json`.
     """
     if not read_flag(result, "no_actionable_fixes"):
         return
@@ -311,23 +309,23 @@ def _format_test_passed(test_passed):
 def _clean_reset_hook(pre_stash, pre_head, project_root):
     """Return a repeatable clean-reset callback for bisect, or None.
 
-    Commit mode (pre_stash is None) resets tracked files to pre_head with
-    git_restore_tracked_to, which does NOT run ``git clean`` — so untracked
-    work the subagent created this iteration (e.g. a new module a kept fix
-    imports) survives each rebuild and the fix is isolated against its real
-    dependencies, matching the legacy in-place bisect. No-commit mode applies
-    the stash snapshot WITHOUT dropping it (git_apply_snapshot), so the restore
+    Neither variant runs ``git clean``: untracked work the subagent created
+    this iteration (e.g. a new module a kept fix imports) survives each
+    rebuild, so each fix is isolated against its real dependencies, matching
+    the legacy in-place bisect. Commit mode (pre_stash is None) resets tracked
+    files to pre_head with git_restore_tracked_to. No-commit mode applies the
+    stash snapshot WITHOUT dropping it (git_apply_snapshot), so the restore
     stays repeatable across the bisect's rebuilds — the snapshot entry is
     reclaimed later by the iteration's full-revert restore or the next
-    iteration's snapshot; that stash already carries the untracked files. Both
-    variants raise on failure so the bisect aborts instead of testing
-    candidates on a dirty base. None only when no snapshot was recorded,
-    where bisect falls back to its legacy content-swap revert strategy.
+    iteration's snapshot. Both variants raise on failure so the bisect aborts
+    instead of testing candidates on a dirty base. None only when no snapshot
+    was recorded, where bisect falls back to its legacy content-swap revert
+    strategy.
     """
     if pre_stash:
 
         def _apply_stash():
-            if not git_apply_snapshot(pre_stash, project_root):
+            if not git_apply_snapshot(pre_stash, project_root, clean_untracked=False):
                 raise RuntimeError(f"Snapshot restore {pre_stash} failed")
 
         return _apply_stash
@@ -361,9 +359,14 @@ def _tree_state(progress, project_root):
 def _run_verified_tests(progress, project_root, test_command):
     progress.pop("_validated_tree", None)
     before = _tree_state(progress, project_root)
-    passed, summary = run_tests(
-        test_command, project_root, timeout=_effective_timeout(progress)
-    )
+    try:
+        passed, summary = run_tests(
+            test_command, project_root, timeout=_effective_timeout(progress)
+        )
+    except (OSError, RuntimeError) as exc:
+        # Failed process containment/cleanup must stop the loop, not enter
+        # rollback while a surviving test process may still modify the tree.
+        raise HarnessSafetyError(f"Test process control failed: {exc}") from exc
     after = _tree_state(progress, project_root)
     # Previously recorded test outputs are excluded by _tree_state. Files that
     # existed before their first test run remain protected inputs.
@@ -584,14 +587,15 @@ def _record_converged_cycle(progress, cycle, history_entry):
 def _vet_safe_exit_tree(progress, project_root, test_command, pre_stash, pre_head):
     """Vet a dirty working tree on a deep-step safe exit (no fixes applied).
 
-    A well-behaved subagent leaves the tree clean when it reports
-    ``no_new_findings`` / ``no_actionable_fixes``. If it left stray edits, run
-    the suite and roll the tree back to the snapshot on red so the step-6
-    checkpoint never commits untested, test-breaking changes (mirrors the
-    pre-consolidation ``_handle_safe_exit``). Returns the test result, or
-    ``None`` when the tree was clean (no test ran).
+    A well-behaved subagent leaves the tree as the last green validation left
+    it when it reports ``no_new_findings`` / ``no_actionable_fixes``. If it left
+    stray edits, run the suite and roll the tree back to the snapshot on red so
+    the step-6 checkpoint never commits untested, test-breaking changes. Returns
+    the test result, or ``None`` when the tree is clean or matches
+    ``_validated_tree`` (no test ran).
     """
-    if not _tree_state(progress, project_root).dirty:
+    state = _tree_state(progress, project_root)
+    if not state.dirty or state.digest == progress.get("_validated_tree"):
         return None
     passed, summary = _run_verified_tests(progress, project_root, test_command)
     if not passed:
@@ -714,7 +718,7 @@ def _init_deep(args, project_root, test_command, base_commit):
     if branch_files:
         progress["scope_files"]["current"] = branch_files
         progress["config"]["scope"]["base_ref"] = base_ref
-    pr_info = git_fetch_open_pr_description(project_root, pr_info=pr_data)
+    pr_info = git_fetch_open_pr_description(pr_data)
     if pr_info:
         progress["config"]["pr_description"] = pr_info
     return progress
@@ -749,9 +753,8 @@ def cmd_init(args):
         )
         return 1
 
-    # Skill-side focus matching is case-insensitive (refactor SKILL.md is the
-    # declared single source for the rule) — normalize so the gate below
-    # enforces the same contract instead of rejecting what the skill accepted.
+    # Normalize --focus to lowercase so the gate below accepts any casing the
+    # skill passes through (e.g. `Testability`) instead of rejecting it.
     if args.focus:
         args.focus = args.focus.lower()
 
@@ -931,29 +934,6 @@ def cmd_resume(args):
             config["max_cycles"] = new_cap
             mutated = True
 
-    # Refuse to silently overrun a hard cap. `check-termination` is a late loop
-    # step, so clearing a `cap` reason without actually raising the cap would let
-    # the loop run one full extra unit (dispatch + apply + commit) before the cap
-    # re-fires. Require the (possibly just-raised) cap to exceed the completed
-    # count; otherwise tell the user to raise it. (Returns before any write, so
-    # the in-memory cap bump above is not persisted on this path.)
-    if prior_reason == "cap":
-        if _is_coverage(progress):
-            completed = (progress.get("cycle") or {}).get("completed", 0)
-            cap = config.get("max_cycles", 0)
-            flag = "--max-cycles"
-        else:
-            completed = (progress.get("iteration") or {}).get("completed", 0)
-            cap = config.get("max_iterations", 0)
-            flag = "--max-iterations"
-        if cap <= completed:
-            print(
-                f"ERROR: this run already reached its cap ({cap}). Re-run with a "
-                f"higher {flag} to continue.",
-                file=sys.stderr,
-            )
-            return 1
-
     # Resuming means "continue the loop". Clear any stored terminal reason so
     # `check-termination` re-evaluates from scratch instead of immediately
     # re-emitting the soft-exit (diminishing-returns) that left this file
@@ -981,6 +961,22 @@ def cmd_resume(args):
             # interrupted iteration is correctly re-run instead of skipped.
             progress["iteration"]["current"] += 1
         mutated = True
+
+    # Refuse to overrun the cap: `check-termination` fires only after a unit is
+    # dispatched, applied and committed, so the unit the resumed loop runs next
+    # must not exceed the (possibly just-raised) cap. Returns before the write,
+    # so nothing above is persisted on this path.
+    coverage = _is_coverage(progress)
+    unit = progress.get("cycle" if coverage else "iteration") or {}
+    cap = config.get("max_cycles" if coverage else "max_iterations")
+    if cap and unit.get("current", 0) > cap:
+        flag = "--max-cycles" if coverage else "--max-iterations"
+        print(
+            f"ERROR: this run already reached its cap ({cap}). Re-run with a "
+            f"higher {flag} to continue.",
+            file=sys.stderr,
+        )
+        return 1
 
     if mutated:
         write_progress(progress_path, progress)
@@ -1100,6 +1096,10 @@ def cmd_parse(args):
         except OSError as exc:
             print(f"ERROR: Cannot write {args.output_file}: {exc}", file=sys.stderr)
             return 1
+        # The payload is on disk; echoing it would put every edit string back
+        # into the orchestrator's context.
+        print("parsed")
+        return 0
     print(json.dumps(parsed))
     return 0
 
@@ -1294,7 +1294,7 @@ def cmd_unit_test_step(args):
     """Process the unit-test phase of a coverage-target cycle.
 
     Inputs: progress file path, result file path (unit-test phase JSON).
-    Output: one of converged | continue
+    Output: one of converged | continue | blocked
     """
     progress_path = Path(args.progress_file)
     progress = _read_run_progress(progress_path)
@@ -1305,13 +1305,23 @@ def cmd_unit_test_step(args):
         return 1
     result = _load_result(args.result_file, "coverage", cycle)
 
+    # A fired stop gate (no test framework, red baseline): record the resumable
+    # `blocked` exit BEFORE the suite run below, which would otherwise roll the
+    # cycle back, print `continue`, and lose the reason. An empty reason is no
+    # gate: a subagent may write "" to mean not blocked.
+    blocked = (result["blocked"] or "").strip()
+    if blocked:
+        progress["termination"] = {"reason": "blocked", "message": blocked}
+        write_progress(progress_path, progress)
+        print("blocked")
+        return 0
+
     # Run the full suite BEFORE merging the session's results. If the suite is
     # red, the unit-test subagent left a failing test or a tree-breaking source
     # edit; roll the working tree back to the pre-cycle snapshot and DROP the
     # session output entirely — its coverage numbers, untestable items, and bugs
     # describe code that is now gone, so they must not leak into later cycles and
-    # the step-5 checkpoint must not commit a red tree. (Restores the
-    # pre-consolidation _run_unit_test_phase safety net.)
+    # the step-5 checkpoint must not commit a red tree.
     passed, summary = _run_verified_tests(progress, project_root, test_command)
     if not passed:
         pre_stash, pre_head = _snapshot_from_progress(progress)
@@ -1371,12 +1381,12 @@ def cmd_unit_test_step(args):
         for u in progress["untestable_code"]
     }
     for item in result.get("untestable_code") or []:
-        if not item.get("file"):
+        item_file = normalize_path(item.get("file"))
+        if not item_file:
             # A file-less untestable item can never be scoped to a refactor or
             # marked attempted, so storing it would inflate pending-refactor-count
             # and waste a refactor dispatch every cycle. Skip it.
             continue
-        item_file = normalize_path(item["file"])
         key = (item_file, normalize_line(item.get("line")), item.get("function"))
         if key in existing_keys:
             continue
@@ -1412,8 +1422,8 @@ def cmd_unit_test_step(args):
     converged, reason = check_unit_test_convergence(result)
     if converged:
         # Record the cycle that just ran before terminating — the orchestrator
-        # loop skips step 10 (record-cycle) on the converged path, so the
-        # final report would otherwise miss this cycle in cycle_history.
+        # loop skips step 10 (record-cycle) on the converged path, so
+        # cycle_history would otherwise miss this cycle.
         _record_converged_cycle(
             progress, cycle, {"cycle": cycle, "unit_test": {"converged": True}}
         )
@@ -1540,20 +1550,7 @@ def cmd_record_cycle(args):
     progress_path = Path(args.progress_file)
     progress = _read_run_progress(progress_path)
     cycle = progress["cycle"]["current"]
-    try:
-        ut_summary = (
-            json.loads(args.unit_test_summary) if args.unit_test_summary else {}
-        )
-        rf_summary = (
-            json.loads(args.refactor_summary) if args.refactor_summary else None
-        )
-    except ValueError as exc:
-        print(f"ERROR: Invalid cycle summary JSON: {exc}", file=sys.stderr)
-        return 1
-    entry = {"cycle": cycle, "unit_test": ut_summary}
-    if rf_summary is not None:
-        entry["refactor"] = rf_summary
-    progress["cycle_history"].append(entry)
+    progress["cycle_history"].append({"cycle": cycle})
     progress["cycle"]["completed"] = cycle
     progress["cycle"]["current"] = cycle + 1
     write_progress(progress_path, progress)
@@ -1577,15 +1574,15 @@ def cmd_baseline(args):
     ``--allow-red``, which warns and proceeds without calibrating the timeout.
     On success, calibrates ``config.test_timeout`` from the measured wall-clock
     duration so the per-iteration runs — and bisection's re-runs — have headroom,
-    then prints ``baseline-green``. The orchestrator calls this once on a fresh
-    run only (skipped on ``--resume``, where the timeout is already persisted).
+    then prints ``baseline-green``. The orchestrator runs it before the loop; on
+    ``--resume`` only when no iteration/cycle completed or ``_safety_error`` is
+    recorded (otherwise the persisted timeout stands).
     The status token is always the last line so the orchestrator can read it.
     """
     progress_path = Path(args.progress_file)
     progress = _read_run_progress(progress_path)
     project_root = Path(progress["config"]["project_root"])
     test_command = progress["config"]["test_command"]
-    timeout = _effective_timeout(progress)
 
     start = time.monotonic()
     passed, summary = _run_verified_tests(progress, project_root, test_command)
@@ -1637,9 +1634,7 @@ def cmd_commit_checkpoint(args):
         cycle = progress["cycle"]["current"]
         phase = args.phase or progress.get("phase", "unit-test")
         if phase == "unit-test":
-            count = sum(
-                1 for t in progress.get("tests_created", []) if t.get("cycle") == cycle
-            )
+            count = len(kept_tests(progress, cycle))
             detail = f"{count} tests written"
         else:
             count = sum(
@@ -1809,26 +1804,6 @@ def cmd_pending_refactor_count(args):
     return 0
 
 
-def cmd_mark_termination(args):
-    """Write a terminal reason to progress["termination"] without other side effects.
-
-    The coverage loop invokes it for the `blocked` soft exit
-    (references/orchestrator-loop-paired.md); the parse-failure path stays
-    automatic via the parse counter and check-termination. It lets an
-    orchestrator end the loop for a reason the per-iteration steps don't
-    naturally surface without touching the progress file's internals —
-    preserving the "slice-only progress reads" invariant.
-    """
-    progress_path = Path(args.progress_file)
-    progress = _read_run_progress(progress_path)
-    progress["termination"] = {
-        "reason": args.reason,
-        "message": args.message,
-    }
-    write_progress(progress_path, progress)
-    return 0
-
-
 def cmd_final_report(args):
     progress_path = Path(args.progress_file)
     progress = _read_run_progress(progress_path)
@@ -1837,6 +1812,14 @@ def cmd_final_report(args):
     else:
         print_deep_report(progress)
     if args.archive:
+        # A recorded safety failure still needs its recovery state; archiving
+        # would strand it in .done.json, which --resume cannot reopen.
+        if progress.get("_safety_error"):
+            print(
+                "not-archived: a safety failure is recorded. Inspect/recover the "
+                "tree, then re-run with --resume (a green baseline clears it)."
+            )
+            return 0
         # A soft, resumable exit — the termination message tells the user to
         # --resume. Archiving renames the progress file to .done.json, which
         # cmd_resume then refuses, breaking the advertised --resume. Leave the
@@ -1845,7 +1828,8 @@ def cmd_final_report(args):
         if reason in RESUMABLE_TERMINATIONS:
             print(
                 f"not-archived: run left resumable ({reason}). Re-run "
-                "with --resume to continue, or delete the progress file to discard."
+                "with --resume to continue, or delete the progress file and "
+                "its .bak backup to discard."
             )
             return 0
         done_path = progress_path.with_suffix(".done.json")
@@ -1959,7 +1943,7 @@ def _build_parser():
     p.add_argument(
         "--output-file",
         default=None,
-        help="If supplied, also write canonical JSON to this path",
+        help="If supplied, write canonical JSON here and print only `parsed`",
     )
     p.add_argument(
         "--progress-file",
@@ -1989,16 +1973,6 @@ def _build_parser():
 
     p = sub.add_parser("record-cycle")
     p.add_argument("--progress-file", required=True)
-    p.add_argument(
-        "--unit-test-summary",
-        default="",
-        help="JSON-encoded unit-test summary for cycle_history",
-    )
-    p.add_argument(
-        "--refactor-summary",
-        default="",
-        help="JSON-encoded refactor summary for cycle_history (optional)",
-    )
     p.set_defaults(func=cmd_record_cycle)
 
     p = sub.add_parser("commit-checkpoint")
@@ -2022,29 +1996,6 @@ def _build_parser():
     p = sub.add_parser("pending-refactor-count")
     p.add_argument("--progress-file", required=True)
     p.set_defaults(func=cmd_pending_refactor_count)
-
-    p = sub.add_parser("mark-termination")
-    p.add_argument("--progress-file", required=True)
-    p.add_argument(
-        "--reason",
-        required=True,
-        choices=[
-            "convergence",
-            "no-actionable",
-            "all-reverted",
-            "diminishing-returns",
-            "cap",
-            "parse-failure",
-            "blocked",
-        ],
-        help="Termination reason to record in progress[termination]",
-    )
-    p.add_argument(
-        "--message",
-        default="",
-        help="Human-readable detail recorded alongside the reason",
-    )
-    p.set_defaults(func=cmd_mark_termination)
 
     p = sub.add_parser("final-report")
     p.add_argument("--progress-file", required=True)

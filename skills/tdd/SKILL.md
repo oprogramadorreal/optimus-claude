@@ -10,7 +10,7 @@ Implement a feature or bug fix test-first: for each behavior, write a failing te
 
 **The Iron Law: no production code without a failing test first.** If this cycle's implementation is written before its test, undo only that implementation using the ownership record below and begin the cycle fresh. Preserve pre-existing code and user edits; write the cycle's implementation once the failing test exists.
 
-Coming from plan mode? TDD runs in normal mode in a fresh conversation; plan-mode iterations that feed it are review-only — see `$CLAUDE_PLUGIN_ROOT/skills/brainstorm/references/plan-mode-handoff.md`.
+If this conversation is in plan mode, stop: TDD needs normal mode. Tell the user to toggle plan mode off without approving, save any refined plan to its spec, and invoke TDD in a fresh conversation.
 
 ## Step 1: Pre-flight
 
@@ -45,7 +45,16 @@ Then find a coverage command — first match wins: the coverage section of `test
 
 ## Step 2: Task and Suitability
 
-Resolve the task with the cascade in `$CLAUDE_PLUGIN_ROOT/skills/tdd/references/spec-context-detection.md`. If nothing resolves and no inline argument was given, use `AskUserQuestion` — header "TDD scope", question "What feature or bug fix do you want to implement with TDD?", options **New feature** / **Bug fix**. Whatever the source, apply the reference's **Distillation** step to the final description. Resolved context feeds this step — it does not bypass Step 3 decomposition (except the scenario-driven shortcut).
+Resolve the task — first match wins; run this even when the user also gave an inline description:
+
+1. **Explicit reference** — the input names a `.md` file inside `docs/specs/` or `docs/jira/`: read it and use the sections item 2 (spec) or item 3 (JIRA) names as the task.
+2. **Build spec** (wins over JIRA context: a brainstorm-authored spec already incorporates it) — `docs/specs/` holds `.md` files: take the most recent (filename date prefix, else modification time) and use `AskUserQuestion` — header "Build spec", question "Found build spec `<path>` — use it as the basis?", options "Use it" / "Ignore — describe a different task". When that date is older than 7 days, add to the question: "(This spec is [N] days old — if it is a `/optimus:brainstorm`-authored spec, you may want to re-run brainstorm for a fresh design.)" From a brainstorm-authored spec use Goal, Components, and Interfaces; from a human-authored one, Goal and Acceptance Criteria. Its `## Scenarios` section feeds Step 3's scenario-driven shortcut.
+3. **JIRA context** — no build spec resolved (none found, or ignored) and `docs/jira/` holds `.md` files: take the one with the newest frontmatter `description-refresh-date` and use `AskUserQuestion` — header "JIRA context", question "Found JIRA context `<path>` — use it as the basis?", options "Use it" / "Ignore — describe a different task". When that date is older than 7 days, add to the question: "(This context is [N] days old — you may want to re-run `/optimus:jira` for fresh data.)" Use its Goal and Acceptance Criteria.
+4. **Nothing resolved** — use the inline argument; with none, ask in plain text what feature or bug fix to implement.
+
+Whichever item resolves a file, a `### Refined plan` section in it (appended by the plan-mode handoff) takes precedence over the original approach — build from it.
+
+Whatever the source, if the final description is longer than ~2-3 sentences (a pasted spec, JIRA ticket, or acceptance-criteria list), distill it into a single-sentence goal and confirm with `AskUserQuestion` — header "Distilled goal", question "I've distilled your spec to: '[single-sentence summary]'. Is this accurate?", options **Looks good** — "Proceed with this goal" / **Adjust** — "Let me refine the focus". Resolved context feeds this step — it does not bypass Step 3 decomposition (except the scenario-driven shortcut).
 
 Classify the task:
 
@@ -57,15 +66,11 @@ Classify the task:
 
 ### Feature branch
 
-All work happens on a new branch; the user's original branch is never modified.
-
-1. Record the current branch (`git rev-parse --abbrev-ref HEAD`) — it becomes the PR/MR target.
-2. Name the branch per `$CLAUDE_PLUGIN_ROOT/skills/commit/references/branch-naming.md` — type `feat` or `fix` from Step 2's classification.
-3. Create and switch: `git checkout -b <branch-name>`. Report the new branch and its origin branch.
+All work happens on a new branch; the original branch recorded in Step 1 (`<original-branch>`) is never modified. Name the new branch per `$CLAUDE_PLUGIN_ROOT/skills/commit/references/branch-naming.md` (`feat` for a feature, `fix` for a bug fix), create it with `git checkout -b <branch-name>`, and report both branch names.
 
 ### Worktree isolation (optional)
 
-Run `git worktree list`; if the current directory is inside a linked worktree, skip this offer — the environment is already isolated. Otherwise use `AskUserQuestion` — header "Workspace", question "Use a git worktree for isolated development? Your main workspace stays on the original branch.", options **Use worktree (Recommended)** / **Stay on branch**. On yes, follow the **Setup** section of `$CLAUDE_PLUGIN_ROOT/skills/worktree/references/worktree-setup.md` with `<branch-name>` and `<original-branch>`; if creation fails, fall back to the branch workflow and say so. All subsequent commands run inside the worktree.
+Run `git worktree list`; if the current directory is inside a linked worktree, skip this offer — the environment is already isolated. Otherwise use `AskUserQuestion` — header "Workspace", question "Use a git worktree for isolated development? Your main workspace stays on the original branch.", options **Use worktree (Recommended)** / **Stay on branch**. On yes, follow the **Setup** section of `$CLAUDE_PLUGIN_ROOT/skills/worktree/references/worktree-setup.md` with `<branch-name>` and `<original-branch>`; if creation fails, follow its **Failure handling**, then run `git checkout <branch-name>` and continue on the branch without a worktree; say so. Otherwise all subsequent commands run inside the worktree.
 
 ### Decompose into behaviors
 
@@ -124,15 +129,11 @@ Only when the current behavior is a bug reproduction (skip for feature behaviors
 
 If the test passes at step 3 with the fix reverted, it isn't catching the bug: restore the saved green implementation, then rewrite the test to target the actual failure condition.
 
-### Lint / type-check
-
-If a lint or type-check command is configured (`CLAUDE.md` or project manifest), run it — type errors can hide behind passing tests. Fix failures before proceeding.
-
 ## Step 6: Refactor — Clean Up While Green
 
 Review this cycle's test and implementation against `coding-guidelines.md`. Scope: code written in this session plus the files it directly imports, calls, or inherits from — extract duplication with those files, align naming, adjust an existing method to cleanly serve old and new usage. Do not restructure beyond that scope, add features, or handle untested edge cases. Also check the test: behavior-spec name, focused assertions, `testing.md` conventions.
 
-Run the test suite when the cycle's cleanup is done; if it goes red, undo the change that broke it. Re-run the Step 5 lint / type-check as well — it last ran *before* this cleanup edited the code, and Step 7 commits without checking again.
+When the cycle's cleanup is done, run the lint / type-check command if one is configured (`CLAUDE.md` or project manifest) and fix failures — type errors can hide behind passing tests. Then run the test suite; if it goes red, undo the change that broke it. Step 7 commits without checking again.
 
 ## Step 7: Commit and Loop
 
@@ -165,6 +166,7 @@ If uncommitted **task-owned** changes remain (e.g., stopped mid-cycle), run the 
 |---|----------|------|--------|
 | 1 | [description] | [test file]:[test name] | ✓ Complete |
 | 2 | [description] | — | Not started |
+| 3 | [description] | [test file]:[test name] | Skipped — [reason] |
 
 ### Stats
 - Cycles completed: [N] of [total]
@@ -177,14 +179,14 @@ Before and After produced a real percentage — never a half-filled block. Omit 
 coverage command was found or either run produced no parseable number.]
 - Before: [X]%
 - After: [Y]%
-- Delta: +[Z]%
+- Delta: [±Z]%
 ```
 
 ### Push
 
 If a mixed-file commit is still deferred, leave the branch local and report what decision is needed before delivery. Continue with a partial push only if the user explicitly chose that scope.
 
-Push the branch: `git push -u origin <branch-name>`. If the push fails, report the error and stop — skip the rest of Step 8 and leave any worktree in place; the user must push manually, then run `/optimus:pr` (a new `/optimus:tdd` invocation starts fresh — it does not resume this one). On success, report the branch, its origin branch, and the commit count.
+Push the branch: `git push -u origin <branch-name>`. If the push fails, report the error and stop — skip the rest of Step 8 and leave any worktree in place; once the push problem is fixed, `/optimus:pr` pushes the branch and opens the PR/MR (a new `/optimus:tdd` invocation starts fresh — it does not resume this one). On success, report the branch, its origin branch, and the commit count.
 
 If behaviors remain unfinished, note them and suggest a follow-up `/optimus:tdd` run with them as the task, started from this feature branch — each run is a fresh decomposition; there is no resume.
 
@@ -194,6 +196,4 @@ Recommend `/optimus:code-review` first: cross-cycle issues — duplication betwe
 
 ### Worktree cleanup
 
-Run this last — after the `/optimus:pr` recommendation, never before it. Removing the worktree deletes the directory this conversation is working in, so `/optimus:pr` must be able to run first.
-
-If a worktree was used, **offer** cleanup rather than performing it: the user may want to keep the worktree for `/optimus:pr` or follow-up work. If they accept, follow the **Cleanup** section of `$CLAUDE_PLUGIN_ROOT/skills/worktree/references/worktree-setup.md`; if they decline, follow that section's keep-the-worktree note.
+If a worktree was used, ask last, after the recommendations above: `AskUserQuestion`, header "Worktree", question "Remove the worktree now? `/optimus:code-review` and `/optimus:pr` must run from it, so remove it only if you won't run them in this conversation.", options **Keep (Recommended)** / **Remove now**. Remove now → follow the **Cleanup** section of `$CLAUDE_PLUGIN_ROOT/skills/worktree/references/worktree-setup.md`; Keep → follow that section's keep-the-worktree note.

@@ -23,17 +23,17 @@ check() {
 echo "=== optimus-claude validation ==="
 echo
 
-# --- 1. No CRLF in script files (checks raw blobs via git cat-file) ---
+# --- 1. No CRLF in script files ---
+# Git's own eol stats: one portable call. `grep -P '\r$'` never matched on
+# macOS (BSD grep has no -P) or Git Bash (text mode strips the CR), and a blob
+# past the pipe buffer failed the pipeline. `|| true`: outside a git repo the
+# run must still reach later sections (test_skill_metadata.py runs it there).
 echo "[Line endings]"
-crlf_files=""
-while IFS= read -r f; do
-  if git cat-file -p "HEAD:$f" 2>/dev/null | grep -qP '\r$'; then
-    crlf_files+="  $f"$'\n'
-  fi
-done < <(git ls-files -- '*.sh' 'hooks/session-start')
+crlf_files=$(git ls-files --eol -- '*.sh' 'hooks/session-start' |
+  awk '$1 == "i/crlf" || $1 == "i/mixed" { sub(/^[^\t]*\t/, ""); print "  " $0 }') || true
 check "No CRLF in shell scripts" test -z "$crlf_files"
 if [ -n "$crlf_files" ]; then
-  printf "       Files with CRLF:\n%s" "$crlf_files"
+  printf "       Files with CRLF:\n%s\n" "$crlf_files"
 fi
 
 # --- 2. Shebang consistency ---
@@ -46,16 +46,16 @@ while IFS= read -r f; do
   # PIPELINE fail — `git cat-file` returned 128 — and `set -e` aborted the whole
   # run at THIS check, silently skipping every section below. It only surfaced
   # once test-hooks.sh and restrict-paths.sh grew past 64K.
-  blob=$(git cat-file -p "HEAD:$f" 2>/dev/null || true)
+  blob=$(git cat-file -p "HEAD:$f" 2>/dev/null) || continue  # staged, not yet in HEAD
   first_line=${blob%%$'\n'*}
   first_line=${first_line%$'\r'}
-  if [[ "$first_line" == "#!/bin/bash"* ]]; then
+  if [[ "$first_line" != "#!/usr/bin/env bash" ]]; then
     bad_shebangs+="  $f"$'\n'
   fi
 done < <(git ls-files -- '*.sh' 'hooks/session-start')
 check "All scripts use #!/usr/bin/env bash" test -z "$bad_shebangs"
 if [ -n "$bad_shebangs" ]; then
-  printf "       Non-portable shebangs:\n%s" "$bad_shebangs"
+  printf "       Missing or non-portable shebangs:\n%s" "$bad_shebangs"
 fi
 
 # --- 3. Parsed skill metadata for both hosts ---
@@ -68,7 +68,18 @@ if python -c 'import sys; sys.exit(sys.version_info[0] != 3)' &>/dev/null; then
 elif python3 -c 'import sys; sys.exit(sys.version_info[0] != 3)' &>/dev/null; then
   py_cmd="python3"
 fi
-if metadata_errors=$("$py_cmd" scripts/validate_skill_metadata.py 2>&1); then
+# JSON checks run on the Python this section already requires, so they FAIL
+# rather than SKIP where jq is absent (Git Bash on Windows ships without it).
+# json_ok <python expr over d, the list of loaded files> <file>...
+json_ok() {
+  local expr=$1
+  shift
+  "$py_cmd" -c 'import json, sys
+d = [json.load(open(p, encoding="utf-8")) for p in sys.argv[2:]]
+sys.exit(not eval(sys.argv[1]))' "$expr" "$@"
+}
+metadata_errors="no working python or python3 on PATH"
+if [ -n "$py_cmd" ] && metadata_errors=$("$py_cmd" scripts/validate_skill_metadata.py 2>&1); then
   check "Skill YAML is valid and disables implicit invocation on both hosts" true
 else
   check "Skill YAML is valid and disables implicit invocation on both hosts" false
@@ -78,16 +89,18 @@ fi
 # --- 4. No ref in marketplace.json ---
 echo "[Manifests]"
 check "No ref field in marketplace.json" \
-  bash -c '! grep -q "\"ref\"" .claude-plugin/marketplace.json'
+  bash -c 'test -f .claude-plugin/marketplace.json && ! grep -q "\"ref\"" .claude-plugin/marketplace.json'
 
 # The Codex marketplace mirrors the Claude one. Codex reads
 # .agents/plugins/marketplace.json first and installs the plugin from "./",
 # then reads .codex-plugin/plugin.json — so the marketplace plugin name has
 # to be the one both manifests declare, or Codex installs a
-# plugin it cannot find skills for. Read without jq so the pin never SKIPs.
-plugin_name=$(sed -n 's/^ *"name": *"\([^"]*\)".*/\1/p' .claude-plugin/plugin.json | head -1)
+# plugin it cannot find skills for. Read without jq so these pins never SKIP.
+plugin_name=$(sed -n 's/^ *"name": *"\([^"]*\)".*/\1/p' .claude-plugin/plugin.json 2>/dev/null | head -1) || true
 check "Codex marketplace installs plugin '$plugin_name' from ./" \
   bash -c "grep -q '\"name\": \"$plugin_name\"' .agents/plugins/marketplace.json && grep -q '\"path\": \"./\"' .agents/plugins/marketplace.json"
+check "Claude marketplace lists plugin '$plugin_name'" \
+  grep -q "\"name\": \"$plugin_name\"" .claude-plugin/marketplace.json
 
 # --- 4b. Dogfooded hook matches the shipped template ---
 # .claude/hooks/restrict-paths.sh is a copy of the template users install, and
@@ -101,8 +114,8 @@ check "Codex marketplace installs plugin '$plugin_name' from ./" \
 # format-python.sh is the same arrangement with the coverage inverted: the
 # pytest suite drives the .claude/ copy and scripts/test-hooks.sh drives the
 # template, so each is only as good as this pin. It is the one format-* hook
-# with logic beyond parse-guard-invoke — it resolves black and isort out of a
-# virtualenv — which is exactly where a template-only or .claude/-only fix hurts.
+# dogfooded under .claude/hooks/, and its virtualenv resolution of black and
+# isort is exactly where a template-only or .claude/-only fix hurts.
 if command -v cmp &>/dev/null; then
   check "restrict-paths hook copies are in sync" \
     cmp -s .claude/hooks/restrict-paths.sh skills/permissions/templates/hooks/restrict-paths.sh
@@ -134,8 +147,7 @@ check "restrict-paths template declares a HOOK_VERSION in its banner" \
 # pinned them, so a rule added for users could silently miss this repo's own
 # review passes. skill-writing-guidelines.md is deliberately NOT pinned: this
 # repo's copy carries plugin-specific rules (no `name:` frontmatter, the
-# two-level reference allowance, the closing-recommendation convention) that
-# have no meaning in a user project.
+# closing-recommendation convention) that have no meaning in a user project.
 if command -v diff &>/dev/null; then
   check "coding-guidelines.md matches its template below line 1" \
     bash -c "diff -q <(tail -n +2 .claude/docs/coding-guidelines.md) <(tail -n +2 skills/init/templates/docs/coding-guidelines.md) >/dev/null"
@@ -147,37 +159,31 @@ fi
 for manifest in .claude-plugin/plugin.json .codex-plugin/plugin.json; do
   check "$manifest exists" test -f "$manifest"
 done
-if command -v jq &>/dev/null; then
-  for manifest in .claude-plugin/plugin.json .codex-plugin/plugin.json; do
-    check "$manifest is valid JSON" jq empty "$manifest"
-    for field in name version description; do
-      check "$manifest has $field" \
-        bash -c 'jq -e --arg field "$2" ".[\$field] | type == \"string\" and length > 0" "$1" >/dev/null' _ "$manifest" "$field"
-    done
+for manifest in .claude-plugin/plugin.json .codex-plugin/plugin.json; do
+  check "$manifest is valid JSON" json_ok True "$manifest"
+  for field in name version description; do
+    check "$manifest has $field" \
+      json_ok "isinstance(d[0].get('$field'), str) and d[0]['$field'] != ''" "$manifest"
   done
-  check "Claude and Codex plugin names and versions match" \
-    bash -c 'jq -es ".[0].name == .[1].name and .[0].version == .[1].version" .claude-plugin/plugin.json .codex-plugin/plugin.json >/dev/null'
-  check "Codex manifest selects its own hooks configuration" \
-    bash -c 'jq -e ".hooks == \"./hooks/codex-hooks.json\"" .codex-plugin/plugin.json >/dev/null'
-  check "Codex marketplace.json is valid JSON" jq empty .agents/plugins/marketplace.json
-else
-  echo "  SKIP  plugin.json checks (jq not installed)"
-fi
+done
+check "Claude and Codex plugin names and versions match" \
+  json_ok 'd[0]["name"] == d[1]["name"] and d[0]["version"] == d[1]["version"]' .claude-plugin/plugin.json .codex-plugin/plugin.json
+check "Codex manifest selects its own hooks configuration" \
+  json_ok 'd[0].get("hooks") == "./hooks/codex-hooks.json"' .codex-plugin/plugin.json
+check "Codex marketplace.json is valid JSON" json_ok True .agents/plugins/marketplace.json
 
 # --- 6. Version bump check (PR branches only) ---
 echo "[Version bump]"
 if ! git rev-parse --verify origin/master &>/dev/null; then
   echo "  SKIP  Version bump check (origin/master not available)"
-elif ! command -v jq &>/dev/null; then
-  echo "  SKIP  Version bump check (jq not installed)"
 else
   head_commit=$(git rev-parse HEAD 2>/dev/null)
   master_commit=$(git rev-parse origin/master 2>/dev/null)
   if [ "$head_commit" = "$master_commit" ]; then
     echo "  SKIP  Version bump check (on master)"
   else
-    master_ver=$(MSYS_NO_PATHCONV=1 git show origin/master:.claude-plugin/plugin.json 2>/dev/null | jq -r '.version' 2>/dev/null || echo "")
-    current_ver=$(jq -r '.version' .claude-plugin/plugin.json 2>/dev/null || echo "")
+    master_ver=$(MSYS_NO_PATHCONV=1 git show origin/master:.claude-plugin/plugin.json 2>/dev/null | "$py_cmd" -c 'import json, sys; print(json.load(sys.stdin)["version"], end="")' 2>/dev/null || echo "")
+    current_ver=$("$py_cmd" -c 'import json, sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["version"], end="")' .claude-plugin/plugin.json 2>/dev/null || echo "")
     if [ -n "$master_ver" ] && [ -n "$current_ver" ]; then
       check "plugin.json version bumped (master: $master_ver, current: $current_ver)" \
         test "$current_ver" != "$master_ver"
@@ -283,13 +289,7 @@ if command -v bash &>/dev/null; then
     if ! bash -n "$f" 2>/dev/null; then
       syntax_errors+="  $f: bash syntax error\n"
     fi
-  done < <(find ./skills -path '*/templates/*.sh' -o -path '*/templates/**/*.sh' 2>/dev/null | sort)
-  # Also check hooks/session-start
-  if [ -f "./hooks/session-start" ]; then
-    if ! bash -n "./hooks/session-start" 2>/dev/null; then
-      syntax_errors+="  hooks/session-start: bash syntax error\n"
-    fi
-  fi
+  done < <({ find ./skills -path '*/templates/*.sh' 2>/dev/null; find ./scripts -name '*.sh' 2>/dev/null; echo ./hooks/session-start; } | sort -u)
 fi
 
 # Node.js scripts
@@ -310,8 +310,6 @@ if [ -n "$py_cmd" ]; then
       syntax_errors+="  $f: python syntax error\n"
     fi
   done < <({ find ./skills -path '*/templates/*.py' -o -path '*/templates/**/*.py' 2>/dev/null; find ./scripts -name '*.py' 2>/dev/null; } | sort -u)
-else
-  echo "  SKIP  Python syntax checks (python not installed)"
 fi
 
 check "Template scripts parse without errors" test -z "$syntax_errors"
@@ -321,29 +319,26 @@ fi
 
 # --- 11. JSON template validity ---
 echo "[JSON templates]"
-if command -v jq &>/dev/null; then
-  json_errors=""
-  while IFS= read -r f; do
-    if ! jq empty "$f" 2>/dev/null; then
-      json_errors+="  $f: invalid JSON\n"
-    fi
-  done < <(find ./skills -path '*/templates/*.json' -o -path '*/templates/**/*.json' 2>/dev/null | sort)
-  check "JSON templates are valid" test -z "$json_errors"
-  if [ -n "$json_errors" ]; then
-    printf "       Invalid JSON:\n%b" "$json_errors"
+json_errors=""
+while IFS= read -r f; do
+  if ! json_ok True "$f" 2>/dev/null; then
+    json_errors+="  $f: invalid JSON\n"
   fi
-
-  # This repo's own settings.json must carry every deny rule the template ships.
-  # Same dogfooding gap the restrict-paths and coding-guidelines pins close, and
-  # it had already opened: the template narrowed `Bash(*git push --force*)` to a
-  # pair that does not swallow `--force-with-lease`, this copy kept the greedy
-  # glob, and the repo denied its own /optimus:pr flow. One-directional on
-  # purpose — extra project-specific denies here are fine.
-  check "settings.json carries every template deny rule" \
-    bash -c "jq -e --slurpfile tpl skills/permissions/templates/settings.json '(\$tpl[0].permissions.deny - .permissions.deny) | length == 0' .claude/settings.json >/dev/null"
-else
-  echo "  SKIP  JSON template checks (jq not installed)"
+done < <(find ./skills -path '*/templates/*.json' -o -path '*/templates/**/*.json' 2>/dev/null | sort)
+check "JSON templates are valid" test -z "$json_errors"
+if [ -n "$json_errors" ]; then
+  printf "       Invalid JSON:\n%b" "$json_errors"
 fi
+
+# This repo's own settings.json must carry every deny rule the template ships.
+# Same dogfooding gap the restrict-paths and coding-guidelines pins close, and
+# it had already opened: the template narrowed `Bash(*git push --force*)` to a
+# pair that does not swallow `--force-with-lease`, this copy kept the greedy
+# glob, and the repo denied its own /optimus:pr flow. One-directional on
+# purpose — extra project-specific denies here are fine.
+check "settings.json carries every template deny rule" \
+  json_ok 'not set(d[0]["permissions"]["deny"]) - set(d[1]["permissions"]["deny"])' \
+  skills/permissions/templates/settings.json .claude/settings.json
 
 # --- 12. Skill directory completeness ---
 echo "[Skill completeness]"
@@ -376,7 +371,7 @@ for skill_dir in ./skills/*/; do
 done
 # Check each actual skill is mentioned in README.md
 for skill in $actual_skills; do
-  if ! grep -q "/optimus:$skill" README.md 2>/dev/null; then
+  if ! grep -qE "/optimus:${skill}([^a-z0-9-]|\$)" README.md 2>/dev/null; then
     readme_mismatch+="  skills/$skill: not listed in README.md\n"
   fi
 done
@@ -387,9 +382,9 @@ for skill in $actual_skills; do
     readme_mismatch+="  skills/$skill: not listed in CONTRIBUTING.md project structure\n"
   fi
 done
-check "README lists all skills" test -z "$readme_mismatch"
+check "README and CONTRIBUTING list all skills" test -z "$readme_mismatch"
 if [ -n "$readme_mismatch" ]; then
-  printf "       Missing from README:\n%b" "$readme_mismatch"
+  printf "       Missing entries:\n%b" "$readme_mismatch"
 fi
 
 # --- 14. Hook configuration validity ---
@@ -397,34 +392,28 @@ echo "[Plugin hooks]"
 for hook_config in hooks/hooks.json hooks/codex-hooks.json; do
   check "$hook_config exists" test -f "$hook_config"
 done
-if command -v jq &>/dev/null; then
-  hook_missing=""
-  for hook_config in hooks/hooks.json hooks/codex-hooks.json; do
-    check "$hook_config is valid JSON" jq empty "$hook_config"
-    while IFS= read -r cmd; do
-      # Check each host's plugin-relative paths, including Windows overrides.
-      while IFS= read -r script_path; do
-        if [ -n "$script_path" ] && [ ! -f "./$script_path" ]; then
-          hook_missing+="  $hook_config -> $script_path\n"
-        fi
-      done < <(printf '%s' "$cmd" | grep -oE '\$\{(CLAUDE_PLUGIN_ROOT|PLUGIN_ROOT)\}/[^"[:space:]\\]+' | sed -E 's@^\$\{(CLAUDE_PLUGIN_ROOT|PLUGIN_ROOT)\}/@@' | sort -u)
-    done < <(jq -r '.. | objects | (.command?, .commandWindows?) // empty' "$hook_config" 2>/dev/null)
-  done
-  check "Hook command scripts exist" test -z "$hook_missing"
-  if [ -n "$hook_missing" ]; then
-    printf "       Missing hook scripts:\n%b" "$hook_missing"
-  fi
-else
-  echo "  SKIP  hooks.json checks (jq not installed)"
+hook_missing=""
+for hook_config in hooks/hooks.json hooks/codex-hooks.json; do
+  check "$hook_config is valid JSON" json_ok True "$hook_config"
+  # Check each host's plugin-relative paths, including Windows overrides. The
+  # path pattern stops at JSON quotes and escapes, so the raw file reads cleanly.
+  while IFS= read -r script_path; do
+    if [ -n "$script_path" ] && [ ! -f "./$script_path" ]; then
+      hook_missing+="  $hook_config -> $script_path\n"
+    fi
+  done < <(grep -oE '\$\{(CLAUDE_PLUGIN_ROOT|PLUGIN_ROOT)\}/[^"[:space:]\\]+' "$hook_config" 2>/dev/null | sed -E 's@^\$\{(CLAUDE_PLUGIN_ROOT|PLUGIN_ROOT)\}/@@' | sort -u)
+done
+check "Hook command scripts exist" test -z "$hook_missing"
+if [ -n "$hook_missing" ]; then
+  printf "       Missing hook scripts:\n%b" "$hook_missing"
 fi
 
 # --- 15. Plugin-level agents ---
 echo "[Plugin agents]"
 agent_issues=""
-agent_count=0
 # Two assertions, and both are needed. The named list is the only thing that
-# checks these files EXIST: replacing it with a bare glob left `agent_count`
-# at 1 when one of the two was deleted, so validation stayed green while the
+# checks these files EXIST: a bare glob with a count>0 floor still counted 1
+# when one of the two was deleted, so validation stayed green while the
 # plugin shipped without its user-invocable optimus:test-guardian subagent and
 # skills/init/README.md's relative link 404'd. Nothing else pins them — check 8
 # only validates $CLAUDE_PLUGIN_ROOT paths, and check 9 only flags files that
@@ -437,7 +426,6 @@ done
 # goes stale (skills get the same treatment in section 12 via ./skills/*/).
 for agent_file in agents/*.md; do
   [ -e "$agent_file" ] || continue
-  agent_count=$((agent_count + 1))
   # Check frontmatter has tools: field
   if ! grep -q '^tools:' "$agent_file" 2>/dev/null; then
     agent_issues+="  $agent_file: missing 'tools:' in frontmatter\n"
@@ -446,13 +434,6 @@ for agent_file in agents/*.md; do
     agent_issues+="  $agent_file: missing 'name:' in frontmatter\n"
   fi
 done
-if [ "$agent_count" -eq 0 ]; then
-  agent_issues+="  agents/: no agent definitions found\n"
-fi
-# Check that old template agents directory does NOT exist
-if [ -d "skills/init/templates/agents" ] && [ "$(ls -A skills/init/templates/agents 2>/dev/null)" ]; then
-  agent_issues+="  skills/init/templates/agents/ still contains files (should be moved to agents/)\n"
-fi
 check "Plugin-level agents valid" test -z "$agent_issues"
 if [ -n "$agent_issues" ]; then
   printf "       Issues:\n%b" "$agent_issues"
@@ -461,8 +442,8 @@ fi
 # --- 16. Reference depth check (max 2 levels from SKILL.md) ---
 echo "[Reference depth]"
 deep_refs=""
-# For each reference file that is loaded by a SKILL.md, check if it loads further
-# references that themselves load more (3+ levels deep)
+# Level 1 = every skill-local references/ or agents/ file, plus each root
+# references/*.md a SKILL.md loads. Flag any level-2 file that loads more markdown.
 while IFS= read -r ref_file; do
   # This is a level-1 reference (loaded by SKILL.md). Check what it references.
   # Iterate over every reference rather than every line: with one path extracted
@@ -473,13 +454,13 @@ while IFS= read -r ref_file; do
       continue
     fi
     # This is a level-2 reference. Check if IT references more files (level-3 = too deep)
-    # Exclude references to top-level agents/ and references/ — these are leaf files (role definitions, shared constraints)
-    has_deep=$(grep '\$[{]\{0,1\}CLAUDE_PLUGIN_ROOT[}]\{0,1\}/' "./$l2_path" 2>/dev/null | grep -v '\$[{]\{0,1\}CLAUDE_PLUGIN_ROOT[}]\{0,1\}/agents/' | grep -v '\$[{]\{0,1\}CLAUDE_PLUGIN_ROOT[}]\{0,1\}/references/' || true)
+    # Only markdown targets count as depth; shared-agent-constraints.md is the one shared leaf every agent loads.
+    has_deep=$(grep -oE '\$\{?CLAUDE_PLUGIN_ROOT\}?/[^ `"'"'"']*\.md' "./$l2_path" 2>/dev/null | grep -v 'references/shared-agent-constraints\.md' || true)
     if [ -n "$has_deep" ]; then
       deep_refs+="  $ref_file -> $l2_path -> (further refs)\n"
     fi
   done < <(grep -oE '\$\{?CLAUDE_PLUGIN_ROOT\}?/[^ `"'"'"']*' "./$ref_file" 2>/dev/null | sed 's|^\$[{]\{0,1\}CLAUDE_PLUGIN_ROOT[}]\{0,1\}/||' || true)
-done < <(find ./skills -path '*/references/*.md' -o -path '*/agents/*.md' | sort)
+done < <({ find ./skills -path '*/references/*.md' -o -path '*/agents/*.md'; grep -hoE '\$\{?CLAUDE_PLUGIN_ROOT\}?/references/[^ `"'"'"']*\.md' skills/*/SKILL.md | sed 's|^\$[{]\{0,1\}CLAUDE_PLUGIN_ROOT[}]\{0,1\}/||'; } | sort -u)
 check "Reference depth <= 2 levels" test -z "$deep_refs"
 if [ -n "$deep_refs" ]; then
   printf "       Deep reference chains (3+ levels):\n%b" "$deep_refs"
@@ -488,12 +469,13 @@ fi
 # --- 17. Producer/consumer contracts ---
 # A pin belongs here only when a rename on one side breaks a handoff that the
 # reading model cannot recover by meaning. That is true in exactly two cases:
-#   (a) a program parses the string — HARNESS_MODE_INLINE and the harness
-#       reference paths are dispatched on by scripts/harness_common/cli.py;
-#   (b) the string crosses a conversation boundary through an artifact on disk
-#       or an agent return block — one skill writes '## Scenarios' into a spec
-#       file that another skill greps weeks later; an agent names the block its
-#       dispatcher picks out of a long return.
+#   (a) a program parses the string;
+#   (b) the string crosses a conversation boundary through an artifact on disk,
+#       a dispatch prompt, or an agent return block — one skill writes
+#       '## Scenarios' into a spec file that another skill greps weeks later;
+#       the deep loop references inject HARNESS_MODE_INLINE into each subagent's
+#       prompt and its base SKILL.md routes on it to the harness reference; an
+#       agent names the block its dispatcher picks out of a long return.
 # Everything else is a model reading prose, and Claude resolves a renamed
 # heading by meaning. Pinning the wording of a skill's own instructions makes CI
 # the thing that blocks simplifying it — the anti-pattern this plugin's own
@@ -536,9 +518,19 @@ if ! grep -rqF -- '### Refined plan' skills/jira/ 2>/dev/null; then
   contract_errors+="  skills/jira/ has no file containing contract token: ### Refined plan\n"
 fi
 
+# Jira task-file handoff: jira writes this frontmatter key into
+# docs/jira/<KEY>.md; brainstorm and tdd pick and age-check that file by it in a
+# later conversation. A one-sided rename silently breaks their pick and age
+# check — criterion (b).
+require_tokens skills/jira/SKILL.md 'description-refresh-date'
+require_tokens skills/brainstorm/SKILL.md 'description-refresh-date'
+if ! grep -rqF -- 'description-refresh-date' skills/tdd/ 2>/dev/null; then
+  contract_errors+="  skills/tdd/ has no file containing contract token: description-refresh-date\n"
+fi
+
 # Harness routing: /optimus:deep dispatches the base skills with
 # HARNESS_MODE_INLINE and each base SKILL.md routes on it to its variant's
-# reference (runtime contract with scripts/harness_common/cli.py; see
+# reference (dispatch contract with the deep loop references; see
 # test_skill_contract.py). The roster is derived from constants.py's variant
 # frozensets, so a new deep target is covered here automatically instead of
 # shipping unvalidated when a hardcoded list goes stale.
@@ -556,11 +548,6 @@ if [ -n "$py_cmd" ]; then
   for hs in $coverage_variant_skills; do
     require_tokens "skills/$hs/SKILL.md" 'HARNESS_MODE_INLINE' 'references/coverage-harness-mode.md'
   done
-else
-  echo "  SKIP  Harness-routing roster derivation (python not installed); frozen roster fallback"
-  require_tokens skills/code-review/SKILL.md 'HARNESS_MODE_INLINE' 'references/harness-mode.md'
-  require_tokens skills/refactor/SKILL.md 'HARNESS_MODE_INLINE' 'references/harness-mode.md'
-  require_tokens skills/unit-test/SKILL.md 'HARNESS_MODE_INLINE' 'references/coverage-harness-mode.md'
 fi
 require_tokens skills/deep/SKILL.md 'HARNESS_MODE_INLINE'
 

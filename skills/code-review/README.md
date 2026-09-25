@@ -9,7 +9,7 @@ A [Claude Code](https://docs.anthropic.com/en/docs/claude-code) skill that revie
 - **Project-aware** — evaluates against your `coding-guidelines.md`, `testing.md`, `architecture.md`, `styling.md`; markdown instruction files in skill-authoring projects are judged by `skill-writing-guidelines.md` instead
 - **Intent-aware** — in PR/MR mode, agents receive the author's description (with guardrails against bias) and check `## Intent` claims against the implementation; git history protects deliberately introduced code from false positives
 - **Report-then-filter** — agents surface everything they find with an honest confidence label rather than self-censoring; a validation pass then checks each one against the actual code (context, intent, pre-existing, corroboration, runtime assumptions), drops what it cannot confirm, and reports how many it dropped. Contradictions between agents are resolved by severity
-- **Actionable output** — file:line references, confidence, before/after sketches, guideline citations, severity; capped at 15 findings (+5 Intent Mismatch)
+- **Actionable output** — file:line references, before/after sketches, guideline citations, severity; capped at 15 findings (+5 Intent Mismatch)
 - **GitHub and GitLab** — PR review via `gh`, MR review via `glab`; optional review comment posting
 - **Safe by default** — read-only; fixes and comments only on explicit approval. Works without `/optimus:init` (generic guidelines fallback), supports multi-repo workspaces, and skips submodules and generated files
 
@@ -48,9 +48,13 @@ Pre-commit self-review also works: run it on local uncommitted changes to catch 
 - Files reviewed: 5
 - Lines changed: +142 / -28
 - Findings: 2 (Critical: 1, Warning: 1, Suggestion: 0)
+- Unconfirmed findings dropped: 1
 - Docs used: CLAUDE.md, coding-guidelines.md, testing.md
 - Agents: bug-detector, security-reviewer, guideline-reviewer, architecture-reviewer, code-simplifier, test-guardian
 - Verdict: ISSUES FOUND
+
+### Change Summary
+Adds a password-reset flow: a new reset-password handler in src/routes/auth.ts and an email lookup through getUser in src/api/users.ts. Existing login handling is unchanged.
 
 ### Findings
 

@@ -27,9 +27,8 @@ No `/optimus:init` required — this skill works standalone.
 ## Usage
 
 - `/optimus:pr` — create or update the PR/MR for the current branch
-- "create a PR for this branch" / "update the PR description"
 
-The skill detects the hosting platform, pushes the branch if needed (asking before any force-push after a rebase), and checks for an existing open PR/MR. With none, it generates a Conventional PR, previews it for confirmation, and creates it ready to merge. With an existing one, it offers to regenerate the title, the description, or just the `## Intent` section — always preserving manually-added content (issue references, deployment notes) that can't be derived from the diff, while re-deriving everything that can.
+The skill detects the hosting platform, pushes the branch if needed (asking before any force-push after a rebase), and checks for an existing open PR/MR. With none, it generates a Conventional PR, previews it for confirmation, and creates it ready for review (not draft). With an existing one, it offers to regenerate the title, the description, or just the `## Intent` section — always preserving manually-added content (issue references, deployment notes) that can't be derived from the diff, while re-deriving everything that can.
 
 In a multi-repo workspace it filters to repos with branches ready for a PR and offers to process all of them or just one.
 
@@ -60,7 +59,6 @@ Review the PR/MR title and description above. Proceed or adjust?
 - URL: https://github.com/owner/repo/pull/42
 - Title: feat(auth): add password reset endpoint
 - Target: main
-- Status: Ready to merge
 ```
 
 ## Conventional PR format
@@ -83,7 +81,7 @@ Review the PR/MR title and description above. Proceed or adjust?
 ## When not to run
 
 - On the default branch, or with no commits — commit to a feature branch first
-- For draft PRs — this skill creates ready-to-merge PRs only
+- To open a draft PR — this skill creates non-draft PRs only (it can still refresh an existing draft's description)
 
 ## License
 

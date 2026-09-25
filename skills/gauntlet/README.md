@@ -88,6 +88,7 @@ Native goals can continue spending across turns without another prompt. An inter
 | `references/goal-handoff.md` | The **Copy as /goal prompt** path — shared seeding, completion evidence, and message-size check; read only when that option is chosen |
 | `references/goal-handoff-claude.md` | Claude goal delivery, evaluator behavior, and destination checklist |
 | `references/goal-handoff-codex.md` | Codex goal lifecycle, native-tool/plain-prompt fallback, and destination checklist |
+| *(shared)* `init/references/constraint-doc-loading.md` | Project constraint docs carried into the gauntlet prompt |
 
 ## Acknowledgements
 

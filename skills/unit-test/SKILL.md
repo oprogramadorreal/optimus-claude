@@ -1,5 +1,5 @@
 ---
-description: Improves unit test coverage on demand — discovers testing gaps via a reconnaissance agent and writes new tests that follow project conventions. Requires /optimus:init to have set up test infrastructure. Conservative — only adds new tests, never modifies existing test logic or source code; untestable code is flagged for /optimus:refactor. For an automated multi-cycle coverage loop, use /optimus:deep coverage.
+description: Improves unit test coverage — discovers testing gaps and writes new tests that follow project conventions. Requires /optimus:init to have set up test infrastructure. Conservative — only adds new tests, never modifies existing test logic or source code; untestable code is flagged for /optimus:refactor. For an automated multi-cycle coverage loop, use /optimus:deep coverage.
 disable-model-invocation: true
 argument-hint: "[path]"
 ---
@@ -28,13 +28,9 @@ Load `.claude/CLAUDE.md`, `.claude/docs/coding-guidelines.md`, and `testing.md` 
 
 Delegate when surveying the tree inline would flood this context: for each subproject (or the single project), launch one `general-purpose` agent with that prompt, prepended with the "Agent Constraints" section of `$CLAUDE_PLUGIN_ROOT/references/shared-agent-constraints.md`. Assemble the prompt per "Prompt assembly at dispatch time" in `$CLAUDE_PLUGIN_ROOT/references/agent-architecture.md`.
 
-Under `HARNESS_MODE_INLINE` on cycles 2+, the cycle context block from the "Run discovery and coverage analysis" section of coverage-harness-mode.md applies on **both** paths: prepend it to the agent's prompt when delegating, and read it as your own context when running this step inline. It carries the previous cycle's coverage numbers and convergence state — without it the inline path re-derives what the loop already established, and the plateau check never sees the repeat.
-
 Present the Discovery Results and Coverage Analysis to the user.
 
 ### Stop gates
-
-**Harness mode:** when a stop gate fires, do not print the conversational messages below — follow the "Stop gates under harness mode" rule in coverage-harness-mode.md: emit the Step 6 JSON immediately with a non-null `blocked` field and stop.
 
 **If no test framework is detected**, stop and report: "No test framework found. Run `/optimus:init` (or re-run it) to install a test framework and set up test infrastructure before using this skill. For a project with no code or detectable stack yet, pick **Scaffold new project** when init asks." Never generate tests without a working framework.
 
@@ -69,18 +65,16 @@ Test-writing rules:
 Per-test workflow, for each approved item:
 
 1. Write the test and run it immediately.
-2. If it fails, fix the **test** (never the source code) — max 3 attempts. Still failing after 3? Flag the item as untestable and revert the test file (or remove the appended cases) before moving on — an abandoned failing test must not remain active in either mode. In harness mode, record the item as `fail-abandoned` in the Step 6 JSON.
-3. If the failure reveals an actual **bug in existing code**, report it under Bugs Discovered (`bugs_discovered` in harness mode) but do not fix it, then revert the failing test the same way (harness: `fail-abandoned` with `failure_reason` naming the bug).
+2. If it fails, fix the **test** (never the source code) — max 3 attempts. Still failing after 3? Flag the item as untestable and revert the test file (or remove the appended cases) before moving on — an abandoned failing test must not remain active in either mode.
+3. If the failure reveals an actual **bug in existing code**, report it under Bugs Discovered but do not fix it, then revert the failing test the same way.
 
 ### Full-suite run (normal mode only)
 
-After all tests are written, run the **full test suite** to ensure no regressions and report the actual result. If a newly added test file causes regressions (itself failing under the full suite, or breaking other tests), revert it. Harness mode: skip this run and any `scripts/*.sh` wrappers — the orchestrator owns the full run and bisection.
+After all tests are written, run the **full test suite** to ensure no regressions and report the actual result. If a newly added test file causes regressions (itself failing under the full suite, or breaking other tests), revert it.
 
 ## Step 5: Summary
 
-**Harness mode:** skip this step — Step 6 emits the structured JSON instead.
-
-**Normal mode** — report to the user (one block per repo in multi-repo workspaces, with the repo name/path in each section header):
+Report to the user (one block per repo in multi-repo workspaces, with the repo name/path in each section header):
 
 ```
 ## Unit Test Summary
@@ -102,8 +96,4 @@ After all tests are written, run the **full test suite** to ensure no regression
 - [Flagged code, with the structural change each item would need]
 ```
 
-If untestable code was flagged, recommend `/optimus:refactor testability` in a fresh conversation to restructure it; otherwise recommend `/optimus:commit`, staying in this conversation so the context is captured. For an automated loop that alternates test generation with testability refactoring, mention `/optimus:deep coverage`.
-
-## Step 6: Harness Output (harness mode only)
-
-If running under `HARNESS_MODE_INLINE`, emit the structured JSON **instead** of the Step 5 summary, per the "Output structured JSON" section of `$CLAUDE_PLUGIN_ROOT/references/coverage-harness-mode.md`.
+If tests were written, recommend `/optimus:commit`, staying in this conversation so the context is captured. If code was flagged as untestable, recommend `/optimus:refactor testability` in a fresh conversation to restructure it. For an automated loop that alternates test generation with testability refactoring, mention `/optimus:deep coverage`.

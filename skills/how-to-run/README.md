@@ -11,7 +11,7 @@ Many projects have "how to get this running" instructions scattered across `READ
 - Discovers source dependencies (git submodules, sibling repos, CMake FetchContent) and external services — from docker-compose *and* from framework config files (`appsettings*.json`, `application.yml`, Rails/Phoenix/Laravel configs), the latter marked `(candidate)`.
 - Classifies each un-composed service as **Docker-preferred**, **Shared-cloud primary**, or **Local install only**; `docker run` snippets use web-verified, vendor-cited image references (never model memory) behind a registry allowlist. Vendor cloud services resolve to their official local emulators (LocalStack, Azurite, Firebase Emulator Suite, DynamoDB Local).
 - Enumerates every runnable component (web + workers + frontends) and bound runtime port from launch configs, so run instructions scale with the project and `Expected result:` URLs show real ports — never framework defaults.
-- Renders workspace-aware commands (`cargo build --workspace`, `go work sync`, `npm --workspaces`, Gradle/Maven multi-module) instead of silently-wrong per-package forms.
+- Renders workspace-aware commands (`cargo build --workspace`, per-module `go.work` builds, `npm --workspaces`, Gradle/Maven multi-module) instead of silently-wrong per-package forms.
 - Anti-hallucination verification pass: every port, path, version, and count in the generated doc must be grounded in a detector citation or re-observable on disk; unverified numbers and prose are rejected before the file is finalized.
 - Audits existing docs as hypotheses; stale info found elsewhere is reported for manual fixing — those files are never edited.
 - Offers a display-only guided walkthrough of an existing `HOW-TO-RUN.md`: per-step pacing with audit verdicts and destructive/remote-fetch advisories. You run every command yourself.
@@ -24,7 +24,7 @@ In Claude Code:
 
 In Codex, invoke `$optimus:how-to-run` or select it from the skill picker. See [supported hosts and versions](../../README.md#supported-hosts-and-versions) for surface-specific availability.
 
-First-run writes go through directly after you approve the plan; updates to an existing `HOW-TO-RUN.md` show the full diff and wait for approval. When the file already exists you choose: **Walk through it** (guided, display-only), **Regenerate**, or **Skip**.
+First-run writes go through directly once you confirm the detected context; updates to an existing `HOW-TO-RUN.md` show the full diff and wait for approval. When the file already exists you choose: **Walk through it** (guided, display-only), **Regenerate**, or **Skip**.
 
 ## When to Run
 

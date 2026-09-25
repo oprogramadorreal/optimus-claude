@@ -10,6 +10,18 @@ COMMIT_COMMITTED = "committed"
 COMMIT_NOTHING = "nothing-to-commit"
 COMMIT_FAILED = "failed"
 
+# Every reason a run can record in progress["termination"]. The deep README
+# vocabulary test derives from this.
+TERMINATION_REASONS = (
+    "convergence",
+    "no-actionable",
+    "all-reverted",
+    "diminishing-returns",
+    "cap",
+    "parse-failure",
+    "blocked",
+)
+
 # Termination reasons that leave the run resumable. final-report --archive skips
 # archiving for these: archiving renames the progress file to .done.json, which
 # cmd_resume refuses. Both are soft exits the user can act on and continue from —
@@ -43,8 +55,9 @@ FOCUS_MODES_BY_SKILL = {"refactor": VALID_FOCUS_MODES}
 # file in .claude/. Consumed bare by cli.py's final-report cleanup (globbing
 # inside the .claude/ dir) and anchored with a ".claude/" prefix by git.py's
 # _HARNESS_STATE_EXCLUDES. This repo's .gitignore and
-# references/orchestrator-loop-single.md mirror them for the harness dev loop
-# and the orchestrator — rename a prefix here and update those two mirrors.
+# references/orchestrator-loop-*.md (pinned by test_skill_contract.py) mirror
+# them for the harness dev loop and the orchestrator — rename a prefix here
+# and update those mirrors.
 SCRATCH_GLOBS = (".deep-iteration-*", ".unit-test-deep-*")
 
 SKILL_COMMIT_TYPE = {
@@ -84,5 +97,9 @@ DEEP_TARGETS = {
 
 
 def normalize_path(path_str):
-    """Normalize path separators for cross-platform compatibility."""
-    return path_str.replace("\\", "/")
+    """Normalize path separators for cross-platform compatibility.
+
+    A non-string (a subagent's ``"file": null`` or a number) is no path, the
+    same as an omitted ``file``.
+    """
+    return path_str.replace("\\", "/") if isinstance(path_str, str) else ""

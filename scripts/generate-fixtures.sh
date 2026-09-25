@@ -14,6 +14,16 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PLUGIN_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 FIXTURES_DIR="$PLUGIN_ROOT/test/fixtures"
 
+# Hermetic repo: no inherited signing or hooks, stable line endings.
+init_fixture_repo() {
+  git init -q .
+  git config user.email "test@test.com"
+  git config user.name "Test"
+  git config core.autocrlf false
+  git config commit.gpgsign false
+  git config core.hooksPath /dev/null
+}
+
 # --- Fixture generators ---
 
 generate_node_project() {
@@ -22,10 +32,7 @@ generate_node_project() {
   mkdir -p "$dir"
   (
     cd "$dir"
-    git init -q .
-    git config user.email "test@test.com"
-    git config user.name "Test"
-    git config core.autocrlf false
+    init_fixture_repo
 
     cat > package.json <<'EOF'
 {
@@ -65,10 +72,7 @@ generate_python_project() {
   mkdir -p "$dir/src"
   (
     cd "$dir"
-    git init -q .
-    git config user.email "test@test.com"
-    git config user.name "Test"
-    git config core.autocrlf false
+    init_fixture_repo
 
     cat > pyproject.toml <<'EOF'
 [project]
@@ -115,10 +119,7 @@ generate_go_project() {
   mkdir -p "$dir"
   (
     cd "$dir"
-    git init -q .
-    git config user.email "test@test.com"
-    git config user.name "Test"
-    git config core.autocrlf false
+    init_fixture_repo
 
     cat > go.mod <<'EOF'
 module example.com/hello-go
@@ -155,10 +156,7 @@ generate_rust_project() {
   mkdir -p "$dir/src"
   (
     cd "$dir"
-    git init -q .
-    git config user.email "test@test.com"
-    git config user.name "Test"
-    git config core.autocrlf false
+    init_fixture_repo
 
     cat > Cargo.toml <<'EOF'
 [package]
@@ -193,10 +191,7 @@ generate_csharp_project() {
   mkdir -p "$dir"
   (
     cd "$dir"
-    git init -q .
-    git config user.email "test@test.com"
-    git config user.name "Test"
-    git config core.autocrlf false
+    init_fixture_repo
 
     cat > HelloCsharp.csproj <<'EOF'
 <Project Sdk="Microsoft.NET.Sdk">
@@ -238,10 +233,7 @@ generate_monorepo_project() {
   mkdir -p "$dir/packages/api/src" "$dir/packages/web/src"
   (
     cd "$dir"
-    git init -q .
-    git config user.email "test@test.com"
-    git config user.name "Test"
-    git config core.autocrlf false
+    init_fixture_repo
 
     # Root package.json with workspaces
     cat > package.json <<'EOF'
@@ -310,10 +302,7 @@ generate_empty_project() {
   mkdir -p "$dir"
   (
     cd "$dir"
-    git init -q .
-    git config user.email "test@test.com"
-    git config user.name "Test"
-    git config core.autocrlf false
+    init_fixture_repo
     git commit --allow-empty -q -m "initial: empty project"
   )
   echo "  Created: empty-project"
@@ -327,10 +316,7 @@ generate_multi_repo_workspace() {
   # Backend repo
   (
     cd "$dir/backend"
-    git init -q .
-    git config user.email "test@test.com"
-    git config user.name "Test"
-    git config core.autocrlf false
+    init_fixture_repo
     cat > package.json <<'EOF'
 {
   "name": "backend",
@@ -349,10 +335,7 @@ EOF
   # Frontend repo
   (
     cd "$dir/frontend"
-    git init -q .
-    git config user.email "test@test.com"
-    git config user.name "Test"
-    git config core.autocrlf false
+    init_fixture_repo
     cat > package.json <<'EOF'
 {
   "name": "frontend",
@@ -371,38 +354,21 @@ EOF
   echo "  Created: multi-repo-workspace"
 }
 
-# --- Available fixtures ---
-declare -A GENERATORS=(
-  [node]=generate_node_project
-  [python]=generate_python_project
-  [go]=generate_go_project
-  [rust]=generate_rust_project
-  [csharp]=generate_csharp_project
-  [monorepo]=generate_monorepo_project
-  [empty]=generate_empty_project
-  [multi-repo]=generate_multi_repo_workspace
-)
-
 # --- Main ---
+
+ALL_FIXTURES=(node python go rust csharp monorepo empty multi-repo)
 
 echo "=== Generating test fixtures ==="
 
 mkdir -p "$FIXTURES_DIR"
 
-if [ $# -eq 0 ]; then
-  # Generate all fixtures
-  targets=(node python go rust csharp monorepo empty multi-repo)
-else
-  targets=("$@")
-fi
-
-for target in "${targets[@]}"; do
-  if [ -n "${GENERATORS[$target]+x}" ]; then
-    ${GENERATORS[$target]}
-  else
-    echo "  ERROR: Unknown fixture '$target'. Available: ${!GENERATORS[*]}"
-    exit 1
-  fi
+[ $# -eq 0 ] && set -- "${ALL_FIXTURES[@]}"
+for target in "$@"; do
+  case "$target" in
+    node|python|go|rust|csharp|monorepo|empty) "generate_${target}_project" ;;
+    multi-repo) generate_multi_repo_workspace ;;
+    *) echo "  ERROR: Unknown fixture '$target'. Available: ${ALL_FIXTURES[*]}"; exit 1 ;;
+  esac
 done
 
 echo

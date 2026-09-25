@@ -19,7 +19,7 @@ When `.claude/docs/skill-writing-guidelines.md` exists, the project authors mark
 
 ## All Agents Exclude
 
-- Style/formatting concerns (linters handle these)
+- Style/formatting concerns and other issues the project's configured linters already catch
 - Subjective suggestions ("I would prefer...")
 - Performance micro-optimizations without clear impact
 - Issues explicitly silenced in code (e.g., `// eslint-disable`, `# noqa`)
@@ -38,7 +38,5 @@ Limits: at most **3** extra files per original finding, reached through a struct
 ## False Positives to Avoid
 
 - Apparently incorrect or unusual-looking but actually correct code (intentional deviations). Where the evidence of intent is ambiguous, report it at **Low** confidence and name the evidence you could not confirm.
-- Pedantic nitpicks
-- Linter-catchable issues
 - Code-quality opinions you cannot tie to the guidelines you were given — the project's own, or the baseline set handed to you when the project has none
 - Complexity that exists to satisfy a security or correctness requirement is not a guideline violation — KISS means "simplest design that meets current requirements," and security is a requirement. Blocklists, allowlists, validation rules, sanitization, and deliberate safety measures are not over-engineering. (You do not need to predict what other agents will say: contradictions between agents are resolved during consolidation, which sees every agent's output.)

@@ -6,11 +6,11 @@ Apply shared constraints from `shared-constraints.md`. You always receive **shar
 
 ### Init shortcut
 
-If `.claude/.optimus-version` exists, read `.claude/CLAUDE.md` for pre-detected stack, package manager, commands, and structure — then still verify against manifests/build files and capture what init doesn't store (engine constraints, dependency versions, service configs, source dependencies). **Do NOT write or modify `.claude/.optimus-version`** — it is owned exclusively by `/optimus:init`.
+If `.claude/.optimus-version` exists, read `.claude/CLAUDE.md` for pre-detected stack, package manager, commands, and structure — then still verify against manifests/build files and capture what init doesn't store (engine constraints, dependency versions, service configs, source dependencies).
 
 ### Detection tasks
 
-Run the non-manifest tasks (0a–0e) in parallel with the manifest tasks (1–7); a project may hit both branches (e.g., a Node CLI wrapping a C++ addon), and both must report.
+Run the non-manifest tasks (0a–0d2) in parallel with the manifest tasks (1–7); a project may hit both branches (e.g., a Node CLI wrapping a C++ addon), and both must report. Task 0e runs last, on their results.
 
 #### Task 0a — Build system & toolchain
 
@@ -29,12 +29,10 @@ Record build system, minimum toolchain version, and any SDK requirements discove
 #### Task 0b — Source dependencies
 
 - **Git submodules:** read `.gitmodules` if present; extract each path + URL. Validate paths against `^[A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)*$`, then split on `/` and reject empty/`.`/`..` segments. Validate URLs with the clone-URL rules below. Reject failures and note "sanitized" in the Source column.
-- **CMake source deps:** grep `CMakeLists.txt` / `*.cmake` for `FetchContent_Declare`, `ExternalProject_Add`, `add_subdirectory(../`.
-- **Sibling repo candidates:** grep CI files (`.github/workflows/*.yml`, `azure-pipelines.yml`, `.gitlab-ci.yml`), build files, and existing docs for `../[A-Za-z0-9_][A-Za-z0-9._-]*` references. Filter obvious false positives (`../node_modules`, `../dist`, `../build`, `../target`, `../vendor`). Report the rest as *candidates* with their source line — never as facts; candidates require explicit user approval in the main skill before being written.
+- **Sibling repo candidates:** grep CI files (`.github/workflows/*.yml`, `azure-pipelines.yml`, `.gitlab-ci.yml`), build files, and existing docs for `../[A-Za-z0-9_][A-Za-z0-9._-]*` references. Filter obvious false positives (`../node_modules`, `../dist`, `../build`, `../target`, `../vendor`). Report the rest as *candidates* with their source line — never as facts.
   - **Path validation:** `^\.\./[A-Za-z0-9_][A-Za-z0-9._-]*(/[A-Za-z0-9._-]+)*$`; then split on `/` and reject if any segment after the leading `..` is empty, `.`, or `..`.
   - **Clone URL validation:** `^(https?|ssh)://[A-Za-z0-9.-]+(:[0-9]+)?(/[A-Za-z0-9._/-]+)*$` OR SCP form `^[A-Za-z0-9_][A-Za-z0-9_-]*@[A-Za-z0-9.-]+:[A-Za-z0-9._-][A-Za-z0-9._/-]*(\.git)?$`. Extract the path portion (after host and optional port from the first `/`; after the first `:` for SCP), split on `/`, reject empty/`.`/`..` segments.
 - **Doc hints:** read `README.md`, `BUILDING.md`, `INSTALL.md`, `docs/*.md` for "clone alongside", "sister repo", "requires the X repo", "must be checked out at `../`" — record as candidates with source location.
-- **Zephyr / AOSP:** `west.yml` or `.repo/manifests/default.xml` → record the workspace tool + manifest.
 
 #### Task 0c — System packages & SDKs
 
@@ -57,7 +55,7 @@ If Tasks 0a–0d AND the manifest scan all come up empty or classify the project
 1. **Tech stack & package manager:** apply the tables in tech-stack-detection.md to manifests and lock files.
 2. **Manifest scripts:** extract `dev`, `start`, `build`, `test`, `lint` and variants (`start:dev`, `test:unit`); record exact script names.
 3. **Project structure:** when project-detection.md was provided, apply its full algorithm (multi-repo workspace detection, workspace configs, depth-2 manifest scan, supporting signals; apply multi-repo-detection.md when that was provided too). When it was not, the dispatcher already established this is a single project — record it as such.
-4. **Runtime version constraints** from manifests: `engines.node`, `python_requires`, `rust-version`, `environment.sdk`, `toolchain.channel` in `rust-toolchain.toml`, `go.mod` `go` directive, `.java-version` / `pom.xml` `maven.compiler.source`, and similar. One row each; Source = `<file>:<line>` (line required — Step 6 re-reads it).
+4. **Runtime version constraints** from manifests: `engines.node`, `project.requires-python` / `python_requires`, `rust-version`, `environment.sdk`, `go.mod` `go` directive, `pom.xml` `maven.compiler.source`, and similar. One row each; Source = `<file>:<line>` (line required — Step 6 re-reads it).
 
    **Version-manager files are authoritative when the manifest is silent** — emit a row cited `Source: <version-manager-file>` (no line needed):
    - `.python-version` → `Python == <content>` (treat `3.10` without patch level as `3.10.x`)
@@ -82,11 +80,11 @@ Services wired through application config (Spring, ASP.NET Core, Rails, Phoenix,
 
 Glob `appsettings*.json`; `application.yml` / `.yaml` / `.properties` and `application-*` profile variants; `config/*.yml` / `*.yaml` / `*.exs` / `*.php`; `config.php`; `config.yaml` / `config.yml` / `config.toml` — at most 2 levels deep under those roots, never following symlinks.
 
-If nothing matched, record no Task 5b services and move on. If something did, read `$CLAUDE_PLUGIN_ROOT/skills/how-to-run/references/detector-framework-config-services.md` and apply it in full — its matching, hostname, sanitization, cap, and confidence rules are all load-bearing, and every match it produces is `candidate` confidence.
+If nothing matched, record no Task 5b services and move on. If something did, read `$CLAUDE_PLUGIN_ROOT/skills/how-to-run/references/detector-framework-config-services.md` and apply it in full.
 
 #### Task 5c — Runtime-bind ports
 
-Ports the application itself listens on (distinct from Task 5 service ports). Every row MUST carry a `<file>:<line>` Source citation — no framework defaults, no inference from unrelated config. One Runtime Ports row per detected `(component, port)` pair; apply every rule whose signals are present:
+Ports the application itself listens on (distinct from Task 5 service ports). Every row MUST carry a `<file>:<line>` Source citation — no framework defaults (ASP.NET `5000`, Rails `3000`, Django `8000`, Spring Boot `8080`), no inference from unrelated config. One Runtime Ports row per detected `(component, port)` pair; apply every rule whose signals are present:
 
 - **.NET / ASP.NET Core:** glob `**/Properties/launchSettings.json` (depth cap 6, never follow symlinks). Extract `iisSettings.iisExpress.applicationUrl` and every `profiles.<name>.applicationUrl`; split each value on `;`, **trim leading/trailing whitespace from each token**, then apply `^https?://(?:\[[0-9a-fA-F:]+\]|[^:/]+):([0-9]{1,5})(?:/|$)` per token (bracketed IPv6 hosts like `[::1]` accepted). Component = parent `src/<Component>/` directory name (else the file's grandparent). Skip URLs without an explicit port.
 - **Rails / Ruby:** read `config/puma.rb`; grep for `port` and `bind` (skip lines whose first non-whitespace is `#`). Component is "Puma" or the app directory name in a monorepo.
@@ -132,7 +130,7 @@ Cap at 20 components (then a single `+N more — see <glob pattern>` row); suppr
    - **Framework config files** (the Task 5b file set): one Environment Setup row per file with its format (`json` / `yaml` / `properties` / `exs` / `php` / `toml`) and top-level section names — sanitized with `^:?[A-Za-z_][A-Za-z0-9_.-]{0,63}$`; `properties` keys collapsed to the pre-first-`.` prefix and deduped. Cap 25 section names per file (first 25 alphabetically; set `Variable count` to the true total so the main skill can render a "see file" footnote). Never emit values or nested-key contents.
    - **Key leaves:** per top-level section, up to 3 first-level leaf property names (direct children; for `properties` files, the segment after the collapsed prefix). Sanitize with the same allowlist; drop failures. Emit under the `Key leaves` column as `<Section1>: <leaf1>, <leaf2>; <Section2>: <leafA>` (sections separated by `; `, leaves by `, `).
    - **Committed-secrets flag:** grep the file for non-placeholder values assigned to keys matching `(?i)(key|secret|password|token|credential|private)`. A value is a placeholder when ANY of: length ≤ 8 characters; whole-value case-insensitive match of `^(?:(?:your|my|yr|the|a|an)[_-]?)?(placeholder|changeme|replace[_-]?me|dummy|fake|stub|todo|fixme|example|sample|xxx+|\*+)(?:[_-]?(?:value|secret|token|key|password|here|apikey|api[_-]?key))?$`; or one of the literals `""`, `null`, `None`, `nil`, `undefined`, empty string. Any other credential-shaped value → set the row's `Secrets committed` to `yes`, else `no`. Never emit the actual value or key names — only the flag.
-   - **Schema bootstrap:** glob `*.sql` at repo root and under `db/`, `database/`, `scripts/sql/`, `data/`, `bootstrap/`, `sql/` — skip `migrations/` when an ORM migration tool (alembic, knex, Prisma, Sequelize, TypeORM) was detected in Task 5 (already covered by the ORM row). Glob seed files: `db/seeds.rb`, `priv/repo/seeds.exs`, `fixtures/*.json` / `*.yaml`, `seed.ts` / `.js` / `.mjs` at root, `prisma/seed.*`, `scripts/seed.*`. Emit rows only when at least one database-type service exists AND a file matched. Validate each filename against `^[A-Za-z0-9][A-Za-z0-9._/-]{0,128}$`, split on `/`, reject empty/`.`/`..` segments AND any segment whose first character is `-` (a crafted `db/-rf.sql` would be parsed as an option by `psql -f` / `sqlcmd -i`). Record filenames only — never contents; cap 5 entries per directory (`+N more under <dir>`). Report an invocation hint per entry (`sqlcmd -i <file>`, `psql -f <file>`, `mysql < <file>`, `rails db:seed`, `mix ecto.seed`, `python manage.py loaddata <file>`, `tsx prisma/seed.ts`, `node scripts/seed.js`) and set `Bootstrap mechanism`: `raw-sql` (`*.sql`), `seed-script` (seed files), `fixture-load` (fixtures).
+   - **Schema bootstrap:** glob `*.sql` at repo root and under `db/`, `database/`, `scripts/sql/`, `data/`, `bootstrap/`, `sql/` — skip `migrations/` when an ORM migration tool (alembic, knex, Prisma, Sequelize, TypeORM) was detected in Task 5 (already covered by the ORM row). Glob seed files: `db/seeds.rb`, `priv/repo/seeds.exs`, `fixtures/*.json` / `*.yaml`, `seed.ts` / `.js` / `.mjs` at root, `prisma/seed.*`, `scripts/seed.*`. Emit rows only when at least one database-type service exists AND a file matched. Validate each filename against `^[A-Za-z0-9][A-Za-z0-9._/-]{0,128}$`, split on `/`, reject empty/`.`/`..` segments AND any segment whose first character is `-` (a crafted `db/-rf.sql` would be parsed as an option by `psql -f` / `sqlcmd -i`). Record filenames only — never contents; cap 5 entries per directory (`+N more under <dir>`). Report an invocation hint per entry (`sqlcmd -i <file>`, `psql -f <file>`, `mysql < <file>`, `rails db:seed`, `mix run priv/repo/seeds.exs`, `python manage.py loaddata <file>`, `tsx prisma/seed.ts`, `node scripts/seed.js`) and set `Bootstrap mechanism`: `raw-sql` (`*.sql`), `seed-script` (seed files), `fixture-load` (fixtures).
    - `template.yaml` (AWS SAM), `serverless.yml` / `.ts` (serverless local dev); `.npmrc`, `pip.conf`, `.pypirc`, Maven `settings.xml` (private registry); `.nvmrc`, `.node-version`, `.python-version`, `.tool-versions`, `rust-toolchain.toml` (version managers); protobuf / `openapi-generator` / `build_runner` / `sqlc.yaml` / GraphQL codegen configs (code generation).
 7. **Aggregation:** monorepos — aggregate services and dependencies across subprojects; multi-repo workspaces — per-repo context plus a whole-workspace synthesis (all repos' services, shared infrastructure, cross-repo dependencies).
 
@@ -150,20 +148,6 @@ Cap at 20 components (then a single `+N more — see <glob pattern>` row); suppr
 
 Native, game-engine, embedded, and Apple build systems (CMake, Meson, Bazel, Xcode, Unreal, Unity, Godot, PlatformIO, Arduino, Swift PM, CocoaPods) live in `detector-native-and-embedded.md`, read only when Task 0a's marker glob matched.
 
-#### Source Dependencies Detection
-
-| Source | Pattern | Meaning |
-|--------|---------|---------|
-| `.gitmodules` at repo root | Any content | Submodules — recommend `git clone --recursive`, document submodule update |
-| CI files | `git clone ... ../<name>` or hardcoded `../<name>` in working-directory | Sibling repo expected |
-| Existing docs | "clone alongside", "sister repo", "requires the X repo", "must be checked out at ../" | Sibling repo candidate — cross-check with build-file signals |
-
-CMake source deps, Zephyr west, and AOSP repo patterns live in the same conditional file.
-
-### Quoting rule
-
-Apply the quoting rule from `shared-constraints.md` to every table cell or free-text field that echoes content from a scanned file. Cells containing only fixed canonical tokens or `<file>:<line>` references are exempt.
-
 ### Return format
 
 Return your findings in this exact structure:
@@ -174,20 +158,20 @@ Return your findings in this exact structure:
 - **Tech stack(s):** [languages, frameworks]
 - **Package manager(s):** [detected from lock files / config]
 - **Project structure:** [single project | monorepo | multi-repo workspace | ambiguous]
-- **Workspace kind:** [one of `npm-workspaces` | `pnpm-workspaces` | `yarn-workspaces` | `lerna` | `nx` | `turbo` | `cargo-workspace` | `go-workspace` | `gradle-multi-module` | `maven-multi-module` | `none`]. Detection: `pnpm-workspace.yaml` → `pnpm-workspaces`; root `workspaces` field + `yarn.lock` → `yarn-workspaces`; root `workspaces` field + `package-lock.json` → `npm-workspaces`; `lerna.json` → `lerna`; `nx.json` → `nx`; `turbo.json` → `turbo`; root `Cargo.toml` `[workspace]` → `cargo-workspace`; `go.work` → `go-workspace`; `settings.gradle(.kts)` with >1 `include` → `gradle-multi-module`; root `pom.xml` `<modules>` with >1 child → `maven-multi-module`; else `none` (multiple depth-2 subprojects with no workspace file = `Project structure: monorepo` with `Workspace kind: none`). Emit exactly one value; when multiple signals fire, pick by precedence `nx > turbo > lerna > pnpm-workspaces > yarn-workspaces > npm-workspaces > cargo-workspace > go-workspace > gradle-multi-module > maven-multi-module > none` (the orchestration layer is what the reader invokes).
+- **Workspace kind:** [one of `npm-workspaces` | `pnpm-workspaces` | `yarn-workspaces` | `lerna` | `nx` | `turbo` | `cargo-workspace` | `go-workspace` | `gradle-multi-module` | `maven-multi-module` | `none`]. Detection: `pnpm-workspace.yaml` → `pnpm-workspaces`; root `workspaces` field + `yarn.lock` → `yarn-workspaces`; root `workspaces` field + `package-lock.json` or no lockfile → `npm-workspaces`; `lerna.json` → `lerna`; `nx.json` → `nx`; `turbo.json` → `turbo`; root `Cargo.toml` `[workspace]` → `cargo-workspace`; `go.work` → `go-workspace`; `settings.gradle(.kts)` with >1 `include` → `gradle-multi-module`; root `pom.xml` `<modules>` with >1 child → `maven-multi-module`; else `none` (multiple depth-2 subprojects with no workspace file = `Project structure: monorepo` with `Workspace kind: none`). Emit exactly one value; when multiple signals fire, pick by precedence `nx > turbo > lerna > pnpm-workspaces > yarn-workspaces > npm-workspaces > cargo-workspace > go-workspace > gradle-multi-module > maven-multi-module > none` (the orchestration layer is what the reader invokes).
 - **Structure signals:** [evidence that led to determination]
 
 ### Build System & Toolchain
 | Build system | Min version | Source |
 |--------------|-------------|--------|
-| [e.g., CMake] | [e.g., 3.20] | [e.g., cmake_minimum_required in CMakeLists.txt] |
+| [e.g., CMake] | [e.g., 3.20] | [e.g., CMakeLists.txt:1] |
 
 [If none beyond language-level PMs, state "No non-manifest build system detected."]
 
 ### SDKs & System Packages
 | SDK / Package | OS | Package identifier | Source |
 |---------------|----|--------------------|--------|
-| [e.g., Vulkan SDK] | [Windows] | [e.g., KhronosGroup.VulkanSDK (winget)] | [e.g., find_package(Vulkan) in CMakeLists.txt] |
+| [e.g., Vulkan SDK] | [Windows] | [e.g., KhronosGroup.VulkanSDK (winget)] | [e.g., CMakeLists.txt:14] |
 
 Report the package identifier only — the main skill renders the trusted install command from identifier + OS. [If none, state "No system-level SDKs or packages detected."]
 
@@ -221,7 +205,7 @@ Mark sibling repos `(candidate)` when derived only from a path grep; mark confir
 ### Runtime Version Constraints
 | Runtime | Constraint | Source |
 |---------|-----------|--------|
-| [e.g., Node.js] | [e.g., >=18] | [e.g., engines.node in package.json] |
+| [e.g., Node.js] | [e.g., >=18] | [e.g., package.json:12] |
 
 [If none, state "No runtime version constraints detected."]
 
@@ -232,16 +216,12 @@ Mark sibling repos `(candidate)` when derived only from a path grep; mark confir
 
 [If none, state "No runnable components detected."]
 
-Populated by Task 5d, in topological order (roots first) — drives the main skill's *Running in Development* layout.
-
 ### Runtime Ports
 | Component | Port | Source |
 |-----------|------|--------|
 | [e.g., App.Web] | [e.g., 51914] | [e.g., src/App.Web/Properties/launchSettings.json:6] |
 
 [If none, state "No bound runtime ports detected."]
-
-Populated by Task 5c — drives the Step 6 Specific-Token Audit's grounded-ports set. Every row MUST carry a `<file>:<line>` Source the main skill can re-read; omit the row entirely if none can be produced. NEVER emit a framework default (ASP.NET `5000`, Rails `3000`, Django `8000`, Spring Boot `8080`) without a live citation.
 
 ### External Services
 | Service | Source | Port | Type | Confidence | Endpoint semantics |
@@ -251,9 +231,7 @@ Populated by Task 5c — drives the Step 6 Specific-Token Audit's grounded-ports
 
 [If none, state "No external services detected."]
 
-Confidence: `confirmed` — from compose / ORM migration tool / database config (Task 5); `candidate` — from a framework config file (Task 5b), rendered with a `(candidate)` marker downstream.
-
-`Endpoint semantics` values (database-type rows; others emit `—`):
+`Endpoint semantics` values (database-type rows; other rows emit `remote` when their endpoint is an FQDN, else `—`):
 
 - `docker-compose` — Source is `docker-compose.yml` / `compose.yml`; no connection-string shift needed.
 - `local-default` — committed connection string points at `localhost` / `127.0.0.1` with the image's documented default port; no Windows-auth markers, no socket/named-pipe transport.
@@ -261,9 +239,7 @@ Confidence: `confirmed` — from compose / ORM migration tool / database config 
 - `local-windows-auth` — the string contains `Integrated Security=(True|Yes|SSPI)` or `Trusted_Connection=(Yes|True|1)` (case-insensitive); Windows-only auth mode.
 - `local-socket` — the string references a Unix domain socket (`unix:/…`, `/var/run/postgresql/`), a Windows named pipe (`\\.\pipe\<name>`), or a MongoDB Unix-socket URI (`mongodb://%2F…`, `mongodb+unix://`); transports Docker's standard publish form cannot reproduce.
 - `remote` — the hostname is a real FQDN (Task 5b hostname regex); already remote, no shift needed.
-- `ambiguous` — file unreadable or no value matched; the main skill treats as `local-default` and appends a "verify the connection string" caution to the Step 3 assessment.
-
-The main skill's Pre-Conditions Block (external-services-docker.md) reads this field at Step 4.
+- `ambiguous` — file unreadable or no value matched.
 
 ### Environment Setup
 | File | Format | Variable count | Key variables | Key leaves | Secrets committed |
@@ -273,7 +249,7 @@ The main skill's Pre-Conditions Block (external-services-docker.md) reads this f
 
 [If none, state "No environment config templates detected."]
 
-`Variable count` is the true count (not the displayed sample) so the main skill can render a "See `<file>` for the full list" footnote after truncation. `Key leaves` is `—` for dotenv rows.
+`Key leaves` is `—` for dotenv rows.
 
 ### Schema Bootstrap
 | File | Directory | Bootstrap mechanism | Invocation hint |
@@ -282,8 +258,6 @@ The main skill's Pre-Conditions Block (external-services-docker.md) reads this f
 | [e.g., db/seeds.rb] | [db/] | seed-script | [rails db:seed] |
 
 [If no schema-bootstrap files detected, OR no SQL/NoSQL service detected, state "No schema-bootstrap scripts detected."]
-
-`Bootstrap mechanism` (`raw-sql` / `seed-script` / `fixture-load`) combines with the *Database migrations* row below to drive the main skill's Schema Bootstrap pick-one rule (how-to-run-sections.md).
 
 ### Dev Workflow Signals
 - **Docker-based:** [yes/no]

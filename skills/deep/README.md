@@ -39,7 +39,17 @@ Under Codex, `--yes` answers skill confirmations, not host approvals. The run ne
 
 ## Termination, resume, and archive
 
-The run ends with a cumulative report naming a termination reason — the seven reasons are documented in [`references/harness-mode.md`](../../references/harness-mode.md).
+The run ends with a cumulative report naming one of seven termination reasons:
+
+| Reason | Meaning |
+|---|---|
+| `convergence` | Zero new findings |
+| `no-actionable` | Findings exist but have no code edits |
+| `all-reverted` | Every fix this iteration failed tests |
+| `diminishing-returns` | Yield plateaued at ≤1 new finding for two consecutive iterations ending at iter 4 or later, with no reverted fixes in either window iteration; remaining issues may exist |
+| `cap` | Max iterations (or cycles) hit |
+| `parse-failure` | Two consecutive iterations produced no parseable JSON |
+| `blocked` | Coverage target only: the unit-test phase hit a stop gate it cannot work past (no test framework, red baseline) |
 
 - A finished run is archived to the progress file's `.done.json` sibling; `--resume` refuses it — re-run fresh for a second-opinion pass.
 - The two soft exits — `diminishing-returns`, and `blocked` on the coverage target — stay un-archived so `--resume` can continue them; `--resume` can also raise the cap.
@@ -71,7 +81,7 @@ Deep runs multiply credit and time with the iteration count — coverage is the 
 | *(shared)* `references/orchestrator-loop-paired.md` | Per-cycle loop (coverage) |
 | *(shared)* `references/harness-mode.md`, `references/coverage-harness-mode.md` | Subagent-side single-pass protocols |
 
-The loop primitives (snapshot, parse, deep-step, commit-checkpoint, check-termination, final-report) live in `scripts/harness_common/cli.py` — see [.claude/docs/architecture.md](../../.claude/docs/architecture.md) for the data flow.
+The loop primitives (snapshot, parse, deep-step, commit-checkpoint, check-termination, final-report) live in `scripts/harness_common/cli.py` — see [.claude/docs/architecture.md](../../.claude/docs/architecture.md) for the loop invariants.
 
 ## License
 

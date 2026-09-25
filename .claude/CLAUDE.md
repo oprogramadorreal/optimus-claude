@@ -15,11 +15,11 @@ Load the doc that matches the change — not all of them.
 | A skill, agent, or shared reference (`skills/`, `agents/`, `references/`) | `.claude/docs/skill-writing-guidelines.md` |
 | Scripts or hooks (`scripts/`, `hooks/`) | `.claude/docs/coding-guidelines.md` |
 | Tests, or anything under `scripts/harness_common/` | `.claude/docs/testing.md` |
-| Directory map, orchestrator data flow, reference hierarchy | `.claude/docs/architecture.md` |
+| Deep-loop invariants, harness JSON contracts, agent and reference tiers, Claude/Codex host wiring | `.claude/docs/architecture.md` |
 | Contribution workflow, skill anatomy, feature-branch testing, version bumping | `CONTRIBUTING.md` |
 
 ## Key rules
 
 - Never leave a `ref` field in `marketplace.json` on the master branch
-- Bump the matching versions in `.claude-plugin/plugin.json` and `.codex-plugin/plugin.json` for meaningful changes, and update the version badge in `README.md` to match
+- Every PR to master bumps the version in `.claude-plugin/plugin.json` and `.codex-plugin/plugin.json` and updates the `README.md` version badge to match — `validate.sh` fails the PR otherwise
 - Only `/optimus:init` writes `.claude/.optimus-version` in user projects — other skills that install template files must NOT update this file (it tracks init's full template audit, not individual file freshness)

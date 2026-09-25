@@ -25,7 +25,7 @@ Resolve the root: when `git rev-parse --is-inside-work-tree` returns `true`, use
 
 ## Step 3: Classify artifacts against version control
 
-Per repo (per child repo in a multi-repo workspace, where paths and SHAs are also repo-qualified): find the branch and short HEAD SHA for **Origin**, each path's tracked / modified / staged / untracked status, and unpushed commits via `git log --oneline @{upstream}..HEAD` (fallback `origin/HEAD..HEAD`; no upstream or detached HEAD → treat local commits as unpushed). Not a git repo → note "not a git repo" in **Origin** and inline everything. Sort every artifact into three buckets:
+Per repo (per child repo in a multi-repo workspace, where paths and SHAs are also repo-qualified): find the branch and short HEAD SHA for **Origin**, each path's tracked / modified / staged / untracked status, and unpushed commits via `git log --oneline HEAD --not --remotes` (commits no remote-tracking branch contains). Not a git repo → note "not a git repo" in **Origin** and inline everything. Sort every artifact into three buckets:
 
 1. **Tracked and pushed** → reference by repo-relative path / SHA / URL, never inline.
 2. **Tracked-but-modified, staged-not-committed, or committed-not-pushed** → inline the relevant content (diff, file body, or commit message) — another clone will not have it.
@@ -48,7 +48,7 @@ Write the document to `docs/handoffs/<slug>.md`, creating the folder if missing.
 
 Then verify: read the file back from disk and re-scan the full document, including every reference and URL, against the **Redaction patterns** table, fixing any hit before you report. This pass checks what actually landed; it reduces exposure risk but is not a guarantee that every secret has been detected.
 
-Report the written path and any scratchpad backup. If the resolved root is not itself a git repo — a multi-repo workspace root, or a directory with no recognized structure — note the file is not under version control; suggest committing it inside a child repo or initializing version control at the root. Recommend `/optimus:commit` so the handoff reaches the remote — staying in this conversation, so the context being handed off is captured — and that the resumer point a fresh session at the written file. This skill writes one project artifact (`docs/handoffs/<slug>.md`, creating the folder if missing), plus a private scratchpad backup when needed; it never stages, commits, or pushes.
+Report the written path and any scratchpad backup. If the resolved root is not itself a git repo — a multi-repo workspace root, or a directory with no recognized structure — note the file is not under version control; suggest moving it into a child repo or initializing version control at the root before `/optimus:commit`. Recommend `/optimus:commit` so the handoff reaches the remote — staying in this conversation, so the context being handed off is captured — and that the resumer point a fresh session at the written file. This skill writes one project artifact (`docs/handoffs/<slug>.md`, creating the folder if missing), plus a private scratchpad backup when needed; it never stages, commits, or pushes.
 
 ## Handoff document template
 

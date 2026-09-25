@@ -25,7 +25,7 @@ For an automated multi-cycle loop that alternates test generation with testabili
 - After `/optimus:init` — establish coverage for a newly initialized project
 - On established codebases that grew without systematic testing
 - Before releases, or after major refactors
-- Periodically — coverage improves incrementally (10 tests per run)
+- Periodically — coverage improves incrementally (up to 10 plan items per run)
 
 ## How It Works
 
@@ -50,7 +50,7 @@ For an automated multi-cycle loop that alternates test generation with testabili
 
 | File | Purpose |
 |---|---|
-| `SKILL.md` | Skill definition with 6-step workflow |
+| `SKILL.md` | Skill definition with 5-step workflow |
 | `agents/test-infrastructure-analyzer.md` | Discovery/coverage/testability subagent prompt |
 | *(shared)* `references/shared-agent-constraints.md` | Base agent constraints prepended at dispatch |
 | *(shared)* `references/agent-architecture.md` | Prompt assembly rule for subagent dispatch |

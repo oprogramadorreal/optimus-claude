@@ -1,5 +1,5 @@
 ---
-description: Bootstraps a project for Claude Code or Codex — generates routed project guidance from detected structure, reconciles existing docs, and offers test infrastructure. Claude Code can also install formatter hooks. Writes under .claude/ and subproject docs/, preserving existing user guidance through review and recorded ownership. Use for initial setup or upgrades.
+description: Bootstraps a project for Claude Code or Codex — generates routed project guidance from detected structure, reconciles existing docs, and offers test infrastructure. Claude Code can also install formatter hooks. Writes .claude/, CLAUDE.md, AGENTS.md and subproject docs/; may append to README/.gitignore and, with approval, install dev dependencies. Preserves existing guidance through review and recorded ownership. Use for initial setup or upgrades.
 disable-model-invocation: true
 ---
 
@@ -7,11 +7,11 @@ disable-model-invocation: true
 
 ## File semantics
 
-Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/managed-files.md` before writing. Record only files and settings entries this run actually installs; unknown ownership is preserved and reviewed. Three classes govern every file this skill writes.
+Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/managed-files.md` before writing. Three classes govern every file this skill writes.
 
 Under Codex, preserve existing hooks/settings throughout this run; the Generated-file overwrite rule below does not apply to hooks.
 
-- **Generated** — hooks installed by init and `.claude/docs/coding-guidelines.md`: refresh only unchanged, recorded Optimus files with `refresh: "template"`. Customized files remain `refresh: "review"` even after approved edits update their recorded hash. Changed, review-only, or unrecorded existing files get that reference's Merge / Keep existing / Replace choice, preserving their content by default; an unrecorded file byte-identical to the current template is adopted silently. Never overwrite unrelated `.claude/hooks/*` files.
+- **Generated** — hooks installed by init and `.claude/docs/coding-guidelines.md`: refresh, adopt, record, and offer Merge / Keep existing / Replace exactly as managed-files.md specifies. Never overwrite unrelated `.claude/hooks/*` files.
 - **Customizable** — all `CLAUDE.md` files, `testing.md`, `styling.md`, `architecture.md`, `skill-writing-guidelines.md`: never silently overwrite. When the file exists, review-and-propose — compare against the template and detected state, apply only user-approved changes, preserve user-added sections.
 - **settings.json** — always merge, never overwrite: preserve `permissions` and any other custom sections. Do not create it when no hooks are installed and it doesn't already exist.
 
@@ -19,9 +19,9 @@ New files of any class are written directly — no confirmation prompts. **Prese
 
 ## CLAUDE.md authoring rules
 
-Claude Code discovers CLAUDE.md natively; Codex reads it through the AGENTS.md pointer in Step 4c. Spend its context on what reading the repository does not give the model.
+Spend CLAUDE.md's context on what reading the repository does not give the model.
 
-- **Spend it on gotchas.** Invariants a script or CI depends on, a command that must run from a specific directory, a file that looks editable but is generated, a convention the code deliberately breaks in one place, setup that fails in a non-obvious way, why a decision was made. Write fewer real ones rather than padding to a count — an empty Gotchas section is a valid outcome, and better than five lines of restated obviousness.
+- **Spend it on gotchas** that clear the template's Gotchas bar, plus why a non-obvious decision was made. Write fewer real ones rather than padding to a count — an empty Gotchas section is valid, and better than restated obviousness.
 - **Never restate what the filesystem shows.** No directory listings, no "the stack is TypeScript" when `package.json` says so, no per-file roles. One line of identity and stack at the top is the whole allowance.
 - Commands do belong here: which of a dozen scripts is the real build/test/lint entry point, with the detected package-manager prefix, is not inferable.
 - Target <= 60 lines. The limit is soft: condense template-generated content first; if user-added content still pushes it over, exceed the limit and note the overage in the Step 7 summary.
@@ -29,8 +29,6 @@ Claude Code discovers CLAUDE.md natively; Codex reads it through the AGENTS.md p
 - Progressive disclosure: the Documentation table routes a kind of change to the one doc that governs it, so a typo fix does not load the architecture doc.
 - `file:line` references, not code snippets — snippets go stale.
 - Defer mechanical style to the project's configured formatter when present. Preserve existing conventions that tooling does not enforce; Codex and projects declining hooks still need the documented formatter command.
-- Monorepo: root CLAUDE.md is an orchestrator — subproject table, workspace-wide commands, workspace-level gotchas only; each subproject's CLAUDE.md carries that package's gotchas (native discovery in Claude Code, explicit nested reads through the Codex pointer). Shared guidelines stay at root `.claude/docs/`; `testing.md`/`styling.md`/`architecture.md` are scoped per subproject.
-- Multi-repo workspace: each repo is fully self-contained (own `.claude/`); the parent CLAUDE.md is a lightweight local-only map — nothing is shared at root.
 
 ## Step 1: Detect Project Context
 
@@ -42,19 +40,19 @@ A directory is **near-empty** when it contains at most `.git` (file or directory
 
 On **Scaffold**: read and execute `$CLAUDE_PLUGIN_ROOT/skills/init/references/new-project-scaffolding.md`. If it returns an unsupported-stack signal, apply `$CLAUDE_PLUGIN_ROOT/skills/init/references/unsupported-stack-fallback.md` (steps 1-4) to find the stack's official scaffolding CLI; if that reaches graceful skip, instead create a minimal project manually (manifest + hello-world entry point + `.gitignore`) with user approval. After scaffolding, discard all prior detection state and restart Step 1's project detection from scratch.
 
-### Project detection (agent-assisted)
+### Project detection (inline or agent)
 
-Read `$CLAUDE_PLUGIN_ROOT/skills/init/agents/project-analyzer.md` and launch 1 `general-purpose` agent with that prompt, prepended with the "Agent Constraints" section of `$CLAUDE_PLUGIN_ROOT/references/shared-agent-constraints.md`. Assemble the prompt per "Prompt assembly at dispatch time" in `$CLAUDE_PLUGIN_ROOT/references/agent-architecture.md` — the agent reads the detection references itself via the absolutized paths its prompt carries.
+`$CLAUDE_PLUGIN_ROOT/skills/init/agents/project-analyzer.md` defines detection — its tasks, reference files, and Detection Results shape. For a small single project — one root manifest, no workspace config, roughly under 100 source files (a fresh scaffold always qualifies) — **run it yourself**, reading its reference files directly; the findings stay in context for the gotchas and commands Step 4 writes. Otherwise launch 1 `general-purpose` agent with that prompt, prepended with the "Agent Constraints" section of `$CLAUDE_PLUGIN_ROOT/references/shared-agent-constraints.md`. Assemble the prompt per "Prompt assembly at dispatch time" in `$CLAUDE_PLUGIN_ROOT/references/agent-architecture.md` — the agent reads the detection references itself via the absolutized paths its prompt carries.
 
-If the agent reports the structure as **ambiguous**, resolve via `AskUserQuestion`: ask the user to confirm whether this is a monorepo and identify subproject directories.
+If detection reports the structure as **ambiguous**, resolve via `AskUserQuestion`: ask the user to confirm whether this is a monorepo and identify subproject directories.
 
 ### Checkpoint
 
-Print the agent's results as a **Detection Summary**. If a field of its return format came back empty or absent (project name through Gotchas), fill that specific gap yourself — don't re-run the detection the agent just did. An empty **Gotchas** list is a legitimate answer, not a gap: fill it only if you already know of one this project has. If no test infrastructure was detected, append:
+If detection reports an **Unsupported stack**, first run steps 1-3 of `$CLAUDE_PLUGIN_ROOT/skills/init/references/unsupported-stack-fallback.md` to find its package manager and build/test/lint commands; the Detection gate below is its step-4 approval. Print the **Detection Results**. If a field of its return format came back empty or absent (project name through Gotchas), fill that specific gap yourself — don't re-run the detection the agent just did. An empty **Gotchas** list is a legitimate answer, not a gap: fill it only if you already know of one this project has. If no test infrastructure was detected, append:
 
-> **Tests:** No test framework, test script, or test directory detected — Step 5b will offer to install one. Strongly recommended: multiple optimus skills depend on test infrastructure.
+> **Tests:** No test framework, test script, or test directory detected — Step 5b will offer to install one.
 
-Then use `AskUserQuestion` — header "Detection", question "Does the detection summary look correct?":
+Then use `AskUserQuestion` — header "Detection", question "Do the detection results look correct?":
 - **Proceed** — "Everything looks right — continue with setup"
 - **Correct** — "I need to fix something before continuing"
 - **Abort** — "Cancel init"
@@ -64,8 +62,6 @@ On **Correct**: ask what to change, update the detection results, and re-present
 ### Step 1b: Documentation audit (only when the inventory found existing docs)
 
 `$CLAUDE_PLUGIN_ROOT/skills/init/agents/documentation-auditor.md` defines the audit — its classification levels, its standard of proof, and its Audit Report shape. When the inventory found only a handful of small docs, **run it yourself**: reading six files and classifying them is a handful of tool calls, and the content stays in context for the Step 2 edits that follow. Delegate to 1 `general-purpose` agent with that prompt when the doc surface is large enough to be worth isolating, prepended with the same "Agent Constraints" section plus the Detection Results from Step 1 (same prompt-assembly rule). Either way, present the **Audit Report** to the user.
-
-**Standard of proof:** only content directly contradicted by source code is Outdated. When a user-added item looks outdated, confirm via `AskUserQuestion` before discarding — the user may have context the codebase doesn't show.
 
 Use `AskUserQuestion` — header "Audit", question "How would you like to handle the documentation audit findings?":
 - **Update all** — "Apply all recommended changes"
@@ -78,7 +74,7 @@ Steps 2-6 apply this choice; Step 6b runs independently. **Fresh start preservat
 
 Apply the audit choice through the File semantics classes: Accurate → skip the file; Outdated → apply only approved changes, preserve everything else; Missing → create normally; Fresh start → regenerate Customizable files, always carrying User-added content forward. Refresh Generated files only under the ownership rules above. No audit is not permission to replace an existing file.
 
-**Relocate when scope changes** (e.g., root `.claude/docs/testing.md` → subproject-scoped in a monorepo): move the content, remove the old file. Only `coding-guidelines.md` and `skill-writing-guidelines.md` stay at root. If a root-level `CLAUDE.md` exists outside `.claude/`, suggest removing it once `.claude/CLAUDE.md` is created.
+**Relocate when scope changes** (e.g., root `.claude/docs/testing.md` → subproject-scoped in a monorepo): move the content, remove the old file. Only `coding-guidelines.md` and `skill-writing-guidelines.md` stay at root. If a root-level `CLAUDE.md` exists outside `.claude/`, carry its non-derivable content into `.claude/CLAUDE.md`, then suggest removing it.
 
 ## Step 3: Create Directory Structure
 
@@ -90,11 +86,12 @@ mkdir -p .claude/docs .claude/hooks
 
 ## Step 4: Create CLAUDE.md
 
-Fill every template placeholder with real detected values — no `[placeholder]` text may survive (Step 7 verifies). Each template's HTML comments describe rows init adds conditionally (extra Documentation rows, the skill-authoring route); apply the ones that hold and delete the comment. **When updating an existing CLAUDE.md** (not Fresh start): edit in place per File semantics — never regenerate from template.
+Fill every template placeholder with real detected values — no `[placeholder]` text may survive (Step 7 verifies). Every template HTML comment except a CLAUDE.md template's line-1 identity comment is an instruction to init (here and in Step 6): apply what holds, then delete the comment. **When updating an existing CLAUDE.md** (not Fresh start): edit in place per File semantics — never regenerate from template.
 
 **Single project** — template `$CLAUDE_PLUGIN_ROOT/skills/init/templates/single-project-claude.md`:
 - Gotchas: from the agent's **Gotchas** findings and doc-sourced insights. Keep only what survives the template's own bar; drop the section entirely when nothing does.
 - Documentation table: the Code row always; one row per non-guideline doc that actually exists — none on a first run, since Steps 5b/6 add entries as they create docs.
+- Nested app root → point every command at that subdirectory (`cd <path> && …`) and name it once, in the identity line.
 - No manifest detected → omit unknown commands and unsupported claims; say which setup information remains unavailable. Never emit a placeholder as a runnable command.
 
 **Monorepo** — template `$CLAUDE_PLUGIN_ROOT/skills/init/templates/monorepo-claude.md`:
@@ -103,7 +100,7 @@ Fill every template placeholder with real detected values — no `[placeholder]`
 - More than 6 subprojects → group by category in root CLAUDE.md; create or reconcile `.claude/docs/architecture.md` for the full workspace map and route it from root CLAUDE.md. This root map is an explicit exception to subproject-only architecture placement.
 - Root-as-project: also route its root-scoped docs in the Documentation table.
 
-**Multi-repo workspace** — run the full init flow (Steps 3-7) independently inside each repo, as if init were invoked there (single-project or monorepo template as appropriate; each repo's `.claude/` is version-controlled and self-contained). Then create a lightweight workspace-root `CLAUDE.md` (NOT inside `.claude/`) from `$CLAUDE_PLUGIN_ROOT/skills/init/templates/multi-repo-claude.md` — tell the user it is local-only and not version-controlled. If a repo has a nested app root, its CLAUDE.md must note the nested structure and point all commands at the correct subdirectory.
+**Multi-repo workspace** — run the full init flow (Steps 3-7) independently inside each repo, as if init were invoked there (single-project or monorepo template as appropriate; each repo's `.claude/` is version-controlled and self-contained). Then create a lightweight workspace-root `CLAUDE.md` (NOT inside `.claude/`) from `$CLAUDE_PLUGIN_ROOT/skills/init/templates/multi-repo-claude.md` — tell the user it is local-only and not version-controlled.
 
 **Step 4b — subproject CLAUDE.md files (monorepo only):** for each subproject except root-as-project/root-as-member (root CLAUDE.md covers those), use `$CLAUDE_PLUGIN_ROOT/skills/init/templates/subproject-claude.md`: commands run from its directory, that package's own gotchas, local `docs/` routes, parent monorepo named in the opening line.
 
@@ -127,21 +124,21 @@ Agent instructions for this workspace live in `CLAUDE.md`. Read it first; it map
 
 ## Step 5: Install Formatter Hooks
 
-Under Codex, skip hook installation and preserve existing hooks/settings byte-for-byte. Document the project's existing formatter/check command for use at task boundaries and its editor/CI integration. This plugin's Claude PostToolUse formatters are not installed in Codex; the documentation and test-infrastructure steps still apply.
+Under Codex, skip hook installation; document the project's existing formatter/check command in CLAUDE.md's Commands for use at task boundaries, noting its editor/CI integration.
 
-Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/formatter-setup.md` and install the applicable hooks so files are auto-formatted after every Edit/Write (templates in `$CLAUDE_PLUGIN_ROOT/skills/init/templates/hooks/`; supported: Python, Node.js, Rust, Go, C#/.NET, Java, C/C++, Dart/Flutter — other stacks via `$CLAUDE_PLUGIN_ROOT/skills/init/references/unsupported-stack-fallback.md`). Hooks are Generated files; `settings.json` follows its merge semantics. External formatters not already in deps → ask the user before installing.
+Otherwise read `$CLAUDE_PLUGIN_ROOT/skills/init/references/formatter-setup.md` and install the applicable hooks so files are auto-formatted after every Edit/Write.
 
 ## Step 5b: Test Infrastructure Setup
 
 Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/test-infra-provisioning.md`.
 
-**If test infrastructure was detected in Step 1:** run the full procedure — health check (run the suite; fix build/bootstrap failures only with user approval; record assertion failures as `{scope, failing_count}` for Step 7), coverage-tooling gap check, and provisioning (testing.md, CLAUDE.md refs, README section, .gitignore).
+**If test infrastructure was detected in Step 1:** run the reference's health check, coverage-gap check, and provisioning.
 
 **If not detected:** use `AskUserQuestion` — header "Test Infrastructure", question "No test framework was detected. Would you like to install one?":
-- **Yes (strongly recommended)** — "Install test framework and coverage tooling. Multiple optimus skills depend on it: `/optimus:tdd` is non-functional without tests, and `/optimus:deep` cannot run safely without a test command."
+- **Yes (strongly recommended)** — "Install a test framework and coverage tooling. `/optimus:tdd`, `/optimus:unit-test`, and `/optimus:deep` stop without one."
 - **No** — "Skip test infrastructure setup — some optimus skills will have reduced functionality"
 
-On **Yes**: follow the reference's installation section (framework recommendation, explicit user approval, install, health check), then the full provisioning. On **No**: skip all provisioning; Step 7's summary carries the declined-infra note.
+On **Yes**: follow the reference's installation section, then its health check and provisioning. On **No**: skip all provisioning; Step 7's summary carries the declined-infra note.
 
 ## Step 6: Create Documentation Files
 
@@ -155,15 +152,13 @@ Conditional docs (Customizable; `testing.md` was handled in Step 5b). Fill all p
 | `architecture.md` | `$CLAUDE_PLUGIN_ROOT/skills/init/templates/docs/architecture.md` | 3+ top-level source directories (excluding config, tests, docs, build output) OR recognized pattern directories (controllers/, services/, repositories/, handlers/, models/) OR skill authoring detected |
 | `skill-writing-guidelines.md` | `$CLAUDE_PLUGIN_ROOT/skills/init/templates/docs/skill-writing-guidelines.md` | Skill authoring detected in Step 1 (structural rule in project-analyzer.md task 9) |
 
-The architecture template carries two HTML-comment-marked optional sections: keep **Skill Architecture** only when skill authoring was detected, and keep the code sections (Data Flow, Key Patterns, Dependencies Between Modules) only when the project has code components — delete whichever doesn't apply, and the comments themselves. On re-runs, the Customizable review-and-propose semantics cover section changes when the detected project type has shifted.
-
-**Placement:** single project — everything in `.claude/docs/`. Monorepo — `styling.md`/`architecture.md` go in each subproject's `docs/`, applying the detection rules per subproject; retain the root workspace-map exception from Step 4 when needed. `skill-writing-guidelines.md` is installed once at root when any subproject has a skill-authoring stack; root-as-project's scoped docs go in `.claude/docs/`; a subproject gets its own `coding-guidelines.md` only if its conventions differ significantly from root.
+**Placement:** single project — everything in `.claude/docs/`. Monorepo — `styling.md`/`architecture.md` go in each subproject's `docs/`, applying the detection rules per subproject; retain the root workspace-map exception from Step 4 when needed. `skill-writing-guidelines.md` is installed once at root when any subproject has a skill-authoring stack; root-as-project's scoped docs go in `.claude/docs/`; a subproject gets its own `docs/coding-guidelines.md` (Customizable, routed from its CLAUDE.md) only if its conventions differ significantly from root.
 
 **Update the Documentation tables:** after creating `styling.md`/`architecture.md`, add a row to the Documentation table of the CLAUDE.md that scopes it, keyed by the kind of change it governs — "UI, CSS, visual changes", "Module structure or data flow" (`testing.md` rows were added in Step 5b, keyed "Tests").
 
 ## Step 6b: Sync Existing Documentation
 
-Skip when the project has no docs of its own (no README.md, CONTRIBUTING.md, ARCHITECTURE.md, or docs/ files). This step runs independently of the Step 1b audit choice (Fresh start governs only `.claude/` files) — it operates on project-owned files.
+Skip when the project has no docs of its own (no README.md, CONTRIBUTING.md, ARCHITECTURE.md, or docs/ files).
 
 Cross-check README.md (root, and each subproject's in monorepos), CONTRIBUTING.md, ARCHITECTURE.md, and docs/ files that overlap generated topics against source code (manifests, lock files, directory structure). Fix only claims directly contradicted by source — wrong commands or package manager, tech no longer in deps, renamed directories, stale subproject lists, removed dependencies. Surgical, never editorial: leave prose, tone, structure, and imprecise-but-not-wrong descriptions untouched; never add sections or create files; touch nothing outside the project root.
 
@@ -173,7 +168,7 @@ Cross-check README.md (root, and each subproject's in monorepos), CONTRIBUTING.m
 
 When Step 5 ran, verify the hooks and settings against their sources before reporting:
 
-- **Hooks written this run match their source** — each newly copied template hook is byte-identical to its template (`diff` them), except explicitly approved customizations; custom fallback hooks follow that reference's validation rules. A preexisting hook the user kept is outside this comparison and must remain untouched.
+- **Hooks written this run match their source** — each newly copied template hook is byte-identical to its template (`diff` them), except explicitly approved customizations; custom fallback hooks follow `unsupported-stack-fallback.md`'s validation rules. A preexisting hook the user kept is outside this comparison and must remain untouched.
 - **settings.json survived the merge** — every format hook *this skill* installed has a matching `hooks.PostToolUse` entry resolving to that installed file. Preserve preexisting entries, including commands outside `.claude/hooks/`, except exact migrations the user approved. Hooks owned by another skill are out of scope: `/optimus:permissions` registers `restrict-paths.sh` under **PreToolUse**, not PostToolUse. Compare pre/post settings to detect dropped user entries; don't normalize unrelated hooks into this skill's template shape.
 
 Then sweep template-derived content for surviving `[placeholder]` text and unresolved template HTML comments — retain each file's line-1 identity comment, the `optimus:pointer` markers in `AGENTS.md`, and user-authored content. Fix any failure before reporting.
@@ -199,12 +194,12 @@ Then sweep template-derived content for surviving `[placeholder]` text and unres
 
 **Broken baseline:** if the Step 5b health check recorded failing tests, append `— baseline broken ([N] failing)` to the Test-infra value (per subproject/repo where applicable) and add immediately after the table:
 
-> **Baseline broken** — init does not fix failing tests by design. Ask Claude to triage the failing tests before running skills that need a green baseline.
+> **Baseline broken** — init does not fix failing tests by design. Ask the agent to triage the failing tests before running skills that need a green baseline.
 
 Conditional warnings after the table:
 
-- Scaffolding created `<name>/` → "**New project root:** the project now lives in `<name>/` — start future Claude Code sessions from that directory, or the generated CLAUDE.md and hooks will not load."
-- Test framework installed from scratch → "**Important:** the project has no test files yet, so the test command passes with 0 tests — a false safety net. Run `/optimus:unit-test` next to write initial tests and establish real coverage."
-- Test infrastructure declined → "**Note:** test infrastructure was not installed — `/optimus:tdd` will not work, and `/optimus:code-review` and `/optimus:refactor` will have reduced functionality. Re-run `/optimus:init` to install it later."
+- Scaffolding created `<name>/` → "**New project root:** the project now lives in `<name>/` — start future sessions from that directory, or the generated project guidance and hooks will not load."
+- Test framework installed from scratch → "**Important:** the project has no test files yet, so the test command passes with 0 tests — a false safety net. `/optimus:unit-test` writes initial tests and establishes real coverage."
+- Test infrastructure declined → "**Note:** test infrastructure was not installed — `/optimus:tdd`, `/optimus:unit-test`, and `/optimus:deep` will stop, and `/optimus:code-review` and `/optimus:refactor` lose their test checks. Re-run `/optimus:init` to install it later."
 
-Close with one line: if the project root has no `HOW-TO-RUN.md`, recommend running `/optimus:how-to-run` next; otherwise recommend `/optimus:unit-test` — in a fresh conversation either way.
+Close with one line: if the project root has no `HOW-TO-RUN.md`, recommend `/optimus:how-to-run`; otherwise, if test infrastructure exists, recommend `/optimus:unit-test` — in a fresh conversation either way. With neither, the declined-infra note is the close.

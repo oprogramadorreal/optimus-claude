@@ -29,7 +29,7 @@ Use sandboxing or devcontainers when you can — they are the gold standard (on 
 
 - **Deny rules run first.** `permissions.deny` is evaluated before the classifier and works on every model and provider, so the deny list stays the hardest boundary even in auto mode.
 - **Hooks run in every permission mode.** Branch and precious-file protection keep working under auto mode — and the hook is deterministic where the classifier is probabilistic.
-- **The allow list matters most outside auto mode.** On entering auto mode, Claude Code drops broad execution-granting allow rules (the template's `Bash` and `Task` entries) and lets the classifier govern those calls, restoring the rules when you leave.
+- **The allow list matters most outside auto mode.** On entering auto mode, Claude Code drops broad execution-granting allow rules (the template's `Bash`, `Agent`, and `Task` entries) and lets the classifier govern those calls, restoring the rules when you leave.
 
 This skill does not enable or configure auto mode; an `autoMode` block is ignored in the checked-in `.claude/settings.json` it manages. Enable auto mode with `Shift+Tab`, `claude --permission-mode auto`, or your user settings.
 
@@ -49,11 +49,11 @@ Installs a hook and merges settings, recording only file changes and settings ad
 
 ### Allow list
 
-Auto-approves 14 built-in tools (`Bash`, `Read`, `Edit`, `Write`, `Agent` and its legacy alias `Task`, ...) so routine work is prompt-free. MCP servers found in `.mcp.json` are auto-added as `mcp__<server>` entries. Source of truth: [`templates/settings.json`](templates/settings.json).
+Auto-approves built-in tools (`Bash`, `Read`, `Edit`, `Write`, `Agent` and its legacy alias `Task`, ...) so routine work is prompt-free. MCP servers found in `.mcp.json` are auto-added as `mcp__<server>` entries. Source of truth: [`templates/settings.json`](templates/settings.json).
 
 ### Deny list
 
-Blocks 30 dangerous Bash patterns across six categories: git history rewriting (`push --force`, `reset --hard`, `clean`, ...), system destruction (`rm -rf /`, `sudo`), piped remote code execution (`curl | bash`, ...), infrastructure destruction (`docker system prune`, `kubectl delete`, ...), package publishing (`npm publish`, `twine upload`, ...), and best-effort data exfiltration (`curl -d @file` — trivially bypassable). The exact pattern list lives in [`templates/settings.json`](templates/settings.json) — that file, not this README, is the source of truth.
+Blocks dangerous Bash patterns across six categories: git history rewriting (`push --force`, `reset --hard`, `clean`, ...), system destruction (`rm -rf /`, `sudo`), piped remote code execution (`curl | bash`, ...), infrastructure destruction (`docker system prune`, `kubectl delete`, ...), package publishing (`npm publish`, `twine upload`, ...), and best-effort data exfiltration (`curl -d @file` — trivially bypassable). The exact pattern list lives in [`templates/settings.json`](templates/settings.json) — that file, not this README, is the source of truth.
 
 ### PreToolUse Hook
 
@@ -79,15 +79,15 @@ For structured tools the hook validates the `file_path` field directly — it ca
 
 ### Branch protection
 
-History-modifying git operations (`commit`, `push`, `rebase`, `merge`, `restore`, `checkout --`, `branch -D`, ...) are allowed on feature branches but **blocked on protected branches** (default: master, main, develop, dev, development, staging, stage, prod, production, release). Creating new branches (`checkout -b`, `switch -c`) is always allowed — enabling a feature-branch + pull-request workflow. Customize the `PROTECTED_BRANCHES` array in `.claude/hooks/restrict-paths.sh`.
+History-modifying git operations (`commit`, `cherry-pick`, `revert`, `push`, `rebase`, `merge`, `restore`, `checkout --`, `branch -D`, ...) are allowed on feature branches but **blocked on protected branches** (default: master, main, develop, dev, development, staging, stage, prod, production, release). Creating new branches (`checkout -b`, `switch -c`) is always allowed — enabling a feature-branch + pull-request workflow. Customize the `PROTECTED_BRANCHES` array in `.claude/hooks/restrict-paths.sh`.
 
 ### Precious file protection (always on)
 
-Well-known sensitive unversioned files are protected automatically: edits prompt, deletions are blocked. Categories: secrets (`.env*`, `credentials.*`, `local.settings.json`, ...), keys and certificates (`*.key`, `*.pem`, `*.pfx`, ...), databases (`*.sqlite`, `*.mdf`, ...), local config overrides (`docker-compose.override.yml`, ...), and IDE user settings. The `is_precious()` function in [`templates/hooks/restrict-paths.sh`](templates/hooks/restrict-paths.sh) is the single source of truth for the pattern list.
+Well-known sensitive unversioned files are protected automatically: edits prompt, deletions are blocked. Categories: secrets (`.env*`, `credentials.*`, `local.settings.json`, ...), keys and certificates (`*.key`, `*.pem`, `*.pfx`, ...), databases (`*.sqlite`, `*.mdf`, ...), local config overrides (`docker-compose.override.yml`, ...), and IDE user settings. `is_precious_name()` and `is_recoverable_precious_name()` in [`templates/hooks/restrict-paths.sh`](templates/hooks/restrict-paths.sh) are the single source of truth for the pattern list.
 
 Backups and IDE scratch (`*.bak`, `*.suo`, `*.user`) are intentionally deletable: they prompt on edit but do not trigger the hook's delete block. This category is a policy choice, not proof that another copy exists. Backups of hard-precious files retain protection through backup/rotation suffixes; `.env.bak`, `id_rsa.pem.old`, `server.key.1`, `app.sqlite~`, and names also matching the hard list such as `.env.suo` stay protected. Ordinary rotated logs and merge leftovers are not added to that list.
 
-Git-tracked files bypass this hook's precious-file gate; uncommitted edits are still not recoverable through checkout. Matching is by basename, the list is not exhaustive, and prompts may repeat. Do not stage secrets, keys, or databases merely to suppress prompts. For an intentional exception, review the specific installed-hook rule and its consequences; `/optimus:permissions` can preserve approved customizations on later updates.
+Git-tracked files bypass this hook's precious-file gate; uncommitted edits are still not recoverable through checkout. Matching is by basename, the list is not exhaustive, and prompts may repeat. The delete block checks each named target and each file a glob matches (`rm .env*`), not the contents of a deleted directory (`rm -rf config/`). Do not stage secrets, keys, or databases merely to suppress prompts. For an intentional exception, review the specific installed-hook rule and its consequences; `/optimus:permissions` can preserve approved customizations on later updates.
 
 ## Trust Model and Assumptions
 
