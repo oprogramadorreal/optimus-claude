@@ -69,18 +69,19 @@ Give the lead agent the goal and the bar, but let it choose the approach.
 State the goal as a destination and do not enumerate its aspects, even when
 the user did: a list of aspects in the goal sentence becomes the
 decomposition, and that is the lead agent's call. Tell it to divide the goal
-into the smallest pieces that can be improved and judged independently — a
-piece is independent only if its builder can work without waiting on or
-overwriting another builder's files; anything less is merged or sequenced
-before the pieces are set. One builder takes each piece through every round:
-it gets the critic's gap verbatim and chooses the fix, which the lead never
-writes for it. Every round, a separate critic with fresh context judges the
-piece.
+into pieces that can be improved and judged independently, no more than the
+work needs — a piece is independent only if its builder can work without
+waiting on or overwriting another builder's files; anything less is merged or
+sequenced before the pieces are set. One builder takes each piece through
+every round: it gets the critic's verdict file verbatim and chooses the fixes,
+which the lead never writes for it. Every round, a separate critic with fresh
+context judges the piece.
 
 Use the host's available agent capacity; sequence dispatches rather than drop
-pieces or reviews. Under Codex, disable conversation inheritance for each
-critic (`fork_turns: "none"` when that option exists). Carry these dispatch
-rules into the prompt.
+pieces or reviews. Builders spawn no reviewers of their own; the critic is the
+review. Carry these dispatch rules into the prompt, and when the run's host is
+Codex, tell it to disable conversation inheritance for each critic
+(`fork_turns: "none"` when that option exists).
 
 Each piece's critic prompt is written once, before its first round, kept on
 the progress page, and sent every round with only the artifact paths changed.
@@ -101,16 +102,21 @@ visual or behavioral. Anything presented as computed — metrics, simulation
 output, live data — must trace to real computation: staged output that merely
 looks right is a gap, not a pass.
 
-Each critic compares ours against the bar unlabeled — blind A/B when the
-artifacts allow it, side by side otherwise; never an older and a newer
-version of our own work, which measures the round, not the bar — and writes
-its verdict to its own file under `.claude/gauntlet/`, named by piece and
-round, ending with one of two final lines: exactly `beats the bar`, or the
-single biggest remaining gap, which goes back for another round. A gap is a
-way the bar beats ours; checks the bar cannot show — interaction,
+Each critic compares ours against the bar, never an older and a newer version
+of our own work, which measures the round, not the bar. Where blind A/B is
+practical, the critic gets both unlabeled, in random order, and learns which
+is ours only after recording its pick; tests and numerical thresholds need no
+blinding. It writes its verdict to its own file under `.claude/gauntlet/`,
+named by piece and round: what it opened and ran, every gap it found, biggest
+first, then one of two final lines: exactly `beats the bar` when it found
+none, or the biggest gap again, which sends the file back for another round.
+A critic that could not open the bar or run the artifact has not judged it:
+its final line names what it could not open or run, never `beats the bar`. A
+gap is a way the bar beats ours; checks the bar cannot show — interaction,
 robustness, window sizes — belong in the remit from round one or in the test
-suite, never added round by round. The progress page copies every verdict
-from its file. A piece is done when its critic's file reads `beats the bar`.
+suite, never added round by round. The progress page copies each verdict's
+final line from its file and links to the file. A piece is done when its
+critic's file reads `beats the bar`.
 
 Pieces that individually beat the bar can still disagree with each other, so
 when every piece is done, a fresh integration critic judges the assembled
@@ -146,11 +152,13 @@ Do not prescribe the architecture, exact decomposition, or a fixed number of
 rounds. Keep the prompt short, but short is a budget for phrasing, not licence
 to drop guarantees: one builder per piece, fresh-context critics, the frozen
 remit, the bar materials in every critic prompt, ours-against-the-bar
-comparison, the verdict file with its two-way final line, judging the
-running artifact, the anti-staging rule, the integration critic, the green
-suite, the plateau and suspension rules, the dispatch rules, the progress
-page, and the branch, commit, and push rules all survive to the final draft. Short also has a
-number: keep the prompt under 2,500 characters, because the /goal handoff
+comparison, blind and in random order where practical, the verdict file with
+its evidence, ranked gaps, and two-way final line, judging the running
+artifact and never passing what could not be opened or run, the anti-staging
+rule, the integration critic, the green suite, the plateau and suspension
+rules, the dispatch rules, the progress page, and the branch, commit, and push
+rules all survive to the final draft. Short also has a number: keep the
+prompt under 2,500 characters, because the /goal handoff
 must fit this exact prompt plus an opening instruction and a completion
 condition into either host's /goal 4,000-character message cap, and those need the rest.
 
