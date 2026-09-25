@@ -1076,6 +1076,14 @@ assert_decision "Commit with quoted message still guarded" DENY \
 assert_decision "cherry-pick on protected denied" DENY "$(rp_git_decision 'git cherry-pick abc123')"
 assert_decision "revert on protected denied"      DENY "$(rp_git_decision 'git revert HEAD')"
 assert_decision "am on protected denied"          DENY "$(rp_git_decision 'git am patch.mbox')"
+# ...but their way OUT of a conflicted run commits nothing, and a protected
+# branch mid-pick has no other exit. --continue/--skip commit the rest.
+for rp_c in 'cherry-pick --abort' 'revert --quit' 'am --abort' 'am --show-current-patch' 'merge --abort'; do
+  assert_decision "git $rp_c on protected allowed" ALLOW "$(rp_git_decision "git $rp_c")"
+done
+for rp_c in 'cherry-pick --continue' 'cherry-pick --skip' 'am --skip' 'cherry-pick abc --abort' 'commit --abort'; do
+  assert_decision "git $rp_c on protected denied" DENY "$(rp_git_decision "git $rp_c")"
+done
 # The remaining hard-block arms, each beside a control proving the arm — not a
 # blanket deny — is what answers.
 assert_decision "reset --hard on protected denied"   DENY  "$(rp_git_decision 'git reset --hard HEAD~1')"
@@ -1165,6 +1173,26 @@ assert_decision "rm under a substituted case subject denied" DENY \
   "$(rp_decision Bash command "case \$(uname) in *) rm $rp_tmp/outside/a.txt;; esac")"
 assert_decision "Substitution in an arm body is not a pattern" DENY \
   "$(rp_decision Bash command "case x in a) FOO=\$(pwd)/x rm $rp_tmp/outside/a.txt;; esac")"
+# A pattern or a subject is ONE shell word, quotes and escapes included — and
+# `in` may start the line after `case x`.
+assert_decision "rm after a quoted pattern with a space denied" DENY \
+  "$(rp_decision Bash command "case \$m in \\\"a b\\\") rm $rp_tmp/outside/a.txt;; esac")"
+assert_decision "rm after an escaped-space pattern denied" DENY \
+  "$(rp_decision Bash command "case \$m in a\\\\ b) rm $rp_tmp/outside/a.txt;; esac")"
+assert_decision "rm after a later quoted pattern denied" DENY \
+  "$(rp_decision Bash command "case \$m in a) echo;; 'c d') rm $rp_tmp/outside/a.txt;; esac")"
+assert_decision "rm after a (pattern) arm denied" DENY \
+  "$(rp_decision Bash command "case \$m in a) echo;; (b) rm $rp_tmp/outside/a.txt;; esac")"
+assert_decision "rm under a subject holding ' in ' denied" DENY \
+  "$(rp_decision Bash command "case \\\"a in b\\\" in x) rm $rp_tmp/outside/a.txt;; esac")"
+assert_decision "rm in an arm after a lone 'case x' line denied" DENY \
+  "$(rp_decision Bash command "case x\\nin a) rm $rp_tmp/outside/a.txt;; esac")"
+# A subshell can open behind a peeled pattern or keyword, not only at the head
+# of a fragment.
+assert_decision "subshell rm after a case pattern denied" DENY \
+  "$(rp_decision Bash command "case x in a) (rm $rp_tmp/outside/a.txt) ;; esac")"
+assert_decision "subshell rm after do denied" DENY \
+  "$(rp_decision Bash command "for f in a; do (rm $rp_tmp/outside/a.txt); done")"
 assert_decision "rm in a function body denied" DENY \
   "$(rp_decision Bash command "f() { rm $rp_tmp/outside/a.txt; }")"
 assert_decision "rm in a brace group denied" DENY \
@@ -1525,6 +1553,12 @@ assert_decision "case pattern on its own line is not a close" DENY \
   "$(rp_decision_cwd "(cd $rp_tmp/outside && case x in\\na)\\nrm a.txt;;\\nesac)")"
 assert_decision "subshell close inside a case arm still closes" ALLOW \
   "$(rp_decision_cwd "case x in\\na)\\n(cd $rp_tmp/outside && make) 2>&1\\nrm -rf build;;\\nesac")"
+assert_decision "cd in a subshell after a case pattern is tracked" DENY \
+  "$(rp_decision_cwd "case x in a) (cd $rp_tmp/outside && rm a.txt) ;; esac")"
+assert_decision "cd in a subshell after a case pattern ends with it" ALLOW \
+  "$(rp_decision_cwd "case x in a) (cd $rp_tmp/outside && ls) ;; esac; rm -rf build")"
+assert_decision "esac) closes the subshell around a case" ALLOW \
+  "$(rp_decision_cwd "(cd $rp_tmp/outside && case x in a) echo;; esac) && rm -rf build")"
 
 # A wrapper option can move the command with no `cd` in sight. The walk already
 # had to step over the value to reach the command word; discarding it meant the
@@ -1675,6 +1709,32 @@ assert_decision "glob matching .env denied"     DENY  "$(rp_git_decision "rm -f 
 assert_decision "glob matching *.sqlite denied" DENY  "$(rp_git_decision "rm -f $rp_git/*.sqlite")"
 assert_decision "glob of a recoverable allowed" ALLOW "$(rp_git_decision "rm -f $rp_git/notes*.bak")"
 assert_decision "glob matching nothing allowed" ALLOW "$(rp_git_decision "rm -f $rp_git/nomatch*")"
+# A name that merely LOOKS like a glob is still a file: quoted, or matching
+# nothing, the shell deletes it as written.
+: > "$rp_git/secret[1].key"
+assert_decision "quoted glob-shaped precious name denied" DENY \
+  "$(rp_git_decision "rm '$rp_git/secret[1].key'")"
+assert_decision "unquoted glob-shaped precious name denied" DENY \
+  "$(rp_git_decision "rm $rp_git/secret[1].key")"
+rm -f "$rp_git/secret[1].key"
+# The tracked check runs ONCE over a glob's precious matches, not per match: a
+# fork chain per file let a big glob outrun the hook's timeout, which fails open.
+mkdir -p "$rp_git/fixtures"
+for rp_pf in a b c; do : > "$rp_git/fixtures/$rp_pf.sqlite"; done
+git -C "$rp_git" add fixtures
+git -C "$rp_git" -c user.email=t@t -c user.name=t -c commit.gpgsign=false commit -q -m fixtures
+rp_git_shim="$rp_tmp/gitshim"
+mkdir -p "$rp_git_shim"
+printf '#!/bin/sh\necho "$*" >> "%s/calls"\nexec "%s" "$@"\n' "$rp_git_shim" "$(command -v git)" > "$rp_git_shim/git"
+chmod +x "$rp_git_shim/git"
+assert_decision "glob of tracked precious files allowed" ALLOW \
+  "$(rp_decision_env HOME="$rp_tmp/home" CLAUDE_PROJECT_DIR="$rp_git" PATH="$rp_git_shim:$PATH" -- Bash command "rm -f $rp_git/fixtures/*.sqlite")"
+assert_equals "glob of tracked precious files runs ls-files once" 1 \
+  "$(grep -c 'ls-files' "$rp_git_shim/calls")"
+: > "$rp_git/fixtures/d.sqlite"
+assert_decision "glob with one untracked precious file denied" DENY \
+  "$(rp_git_decision "rm -f $rp_git/fixtures/*.sqlite")"
+rm -rf "$rp_git/fixtures/d.sqlite"
 
 # The WRITE gates end to end, and the tracked exemption on every gate. The cases
 # above drive the classifier or delete UNTRACKED files, so dropping the

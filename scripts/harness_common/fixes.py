@@ -1,3 +1,5 @@
+import re
+from bisect import bisect_left
 from pathlib import Path
 
 from .constants import normalize_path
@@ -35,7 +37,6 @@ def _swap_content(fix, cwd, source_field, target_field):
             raw = stream.read()
     except (UnicodeDecodeError, OSError):
         return False
-    newline = "\r\n" if "\r\n" in raw else "\n"
     content = raw.replace("\r\n", "\n")
     find = fix.get(source_field, "")
     replace = fix.get(target_field, "")
@@ -55,8 +56,24 @@ def _swap_content(fix, cwd, source_field, target_field):
         return False
     if content.count(find) != 1:
         return False  # Ambiguous match — refuse to apply/revert
-    with filepath.open("w", encoding="utf-8", newline=newline) as stream:
-        stream.write(content.replace(find, replace, 1))
+    # Splice the match back into the raw text so every byte outside it keeps
+    # its own line ending, even in a mixed-ending file. Each CRLF before a
+    # position is one character longer in raw than in content.
+    crlf_starts = [
+        match.start() - count for count, match in enumerate(re.finditer("\r\n", raw))
+    ]
+    start = content.index(find)
+    end = start + len(find)
+    raw_start = start + bisect_left(crlf_starts, start)
+    raw_end = end + bisect_left(crlf_starts, end)
+    # The replacement takes the ending of the line the match starts on.
+    line_end = raw.find("\n", raw_start)
+    if line_end == -1:
+        newline = "\r\n" if crlf_starts else "\n"
+    else:
+        newline = "\r\n" if raw[line_end - 1 : line_end] == "\r" else "\n"
+    with filepath.open("w", encoding="utf-8", newline="") as stream:
+        stream.write(raw[:raw_start] + replace.replace("\n", newline) + raw[raw_end:])
     return True
 
 

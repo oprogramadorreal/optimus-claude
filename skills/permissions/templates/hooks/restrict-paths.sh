@@ -5,7 +5,7 @@
 # Source:       https://github.com/oprogramadorreal/optimus-claude
 # Docs:         skills/permissions/README.md
 # ============================================================================
-# HOOK_VERSION: 12
+# HOOK_VERSION: 13
 # ^ Bump on every behavioural change. The plugin's SessionStart hook compares
 #   this against the copy installed in a project and recommends re-running
 #   /optimus:permissions when the project's copy is older — a plugin update
@@ -245,13 +245,26 @@ find_git_root() {
 }
 
 is_git_tracked() {
-  # Check if a file is tracked by git in its containing repo.
+  # Check that every given file is tracked by git in its containing repo.
   # Fail-open: if not in a git repo or git unavailable, assume tracked (allow).
-  local filepath="$1"
-  local repo_root
-  repo_root="$(find_git_root "$filepath")"
+  # One repo lookup and one ls-files per run of files sharing a directory, not
+  # per file: a glob's matches share one, and forks per match let
+  # `rm -f fixtures/*.sqlite` outrun the hook's timeout — which fails OPEN.
+  local filepath dir repo_root="" last_dir="" started=""
+  local -a group=()
+  for filepath in "$@"; do
+    [[ "$filepath" == */* ]] && dir="${filepath%/*}" || dir=.
+    if [[ -z "$started" || "$dir" != "$last_dir" ]]; then
+      if [[ -n "$repo_root" ]]; then
+        git -C "$repo_root" ls-files --error-unmatch -- "${group[@]}" &>/dev/null || return 1
+      fi
+      started=1 last_dir="$dir" group=()
+      repo_root="$(find_git_root "$filepath")"
+    fi
+    group+=("$filepath")
+  done
   [[ -n "$repo_root" ]] || return 0  # fail-open: no repo → assume tracked
-  git -C "$repo_root" ls-files --error-unmatch "$filepath" &>/dev/null
+  git -C "$repo_root" ls-files --error-unmatch -- "${group[@]}" &>/dev/null
 }
 
 # basename without the fork. The precious tests below run on EVERY Edit, Write
@@ -287,7 +300,13 @@ precious_basename() {
     if (( BASH_VERSINFO[0] >= 4 )); then
       _basename="${_basename,,}"
     else
-      _basename="$(printf '%s' "$_basename" | tr '[:upper:]' '[:lower:]')"
+      # Bash 3.2 (macOS /bin/bash) has no ${,,}. Fold ASCII in-process — every
+      # precious pattern is ASCII — because a `printf | tr` fork per name let a
+      # glob delete over thousands of matches outrun the hook's timeout.
+      local _up=ABCDEFGHIJKLMNOPQRSTUVWXYZ _lo=abcdefghijklmnopqrstuvwxyz _i
+      for (( _i = 0; _i < 26; _i++ )); do
+        _basename="${_basename//${_up:_i:1}/${_lo:_i:1}}"
+      done
     fi
   fi
 }
@@ -1313,8 +1332,16 @@ check_git_command() {
       check_git_push "${tokens[@]:$((git_subcmd_idx+1))}"
       ;;
     # cherry-pick/revert/am create commits on the checked-out branch exactly
-    # like commit, so they share its block.
+    # like commit, so they share its block — but not their way OUT of a
+    # conflicted run: --abort and --quit commit nothing, and git refuses them
+    # alongside a commit or another action. --continue and --skip go on to
+    # commit the rest, so they stay blocked.
     commit|merge|cherry-pick|revert|am)
+      if [[ "$git_subcmd" != commit ]]; then
+        case "${tokens[git_subcmd_idx+1]:-}" in
+          --abort|--quit|--show-current-patch|--show-current-patch=*) return 0 ;;
+        esac
+      fi
       current_branch="$(get_current_branch "$git_repo_dir")" || return 0
       [[ "$current_branch" == "HEAD" ]] && return 0
       if is_protected_branch "$current_branch"; then
@@ -1581,15 +1608,46 @@ count_frag_closes() {
   done
 }
 
+# Split the one shell word at the head of $1 off what follows it; the rest,
+# from the first whitespace or ')' outside quotes and outside any (...) the
+# word opens, lands in _word_rest. The case peel reads a subject and a pattern
+# with it, so `"a b")`, `a\ b)` and `$(uname)` are each one word.
+_word_rest=""
+split_word() {
+  local LC_ALL=C
+  local s="$1"
+  local n=${#s} i=0 c q="" depth=0
+  while (( i < n )); do
+    c="${s:i:1}"
+    if [[ "$q" == "'" ]]; then
+      [[ "$c" == "'" ]] && q=""
+    elif [[ "$q" == '"' ]]; then
+      if [[ "$c" == '\' ]]; then (( ++i ))
+      elif [[ "$c" == '"' ]]; then q=""; fi
+    else
+      case "$c" in
+        "'"|'"') q="$c" ;;
+        '\') (( ++i )) ;;
+        '(') depth=$(( depth + 1 )) ;;
+        ')') (( depth == 0 )) && break
+          depth=$(( depth - 1 )) ;;
+        [[:space:]]) (( depth == 0 )) && break ;;
+      esac
+    fi
+    (( ++i ))
+  done
+  _word_rest="${s:i}"
+}
+
 scan_command_string() {
   local _split="$1"
   local _subcmd _cd_tok _cd_target _cd_base _cd_noop word target nword skip_next _m _ifs _ng
-  local -a _matches
+  local -a _matches _precious
   local _saved_cd _saved_prev _wrap_base _wrap_cd _eff_cd _n_close
   local -a _frag
   local -a _saved_stack=()
   local -a _cd_stack=()
-  local _cd_depth=0 _cd_pending_close=0 _base_depth _pat
+  local _cd_depth=0 _cd_pending_close=0 _pat _rest _peeled_pat
   # The subshell depth each open `case` sits at, innermost last.
   local _case_depths=""
 
@@ -1631,16 +1689,7 @@ scan_command_string() {
     # `(cd /tmp && ./deploy.sh) && rm -rf build` stayed in force for the rest of
     # the chain, and an ordinary in-project cleanup resolved to /tmp/build and
     # was hard-DENIED.
-    _base_depth=$_cd_depth
-    while [[ "$_subcmd" == '('* ]]; do
-      _subcmd="${_subcmd#\(}"
-      _subcmd="${_subcmd#"${_subcmd%%[![:space:]]*}"}"
-      _cd_stack[_cd_depth]="$_cd_dir"
-      _cd_depth=$(( _cd_depth + 1 ))
-    done
-    count_frag_closes "$_subcmd"
-    _n_close=$_frag_closes
-
+    #
     # Peel leading shell keywords. `for f in *; do rm <outside>; done` splits
     # into a fragment beginning 'do rm ...' and `if x; then rm <outside>; fi`
     # into one beginning 'then rm ...' — neither of which the guards below saw,
@@ -1655,35 +1704,57 @@ scan_command_string() {
     # Only the first arm follows `case`: `;;`, `|` and a newline start every
     # other one at its pattern, `b) rm <outside>`. A pattern is peeled only in a
     # case, at that case's own subshell depth — `(cd X && ls) 2>&1` leaves
-    # `ls) 2>`, a close — and only as one word with no '(': `x=$(pwd)/y rm` is
-    # an arm's body. Its ')' closes no subshell, so it leaves the count, unless
-    # the '(' loop above pushed the level it pops: a `(b)` arm.
+    # `ls) 2>`, a close — once per fragment, and only as ONE shell word that a
+    # ')' ends: a quoted `"a b")` is one, while `x=$(pwd)/y rm` is an arm's body,
+    # because its word ends at the space. The subject is one word too, so it is
+    # skipped by the same reading: `case "$(uname)" in`, `case "a in b" in`.
+    # A subshell can open behind any of these — `do (cd /etc && rm passwd)` — so
+    # its '(' is taken inside the loop, not only at the head of the fragment.
+    # Closes are counted on what the peel leaves: a pattern's ')' closes nothing.
+    _peeled_pat=""
     while :; do
+      if [[ -z "$_peeled_pat" && -n "$_case_depths" && "${_case_depths##* }" == "$_cd_depth" ]]; then
+        _pat="${_subcmd#\(}"              # `(b)` is a pattern too, not a subshell
+        split_word "$_pat"
+        _rest="${_word_rest#"${_word_rest%%[![:space:]]*}"}"   # `a ) cmd` is valid
+        if [[ "$_word_rest" != "$_pat" && "${_pat%"$_word_rest"}" != esac \
+              && "$_rest" == ')'* ]]; then
+          _subcmd="${_rest#\)}"
+          _peeled_pat=1
+          _subcmd="${_subcmd#"${_subcmd%%[![:space:]]*}"}"
+          [[ -n "$_subcmd" ]] || break
+          continue
+        fi
+      fi
       case "$_subcmd" in
+        '('*) _subcmd="${_subcmd#\(}"
+          _cd_stack[_cd_depth]="$_cd_dir"
+          _cd_depth=$(( _cd_depth + 1 )) ;;
         do|then|else|elif|fi|done|in|'{'|'}'|'!') _subcmd="" ;;
-        'esac'|'esac '*|'esac)'*) _subcmd="" _case_depths="${_case_depths% *}" ;;
-        do\ *|then\ *|else\ *|elif\ *|if\ *|while\ *|until\ *|'{'\ *|'!'\ *)
+        # `esac)` ends the subshell around the case: keep its ')' for the count.
+        'esac'|'esac '*|'esac)'*) _case_depths="${_case_depths% *}"
+          _subcmd="${_subcmd#esac}"
+          _subcmd="${_subcmd#"${_subcmd%%[![:space:]]*}"}"
+          [[ "$_subcmd" == ')'* ]] || _subcmd="" ;;
+        do\ *|then\ *|else\ *|elif\ *|if\ *|while\ *|until\ *|in\ *|'{'\ *|'!'\ *)
           _subcmd="${_subcmd#* }" ;;
         *'()'*'{'*) _subcmd="${_subcmd#*\{}" ;;
         case\ *) _case_depths="$_case_depths $_cd_depth"
-          # Not up to the first ')': the subject can hold one, `case "$(uname)"`.
-          if [[ "$_subcmd" == *' in'[[:space:]]* ]]; then
-            _subcmd="${_subcmd#* in[[:space:]]}"
-          else _subcmd=""; fi ;;
-        *')'*)
-          _pat="${_subcmd%%)*}"
-          _pat="${_pat%"${_pat##*[![:space:]]}"}"   # `a ) cmd` is valid too
-          [[ -n "$_case_depths" && "${_case_depths##* }" == "$_base_depth" ]] || break
-          [[ "${_pat#\(}" != *[[:space:]\(]* ]] || break
-          (( _base_depth < _cd_depth )) || [[ "$_pat" == '('* ]] \
-            || _n_close=$(( _n_close > 0 ? _n_close - 1 : 0 ))
-          _subcmd="${_subcmd#*\)}" ;;
+          _subcmd="${_subcmd#case}"
+          _subcmd="${_subcmd#"${_subcmd%%[![:space:]]*}"}"
+          split_word "$_subcmd"
+          _subcmd="${_word_rest#"${_word_rest%%[![:space:]]*}"}"
+          case "$_subcmd" in
+            in[[:space:]]*) _subcmd="${_subcmd#in}" ;;
+            *) _subcmd="" ;;                # `case x` / `in` on the next line
+          esac ;;
         *) break ;;
       esac
-      _base_depth=$_cd_depth
       _subcmd="${_subcmd#"${_subcmd%%[![:space:]]*}"}"
       [[ -n "$_subcmd" ]] || break
     done
+    count_frag_closes "$_subcmd"
+    _n_close=$_frag_closes
     _cd_pending_close=$(( _cd_pending_close + _n_close ))
     [[ -n "$_subcmd" ]] || continue
     # Strip only as many trailing ')' as there are real closes, so the command
@@ -1905,25 +1976,33 @@ scan_command_string() {
         # testing the hard list alone — a deny here could never be overridden.
         # A glob word names no file itself, so judge what the shell expands it
         # to: `rm -f .env*` and `rm -f *.sqlite` otherwise failed the -e test and
-        # deleted the very files `rm .env` is denied for. IFS= keeps a match that
-        # holds a space whole; nullglob drops a pattern that matches nothing.
-        # `|| _ng=1`, not `_ng=$?`: a bare failing `shopt -q` would abort the
-        # hook under an inherited errexit before it printed any decision.
+        # deleted the very files `rm .env` is denied for. The word stays a
+        # candidate too — quoted, or matching nothing, the shell deletes it as
+        # written, so `rm 'secret[1].key'` removes that very file. IFS= keeps a
+        # match that holds a space whole; nullglob drops a pattern that matches
+        # nothing. `|| _ng=1`, not `_ng=$?`: a bare failing `shopt -q` would abort
+        # the hook under an inherited errexit before it printed any decision.
         _matches=("$target")
         if [[ "$target" == *[*?[]* ]]; then
           _ng=""; shopt -q nullglob || _ng=1
           shopt -s nullglob
           _ifs="$IFS"; IFS=
-          _matches=($target)
+          _matches+=($target)
           IFS="$_ifs"
           [[ -n "$_ng" ]] && shopt -u nullglob
         fi
         if is_inside_project_n "$nword"; then
-          for _m in ${_matches[@]+"${_matches[@]}"}; do
-            if [[ -e "$_m" ]] && is_hard_precious "$_m" && ! is_git_tracked "$_m"; then
-              deny_operation "BLOCKED: '$(basename "$_m")' is a precious file not tracked by git. Deletion denied."
-            fi
+          # Names first, then ONE tracked check over the precious ones: git per
+          # match cost `rm -f fixtures/*.sqlite` a fork chain for each file.
+          _precious=()
+          for _m in "${_matches[@]}"; do
+            if [[ -e "$_m" ]] && is_hard_precious "$_m"; then _precious+=("$_m"); fi
           done
+          if (( ${#_precious[@]} )) && ! is_git_tracked "${_precious[@]}"; then
+            (( ${#_precious[@]} > 1 )) \
+              && deny_operation "BLOCKED: '$word' matches a precious file not tracked by git. Deletion denied."
+            deny_operation "BLOCKED: '$(basename "${_precious[0]}")' is a precious file not tracked by git. Deletion denied."
+          fi
         fi
       done
     fi

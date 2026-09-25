@@ -1,4 +1,5 @@
 import os
+import signal
 import subprocess
 import sys
 import time
@@ -7,6 +8,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from harness_common.runner import _find_bash, bash_environment, run_tests
+
+_SCRIPTS = Path(__file__).resolve().parents[2] / "scripts"
 
 
 @pytest.fixture(autouse=True)
@@ -98,6 +101,39 @@ class TestRunTests:
         assert passed is False
         assert "timed out" in summary
 
+    @patch("harness_common.runner._find_bash", return_value="bash")
+    @patch("harness_common.runner._kill_tree")
+    @patch("harness_common.runner._windows_job")
+    @patch("harness_common.runner.subprocess.Popen")
+    def test_termination_signal_kills_the_tree_and_exits(
+        self, mock_run, mock_job, mock_kill, mock_find_bash
+    ):
+        def start(command, **kwargs):
+            proc = MagicMock(pid=0)
+            proc.wait.side_effect = lambda timeout=None: (
+                signal.raise_signal(signal.SIGTERM) if timeout is not None else None
+            )
+            return proc
+
+        mock_run.side_effect = start
+        # A stand-in handler keeps a missing fix from terminating pytest itself.
+        # (Not a MagicMock: its __int__ makes signal.signal store SIG_IGN.)
+        caller_calls = []
+
+        def caller_handler(signum, frame):
+            caller_calls.append(signum)
+
+        previous = signal.signal(signal.SIGTERM, caller_handler)
+        try:
+            with pytest.raises(SystemExit) as exc:
+                run_tests("npm test", "/tmp/project")
+            assert signal.getsignal(signal.SIGTERM) is caller_handler
+        finally:
+            signal.signal(signal.SIGTERM, previous)
+        assert exc.value.code == 128 + signal.SIGTERM
+        mock_kill.assert_called_once()
+        assert caller_calls == []
+
     @patch("harness_common.runner._kill_tree")
     @patch("harness_common.runner.sys")
     @patch("harness_common.runner.subprocess.Popen")
@@ -130,10 +166,11 @@ class TestRunTests:
         assert "Command not found" in out
 
     @patch("harness_common.runner._find_bash", return_value="bash")
+    @patch("harness_common.runner._windows_job")
     @patch("harness_common.runner.sys")
     @patch("harness_common.runner.subprocess.Popen")
     def test_command_not_found_windows_includes_git_bash_hint(
-        self, mock_run, mock_sys, mock_find_bash
+        self, mock_run, mock_sys, mock_job, mock_find_bash
     ):
         """On Windows, missing bash mentions the Git Bash install hint."""
         mock_sys.platform = "win32"
@@ -154,9 +191,12 @@ class TestRunTests:
         assert "bash" in summary
 
     @patch("harness_common.runner._find_bash", return_value="C:\\Git\\bin\\bash.exe")
+    @patch("harness_common.runner._windows_job")
     @patch("harness_common.runner.sys")
     @patch("harness_common.runner.subprocess.Popen")
-    def test_windows_routes_through_bash(self, mock_run, mock_sys, mock_find_bash):
+    def test_windows_routes_through_bash(
+        self, mock_run, mock_sys, mock_job, mock_find_bash
+    ):
         mock_sys.platform = "win32"
         mock_run.side_effect = _popen(0, b"pass\n", b"")
         passed, summary = run_tests("npm test && npm run lint", "/tmp/project")
@@ -230,6 +270,68 @@ class TestRunTestsEndToEnd:
         passed, summary = run_tests(command, tmp_path, timeout=1)
         assert time.monotonic() - start < 15
         assert not passed and "timed out after 1s" in summary
+
+    def test_timed_out_orphan_cannot_overwrite_restored_files(self, tmp_path):
+        # The intermediate subshell exits before timeout. Windows taskkill /T
+        # loses that ancestry, allowing the orphan to overwrite a later restore.
+        passed, summary = run_tests(
+            "(sleep 3 && printf late > restored.txt &); sleep 30",
+            tmp_path,
+            timeout=1,
+        )
+        restored = tmp_path / "restored.txt"
+        restored.write_text("restored", encoding="utf-8")
+        time.sleep(3)
+        assert not passed and "timed out" in summary
+        assert restored.read_text(encoding="utf-8") == "restored"
+
+    @pytest.mark.skipif(sys.platform != "win32", reason="Windows job assignment")
+    def test_failed_assignment_kills_the_suspended_shell(self, tmp_path, monkeypatch):
+        from harness_common import windows_job
+
+        processes = []
+        popen = subprocess.Popen
+
+        def start(*args, **kwargs):
+            process = popen(*args, **kwargs)
+            if kwargs.get("creationflags", 0) & 0x00000004:
+                processes.append(process)
+            return process
+
+        def fail_assignment(*args):
+            raise OSError("job assignment refused")
+
+        monkeypatch.setattr(subprocess, "Popen", start)
+        monkeypatch.setattr(
+            windows_job._kernel32, "AssignProcessToJobObject", fail_assignment
+        )
+        with pytest.raises(OSError, match="job assignment refused"):
+            run_tests("printf unsafe > ran.txt", tmp_path)
+        assert len(processes) == 1 and processes[0].poll() is not None
+        assert not (tmp_path / "ran.txt").exists()
+
+    @pytest.mark.skipif(sys.platform == "win32", reason="POSIX sessions and signals")
+    def test_terminating_the_caller_stops_the_whole_process_tree(self, tmp_path):
+        # The suite runs in its own session, so the SIGTERM never reaches it;
+        # left running, it would create `survived` two seconds later.
+        script = "\n".join(
+            [
+                "import sys",
+                f"sys.path.insert(0, {str(_SCRIPTS)!r})",
+                "from harness_common.runner import run_tests",
+                "run_tests('touch ready; sleep 2; touch survived', sys.argv[1], 60)",
+            ]
+        )
+        caller = subprocess.Popen([sys.executable, "-c", script, str(tmp_path)])
+        deadline = time.monotonic() + 15
+        while not (tmp_path / "ready").exists():
+            assert time.monotonic() < deadline, "the test command never started"
+            time.sleep(0.05)
+        time.sleep(0.3)  # let the caller reach its wait
+        caller.terminate()
+        assert caller.wait(timeout=15) == 128 + signal.SIGTERM
+        time.sleep(3)
+        assert not (tmp_path / "survived").exists()
 
     @pytest.mark.skipif(sys.platform != "win32", reason="Git for Windows PATH")
     def test_native_utilities_with_only_git_cmd_on_path(self, tmp_path, monkeypatch):

@@ -423,6 +423,24 @@ def test_coverage_report_counts_numeric_string_test_counts(capsys, monkeypatch):
     assert "4 tests in 1 files" in capsys.readouterr().out
 
 
+def test_coverage_report_counts_only_string_test_files(capsys, monkeypatch):
+    # A list-valued `file` names no file; it must not crash every later report.
+    monkeypatch.setattr("harness_common.reporting.git_current_branch", lambda _cwd: "")
+    print_coverage_report(
+        {
+            "config": {"project_root": ".", "base_commit": "abc1234"},
+            "cycle": {"completed": 1},
+            "coverage": {"baseline": None, "current": None, "history": []},
+            "tests_created": [
+                {"file": ["tests/test_a.py"], "test_count": 2, "status": "pass"},
+                {"file": "tests/test_b.py", "test_count": 1, "status": "pass"},
+            ],
+            "test_results": {"last_full_run": "pass"},
+        }
+    )
+    assert "3 tests in 1 files" in capsys.readouterr().out
+
+
 @pytest.mark.parametrize("mode", ["no_commit", "commit_disabled"])
 def test_uncommitted_report_never_suggests_destructive_rollback(mode, capsys):
     progress = {"config": {"base_commit": "abc123"}}

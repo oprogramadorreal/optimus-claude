@@ -1,7 +1,12 @@
 import re
 from pathlib import Path
 
-from .constants import FIXED_STATUSES, PERSISTENT_STATUS, REVERTED_STATUSES
+from .constants import (
+    FIXED_STATUSES,
+    PERSISTENT_STATUS,
+    REVERTED_STATUSES,
+    normalize_path,
+)
 from .git import git_current_branch
 
 _SHELL_FENCE_LANGS = (
@@ -240,7 +245,7 @@ def print_coverage_report(progress):
         for count in (str(t.get("test_count", "")) for t in tests)
         if count.isdecimal()
     )
-    total_files = len({t.get("file") for t in tests})
+    total_files = len({normalize_path(t.get("file")) for t in tests} - {""})
     untestable = [
         u for u in progress.get("untestable_code", []) if u.get("status") != "attempted"
     ]

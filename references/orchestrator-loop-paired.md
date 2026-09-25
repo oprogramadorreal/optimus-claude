@@ -72,7 +72,7 @@ The last stdout line is one of:
 
 | Output | Meaning |
 |---|---|
-| `converged` | Skill reported plateau (`no_new_tests` + `no_untestable_code`, or `no_new_tests` + `no_coverage_gained`) — cycle ends, loop terminates. |
+| `converged` | Skill reported plateau (`no_new_tests` + `no_untestable_code`, or `no_new_tests` + `no_coverage_gained`) — terminal; still run step 5, then exit the loop (the CLI already recorded the cycle, so skip steps 6–11). |
 | `continue` | Unit-test phase complete — proceed to step 5. Also printed after a red-suite rollback (the CLI reverts the cycle's tests and drops the phase JSON without a distinct token). |
 | `blocked` | The phase hit a stop gate (no test framework, red baseline; see coverage-harness-mode.md "Stop gates under harness mode"). The CLI recorded it without running the suite. Exit the loop and go to "After the loop". Relay the reason from the final report's `Stopped:` line with recovery advice: `/optimus:init` for a missing framework or broken build, triage the failing tests for a red baseline. Tell the user to re-run with `--resume` once fixed; `final-report --archive` leaves the progress file in place. |
 
@@ -155,7 +155,7 @@ The last stdout line is one of:
 
 | Output | Meaning |
 |---|---|
-| `converged` | Refactor reported no testability findings or none actionable — cycle ends, loop terminates. |
+| `converged` | Refactor reported no testability findings or none actionable — terminal; still run step 9, then exit the loop (the CLI already recorded the cycle, so skip steps 10–11). |
 | `applied fixed=<N> reverted=<N> test_passed=<0\|1\|->` | Refactor phase complete — proceed to step 9. `test_passed` is `-` when no test result was recorded; zero fixes alone does not imply no validation ran. |
 
 ### 9. Commit the refactor phase checkpoint

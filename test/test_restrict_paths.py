@@ -69,3 +69,22 @@ def test_precious_casefold_on_available_bash_versions(tmp_path, shell):
     )
     assert result.returncode == 0, result.stderr
     assert result.stdout == ".env.local"
+
+
+def test_precious_casefold_fallback_folds_in_process(tmp_path):
+    # Force the Bash 3.2 branch on the Bash at hand. A failing `tr` proves the
+    # fold no longer forks a pipeline per name.
+    source = RESTRICT.read_text(encoding="utf-8")
+    functions = "\n".join(
+        re.search(rf"^{name}\(\) \{{.*?^\}}", source, re.M | re.S).group()
+        for name in ("basename_of", "precious_basename")
+    )
+    gate = "(( BASH_VERSINFO[0] >= 4 ))"
+    assert gate in functions
+    result = _bash(
+        functions.replace(gate, "false")
+        + '\ntr() { return 1; }\nOSTYPE=darwin\nprecious_basename "/p/.ENV.Local-ZZ"\nprintf "%s" "$_basename"\n',
+        tmp_path,
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.stdout == ".env.local-zz"

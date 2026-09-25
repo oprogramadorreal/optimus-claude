@@ -3102,61 +3102,13 @@ class TestRefactorStep:
 
 
 class TestRecordCycle:
-    def test_unit_test_only(self, tmp_path):
+    def test_appends_history_and_advances_the_cycle(self, tmp_path):
         ppath = _seed_coverage_progress(tmp_path)
-        ut = json.dumps({"fixed": 2, "reverted": 0})
-        exit_code = _run(
-            "record-cycle",
-            "--progress-file",
-            str(ppath),
-            "--unit-test-summary",
-            ut,
-        )
-        assert exit_code == 0
+        assert _run("record-cycle", "--progress-file", str(ppath)) == 0
         data = _read_progress(ppath)
-        assert data["cycle_history"] == [
-            {"cycle": 1, "unit_test": {"fixed": 2, "reverted": 0}}
-        ]
+        assert data["cycle_history"] == [{"cycle": 1}]
         assert data["cycle"]["completed"] == 1
         assert data["cycle"]["current"] == 2
-
-    def test_unit_test_and_refactor(self, tmp_path):
-        ppath = _seed_coverage_progress(tmp_path)
-        exit_code = _run(
-            "record-cycle",
-            "--progress-file",
-            str(ppath),
-            "--unit-test-summary",
-            json.dumps({"fixed": 1}),
-            "--refactor-summary",
-            json.dumps({"fixed": 1, "reverted": 0}),
-        )
-        assert exit_code == 0
-        data = _read_progress(ppath)
-        assert data["cycle_history"] == [
-            {
-                "cycle": 1,
-                "unit_test": {"fixed": 1},
-                "refactor": {"fixed": 1, "reverted": 0},
-            }
-        ]
-        assert data["cycle"]["current"] == 2
-
-    def test_invalid_json_exits_one(self, tmp_path, capsys):
-        ppath = _seed_coverage_progress(tmp_path)
-        exit_code = _run(
-            "record-cycle",
-            "--progress-file",
-            str(ppath),
-            "--unit-test-summary",
-            "{not valid json",
-        )
-        assert exit_code == 1
-        assert "Invalid cycle summary JSON" in capsys.readouterr().err
-        # Progress file untouched on parse failure
-        data = _read_progress(ppath)
-        assert data["cycle_history"] == []
-        assert data["cycle"]["current"] == 1
 
 
 # ---------------------------------------------------------------------------
@@ -3217,7 +3169,7 @@ class TestCheckTermination:
 
     def test_parse_failure_threshold_deep(self, tmp_path, capsys):
         # Two consecutive failed parses → check-termination surfaces
-        # parse-failure (records the reason, no need for mark-termination).
+        # parse-failure and records the reason itself.
         ppath = _seed_deep_progress(tmp_path)
         data = _read_progress(ppath)
         data["parse_failure_count"] = 2
@@ -3317,58 +3269,6 @@ class TestPendingRefactorCount:
         ppath.write_text(json.dumps(data, indent=2), encoding="utf-8")
         _run("pending-refactor-count", "--progress-file", str(ppath))
         assert capsys.readouterr().out.strip() == "2"
-
-
-# ---------------------------------------------------------------------------
-# mark-termination
-# ---------------------------------------------------------------------------
-
-
-class TestMarkTermination:
-    def test_records_parse_failure(self, tmp_path):
-        # The CLI subcommand the orchestrator uses to record a parse-failure
-        # termination without touching the progress file directly.
-        ppath = _seed_deep_progress(tmp_path)
-        exit_code = _run(
-            "mark-termination",
-            "--progress-file",
-            str(ppath),
-            "--reason",
-            "parse-failure",
-            "--message",
-            "two consecutive iterations produced no JSON",
-        )
-        assert exit_code == 0
-        data = _read_progress(ppath)
-        assert data["termination"]["reason"] == "parse-failure"
-        assert "two consecutive" in data["termination"]["message"]
-
-    def test_blocked_is_a_recordable_reason(self, tmp_path):
-        # The coverage loop's blocked gate (no test framework, red baseline) has
-        # to be recordable, or the final report names no cause at all.
-        ppath = _seed_deep_progress(tmp_path)
-        exit_code = _run(
-            "mark-termination",
-            "--progress-file",
-            str(ppath),
-            "--reason",
-            "blocked",
-            "--message",
-            "no test framework detected",
-        )
-        assert exit_code == 0
-        assert _read_progress(ppath)["termination"]["reason"] == "blocked"
-
-    def test_rejects_unknown_reason(self, tmp_path):
-        ppath = _seed_deep_progress(tmp_path)
-        with pytest.raises(SystemExit):
-            _run(
-                "mark-termination",
-                "--progress-file",
-                str(ppath),
-                "--reason",
-                "made-up-reason",
-            )
 
 
 # ---------------------------------------------------------------------------
@@ -4540,6 +4440,37 @@ class TestSoftExitBranches:
 class TestReviewFixRegressions:
     """Regression tests for deep-mode harness robustness fixes."""
 
+    @pytest.mark.parametrize("error", [OSError, RuntimeError])
+    def test_process_control_failure_stops_before_rollback(
+        self, tmp_path, monkeypatch, error
+    ):
+        ppath = _seed_coverage_progress(tmp_path)
+        result = tmp_path / "result.json"
+        result.write_text(json.dumps(_coverage_result({})), encoding="utf-8")
+
+        def fail_cleanup(*args, **kwargs):
+            raise error("test process is still running")
+
+        def refuse_restore(*args, **kwargs):
+            pytest.fail("must not restore files while test cleanup has failed")
+
+        monkeypatch.setattr(cli, "run_tests", fail_cleanup)
+        monkeypatch.setattr(cli, "_restore_or_stop", refuse_restore)
+        assert (
+            _run(
+                "unit-test-step",
+                "--progress-file",
+                str(ppath),
+                "--result-file",
+                str(result),
+            )
+            == 1
+        )
+        progress = _read_progress(ppath)
+        assert "Test process control failed" in progress["_safety_error"]
+        assert "_validated_tree" not in progress
+        assert progress["cycle"]["completed"] == 0
+
     def test_unit_test_step_records_blocked_without_running_tests(
         self, tmp_path, capsys, monkeypatch
     ):
@@ -4571,6 +4502,32 @@ class TestReviewFixRegressions:
             "reason": "blocked",
             "message": "no test framework detected",
         }
+
+    @pytest.mark.parametrize("blocked", ["", "  "])
+    def test_unit_test_step_empty_blocked_is_no_stop_gate(
+        self, tmp_path, capsys, monkeypatch, blocked
+    ):
+        ppath = _seed_coverage_progress(tmp_path)
+        suite_runs = []
+
+        def _green(*a, **kw):
+            suite_runs.append(a)
+            return True, "ok"
+
+        monkeypatch.setattr(cli, "run_tests", _green)
+        result = tmp_path / "result.json"
+        result.write_text(json.dumps(_coverage_result({"blocked": blocked})), "utf-8")
+        exit_code = _run(
+            "unit-test-step",
+            "--progress-file",
+            str(ppath),
+            "--result-file",
+            str(result),
+        )
+        assert exit_code == 0
+        assert capsys.readouterr().out.strip() != "blocked"
+        assert suite_runs
+        assert _read_progress(ppath)["termination"]["reason"] is None
 
     # --- a red unit-test phase rolls back and drops the session's data ---
     def test_unit_test_step_red_rolls_back_and_skips_merge(

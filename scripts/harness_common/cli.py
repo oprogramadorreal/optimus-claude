@@ -20,8 +20,6 @@ Subcommand summary:
                             blocked
   advance                 — increment iteration counter (deep variant)
   pending-refactor-count  — count untestable_code items still pending refactor
-  mark-termination        — record a termination reason by hand (no loop
-                            calls it; unit-test-step records `blocked`)
   final-report            — print the cumulative report
 """
 
@@ -59,7 +57,6 @@ from .constants import (
     SOFT_EXIT_LOW_YIELD_THRESHOLD,
     SOFT_EXIT_MIN_ITERATION,
     SOFT_EXIT_WINDOW,
-    TERMINATION_REASONS,
     normalize_path,
 )
 from .convergence import (
@@ -362,9 +359,14 @@ def _tree_state(progress, project_root):
 def _run_verified_tests(progress, project_root, test_command):
     progress.pop("_validated_tree", None)
     before = _tree_state(progress, project_root)
-    passed, summary = run_tests(
-        test_command, project_root, timeout=_effective_timeout(progress)
-    )
+    try:
+        passed, summary = run_tests(
+            test_command, project_root, timeout=_effective_timeout(progress)
+        )
+    except (OSError, RuntimeError) as exc:
+        # Failed process containment/cleanup must stop the loop, not enter
+        # rollback while a surviving test process may still modify the tree.
+        raise HarnessSafetyError(f"Test process control failed: {exc}") from exc
     after = _tree_state(progress, project_root)
     # Previously recorded test outputs are excluded by _tree_state. Files that
     # existed before their first test run remain protected inputs.
@@ -1305,9 +1307,11 @@ def cmd_unit_test_step(args):
 
     # A fired stop gate (no test framework, red baseline): record the resumable
     # `blocked` exit BEFORE the suite run below, which would otherwise roll the
-    # cycle back, print `continue`, and lose the reason.
-    if result["blocked"] is not None:
-        progress["termination"] = {"reason": "blocked", "message": result["blocked"]}
+    # cycle back, print `continue`, and lose the reason. An empty reason is no
+    # gate: a subagent may write "" to mean not blocked.
+    blocked = (result["blocked"] or "").strip()
+    if blocked:
+        progress["termination"] = {"reason": "blocked", "message": blocked}
         write_progress(progress_path, progress)
         print("blocked")
         return 0
@@ -1546,20 +1550,7 @@ def cmd_record_cycle(args):
     progress_path = Path(args.progress_file)
     progress = _read_run_progress(progress_path)
     cycle = progress["cycle"]["current"]
-    try:
-        ut_summary = (
-            json.loads(args.unit_test_summary) if args.unit_test_summary else {}
-        )
-        rf_summary = (
-            json.loads(args.refactor_summary) if args.refactor_summary else None
-        )
-    except ValueError as exc:
-        print(f"ERROR: Invalid cycle summary JSON: {exc}", file=sys.stderr)
-        return 1
-    entry = {"cycle": cycle, "unit_test": ut_summary}
-    if rf_summary is not None:
-        entry["refactor"] = rf_summary
-    progress["cycle_history"].append(entry)
+    progress["cycle_history"].append({"cycle": cycle})
     progress["cycle"]["completed"] = cycle
     progress["cycle"]["current"] = cycle + 1
     write_progress(progress_path, progress)
@@ -1813,26 +1804,6 @@ def cmd_pending_refactor_count(args):
     return 0
 
 
-def cmd_mark_termination(args):
-    """Write a terminal reason to progress["termination"] without other side effects.
-
-    No loop reference calls it today: `unit-test-step` records `blocked`, and
-    parse-failure stays automatic via the parse counter and check-termination.
-    It lets an
-    orchestrator end the loop for a reason the per-iteration steps don't
-    naturally surface without touching the progress file's internals —
-    preserving the "slice-only progress reads" invariant.
-    """
-    progress_path = Path(args.progress_file)
-    progress = _read_run_progress(progress_path)
-    progress["termination"] = {
-        "reason": args.reason,
-        "message": args.message,
-    }
-    write_progress(progress_path, progress)
-    return 0
-
-
 def cmd_final_report(args):
     progress_path = Path(args.progress_file)
     progress = _read_run_progress(progress_path)
@@ -2002,16 +1973,6 @@ def _build_parser():
 
     p = sub.add_parser("record-cycle")
     p.add_argument("--progress-file", required=True)
-    p.add_argument(
-        "--unit-test-summary",
-        default="",
-        help="JSON-encoded unit-test summary for cycle_history",
-    )
-    p.add_argument(
-        "--refactor-summary",
-        default="",
-        help="JSON-encoded refactor summary for cycle_history (optional)",
-    )
     p.set_defaults(func=cmd_record_cycle)
 
     p = sub.add_parser("commit-checkpoint")
@@ -2035,21 +1996,6 @@ def _build_parser():
     p = sub.add_parser("pending-refactor-count")
     p.add_argument("--progress-file", required=True)
     p.set_defaults(func=cmd_pending_refactor_count)
-
-    p = sub.add_parser("mark-termination")
-    p.add_argument("--progress-file", required=True)
-    p.add_argument(
-        "--reason",
-        required=True,
-        choices=TERMINATION_REASONS,
-        help="Termination reason to record in progress[termination]",
-    )
-    p.add_argument(
-        "--message",
-        default="",
-        help="Human-readable detail recorded alongside the reason",
-    )
-    p.set_defaults(func=cmd_mark_termination)
 
     p = sub.add_parser("final-report")
     p.add_argument("--progress-file", required=True)

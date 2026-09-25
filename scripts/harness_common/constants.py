@@ -10,8 +10,8 @@ COMMIT_COMMITTED = "committed"
 COMMIT_NOTHING = "nothing-to-commit"
 COMMIT_FAILED = "failed"
 
-# Every reason a run can record in progress["termination"]. mark-termination's
-# --reason choices and the deep README vocabulary test both derive from this.
+# Every reason a run can record in progress["termination"]. The deep README
+# vocabulary test derives from this.
 TERMINATION_REASONS = (
     "convergence",
     "no-actionable",

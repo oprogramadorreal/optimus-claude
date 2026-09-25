@@ -5,6 +5,7 @@ import signal
 import subprocess
 import sys
 import tempfile
+from contextlib import contextmanager, nullcontext
 from pathlib import Path
 
 from .constants import DEFAULT_TEST_TIMEOUT
@@ -96,22 +97,55 @@ def bash_environment(bash, env=None, platform=None):
     return environment
 
 
-def _kill_tree(proc):
-    """Kill the test shell and, best effort, every process it started."""
-    try:
-        if sys.platform == "win32":
-            # /T follows Windows parent PIDs; an MSYS fork+exec can break that
-            # link, which is why run_tests never waits on a pipe afterwards.
-            subprocess.run(
-                ["taskkill", "/F", "/T", "/PID", str(proc.pid)],
-                capture_output=True,
-                timeout=30,
-            )
-        else:
+def _windows_job():
+    # Keep Windows API loading out of POSIX imports.
+    from .windows_job import WindowsJob
+
+    return WindowsJob()
+
+
+def _kill_tree(proc, job=None):
+    """Stop tests before the harness can restore or validate their files."""
+    if job is not None:
+        try:
+            job.terminate()
+        finally:
+            # Assignment may have failed while the shell was still suspended.
+            proc.kill()
+    else:
+        try:
             os.killpg(proc.pid, signal.SIGKILL)
-    except (OSError, subprocess.SubprocessError):
-        pass
-    proc.kill()
+        except ProcessLookupError:
+            pass
+        proc.kill()
+
+
+@contextmanager
+def _termination_raises_system_exit():
+    """Turn SIGTERM/SIGHUP into SystemExit, so run_tests kills the tree first.
+
+    On POSIX the tree runs in its own session, so a signal that stops the CLI
+    never reaches it; SIGKILL cannot be caught, and still orphans it.
+    """
+
+    def exit_for(signum, _frame):
+        raise SystemExit(128 + signum)
+
+    previous = {}
+    for name in ("SIGTERM", "SIGHUP"):
+        signum = getattr(signal, name, None)  # Windows has no SIGHUP
+        # None is a handler installed outside Python, which signal.signal()
+        # could not restore; leave it, like an ignored signal.
+        if signum is not None and signal.getsignal(signum) not in (
+            signal.SIG_IGN,
+            None,
+        ):
+            previous[signum] = signal.signal(signum, exit_for)
+    try:
+        yield
+    finally:
+        for signum, handler in previous.items():
+            signal.signal(signum, handler)
 
 
 def _read_output(log):
@@ -134,10 +168,13 @@ def run_tests(test_command, cwd, timeout=DEFAULT_TEST_TIMEOUT):
         msg = f"{exc.strerror}: {exc.filename}"
         print(f"{_PREFIX} {msg}")
         return False, msg
-    # Capture to files, not pipes: after a timeout, draining a pipe waits for
-    # every process still holding it open, so one surviving grandchild would
-    # make the timeout unbounded.
-    with tempfile.TemporaryFile() as out, tempfile.TemporaryFile() as err:
+    # Files keep output capture independent of inherited pipe handles. The job
+    # owns Windows descendants even after their intermediate parent exits.
+    with (
+        tempfile.TemporaryFile() as out,
+        tempfile.TemporaryFile() as err,
+        _windows_job() if sys.platform == "win32" else nullcontext() as job,
+    ):
         try:
             proc = subprocess.Popen(
                 [bash, "-c", test_command],
@@ -148,6 +185,8 @@ def run_tests(test_command, cwd, timeout=DEFAULT_TEST_TIMEOUT):
                 env=bash_environment(bash),
                 # POSIX: own process group, so a timeout kills the whole tree.
                 start_new_session=sys.platform != "win32",
+                # Assign the Windows job BEFORE the shell can spawn children.
+                creationflags=0x00000004 if job is not None else 0,  # CREATE_SUSPENDED
             )
         except FileNotFoundError as exc:
             # Most commonly: bash not on PATH on Windows when Git Bash is missing.
@@ -158,9 +197,12 @@ def run_tests(test_command, cwd, timeout=DEFAULT_TEST_TIMEOUT):
             print(f"{_PREFIX} {msg}")
             return False, msg
         try:
-            proc.wait(timeout=timeout)
+            if job is not None:
+                job.assign_and_resume(proc.pid)
+            with _termination_raises_system_exit():
+                proc.wait(timeout=timeout)
         except subprocess.TimeoutExpired:
-            _kill_tree(proc)
+            _kill_tree(proc, job)
             proc.wait()
             print(f"{_PREFIX} Tests timed out after {timeout}s")
             partial = "\n".join(
@@ -170,7 +212,8 @@ def run_tests(test_command, cwd, timeout=DEFAULT_TEST_TIMEOUT):
             summary = f"Test command timed out after {timeout}s"
             return False, f"{summary}\n{tail}" if tail else summary
         except BaseException:
-            _kill_tree(proc)
+            _kill_tree(proc, job)
+            proc.wait()
             raise
         stdout, stderr = _read_output(out), _read_output(err)
     passed = proc.returncode == 0
