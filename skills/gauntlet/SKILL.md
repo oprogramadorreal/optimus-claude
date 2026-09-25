@@ -5,7 +5,7 @@ description: >-
   the run until the output beats the bar or the user stops it — or exports
   a paste-ready /goal prompt for a fresh session. Use for long-horizon goals
   with an inspectable reference. Long-running; spawns many subagents, edits
-  project files, and commits finished pieces to a dedicated feature branch.
+  project files, and commits and pushes finished pieces to a feature branch.
 disable-model-invocation: true
 argument-hint: "<goal> [possible references or quality bars]"
 ---
@@ -131,8 +131,9 @@ agent creates and switches to a descriptively named feature branch (a
 worktree made at confirmation already is one). Each piece, then the assembled whole, is committed, with
 its verdict files and the progress page, when its critic returns `beats the
 bar` and the suite is green — focused commits at judged milestones, never
-one giant commit at the end — and the run never pushes, merges, or opens a
-PR unless the user asked for it.
+one giant commit at the end — and pushed to that branch unless the user said
+not to, never force-pushed. A failed push never blocks the run: note it on the
+progress page and keep going.
 
 Have the lead agent maintain a simple live progress page that shows the work
 evolving over time — a rendered HTML page when the work is visual, markdown
@@ -148,7 +149,7 @@ remit, the bar materials in every critic prompt, ours-against-the-bar
 comparison, the verdict file with its two-way final line, judging the
 running artifact, the anti-staging rule, the integration critic, the green
 suite, the plateau and suspension rules, the dispatch rules, the progress
-page, and the branch-and-commit rules all survive to the final draft. Short also has a
+page, and the branch, commit, and push rules all survive to the final draft. Short also has a
 number: keep the prompt under 2,500 characters, because the /goal handoff
 must fit this exact prompt plus an opening instruction and a completion
 condition into either host's /goal 4,000-character message cap, and those need the rest.
@@ -167,9 +168,9 @@ session, not this one.
 
 Then use `AskUserQuestion` — header "Gauntlet", question confirming the start
 of a long-running multi-agent run that spawns many subagents, edits files
-without per-change approval, and consumes credits in proportion to how long it
-runs — with options "Start the run", "Adjust first", "Copy as /goal prompt",
-and "Cancel". Offer Copy in both hosts, explaining that it prepares a prompt
+without per-change approval, commits and pushes to a feature branch, and
+consumes credits in proportion to how long it runs — with options "Start the
+run", "Adjust first", "Copy as /goal prompt", and "Cancel". Offer Copy in both hosts, explaining that it prepares a prompt
 for a fresh session in this host, or in a destination/model the user named,
 without starting the run here. Honor an already supplied choice. Apply
 requested adjustments and ask again. On "Cancel", stop.
