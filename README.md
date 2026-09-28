@@ -3,7 +3,7 @@
 </div>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-3.16.0-blue" alt="Version">
+  <img src="https://img.shields.io/badge/version-3.17.0-blue" alt="Version">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
   <img src="https://img.shields.io/badge/Claude_Code-plugin-blueviolet" alt="Claude Code">
   <img src="https://img.shields.io/badge/OpenAI_Codex-experimental-orange" alt="OpenAI Codex: experimental">
@@ -54,9 +54,9 @@ In Codex, open `/hooks` to **review and trust the session-start hook**, then sta
 - **Test infrastructure:** commands and conventions that the testing and review skills use to verify changes.
 - **Host integration:** optional formatter hooks in Claude Code, or `AGENTS.md` pointers to the shared guidance in Codex.
 
-Skills never run on their own; you invoke them. Generated project docs travel with your repository and remain useful without the plugin. Re-run `init` after major project changes to keep them accurate.
+Skills never run on their own; you invoke them. Generated project docs travel with your repository and remain useful without the plugin. Re-run `init` after major project changes or to reassess accumulated instructions: it proposes focused edits or a reviewed rebuild of named files while preserving project knowledge by default.
 
-Optimus works alongside the hosts' built-in tools. In Claude Code, use Anthropic's official [code-review](https://github.com/anthropics/claude-code/tree/main/plugins/code-review) plugin for post-push PR review and `/simplify` for per-change cleanup; `refactor` restructures against your project guidelines. Native goals in [Claude Code](https://code.claude.com/docs/en/goal) and [Codex](https://learn.chatgpt.com/use-cases/follow-goals) continue across turns toward a completion condition, subject to host permissions and stopping rules. `gauntlet` can export its builder/critic protocol for either host's goal mechanism; `deep` provides the deterministic resumable fix loop with test bisection and checkpoints.
+Optimus works alongside the hosts' built-in tools. In Claude Code, use Anthropic's official [code-review](https://github.com/anthropics/claude-code/tree/main/plugins/code-review) plugin for post-push PR review, `/simplify` for per-change cleanup, and [`/doctor prompt-audit`](https://code.claude.com/docs/en/memory#write-effective-instructions) to audit skills, rules, and user-level instructions that `init` does not manage; `refactor` restructures against your project guidelines. Native goals in [Claude Code](https://code.claude.com/docs/en/goal) and [Codex](https://learn.chatgpt.com/use-cases/follow-goals) continue across turns toward a completion condition, subject to host permissions and stopping rules. `gauntlet` can export its builder/critic protocol for either host's goal mechanism; `deep` provides the deterministic resumable fix loop with test bisection and checkpoints.
 
 ## Skills
 
@@ -66,7 +66,7 @@ Open a skill's documentation for examples, options, and prerequisites. Run `init
 
 | Skill | Use it to… |
 |-------|------------|
-| [`/optimus:init`](skills/init/README.md) | Set up project guidance and test infrastructure, scaffold an empty project, or refresh an existing setup. |
+| [`/optimus:init`](skills/init/README.md) | Set up project guidance and test infrastructure, scaffold an empty project, or audit and selectively rebuild existing guidance. |
 | [`/optimus:brainstorm`](skills/brainstorm/README.md) | Explore design options and write a spec for implementation; use `scaffold` for a new product's planning docs. |
 | [`/optimus:jira`](skills/jira/README.md) | Turn a Jira issue into a task with acceptance criteria and codebase context. Requires a compatible Jira MCP server. |
 | [`/optimus:tdd`](skills/tdd/README.md) | Implement a task or spec through Red-Green-Refactor cycles, with commits per behavior and a final push. |

@@ -12,7 +12,7 @@ The design emphasizes readable code, project-specific guidance, and reproducible
 - **Code quality** — installs [coding guidelines](templates/docs/coding-guidelines.md) that the plugin's [code-simplifier](../../agents/code-simplifier.md) agent, `/optimus:refactor`, and `/optimus:code-review` enforce.
 - **Skill-authoring projects as a first-class stack** — detects AI-agent instruction projects (Claude Code plugins, prompt libraries, agent frameworks) via a structural signal and installs [`skill-writing-guidelines.md`](templates/docs/skill-writing-guidelines.md); review/refactor skills then route markdown instruction files through that lens via the shared [`constraint-doc-loading.md`](references/constraint-doc-loading.md) contract.
 - **Test infrastructure** — detects or installs (with approval) a test framework and coverage tooling, runs a health check, and provisions testing docs. Enables the plugin's [test-guardian](../../agents/test-guardian.md) agent and the skills that depend on a test command.
-- **Documentation freshness** — audits generated docs on re-run (Outdated / Missing / Accurate / User-added, with user-added content always preserved) and syncs project docs (README, CONTRIBUTING, ...) against source code, fixing only factual contradictions.
+- **Documentation audit** — checks factual freshness and instruction usefulness separately on re-run. Proposes targeted simplifications or a scoped rebuild when warranted; user-added knowledge is preserved unless its specific removal is approved. Syncs human-facing project docs (README, CONTRIBUTING, ...) only for factual contradictions.
 - **Monorepo & multi-repo workspace support** — hierarchical CLAUDE.md files for monorepos; fully self-contained `.claude/` per repo plus workspace-root context pointers in multi-repo workspaces.
 
 ## Quick Start
@@ -22,13 +22,13 @@ Part of the [optimus](https://github.com/oprogramadorreal/optimus-claude) plugin
 ## When to Run
 
 - **New project** — initial setup of context, consistency, quality, tests, and docs
-- **Re-runs** — audit and refresh docs after major changes, new stack components, or plugin updates (tracked via `.claude/.optimus-version`)
+- **Re-runs** — audit and refresh docs after major changes, new stack components, or plugin updates (tracked via `.claude/.optimus-version`); reconsider accumulated instructions when changing models
 - **Onboarding** — consistent Claude Code behavior for the whole team via git-tracked `.claude/`
 
 ## How It Works
 
 1. **Detects project context** — tech stack, package manager, structure (single / monorepo / multi-repo workspace), existing docs, test infrastructure, skill-authoring stack (offers scaffolding first in empty directories)
-2. **Audits existing documentation** (if present) — you choose what to update; user-added content survives even "Fresh start"
+2. **Audits existing documentation** (if present) — recommends keeping useful files, editing isolated issues, or rebuilding named files; you review concrete changes, including any removals
 3. **Creates directory structure** — `.claude/docs/`, `.claude/hooks/`
 4. **Generates CLAUDE.md** — identity, commands, a doc-routing table, and the gotchas detection turned up; <=60 lines (soft limit when preserving user content)
 5. **Installs formatter hooks** — per detected stack, asking before installing anything new; skipped under Codex
@@ -37,6 +37,20 @@ Part of the [optimus](https://github.com/oprogramadorreal/optimus-claude) plugin
 8. **Syncs project docs** — surgical fixes for claims the source code contradicts, with your approval
 
 File-write safety: init refreshes recorded, unchanged template copies. Customized guidance/hooks remain subject to review even after an approved merge updates their recorded hash. Unrecorded user files stay unowned after ordinary init edits; only explicit whole-file adoption/replacement changes that. Customizable documents are reconciled with approval, and `settings.json` is merged. A small `.claude/.optimus-managed.json` record tracks installed file hashes, refresh eligibility, and only settings entries actually added.
+
+## Revisiting Existing Guidance
+
+An accurate instruction can still be redundant or apply too broadly. The audit reports **Simplification candidates** separately from factual **Outdated** findings: duplicated rules, obvious repository descriptions, unnecessary mandatory workflows, conflicting guidance, and possible old-model workarounds. It explains each proposed change and preserves uncertain or non-derivable project knowledge by default.
+
+When there are changes to review, the existing audit offers three choices:
+
+- **Update all** — apply every previewed correction and simplification in place, including the listed removals.
+- **Selective** — apply only the findings you select.
+- **Rebuild guidance** (formerly **Fresh start**) — reconstruct the named customizable files from current project facts and retained constraints, conventions, and rationale. Review the replacement diff and identified removals before writing; approval of that exact proposal is not requested again.
+
+Rebuilding a CLAUDE.md does not automatically regenerate architecture/testing docs or reset hooks/settings. Package-specific rules retain their scope, documentation routes and Codex pointers stay usable, and unapproved content survives. Original contents remain recoverable until verification finishes. Concise, useful guidance can stay unchanged; a newer model or a line-count target alone does not justify rebuilding or deleting it. When the audit finds nothing to change, init skips the question; to rebuild a file anyway, ask when you invoke init (for example, `/optimus:init rebuild .claude/CLAUDE.md`).
+
+This follows the selective-audit approach in [Anthropic's context-engineering guidance](https://claude.dev/blog/the-new-rules-of-context-engineering-for-claude-5-generation-models/) and [OpenAI's guidance on revisiting skills and prompts](https://developers.openai.com/blog/rethinking-skills-and-prompts-for-gpt-6-astra). These motivate reviewing accumulated instructions, not a claim that rebuilding improves every model or project. In Claude Code, [`/doctor prompt-audit`](https://code.claude.com/docs/en/memory#write-effective-instructions) runs a similar audit across every instruction file, including skills, rules, and user-level files init does not manage; init's audit adds template, routing, and ownership checks and also runs under Codex.
 
 ## Formatter Hooks
 

@@ -1,4 +1,7 @@
 {
+  "claudeMdExcludes": [
+    "**/test/evaluations/fixtures/**"
+  ],
   "permissions": {
     "allow": [
       "Bash",
