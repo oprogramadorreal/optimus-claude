@@ -44,11 +44,11 @@ An accurate instruction can still be redundant or apply too broadly. The audit r
 
 When there are changes to review, the existing audit offers three choices:
 
-- **Update all** — apply the previewed corrections and simplifications in place.
+- **Update all** — apply every previewed correction and simplification in place, including the listed removals.
 - **Selective** — apply only the findings you select.
 - **Rebuild guidance** (formerly **Fresh start**) — reconstruct the named customizable files from current project facts and retained constraints, conventions, and rationale. Review the replacement diff and identified removals before writing; approval of that exact proposal is not requested again.
 
-Rebuilding a CLAUDE.md does not automatically regenerate architecture/testing docs or reset hooks/settings. Package-specific rules retain their scope, documentation routes and Codex pointers stay usable, and unapproved content survives. Original contents remain recoverable until verification finishes. Concise, useful guidance can stay unchanged; a newer model or a line-count target alone does not justify rebuilding or deleting it.
+Rebuilding a CLAUDE.md does not automatically regenerate architecture/testing docs or reset hooks/settings. Package-specific rules retain their scope, documentation routes and Codex pointers stay usable, and unapproved content survives. Original contents remain recoverable until verification finishes. Concise, useful guidance can stay unchanged; a newer model or a line-count target alone does not justify rebuilding or deleting it. When the audit finds nothing to change, init skips the question; to rebuild a file anyway, ask when you invoke init (for example, `/optimus:init rebuild .claude/CLAUDE.md`).
 
 This follows the selective-audit approach in [Anthropic's context-engineering guidance](https://claude.com/blog/the-new-rules-of-context-engineering-for-claude-5-generation-models) and [OpenAI's guidance on revisiting skills and prompts](https://developers.openai.com/blog/rethinking-skills-and-prompts-for-gpt-6-astra). These motivate reviewing accumulated instructions, not a claim that rebuilding improves every model or project.
 

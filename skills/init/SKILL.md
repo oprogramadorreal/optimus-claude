@@ -63,10 +63,10 @@ On **Correct**: ask what to change, update the detection results, and re-present
 
 `$CLAUDE_PLUGIN_ROOT/skills/init/agents/documentation-auditor.md` defines the audit — factual status, simplification candidates, and its Audit Report shape. When the inventory found only a handful of small docs, **run it yourself**: reading six files and classifying them is a handful of tool calls, and the content stays in context for the Step 2 edits that follow. Delegate to 1 `general-purpose` agent with that prompt when the doc surface is large enough to be worth isolating, prepended with the same "Agent Constraints" section plus the Detection Results from Step 1 (same prompt-assembly rule). Either way, present the **Audit Report** to the user.
 
-Before asking, show the concrete proposed edits and, for each file the audit recommends rebuilding, its replacement diff, marking retained constraints, moves, and removals with reasons. If nothing needs changing, keep the existing docs and continue without an audit question.
+Before asking, show the concrete proposed edits and, for each file the audit recommends rebuilding, its replacement diff, marking retained constraints, moves, and removals with reasons. If nothing needs changing and the user did not ask for a rebuild, keep the existing docs and continue without an audit question.
 
 Use `AskUserQuestion` — header "Audit", question "How would you like to handle the documentation audit findings?":
-- **Update all** — "Apply all previewed corrections and simplifications in place"
+- **Update all** — "Apply every previewed correction and simplification in place, including its listed removals"
 - **Selective** — "Pick which findings to apply by number" (then ask for the numbers; unapproved findings are left as-is)
 - **Rebuild guidance** — "Rebuild the named files from current project facts and retained project knowledge; review removals before replacing"
 
