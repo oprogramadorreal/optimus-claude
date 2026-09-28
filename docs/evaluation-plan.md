@@ -105,6 +105,38 @@ permission to let the lead or a context-sharing builder grade its own work.
 Neither fixture execution nor host lifecycle tests should run as an accidental
 side effect of a copy-only smoke check. Report every unperformed stage explicitly.
 
+## Init guidance reconciliation
+
+Use the small [init-guidance fixture](../test/evaluations/fixtures/init-guidance)
+and [reviewer-only cases](../test/evaluations/init-review.md) to compare existing
+`init` reconciliation with the candidate's simplification audit and scoped rebuild.
+This section adds **Claude Opus 5.5 (`claude-opus-5-5`) in Claude Code** alongside
+the Astra and Fable targets above for these cases only. Verify the exact model is
+available in the pinned runtime; otherwise leave that run unperformed.
+
+Follow the same isolation, commit pinning, repetitions and evidence protocol.
+Use A: the pre-change `init`, B: the candidate. An optional C omits only the
+candidate's simplification assessment while retaining factual audit, ownership,
+approval and preservation rules; do not remove those protections as a baseline.
+The reviewer notes supply fixed task text and staged authorization. Keep them
+outside the model-visible repository and copy only the fixture contents.
+
+Score the usefulness and fidelity of retained guidance, not wording or line count.
+The cases cover accurate lean guidance, targeted pruning, a substantial rebuild,
+selective acceptance, undocumented rationale, nested scope, missing routes and
+exact write boundaries. An audit-only run must leave every byte unchanged; an
+approved reconciliation must stay within its named paths and approved content.
+Check root and nested commands from their documented directories and resolve all
+retained links. Existing fixture tests establish its ground truth, not model
+adherence. Review the final diff and actual tool events for preservation and
+approval behavior; a successful exit or fluent audit report is insufficient.
+
+These are preparation and reconciliation checks. To claim downstream performance
+benefits, also run identical representative implementation tasks in fresh copies
+using each condition's resulting guidance, with independent correctness checks.
+Report reconciliation cost separately from downstream cost. This protocol does
+not record completed model trials or establish gains for any of the three models.
+
 ## Evidence and decisions
 
 Save raw host events, loaded skill/reference paths, commands, exit codes, final artifacts, diff and index, intervention log, and test output. Record these fields per trial:

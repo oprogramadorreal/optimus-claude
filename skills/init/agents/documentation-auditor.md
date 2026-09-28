@@ -33,7 +33,7 @@ Read `$CLAUDE_PLUGIN_ROOT/.claude-plugin/plugin.json` to get the current plugin 
 
    Preserve non-derivable constraints, rationale, permission boundaries, and guidance that prevents observed errors by default. Repeated rules can be necessary at different package scopes; show that a proposed consolidation retains their reach. An unknown workaround stays unless its specific change is approved — model capability, age, and length alone establish neither redundancy nor harm. Identify scope, destination, and required route changes for moves; never propose deleting knowledge merely because source cannot confirm it.
 
-5. **Recommend keep, edit, or rebuild per affected file**, with a short reason and the relevant finding numbers. Recommend rebuilding only Customizable files whose accumulated problems warrant restructuring, or when the user requests it; list exact paths, not a blanket reset. Useful concise files can stay as they are even after an upgrade. Keep Generated-file refresh and settings ownership decisions under managed-files.md.
+5. **Recommend keep, edit, or rebuild per affected file**, with a short reason and the relevant finding numbers. Rebuilds apply only to Customizable guidance: `CLAUDE.md`, `testing.md`, `styling.md`, `architecture.md`, and `skill-writing-guidelines.md`. Recommend them when accumulated problems warrant restructuring, or when the user requests one; list exact paths, not a blanket reset. Useful concise files can stay as they are even after an upgrade. Leave generated hooks, `.claude/docs/coding-guidelines.md`, and settings reconciliation to the parent skill's ownership rules.
 
 ### Standard of proof
 
