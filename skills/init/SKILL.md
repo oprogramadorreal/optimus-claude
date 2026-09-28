@@ -12,10 +12,10 @@ Read `$CLAUDE_PLUGIN_ROOT/skills/init/references/managed-files.md` before writin
 Under Codex, preserve existing hooks/settings throughout this run; the Generated-file overwrite rule below does not apply to hooks.
 
 - **Generated** — hooks installed by init and `.claude/docs/coding-guidelines.md`: refresh, adopt, record, and offer Merge / Keep existing / Replace exactly as managed-files.md specifies. Never overwrite unrelated `.claude/hooks/*` files.
-- **Customizable** — all `CLAUDE.md` files, `testing.md`, `styling.md`, `architecture.md`, `skill-writing-guidelines.md`: never silently overwrite. When the file exists, review-and-propose — compare against the template and detected state, apply only user-approved changes, preserve user-added sections.
+- **Customizable** — all `CLAUDE.md` files, `testing.md`, `styling.md`, `architecture.md`, `skill-writing-guidelines.md`: never silently overwrite. When the file exists, review-and-propose — compare against the template and detected state, apply only user-approved changes, preserve user-added content unless its removal was specifically disclosed and approved.
 - **settings.json** — always merge, never overwrite: preserve `permissions` and any other custom sections. Do not create it when no hooks are installed and it doesn't already exist.
 
-New files of any class are written directly — no confirmation prompts. **Preserve when unsure:** content not derivable from the codebase is never discarded, not even to meet size targets. Mark content outdated only when source code directly contradicts it, and confirm with the user before removing user-added items. The same semantics apply to subproject docs in monorepos and to each repo's `.claude/` in multi-repo workspaces.
+New files of any class are written directly — no confirmation prompts. **Preserve when unsure:** retain non-derivable conventions, constraints, and rationale by default, even above size targets. Only direct source contradiction makes a claim Outdated; redundancy or a suspected old-model workaround is a separate simplification candidate, not permission to discard it. Approval of a concrete proposal, including its identified removals, is sufficient — do not ask again for the same changes. The same semantics apply to subproject docs in monorepos and to each repo's `.claude/` in multi-repo workspaces.
 
 ## CLAUDE.md authoring rules
 
@@ -61,18 +61,20 @@ On **Correct**: ask what to change, update the detection results, and re-present
 
 ### Step 1b: Documentation audit (only when the inventory found existing docs)
 
-`$CLAUDE_PLUGIN_ROOT/skills/init/agents/documentation-auditor.md` defines the audit — its classification levels, its standard of proof, and its Audit Report shape. When the inventory found only a handful of small docs, **run it yourself**: reading six files and classifying them is a handful of tool calls, and the content stays in context for the Step 2 edits that follow. Delegate to 1 `general-purpose` agent with that prompt when the doc surface is large enough to be worth isolating, prepended with the same "Agent Constraints" section plus the Detection Results from Step 1 (same prompt-assembly rule). Either way, present the **Audit Report** to the user.
+`$CLAUDE_PLUGIN_ROOT/skills/init/agents/documentation-auditor.md` defines the audit — factual status, simplification candidates, and its Audit Report shape. When the inventory found only a handful of small docs, **run it yourself**: reading six files and classifying them is a handful of tool calls, and the content stays in context for the Step 2 edits that follow. Delegate to 1 `general-purpose` agent with that prompt when the doc surface is large enough to be worth isolating, prepended with the same "Agent Constraints" section plus the Detection Results from Step 1 (same prompt-assembly rule). Either way, present the **Audit Report** to the user.
+
+Recommend keeping useful guidance, editing isolated problems, or rebuilding named Customizable files when substantial duplication, conflicting instructions, or misplaced detail warrants restructuring. A model or plugin upgrade is a reason to audit, not to rebuild automatically. Before asking, show the concrete proposed edits and any recommended replacement diff, identifying retained constraints, moves, and removals with reasons. If nothing needs changing, keep the existing docs and continue without an audit question.
 
 Use `AskUserQuestion` — header "Audit", question "How would you like to handle the documentation audit findings?":
-- **Update all** — "Apply all recommended changes"
+- **Update all** — "Apply all previewed corrections and simplifications in place"
 - **Selective** — "Pick which findings to apply by number" (then ask for the numbers; unapproved findings are left as-is)
-- **Fresh start** — "Regenerate template content from scratch, but carry forward user-added sections"
+- **Rebuild guidance** — "Rebuild the named files from current project facts and retained project knowledge; review removals before replacing"
 
-Steps 2-6 apply this choice; Step 6b runs independently. **Fresh start preservation:** extract all User-added content first; after regenerating, re-insert it into the most appropriate sections and present the merged result before writing.
+Steps 2-6 apply this choice; Step 6b runs independently. For **Rebuild guidance** (formerly Fresh start), extract existing project constraints, conventions, and rationale before drafting from detected facts and current templates; do not inherit the old outline or blindly reinsert every section. Preserve unapproved content and its effective root/package scope, including doc routes and Codex pointers. Replace only the explicitly named Customizable files — a CLAUDE.md rebuild does not also regenerate testing or architecture docs. If the requested replacement was not previewed, prepare its diff and obtain approval before writing; reuse approval already given for that exact diff. Retain original bytes, including uncommitted content, for comparison and recovery until Step 7 passes; keep any temporary copies outside active instruction paths.
 
 ## Step 2: Handle Existing Files
 
-Apply the audit choice through the File semantics classes: Accurate → skip the file; Outdated → apply only approved changes, preserve everything else; Missing → create normally; Fresh start → regenerate Customizable files, always carrying User-added content forward. Refresh Generated files only under the ownership rules above. No audit is not permission to replace an existing file.
+Apply the audit choice through the File semantics classes: Accurate with no approved simplification or rebuild → skip the file; Outdated or simplification candidate → apply only approved changes, preserve everything else; Missing → create normally; Rebuild guidance → replace only the approved files with the reviewed drafts. User-added content remains protected by default regardless of factual status. Refresh Generated files only under the ownership rules above; a rebuild does not make adapted guidance template-refreshable. No audit is not permission to replace an existing file.
 
 **Relocate when scope changes** (e.g., root `.claude/docs/testing.md` → subproject-scoped in a monorepo): move the content, remove the old file. Only `coding-guidelines.md` and `skill-writing-guidelines.md` stay at root. If a root-level `CLAUDE.md` exists outside `.claude/`, carry its non-derivable content into `.claude/CLAUDE.md`, then suggest removing it.
 
@@ -86,7 +88,7 @@ mkdir -p .claude/docs .claude/hooks
 
 ## Step 4: Create CLAUDE.md
 
-Fill every template placeholder with real detected values — no `[placeholder]` text may survive (Step 7 verifies). Every template HTML comment except a CLAUDE.md template's line-1 identity comment is an instruction to init (here and in Step 6): apply what holds, then delete the comment. **When updating an existing CLAUDE.md** (not Fresh start): edit in place per File semantics — never regenerate from template.
+Fill every template placeholder with real detected values — no `[placeholder]` text may survive (Step 7 verifies). Every template HTML comment except a CLAUDE.md template's line-1 identity comment is an instruction to init (here and in Step 6): apply what holds, then delete the comment. **When updating an existing CLAUDE.md** without an approved rebuild: edit in place per File semantics — never regenerate from template.
 
 **Single project** — template `$CLAUDE_PLUGIN_ROOT/skills/init/templates/single-project-claude.md`:
 - Gotchas: from the agent's **Gotchas** findings and doc-sourced insights. Keep only what survives the template's own bar; drop the section entirely when nothing does.
@@ -172,6 +174,8 @@ When Step 5 ran, verify the hooks and settings against their sources before repo
 - **settings.json survived the merge** — every format hook *this skill* installed has a matching `hooks.PostToolUse` entry resolving to that installed file. Preserve preexisting entries, including commands outside `.claude/hooks/`, except exact migrations the user approved. Hooks owned by another skill are out of scope: `/optimus:permissions` registers `restrict-paths.sh` under **PreToolUse**, not PostToolUse. Compare pre/post settings to detect dropped user entries; don't normalize unrelated hooks into this skill's template shape.
 
 Then sweep template-derived content for surviving `[placeholder]` text and unresolved template HTML comments — retain each file's line-1 identity comment, the `optimus:pointer` markers in `AGENTS.md`, and user-authored content. Fix any failure before reporting.
+
+For reconciled guidance, compare the final diff with the approved proposal and original contents: every prior custom constraint or rationale is retained at its intended scope, moved with a working route, or explicitly approved for removal. Verify command entry points against detected project configuration, doc links resolve, nested CLAUDE.md/Codex routes remain usable, and no unapproved files or pointer-surrounding content changed. Fix discrepancies before recording completion; report files kept, edited, or rebuilt and any unresolved simplification candidates in the summary.
 
 **Write the plugin version** to `.claude/.optimus-version` after all checks pass — version string only (e.g., `3.0.0`), read from `$CLAUDE_PLUGIN_ROOT/.claude-plugin/plugin.json`; per repo in multi-repo workspaces. Only init ever writes this file. Then update and verify the ownership record for files/settings installed this run, including this version marker.
 
