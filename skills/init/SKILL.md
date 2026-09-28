@@ -175,7 +175,7 @@ When Step 5 ran, verify the hooks and settings against their sources before repo
 
 Then sweep template-derived content for surviving `[placeholder]` text and unresolved template HTML comments — retain each file's line-1 identity comment, the `optimus:pointer` markers in `AGENTS.md`, and user-authored content. Fix any failure before reporting.
 
-For reconciled guidance, compare the final diff with the approved proposal and original contents: every prior custom constraint or rationale is retained at its intended scope, moved with a working route, or explicitly approved for removal. Verify command entry points against detected project configuration, doc links resolve, nested CLAUDE.md/Codex routes remain usable, and no unapproved files or pointer-surrounding content changed. Fix discrepancies before recording completion; report files kept, edited, or rebuilt and any unresolved simplification candidates in the summary.
+For reconciled guidance, compare the final diff with the approved proposal and original contents: every prior custom constraint or rationale is retained at its intended scope, moved with a working route, or explicitly approved for removal. The only additions beyond the approved proposal are Documentation-table rows for docs created this run and the `optimus:pointer` block. Verify command entry points against detected project configuration, doc links resolve, nested CLAUDE.md/Codex routes remain usable, and no unapproved files or pointer-surrounding content changed. Fix discrepancies before recording completion.
 
 **Write the plugin version** to `.claude/.optimus-version` after all checks pass — version string only (e.g., `3.0.0`), read from `$CLAUDE_PLUGIN_ROOT/.claude-plugin/plugin.json`; per repo in multi-repo workspaces. Only init ever writes this file. Then update and verify the ownership record for files/settings installed this run, including this version marker.
 
@@ -191,6 +191,7 @@ For reconciled guidance, compare the final diff with the approved proposal and o
 | **Files created** | [count] files ([list]) |
 | **Formatters** | [hooks installed, or "None"] |
 | **Test infra** | [Pre-existing: framework / Installed: framework / Not installed] |
+| **Guidance audit** | [kept / edited / rebuilt, per existing file; unresolved simplification candidates — or "No existing guidance"] |
 | **Doc sync** | [N corrections applied / No contradictions found / Skipped] |
 
 [Monorepo: add subproject breakdown rows. Multi-repo: per-repo results + reminder to commit each repo's .claude/ separately.]
