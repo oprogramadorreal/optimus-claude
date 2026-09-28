@@ -1,4 +1,5 @@
 [tool.pytest.ini_options]
 # importlib mode allows test files with the same name across different test trees
 # without sys.modules collisions. Kept for general robustness.
-addopts = "--import-mode=importlib --ignore=test/fixtures"
+# Evaluation fixtures are model-visible projects; their own checks run from the fixture.
+addopts = "--import-mode=importlib --ignore=test/fixtures --ignore=test/evaluations/fixtures"
